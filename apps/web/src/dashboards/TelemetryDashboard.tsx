@@ -322,82 +322,80 @@ export function TelemetryDashboard({
 	};
 
 	return (
-		<div className="flex h-full flex-col overflow-hidden p-3">
+		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			{/* Toolbar */}
-			<div className="mb-2 flex-none rounded-md border border-stone-200 bg-white p-2">
-				<div className="flex items-center gap-2">
-					<input
-						type="text"
-						className="h-7 min-w-0 flex-1 rounded border border-stone-300 bg-white px-2 font-mono text-xs placeholder:text-stone-400 focus:border-stone-500 focus:outline-none"
-						placeholder="Search spans, attributes..."
-						value={searchInput}
-						onChange={(e) => setSearchInput(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") setSearch(searchInput.trim());
-						}}
-					/>
-					<button
-						className="h-7 rounded border border-stone-300 bg-stone-50 px-2 text-xs text-stone-700 hover:bg-stone-100"
-						onClick={() => setSearch(searchInput.trim())}
-					>
-						Search
-					</button>
+			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
+				<input
+					type="text"
+					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
+					placeholder="SEARCH SPANS, ATTRIBUTES..."
+					value={searchInput}
+					onChange={(e) => setSearchInput(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") setSearch(searchInput.trim());
+					}}
+				/>
+				<button
+					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
+					onClick={() => setSearch(searchInput.trim())}
+				>
+					SEARCH
+				</button>
+				<Sel
+					value={hours}
+					onChange={setHours}
+					options={[
+						["1", "1H"],
+						["6", "6H"],
+						["24", "24H"],
+						["72", "72H"],
+					]}
+				/>
+				<Sel
+					value={statusFilter}
+					onChange={setStatusFilter}
+					options={[
+						["all", "ALL STATUS"],
+						["error", "ERRORS"],
+						["ok", "OK"],
+					]}
+				/>
+				<Sel
+					value={serviceFilter}
+					onChange={setServiceFilter}
+					options={serviceOptions.map((s) => [
+						s,
+						s === "all" ? "ALL SERVICES" : s.toUpperCase(),
+					])}
+				/>
+				{mode === "issues" && (
 					<Sel
-						value={hours}
-						onChange={setHours}
+						value={category}
+						onChange={setCategory}
 						options={[
-							["1", "1h"],
-							["6", "6h"],
-							["24", "24h"],
-							["72", "72h"],
+							["all", "ALL CATEGORIES"],
+							["error", "ERRORS"],
+							["latency", "LATENCY"],
+							["dependency", "DEPS"],
 						]}
 					/>
-					<Sel
-						value={statusFilter}
-						onChange={setStatusFilter}
-						options={[
-							["all", "All"],
-							["error", "Errors"],
-							["ok", "OK"],
-						]}
-					/>
-					<Sel
-						value={serviceFilter}
-						onChange={setServiceFilter}
-						options={serviceOptions.map((s) => [
-							s,
-							s === "all" ? "All services" : s,
-						])}
-					/>
-					{mode === "issues" && (
-						<Sel
-							value={category}
-							onChange={setCategory}
-							options={[
-								["all", "All"],
-								["error", "Errors"],
-								["latency", "Latency"],
-								["dependency", "Deps"],
-							]}
-						/>
-					)}
-					<button
-						className="h-7 rounded border border-stone-900 bg-stone-900 px-2 text-xs font-medium text-white hover:opacity-90"
-						onClick={loadAll}
-					>
-						Refresh
-					</button>
-					<button
-						className="h-7 rounded border border-stone-300 bg-white px-2 text-xs text-stone-600 hover:bg-stone-50"
-						onClick={handleExport}
-					>
-						Export
-					</button>
-				</div>
+				)}
+				<button
+					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
+					onClick={loadAll}
+				>
+					REFRESH
+				</button>
+				<button
+					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
+					onClick={handleExport}
+				>
+					EXPORT
+				</button>
 			</div>
 
 			{loading && !overview ? (
-				<p className="p-3 text-xs text-stone-500">Loading...</p>
+				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">INITIALIZING...</p>
 			) : null}
 
 			{mode === "traces" && overview && (
@@ -444,90 +442,97 @@ function TracesView({
 		<div className="min-h-0 flex-1 overflow-y-auto">
 			<div className="mb-2 grid grid-cols-4 gap-2">
 				<Stat label="Traces" value={s.totalTraces} />
-				<Stat label="Errors" value={s.errorTraces} cls="text-red-600" />
+				<Stat label="Errors" value={s.errorTraces} cls="text-sys-error" />
 				<Stat label="Err %" value={`${(s.errorRate * 100).toFixed(1)}%`} />
 				<Stat label="P95 ms" value={Math.round(s.p95DurationMs)} />
 			</div>
 
-			<div className="rounded-md border border-stone-200 bg-white">
-				{overview.traces.map((t) => {
-					const isExpanded = expandedTraceId === t.traceId;
-					const detail =
-						isExpanded && traceDetail?.trace?.traceId === t.traceId
-							? traceDetail
-							: null;
-					return (
-						<div
-							key={t.traceId}
-							className="border-b border-stone-100 last:border-b-0"
-						>
-							{/* Log-line row */}
+			<div className="bg-sys-surface p-3">
+				<div className="mb-2 text-[0.875rem] font-bold uppercase tracking-[0.05em]">
+					TRACES
+				</div>
+				<div className="flex flex-col">
+					{overview.traces.map((t) => {
+						const isExpanded = expandedTraceId === t.traceId;
+						const detail =
+							isExpanded && traceDetail?.trace?.traceId === t.traceId
+								? traceDetail
+								: null;
+						return (
 							<div
-								className={`flex cursor-pointer items-start gap-2 px-2 py-1 hover:bg-stone-50 ${isExpanded ? "bg-stone-50" : ""} ${t.statusCode === 2 ? "bg-red-50/40" : ""}`}
-								onClick={() => onExpandTrace(t.traceId)}
+								key={t.traceId}
+								className="border-b-[1px] border-sys-surface-low last:border-b-0"
 							>
-								{t.statusCode === 2 && (
-									<span className="mt-1 inline-block h-2 w-2 flex-none rounded-full bg-red-500" />
-								)}
-								<span className="flex-none whitespace-nowrap font-mono text-[10px] text-stone-400">
-									{fmtTs(t.startTime)}
-								</span>
-								<span className="min-w-0 flex-1 font-mono text-xs leading-relaxed">
-									<span
-										className={`font-medium ${t.statusCode === 2 ? "text-red-700" : "text-stone-900"}`}
-									>
-										{t.spanName}
-									</span>{" "}
-									<span className="text-stone-400">{t.durationMs}ms</span>{" "}
-									<span className="text-stone-400">{t.serviceName}</span>
-									{t.spanCount > 1 && (
-										<>
-											{" "}
-											<span className="text-stone-300">
-												({t.spanCount} spans)
-											</span>
-										</>
-									)}
-									{t.statusMessage && (
-										<>
-											{" "}
-											<span className="text-red-600">{t.statusMessage}</span>
-										</>
-									)}
-								</span>
-								<button
-									className="flex-none cursor-copy font-mono text-[9px] text-stone-300 hover:text-stone-600"
-									onClick={(e) => {
-										e.stopPropagation();
-										copy(t.traceId);
-									}}
-									title="Copy trace ID"
+								{/* Log-line row */}
+								<div
+									className={`flex cursor-pointer items-start gap-2 py-1.5 hover:bg-sys-surface-low transition-none ${isExpanded ? "bg-sys-surface-low" : ""} ${t.statusCode === 2 ? "bg-sys-error/10" : ""}`}
+									onClick={() => onExpandTrace(t.traceId)}
 								>
-									{t.traceId.slice(0, 16)}
-								</button>
-							</div>
+									{t.statusCode === 2 && (
+										<span className="mt-1 inline-block h-[8px] w-[8px] flex-none bg-sys-error" />
+									)}
+									<span className="flex-none whitespace-nowrap font-mono text-[0.75rem] opacity-60">
+										{fmtTs(t.startTime)}
+									</span>
+									<span className="min-w-0 flex-1 font-mono text-[0.75rem] leading-relaxed">
+										<span
+											className={`font-bold ${t.statusCode === 2 ? "text-sys-error" : ""}`}
+										>
+											{t.spanName}
+										</span>{" "}
+										<span className="opacity-80">{t.durationMs}ms</span>{" "}
+										<span className="opacity-80">{t.serviceName}</span>
+										{t.spanCount > 1 && (
+											<>
+												{" "}
+												<span className="opacity-40">
+													({t.spanCount} spans)
+												</span>
+											</>
+										)}
+										{t.statusMessage && (
+											<>
+												{" "}
+												<span className="text-sys-error">
+													{t.statusMessage}
+												</span>
+											</>
+										)}
+									</span>
+									<button
+										className="flex-none cursor-pointer font-mono text-[0.75rem] underline hover:bg-sys-primary hover:text-white px-2 py-0.5"
+										onClick={(e) => {
+											e.stopPropagation();
+											copy(t.traceId);
+										}}
+										title="Copy trace ID"
+									>
+										{t.traceId.slice(0, 16)}
+									</button>
+								</div>
 
-							{/* Expanded: waterfall + spans */}
-							{isExpanded && detail && (
-								<div className="border-t border-stone-100 bg-stone-50/60 px-3 py-2">
-									<TraceDetailView
-										trace={detail}
-										expandedSpanId={expandedSpanId}
-										onExpandSpan={onExpandSpan}
-									/>
-								</div>
-							)}
-							{isExpanded && !detail && (
-								<div className="border-t border-stone-100 bg-stone-50/60 px-3 py-2 text-xs text-stone-500">
-									Loading...
-								</div>
-							)}
-						</div>
-					);
-				})}
-				{overview.traces.length === 0 && (
-					<p className="px-2 py-4 text-xs text-stone-500">No traces found.</p>
-				)}
+								{/* Expanded: waterfall + spans */}
+								{isExpanded && detail && (
+									<div className="bg-sys-bg p-2 border-t-[1px] border-sys-surface-low">
+										<TraceDetailView
+											trace={detail}
+											expandedSpanId={expandedSpanId}
+											onExpandSpan={onExpandSpan}
+										/>
+									</div>
+								)}
+								{isExpanded && !detail && (
+									<div className="bg-sys-bg p-2 border-t-[1px] border-sys-surface-low font-mono text-[0.75rem] opacity-60">
+										LOADING SPANS...
+									</div>
+								)}
+							</div>
+						);
+					})}
+					{overview.traces.length === 0 && (
+						<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">No traces found.</p>
+					)}
+				</div>
 			</div>
 		</div>
 	);
@@ -554,45 +559,45 @@ function TraceDetailView({
 	const tree = buildSpanTree(spans);
 
 	return (
-		<div className="space-y-2">
+		<div className="space-y-4">
 			{/* Summary bar */}
-			<div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px]">
-				<span className="text-stone-400">
-					trace{" "}
-					<span className="text-stone-700">{meta.traceId.slice(0, 16)}...</span>
+			<div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[0.75rem] font-bold">
+				<span className="opacity-60">
+					TRACE{" "}
+					<span className="opacity-100">{meta.traceId.slice(0, 16)}</span>
 				</span>
-				<span className="text-stone-400">
-					service <span className="text-stone-700">{meta.serviceName}</span>
+				<span className="opacity-60">
+					SERVICE <span className="opacity-100">{meta.serviceName}</span>
 				</span>
-				<span className="text-stone-400">
-					duration <span className="text-stone-700">{meta.durationMs}ms</span>
+				<span className="opacity-60">
+					DURATION <span className="opacity-100">{meta.durationMs}MS</span>
 				</span>
-				<span className="text-stone-400">
-					spans <span className="text-stone-700">{spans.length}</span>
+				<span className="opacity-60">
+					SPANS <span className="opacity-100">{spans.length}</span>
 				</span>
 				{meta.errorSpanCount > 0 && (
-					<span className="text-red-500">
-						errors{" "}
-						<span className="font-medium text-red-600">
+					<span className="text-sys-error">
+						ERRORS{" "}
+						<span className="font-bold text-sys-error">
 							{meta.errorSpanCount}
 						</span>
 					</span>
 				)}
-				<span className="text-stone-400">
-					start <span className="text-stone-700">{fmtTs(meta.startTime)}</span>
+				<span className="opacity-60">
+					START <span className="opacity-100">{fmtTs(meta.startTime)}</span>
 				</span>
 				<button
-					className="ml-auto text-[10px] text-stone-400 hover:text-stone-700"
+					className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 transition-none"
 					onClick={() => copy(JSON.stringify(trace, null, 2))}
 				>
-					Copy JSON
+					COPY JSON
 				</button>
 			</div>
 
 			{/* Waterfall — always show, click row to expand span */}
-			<div className="rounded border border-stone-100 bg-white p-1.5">
-				<p className="m-0 mb-1 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-					Waterfall
+			<div className="bg-sys-surface p-2 border border-sys-surface-low">
+				<p className="m-0 mb-2 text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-70">
+					WATERFALL
 				</p>
 				{tree.map((s) => {
 					const sStart = new Date(s.startTime).getTime();
@@ -604,29 +609,29 @@ function TraceDetailView({
 					return (
 						<div key={s.spanId}>
 							<div
-								className={`flex cursor-pointer items-center gap-1 py-0.5 hover:bg-stone-50 ${isExpanded ? "bg-stone-50" : ""}`}
+								className={`flex cursor-pointer items-center gap-2 py-1.5 hover:bg-sys-surface-low transition-none border-b border-sys-bg ${isExpanded ? "bg-sys-surface-low" : ""}`}
 								onClick={() => onExpandSpan(isExpanded ? null : s.spanId)}
 							>
 								{/* Indented label */}
 								<span
-									className="flex-none truncate font-mono text-[10px]"
+									className="flex-none truncate font-mono text-[0.75rem] font-bold"
 									style={{ width: 180, paddingLeft: s.depth * 12 }}
 								>
 									{s.depth > 0 && (
-										<span className="text-stone-300 mr-0.5">{"\u2514"} </span>
+										<span className="opacity-40 mr-1">{"\u2514"} </span>
 									)}
-									<span className={isError ? "text-red-600" : "text-stone-600"}>
+									<span className={isError ? "text-sys-error" : ""}>
 										{s.spanName}
 									</span>
 								</span>
 								{/* Bar */}
-								<div className="relative h-3 min-w-0 flex-1 rounded bg-stone-100">
+								<div className="relative h-[8px] min-w-0 flex-1 bg-sys-bg">
 									<div
-										className={`absolute top-0 h-full rounded ${isError ? "bg-red-400" : s.parentSpanId ? "bg-indigo-400" : "bg-blue-400"}`}
+										className={`absolute top-0 h-full ${isError ? "bg-sys-error" : s.parentSpanId ? "bg-sys-outline" : "bg-sys-primary"}`}
 										style={{ left: `${left}%`, width: `${width}%` }}
 									/>
 								</div>
-								<span className="w-14 flex-none text-right font-mono text-[10px] text-stone-400">
+								<span className="w-16 flex-none text-right font-mono text-[0.75rem] opacity-60">
 									{s.durationMs}ms
 								</span>
 							</div>
@@ -655,113 +660,106 @@ function SpanView({ span }: { span: SpanDetail }) {
 
 	return (
 		<div
-			className={`ml-4 mr-1 my-1 rounded border px-2 py-1.5 ${isError ? "border-red-200 bg-red-50/50" : "border-stone-200 bg-white"}`}
+			className={`ml-6 mr-2 my-2 border-l-[4px] border-sys-outline p-2 ${isError ? "border-l-sys-error bg-sys-error/5" : "bg-sys-surface"}`}
 		>
-			<div className="flex items-center gap-2">
-				<span className="rounded bg-stone-100 px-1 py-0.5 text-[9px] font-semibold uppercase text-stone-500">
-					Span
+			<div className="flex flex-wrap items-center gap-3">
+				<span className="bg-sys-surface-low px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-80">
+					SPAN
 				</span>
 				<span
-					className={`font-mono text-xs font-medium ${isError ? "text-red-700" : "text-stone-900"}`}
+					className={`font-mono text-[0.875rem] font-bold ${isError ? "text-sys-error" : "text-sys-on-surface"}`}
 				>
 					{span.spanName}
 				</span>
-				<span className="font-mono text-[10px] text-stone-500">
+				<span className="font-mono text-[0.75rem] opacity-60">
 					{span.durationMs}ms
 				</span>
-				<span className="rounded bg-stone-100 px-1 py-0.5 text-[9px] text-stone-500">
+				<span className="bg-sys-surface-low px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em]">
 					{SPAN_KIND[span.spanKind] ?? span.spanKind}
 				</span>
 				{isError && (
-					<span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-semibold text-red-700">
-						ERROR
+					<span className="bg-sys-error px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-white">
+						SYSTEM_ERROR
 					</span>
 				)}
 				<button
-					className="ml-auto text-[10px] text-stone-400 hover:text-stone-700"
+					className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 text-[0.75rem] font-mono transition-none"
 					onClick={() => copy(JSON.stringify(span, null, 2))}
 				>
-					Copy
+					COPY JSON
 				</button>
 			</div>
-			<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[10px]">
-				<span className="text-stone-400">
-					span_id{" "}
-					<span className="text-stone-600">{span.spanId.slice(0, 16)}</span>
+			<div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[0.75rem]">
+				<span className="opacity-60">
+					SPAN_ID <span className="opacity-100">{span.spanId.slice(0, 16)}</span>
 				</span>
 				{span.parentSpanId && (
-					<span className="text-stone-400">
-						parent{" "}
-						<span className="text-stone-600">
-							{span.parentSpanId.slice(0, 16)}
-						</span>
+					<span className="opacity-60">
+						PARENT <span className="opacity-100">{span.parentSpanId.slice(0, 16)}</span>
 					</span>
 				)}
-				<span className="text-stone-400">
-					service <span className="text-stone-600">{span.serviceName}</span>
+				<span className="opacity-60">
+					SERVICE <span className="opacity-100">{span.serviceName}</span>
 				</span>
-				<span className="text-stone-400">
-					start <span className="text-stone-600">{fmtTs(span.startTime)}</span>
+				<span className="opacity-60">
+					START <span className="opacity-100">{fmtTs(span.startTime)}</span>
 				</span>
-				<span className="text-stone-400">
-					end <span className="text-stone-600">{fmtTs(span.endTime)}</span>
+				<span className="opacity-60">
+					END <span className="opacity-100">{fmtTs(span.endTime)}</span>
 				</span>
 			</div>
 			{span.statusMessage && (
-				<div className="mt-1 rounded bg-red-100 px-2 py-1 font-mono text-[11px] text-red-700">
+				<div className="mt-2 bg-sys-error p-3 font-mono text-[0.75rem] text-white font-bold">
 					{span.statusMessage}
 				</div>
 			)}
 			{attrs.length > 0 && (
-				<div className="mt-1.5">
-					<p className="m-0 mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-						Attributes
+				<div className="mt-2">
+					<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
+						ATTRIBUTES
 					</p>
 					<AttrTable attrs={attrs} />
 				</div>
 			)}
 			{resAttrs.length > 0 && (
-				<div className="mt-1.5">
-					<p className="m-0 mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-						Resource
+				<div className="mt-2">
+					<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
+						RESOURCE
 					</p>
 					<AttrTable attrs={resAttrs} />
 				</div>
 			)}
 			{collectorAttrs.length > 0 && (
-				<div className="mt-1.5">
-					<p className="m-0 mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-						Collector
+				<div className="mt-2">
+					<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
+						COLLECTOR
 					</p>
 					<AttrTable attrs={collectorAttrs} />
 				</div>
 			)}
 			{events.length > 0 && (
-				<div className="mt-1.5">
-					<p className="m-0 mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-						Events ({events.length})
+				<div className="mt-2">
+					<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
+						EVENTS ({events.length})
 					</p>
-					{events.map((evt, i) => (
-						<div
-							key={i}
-							className={`rounded px-1.5 py-1 text-[10px] mb-0.5 ${evt.name.includes("error") || evt.name === "exception" ? "bg-red-50" : "bg-stone-100"}`}
-						>
-							<span
-								className={`font-semibold ${evt.name.includes("error") ? "text-red-600" : "text-yellow-700"}`}
+					<div className="flex flex-col gap-[1px] bg-sys-surface-low">
+						{events.map((evt, i) => (
+							<div
+								key={i}
+								className={`px-3 py-2 text-[0.75rem] ${evt.name.includes("error") || evt.name === "exception" ? "bg-sys-error/10 text-sys-error" : "bg-sys-surface"}`}
 							>
-								{evt.name}
-							</span>
-							{evt.attributes &&
-								Object.entries(evt.attributes).map(([k, v]) => (
-									<span key={k} className="ml-2 text-stone-500">
-										{k}=
-										<span className="text-stone-700">
-											{String(v).slice(0, 120)}
+								<span className="font-bold">
+									{evt.name}
+								</span>
+								{evt.attributes &&
+									Object.entries(evt.attributes).map(([k, v]) => (
+										<span key={k} className="ml-4 font-mono opacity-80">
+											{k}=<span className="opacity-100 font-bold">{String(v).slice(0, 120)}</span>
 										</span>
-									</span>
-								))}
-						</div>
-					))}
+									))}
+							</div>
+						))}
+					</div>
 				</div>
 			)}
 		</div>
@@ -787,134 +785,129 @@ function IssuesView({
 	return (
 		<div className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 			{/* Queue */}
-			<div className="rounded-md border border-stone-200 bg-white overflow-y-auto">
-				<div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white px-2 py-1.5">
-					<span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">
-						Issues ({overview.issues.length})
+			<div className="bg-sys-surface overflow-y-auto">
+				<div className="sticky top-0 z-10 flex items-center justify-between bg-sys-surface px-3 py-2">
+					<span className="text-[0.75rem] font-bold uppercase tracking-[0.05em]">
+						ISSUES ({overview.issues.length})
 					</span>
 				</div>
-				{overview.issues.map((issue) => (
-					<div
-						key={issue.issueId}
-						className={`cursor-pointer border-b border-stone-100 px-2 py-1.5 hover:bg-stone-50 ${selectedIssueId === issue.issueId ? "bg-stone-50" : ""}`}
-						onClick={() => onSelect(issue)}
-					>
-						<div className="flex items-center gap-1.5">
-							<Badge cls={sevCls[issue.severity]}>{issue.severity}</Badge>
-							<Badge cls={catCls[issue.category]}>{issue.category}</Badge>
-							<span className="min-w-0 truncate text-xs text-stone-900">
-								{issue.routeLabel}
-							</span>
-							<span className="ml-auto font-mono text-[10px] text-stone-500">
-								{issue.affectedTraceCount}
-							</span>
+				<div className="flex flex-col">
+					{overview.issues.map((issue) => (
+						<div
+							key={issue.issueId}
+							className={`cursor-pointer border-b-[1px] border-sys-surface-low px-3 py-2 transition-none hover:bg-sys-surface-low ${selectedIssueId === issue.issueId ? "bg-sys-surface-low border-l-[4px] border-l-sys-primary" : "border-l-[4px] border-l-transparent"}`}
+							onClick={() => onSelect(issue)}
+						>
+							<div className="flex items-center gap-3">
+								<Badge cls={issue.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-white"}>
+									{issue.severity}
+								</Badge>
+								<Badge cls="bg-sys-surface-low text-sys-on-surface outline outline-[1px] outline-sys-outline">
+									{issue.category}
+								</Badge>
+								<span className="min-w-0 truncate text-[0.875rem] font-bold">
+									{issue.routeLabel}
+								</span>
+								<span className="ml-auto font-mono text-[0.75rem] font-bold bg-sys-surface-high px-2 py-0.5">
+									{issue.affectedTraceCount} TRACES
+								</span>
+							</div>
+							<p className="m-0 mt-3 truncate font-mono text-[0.75rem] opacity-60">
+								{issue.serviceName} &middot; {fmtTs(issue.lastSeen)}
+							</p>
 						</div>
-						<p className="m-0 mt-0.5 truncate text-[10px] text-stone-500">
-							{issue.serviceName} &middot; {fmtTs(issue.lastSeen)}
-						</p>
-					</div>
-				))}
+					))}
+				</div>
 				{overview.issues.length === 0 && (
-					<p className="p-2 text-xs text-stone-500">No issues.</p>
+					<p className="p-3 text-[0.875rem] font-bold uppercase tracking-[0.05em] opacity-60">NO ISSUES.</p>
 				)}
 			</div>
 
 			{/* Detail */}
-			<div className="rounded-md border border-stone-200 bg-white p-3 overflow-y-auto">
+			<div className="bg-sys-surface p-3 overflow-y-auto">
 				{!selected ? (
-					<p className="text-xs text-stone-500">Select an issue to inspect.</p>
+					<p className="text-[0.875rem] font-bold uppercase tracking-[0.05em] opacity-60">SELECT AN ISSUE TO INSPECT.</p>
 				) : (
-					<div className="space-y-3">
+					<div className="space-y-6">
 						<div>
-							<div className="flex items-center gap-2">
-								<Badge cls={sevCls[selected.severity]}>
+							<div className="flex items-center gap-3 mb-2">
+								<Badge cls={selected.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-white"}>
 									{selected.severity}
 								</Badge>
-								<Badge cls={catCls[selected.category]}>
+								<Badge cls="bg-sys-surface-low text-sys-on-surface outline outline-[1px] outline-sys-outline">
 									{selected.category}
 								</Badge>
 							</div>
-							<p className="m-0 mt-1 text-sm font-medium text-stone-900">
+							<p className="m-0 text-[1rem] font-bold font-mono tracking-tight leading-snug">
 								{selected.title}
 							</p>
-							<p className="m-0 mt-0.5 font-mono text-[10px] text-stone-500">
+							<p className="m-0 mt-2 font-mono text-[0.875rem] opacity-60">
 								{selected.routeLabel}
 							</p>
 						</div>
-						<div className="grid grid-cols-2 gap-2 font-mono text-[10px]">
-							<span className="text-stone-400">
-								service{" "}
-								<span className="text-stone-800">{selected.serviceName}</span>
+						<div className="grid grid-cols-2 gap-2 font-mono text-[0.75rem] border-y-[1px] border-sys-surface-low py-2">
+							<span className="opacity-60 flex flex-col gap-1">
+								SERVICE
+								<span className="font-bold opacity-100">{selected.serviceName}</span>
 							</span>
-							<span className="text-stone-400">
-								traces{" "}
-								<span className="text-stone-800">
+							<span className="opacity-60 flex flex-col gap-1">
+								TRACES
+								<span className="font-bold text-sys-error opacity-100">
 									{selected.affectedTraceCount}
 								</span>
 							</span>
-							<span className="text-stone-400">
-								culprit{" "}
-								<span className="text-stone-800">
+							<span className="opacity-60 flex flex-col gap-1">
+								CULPRIT
+								<span className="font-bold opacity-100 truncate">
 									{selected.culpritSpanName}
 								</span>
 							</span>
-							<span className="text-stone-400">
-								last{" "}
-								<span className="text-stone-800">
+							<span className="opacity-60 flex flex-col gap-1">
+								LAST SEEN
+								<span className="font-bold opacity-100">
 									{fmtTs(selected.lastSeen)}
 								</span>
 							</span>
 						</div>
 						{selected.latestStatusMessage && (
-							<div className="rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">
+							<div className="bg-sys-error p-2 text-[0.875rem] font-bold font-mono text-white">
 								{selected.latestStatusMessage}
 							</div>
 						)}
 						{issueDetail && issueDetail.issue.issueId === selected.issueId && (
-							<>
+							<div className="space-y-6">
 								{issueDetail.culpritSpans.length > 0 && (
 									<div>
-										<p className="m-0 mb-1 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-											Culprit Spans
+										<p className="m-0 mb-3 text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-70">
+											CULPRIT SPANS
 										</p>
-										<table className="w-full text-[10px]">
+										<table className="w-full text-left">
 											<thead>
-												<tr className="border-b border-stone-100">
-													<th className="text-left px-1 py-0.5 font-medium text-stone-400">
-														Span
-													</th>
-													<th className="text-right px-1 py-0.5 font-medium text-stone-400">
-														#
-													</th>
-													<th className="text-right px-1 py-0.5 font-medium text-stone-400">
-														Avg
-													</th>
-													<th className="text-right px-1 py-0.5 font-medium text-stone-400">
-														Max
-													</th>
+												<tr>
+													<th className="pb-2 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">SPAN</th>
+													<th className="pb-2 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">COUNT</th>
+													<th className="pb-2 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">AVG</th>
+													<th className="pb-2 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">MAX</th>
 												</tr>
 											</thead>
-											<tbody>
+											<tbody className="[&>tr:nth-child(even)]:bg-sys-surface-low font-mono text-[0.75rem]">
 												{issueDetail.culpritSpans.map((cs) => (
-													<tr
-														key={`${cs.spanName}-${cs.dependencyTarget}`}
-														className="border-b border-stone-50"
-													>
-														<td className="px-1 py-0.5 text-stone-800">
+													<tr key={`${cs.spanName}-${cs.dependencyTarget}`} className="hover:bg-sys-surface-high transition-none">
+														<td className="pr-4 py-2 font-bold truncate max-w-[200px]">
 															{cs.spanName}
 															{cs.dependencyTarget && (
-																<span className="text-stone-400 ml-1">
+																<span className="opacity-40 ml-2 font-normal">
 																	{cs.dependencyTarget}
 																</span>
 															)}
 														</td>
-														<td className="px-1 py-0.5 text-right text-stone-700">
+														<td className="px-2 py-2 text-right">
 															{cs.occurrenceCount}
 														</td>
-														<td className="px-1 py-0.5 text-right text-stone-700">
+														<td className="px-2 py-2 text-right opacity-80">
 															{cs.averageDurationMs}ms
 														</td>
-														<td className="px-1 py-0.5 text-right text-stone-700">
+														<td className="pl-4 py-2 text-right opacity-80 border-l-[1px] border-sys-surface-low">
 															{cs.maxDurationMs}ms
 														</td>
 													</tr>
@@ -925,33 +918,35 @@ function IssuesView({
 								)}
 								{issueDetail.traces.length > 0 && (
 									<div>
-										<p className="m-0 mb-1 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
-											Traces
+										<p className="m-0 mb-3 text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-70">
+											AFFECTED TRACES
 										</p>
-										{issueDetail.traces.map((t) => (
-											<div
-												key={t.traceId}
-												className="flex items-center gap-2 border-b border-stone-50 py-0.5 font-mono text-[10px]"
-											>
-												<span
-													className={`inline-block h-2 w-2 rounded-full ${t.statusCode === 2 ? "bg-red-500" : "bg-green-500"}`}
-												/>
-												<span className="text-stone-800">{t.routeLabel}</span>
-												<span className="text-stone-400">{t.durationMs}ms</span>
-												<span className="text-stone-400">
-													{fmtTs(t.startTime)}
-												</span>
-												<button
-													className="ml-auto text-stone-300 hover:text-stone-600"
-													onClick={() => copy(t.traceId)}
+										<div className="flex flex-col bg-sys-bg">
+											{issueDetail.traces.map((t) => (
+												<div
+													key={t.traceId}
+													className="flex items-center gap-2 py-2 px-3 border-b-[1px] border-sys-surface-low font-mono text-[0.75rem] hover:bg-sys-surface-low transition-none"
 												>
-													{t.traceId.slice(0, 12)}
-												</button>
-											</div>
-										))}
+													<span
+														className={`block h-[8px] w-[8px] ${t.statusCode === 2 ? "bg-sys-error" : "bg-sys-primary"}`}
+													/>
+													<span className="font-bold truncate max-w-[200px]">{t.routeLabel}</span>
+													<span className="opacity-60">{t.durationMs}ms</span>
+													<span className="opacity-60">
+														{fmtTs(t.startTime)}
+													</span>
+													<button
+														className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 text-sys-on-surface transition-none"
+														onClick={() => copy(t.traceId)}
+													>
+														{t.traceId.slice(0, 12)}
+													</button>
+												</div>
+											))}
+										</div>
 									</div>
 								)}
-							</>
+							</div>
 						)}
 					</div>
 				)}
@@ -972,11 +967,11 @@ function Stat({
 	cls?: string;
 }) {
 	return (
-		<div className="rounded border border-stone-200 bg-white px-2 py-1">
-			<p className="m-0 text-[10px] uppercase tracking-wider text-stone-400">
+		<div className="flex flex-col justify-center bg-sys-surface px-3 py-2">
+			<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
 				{label}
 			</p>
-			<p className={`m-0 text-sm font-semibold ${cls ?? "text-stone-900"}`}>
+			<p className={`m-0 font-mono text-3xl font-light tracking-tight ${cls ?? ""}`}>
 				{value}
 			</p>
 		</div>
@@ -986,7 +981,7 @@ function Stat({
 function Badge({ children, cls }: { children: React.ReactNode; cls?: string }) {
 	return (
 		<span
-			className={`inline-block rounded border px-1 py-0 text-[9px] font-medium ${cls ?? ""}`}
+			className={`inline-block px-1 py-0 text-[0.625rem] font-bold tracking-[0.05em] uppercase ${cls ?? ""}`}
 		>
 			{children}
 		</span>
@@ -995,15 +990,15 @@ function Badge({ children, cls }: { children: React.ReactNode; cls?: string }) {
 
 function AttrTable({ attrs }: { attrs: [string, unknown][] }) {
 	return (
-		<div className="overflow-hidden rounded border border-stone-100">
-			<table className="w-full">
+		<div className="bg-sys-bg">
+			<table className="w-full text-left">
 				<tbody>
 					{attrs.map(([k, v]) => (
-						<tr key={k} className="border-b border-stone-100 last:border-b-0">
-							<td className="whitespace-nowrap px-1.5 py-0.5 align-top font-mono text-[10px] text-stone-400">
+						<tr key={k} className="border-b-[1px] border-sys-surface-low last:border-b-0 hover:bg-sys-surface-low transition-none">
+							<td className="whitespace-nowrap px-2 py-1.5 align-top font-mono text-[0.75rem] font-bold opacity-70">
 								{k}
 							</td>
-							<td className="break-all px-1.5 py-0.5 font-mono text-[10px] text-stone-800">
+							<td className="break-all px-2 py-1.5 font-mono text-[0.75rem]">
 								{String(v).length > 200
 									? `${String(v).slice(0, 200)}...`
 									: String(v)}
@@ -1029,7 +1024,7 @@ function Sel({
 		<select
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
-			className="h-7 rounded border border-stone-300 bg-white px-1.5 text-xs text-stone-700 focus:outline-none"
+			className="h-8 bg-transparent text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
 		>
 			{options.map(([v, l]) => (
 				<option key={v} value={v}>

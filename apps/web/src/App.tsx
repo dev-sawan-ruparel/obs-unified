@@ -83,19 +83,19 @@ export function App() {
 	};
 
 	return (
-		<div className="flex h-screen flex-col overflow-hidden bg-white">
-			<header className="flex h-10 flex-none items-center gap-1 border-b border-stone-200 px-3">
-				<span className="mr-3 text-xs font-semibold text-stone-900">
+		<div className="flex h-screen flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface">
+			<header className="flex h-12 flex-none items-center gap-2 bg-sys-surface px-2 py-2">
+				<span className="mr-6 text-xs font-bold uppercase tracking-widest text-sys-on-surface">
 					obs-unified
 				</span>
 				{TABS.map(({ key, label }) => (
 					<button
 						key={key}
 						onClick={() => switchTab(key)}
-						className={`border-b-2 px-2.5 py-2 text-[11px] font-medium transition-colors ${
+						className={`px-3 py-1.5 text-[0.875rem] uppercase tracking-[0.05em] transition-none ${
 							route.tab === key
-								? "border-stone-900 text-stone-900"
-								: "border-transparent text-stone-400 hover:text-stone-700"
+								? "bg-sys-surface-low font-bold text-sys-on-surface"
+								: "text-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
 						}`}
 					>
 						{label}
@@ -157,7 +157,7 @@ function Playground() {
 
 	return (
 		<div className="p-3">
-			<div className="mb-2 flex flex-wrap gap-1.5">
+			<div className="mb-2 flex flex-wrap gap-3">
 				<Btn onClick={() => call("/api/health", "health")} disabled={loading}>
 					Health
 				</Btn>
@@ -176,10 +176,11 @@ function Playground() {
 						})
 					}
 					disabled={loading}
+					c="primary"
 				>
 					Create
 				</Btn>
-				<span className="w-px bg-stone-200" />
+				<div className="w-4" />
 				<Btn
 					onClick={() => call("/api/items/999", "404")}
 					disabled={loading}
@@ -210,7 +211,7 @@ function Playground() {
 				>
 					Crash
 				</Btn>
-				<span className="w-px bg-stone-200" />
+				<div className="w-4" />
 				<Btn
 					onClick={() => {
 						trackInteraction("mock_ai_chat", { promptType: "default", simulated: true });
@@ -236,13 +237,13 @@ function Playground() {
 						setResponse("Started rrweb session replay recording...");
 					}}
 					disabled={loading}
-					c="warn"
+					c="primary"
 				>
 					Start Replay
 				</Btn>
 			</div>
 			{response && (
-				<pre className="rounded border border-stone-200 bg-stone-50 p-2 font-mono text-[10px] leading-relaxed text-stone-700 max-h-80 overflow-auto">
+				<pre className="bg-sys-surface p-2 font-mono text-[0.875rem] leading-relaxed text-sys-on-surface max-h-[600px] overflow-auto">
 					{response}
 				</pre>
 			)}
@@ -259,19 +260,21 @@ function Btn({
 	children: React.ReactNode;
 	onClick: () => void;
 	disabled?: boolean;
-	c?: "warn" | "err";
+	c?: "warn" | "err" | "primary";
 }) {
 	const cls =
 		c === "err"
-			? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
-			: c === "warn"
-				? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
-				: "border-stone-300 bg-white text-stone-700 hover:bg-stone-50";
+			? "bg-sys-error text-white hover:opacity-90"
+			: c === "primary"
+				? "bg-sys-primary text-white hover:bg-micro-gradient"
+				: c === "warn"
+					? "bg-transparent text-sys-error shadow-[inset_0_0_0_1px_var(--color-sys-error)] hover:bg-sys-surface-low"
+					: "bg-transparent text-sys-outline shadow-[inset_0_0_0_1px_var(--color-sys-outline)] hover:bg-sys-surface-low hover:text-sys-on-surface";
 	return (
 		<button
 			onClick={onClick}
 			disabled={disabled}
-			className={`rounded border px-2.5 py-1 text-[11px] font-medium disabled:opacity-40 ${cls}`}
+			className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none disabled:opacity-40 rounded-none cursor-pointer ${cls}`}
 		>
 			{children}
 		</button>

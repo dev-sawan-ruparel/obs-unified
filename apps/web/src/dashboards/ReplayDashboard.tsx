@@ -101,12 +101,12 @@ function ReplayPlayer({
 		}
 	}, [events]);
 
-	if (loading) return <div className="text-sm text-slate-400 font-medium p-4">Loading replay visual buffer...</div>;
-	if (error) return <div className="text-sm text-red-400 font-medium p-4">{error}</div>;
+	if (loading) return <div className="text-[0.875rem] font-bold opacity-60 uppercase tracking-[0.05em] p-3 text-center">LOADING REPLAY VISUAL BUFFER...</div>;
+	if (error) return <div className="text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">{error.toUpperCase()}</div>;
 
 	return (
-		<div className="rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5">
-			<div ref={playerRef} className="w-full bg-slate-50" />
+		<div className="bg-sys-bg border-[2px] border-sys-outline">
+			<div ref={playerRef} className="w-full bg-sys-bg" />
 		</div>
 	);
 }
@@ -173,99 +173,94 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 	}, [combinedTimeline, playbackTime]);
 
 	return (
-		<div className="flex h-full flex-col overflow-hidden bg-slate-50/50 p-6 font-sans text-slate-900">
-			<div className="mb-4 flex items-center justify-between">
+		<div className="flex h-full flex-col overflow-hidden bg-sys-bg p-2 font-sans text-sys-on-surface">
+			<div className="mb-2 flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-semibold tracking-tight text-slate-900">Session Replays</h1>
-                    <p className="text-sm text-slate-500">Visual playback and chronological data streams.</p>
+                    <h1 className="text-[1.2rem] font-medium tracking-tight text-sys-on-surface font-mono m-0 uppercase">SESSION REPLAYS</h1>
+                    <p className="text-[0.875rem] text-sys-on-surface opacity-60 font-bold m-0 uppercase tracking-[0.05em] mt-1">VISUAL PLAYBACK AND CHRONOLOGICAL DATA STREAMS.</p>
                 </div>
             </div>
 
             {!selectedSessionId ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500">
-                    <svg className="h-12 w-12 text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="font-semibold text-slate-700 text-lg">No active session selected</p>
-                    <p className="text-sm mt-1 mb-6 max-w-sm text-slate-400">Select an interesting session from the Usage overview or tracing diagnostics to view a pixel-perfect playback.</p>
+                <div className="flex-1 flex flex-col items-center justify-center p-2 text-center text-sys-on-surface">
+                    <p className="font-bold text-[1rem] font-mono tracking-tight uppercase opacity-60">NO ACTIVE SESSION SELECTED</p>
                     <button 
                         onClick={() => onNavigate({ tab: 'usage' })}
-                        className="rounded-md bg-white border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+                        className="mt-2 bg-sys-primary text-white px-3 py-2 text-[0.875rem] font-bold uppercase tracking-[0.05em] hover:bg-micro-gradient transition-none cursor-pointer"
                     >
-                        Go to Usage Dashboard
+                        GO TO USAGE DASHBOARD
                     </button>
                 </div>
             ) : loading ? (
-                <div className="flex-1 flex justify-center items-center text-slate-400">Loading session telemetry...</div>
+                <div className="flex-1 flex justify-center items-center text-[0.875rem] tracking-[0.05em] font-bold opacity-60">LOADING SESSION TELEMETRY...</div>
             ) : selected ? (
-                <div className="flex flex-col gap-6 flex-1 overflow-y-auto pr-2 pb-10">
-                    <div className="grid grid-cols-4 gap-4 bg-white p-4 rounded-xl shadow-sm ring-1 ring-slate-900/5">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Session ID</span>
-                            <span className="text-xs font-mono text-slate-800 truncate mt-1">{selected.session.sessionId}</span>
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                    <div className="grid grid-cols-4 gap-2 bg-sys-surface p-3">
+                        <div className="flex flex-col justify-center">
+                            <span className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-70 mb-2">SESSION ID</span>
+                            <span className="text-[1rem] font-mono tracking-tight truncate">{selected.session.sessionId}</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Visitor ID</span>
-                            <span className="text-xs font-mono text-slate-800 truncate mt-1">{selected.session.visitorId}</span>
+                        <div className="flex flex-col justify-center">
+                            <span className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-70 mb-2">VISITOR ID</span>
+                            <span className="text-[1rem] font-mono tracking-tight truncate">{selected.session.visitorId}</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">First Seen</span>
-                            <span className="text-xs font-mono text-slate-800 mt-1">{fmtTs(selected.session.firstSeen)}</span>
+                        <div className="flex flex-col justify-center">
+                            <span className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-70 mb-2">FIRST SEEN</span>
+                            <span className="text-[1rem] font-mono tracking-tight mt-1">{fmtTs(selected.session.firstSeen)}</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Last Seen</span>
-                            <span className="text-xs font-mono text-slate-800 mt-1">{fmtTs(selected.session.lastSeen)}</span>
+                        <div className="flex flex-col justify-center">
+                            <span className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-70 mb-2">LAST SEEN</span>
+                            <span className="text-[1rem] font-mono tracking-tight mt-1">{fmtTs(selected.session.lastSeen)}</span>
                         </div>
                     </div>
 
-                    <div className="rounded-xl overflow-hidden shadow-xl ring-1 ring-slate-900/10">
+                    <div className="overflow-hidden bg-sys-surface p-2">
                         <ReplayPlayer 
                             sessionId={selected.session.sessionId} 
                             onTimeUpdate={setPlaybackTime}
                         />
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm ring-1 ring-slate-900/5 overflow-hidden">
-                        <div className="bg-slate-50/80 border-b border-slate-100 flex items-center justify-between px-5 py-3">
-                            <span className="text-sm font-semibold text-slate-700 tracking-tight">Full Event Stream ({combinedTimeline.length} entries)</span>
-                            <button className="text-[10px] font-medium text-slate-500 hover:text-slate-900 uppercase tracking-wider" onClick={() => copy(JSON.stringify(selected, null, 2))}>
-                                Copy JSON
+                    <div className="bg-sys-surface overflow-hidden">
+                        <div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
+                            <span className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">FULL EVENT STREAM ({combinedTimeline.length} ENTRIES)</span>
+                            <button className="text-[0.75rem] font-bold uppercase tracking-[0.05em] hover:text-sys-primary cursor-pointer transition-none underline" onClick={() => copy(JSON.stringify(selected, null, 2))}>
+                                COPY JSON
                             </button>
                         </div>
-                        <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto p-1">
+                        <div className="max-h-[600px] overflow-y-auto">
                             {combinedTimeline.map((ev) => {
                                 const isActive = ev.eventId === activeEvent;
                                 return (
                                 <div
                                     key={ev.eventId}
-                                    className={`flex items-start gap-4 py-2 px-3 m-1 rounded-md font-mono text-xs transition-colors ${
+                                    className={`flex items-start gap-2 py-1.5 px-3 border-b-[1px] border-sys-surface-low font-mono text-[0.75rem] transition-none ${
                                         isActive
-                                            ? "bg-blue-100 shadow-inner"
-                                            : ev.isTrace ? "bg-indigo-50/40 hover:bg-indigo-50/70" : "hover:bg-slate-50"
-                                    } ${!isActive && ev.severity === "error" ? "bg-red-50/40 text-red-900" : ""}`}
+                                            ? "bg-sys-surface-high border-l-[4px] border-l-sys-primary"
+                                            : ev.isTrace ? "hover:bg-sys-surface-high border-l-[4px] border-l-transparent" : "hover:bg-sys-surface-low border-l-[4px] border-l-transparent"
+                                    } ${!isActive && ev.severity === "error" ? "bg-sys-error/10 text-sys-error" : ""}`}
                                 >
-                                    <span className={`w-24 flex-none uppercase tracking-wide text-[9px] font-bold py-1 ${
-                                        isActive ? "text-blue-600" : ev.isTrace ? "text-indigo-500" : "text-slate-400"
+                                    <span className={`w-32 flex-none font-bold py-1 ${
+                                        isActive ? "text-sys-primary" : ev.isTrace ? "text-sys-on-surface opacity-80" : "opacity-60"
                                     }`}>
-                                        {ev.eventType}
+                                        {ev.eventType.toUpperCase()}
                                     </span>
-                                    <span className="min-w-0 flex-1 text-slate-800">
-                                        <div className="font-semibold text-[11px] mt-0.5">{ev.eventName}</div>
+                                    <span className="min-w-0 flex-1">
+                                        <div className="font-bold text-[0.875rem] mb-1">{ev.eventName}</div>
                                         {ev.properties && Object.keys(ev.properties).length > 0 && (
-                                            <div className="mt-1.5 flex flex-wrap gap-1.5 opacity-90">
+                                            <div className="flex flex-wrap gap-2 opacity-80 mt-2">
                                                 {Object.entries(ev.properties).map(([k, v]) => (
-                                                    <span key={k} className="rounded bg-white px-1.5 py-0.5 text-[9px] tracking-wide text-slate-600 border border-slate-200/60 shadow-sm">
+                                                    <span key={k} className="bg-sys-bg px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em]">
                                                         {k}: {typeof v === 'string' ? v : JSON.stringify(v)}
                                                     </span>
                                                 ))}
                                             </div>
                                         )}
                                     </span>
-                                    <span className="flex-none text-slate-500 max-w-[150px] truncate text-right py-1 tracking-tight">
+                                    <span className="flex-none max-w-[200px] truncate text-right py-1 opacity-60">
                                         {ev.pagePath || "—"}
                                     </span>
-                                    <span className="flex-none whitespace-nowrap text-slate-400 w-[120px] text-right py-1 font-medium">
+                                    <span className="flex-none whitespace-nowrap w-[140px] text-right py-1 opacity-80">
                                         {fmtTs(ev.occurredAt)}
                                     </span>
                                 </div>
