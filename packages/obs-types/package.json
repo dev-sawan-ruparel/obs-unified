@@ -1,0 +1,22 @@
+{
+	"name": "@obs/types",
+	"version": "1.0.0",
+	"description": "Shared types, constants, and API client for observability",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./constants": "./src/constants.ts",
+		"./api-client": "./src/api-client.ts"
+	},
+	"scripts": {
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests"
+	},
+	"peerDependencies": {
+		"hono": "^4.7.0"
+	},
+	"devDependencies": {
+		"hono": "^4.12.11",
+		"typescript": "^6.0.2"
+	}
+}

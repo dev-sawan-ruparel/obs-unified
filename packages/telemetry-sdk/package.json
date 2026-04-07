@@ -1,0 +1,37 @@
+{
+	"name": "@obs/telemetry-sdk",
+	"version": "1.0.0",
+	"description": "Server-side telemetry SDK: logger, spans, OTEL config, proxy routes",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests"
+	},
+	"dependencies": {
+		"@obs/types": "workspace:*"
+	},
+	"peerDependencies": {
+		"@hono/otel": "^1.0.0",
+		"@microlabs/otel-cf-workers": "^1.0.0-rc.40",
+		"@opentelemetry/api": "^1.9.0",
+		"hono": "^4.7.0"
+	},
+	"peerDependenciesMeta": {
+		"@hono/otel": {
+			"optional": true
+		},
+		"@microlabs/otel-cf-workers": {
+			"optional": true
+		},
+		"@opentelemetry/api": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"hono": "^4.12.11",
+		"typescript": "^6.0.2"
+	}
+}

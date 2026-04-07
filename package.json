@@ -1,0 +1,32 @@
+{
+	"name": "obs-unified",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"type-check": "pnpm -r run type-check",
+		"test": "pnpm -r run test",
+		"dev:collector": "pnpm --filter @obs-demo/collector run dev",
+		"dev:api": "pnpm --filter @obs-demo/api run dev",
+		"dev:web": "pnpm --filter @obs-demo/web run dev",
+		"dev": "pnpm run dev:collector & pnpm run dev:api & pnpm run dev:web & wait",
+		"setup": "pnpm --filter @obs-demo/collector run db:setup",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.10",
+		"@cloudflare/workers-types": "^4.20260405.1",
+		"@types/node": "^25.5.2",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.2"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"workerd",
+			"sharp",
+			"protobufjs"
+		]
+	}
+}

@@ -1,0 +1,23 @@
+{
+	"name": "@obs/collector",
+	"version": "1.0.0",
+	"description": "Plugin-based observability collector runtime with D1 storage",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests"
+	},
+	"dependencies": {
+		"@obs/types": "workspace:*"
+	},
+	"peerDependencies": {
+		"hono": "^4.7.0"
+	},
+	"devDependencies": {
+		"hono": "^4.12.11",
+		"typescript": "^6.0.2"
+	}
+}

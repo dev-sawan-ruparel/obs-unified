@@ -1,0 +1,19 @@
+name = "obs-demo-collector"
+compatibility_date = "2025-01-01"
+main = "src/index.ts"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "obs-collector-db"
+database_id = "local-dev-collector"
+
+[vars]
+RETENTION_HOURS = "72"
+
+[[r2_buckets]]
+binding = "REPLAYS_BUCKET"
+bucket_name = "obs-demo-replays"
+preview_bucket_name = "obs-demo-replays"
