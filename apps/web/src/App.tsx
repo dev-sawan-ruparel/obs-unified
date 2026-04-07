@@ -5,6 +5,7 @@ import { UsageDashboard } from "./dashboards/UsageDashboard";
 import { LogsDashboard } from "./dashboards/LogsDashboard";
 import { AIDashboard } from "./dashboards/AIDashboard";
 import { ReplayDashboard } from "./dashboards/ReplayDashboard";
+import { ResourcesDashboard } from "./dashboards/ResourcesDashboard";
 
 // ── Hash Router ──
 
@@ -61,6 +62,7 @@ const TABS = [
 	{ key: "ai", label: "AI Calls" },
 	{ key: "usage", label: "Usage" },
 	{ key: "replay", label: "Replays" },
+	{ key: "resources", label: "Resources" },
 ] as const;
 
 export function App() {
@@ -129,6 +131,7 @@ export function App() {
 						onNavigate={navigate}
 					/>
 				)}
+				{route.tab === "resources" && <ResourcesDashboard />}
 			</main>
 		</div>
 	);

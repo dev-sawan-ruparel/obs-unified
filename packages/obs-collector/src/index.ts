@@ -18,6 +18,7 @@ import { identityReceiverPlugin } from "./plugins/identity-receiver";
 import { usersQueryRoutesPlugin } from "./plugins/users-query-routes";
 import { replayReceiverPlugin } from "./plugins/replay-receiver";
 import { replayQueryRoutesPlugin } from "./plugins/replay-query-routes";
+import { platformRoutesPlugin } from "./plugins/platform-routes";
 
 export {
 	type CollectorAuthConfig,
@@ -50,6 +51,7 @@ export {
 	usersQueryRoutesPlugin,
 	replayReceiverPlugin,
 	replayQueryRoutesPlugin,
+	platformRoutesPlugin,
 };
 
 /** All built-in plugins in recommended registration order */

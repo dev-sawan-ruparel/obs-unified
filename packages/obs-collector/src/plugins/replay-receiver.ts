@@ -17,19 +17,23 @@ export const replayReceiverPlugin: CollectorPlugin = {
 				return c.json({ error: "Replay storage not configured" }, 500);
 			}
 
+			const payloadString = JSON.stringify(payload.events);
+			const chunkBytes = new TextEncoder().encode(payloadString).length;
+
 			await c.env.REPLAYS_BUCKET.put(
 				objectKey,
-				JSON.stringify(payload.events),
+				payloadString,
 				{ httpMetadata: { contentType: "application/json" } }
 			);
 
 			await c.env.DB.prepare(
-				`INSERT INTO session_replay_metadata (session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count)
-         VALUES (?, ?, ?, ?, ?, ?)
+				`INSERT INTO session_replay_metadata (session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(session_id) DO UPDATE SET
            last_chunk_at = excluded.last_chunk_at,
            chunk_count = session_replay_metadata.chunk_count + 1,
-           events_count = session_replay_metadata.events_count + excluded.events_count
+           events_count = session_replay_metadata.events_count + excluded.events_count,
+           storage_bytes = session_replay_metadata.storage_bytes + excluded.storage_bytes
         `
 			)
 				.bind(
@@ -38,7 +42,8 @@ export const replayReceiverPlugin: CollectorPlugin = {
 					now,
 					now,
 					1,
-					payload.events.length
+					payload.events.length,
+					chunkBytes
 				)
 				.run();
 

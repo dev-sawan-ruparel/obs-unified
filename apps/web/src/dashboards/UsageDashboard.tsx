@@ -158,7 +158,16 @@ export function UsageDashboard({ onNavigate }: Props) {
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			{/* Toolbar */}
-			<div className="mb-2 flex-none flex items-center gap-2 bg-sys-surface px-3 py-2">
+			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
+				<input
+					type="text"
+					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
+					placeholder="SEARCH PATHS, USERS..."
+					disabled
+				/>
+				<button className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
+					SEARCH
+				</button>
 				<Sel
 					value={hours}
 					onChange={(v) => setHours(v)}
@@ -198,16 +207,14 @@ export function UsageDashboard({ onNavigate }: Props) {
 			</div>
 
 			{/* Stats */}
-			<div className="mb-2 flex-none bg-sys-surface px-3 py-2">
-				<div className="flex flex-wrap gap-12 gap-y-6">
-					<Stat label="Events" value={s.totalEvents} />
-					<Stat label="Sessions" value={s.uniqueSessions} />
-					<Stat label="Visitors" value={s.uniqueVisitors} />
-					<Stat label="Views" value={s.pageViews} />
-					<Stat label="Errors" value={s.frontendErrors} cls="text-sys-error" />
-					<Stat label="Interactions" value={s.interactions} />
-					<Stat label="Bots" value={overview.botsFiltered} cls="opacity-60" />
-				</div>
+			<div className="mb-2 grid grid-cols-4 xl:grid-cols-7 gap-2">
+				<Stat label="Events" value={s.totalEvents} />
+				<Stat label="Sessions" value={s.uniqueSessions} />
+				<Stat label="Visitors" value={s.uniqueVisitors} />
+				<Stat label="Views" value={s.pageViews} />
+				<Stat label="Errors" value={s.frontendErrors} cls="border-l-[4px] border-sys-error text-sys-error" />
+				<Stat label="Interactions" value={s.interactions} />
+				<Stat label="Bots" value={overview.botsFiltered} cls="opacity-60" />
 			</div>
 
 			<div className="flex-1 flex flex-col lg:flex-row gap-2 overflow-hidden">

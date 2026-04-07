@@ -137,6 +137,9 @@ export class UsageTracker {
 	private replaySequence = 0;
 	private replayInterval: ReturnType<typeof setInterval> | null = null;
 
+	// Internal flag to track if we need to restart rrweb after a rotation
+	private isRecording = false;
+
 	constructor(config: UsageTrackerConfig) {
 		this.config = {
 			endpoint: config.endpoint,
@@ -180,11 +183,55 @@ export class UsageTracker {
 		return new Date(Date.now() + this.timeOffsetMs).toISOString();
 	}
 
+	private checkAndRotateSession(): boolean {
+		if (typeof sessionStorage === "undefined") return false;
+		
+		const activityKey = `${this.config.storagePrefix}_last_act`;
+		const startKey = `${this.config.storagePrefix}_start_ts`;
+		const sessionKey = `${this.config.storagePrefix}_session_id`;
+
+		const now = Date.now();
+		const lastAct = parseInt(sessionStorage.getItem(activityKey) || "0", 10);
+		const startTs = parseInt(sessionStorage.getItem(startKey) || "0", 10);
+
+		let rotated = false;
+		// 30 min idle timeout OR 60 min hard cap
+		if ((lastAct > 0 && now - lastAct > 30 * 60 * 1000) || 
+			(startTs > 0 && now - startTs > 60 * 60 * 1000)) {
+			sessionStorage.removeItem(sessionKey);
+			sessionStorage.removeItem(startKey);
+			sessionStorage.removeItem(activityKey);
+			rotated = true;
+		}
+
+		if (!sessionStorage.getItem(startKey)) {
+			sessionStorage.setItem(startKey, now.toString());
+		}
+
+		return rotated;
+	}
+
+	private bumpActivity(): void {
+		if (typeof sessionStorage !== "undefined") {
+			sessionStorage.setItem(`${this.config.storagePrefix}_last_act`, Date.now().toString());
+		}
+	}
+
 	public get sessionId(): string {
-		return getStorageValue(
+		const rotated = this.checkAndRotateSession();
+		const id = getStorageValue(
 			sessionStorage,
 			`${this.config.storagePrefix}_session_id`,
 		);
+
+		if (rotated && this.isRecording && typeof window !== "undefined") {
+			// Restart rrweb so the new session gets a FullSnapshot naturally
+			if (this.config.debug) console.log("[analytics-sdk] session rotated, restarting recorder");
+			this.stopReplay();
+			this.startReplay();
+		}
+		
+		return id;
 	}
 
 	private get visitorId(): string {
@@ -196,6 +243,7 @@ export class UsageTracker {
 
 	private dispatch(events: UsageEventPayload[]): void {
 		if (events.length === 0) return;
+		this.bumpActivity();
 		try {
 			const init: RequestInit = {
 				method: "POST",
@@ -266,6 +314,10 @@ export class UsageTracker {
 	startReplay(): void {
 		if (typeof window === "undefined" || this.replayStopFn) return;
 		
+		this.isRecording = true;
+		// Ensure session is rotated if stale before we begin
+		this.checkAndRotateSession();
+
 		this.replayStopFn = record({
 			emit: (event) => {
 				const ev = event as Record<string, unknown>;
@@ -281,6 +333,20 @@ export class UsageTracker {
 		}) as (() => void);
 
 		this.replayInterval = setInterval(() => this.flushReplays(), 10000);
+	}
+
+	stopReplay(): void {
+		if (this.replayStopFn) {
+			this.replayStopFn();
+			this.replayStopFn = null;
+		}
+		if (this.replayInterval) {
+			clearInterval(this.replayInterval);
+			this.replayInterval = null;
+		}
+		this.isRecording = false;
+		this.replaySequence = 0;
+		this.replayEvents = [];
 	}
 
 	flushReplays(): void {

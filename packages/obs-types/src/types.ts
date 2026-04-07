@@ -739,4 +739,5 @@ export interface SessionReplayMetadataRow {
 	last_chunk_at: string;
 	chunk_count: number;
 	events_count: number;
+	storage_bytes: number;
 }

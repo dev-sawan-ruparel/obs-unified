@@ -26,10 +26,16 @@ export const createTelemetryProxyRouter = <E extends TelemetryProxyEnv>(
 		token: string,
 		path: string,
 		query: string,
+		init?: RequestInit
 	) => {
 		const url = `${collectorUrl}${path}${query ? `?${query}` : ""}`;
+		const fetchHeaders = new Headers(init?.headers);
+		if (token) {
+			fetchHeaders.set("X-Collector-Token", token);
+		}
 		const response = await fetch(url, {
-			headers: token ? { "X-Collector-Token": token } : {},
+			...init,
+			headers: fetchHeaders,
 		});
 		const text = await response.text();
 		try {
@@ -156,6 +162,34 @@ export const createTelemetryProxyRouter = <E extends TelemetryProxyEnv>(
 			c.env.TELEMETRY_COLLECTOR_TOKEN,
 			`/v1/query/replays/${encodeURIComponent(c.req.param("sessionId"))}`,
 			"",
+		),
+	);
+
+	router.get("/usage/replays", (c) =>
+		proxy(
+			c.env.TELEMETRY_COLLECTOR_URL,
+			c.env.TELEMETRY_COLLECTOR_TOKEN,
+			`/v1/query/replays`,
+			new URL(c.req.url).search.slice(1),
+		),
+	);
+
+	router.delete("/usage/replays/:sessionId", (c) =>
+		proxy(
+			c.env.TELEMETRY_COLLECTOR_URL,
+			c.env.TELEMETRY_COLLECTOR_TOKEN,
+			`/v1/query/replays/${encodeURIComponent(c.req.param("sessionId"))}`,
+			"",
+			{ method: "DELETE" }
+		),
+	);
+
+	router.get("/platform/resources", (c) =>
+		proxy(
+			c.env.TELEMETRY_COLLECTOR_URL,
+			c.env.TELEMETRY_COLLECTOR_TOKEN,
+			`/v1/query/platform/resources`,
+			new URL(c.req.url).search.slice(1),
 		),
 	);
 
