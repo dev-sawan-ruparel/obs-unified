@@ -28,18 +28,22 @@ export interface LoggerConfig {
 	serviceName: string;
 }
 
+const MAX_BUFFER_SIZE = 500;
+
 let logConfig: LoggerConfig | null = null;
 let logBuffer: LogInput[] = [];
+let flushInProgress = false;
 
 export function initLogger(config: LoggerConfig) {
 	logConfig = config;
 }
 
 export async function flushLogs() {
-	if (!logConfig || logBuffer.length === 0) return;
+	if (!logConfig || logBuffer.length === 0 || flushInProgress) return;
 
-	const payload: LogPayload = { logs: [...logBuffer] };
-	logBuffer = [];
+	flushInProgress = true;
+	const batch = logBuffer.splice(0, logBuffer.length);
+	const payload: LogPayload = { logs: batch };
 
 	try {
 		const headers: Record<string, string> = {
@@ -53,9 +57,12 @@ export async function flushLogs() {
 			method: "POST",
 			headers,
 			body: JSON.stringify(payload),
+			signal: AbortSignal.timeout(10_000),
 		});
 	} catch (err) {
 		console.error("Failed to flush logs:", err);
+	} finally {
+		flushInProgress = false;
 	}
 }
 
@@ -123,8 +130,14 @@ export function createLogger(name: string): Logger {
 			spanId: span?.spanId,
 			serviceName: logConfig?.serviceName,
 		};
+
+		// Drop oldest entries if buffer is at hard cap (collector unreachable)
+		if (logBuffer.length >= MAX_BUFFER_SIZE) {
+			logBuffer.splice(0, logBuffer.length - MAX_BUFFER_SIZE + 1);
+		}
 		logBuffer.push(logObj);
-		if (logBuffer.length >= 20) {
+
+		if (logBuffer.length >= 20 && !flushInProgress) {
 			flushLogs().catch(console.error);
 		}
 

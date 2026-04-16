@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useApi } from "../use-api";
 
 interface ResourcesData {
 	d1: {
@@ -30,12 +31,12 @@ const fmtBytes = (bytes: number) => {
 const fmtNum = (num: number) => new Intl.NumberFormat().format(num);
 
 export function ResourcesDashboard() {
+	const api = useApi();
 	const [data, setData] = useState<ResourcesData | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		fetch("/api/admin/platform/resources")
-			.then((r) => r.json())
+		api<{ success: boolean; resources: ResourcesData }>("/platform/resources")
 			.then((res) => {
 				if (res.success && res.resources) {
 					setData(res.resources);
@@ -43,7 +44,7 @@ export function ResourcesDashboard() {
 			})
 			.catch(console.error)
 			.finally(() => setLoading(false));
-	}, []);
+	}, [api]);
 
 	if (loading) {
 		return (
@@ -63,7 +64,6 @@ export function ResourcesDashboard() {
 
 	return (
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
-			{/* Toolbar */}
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-4 py-2 border-[1px] border-sys-outline">
 				<span className="text-[0.875rem] font-bold tracking-widest text-sys-on-surface">
 					PLATFORM RESOURCES
@@ -75,7 +75,6 @@ export function ResourcesDashboard() {
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-				{/* D1 DATABASE BLOCK */}
 				<div className="bg-sys-surface p-4 border-[1px] border-sys-outline flex flex-col gap-4">
 					<div className="flex justify-between items-center">
 						<span className="text-[0.875rem] font-bold uppercase tracking-widest text-sys-on-surface">
@@ -91,7 +90,7 @@ export function ResourcesDashboard() {
 					<div className="text-[0.875rem] text-sys-outline uppercase font-bold mb-4">
 						TOTAL COMBINED ROWS
 					</div>
-					
+
 					<div className="flex flex-col gap-2 mt-auto text-[0.875rem] font-mono border-t-[1px] border-sys-outline pt-4">
 						<div className="flex justify-between">
 							<span className="text-sys-outline">USAGE EVENTS</span>
@@ -112,7 +111,6 @@ export function ResourcesDashboard() {
 					</div>
 				</div>
 
-				{/* R2 STORAGE BLOCK */}
 				<div className="bg-sys-surface p-4 border-[1px] border-sys-outline flex flex-col gap-4">
 					<div className="flex justify-between items-center">
 						<span className="text-[0.875rem] font-bold uppercase tracking-widest text-sys-on-surface">
@@ -128,13 +126,12 @@ export function ResourcesDashboard() {
 					<div className="text-[0.875rem] text-sys-outline uppercase font-bold mb-4">
 						TOTAL REPLAY FOOTPRINT
 					</div>
-					
+
 					<div className="mt-auto pt-4 text-[0.875rem] font-mono text-sys-outline border-t-[1px] border-sys-outline leading-relaxed">
-						Object storage operates exclusively as a chunk-sink for Session Replays. As the sequence streams, `storage_bytes` are tracked natively on ingest to guarantee O(1) size calculations.
+						Object storage operates exclusively as a chunk-sink for Session Replays.
 					</div>
 				</div>
 
-				{/* WORKER COMPUTE BLOCK */}
 				<div className="bg-sys-surface p-4 border-[1px] border-sys-outline flex flex-col gap-4">
 					<div className="flex justify-between items-center">
 						<span className="text-[0.875rem] font-bold uppercase tracking-widest text-sys-on-surface">
@@ -150,9 +147,9 @@ export function ResourcesDashboard() {
 					<div className="text-[0.875rem] text-sys-outline uppercase font-bold mb-4">
 						GRAPHQL METRICS EXPORTER
 					</div>
-					
+
 					<div className="mt-auto pt-4 text-[0.875rem] font-mono text-sys-outline border-t-[1px] border-sys-outline leading-relaxed">
-						Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment bindings. Once wired, this block will resolve absolute CPU times, request counts, and real-time execution bounds via the Cloudflare Analytics API.
+						Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment bindings for live metrics.
 					</div>
 				</div>
 			</div>

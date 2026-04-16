@@ -3,9 +3,7 @@
  * Creates config for @microlabs/otel-cf-workers instrument().
  */
 
-import type { TelemetryProxyEnv } from "@obs/types";
-
-export interface OtelEnv extends TelemetryProxyEnv {
+export interface OtelEnv {
 	OTEL_ENABLED?: string;
 	OTEL_EXPORTER_URL?: string;
 	OTEL_EXPORTER_HEADERS?: string;

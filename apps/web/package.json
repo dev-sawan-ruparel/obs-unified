@@ -8,6 +8,7 @@
 	},
 	"dependencies": {
 		"@obs/analytics-sdk": "workspace:*",
+		"@obs/dashboard": "workspace:*",
 		"@obs/types": "workspace:*",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",

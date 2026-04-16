@@ -4,6 +4,13 @@ import type {
 	LogsOverviewResponse,
 } from "@obs/types";
 
+/** Clamp an integer to a safe range */
+const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+	const n = typeof value === "number" ? value : parseInt(String(value), 10);
+	if (!Number.isFinite(n)) return fallback;
+	return Math.max(min, Math.min(max, n));
+};
+
 export class LogsStore {
 	constructor(private readonly db: D1Database) {}
 
@@ -38,8 +45,11 @@ export class LogsStore {
 	}
 
 	async getLogs(options: LogsOverviewOptions): Promise<LogsOverviewResponse> {
-		let sql = `SELECT * FROM logs WHERE received_at >= datetime('now', '-${options.hours} hours')`;
-		const params: any[] = [];
+		const hours = clampInt(options.hours, 1, 720, 24);
+		const limit = clampInt(options.limit, 1, 1000, 100);
+
+		let sql = `SELECT * FROM logs WHERE received_at >= datetime('now', '-' || ? || ' hours')`;
+		const params: unknown[] = [hours];
 
 		if (options.service) {
 			sql += ` AND service_name = ?`;
@@ -58,7 +68,8 @@ export class LogsStore {
 			params.push(`%${options.search}%`);
 		}
 
-		sql += ` ORDER BY received_at DESC LIMIT ${options.limit || 100}`;
+		sql += ` ORDER BY received_at DESC LIMIT ?`;
+		params.push(limit);
 
 		const results = await this.db
 			.prepare(sql)
@@ -67,14 +78,15 @@ export class LogsStore {
 
 		// Simple summary stats
 		const summarySql = `
-      SELECT 
+      SELECT
         COUNT(*) as totalLogs,
         SUM(CASE WHEN severity = 'ERROR' OR severity = 'FATAL' THEN 1 ELSE 0 END) as errorLogs,
         SUM(CASE WHEN severity = 'WARN' THEN 1 ELSE 0 END) as warnLogs
-      FROM logs WHERE received_at >= datetime('now', '-${options.hours} hours')
+      FROM logs WHERE received_at >= datetime('now', '-' || ? || ' hours')
       ${options.service ? "AND service_name = ?" : ""}
     `;
-		const summaryParams = options.service ? [options.service] : [];
+		const summaryParams: unknown[] = [hours];
+		if (options.service) summaryParams.push(options.service);
 		const summaryResult =
 			(await this.db
 				.prepare(summarySql)
@@ -103,7 +115,7 @@ export class LogsStore {
 				errorLogs: summaryResult.errorLogs || 0,
 				warnLogs: summaryResult.warnLogs || 0,
 			},
-			windowHours: options.hours,
+			windowHours: hours,
 			timestamp: new Date().toISOString(),
 		};
 	}

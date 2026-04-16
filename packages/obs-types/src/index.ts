@@ -51,7 +51,6 @@ export type {
 	TelemetryIssueSummary,
 	TelemetryOverviewOptions,
 	TelemetryOverviewResponse,
-	TelemetryProxyEnv,
 	TelemetryServiceSummary,
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,

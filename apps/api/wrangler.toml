@@ -4,6 +4,5 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"
 
 [vars]
-TELEMETRY_COLLECTOR_URL = "http://localhost:8790"
-TELEMETRY_COLLECTOR_TOKEN = ""
-USAGE_COLLECTOR_INGEST_TOKEN = ""
+OBS_COLLECTOR_URL = "http://localhost:8790"
+OBS_INGEST_KEY = ""

@@ -6,7 +6,18 @@ export const logsReceiverPlugin: CollectorPlugin = {
 	name: "logs-receiver",
 	register(app, runtime) {
 		app.post("/v1/logs", async (c) => {
-			const payload = await c.req.json<LogPayload>();
+			let payload: LogPayload;
+			try {
+				payload = await c.req.json<LogPayload>();
+			} catch {
+				return c.json({ error: "Invalid JSON body" }, 400);
+			}
+			if (!payload.logs || !Array.isArray(payload.logs)) {
+				return c.json({ error: "Missing logs array" }, 400);
+			}
+			if (payload.logs.length > 1000) {
+				return c.json({ error: `Too many logs: ${payload.logs.length} (max 1000)` }, 413);
+			}
 			const store = new LogsStore(c.env.DB);
 
 			const retentionHours = parseInt(c.env.RETENTION_HOURS || "72", 10);

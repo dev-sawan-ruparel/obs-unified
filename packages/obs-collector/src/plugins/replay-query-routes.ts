@@ -5,8 +5,8 @@ import type { SessionReplayMetadataRow } from "@obs/types";
 export const replayQueryRoutesPlugin: CollectorPlugin = {
 	name: "replay-query-routes",
 	register(app, runtime) {
-		app.get("/v1/query/replays", async (c) => {
-			const limit = parseInt(c.req.query("limit") ?? "50", 10);
+		app.get("/internal/replays", async (c) => {
+			const limit = Math.max(1, Math.min(500, parseInt(c.req.query("limit") ?? "50", 10) || 50));
 			const { results } = await c.env.DB.prepare(
 				`SELECT 
 					r.*,
@@ -21,7 +21,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			return c.json({ replays: results });
 		});
 
-		app.get("/v1/query/replays/:sessionId", async (c) => {
+		app.get("/internal/replays/:sessionId", async (c) => {
 			const sessionId = c.req.param("sessionId");
 			
 			if (!c.env.REPLAYS_BUCKET) {
@@ -63,7 +63,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			});
 		});
 
-		app.delete("/v1/query/replays/:sessionId", async (c) => {
+		app.delete("/internal/replays/:sessionId", async (c) => {
 			const sessionId = c.req.param("sessionId");
 			
 			if (!c.env.REPLAYS_BUCKET) {
@@ -82,11 +82,12 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			// 2. Delete all chunks from bucket
+			const bucket = c.env.REPLAYS_BUCKET!;
 			const prefix = `replays/${sessionId}/`;
-			const list = await c.env.REPLAYS_BUCKET.list({ prefix });
-			
+			const list = await bucket.list({ prefix });
+
 			if (list.objects.length > 0) {
-				await Promise.all(list.objects.map(obj => c.env.REPLAYS_BUCKET.delete(obj.key)));
+				await Promise.all(list.objects.map(obj => bucket.delete(obj.key)));
 			}
 
 			// 3. Delete metadata from DB

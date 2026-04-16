@@ -4,7 +4,7 @@ import type { CollectorPlugin } from "../framework/collector";
 export const platformRoutesPlugin: CollectorPlugin = {
 	name: "platform-routes",
 	register(app) {
-		app.get("/v1/query/platform/resources", async (c) => {
+		app.get("/internal/platform/resources", async (c) => {
 			const db = c.env.DB;
 			
 			const eventsCount = await db.prepare("SELECT COUNT(*) as c FROM usage_events").first<{c: number}>();

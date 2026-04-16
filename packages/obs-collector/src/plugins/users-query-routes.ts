@@ -5,8 +5,8 @@ import type { UserProfileRow, UserProfileDetail } from "@obs/types";
 export const usersQueryRoutesPlugin: CollectorPlugin = {
 	name: "users-query-routes",
 	register(app, runtime) {
-		app.get("/v1/query/users", async (c) => {
-			const limit = parseInt(c.req.query("limit") ?? "50", 10);
+		app.get("/internal/users", async (c) => {
+			const limit = Math.max(1, Math.min(1000, parseInt(c.req.query("limit") ?? "50", 10) || 50));
 			const { results } = await c.env.DB.prepare(
 				`SELECT * FROM user_profiles ORDER BY last_seen_at DESC LIMIT ?`
 			)
@@ -26,7 +26,7 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 			return c.json({ users });
 		});
 
-		app.get("/v1/query/users/:userId", async (c) => {
+		app.get("/internal/users/:userId", async (c) => {
 			const userId = c.req.param("userId");
 			const user = await c.env.DB.prepare(
 				`SELECT * FROM user_profiles WHERE user_id = ?`

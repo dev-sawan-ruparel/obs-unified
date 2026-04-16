@@ -1,53 +1,49 @@
 import {
 	createDefaultCollectorApp,
 	createRetentionCleanupHandler,
+	createIngestAuth,
+	createDashboardAuth,
 } from "@obs/collector";
 import type { CollectorEnv } from "@obs/types";
-import type { Context, Next } from "hono";
 
 /**
- * Bearer token auth for ingest routes.
- * In dev, allow everything if no token is configured.
+ * Collector worker.
+ *
+ * Environment variables:
+ *   INGEST_KEY        — Write-only API key for SDK ingest (required in production)
+ *   DASHBOARD_PASSWORD — Password for the dashboard login
+ *   ALLOWED_ORIGINS    — Comma-separated allowed origins for CORS
+ *   RETENTION_HOURS    — Data retention window in hours (default: 72)
+ *
+ * For local dev, set ALLOW_UNAUTHENTICATED="true" to bypass ingest auth.
  */
-const ingestAuth = async (
-	c: Context<{ Bindings: CollectorEnv }>,
-	next: Next,
-) => {
-	const expected = c.env.TELEMETRY_INGEST_TOKEN;
-	if (!expected) return next();
-	const token = c.req.header("Authorization")?.replace(/^Bearer\s+/i, "");
-	if (token !== expected) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-	await next();
+
+const createApp = (env: CollectorEnv) => {
+	const ingestAuth = createIngestAuth({
+		secret: env.INGEST_KEY || env.TELEMETRY_INGEST_TOKEN || "",
+		allowUnauthenticated: env.ALLOW_UNAUTHENTICATED === "true",
+	});
+
+	const dashboardAuth = env.DASHBOARD_PASSWORD
+		? createDashboardAuth({ password: env.DASHBOARD_PASSWORD })
+		: undefined;
+
+	return createDefaultCollectorApp({
+		auth: { middleware: ingestAuth },
+		allowedOrigins: env.ALLOWED_ORIGINS,
+		dashboardAuth,
+	});
 };
 
-/**
- * Token auth for query routes.
- */
-const queryAuth = async (
-	c: Context<{ Bindings: CollectorEnv }>,
-	next: Next,
-) => {
-	const expected = c.env.TELEMETRY_QUERY_TOKEN;
-	if (!expected) return next();
-	const token = c.req.header("X-Collector-Token");
-	if (token !== expected) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-	await next();
-};
-
-const app = createDefaultCollectorApp({
-	auth: {
-		ingest: ingestAuth,
-		query: queryAuth,
-	},
-});
+// Lazily create the app on first request to access env
+let app: ReturnType<typeof createApp> | null = null;
 
 const cleanup = createRetentionCleanupHandler();
 
 export default {
-	fetch: app.fetch,
+	async fetch(request: Request, env: CollectorEnv, ctx: ExecutionContext) {
+		if (!app) app = createApp(env);
+		return app.fetch(request, env, ctx);
+	},
 	scheduled: cleanup.scheduled,
 };

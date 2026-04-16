@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AICallsOverviewResponse } from "@obs/types";
+import { useApi } from "../use-api";
 
 export function AIDashboard() {
+	const api = useApi();
 	const [overview, setOverview] = useState<AICallsOverviewResponse | null>(null);
 	const [hours, setHours] = useState("24");
 	const [loading, setLoading] = useState(false);
@@ -9,16 +11,14 @@ export function AIDashboard() {
 	const loadAll = useCallback(async () => {
 		setLoading(true);
 		try {
-			const r = await fetch(`/api/admin/telemetry/ai?hours=${hours}`);
-			if (!r.ok) throw new Error(`${r.status}`);
-			const data = await r.json();
-			setOverview(data as AICallsOverviewResponse);
+			const data = await api<AICallsOverviewResponse>(`/ai/overview?hours=${hours}`);
+			setOverview(data);
 		} catch (err) {
 			console.error(err);
 		} finally {
 			setLoading(false);
 		}
-	}, [hours]);
+	}, [hours, api]);
 
 	useEffect(() => {
 		loadAll();
@@ -92,7 +92,7 @@ export function AIDashboard() {
 							</div>
 							<span className="opacity-60 font-mono text-[0.75rem]">{new Date(call.occurredAt).toLocaleString()}</span>
 						</div>
-						
+
 						<div className="grid grid-cols-2 gap-2">
 							<div>
 								<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70 mb-2">PROMPT</div>

@@ -2,25 +2,30 @@ import type { Context, Hono } from "hono";
 
 // ── Primitives ──
 
-export type Primitive = string | number | boolean | null | undefined;
+export type Primitive = string | number | boolean | null;
 export type JsonValue = Primitive | JsonValue[] | { [key: string]: JsonValue };
 
 // ── Collector Environment ──
 
 export interface CollectorEnv {
 	DB: D1Database;
-	REPLAYS_BUCKET: R2Bucket;
-	TELEMETRY_INGEST_TOKEN?: string;
-	USAGE_INGEST_TOKEN?: string;
-	TELEMETRY_QUERY_TOKEN?: string;
+	REPLAYS_BUCKET?: R2Bucket;
+	/** Write-only API key for SDK ingest endpoints (/v1/*) */
+	INGEST_KEY?: string;
+	/** Password for dashboard login */
+	DASHBOARD_PASSWORD?: string;
+	/** Comma-separated allowed origins for CORS (e.g. "https://my-app.com,https://staging.my-app.com") */
+	ALLOWED_ORIGINS?: string;
+	/** Set to "true" to allow unauthenticated ingest (local dev only) */
+	ALLOW_UNAUTHENTICATED?: string;
 	TELEMETRY_REDACT_FIELDS?: string;
 	RETENTION_HOURS?: string;
-}
-
-export interface TelemetryProxyEnv {
-	TELEMETRY_COLLECTOR_URL: string;
-	TELEMETRY_COLLECTOR_TOKEN: string;
-	USAGE_COLLECTOR_INGEST_TOKEN?: string;
+	/** @deprecated Use INGEST_KEY instead */
+	TELEMETRY_INGEST_TOKEN?: string;
+	/** @deprecated Use INGEST_KEY instead */
+	USAGE_INGEST_TOKEN?: string;
+	/** @deprecated Use DASHBOARD_PASSWORD instead */
+	TELEMETRY_QUERY_TOKEN?: string;
 }
 
 // ── Collector Context (Hono) ──

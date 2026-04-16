@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useDashboard } from "../provider";
 
 interface UsageOverview {
 	summary: {
@@ -88,17 +89,12 @@ const copy = (t: string) => {
 	void navigator.clipboard.writeText(t);
 };
 
-async function api<T>(path: string): Promise<T> {
-	const r = await fetch(path);
-	if (!r.ok) throw new Error(`${r.status}`);
-	return r.json();
-}
-
 interface Props {
 	onNavigate: (route: { tab?: string; sessionId?: string }) => void;
 }
 
 export function UsageDashboard({ onNavigate }: Props) {
+	const { basePath, fetcher } = useDashboard();
 	const [overview, setOverview] = useState<UsageOverview | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [connStatus, setConnStatus] = useState<"connecting" | "connected" | "error">("connecting");
@@ -116,7 +112,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 		if (pathFilter !== "all") filterParams.set("path", pathFilter);
 		filterParams.set("includeAdmin", includeAdmin ? "true" : "false");
 
-		const sse = new EventSource(`/api/admin/usage/stream?${filterParams.toString()}`, {
+		const sse = new EventSource(`${basePath}/usage/stream?${filterParams.toString()}`, {
 			withCredentials: true
 		});
 

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LogsOverviewResponse } from "@obs/types";
+import { useApi } from "../use-api";
 
 export function LogsDashboard() {
+	const api = useApi();
 	const [overview, setOverview] = useState<LogsOverviewResponse | null>(null);
 	const [hours, setHours] = useState("24");
 	const [loading, setLoading] = useState(false);
@@ -9,16 +11,14 @@ export function LogsDashboard() {
 	const loadAll = useCallback(async () => {
 		setLoading(true);
 		try {
-			const r = await fetch(`/api/admin/telemetry/logs?hours=${hours}`);
-			if (!r.ok) throw new Error(`${r.status}`);
-			const data = await r.json();
-			setOverview(data as LogsOverviewResponse);
+			const data = await api<LogsOverviewResponse>(`/logs/overview?hours=${hours}`);
+			setOverview(data);
 		} catch (err) {
 			console.error(err);
 		} finally {
 			setLoading(false);
 		}
-	}, [hours]);
+	}, [hours, api]);
 
 	useEffect(() => {
 		loadAll();

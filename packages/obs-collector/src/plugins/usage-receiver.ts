@@ -56,12 +56,8 @@ const toUsageRecord = (
 export const usageReceiverPlugin: CollectorPlugin = {
 	name: "usage-receiver",
 	register(app, runtime) {
-		app.options("/v1/usage", (c) => {
-			c.header("Access-Control-Allow-Origin", c.req.header("Origin") || "*");
-			c.header("Access-Control-Allow-Methods", "POST,OPTIONS");
-			c.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
-			return c.body(null, 204);
-		});
+		// CORS is handled by the framework-level /v1/* middleware.
+		// No per-route CORS needed here.
 
 		app.post("/v1/usage", async (c) => {
 			let payload: UsageEventPayload;
@@ -102,8 +98,6 @@ export const usageReceiverPlugin: CollectorPlugin = {
 			);
 			const store = runtime.createUsageStore(c.env);
 			const result = await store.ingest(processed);
-
-			c.header("Access-Control-Allow-Origin", c.req.header("Origin") || "*");
 
 			return c.json({
 				success: true,

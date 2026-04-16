@@ -1,7 +1,56 @@
-// Logger (from DecisionOps)
+// ── Unified init ──
 
-// AI tracking
+import { initLogger, type LoggerConfig } from "./logger";
+import { initAI, type AILoggerConfig } from "./ai";
+
+export interface ObservabilityConfig {
+	/** URL of your collector (e.g. "https://obs.my-app.com") */
+	collectorUrl: string;
+	/** Write-only API key for the collector */
+	apiKey: string;
+	/** Name of your service (e.g. "my-api") */
+	serviceName: string;
+	/** Optional service version */
+	serviceVersion?: string;
+}
+
+/**
+ * Initialize all observability subsystems in one call.
+ * This is the recommended entry point for backend integration.
+ *
+ * @example
+ * ```ts
+ * import { initObservability, createLogger } from "@obs/telemetry-sdk";
+ *
+ * initObservability({
+ *   collectorUrl: "https://obs.my-app.com",
+ *   apiKey: process.env.OBS_INGEST_KEY,
+ *   serviceName: "my-api",
+ * });
+ *
+ * const logger = createLogger("my-module");
+ * logger.info("Hello observability");
+ * ```
+ */
+export function initObservability(config: ObservabilityConfig): void {
+	const loggerConfig: LoggerConfig = {
+		collectorUrl: config.collectorUrl,
+		authToken: config.apiKey,
+		serviceName: config.serviceName,
+	};
+	const aiConfig: AILoggerConfig = {
+		collectorUrl: config.collectorUrl,
+		authToken: config.apiKey,
+		serviceName: config.serviceName,
+	};
+	initLogger(loggerConfig);
+	initAI(aiConfig);
+}
+
+// ── AI tracking ──
 export { type AILoggerConfig, flushAICalls, initAI, trackAICall } from "./ai";
+
+// ── Logger ──
 export {
 	createLogger,
 	errorMessage,
@@ -11,11 +60,14 @@ export {
 	type LoggerConfig,
 	type LogSeverity,
 } from "./logger";
-// OTEL config (from Presence)
+
+// ── OTEL config ──
 export { annotateErrorSpan, createResolveConfig } from "./otel-config";
-// High-level plugins (from Presence)
-export { analyticsPlugin, observability, telemetryPlugin } from "./plugin";
-// Span system (from DecisionOps)
+
+// ── High-level plugin ──
+export { telemetryPlugin } from "./plugin";
+
+// ── Span system ──
 export {
 	type ChildSpan,
 	createRequestSpan,
@@ -24,6 +76,4 @@ export {
 	runWithSpan,
 	withChildSpan,
 } from "./span";
-// Proxy routers (from Presence)
-export { createTelemetryProxyRouter } from "./telemetry-proxy";
-export { createUsageProxyRouter } from "./usage-proxy";
+

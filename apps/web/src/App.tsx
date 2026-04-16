@@ -1,11 +1,13 @@
 import { useAnalytics } from "@obs/analytics-sdk/react";
+import {
+	TelemetryDashboard,
+	UsageDashboard,
+	LogsDashboard,
+	AIDashboard,
+	ReplayDashboard,
+	ResourcesDashboard,
+} from "@obs/dashboard";
 import { useEffect, useState } from "react";
-import { TelemetryDashboard } from "./dashboards/TelemetryDashboard";
-import { UsageDashboard } from "./dashboards/UsageDashboard";
-import { LogsDashboard } from "./dashboards/LogsDashboard";
-import { AIDashboard } from "./dashboards/AIDashboard";
-import { ReplayDashboard } from "./dashboards/ReplayDashboard";
-import { ResourcesDashboard } from "./dashboards/ResourcesDashboard";
 
 // ── Hash Router ──
 

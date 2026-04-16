@@ -1,0 +1,35 @@
+{
+	"name": "@obs/dashboard",
+	"version": "1.0.0",
+	"description": "Observability dashboard UI — standalone SPA and embeddable React components",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"type-check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@obs/types": "workspace:*",
+		"rrweb-player": "1.0.0-alpha.4"
+	},
+	"peerDependencies": {
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260405.1",
+		"@tailwindcss/vite": "^4.2.2",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"rrweb": "2.0.0-alpha.4",
+		"tailwindcss": "^4.2.2",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.5"
+	}
+}

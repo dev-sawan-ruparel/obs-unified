@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useDashboard } from "../provider";
 
 // ── Types ──
 
@@ -141,11 +142,7 @@ const SPAN_KIND: Record<number, string> = {
 	5: "CONSUMER",
 };
 
-async function api<T>(path: string): Promise<T> {
-	const r = await fetch(path);
-	if (!r.ok) throw new Error(`${r.status}`);
-	return r.json();
-}
+// api helper is now provided via useDashboard context
 
 // Build a tree of spans for indented display
 function buildSpanTree(
@@ -200,6 +197,12 @@ export function TelemetryDashboard({
 	initialIssueId,
 	onNavigate,
 }: Props) {
+	const { basePath, fetcher } = useDashboard();
+	const api = useCallback(async <T,>(path: string): Promise<T> => {
+		const r = await fetcher(`${basePath}${path}`);
+		if (!r.ok) throw new Error(`${r.status}`);
+		return r.json();
+	}, [basePath, fetcher]);
 	const [hours, setHours] = useState("6");
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [serviceFilter, setServiceFilter] = useState("all");
@@ -237,10 +240,10 @@ export function TelemetryDashboard({
 			const cat = category !== "all" ? `&category=${category}` : "";
 			const [ov, iss] = await Promise.all([
 				api<Overview>(
-					`/api/admin/telemetry?hours=${hours}&status=${statusFilter}${svc}${q}`,
+					`/telemetry/overview?hours=${hours}&status=${statusFilter}${svc}${q}`,
 				),
 				api<IssueOverview>(
-					`/api/admin/telemetry/issues?hours=${hours}${svc}${cat}`,
+					`/telemetry/issues?hours=${hours}${svc}${cat}`,
 				),
 			]);
 			setOverview(ov);
@@ -259,7 +262,7 @@ export function TelemetryDashboard({
 	useEffect(() => {
 		if (initialTraceId && !traceDetail) {
 			api<TraceDetail>(
-				`/api/admin/telemetry/traces/${encodeURIComponent(initialTraceId)}`,
+				`/telemetry/traces/${encodeURIComponent(initialTraceId)}`,
 			)
 				.then(setTraceDetail)
 				.catch(() => {});
@@ -269,7 +272,7 @@ export function TelemetryDashboard({
 	useEffect(() => {
 		if (initialIssueId && !issueDetail) {
 			api<IssueDetail>(
-				`/api/admin/telemetry/issues/detail?issueId=${encodeURIComponent(initialIssueId)}&hours=${hours}`,
+				`/telemetry/issues/detail?issueId=${encodeURIComponent(initialIssueId)}&hours=${hours}`,
 			)
 				.then(setIssueDetail)
 				.catch(() => {});
@@ -289,7 +292,7 @@ export function TelemetryDashboard({
 		try {
 			setTraceDetail(
 				await api<TraceDetail>(
-					`/api/admin/telemetry/traces/${encodeURIComponent(id)}`,
+					`/telemetry/traces/${encodeURIComponent(id)}`,
 				),
 			);
 		} catch {}
@@ -301,7 +304,7 @@ export function TelemetryDashboard({
 		try {
 			setIssueDetail(
 				await api<IssueDetail>(
-					`/api/admin/telemetry/issues/detail?issueId=${encodeURIComponent(issue.issueId)}&hours=${hours}`,
+					`/telemetry/issues/detail?issueId=${encodeURIComponent(issue.issueId)}&hours=${hours}`,
 				),
 			);
 		} catch {}
@@ -312,7 +315,7 @@ export function TelemetryDashboard({
 		if (statusFilter !== "all") params.set("status", statusFilter);
 		if (search) params.set("q", search);
 		if (serviceFilter !== "all") params.set("service", serviceFilter);
-		const r = await fetch(`/api/admin/telemetry/export?${params}`);
+		const r = await fetcher(`${basePath}/telemetry/export?${params}`);
 		const blob = await r.blob();
 		const a = document.createElement("a");
 		a.href = URL.createObjectURL(blob);

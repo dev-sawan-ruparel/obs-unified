@@ -4,6 +4,13 @@ import type {
 	AICallsOverviewResponse,
 } from "@obs/types";
 
+/** Clamp an integer to a safe range */
+const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+	const n = typeof value === "number" ? value : parseInt(String(value), 10);
+	if (!Number.isFinite(n)) return fallback;
+	return Math.max(min, Math.min(max, n));
+};
+
 export class AIStore {
 	constructor(private readonly db: D1Database) {}
 
@@ -47,8 +54,11 @@ export class AIStore {
 	async getAICalls(
 		options: AICallsOverviewOptions,
 	): Promise<AICallsOverviewResponse> {
-		let sql = `SELECT * FROM ai_calls WHERE received_at >= datetime('now', '-${options.hours} hours')`;
-		const params: any[] = [];
+		const hours = clampInt(options.hours, 1, 720, 24);
+		const limit = clampInt(options.limit, 1, 1000, 100);
+
+		let sql = `SELECT * FROM ai_calls WHERE received_at >= datetime('now', '-' || ? || ' hours')`;
+		const params: unknown[] = [hours];
 
 		if (options.service) {
 			sql += ` AND service_name = ?`;
@@ -67,7 +77,8 @@ export class AIStore {
 			params.push(options.traceId);
 		}
 
-		sql += ` ORDER BY received_at DESC LIMIT ${options.limit || 100}`;
+		sql += ` ORDER BY received_at DESC LIMIT ?`;
+		params.push(limit);
 
 		const results = await this.db
 			.prepare(sql)
@@ -75,16 +86,17 @@ export class AIStore {
 			.all<any>();
 
 		const summarySql = `
-      SELECT 
+      SELECT
         COUNT(*) as totalCalls,
         SUM(total_cost_usd) as totalCostUsd,
         SUM(prompt_tokens) as totalPromptTokens,
         SUM(completion_tokens) as totalCompletionTokens,
         SUM(is_error) as errorCalls
-      FROM ai_calls WHERE received_at >= datetime('now', '-${options.hours} hours')
+      FROM ai_calls WHERE received_at >= datetime('now', '-' || ? || ' hours')
       ${options.service ? "AND service_name = ?" : ""}
     `;
-		const summaryParams = options.service ? [options.service] : [];
+		const summaryParams: unknown[] = [hours];
+		if (options.service) summaryParams.push(options.service);
 		const summaryResult =
 			(await this.db
 				.prepare(summarySql)
@@ -121,7 +133,7 @@ export class AIStore {
 				totalCompletionTokens: summaryResult.totalCompletionTokens || 0,
 				errorCalls: summaryResult.errorCalls || 0,
 			},
-			windowHours: options.hours,
+			windowHours: hours,
 			timestamp: new Date().toISOString(),
 		};
 	}

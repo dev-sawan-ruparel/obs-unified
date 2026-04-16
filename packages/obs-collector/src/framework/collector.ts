@@ -6,6 +6,8 @@ import type {
 } from "@obs/types";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { AIStore } from "../lib/ai-store";
+import { LogsStore } from "../lib/logs-store";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
 
@@ -40,13 +42,24 @@ export interface CollectorPlugin {
 }
 
 export interface CollectorAuthConfig {
+	/** Single middleware applied to both /v1/* (ingest) and /internal/* (query) routes */
+	middleware?: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+	/** @deprecated Use middleware instead. Ingest-only auth for /v1/* routes. */
 	ingest?: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+	/** @deprecated Use middleware instead. Query-only auth for /internal/* routes. */
 	query?: MiddlewareHandler<{ Bindings: CollectorEnv }>;
 }
 
 export interface CollectorConfig {
 	plugins: CollectorPlugin[];
 	auth?: CollectorAuthConfig;
+	/** Comma-separated allowed origins for CORS on ingest endpoints */
+	allowedOrigins?: string;
+	/** Register dashboard auth routes and middleware */
+	dashboardAuth?: {
+		middleware: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+		registerRoutes: (app: Hono<{ Bindings: CollectorEnv }>) => void;
+	};
 }
 
 export class CollectorRuntime implements CollectorPluginContext {
@@ -126,11 +139,57 @@ export const createTelemetryCollectorApp = (
 	const app = new Hono<{ Bindings: CollectorEnv }>();
 	const runtime = new CollectorRuntime();
 
-	if (config.auth?.ingest) {
-		app.use("/v1/*", config.auth.ingest);
+	// Health endpoint — no auth required
+	app.get("/health", (c) => c.json({ status: "ok" }));
+
+	// CORS for ingest endpoints (browser SDK sends directly)
+	app.use("/v1/*", async (c, next) => {
+		const origin = c.req.header("Origin");
+		const allowedOrigins = config.allowedOrigins || c.env.ALLOWED_ORIGINS || "";
+		const allowList = allowedOrigins.split(",").map((s) => s.trim()).filter(Boolean);
+
+		if (c.req.method === "OPTIONS") {
+			const headers: Record<string, string> = {
+				"Access-Control-Allow-Methods": "POST, OPTIONS",
+				"Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+				"Access-Control-Max-Age": "86400",
+			};
+			if (allowList.length === 0 || (origin && allowList.includes(origin))) {
+				headers["Access-Control-Allow-Origin"] = origin || "*";
+			}
+			return new Response(null, { status: 204, headers });
+		}
+
+		await next();
+
+		if (origin && (allowList.length === 0 || allowList.includes(origin))) {
+			c.header("Access-Control-Allow-Origin", origin);
+		}
+	});
+
+	// Auth middleware
+	if (config.auth?.middleware) {
+		// Unified auth for both ingest and query routes
+		app.use("/v1/*", config.auth.middleware);
+		app.use("/internal/*", config.auth.middleware);
+	} else {
+		// Legacy: separate ingest/query auth
+		if (config.auth?.ingest) {
+			app.use("/v1/*", config.auth.ingest);
+		}
+		if (config.auth?.query) {
+			app.use("/internal/*", config.auth.query);
+		}
 	}
-	if (config.auth?.query) {
-		app.use("/internal/*", config.auth.query);
+
+	// Dashboard auth routes (login, check, logout) — before dashboard middleware
+	if (config.dashboardAuth) {
+		config.dashboardAuth.registerRoutes(app);
+		app.use("/dashboard/*", config.dashboardAuth.middleware);
+		// Dashboard API queries also protected by dashboard session
+		if (!config.auth?.middleware && !config.auth?.query) {
+			app.use("/internal/*", config.dashboardAuth.middleware);
+		}
 	}
 
 	for (const plugin of config.plugins) {
@@ -161,14 +220,19 @@ export const createRetentionCleanupHandler = () => ({
 	): Promise<void> {
 		const telemetryStore = new TelemetryStore(env.DB);
 		const usageStore = new UsageStore(env.DB);
+		const logsStore = new LogsStore(env.DB);
+		const aiStore = new AIStore(env.DB);
 
-		const [telemetryPurged, usagePurged] = await Promise.all([
-			telemetryStore.purgeExpired(),
-			usageStore.purgeExpired(),
-		]);
+		const [telemetryPurged, usagePurged, logsPurged, aiPurged] =
+			await Promise.all([
+				telemetryStore.purgeExpired(),
+				usageStore.purgeExpired(),
+				logsStore.purgeExpired(),
+				aiStore.purgeExpired(),
+			]);
 
 		console.log(
-			`[retention-cleanup] Purged ${telemetryPurged} telemetry spans, ${usagePurged} usage events`,
+			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls`,
 		);
 	},
 });

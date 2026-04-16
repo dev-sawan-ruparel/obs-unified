@@ -1,4 +1,6 @@
 import type {
+	AICallsOverviewResponse,
+	LogsOverviewResponse,
 	TelemetryIssueDetailResponse,
 	TelemetryIssueOverviewResponse,
 	TelemetryOverviewResponse,
@@ -17,6 +19,8 @@ export interface TelemetryApiClientConfig {
 	getAuthToken: () => string;
 	telemetryPath?: string;
 	usagePath?: string;
+	/** Request timeout in milliseconds (default: 30000) */
+	timeoutMs?: number;
 }
 
 export class TelemetryApiClient {
@@ -24,12 +28,17 @@ export class TelemetryApiClient {
 	private readonly getAuthToken: () => string;
 	private readonly telemetryPath: string;
 	private readonly usagePath: string;
+	private readonly timeoutMs: number;
 
 	constructor(config: TelemetryApiClientConfig) {
+		if (!config.baseUrl) {
+			throw new Error("baseUrl is required");
+		}
 		this.baseUrl = config.baseUrl.replace(/\/$/, "");
 		this.getAuthToken = config.getAuthToken;
 		this.telemetryPath = config.telemetryPath ?? "/api/admin/telemetry";
 		this.usagePath = config.usagePath ?? "/api/admin/usage";
+		this.timeoutMs = config.timeoutMs ?? 30_000;
 	}
 
 	private buildUrl(
@@ -48,16 +57,43 @@ export class TelemetryApiClient {
 	}
 
 	private async request<T>(url: string): Promise<T> {
-		const response = await fetch(url, {
-			headers: {
-				Authorization: `Bearer ${this.getAuthToken()}`,
-				"Content-Type": "application/json",
-			},
-		});
-		if (!response.ok) {
-			throw new Error(`API error: ${response.status} ${response.statusText}`);
+		let response: Response;
+		try {
+			response = await fetch(url, {
+				headers: {
+					Authorization: `Bearer ${this.getAuthToken()}`,
+					Accept: "application/json",
+				},
+				signal: AbortSignal.timeout(this.timeoutMs),
+			});
+		} catch (err) {
+			if (err instanceof DOMException && err.name === "TimeoutError") {
+				throw new Error(`Request timed out after ${this.timeoutMs}ms: ${url}`);
+			}
+			throw new Error(
+				`Network error: ${err instanceof Error ? err.message : String(err)}`,
+			);
 		}
-		return response.json() as Promise<T>;
+
+		if (!response.ok) {
+			let detail = "";
+			try {
+				const body = await response.text();
+				detail = body.slice(0, 200);
+			} catch {}
+			throw new Error(
+				`API error ${response.status}: ${response.statusText}${detail ? ` — ${detail}` : ""}`,
+			);
+		}
+
+		const contentType = response.headers.get("content-type") || "";
+		if (!contentType.includes("application/json")) {
+			throw new Error(
+				`Expected JSON response but got ${contentType || "unknown content type"}`,
+			);
+		}
+
+		return (await response.json()) as T;
 	}
 
 	async getTelemetryOverview(
@@ -163,7 +199,7 @@ export class TelemetryApiClient {
 			limit?: number;
 			search?: string;
 		} = {},
-	): Promise<import("./types").LogsOverviewResponse> {
+	): Promise<LogsOverviewResponse> {
 		return this.request(
 			this.buildUrl(`${this.telemetryPath}/logs`, {
 				hours: options.hours,
@@ -185,7 +221,7 @@ export class TelemetryApiClient {
 			traceId?: string;
 			limit?: number;
 		} = {},
-	): Promise<import("./types").AICallsOverviewResponse> {
+	): Promise<AICallsOverviewResponse> {
 		return this.request(
 			this.buildUrl(`${this.telemetryPath}/ai`, {
 				hours: options.hours,

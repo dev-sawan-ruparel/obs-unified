@@ -6,7 +6,18 @@ export const aiReceiverPlugin: CollectorPlugin = {
 	name: "ai-receiver",
 	register(app, runtime) {
 		app.post("/v1/ai", async (c) => {
-			const payload = await c.req.json<AICallPayload>();
+			let payload: AICallPayload;
+			try {
+				payload = await c.req.json<AICallPayload>();
+			} catch {
+				return c.json({ error: "Invalid JSON body" }, 400);
+			}
+			if (!payload.calls || !Array.isArray(payload.calls)) {
+				return c.json({ error: "Missing calls array" }, 400);
+			}
+			if (payload.calls.length > 500) {
+				return c.json({ error: `Too many AI calls: ${payload.calls.length} (max 500)` }, 413);
+			}
 			const store = new AIStore(c.env.DB);
 
 			const retentionHours = parseInt(c.env.RETENTION_HOURS || "72", 10);

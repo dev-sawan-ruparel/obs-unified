@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
+import { useDashboard } from "../provider";
 
 const fmtTs = (iso: string) => {
 	try {
@@ -28,11 +29,7 @@ const copy = (t: string) => {
 	void navigator.clipboard.writeText(t);
 };
 
-async function api<T>(path: string): Promise<T> {
-	const r = await fetch(path);
-	if (!r.ok) throw new Error(`${r.status}`);
-	return r.json();
-}
+// api helper is now provided via useDashboard context
 
 interface ReplayRow {
 	session_id: string;
@@ -75,13 +72,14 @@ interface SessionDetail {
 	}>;
 }
 
-function ReplayPlayer({ 
-	sessionId, 
-	onTimeUpdate 
-}: { 
+function ReplayPlayer({
+	sessionId,
+	onTimeUpdate
+}: {
 	sessionId: string,
-	onTimeUpdate?: (timeValue: number) => void 
+	onTimeUpdate?: (timeValue: number) => void
 }) {
+	const { basePath, fetcher } = useDashboard();
 	const [events, setEvents] = useState<any[] | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -92,10 +90,10 @@ function ReplayPlayer({
 		setError("");
 		setEvents(null);
 
-		fetch(`/api/admin/usage/replays/${encodeURIComponent(sessionId)}`)
+		fetcher(`${basePath}/replays/${encodeURIComponent(sessionId)}`)
 			.then((r) => {
 				if (!r.ok) throw new Error("Replay not found or error loading");
-				return r.json();
+				return r.json() as Promise<{ events?: any[] }>;
 			})
 			.then((data) => {
 				if (data && data.events && data.events.length > 2) {
@@ -144,6 +142,7 @@ function ReplayPlayer({
 }
 
 export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessionId?: string, onNavigate: (route: { tab?: string; sessionId?: string }) => void }) {
+	const { basePath, fetcher } = useDashboard();
 	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSessionId ?? null);
 	const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
 	const [traceEvents, setTraceEvents] = useState<any[]>([]);
@@ -158,11 +157,11 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 
 	useEffect(() => {
 		setLoadingList(true);
-		api<{ replays: ReplayRow[] }>('/api/admin/usage/replays')
-			.then(d => setReplaysList(d.replays || []))
+		fetcher(`${basePath}/replays`).then(r => r.json() as Promise<{ replays: ReplayRow[] }>)
+			.then((d) => setReplaysList(d.replays || []))
 			.catch(err => console.error("Error fetching replays:", err))
 			.finally(() => setLoadingList(false));
-	}, []);
+	}, [basePath, fetcher]);
 
 	const openSession = async (id: string) => {
 		setLoading(true);
@@ -172,8 +171,8 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 		onNavigate({ tab: "replay", sessionId: id });
 		try {
 			const [detail, tracesObj] = await Promise.all([
-				api<SessionDetail>(`/api/admin/usage/sessions/${encodeURIComponent(id)}`),
-				api<any>(`/api/admin/telemetry?hours=72&q=${encodeURIComponent(id)}`).catch(() => ({ traces: [] }))
+				fetcher(`${basePath}/usage/sessions/${encodeURIComponent(id)}`).then(r => r.json()) as Promise<SessionDetail>,
+				fetcher(`${basePath}/telemetry/overview?hours=72&q=${encodeURIComponent(id)}`).then(r => r.json()).catch(() => ({ traces: [] })) as Promise<{ traces: any[] }>
 			]);
 			setSessionDetail(detail);
 			setTraceEvents(tracesObj.traces || []);
@@ -224,7 +223,7 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 		
 		setLoading(true);
 		try {
-			await fetch(`/api/admin/usage/replays/${encodeURIComponent(selectedSessionId)}`, {
+			await fetcher(`${basePath}/replays/${encodeURIComponent(selectedSessionId)}`, {
 				method: "DELETE"
 			});
 			setReplaysList(prev => prev.filter(r => r.session_id !== selectedSessionId));

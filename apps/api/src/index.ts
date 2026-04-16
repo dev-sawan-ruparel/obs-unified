@@ -1,20 +1,20 @@
 import {
 	createLogger,
 	createRequestSpan,
-	observability,
+	initObservability,
 	runWithSpan,
 	withChildSpan,
-	initLogger,
-	initAI,
 	trackAICall,
 	flushLogs,
 	flushAICalls
 } from "@obs/telemetry-sdk";
-import type { TelemetryProxyEnv } from "@obs/types";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-interface Env extends TelemetryProxyEnv {}
+interface Env {
+	OBS_COLLECTOR_URL: string;
+	OBS_INGEST_KEY: string;
+}
 
 const app = new Hono<{ Bindings: Env }>();
 const logger = createLogger("obs-demo-api");
@@ -22,22 +22,11 @@ const logger = createLogger("obs-demo-api");
 // CORS for the web app
 app.use("*", cors({ origin: "http://localhost:5173", credentials: true }));
 
-// Wire up observability: usage proxy + admin telemetry proxy
-const resolveConfig = observability(app, {
-	defaultServiceName: "obs-demo-api",
-	defaultServiceVersion: "1.0.0",
-});
-
 app.use("*", async (c, next) => {
-	// Initialize subsystems dynamically based on env vars
-	initLogger({
-		collectorUrl: c.env.TELEMETRY_COLLECTOR_URL,
-		authToken: c.env.TELEMETRY_COLLECTOR_TOKEN,
-		serviceName: "obs-demo-api",
-	});
-	initAI({
-		collectorUrl: c.env.TELEMETRY_COLLECTOR_URL,
-		authToken: c.env.TELEMETRY_COLLECTOR_TOKEN,
+	// Initialize observability in one call
+	initObservability({
+		collectorUrl: c.env.OBS_COLLECTOR_URL,
+		apiKey: c.env.OBS_INGEST_KEY,
 		serviceName: "obs-demo-api",
 	});
 	await next();
@@ -80,14 +69,14 @@ app.use("*", async (c, next) => {
 		span.end();
 
 		// Export span to collector (fire-and-forget)
-		const collectorUrl = c.env.TELEMETRY_COLLECTOR_URL;
+		const collectorUrl = c.env.OBS_COLLECTOR_URL;
 		if (collectorUrl) {
 			const exportPayload = span.toOtlpExportRequest();
 			const headers: Record<string, string> = {
 				"Content-Type": "application/json",
 			};
-			const token = c.env.TELEMETRY_COLLECTOR_TOKEN;
-			if (token) headers["Authorization"] = `Bearer ${token}`;
+			const apiKey = c.env.OBS_INGEST_KEY;
+			if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
 
 			try {
 				await fetch(`${collectorUrl}/v1/traces`, {

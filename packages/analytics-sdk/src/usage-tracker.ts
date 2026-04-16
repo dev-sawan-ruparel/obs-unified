@@ -12,21 +12,29 @@ import { record } from "rrweb";
 // ── Public config ──
 
 export interface UsageTrackerConfig {
-	endpoint: string;
+	/** URL of your collector (e.g. "https://obs.my-app.com"). When set, the SDK sends directly to the collector. */
+	collectorUrl?: string;
+	/** Write-only API key for the collector. Required when using collectorUrl. */
+	apiKey?: string;
+	/**
+	 * Legacy: endpoint for usage events (e.g. "/api/usage/events").
+	 * @deprecated Use collectorUrl + apiKey instead for direct-to-collector mode.
+	 */
+	endpoint?: string;
 	debug?: boolean;
-	/** Optional secondary endpoint for error reporting (from D) */
+	/** Optional secondary endpoint for error reporting */
 	errorEndpoint?: string;
 	/** Storage key prefix (default: 'usage') */
 	storagePrefix?: string;
-	/** Include credentials in fetch (from A) */
+	/** Include credentials in fetch */
 	credentials?: RequestCredentials;
-	/** Error filter: return false to skip reporting an error (from A) */
+	/** Error filter: return false to skip reporting an error */
 	errorFilter?: (error: {
 		name?: string;
 		message?: string;
 		source?: string;
 	}) => boolean;
-	/** Max string length for metadata values (from A, default: 160) */
+	/** Max string length for metadata values (default: 160) */
 	maxMetadataLength?: number;
 }
 
@@ -59,14 +67,26 @@ const createId = (): string => {
 	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
 		return crypto.randomUUID();
 	}
-	return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+};
+
+const safeStorage = (storage: Storage, key: string, value?: string): string | null => {
+	try {
+		if (value !== undefined) {
+			storage.setItem(key, value);
+			return value;
+		}
+		return storage.getItem(key);
+	} catch {
+		return null;
+	}
 };
 
 const getStorageValue = (storage: Storage, key: string): string => {
-	const existing = storage.getItem(key);
+	const existing = safeStorage(storage, key);
 	if (existing) return existing;
 	const next = createId();
-	storage.setItem(key, next);
+	safeStorage(storage, key, next);
 	return next;
 };
 
@@ -140,13 +160,22 @@ export class UsageTracker {
 	// Internal flag to track if we need to restart rrweb after a rotation
 	private isRecording = false;
 
+	/** API key for direct-to-collector mode */
+	private readonly apiKey?: string;
+
 	constructor(config: UsageTrackerConfig) {
+		// Resolve endpoint: collectorUrl+apiKey (new) or endpoint (legacy)
+		const resolvedEndpoint = config.collectorUrl
+			? `${config.collectorUrl.replace(/\/$/, "")}/v1/usage`
+			: config.endpoint ?? "";
+		this.apiKey = config.apiKey;
+
 		this.config = {
-			endpoint: config.endpoint,
+			endpoint: resolvedEndpoint,
 			debug: config.debug ?? false,
 			errorEndpoint: config.errorEndpoint,
 			storagePrefix: config.storagePrefix ?? "usage",
-			credentials: config.credentials,
+			credentials: config.collectorUrl ? undefined : config.credentials,
 			errorFilter: config.errorFilter,
 			maxMetadataLength: config.maxMetadataLength ?? 160,
 		};
@@ -185,27 +214,27 @@ export class UsageTracker {
 
 	private checkAndRotateSession(): boolean {
 		if (typeof sessionStorage === "undefined") return false;
-		
+
 		const activityKey = `${this.config.storagePrefix}_last_act`;
 		const startKey = `${this.config.storagePrefix}_start_ts`;
 		const sessionKey = `${this.config.storagePrefix}_session_id`;
 
 		const now = Date.now();
-		const lastAct = parseInt(sessionStorage.getItem(activityKey) || "0", 10);
-		const startTs = parseInt(sessionStorage.getItem(startKey) || "0", 10);
+		const lastAct = parseInt(safeStorage(sessionStorage, activityKey) || "0", 10);
+		const startTs = parseInt(safeStorage(sessionStorage, startKey) || "0", 10);
 
 		let rotated = false;
 		// 30 min idle timeout OR 60 min hard cap
-		if ((lastAct > 0 && now - lastAct > 30 * 60 * 1000) || 
+		if ((lastAct > 0 && now - lastAct > 30 * 60 * 1000) ||
 			(startTs > 0 && now - startTs > 60 * 60 * 1000)) {
-			sessionStorage.removeItem(sessionKey);
-			sessionStorage.removeItem(startKey);
-			sessionStorage.removeItem(activityKey);
+			safeStorage(sessionStorage, sessionKey, "");
+			safeStorage(sessionStorage, startKey, "");
+			safeStorage(sessionStorage, activityKey, "");
 			rotated = true;
 		}
 
-		if (!sessionStorage.getItem(startKey)) {
-			sessionStorage.setItem(startKey, now.toString());
+		if (!safeStorage(sessionStorage, startKey)) {
+			safeStorage(sessionStorage, startKey, now.toString());
 		}
 
 		return rotated;
@@ -213,7 +242,7 @@ export class UsageTracker {
 
 	private bumpActivity(): void {
 		if (typeof sessionStorage !== "undefined") {
-			sessionStorage.setItem(`${this.config.storagePrefix}_last_act`, Date.now().toString());
+			safeStorage(sessionStorage, `${this.config.storagePrefix}_last_act`, Date.now().toString());
 		}
 	}
 
@@ -245,9 +274,13 @@ export class UsageTracker {
 		if (events.length === 0) return;
 		this.bumpActivity();
 		try {
+			const headers: Record<string, string> = { "Content-Type": "application/json" };
+			if (this.apiKey) {
+				headers["Authorization"] = `Bearer ${this.apiKey}`;
+			}
 			const init: RequestInit = {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers,
 				body: JSON.stringify({ events }),
 				keepalive: true,
 			};
@@ -311,9 +344,12 @@ export class UsageTracker {
 		}
 	}
 
+	private static readonly MAX_REPLAY_BUFFER = 500;
+
 	startReplay(): void {
 		if (typeof window === "undefined" || this.replayStopFn) return;
-		
+		if (this.replayInterval) return; // guard against double-start
+
 		this.isRecording = true;
 		// Ensure session is rotated if stale before we begin
 		this.checkAndRotateSession();
@@ -329,13 +365,29 @@ export class UsageTracker {
 				if (this.replayEvents.length >= 50) {
 					this.flushReplays();
 				}
+				// Hard cap: drop oldest if buffer grows too large (collector down, etc.)
+				if (this.replayEvents.length > UsageTracker.MAX_REPLAY_BUFFER) {
+					this.replayEvents = this.replayEvents.slice(-50);
+				}
 			},
+			// Privacy: mask all user input to avoid capturing PII
+			maskAllInputs: true,
+			maskInputOptions: {
+				password: true,
+				email: true,
+				tel: true,
+				text: false,
+			},
+			// Mask text in these selectors (forms, sensitive areas)
+			maskInputFn: (text: string) => "*".repeat(Math.min(text.length, 20)),
 		}) as (() => void);
 
 		this.replayInterval = setInterval(() => this.flushReplays(), 10000);
 	}
 
 	stopReplay(): void {
+		// Flush remaining events before stopping
+		this.flushReplays();
 		if (this.replayStopFn) {
 			this.replayStopFn();
 			this.replayStopFn = null;
@@ -444,12 +496,12 @@ export class UsageTracker {
 		const key = `${name}:${onceKey}`;
 		if (this.onceKeys.has(key)) return;
 		const storageKey = `${this.config.storagePrefix}_once_${key}`;
-		if (sessionStorage.getItem(storageKey)) {
+		if (typeof sessionStorage !== "undefined" && safeStorage(sessionStorage, storageKey)) {
 			this.onceKeys.add(key);
 			return;
 		}
 		this.onceKeys.add(key);
-		sessionStorage.setItem(storageKey, "1");
+		if (typeof sessionStorage !== "undefined") safeStorage(sessionStorage, storageKey, "1");
 		this.trackInteraction(name, properties);
 	}
 

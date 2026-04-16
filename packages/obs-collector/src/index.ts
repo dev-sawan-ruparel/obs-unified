@@ -1,4 +1,6 @@
-import { createTelemetryCollectorApp } from "./framework/collector";
+import { createTelemetryCollectorApp, type CollectorConfig } from "./framework/collector";
+import { createIngestAuth } from "./auth/ingest-auth";
+import { createDashboardAuth } from "./auth/dashboard-auth";
 import { aiReceiverPlugin } from "./plugins/ai-receiver";
 import { botFilterPlugin } from "./plugins/bot-filter";
 import { defaultSpanEnrichmentPlugin } from "./plugins/default-span-enrichment";
@@ -30,6 +32,9 @@ export {
 	type SpanProcessorPlugin,
 	type UsageEventProcessorPlugin,
 } from "./framework/collector";
+
+export { createIngestAuth } from "./auth/ingest-auth";
+export { createDashboardAuth } from "./auth/dashboard-auth";
 
 export {
 	aiReceiverPlugin,
@@ -77,8 +82,12 @@ export const allPlugins = [
 	replayQueryRoutesPlugin,
 ];
 
-export const createDefaultCollectorApp = (config?: {
-	auth?: import("./framework/collector").CollectorAuthConfig;
-}) => createTelemetryCollectorApp({ plugins: allPlugins, auth: config?.auth });
+export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
+	createTelemetryCollectorApp({
+		plugins: config?.plugins ?? [...allPlugins, platformRoutesPlugin],
+		auth: config?.auth,
+		allowedOrigins: config?.allowedOrigins,
+		dashboardAuth: config?.dashboardAuth,
+	});
 
 export default createTelemetryCollectorApp(allPlugins);

@@ -6,7 +6,24 @@ export const identityReceiverPlugin: CollectorPlugin = {
 	name: "identity-receiver",
 	register(app, runtime) {
 		app.post("/v1/identify", async (c) => {
-			const payload = await c.req.json<IdentifyInput>();
+			let payload: IdentifyInput;
+			try {
+				payload = await c.req.json<IdentifyInput>();
+			} catch {
+				return c.json({ error: "Invalid JSON body" }, 400);
+			}
+			if (!payload.userId || typeof payload.userId !== "string") {
+				return c.json({ error: "userId is required" }, 400);
+			}
+			if (payload.userId.length > 256) {
+				return c.json({ error: "userId too long (max 256)" }, 400);
+			}
+			if (payload.email && (typeof payload.email !== "string" || payload.email.length > 320)) {
+				return c.json({ error: "Invalid email" }, 400);
+			}
+			if (payload.name && (typeof payload.name !== "string" || payload.name.length > 256)) {
+				return c.json({ error: "Invalid name" }, 400);
+			}
 			const now = new Date().toISOString();
 
 			const propertiesJson = payload.properties

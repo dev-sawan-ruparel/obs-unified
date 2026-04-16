@@ -4,7 +4,8 @@
 	"description": "Plugin-based observability collector runtime with D1 storage",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./auth": "./src/auth/ingest-auth.ts"
 	},
 	"scripts": {
 		"type-check": "tsc --noEmit",
