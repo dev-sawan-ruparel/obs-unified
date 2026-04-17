@@ -8,8 +8,11 @@
   --color-sys-primary: #006B18;
   --color-sys-primary-container: #008821;
   --color-sys-error: #B7102A;
+  --color-sys-warning: #A56100;
+  --color-sys-accent: #17497B;
   --color-sys-on-surface: #1A1C1C;
   --color-sys-outline: #BDCBB6;
+  --color-sys-outline-soft: #E5E7E3;
   
   --font-sans: "Space Grotesk", sans-serif;
   --font-mono: "Space Grotesk", monospace; /* Enforcing tabular figures layout logic if needed */

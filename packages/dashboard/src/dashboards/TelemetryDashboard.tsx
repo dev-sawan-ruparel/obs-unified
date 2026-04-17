@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDashboard } from "../provider";
+import {
+	BarList,
+	Card,
+	SectionTitle,
+	Stat as NewStat,
+	TimeSeriesBars,
+	UpdatedChip,
+	binByInterval,
+} from "../components/primitives";
 
 // ── Types ──
 
@@ -404,6 +413,7 @@ export function TelemetryDashboard({
 			{mode === "traces" && overview && (
 				<TracesView
 					overview={overview}
+					hours={Number(hours) || 6}
 					expandedTraceId={expandedTraceId}
 					traceDetail={traceDetail}
 					expandedSpanId={expandedSpanId}
@@ -427,6 +437,7 @@ export function TelemetryDashboard({
 
 function TracesView({
 	overview,
+	hours,
 	expandedTraceId,
 	traceDetail,
 	expandedSpanId,
@@ -434,6 +445,7 @@ function TracesView({
 	onExpandSpan,
 }: {
 	overview: Overview;
+	hours: number;
 	expandedTraceId: string | null;
 	traceDetail: TraceDetail | null;
 	expandedSpanId: string | null;
@@ -441,13 +453,107 @@ function TracesView({
 	onExpandSpan: (id: string | null) => void;
 }) {
 	const s = overview.summary;
+	const bucketCount = 24;
+	const allTimes = overview.traces.map((t) => t.startTime);
+	const errorTimes = overview.traces
+		.filter((t) => t.statusCode === 2)
+		.map((t) => t.startTime);
+	const allBuckets = binByInterval(allTimes, hours * 60, bucketCount);
+	const errorBuckets = binByInterval(errorTimes, hours * 60, bucketCount);
+	const durBuckets = (() => {
+		// p95 per bucket — rough: take max within bucket as proxy for tail
+		const buckets = new Array(bucketCount).fill(0);
+		const counts = new Array(bucketCount).fill(0);
+		const windowMs = hours * 60 * 60 * 1000;
+		const start = Date.now() - windowMs;
+		for (const t of overview.traces) {
+			const ts = new Date(t.startTime).getTime();
+			if (Number.isNaN(ts) || ts < start) continue;
+			const idx = Math.min(
+				bucketCount - 1,
+				Math.floor(((ts - start) / windowMs) * bucketCount),
+			);
+			if (t.durationMs > buckets[idx]) buckets[idx] = t.durationMs;
+			counts[idx]++;
+		}
+		return buckets;
+	})();
+
+	// timeseries for the wide chart
+	const windowStart = Date.now() - hours * 60 * 60 * 1000;
+	const bucketMs = (hours * 60 * 60 * 1000) / bucketCount;
+	const timeSeries = allBuckets.map((v, i) => ({
+		t: new Date(windowStart + i * bucketMs).toISOString(),
+		v,
+	}));
+
+	const servicesItems: Array<[string, number]> = overview.services
+		.slice()
+		.sort((a, b) => b.traceCount - a.traceCount)
+		.map((svc) => [svc.serviceName, svc.traceCount]);
+	const errorServiceItems: Array<[string, number]> = overview.services
+		.filter((svc) => svc.errorTraceCount > 0)
+		.sort((a, b) => b.errorTraceCount - a.errorTraceCount)
+		.map((svc) => [svc.serviceName, svc.errorTraceCount]);
+
 	return (
 		<div className="min-h-0 flex-1 overflow-y-auto">
 			<div className="mb-2 grid grid-cols-4 gap-2">
-				<Stat label="Traces" value={s.totalTraces} />
-				<Stat label="Errors" value={s.errorTraces} cls="text-sys-error" />
-				<Stat label="Err %" value={`${(s.errorRate * 100).toFixed(1)}%`} />
-				<Stat label="P95 ms" value={Math.round(s.p95DurationMs)} />
+				<NewStat
+					label="Traces"
+					value={s.totalTraces.toLocaleString()}
+					spark={allBuckets}
+					note={`${hours}h window`}
+				/>
+				<NewStat
+					label="Errors"
+					value={s.errorTraces.toLocaleString()}
+					accent={s.errorTraces > 0 ? "error" : "default"}
+					spark={errorBuckets}
+				/>
+				<NewStat
+					label="Err rate"
+					value={`${(s.errorRate * 100).toFixed(1)}%`}
+					accent={
+						s.errorRate >= 0.1
+							? "error"
+							: s.errorRate >= 0.01
+								? "warning"
+								: "default"
+					}
+				/>
+				<NewStat
+					label="P95 ms"
+					value={Math.round(s.p95DurationMs).toLocaleString()}
+					accent="accent"
+					spark={durBuckets}
+					footer={`avg ${Math.round(s.averageDurationMs)}ms`}
+				/>
+			</div>
+
+			<Card className="mb-2 p-3">
+				<SectionTitle
+					title="Requests over time"
+					note={`${bucketCount} buckets · ${hours}h`}
+				/>
+				<TimeSeriesBars data={timeSeries} />
+			</Card>
+
+			<div className="mb-2 grid grid-cols-2 gap-2">
+				{servicesItems.length > 0 && (
+					<BarList title="Services" items={servicesItems} />
+				)}
+				{errorServiceItems.length > 0 ? (
+					<BarList
+						title="Errors by service"
+						items={errorServiceItems}
+						color="var(--color-sys-error)"
+					/>
+				) : (
+					<Card className="flex items-center justify-center p-6 text-[0.625rem] font-bold uppercase tracking-[0.1em] opacity-40">
+						No errors in window
+					</Card>
+				)}
 			</div>
 
 			<div className="bg-sys-surface p-3">

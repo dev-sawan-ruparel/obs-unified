@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApi } from "../use-api";
+import {
+	BarList as NewBarList,
+	Card,
+	SectionTitle,
+	Stat as NewStat,
+	TimeSeriesBars,
+	UpdatedChip,
+} from "../components/primitives";
 
 interface UsageOverview {
 	summary: {
@@ -97,7 +105,6 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const api = useApi();
 	const [overview, setOverview] = useState<UsageOverview | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [connStatus, setConnStatus] = useState<"connecting" | "connected" | "error">("connecting");
 	const [hours, setHours] = useState("72");
 	const [pathFilter, setPathFilter] = useState("all");
 	const [includeAdmin, setIncludeAdmin] = useState(false);
@@ -109,7 +116,6 @@ export function UsageDashboard({ onNavigate }: Props) {
 		let timer: ReturnType<typeof setTimeout> | null = null;
 
 		const load = async () => {
-			if (!cancelled) setConnStatus("connecting");
 			const qs = new URLSearchParams();
 			qs.set("hours", hours);
 			if (pathFilter !== "all") qs.set("path", pathFilter);
@@ -119,11 +125,9 @@ export function UsageDashboard({ onNavigate }: Props) {
 				if (cancelled) return;
 				setOverview(data);
 				setLoading(false);
-				setConnStatus("connected");
 			} catch (err) {
 				if (cancelled) return;
 				console.error(err);
-				setConnStatus("error");
 				setLoading(false);
 			} finally {
 				if (!cancelled) {
@@ -189,62 +193,102 @@ export function UsageDashboard({ onNavigate }: Props) {
 					/>
 					ADMIN
 				</label>
-				<div className="ml-auto flex items-center gap-2">
-					<div className="flex items-center gap-2 bg-sys-surface-low px-3 py-1">
-						<span className={`block h-[8px] w-[8px] ${connStatus === 'connected' ? 'bg-sys-primary' : connStatus === 'error' ? 'bg-sys-error' : 'bg-sys-outline'}`} />
-						<span className="text-[0.625rem] font-bold uppercase tracking-[0.05em]">
-							{connStatus}
-						</span>
-					</div>
-					<span className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
-						UPDATED {fmtTs(overview.timestamp)}
-					</span>
+				<div className="ml-auto">
+					<UpdatedChip at={overview.timestamp} />
 				</div>
 			</div>
 
 			{/* Stats */}
 			<div className="mb-2 grid grid-cols-4 xl:grid-cols-7 gap-2">
-				<Stat label="Events" value={s.totalEvents} />
-				<Stat label="Sessions" value={s.uniqueSessions} />
-				<Stat label="Visitors" value={s.uniqueVisitors} />
-				<Stat label="Views" value={s.pageViews} />
-				<Stat label="Errors" value={s.frontendErrors} cls="border-l-[4px] border-sys-error text-sys-error" />
-				<Stat label="Interactions" value={s.interactions} />
-				<Stat label="Bots" value={overview.botsFiltered} cls="opacity-60" />
+				<NewStat
+					label="Events"
+					value={s.totalEvents.toLocaleString()}
+					spark={overview.hourlyPageViews.map((b) => b.count)}
+				/>
+				<NewStat
+					label="Sessions"
+					value={s.uniqueSessions.toLocaleString()}
+					accent="accent"
+				/>
+				<NewStat
+					label="Visitors"
+					value={s.uniqueVisitors.toLocaleString()}
+					accent="accent"
+				/>
+				<NewStat
+					label="Views"
+					value={s.pageViews.toLocaleString()}
+					accent="primary"
+					spark={overview.hourlyPageViews.map((b) => b.count)}
+				/>
+				<NewStat
+					label="Errors"
+					value={s.frontendErrors.toLocaleString()}
+					accent={s.frontendErrors > 0 ? "error" : "default"}
+				/>
+				<NewStat
+					label="Interactions"
+					value={s.interactions.toLocaleString()}
+				/>
+				<NewStat
+					label="Bots"
+					value={overview.botsFiltered.toLocaleString()}
+					footer="filtered"
+				/>
 			</div>
 
 			<div className="flex-1 flex flex-col lg:flex-row gap-2 overflow-hidden">
                 {/* Left Primary Area */}
 				<div className="flex-[2.5] flex flex-col gap-2 overflow-y-auto pr-2 pb-10 min-h-0">
-					{/* Sparkline */}
-					{overview.hourlyPageViews.length > 0 && (
-						<Sparkline data={overview.hourlyPageViews} />
-					)}
+					{/* Page views over time */}
+					<Card className="p-3">
+						<SectionTitle
+							title="Page views over time"
+							note={`${overview.hourlyPageViews.length} hr buckets`}
+						/>
+						<TimeSeriesBars
+							data={overview.hourlyPageViews.map((d) => ({
+								t: d.hour,
+								v: d.count,
+							}))}
+						/>
+					</Card>
 
 					{/* Breakdowns row */}
 					<div className="grid grid-cols-4 gap-2">
 						{overview.browsers.length > 0 && (
-							<BarList
+							<NewBarList
 								title="Browsers"
-								items={overview.browsers.map((b) => [b.browser, b.count])}
+								items={overview.browsers.map(
+									(b) => [b.browser, b.count] as [string, number],
+								)}
+								color="var(--color-sys-accent)"
 							/>
 						)}
 						{overview.operatingSystems.length > 0 && (
-							<BarList
+							<NewBarList
 								title="OS"
-								items={overview.operatingSystems.map((o) => [o.os, o.count])}
+								items={overview.operatingSystems.map(
+									(o) => [o.os, o.count] as [string, number],
+								)}
+								color="var(--color-sys-accent)"
 							/>
 						)}
 						{overview.devices.length > 0 && (
-							<BarList
+							<NewBarList
 								title="Devices"
-								items={overview.devices.map((d) => [d.device, d.count])}
+								items={overview.devices.map(
+									(d) => [d.device, d.count] as [string, number],
+								)}
+								color="var(--color-sys-accent)"
 							/>
 						)}
 						{overview.countries.length > 0 && (
-							<BarList
+							<NewBarList
 								title="Countries"
-								items={overview.countries.map((c) => [c.country, c.count])}
+								items={overview.countries.map(
+									(c) => [c.country, c.count] as [string, number],
+								)}
 							/>
 						)}
 					</div>
@@ -254,24 +298,27 @@ export function UsageDashboard({ onNavigate }: Props) {
 						overview.utmMediums.length > 0) && (
 						<div className="grid grid-cols-3 gap-2">
 							{overview.utmSources.length > 0 && (
-								<BarList
+								<NewBarList
 									title="UTM Source"
-									items={overview.utmSources.map((u) => [u.source, u.count])}
+									items={overview.utmSources.map(
+										(u) => [u.source, u.count] as [string, number],
+									)}
 								/>
 							)}
 							{overview.utmMediums.length > 0 && (
-								<BarList
+								<NewBarList
 									title="UTM Medium"
-									items={overview.utmMediums.map((u) => [u.medium, u.count])}
+									items={overview.utmMediums.map(
+										(u) => [u.medium, u.count] as [string, number],
+									)}
 								/>
 							)}
 							{overview.utmCampaigns.length > 0 && (
-								<BarList
+								<NewBarList
 									title="UTM Campaign"
-									items={overview.utmCampaigns.map((u) => [
-										u.campaign,
-										u.count,
-									])}
+									items={overview.utmCampaigns.map(
+										(u) => [u.campaign, u.count] as [string, number],
+									)}
 								/>
 							)}
 						</div>
@@ -299,8 +346,16 @@ export function UsageDashboard({ onNavigate }: Props) {
 										className="group transition-none hover:bg-sys-surface-high"
 									>
 										<td className="pr-4 py-1.5 font-medium">
-											{p.path}
-											{p.title && <span className="ml-3 font-normal opacity-60 text-[0.75rem]">{p.title}</span>}
+											<div className="flex flex-col gap-0.5 min-w-0">
+												<span className="font-mono text-[0.75rem] font-bold truncate">
+													{p.path}
+												</span>
+												{p.title && (
+													<span className="font-normal opacity-60 text-[0.625rem] truncate">
+														{p.title}
+													</span>
+												)}
+											</div>
 										</td>
 										<td className="px-2 py-1.5 text-right font-mono">{p.views}</td>
 										<td className="px-2 py-1.5 text-right font-mono">{p.uniqueSessions}</td>
@@ -411,85 +466,6 @@ export function UsageDashboard({ onNavigate }: Props) {
 						))}
 					</div>
 				</div>
-			</div>
-		</div>
-	);
-}
-
-function Stat({
-	label,
-	value,
-	cls,
-}: {
-	label: string;
-	value: number;
-	cls?: string;
-}) {
-	return (
-		<div className="flex flex-col justify-center">
-			<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
-				{label}
-			</p>
-			<p className={`m-0 font-mono text-3xl font-light tracking-tight ${cls ?? ""}`}>
-				{value}
-			</p>
-		</div>
-	);
-}
-
-function BarList({
-	title,
-	items,
-}: {
-	title: string;
-	items: [string, number][];
-}) {
-	const max = Math.max(...items.map(([, v]) => v), 1);
-	return (
-		<div className="bg-sys-surface p-2">
-			<p className="m-0 mb-2 text-[0.75rem] font-bold uppercase tracking-[0.05em]">
-				{title}
-			</p>
-			<div className="space-y-4">
-				{items.map(([label, value]) => (
-					<div key={label} className="group">
-						<div className="flex justify-between text-[0.75rem] font-bold mb-1.5">
-							<span className="truncate pr-2">{label}</span>
-							<span className="font-mono opacity-80">{value}</span>
-						</div>
-						<div className="h-[4px] w-full bg-sys-surface-low">
-							<div
-								className="h-full bg-sys-primary transition-all duration-0"
-								style={{ width: `${(value / max) * 100}%` }}
-							/>
-						</div>
-					</div>
-				))}
-			</div>
-		</div>
-	);
-}
-
-function Sparkline({ data }: { data: Array<{ hour: string; count: number }> }) {
-	const max = Math.max(...data.map((d) => d.count), 1);
-	return (
-		<div className="bg-sys-surface p-3">
-			<p className="m-0 mb-2 text-[0.875rem] font-bold uppercase tracking-[0.05em]">
-				Page Views Over Time
-			</p>
-			<div className="flex h-24 items-end gap-[1px]">
-				{data.map((d) => (
-					<div
-						key={d.hour}
-						className="group relative flex-1 min-w-[2px]"
-						title={`${new Date(d.hour).toLocaleString()}: ${d.count}`}
-					>
-						<div
-							className="w-full bg-sys-primary opacity-50 group-hover:opacity-100 transition-none"
-							style={{ height: `${Math.max(2, (d.count / max) * 96)}px` }}
-						/>
-					</div>
-				))}
 			</div>
 		</div>
 	);
