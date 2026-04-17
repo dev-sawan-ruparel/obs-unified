@@ -11,15 +11,15 @@ import "./index.css";
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
 		<AnalyticsProvider
-			collectorUrl="http://localhost:8790"
-			apiKey=""
+			collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL ?? "http://localhost:8790"}
+			apiKey={import.meta.env.VITE_OBS_INGEST_KEY ?? ""}
 			debug={true}
 			trackPageViews={true}
 			captureErrors={true}
 			trackOutboundLinks={true}
 			storagePrefix="obs_demo"
 		>
-			<ObsDashboardProvider basePath="/api/admin">
+			<ObsDashboardProvider basePath="/internal">
 				<AnalyticsErrorBoundary
 					context="App"
 					fallback={
