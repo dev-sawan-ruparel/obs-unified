@@ -3,6 +3,7 @@ node_modules
 
 # cloudflare workers local state
 .wrangler
+.dev.vars
 
 # build outputs
 dist

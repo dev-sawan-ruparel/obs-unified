@@ -167,29 +167,28 @@ export const createTelemetryCollectorApp = (
 		}
 	});
 
-	// Auth middleware
+	// Ingest auth (API key) — always on /v1/* when configured.
 	if (config.auth?.middleware) {
-		// Unified auth for both ingest and query routes
 		app.use("/v1/*", config.auth.middleware);
-		app.use("/internal/*", config.auth.middleware);
-	} else {
-		// Legacy: separate ingest/query auth
-		if (config.auth?.ingest) {
-			app.use("/v1/*", config.auth.ingest);
-		}
-		if (config.auth?.query) {
-			app.use("/internal/*", config.auth.query);
-		}
+	} else if (config.auth?.ingest) {
+		// Legacy: explicit ingest-only middleware
+		app.use("/v1/*", config.auth.ingest);
 	}
 
-	// Dashboard auth routes (login, check, logout) — before dashboard middleware
+	// Dashboard auth (session cookie) — owns /internal/* when configured.
+	// Routes for login/check/logout are always registered so the dashboard
+	// can authenticate regardless of subsequent middleware placement.
 	if (config.dashboardAuth) {
 		config.dashboardAuth.registerRoutes(app);
 		app.use("/dashboard/*", config.dashboardAuth.middleware);
-		// Dashboard API queries also protected by dashboard session
-		if (!config.auth?.middleware && !config.auth?.query) {
-			app.use("/internal/*", config.dashboardAuth.middleware);
-		}
+		app.use("/internal/*", config.dashboardAuth.middleware);
+	} else if (config.auth?.middleware) {
+		// No dashboard auth configured — fall back to applying the unified
+		// ingest auth to /internal/* too, preserving the earlier single-auth
+		// contract for deployments that haven't adopted dashboard auth yet.
+		app.use("/internal/*", config.auth.middleware);
+	} else if (config.auth?.query) {
+		app.use("/internal/*", config.auth.query);
 	}
 
 	for (const plugin of config.plugins) {
