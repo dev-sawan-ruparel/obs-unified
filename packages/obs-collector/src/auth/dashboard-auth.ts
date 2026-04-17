@@ -1,8 +1,33 @@
 import type { CollectorEnv } from "@obs/types";
 import type { MiddlewareHandler } from "hono";
+import { ProjectsStore } from "../lib/projects-store";
 
 const SESSION_COOKIE = "obs_session";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
+const PROJECT_CACHE_TTL_MS = 30_000;
+
+interface ProjectCacheEntry {
+	ids: Set<string>;
+	expiresAt: number;
+}
+
+let projectCache: ProjectCacheEntry | null = null;
+
+async function knownProjectIds(db: D1Database, now: number): Promise<Set<string>> {
+	if (projectCache && projectCache.expiresAt > now) {
+		return projectCache.ids;
+	}
+	const store = new ProjectsStore(db);
+	const projects = await store.listProjects();
+	const ids = new Set(projects.map((p) => p.id));
+	projectCache = { ids, expiresAt: now + PROJECT_CACHE_TTL_MS };
+	return ids;
+}
+
+/** Test helper — clears the project list cache. */
+export function resetDashboardProjectCache(): void {
+	projectCache = null;
+}
 
 /**
  * Sign a payload using HMAC-SHA256.
@@ -68,15 +93,18 @@ function getCookie(
  * The returned middleware validates the session cookie on protected routes.
  */
 export function createDashboardAuth(config: { password: string }): {
-	middleware: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+	middleware: MiddlewareHandler<{
+		Bindings: CollectorEnv;
+		Variables: { projectId: string };
+	}>;
 	registerRoutes: (
 		app: import("hono").Hono<{ Bindings: CollectorEnv }>,
 	) => void;
 } {
-	const middleware: MiddlewareHandler<{ Bindings: CollectorEnv }> = async (
-		c,
-		next,
-	) => {
+	const middleware: MiddlewareHandler<{
+		Bindings: CollectorEnv;
+		Variables: { projectId: string };
+	}> = async (c, next) => {
 		if (!config.password) {
 			return c.json(
 				{
@@ -116,6 +144,25 @@ export function createDashboardAuth(config: { password: string }): {
 		const token = parseSessionToken(payload);
 		if (!token || token.exp < Math.floor(Date.now() / 1000)) {
 			return c.json({ error: "Session expired" }, 401);
+		}
+
+		// Resolve project for data-scoped routes. /internal/projects/* is exempt
+		// because that's where projects are managed (and where the first
+		// project is created before the user has selected anything).
+		const path = c.req.path;
+		const needsProject =
+			path.startsWith("/internal/") && !path.startsWith("/internal/projects");
+
+		if (needsProject) {
+			const headerProject = c.req.header("X-Project-Id");
+			const projectId = headerProject?.trim() || "default";
+			const known = await knownProjectIds(c.env.DB, Date.now());
+			// Always allow 'default' so fresh installs don't 400 before any
+			// project is seeded (ensure_default_project runs via migration).
+			if (projectId !== "default" && !known.has(projectId)) {
+				return c.json({ error: `Unknown project: ${projectId}` }, 400);
+			}
+			c.set("projectId", projectId);
 		}
 
 		await next();

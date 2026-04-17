@@ -97,6 +97,7 @@ export interface OtlpTraceExportRequest {
 // ── Stored Span ──
 
 export interface StoredSpan {
+	projectId: string;
 	traceId: string;
 	spanId: string;
 	parentSpanId: string | null;
@@ -141,6 +142,7 @@ export interface ServiceSummaryRow {
 }
 
 export interface SpanDetailRow {
+	project_id: string;
 	trace_id: string;
 	span_id: string;
 	parent_span_id: string | null;
@@ -164,6 +166,7 @@ export interface SpanDetailRow {
 // ── Telemetry Overview ──
 
 export interface TelemetryOverviewOptions {
+	projectId: string;
 	hours: number;
 	service?: string;
 	status?: "all" | "ok" | "error";
@@ -248,6 +251,7 @@ export type TelemetryIssueCategory = "error" | "latency" | "dependency";
 export type TelemetryIssueSeverity = "critical" | "high" | "medium" | "low";
 
 export interface TelemetryIssueOptions {
+	projectId: string;
 	hours: number;
 	service?: string;
 	category?: TelemetryIssueCategory | "all";
@@ -359,6 +363,7 @@ export interface UsageEventPayload {
 }
 
 export interface UsageEventRecord {
+	projectId: string;
 	eventId: string;
 	sessionId: string;
 	visitorId: string;
@@ -386,6 +391,7 @@ export interface UsageEventRecord {
 }
 
 export interface UsageEventRow {
+	project_id: string;
 	event_id: string;
 	session_id: string;
 	visitor_id: string;
@@ -412,6 +418,7 @@ export interface UsageEventRow {
 }
 
 export interface UsageOverviewOptions {
+	projectId: string;
 	hours: number;
 	path?: string;
 	includeAdmin?: boolean;
@@ -557,6 +564,7 @@ export interface LogPayload {
 }
 
 export interface LogRecord {
+	projectId: string;
 	logId: string;
 	traceId: string | null;
 	spanId: string | null;
@@ -572,6 +580,7 @@ export interface LogRecord {
 }
 
 export interface LogRow {
+	project_id: string;
 	log_id: string;
 	trace_id: string | null;
 	span_id: string | null;
@@ -586,6 +595,7 @@ export interface LogRow {
 }
 
 export interface LogsOverviewOptions {
+	projectId: string;
 	hours: number;
 	service?: string;
 	severity?: LogSeverity;
@@ -636,6 +646,7 @@ export interface AICallPayload {
 }
 
 export interface AICallRecord {
+	projectId: string;
 	callId: string;
 	traceId: string | null;
 	spanId: string | null;
@@ -657,6 +668,7 @@ export interface AICallRecord {
 }
 
 export interface AICallRow {
+	project_id: string;
 	call_id: string;
 	trace_id: string | null;
 	span_id: string | null;
@@ -677,6 +689,7 @@ export interface AICallRow {
 }
 
 export interface AICallsOverviewOptions {
+	projectId: string;
 	hours: number;
 	service?: string;
 	model?: string;
@@ -709,6 +722,7 @@ export interface IdentifyInput {
 }
 
 export interface UserProfileRow {
+	project_id: string;
 	user_id: string;
 	visitor_id: string;
 	email: string | null;
@@ -738,6 +752,7 @@ export interface ReplayChunkInput {
 }
 
 export interface SessionReplayMetadataRow {
+	project_id: string;
 	session_id: string;
 	visitor_id: string;
 	first_chunk_at: string;
@@ -745,4 +760,167 @@ export interface SessionReplayMetadataRow {
 	chunk_count: number;
 	events_count: number;
 	storage_bytes: number;
+}
+
+// ── Projects & Ingest Keys ──
+
+export interface Project {
+	id: string;
+	name: string;
+	slug: string;
+	createdAt: string;
+}
+
+export interface ProjectRow {
+	id: string;
+	name: string;
+	slug: string;
+	created_at: string;
+}
+
+export interface IngestKey {
+	id: string;
+	projectId: string;
+	name: string;
+	keyPrefix: string;
+	createdAt: string;
+	revokedAt: string | null;
+}
+
+export interface IngestKeyRow {
+	id: string;
+	project_id: string;
+	key_hash: string;
+	key_prefix: string;
+	name: string;
+	created_at: string;
+	revoked_at: string | null;
+}
+
+/** Response from POST /internal/projects/:id/keys — plaintext key is returned exactly once */
+export interface IngestKeyWithPlaintext extends IngestKey {
+	key: string;
+	warning: string;
+}
+
+// ── Alerts ──
+
+export type AlertSignal = "spans" | "logs" | "usage" | "ai";
+export type AlertComparison = ">" | ">=" | "<" | "<=";
+export type AlertState = "ok" | "firing";
+
+export interface AlertQuerySpans {
+	serviceName?: string;
+	statusCode?: "error" | "ok";
+	spanName?: string;
+}
+
+export interface AlertQueryLogs {
+	serviceName?: string;
+	severity?: LogSeverity;
+}
+
+export interface AlertQueryUsage {
+	eventName?: string;
+	pathPattern?: string;
+}
+
+export interface AlertQueryAI {
+	provider?: string;
+	model?: string;
+	isError?: true;
+}
+
+export type AlertQuery =
+	| AlertQuerySpans
+	| AlertQueryLogs
+	| AlertQueryUsage
+	| AlertQueryAI;
+
+export interface AlertWebhookChannel {
+	type: "webhook";
+	url: string;
+	headers?: Record<string, string>;
+}
+
+export type AlertChannel = AlertWebhookChannel;
+
+export interface AlertRule {
+	id: string;
+	projectId: string;
+	name: string;
+	signal: AlertSignal;
+	query: AlertQuery;
+	threshold: number;
+	windowMins: number;
+	comparison: AlertComparison;
+	channels: AlertChannel[];
+	enabled: boolean;
+	createdAt: string;
+	updatedAt: string;
+	/** Current state (derived from alert_state table when listed) */
+	currentState?: AlertState;
+	/** Last state change time (derived) */
+	lastStateChange?: string | null;
+}
+
+export interface AlertRuleRow {
+	id: string;
+	project_id: string;
+	name: string;
+	signal: AlertSignal;
+	query_json: string;
+	threshold: number;
+	window_mins: number;
+	comparison: AlertComparison;
+	channels_json: string;
+	enabled: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AlertEvaluation {
+	id: string;
+	ruleId: string;
+	projectId: string;
+	evaluatedAt: string;
+	value: number;
+	state: AlertState;
+	notified: boolean;
+}
+
+export interface AlertEvaluationRow {
+	id: string;
+	rule_id: string;
+	project_id: string;
+	evaluated_at: string;
+	value: number;
+	state: AlertState;
+	notified: number;
+}
+
+export interface AlertStateRow {
+	rule_id: string;
+	project_id: string;
+	current_state: AlertState;
+	last_state_change: string;
+}
+
+export interface AlertTestResponse {
+	value: number;
+	wouldFire: boolean;
+	comparison: AlertComparison;
+	threshold: number;
+}
+
+/** Input shape for creating/updating an alert rule */
+export interface AlertRuleInput {
+	name: string;
+	signal: AlertSignal;
+	query: AlertQuery;
+	threshold: number;
+	windowMins: number;
+	comparison: AlertComparison;
+	channels: AlertChannel[];
+	enabled?: boolean;
 }

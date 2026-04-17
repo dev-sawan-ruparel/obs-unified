@@ -11,6 +11,7 @@ import {
 } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { retentionExpiry } from "../lib/otlp";
+import { getProjectId } from "./_context";
 
 const sanitizeIsoTimestamp = (value?: string): string => {
 	if (!value) return new Date().toISOString();
@@ -25,8 +26,10 @@ const toUsageRecord = (
 	userAgent: string | null,
 	country: string | null,
 	receivedAt: Date,
+	projectId: string,
 	retentionHours?: number,
 ): UsageEventRecord => ({
+	projectId,
 	eventId: crypto.randomUUID(),
 	sessionId: input.sessionId,
 	visitorId: input.visitorId,
@@ -60,6 +63,7 @@ export const usageReceiverPlugin: CollectorPlugin = {
 		// No per-route CORS needed here.
 
 		app.post("/v1/usage", async (c) => {
+			const projectId = getProjectId(c);
 			let payload: UsageEventPayload;
 			try {
 				payload = await c.req.json<UsageEventPayload>();
@@ -88,6 +92,7 @@ export const usageReceiverPlugin: CollectorPlugin = {
 					c.req.header("User-Agent") || null,
 					country,
 					receivedAt,
+					projectId,
 					retentionHours,
 				),
 			);

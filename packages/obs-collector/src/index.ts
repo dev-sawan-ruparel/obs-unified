@@ -21,6 +21,12 @@ import { usersQueryRoutesPlugin } from "./plugins/users-query-routes";
 import { replayReceiverPlugin } from "./plugins/replay-receiver";
 import { replayQueryRoutesPlugin } from "./plugins/replay-query-routes";
 import { platformRoutesPlugin } from "./plugins/platform-routes";
+import { projectsRoutesPlugin } from "./plugins/projects-routes";
+import { alertsRoutesPlugin } from "./plugins/alerts-routes";
+import {
+	createAlertEvaluatorHandler,
+	evaluateAllRules,
+} from "./plugins/alerts-evaluator";
 
 export {
 	type CollectorAuthConfig,
@@ -57,7 +63,14 @@ export {
 	replayReceiverPlugin,
 	replayQueryRoutesPlugin,
 	platformRoutesPlugin,
+	projectsRoutesPlugin,
+	alertsRoutesPlugin,
+	createAlertEvaluatorHandler,
+	evaluateAllRules,
 };
+
+export { ProjectsStore } from "./lib/projects-store";
+export { AlertsStore, compareValue } from "./lib/alerts-store";
 
 /** All built-in plugins in recommended registration order */
 export const allPlugins = [
@@ -76,10 +89,12 @@ export const allPlugins = [
 	identityReceiverPlugin,
 	replayReceiverPlugin,
 	issueInsightsPlugin,
+	projectsRoutesPlugin,
 	queryRoutesPlugin,
 	usageQueryRoutesPlugin,
 	usersQueryRoutesPlugin,
 	replayQueryRoutesPlugin,
+	alertsRoutesPlugin,
 ];
 
 export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>

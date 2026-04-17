@@ -1,16 +1,17 @@
-import { Hono } from "hono";
 import type { CollectorPlugin } from "../framework/collector";
 import type { UserProfileRow, UserProfileDetail } from "@obs/types";
+import { getProjectId } from "./_context";
 
 export const usersQueryRoutesPlugin: CollectorPlugin = {
 	name: "users-query-routes",
-	register(app, runtime) {
+	register(app) {
 		app.get("/internal/users", async (c) => {
+			const projectId = getProjectId(c);
 			const limit = Math.max(1, Math.min(1000, parseInt(c.req.query("limit") ?? "50", 10) || 50));
 			const { results } = await c.env.DB.prepare(
-				`SELECT * FROM user_profiles ORDER BY last_seen_at DESC LIMIT ?`
+				`SELECT * FROM user_profiles WHERE project_id = ? ORDER BY last_seen_at DESC LIMIT ?`,
 			)
-				.bind(limit)
+				.bind(projectId, limit)
 				.all<UserProfileRow>();
 
 			const users: UserProfileDetail[] = results.map((row) => ({
@@ -27,11 +28,12 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.get("/internal/users/:userId", async (c) => {
+			const projectId = getProjectId(c);
 			const userId = c.req.param("userId");
 			const user = await c.env.DB.prepare(
-				`SELECT * FROM user_profiles WHERE user_id = ?`
+				`SELECT * FROM user_profiles WHERE project_id = ? AND user_id = ?`,
 			)
-				.bind(userId)
+				.bind(projectId, userId)
 				.first<UserProfileRow>();
 
 			if (!user) {

@@ -1,11 +1,13 @@
 import type { AICallPayload, AICallRecord } from "@obs/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { AIStore } from "../lib/ai-store";
+import { getProjectId } from "./_context";
 
 export const aiReceiverPlugin: CollectorPlugin = {
 	name: "ai-receiver",
 	register(app, runtime) {
 		app.post("/v1/ai", async (c) => {
+			const projectId = getProjectId(c);
 			let payload: AICallPayload;
 			try {
 				payload = await c.req.json<AICallPayload>();
@@ -28,6 +30,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 			).toISOString();
 
 			const records: AICallRecord[] = payload.calls.map((call) => ({
+				projectId,
 				callId: crypto.randomUUID(),
 				traceId: call.traceId || null,
 				spanId: call.spanId || null,
@@ -54,11 +57,13 @@ export const aiReceiverPlugin: CollectorPlugin = {
 		});
 
 		app.get("/internal/ai/overview", async (c) => {
+			const projectId = getProjectId(c);
 			const store = new AIStore(c.env.DB);
 			const query = c.req.query();
 			const hours = parseInt(query.hours || "24", 10);
 
 			const response = await store.getAICalls({
+				projectId,
 				hours,
 				service: query.service,
 				model: query.model,

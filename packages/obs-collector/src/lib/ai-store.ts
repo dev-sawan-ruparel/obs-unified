@@ -19,14 +19,17 @@ export class AIStore {
 
 		const stmt = this.db.prepare(`
       INSERT INTO ai_calls (
-        call_id, trace_id, span_id, service_name, model_name, provider, call_type,
+        project_id, call_id, trace_id, span_id, service_name, model_name, provider, call_type,
         request_json, response_json, prompt_tokens, completion_tokens, total_cost_usd,
         latency_ms, is_error, error_message, occurred_at, received_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-		const batch = calls.map((c) =>
-			stmt.bind(
+		const batch = calls.map((c) => {
+			if (!c.projectId)
+				throw new Error("AIStore.ingestBatch: call.projectId is required");
+			return stmt.bind(
+				c.projectId,
 				c.callId,
 				c.traceId,
 				c.spanId,
@@ -45,8 +48,8 @@ export class AIStore {
 				c.occurredAt,
 				c.receivedAt,
 				c.expiresAt,
-			),
-		);
+			);
+		});
 
 		await this.db.batch(batch);
 	}
@@ -54,11 +57,13 @@ export class AIStore {
 	async getAICalls(
 		options: AICallsOverviewOptions,
 	): Promise<AICallsOverviewResponse> {
+		if (!options.projectId)
+			throw new Error("AIStore.getAICalls: projectId is required");
 		const hours = clampInt(options.hours, 1, 720, 24);
 		const limit = clampInt(options.limit, 1, 1000, 100);
 
-		let sql = `SELECT * FROM ai_calls WHERE received_at >= datetime('now', '-' || ? || ' hours')`;
-		const params: unknown[] = [hours];
+		let sql = `SELECT * FROM ai_calls WHERE project_id = ? AND received_at >= datetime('now', '-' || ? || ' hours')`;
+		const params: unknown[] = [options.projectId, hours];
 
 		if (options.service) {
 			sql += ` AND service_name = ?`;
@@ -92,10 +97,10 @@ export class AIStore {
         SUM(prompt_tokens) as totalPromptTokens,
         SUM(completion_tokens) as totalCompletionTokens,
         SUM(is_error) as errorCalls
-      FROM ai_calls WHERE received_at >= datetime('now', '-' || ? || ' hours')
+      FROM ai_calls WHERE project_id = ? AND received_at >= datetime('now', '-' || ? || ' hours')
       ${options.service ? "AND service_name = ?" : ""}
     `;
-		const summaryParams: unknown[] = [hours];
+		const summaryParams: unknown[] = [options.projectId, hours];
 		if (options.service) summaryParams.push(options.service);
 		const summaryResult =
 			(await this.db
@@ -103,7 +108,8 @@ export class AIStore {
 				.bind(...summaryParams)
 				.first<any>()) || {};
 
-		const calls = (results.results || []).map((r) => ({
+		const calls: AICallRecord[] = (results.results || []).map((r) => ({
+			projectId: r.project_id ?? "default",
 			callId: r.call_id,
 			traceId: r.trace_id,
 			spanId: r.span_id,

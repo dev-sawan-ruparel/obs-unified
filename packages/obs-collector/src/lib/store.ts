@@ -29,6 +29,7 @@ import { parseJsonArray, parseJsonRecord } from "./json";
 
 /** Map D1 snake_case row to camelCase StoredSpan */
 const rowToSpan = (row: Record<string, unknown>): StoredSpan => ({
+	projectId: (row.project_id as string) ?? "default",
 	traceId: row.trace_id as string,
 	spanId: row.span_id as string,
 	parentSpanId: (row.parent_span_id as string) ?? null,
@@ -374,18 +375,21 @@ export class TelemetryStore {
 	): Promise<{ inserted: number; traceCount: number }> {
 		if (spans.length === 0) return { inserted: 0, traceCount: 0 };
 
-		const statements = spans.map((span) =>
-			this.db
+		const statements = spans.map((span) => {
+			if (!span.projectId)
+				throw new Error("TelemetryStore.ingest: span.projectId is required");
+			return this.db
 				.prepare(`
         INSERT OR IGNORE INTO telemetry_spans (
-          trace_id, span_id, parent_span_id, service_name, scope_name,
+          project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
           scope_version, span_name, span_kind, status_code, status_message,
           start_time, end_time, duration_ms, attributes_json,
           resource_attributes_json, events_json, links_json,
           received_at, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 				.bind(
+					span.projectId,
 					span.traceId,
 					span.spanId,
 					span.parentSpanId,
@@ -405,8 +409,8 @@ export class TelemetryStore {
 					span.linksJson,
 					span.receivedAt,
 					span.expiresAt,
-				),
-		);
+				);
+		});
 
 		await this.db.batch(statements);
 		return {
@@ -418,10 +422,12 @@ export class TelemetryStore {
 	async getOverview(
 		options: TelemetryOverviewOptions,
 	): Promise<TelemetryOverviewResponse> {
+		if (!options.projectId)
+			throw new Error("TelemetryStore.getOverview: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const traceLimit = options.limit ?? 30;
-		let whereClause = "WHERE received_at >= ?";
-		const binds: unknown[] = [cutoff];
+		let whereClause = "WHERE project_id = ? AND received_at >= ?";
+		const binds: unknown[] = [options.projectId, cutoff];
 
 		if (options.service) {
 			whereClause += " AND service_name = ?";
@@ -438,7 +444,7 @@ export class TelemetryStore {
 		binds.push(traceLimit * 50);
 		const result = await this.db
 			.prepare(`
-      SELECT trace_id, span_id, parent_span_id, service_name, scope_name,
+      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
              scope_version, span_name, span_kind, status_code, status_message,
              start_time, end_time, duration_ms, attributes_json,
              resource_attributes_json, events_json, links_json,
@@ -548,19 +554,22 @@ export class TelemetryStore {
 
 	async getTraceDetail(
 		traceId: string,
+		projectId: string,
 	): Promise<TelemetryTraceDetailResponse | null> {
+		if (!projectId)
+			throw new Error("TelemetryStore.getTraceDetail: projectId is required");
 		const result = await this.db
 			.prepare(`
-      SELECT trace_id, span_id, parent_span_id, service_name, scope_name,
+      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
              scope_version, span_name, span_kind, status_code, status_message,
              start_time, end_time, duration_ms, attributes_json,
              resource_attributes_json, events_json, links_json,
              received_at, expires_at
       FROM telemetry_spans
-      WHERE trace_id = ?
+      WHERE project_id = ? AND trace_id = ?
       ORDER BY start_time ASC, span_id ASC
     `)
-			.bind(traceId)
+			.bind(projectId, traceId)
 			.all<SpanDetailRow>();
 
 		const rows = result.results ?? [];
@@ -614,10 +623,12 @@ export class TelemetryStore {
 	async getIssueOverview(
 		options: TelemetryIssueOptions,
 	): Promise<TelemetryIssueOverviewResponse> {
+		if (!options.projectId)
+			throw new Error("TelemetryStore.getIssueOverview: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const issueLimit = options.limit ?? 50;
-		let whereClause = "WHERE received_at >= ?";
-		const binds: unknown[] = [cutoff];
+		let whereClause = "WHERE project_id = ? AND received_at >= ?";
+		const binds: unknown[] = [options.projectId, cutoff];
 		if (options.service) {
 			whereClause += " AND service_name = ?";
 			binds.push(options.service);
@@ -626,7 +637,7 @@ export class TelemetryStore {
 
 		const result = await this.db
 			.prepare(`
-      SELECT trace_id, span_id, parent_span_id, service_name, scope_name,
+      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
              scope_version, span_name, span_kind, status_code, status_message,
              start_time, end_time, duration_ms, attributes_json,
              resource_attributes_json, events_json, links_json,
@@ -723,9 +734,11 @@ export class TelemetryStore {
 		issueId: string,
 		options: TelemetryIssueOptions,
 	): Promise<TelemetryIssueDetailResponse | null> {
+		if (!options.projectId)
+			throw new Error("TelemetryStore.getIssueDetail: projectId is required");
 		const cutoff = cutoffIso(options.hours);
-		let whereClause = "WHERE received_at >= ?";
-		const binds: unknown[] = [cutoff];
+		let whereClause = "WHERE project_id = ? AND received_at >= ?";
+		const binds: unknown[] = [options.projectId, cutoff];
 		if (options.service) {
 			whereClause += " AND service_name = ?";
 			binds.push(options.service);
@@ -734,7 +747,7 @@ export class TelemetryStore {
 
 		const result = await this.db
 			.prepare(`
-      SELECT trace_id, span_id, parent_span_id, service_name, scope_name,
+      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
              scope_version, span_name, span_kind, status_code, status_message,
              start_time, end_time, duration_ms, attributes_json,
              resource_attributes_json, events_json, links_json,
@@ -781,10 +794,12 @@ export class TelemetryStore {
 
 	/** NDJSON export (from D) */
 	async getExportRows(options: TelemetryOverviewOptions): Promise<string> {
+		if (!options.projectId)
+			throw new Error("TelemetryStore.getExportRows: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const now = new Date().toISOString();
-		let whereClause = "WHERE received_at > ? AND expires_at > ?";
-		const params: unknown[] = [cutoff, now];
+		let whereClause = "WHERE project_id = ? AND received_at > ? AND expires_at > ?";
+		const params: unknown[] = [options.projectId, cutoff, now];
 
 		if (options.service) {
 			whereClause += " AND service_name = ?";

@@ -4,11 +4,13 @@ import type { OtlpTraceExportRequest } from "@obs/types";
 import { getConfiguredRetentionHours } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { toStoredSpans } from "../lib/otlp";
+import { getProjectId } from "./_context";
 
 export const otlpReceiverPlugin: CollectorPlugin = {
 	name: "otlp-http-receiver",
 	register(app, runtime) {
 		app.post("/v1/traces", async (c) => {
+			const projectId = getProjectId(c);
 			const routeContext = runtime.createRouteContext(c.env, c);
 			let payload: OtlpTraceExportRequest;
 			try {
@@ -34,6 +36,7 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 			}
 			const parsedSpans = toStoredSpans(
 				payload,
+				projectId,
 				routeContext.now,
 				getConfiguredRetentionHours(c.env.RETENTION_HOURS),
 			);

@@ -4,11 +4,13 @@ import {
 	getConfiguredRetentionHours,
 } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { getProjectId } from "./_context";
 
 export const queryRoutesPlugin: CollectorPlugin = {
 	name: "query-routes",
 	register(app, runtime) {
 		app.get("/internal/telemetry/overview", async (c) => {
+			const projectId = getProjectId(c);
 			const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
 			const hours = Math.min(
 				maxHours,
@@ -29,6 +31,7 @@ export const queryRoutesPlugin: CollectorPlugin = {
 
 			const store = runtime.createStore(c.env);
 			const overview = await store.getOverview({
+				projectId,
 				hours,
 				service,
 				status,
@@ -42,8 +45,9 @@ export const queryRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.get("/internal/telemetry/traces/:traceId", async (c) => {
+			const projectId = getProjectId(c);
 			const store = runtime.createStore(c.env);
-			const detail = await store.getTraceDetail(c.req.param("traceId"));
+			const detail = await store.getTraceDetail(c.req.param("traceId"), projectId);
 			if (!detail)
 				return c.json({ error: "Not Found", message: "Trace not found" }, 404);
 			return c.json({ ...detail, plugins: runtime.getRegisteredPluginNames() });
@@ -51,6 +55,7 @@ export const queryRoutesPlugin: CollectorPlugin = {
 
 		// NDJSON export (from D)
 		app.get("/internal/telemetry/export", async (c) => {
+			const projectId = getProjectId(c);
 			const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
 			const hours = Math.min(
 				maxHours,
@@ -70,6 +75,7 @@ export const queryRoutesPlugin: CollectorPlugin = {
 
 			const store = runtime.createStore(c.env);
 			const ndjson = await store.getExportRows({
+				projectId,
 				hours,
 				service,
 				status,

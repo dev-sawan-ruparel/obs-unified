@@ -90,18 +90,21 @@ export class UsageStore {
 	): Promise<{ inserted: number; sessionCount: number }> {
 		if (events.length === 0) return { inserted: 0, sessionCount: 0 };
 
-		const statements = events.map((event) =>
-			this.db
+		const statements = events.map((event) => {
+			if (!event.projectId)
+				throw new Error("UsageStore.ingest: event.projectId is required");
+			return this.db
 				.prepare(`
         INSERT OR IGNORE INTO usage_events (
-          event_id, session_id, visitor_id, event_type, event_name,
+          project_id, event_id, session_id, visitor_id, event_type, event_name,
           page_path, page_title, referrer, severity, source,
           context_json, properties_json, user_agent, occurred_at,
           received_at, expires_at, country, browser, os,
           device_type, is_bot, utm_source, utm_medium, utm_campaign
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 				.bind(
+					event.projectId,
 					event.eventId,
 					event.sessionId,
 					event.visitorId,
@@ -126,8 +129,8 @@ export class UsageStore {
 					event.utmSource,
 					event.utmMedium,
 					event.utmCampaign,
-				),
-		);
+				);
+		});
 
 		await this.db.batch(statements);
 		return {
@@ -139,20 +142,22 @@ export class UsageStore {
 	async getOverview(
 		options: UsageOverviewOptions,
 	): Promise<UsageOverviewResponse> {
+		if (!options.projectId)
+			throw new Error("UsageStore.getOverview: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const result = await this.db
 			.prepare(`
-      SELECT event_id, session_id, visitor_id, event_type, event_name,
+      SELECT project_id, event_id, session_id, visitor_id, event_type, event_name,
              page_path, page_title, referrer, severity, source,
              context_json, properties_json, user_agent, occurred_at,
              received_at, country, browser, os, device_type, is_bot,
              utm_source, utm_medium, utm_campaign
       FROM usage_events
-      WHERE occurred_at >= ?
+      WHERE project_id = ? AND occurred_at >= ?
       ORDER BY occurred_at DESC
       LIMIT 10000
     `)
-			.bind(cutoff)
+			.bind(options.projectId, cutoff)
 			.all<UsageEventRow>();
 
 		const rows = (result.results ?? []).filter((row) =>
@@ -410,19 +415,22 @@ export class UsageStore {
 
 	async getSessionDetail(
 		sessionId: string,
+		projectId: string,
 	): Promise<UsageSessionDetailResponse | null> {
+		if (!projectId)
+			throw new Error("UsageStore.getSessionDetail: projectId is required");
 		const result = await this.db
 			.prepare(`
-      SELECT event_id, session_id, visitor_id, event_type, event_name,
+      SELECT project_id, event_id, session_id, visitor_id, event_type, event_name,
              page_path, page_title, referrer, severity, source,
              context_json, properties_json, user_agent, occurred_at,
              received_at, country, browser, os, device_type, is_bot,
              utm_source, utm_medium, utm_campaign
       FROM usage_events
-      WHERE session_id = ?
+      WHERE project_id = ? AND session_id = ?
       ORDER BY occurred_at ASC
     `)
-			.bind(sessionId)
+			.bind(projectId, sessionId)
 			.all<UsageEventRow>();
 
 		const rows = result.results ?? [];

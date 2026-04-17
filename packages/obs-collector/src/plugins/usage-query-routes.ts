@@ -3,11 +3,13 @@ import {
 	getConfiguredRetentionHours,
 } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { getProjectId } from "./_context";
 
 export const usageQueryRoutesPlugin: CollectorPlugin = {
 	name: "usage-query-routes",
 	register(app, runtime) {
 		app.get("/internal/usage/overview", async (c) => {
+			const projectId = getProjectId(c);
 			const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
 			const hours = Math.min(
 				maxHours,
@@ -22,6 +24,7 @@ export const usageQueryRoutesPlugin: CollectorPlugin = {
 
 			const store = runtime.createUsageStore(c.env);
 			const overview = await store.getOverview({
+				projectId,
 				hours,
 				path: c.req.query("path") || undefined,
 				includeAdmin: c.req.query("includeAdmin") === "true",
@@ -33,8 +36,12 @@ export const usageQueryRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.get("/internal/usage/sessions/:sessionId", async (c) => {
+			const projectId = getProjectId(c);
 			const store = runtime.createUsageStore(c.env);
-			const detail = await store.getSessionDetail(c.req.param("sessionId"));
+			const detail = await store.getSessionDetail(
+				c.req.param("sessionId"),
+				projectId,
+			);
 			if (!detail)
 				return c.json(
 					{ error: "Not Found", message: "Session not found" },

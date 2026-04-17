@@ -116,6 +116,7 @@ const scopeToStoredSpans = (
 	scopeSpans: OtlpScopeSpans,
 	receivedAt: Date,
 	retentionHours: number,
+	projectId: string,
 ): StoredSpan[] => {
 	const resourceAttributes = keyValuesToRecord(
 		resourceSpans.resource?.attributes,
@@ -133,6 +134,7 @@ const scopeToStoredSpans = (
 
 		return [
 			{
+				projectId,
 				traceId,
 				spanId,
 				parentSpanId: normalizeHex(span.parentSpanId, 16),
@@ -186,11 +188,18 @@ export const retentionExpiry = (
 
 export const toStoredSpans = (
 	payload: OtlpTraceExportRequest,
+	projectId: string,
 	receivedAt = new Date(),
 	retentionHours = getConfiguredRetentionHours(undefined),
 ): StoredSpan[] =>
 	(payload.resourceSpans ?? []).flatMap((resourceSpans) =>
 		(resourceSpans.scopeSpans ?? []).flatMap((scopeSpans) =>
-			scopeToStoredSpans(resourceSpans, scopeSpans, receivedAt, retentionHours),
+			scopeToStoredSpans(
+				resourceSpans,
+				scopeSpans,
+				receivedAt,
+				retentionHours,
+				projectId,
+			),
 		),
 	);

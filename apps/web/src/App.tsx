@@ -6,6 +6,9 @@ import {
 	AIDashboard,
 	ReplayDashboard,
 	ResourcesDashboard,
+	ProjectsDashboard,
+	AlertsDashboard,
+	ProjectSwitcher,
 } from "@obs/dashboard";
 import { useEffect, useState } from "react";
 
@@ -64,7 +67,9 @@ const TABS = [
 	{ key: "ai", label: "AI Calls" },
 	{ key: "usage", label: "Usage" },
 	{ key: "replay", label: "Replays" },
+	{ key: "alerts", label: "Alerts" },
 	{ key: "resources", label: "Resources" },
+	{ key: "projects", label: "Projects" },
 ] as const;
 
 export function App() {
@@ -92,6 +97,7 @@ export function App() {
 				<span className="mr-6 text-xs font-bold uppercase tracking-widest text-sys-on-surface">
 					obs-unified
 				</span>
+				<ProjectSwitcher />
 				{TABS.map(({ key, label }) => (
 					<button
 						key={key}
@@ -133,7 +139,9 @@ export function App() {
 						onNavigate={navigate}
 					/>
 				)}
+				{route.tab === "alerts" && <AlertsDashboard />}
 				{route.tab === "resources" && <ResourcesDashboard />}
+				{route.tab === "projects" && <ProjectsDashboard />}
 			</main>
 		</div>
 	);

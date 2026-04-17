@@ -4,6 +4,7 @@ import {
 	RETENTION_HOURS,
 } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { getProjectId } from "./_context";
 
 const parseHours = (rawValue?: string): number =>
 	Math.min(
@@ -28,8 +29,10 @@ export const issueInsightsPlugin: CollectorPlugin = {
 	name: "issue-insights",
 	register(app, runtime) {
 		app.get("/internal/telemetry/issues", async (c) => {
+			const projectId = getProjectId(c);
 			const store = runtime.createStore(c.env);
 			const overview = await store.getIssueOverview({
+				projectId,
 				hours: parseHours(c.req.query("hours")),
 				service: c.req.query("service") || undefined,
 				category:
@@ -55,8 +58,10 @@ export const issueInsightsPlugin: CollectorPlugin = {
 					400,
 				);
 
+			const projectId = getProjectId(c);
 			const store = runtime.createStore(c.env);
 			const detail = await store.getIssueDetail(issueId, {
+				projectId,
 				hours: parseHours(c.req.query("hours")),
 				service: c.req.query("service") || undefined,
 				category:

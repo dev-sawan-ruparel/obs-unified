@@ -1,11 +1,13 @@
 import type { LogPayload, LogRecord } from "@obs/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { LogsStore } from "../lib/logs-store";
+import { getProjectId } from "./_context";
 
 export const logsReceiverPlugin: CollectorPlugin = {
 	name: "logs-receiver",
 	register(app, runtime) {
 		app.post("/v1/logs", async (c) => {
+			const projectId = getProjectId(c);
 			let payload: LogPayload;
 			try {
 				payload = await c.req.json<LogPayload>();
@@ -28,6 +30,7 @@ export const logsReceiverPlugin: CollectorPlugin = {
 			).toISOString();
 
 			const records: LogRecord[] = payload.logs.map((log) => ({
+				projectId,
 				logId: crypto.randomUUID(),
 				traceId: log.traceId || null,
 				spanId: log.spanId || null,
@@ -48,11 +51,13 @@ export const logsReceiverPlugin: CollectorPlugin = {
 		});
 
 		app.get("/internal/logs/overview", async (c) => {
+			const projectId = getProjectId(c);
 			const store = new LogsStore(c.env.DB);
 			const query = c.req.query();
 			const hours = parseInt(query.hours || "24", 10);
 
 			const response = await store.getLogs({
+				projectId,
 				hours,
 				service: query.service,
 				severity: query.severity as any,
