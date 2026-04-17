@@ -37,19 +37,19 @@ export function Card({
 	className?: string;
 	accent?: "default" | "primary" | "error" | "warning" | "accent";
 }) {
-	const accentClass =
+	const accentBorder =
 		accent === "primary"
-			? "border-l-[3px] border-sys-primary"
+			? "border-l-[3px] border-l-sys-primary"
 			: accent === "error"
-				? "border-l-[3px] border-sys-error"
+				? "border-l-[3px] border-l-sys-error"
 				: accent === "warning"
-					? "border-l-[3px] border-sys-warning"
+					? "border-l-[3px] border-l-sys-warning"
 					: accent === "accent"
-						? "border-l-[3px] border-sys-accent"
+						? "border-l-[3px] border-l-sys-accent"
 						: "";
 	return (
 		<div
-			className={`bg-sys-surface ${accentClass} outline outline-1 outline-sys-outline-soft ${className}`}
+			className={`bg-sys-surface border border-[#E5E7E3] ${accentBorder} ${className}`}
 		>
 			{children}
 		</div>
@@ -92,7 +92,11 @@ export function Stat({
 					? "var(--color-sys-accent)"
 					: "var(--color-sys-primary)";
 	return (
-		<Card accent={accent} className="flex flex-col justify-between px-3 py-2.5 gap-2 min-h-[92px]">
+		<Card
+			accent={accent}
+			className="flex flex-col justify-between px-3 py-2.5 gap-1.5"
+			// min-height kept via inline so Tailwind arbitrary values aren't required
+		>
 			<div className="flex items-baseline justify-between gap-2">
 				<span className="text-[0.625rem] font-bold uppercase tracking-[0.1em] opacity-70">
 					{label}
@@ -108,11 +112,11 @@ export function Stat({
 			>
 				{value}
 			</div>
-			<div className="h-[28px] w-full">
+			<div style={{ height: 32, width: "100%" }}>
 				{spark && spark.length > 0 ? (
 					<MicroSpark data={spark} color={sparkColor} />
 				) : (
-					<div className="h-full w-full" aria-hidden />
+					<div style={{ height: 32 }} aria-hidden />
 				)}
 			</div>
 			{footer && (
@@ -128,16 +132,23 @@ export function Stat({
 
 function MicroSpark({ data, color }: { data: number[]; color: string }) {
 	const W = 200;
-	const H = 28;
+	const H = 32;
 	const max = Math.max(...data, 1);
 	const min = Math.min(...data, 0);
 	const range = Math.max(1, max - min);
 	const n = data.length;
 
+	// Explicit width/height + display:block so browsers never give the SVG an
+	// implicit aspect ratio that stretches it to match the container width.
+	const svgStyle = {
+		display: "block",
+		width: "100%",
+		height: "100%",
+	} as const;
+
 	if (n === 1) {
-		// Single point — render a dot on a baseline.
 		return (
-			<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full">
+			<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={svgStyle}>
 				<line x1={0} x2={W} y1={H - 1} y2={H - 1} stroke={color} strokeOpacity="0.2" strokeWidth="1" />
 				<circle cx={W / 2} cy={H / 2} r="2" fill={color} />
 			</svg>
@@ -155,7 +166,7 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 	const areaPoints = `0,${H} ${points} ${W},${H}`;
 
 	return (
-		<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full">
+		<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={svgStyle}>
 			<polygon points={areaPoints} fill={color} fillOpacity="0.15" />
 			<polyline points={points} stroke={color} strokeWidth="1.25" fill="none" strokeLinejoin="round" strokeLinecap="round" />
 		</svg>
