@@ -2,7 +2,7 @@ import {
 	AnalyticsErrorBoundary,
 	AnalyticsProvider,
 } from "@obs/analytics-sdk/react";
-import { ObsDashboardProvider } from "@obs/dashboard";
+import { AuthGate, ObsDashboardProvider } from "@obs/dashboard";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -20,18 +20,20 @@ createRoot(document.getElementById("root")!).render(
 			storagePrefix="obs_demo"
 		>
 			<ObsDashboardProvider basePath="/internal">
-				<AnalyticsErrorBoundary
-					context="App"
-					fallback={
-						<div className="flex items-center justify-center min-h-screen">
-							<p className="text-red-600 text-sm">
-								Something crashed. Check the telemetry dashboard.
-							</p>
-						</div>
-					}
-				>
-					<App />
-				</AnalyticsErrorBoundary>
+				<AuthGate>
+					<AnalyticsErrorBoundary
+						context="App"
+						fallback={
+							<div className="flex items-center justify-center min-h-screen">
+								<p className="text-red-600 text-sm">
+									Something crashed. Check the telemetry dashboard.
+								</p>
+							</div>
+						}
+					>
+						<App />
+					</AnalyticsErrorBoundary>
+				</AuthGate>
 			</ObsDashboardProvider>
 		</AnalyticsProvider>
 	</StrictMode>,

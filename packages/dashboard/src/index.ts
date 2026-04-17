@@ -8,6 +8,8 @@ export { ProjectsDashboard } from "./dashboards/ProjectsDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { ProjectSwitcher } from "./components/ProjectSwitcher";
 export { useProjects } from "./hooks/useProjects";
+export { Login } from "./Login";
+export { AuthGate } from "./AuthGate";
 export {
 	type DashboardConfig,
 	ObsDashboardProvider,
