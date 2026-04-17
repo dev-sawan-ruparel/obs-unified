@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useDashboard } from "../provider";
+import { useApi } from "../use-api";
 
 interface UsageOverview {
 	summary: {
@@ -94,7 +94,7 @@ interface Props {
 }
 
 export function UsageDashboard({ onNavigate }: Props) {
-	const { basePath, fetcher } = useDashboard();
+	const api = useApi();
 	const [overview, setOverview] = useState<UsageOverview | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [connStatus, setConnStatus] = useState<"connecting" | "connected" | "error">("connecting");
@@ -105,40 +105,40 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const [leftWidth, setLeftWidth] = useState(60);
 
 	useEffect(() => {
-		setLoading(true);
-		setConnStatus("connecting");
-		const filterParams = new URLSearchParams();
-		filterParams.set("hours", hours);
-		if (pathFilter !== "all") filterParams.set("path", pathFilter);
-		filterParams.set("includeAdmin", includeAdmin ? "true" : "false");
+		let cancelled = false;
+		let timer: ReturnType<typeof setTimeout> | null = null;
 
-		const sse = new EventSource(`${basePath}/usage/stream?${filterParams.toString()}`, {
-			withCredentials: true
-		});
-
-		sse.addEventListener("usage-update", (e: any) => {
+		const load = async () => {
+			if (!cancelled) setConnStatus("connecting");
+			const qs = new URLSearchParams();
+			qs.set("hours", hours);
+			if (pathFilter !== "all") qs.set("path", pathFilter);
+			qs.set("includeAdmin", includeAdmin ? "true" : "false");
 			try {
-				const data = JSON.parse(e.data);
+				const data = await api<UsageOverview>(`/usage/overview?${qs.toString()}`);
+				if (cancelled) return;
 				setOverview(data);
 				setLoading(false);
 				setConnStatus("connected");
 			} catch (err) {
+				if (cancelled) return;
 				console.error(err);
+				setConnStatus("error");
+				setLoading(false);
+			} finally {
+				if (!cancelled) {
+					// Poll every 10s while the tab is open (SSE-lite).
+					timer = setTimeout(load, 10_000);
+				}
 			}
-		});
-
-		sse.addEventListener("error", () => {
-			setConnStatus("error");
-		});
-
-		sse.addEventListener("open", () => {
-			setConnStatus("connected");
-		});
-
-		return () => {
-			sse.close();
 		};
-	}, [hours, pathFilter, includeAdmin]);
+
+		load();
+		return () => {
+			cancelled = true;
+			if (timer) clearTimeout(timer);
+		};
+	}, [api, hours, pathFilter, includeAdmin]);
 
 	const pathOptions = useMemo(
 		() => (overview ? ["all", ...overview.pages.map((p) => p.path)] : ["all"]),
