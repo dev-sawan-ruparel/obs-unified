@@ -1,4 +1,10 @@
-import type { ReactNode } from "react";
+import {
+	type MouseEvent as ReactMouseEvent,
+	type ReactNode,
+	useCallback,
+	useRef,
+	useState,
+} from "react";
 
 // ── Section title ──
 
@@ -128,15 +134,31 @@ export function Stat({
 	);
 }
 
-// ── Micro sparkline (path-based, area fill) ──
+// ── Micro sparkline (path-based, area fill, with hover) ──
 
 function MicroSpark({ data, color }: { data: number[]; color: string }) {
 	const W = 200;
 	const H = 32;
+	const n = data.length;
 	const max = Math.max(...data, 1);
 	const min = Math.min(...data, 0);
 	const range = Math.max(1, max - min);
-	const n = data.length;
+
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const [hover, setHover] = useState<number | null>(null);
+
+	const onMove = useCallback(
+		(e: ReactMouseEvent<HTMLDivElement>) => {
+			const el = containerRef.current;
+			if (!el || n === 0) return;
+			const rect = el.getBoundingClientRect();
+			const x = e.clientX - rect.left;
+			const idx = Math.min(n - 1, Math.max(0, Math.round((x / rect.width) * (n - 1))));
+			setHover(idx);
+		},
+		[n],
+	);
+	const onLeave = useCallback(() => setHover(null), []);
 
 	// Explicit width/height + display:block so browsers never give the SVG an
 	// implicit aspect ratio that stretches it to match the container width.
@@ -146,30 +168,69 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 		height: "100%",
 	} as const;
 
+	// Build path data.
+	let svgBody: ReactNode;
 	if (n === 1) {
-		return (
-			<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={svgStyle}>
+		svgBody = (
+			<>
 				<line x1={0} x2={W} y1={H - 1} y2={H - 1} stroke={color} strokeOpacity="0.2" strokeWidth="1" />
 				<circle cx={W / 2} cy={H / 2} r="2" fill={color} />
-			</svg>
+			</>
+		);
+	} else {
+		const step = W / (n - 1);
+		const points = data
+			.map((v, i) => {
+				const xp = i * step;
+				const yp = H - ((v - min) / range) * (H - 2) - 1;
+				return `${xp.toFixed(2)},${yp.toFixed(2)}`;
+			})
+			.join(" ");
+		const areaPoints = `0,${H} ${points} ${W},${H}`;
+		svgBody = (
+			<>
+				<polygon points={areaPoints} fill={color} fillOpacity="0.15" />
+				<polyline
+					points={points}
+					stroke={color}
+					strokeWidth="1.25"
+					fill="none"
+					strokeLinejoin="round"
+					strokeLinecap="round"
+				/>
+				{hover !== null && (
+					<circle
+						cx={hover * step}
+						cy={H - ((data[hover] - min) / range) * (H - 2) - 1}
+						r="2.5"
+						fill={color}
+					/>
+				)}
+			</>
 		);
 	}
 
-	const step = W / (n - 1);
-	const points = data
-		.map((v, i) => {
-			const x = i * step;
-			const y = H - ((v - min) / range) * (H - 2) - 1;
-			return `${x.toFixed(2)},${y.toFixed(2)}`;
-		})
-		.join(" ");
-	const areaPoints = `0,${H} ${points} ${W},${H}`;
+	const hoverPct = hover !== null && n > 1 ? (hover / (n - 1)) * 100 : null;
 
 	return (
-		<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={svgStyle}>
-			<polygon points={areaPoints} fill={color} fillOpacity="0.15" />
-			<polyline points={points} stroke={color} strokeWidth="1.25" fill="none" strokeLinejoin="round" strokeLinecap="round" />
-		</svg>
+		<div
+			ref={containerRef}
+			className="relative h-full w-full"
+			onMouseMove={onMove}
+			onMouseLeave={onLeave}
+		>
+			<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={svgStyle}>
+				{svgBody}
+			</svg>
+			{hover !== null && hoverPct !== null && (
+				<div
+					className="pointer-events-none absolute bottom-full mb-1 -translate-x-1/2 whitespace-nowrap bg-sys-on-surface px-1.5 py-0.5 font-mono text-[0.625rem] font-bold text-sys-bg"
+					style={{ left: `${hoverPct}%` }}
+				>
+					{data[hover].toLocaleString()}
+				</div>
+			)}
+		</div>
 	);
 }
 
@@ -184,6 +245,8 @@ export function TimeSeriesBars({
 	height?: number;
 	color?: string;
 }) {
+	const [hover, setHover] = useState<number | null>(null);
+
 	if (data.length === 0) {
 		return (
 			<div
@@ -194,19 +257,67 @@ export function TimeSeriesBars({
 			</div>
 		);
 	}
+
 	const max = Math.max(...data.map((d) => d.v), 1);
+	const total = data.reduce((s, d) => s + d.v, 0);
+	const n = data.length;
 	const first = data[0]?.t;
-	const last = data[data.length - 1]?.t;
+	const last = data[n - 1]?.t;
+
+	// Bucket duration in ms (used for "covers X–Y" tooltip label).
+	const bucketMs =
+		n > 1 && first && last
+			? (new Date(last).getTime() - new Date(first).getTime()) / (n - 1)
+			: 0;
+
+	// X-axis ticks: 4 evenly-spaced timestamps (0%, 33%, 67%, 100% of window).
+	const tickIdx = [0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1];
+
+	const fmtTime = (iso: string) => {
+		const d = new Date(iso);
+		return d.toLocaleTimeString([], {
+			month: "short",
+			day: "numeric",
+			hour: "numeric",
+			minute: "2-digit",
+		});
+	};
+
 	return (
-		<div className="flex flex-col gap-1" style={{ minHeight: height + 18 }}>
-			<div className="flex items-end gap-[1px]" style={{ height }}>
+		<div className="flex flex-col gap-1.5">
+			{/* Top row: hover readout on the right, peak on the left */}
+			<div className="flex items-baseline justify-between text-[0.625rem] font-mono uppercase opacity-60">
+				<span>
+					{n} buckets · total {total.toLocaleString()}
+				</span>
+				<span>
+					{hover !== null ? (
+						<>
+							<span className="font-bold text-sys-on-surface">
+								{data[hover].v.toLocaleString()}
+							</span>{" "}
+							at {fmtTime(data[hover].t)}
+						</>
+					) : (
+						<>peak {max.toLocaleString()}</>
+					)}
+				</span>
+			</div>
+
+			{/* Chart body */}
+			<div
+				className="relative flex items-end gap-[1px] bg-[linear-gradient(to_top,rgba(0,0,0,0.04)_1px,transparent_1px)] bg-[length:100%_25%]"
+				style={{ height }}
+				onMouseLeave={() => setHover(null)}
+			>
 				{data.map((d, i) => {
 					const h = (d.v / max) * (height - 2);
+					const isHover = hover === i;
 					return (
 						<div
 							key={`${d.t}-${i}`}
-							className="group relative flex-1 min-w-[2px] h-full flex items-end"
-							title={`${new Date(d.t).toLocaleString()}: ${d.v}`}
+							className="relative flex-1 min-w-[2px] h-full flex items-end"
+							onMouseEnter={() => setHover(i)}
 						>
 							{d.v > 0 ? (
 								<div
@@ -214,23 +325,86 @@ export function TimeSeriesBars({
 									style={{
 										height: `${Math.max(2, h)}px`,
 										backgroundColor: color,
-										opacity: 0.7,
+										opacity: isHover ? 1 : 0.72,
 									}}
 								/>
 							) : (
-								<div className="w-full h-[1px]" style={{ backgroundColor: color, opacity: 0.15 }} />
+								<div
+									className="w-full h-[1px]"
+									style={{ backgroundColor: color, opacity: 0.15 }}
+								/>
+							)}
+							{/* Hover crosshair */}
+							{isHover && (
+								<div
+									className="pointer-events-none absolute inset-y-0 left-1/2 w-[1px] -translate-x-1/2"
+									style={{ backgroundColor: color, opacity: 0.4 }}
+								/>
 							)}
 						</div>
 					);
 				})}
+
+				{/* Floating tooltip */}
+				{hover !== null && (
+					<div
+						className="pointer-events-none absolute z-10 whitespace-nowrap bg-sys-on-surface px-2 py-1 font-mono text-[0.625rem] font-bold text-sys-bg"
+						style={{
+							left: `${(hover / Math.max(1, n - 1)) * 100}%`,
+							top: 0,
+							transform: "translate(-50%, -110%)",
+						}}
+					>
+						<div className="text-[0.625rem] font-bold">
+							{data[hover].v.toLocaleString()}
+						</div>
+						<div className="text-[0.5rem] opacity-70 mt-0.5">
+							{fmtTime(data[hover].t)}
+							{bucketMs > 0 && (
+								<> · {formatDuration(bucketMs)} bucket</>
+							)}
+						</div>
+					</div>
+				)}
 			</div>
-			<div className="flex justify-between text-[0.5rem] font-mono uppercase opacity-40">
-				<span>{first ? new Date(first).toLocaleTimeString([], { month: "short", day: "numeric", hour: "numeric" }) : ""}</span>
-				<span>peak {max}</span>
-				<span>{last ? new Date(last).toLocaleTimeString([], { month: "short", day: "numeric", hour: "numeric" }) : ""}</span>
+
+			{/* X-axis tick labels */}
+			<div className="relative text-[0.5rem] font-mono uppercase opacity-50 select-none" style={{ height: 12 }}>
+				{tickIdx.map((idx, i) => {
+					const d = data[idx];
+					if (!d) return null;
+					const pct = (idx / Math.max(1, n - 1)) * 100;
+					const isEdge = i === 0 || i === tickIdx.length - 1;
+					return (
+						<span
+							key={`tick-${idx}`}
+							className="absolute top-0"
+							style={{
+								left: `${pct}%`,
+								transform:
+									i === 0
+										? "translateX(0)"
+										: isEdge
+											? "translateX(-100%)"
+											: "translateX(-50%)",
+							}}
+						>
+							{fmtTime(d.t)}
+						</span>
+					);
+				})}
 			</div>
 		</div>
 	);
+}
+
+function formatDuration(ms: number): string {
+	if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+	const mins = Math.round(ms / 60_000);
+	if (mins < 60) return `${mins}m`;
+	const hrs = Math.round(mins / 60);
+	if (hrs < 24) return `${hrs}h`;
+	return `${Math.round(hrs / 24)}d`;
 }
 
 // ── BarList (label + value with proper separation) ──
