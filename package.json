@@ -12,7 +12,8 @@
 		"setup": "pnpm --filter @obs-demo/collector run db:setup",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"e2e:alerts": "bash scripts/e2e-alerts/run-all.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",

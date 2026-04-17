@@ -1,6 +1,18 @@
 # Testing
 
-obs-unified uses **Playwright** for end-to-end tests and **Vitest** for unit tests.
+obs-unified uses three layers of tests:
+
+- **Playwright** — UI smoke tests with mocked APIs (`apps/web/tests/`)
+- **Vitest** — per-package unit tests (currently `--passWithNoTests`)
+- **Shell-based live E2E** — exercises a real `wrangler dev` collector
+  and a real webhook receiver end-to-end (`scripts/e2e-alerts/`)
+
+See `scripts/e2e-alerts/README.md` for the projects + alerts live E2E.
+One-command run:
+
+```bash
+pnpm e2e:alerts
+```
 
 ## Quick Start
 
