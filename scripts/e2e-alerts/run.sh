@@ -81,21 +81,24 @@ echo "$LIST" | jq -e --arg id "$KEY_ID" '.keys | map(select(.id==$id)) | length 
   || die "key not listed"
 ok "key listed"
 
-# ── 4. Ingest: log with acme key ──
+# ── 4. Ingest: log with acme key (OTLP/HTTP+JSON) ──
 say "4. ingest"
+OTLP_OK='{"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"checkout"}}]},"scopeLogs":[{"scope":{"name":"e2e"},"logRecords":[{"timeUnixNano":"1700000000000000000","severityNumber":17,"severityText":"ERROR","body":{"stringValue":"e2e-trigger-1"}}]}]}]}'
 INGEST_RESP=$(curl -fsS -X POST \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ACME_KEY" \
-  -d '{"logs":[{"severity":"ERROR","message":"e2e-trigger-1","serviceName":"checkout"}]}' \
+  -d "$OTLP_OK" \
   "$COLLECTOR_URL/v1/logs")
-echo "$INGEST_RESP" | jq -e '.accepted == 1' >/dev/null || die "ingest failed"
+# OTLP full-success: empty envelope (no partialSuccess field)
+echo "$INGEST_RESP" | jq -e 'has("partialSuccess") | not' >/dev/null || die "ingest rejected logs: $INGEST_RESP"
 ok "log ingested under acme"
 
 # Negative: bogus key → 401
+OTLP_NOPE='{"resourceLogs":[{"scopeLogs":[{"logRecords":[{"severityNumber":17,"severityText":"ERROR","body":{"stringValue":"nope"}}]}]}]}'
 BOGUS=$(curl -sS -o "$STATE_DIR/bogus.json" -w "%{http_code}" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer obs_acme_deadbeef_not_a_real_key" \
-  -d '{"logs":[{"severity":"ERROR","message":"nope"}]}' \
+  -d "$OTLP_NOPE" \
   "$COLLECTOR_URL/v1/logs")
 [ "$BOGUS" = "401" ] || die "bogus key should 401, got $BOGUS"
 ok "unknown key rejected with 401"

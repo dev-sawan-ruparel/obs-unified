@@ -35,6 +35,52 @@ export const usageQueryRoutesPlugin: CollectorPlugin = {
 			});
 		});
 
+		app.get("/internal/usage/sessions", async (c) => {
+			const projectId = getProjectId(c);
+			const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
+			const hours = Math.min(
+				maxHours,
+				Math.max(
+					1,
+					Number.parseInt(
+						c.req.query("hours") || String(DEFAULT_WINDOW_HOURS),
+						10,
+					) || DEFAULT_WINDOW_HOURS,
+				),
+			);
+			const filterParam = c.req.query("filter");
+			const filter: "all" | "ended_in_error" | "dropoff" | "slow" =
+				filterParam === "ended_in_error" ||
+				filterParam === "dropoff" ||
+				filterParam === "slow"
+					? filterParam
+					: "all";
+			const slowMs = Math.max(
+				100,
+				Number.parseInt(c.req.query("slowMs") || "3000", 10) || 3000,
+			);
+			const limit = Math.max(
+				1,
+				Math.min(500, Number.parseInt(c.req.query("limit") || "100", 10) || 100),
+			);
+
+			const store = runtime.createUsageStore(c.env);
+			const result = await store.listSessions({
+				projectId,
+				hours,
+				filter,
+				slowMs,
+				limit,
+			});
+			return c.json({
+				...result,
+				filter,
+				hours,
+				slowMs,
+				timestamp: new Date().toISOString(),
+			});
+		});
+
 		app.get("/internal/usage/sessions/:sessionId", async (c) => {
 			const projectId = getProjectId(c);
 			const store = runtime.createUsageStore(c.env);

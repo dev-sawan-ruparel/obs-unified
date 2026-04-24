@@ -33,6 +33,7 @@ const rowToSpan = (row: Record<string, unknown>): StoredSpan => ({
 	traceId: row.trace_id as string,
 	spanId: row.span_id as string,
 	parentSpanId: (row.parent_span_id as string) ?? null,
+	traceState: (row.trace_state as string) ?? null,
 	serviceName: (row.service_name as string) ?? null,
 	scopeName: (row.scope_name as string) ?? null,
 	scopeVersion: (row.scope_version as string) ?? null,
@@ -44,9 +45,12 @@ const rowToSpan = (row: Record<string, unknown>): StoredSpan => ({
 	endTime: row.end_time as string,
 	durationMs: (row.duration_ms as number) ?? 0,
 	attributesJson: (row.attributes_json as string) ?? "{}",
+	droppedAttributesCount: (row.dropped_attributes_count as number) ?? 0,
 	resourceAttributesJson: (row.resource_attributes_json as string) ?? "{}",
 	eventsJson: (row.events_json as string) ?? "[]",
+	droppedEventsCount: (row.dropped_events_count as number) ?? 0,
 	linksJson: (row.links_json as string) ?? "[]",
+	droppedLinksCount: (row.dropped_links_count as number) ?? 0,
 	receivedAt: row.received_at as string,
 	expiresAt: row.expires_at as string,
 });
@@ -381,18 +385,20 @@ export class TelemetryStore {
 			return this.db
 				.prepare(`
         INSERT OR IGNORE INTO telemetry_spans (
-          project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
-          scope_version, span_name, span_kind, status_code, status_message,
-          start_time, end_time, duration_ms, attributes_json,
-          resource_attributes_json, events_json, links_json,
-          received_at, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          project_id, trace_id, span_id, parent_span_id, trace_state,
+          service_name, scope_name, scope_version, span_name, span_kind,
+          status_code, status_message, start_time, end_time, duration_ms,
+          attributes_json, dropped_attributes_count,
+          resource_attributes_json, events_json, dropped_events_count,
+          links_json, dropped_links_count, received_at, expires_at, session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 				.bind(
 					span.projectId,
 					span.traceId,
 					span.spanId,
 					span.parentSpanId,
+					span.traceState,
 					span.serviceName,
 					span.scopeName,
 					span.scopeVersion,
@@ -404,11 +410,15 @@ export class TelemetryStore {
 					span.endTime,
 					span.durationMs,
 					span.attributesJson,
+					span.droppedAttributesCount,
 					span.resourceAttributesJson,
 					span.eventsJson,
+					span.droppedEventsCount,
 					span.linksJson,
+					span.droppedLinksCount,
 					span.receivedAt,
 					span.expiresAt,
+					span.sessionId ?? null,
 				);
 		});
 
@@ -849,6 +859,135 @@ export class TelemetryStore {
 				}),
 			)
 			.join("\n");
+	}
+
+	/**
+	 * Service dependency map for the window. Nodes are aggregated per service;
+	 * edges are derived from cross-service parent→child span relationships
+	 * (self-join on trace_id + parent_span_id). Latency percentiles are
+	 * computed in-JS from up to 50k edge rows per window.
+	 */
+	async getServiceMap(options: {
+		projectId: string;
+		hours: number;
+	}): Promise<{
+		nodes: Array<{
+			service: string;
+			spanCount: number;
+			errorCount: number;
+			traceCount: number;
+			errorRate: number;
+		}>;
+		edges: Array<{
+			source: string;
+			target: string;
+			calls: number;
+			errors: number;
+			errorRate: number;
+			p50DurationMs: number;
+			p95DurationMs: number;
+			rps: number;
+		}>;
+	}> {
+		if (!options.projectId)
+			throw new Error("TelemetryStore.getServiceMap: projectId is required");
+		const cutoff = cutoffIso(options.hours);
+
+		const nodesResult = await this.db
+			.prepare(
+				`SELECT
+					service_name,
+					COUNT(*) AS span_count,
+					SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_count,
+					COUNT(DISTINCT trace_id) AS trace_count
+				FROM telemetry_spans
+				WHERE project_id = ? AND received_at >= ? AND service_name IS NOT NULL
+				GROUP BY service_name`,
+			)
+			.bind(options.projectId, cutoff)
+			.all<{
+				service_name: string;
+				span_count: number;
+				error_count: number;
+				trace_count: number;
+			}>();
+
+		const edgeRowsResult = await this.db
+			.prepare(
+				`SELECT
+					p.service_name AS source,
+					c.service_name AS target,
+					c.status_code AS status_code,
+					c.duration_ms AS duration_ms
+				FROM telemetry_spans p
+				JOIN telemetry_spans c
+					ON c.parent_span_id = p.span_id
+					AND c.trace_id = p.trace_id
+					AND c.project_id = p.project_id
+				WHERE p.project_id = ?
+					AND p.received_at >= ?
+					AND c.received_at >= ?
+					AND p.service_name IS NOT NULL
+					AND c.service_name IS NOT NULL
+					AND p.service_name != c.service_name
+				ORDER BY c.received_at DESC
+				LIMIT 50000`,
+			)
+			.bind(options.projectId, cutoff, cutoff)
+			.all<{
+				source: string;
+				target: string;
+				status_code: number;
+				duration_ms: number;
+			}>();
+
+		interface EdgeAcc {
+			source: string;
+			target: string;
+			calls: number;
+			errors: number;
+			durations: number[];
+		}
+		const edgeMap = new Map<string, EdgeAcc>();
+		for (const row of edgeRowsResult.results ?? []) {
+			const key = `${row.source}|${row.target}`;
+			let acc = edgeMap.get(key);
+			if (!acc) {
+				acc = {
+					source: row.source,
+					target: row.target,
+					calls: 0,
+					errors: 0,
+					durations: [],
+				};
+				edgeMap.set(key, acc);
+			}
+			acc.calls += 1;
+			if (row.status_code === 2) acc.errors += 1;
+			acc.durations.push(row.duration_ms ?? 0);
+		}
+
+		const windowSeconds = Math.max(1, options.hours * 3600);
+		const edges = Array.from(edgeMap.values()).map((e) => ({
+			source: e.source,
+			target: e.target,
+			calls: e.calls,
+			errors: e.errors,
+			errorRate: e.calls > 0 ? e.errors / e.calls : 0,
+			p50DurationMs: percentile(e.durations, 0.5),
+			p95DurationMs: percentile(e.durations, 0.95),
+			rps: e.calls / windowSeconds,
+		}));
+
+		const nodes = (nodesResult.results ?? []).map((r) => ({
+			service: r.service_name,
+			spanCount: r.span_count,
+			errorCount: r.error_count,
+			traceCount: r.trace_count,
+			errorRate: r.span_count > 0 ? r.error_count / r.span_count : 0,
+		}));
+
+		return { nodes, edges };
 	}
 
 	/** Purge expired rows (from A) */

@@ -1,11 +1,13 @@
 import { useAnalytics } from "@obs/analytics-sdk/react";
 import {
 	TelemetryDashboard,
+	TimelineDashboard,
 	UsageDashboard,
 	LogsDashboard,
 	AIDashboard,
 	ReplayDashboard,
 	ResourcesDashboard,
+	ServiceMapDashboard,
 	ProjectsDashboard,
 	AlertsDashboard,
 	ProjectSwitcher,
@@ -62,11 +64,13 @@ function useRoute(): Route {
 const TABS = [
 	{ key: "playground", label: "Playground" },
 	{ key: "traces", label: "Traces" },
+	{ key: "service-map", label: "Service Map" },
 	{ key: "issues", label: "Issues" },
 	{ key: "logs", label: "Logs" },
 	{ key: "ai", label: "AI Calls" },
 	{ key: "usage", label: "Usage" },
 	{ key: "replay", label: "Replays" },
+	{ key: "timeline", label: "Timeline" },
 	{ key: "alerts", label: "Alerts" },
 	{ key: "resources", label: "Resources" },
 	{ key: "projects", label: "Projects" },
@@ -121,6 +125,7 @@ export function App() {
 						onNavigate={navigate}
 					/>
 				)}
+				{route.tab === "service-map" && <ServiceMapDashboard />}
 				{route.tab === "issues" && (
 					<TelemetryDashboard
 						mode="issues"
@@ -135,6 +140,12 @@ export function App() {
 				)}
 				{route.tab === "replay" && (
 					<ReplayDashboard
+						initialSessionId={route.sessionId}
+						onNavigate={navigate}
+					/>
+				)}
+				{route.tab === "timeline" && (
+					<TimelineDashboard
 						initialSessionId={route.sessionId}
 						onNavigate={navigate}
 					/>
@@ -234,6 +245,50 @@ function Playground() {
 				>
 					Mock AI Chat
 				</Btn>
+				<div className="w-4" />
+				{/* Real LLM demos — each emits typed OpenInference spans that show
+				    up under AI CALLS. Require provider keys in apps/obs-demo/.dev.vars. */}
+				<Btn
+					onClick={() => call("/api/demo/chat", "demo_chat")}
+					disabled={loading}
+					c="primary"
+					title="Fan out one prompt across every enabled LLM provider"
+				>
+					AI: Chat
+				</Btn>
+				<Btn
+					onClick={() => call("/api/demo/rag", "demo_rag")}
+					disabled={loading}
+					c="primary"
+					title="RETRIEVER → LLM with a fake doc store + rag_faithfulness eval"
+				>
+					AI: RAG
+				</Btn>
+				<Btn
+					onClick={() => call("/api/demo/tool", "demo_tool")}
+					disabled={loading}
+					c="primary"
+					title="TOOL → LLM weather summary + mentions_temperature eval"
+				>
+					AI: Tool
+				</Btn>
+				<Btn
+					onClick={() => call("/api/demo/session", "demo_session")}
+					disabled={loading}
+					c="primary"
+					title="Three-turn conversation, all stamped with the same session.id"
+				>
+					AI: Session
+				</Btn>
+				<Btn
+					onClick={() => call("/api/demo/run-all", "demo_all")}
+					disabled={loading}
+					c="primary"
+					title="Every scenario back-to-back — one-click end-to-end demo"
+				>
+					AI: Run all
+				</Btn>
+				<div className="w-4" />
 				<Btn
 					onClick={() => {
 						identify("test-user-123", { email: "test@example.com", plan: "pro" });
@@ -269,11 +324,13 @@ function Btn({
 	onClick,
 	disabled,
 	c,
+	title,
 }: {
 	children: React.ReactNode;
 	onClick: () => void;
 	disabled?: boolean;
 	c?: "warn" | "err" | "primary";
+	title?: string;
 }) {
 	const cls =
 		c === "err"
@@ -287,6 +344,7 @@ function Btn({
 		<button
 			onClick={onClick}
 			disabled={disabled}
+			title={title}
 			className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none disabled:opacity-40 rounded-none cursor-pointer ${cls}`}
 		>
 			{children}

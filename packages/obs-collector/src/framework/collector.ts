@@ -8,6 +8,7 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { AIStore } from "../lib/ai-store";
 import { LogsStore } from "../lib/logs-store";
+import { MetricsStore } from "../lib/metrics-store";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
 
@@ -221,17 +222,24 @@ export const createRetentionCleanupHandler = () => ({
 		const usageStore = new UsageStore(env.DB);
 		const logsStore = new LogsStore(env.DB);
 		const aiStore = new AIStore(env.DB);
+		const metricsStore = new MetricsStore(env.DB);
 
-		const [telemetryPurged, usagePurged, logsPurged, aiPurged] =
-			await Promise.all([
-				telemetryStore.purgeExpired(),
-				usageStore.purgeExpired(),
-				logsStore.purgeExpired(),
-				aiStore.purgeExpired(),
-			]);
+		const [
+			telemetryPurged,
+			usagePurged,
+			logsPurged,
+			aiPurged,
+			metricsPurged,
+		] = await Promise.all([
+			telemetryStore.purgeExpired(),
+			usageStore.purgeExpired(),
+			logsStore.purgeExpired(),
+			aiStore.purgeExpired(),
+			metricsStore.purgeExpired(),
+		]);
 
 		console.log(
-			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls`,
+			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls, ${metricsPurged} metric points`,
 		);
 	},
 });

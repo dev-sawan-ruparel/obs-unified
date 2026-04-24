@@ -23,6 +23,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
 	const check = useCallback(async () => {
 		try {
 			const r = await fetch("/auth/check", { credentials: "include" });
+			// 404 means the collector hasn't wired up dashboard auth at all
+			// (DASHBOARD_PASSWORD unset). In that case there's nothing to
+			// gate against, so let the user through instead of showing a
+			// login form that would never succeed.
+			if (r.status === 404) {
+				setState("authed");
+				return;
+			}
 			if (!r.ok) {
 				setState("anon");
 				return;

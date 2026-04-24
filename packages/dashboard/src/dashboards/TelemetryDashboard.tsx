@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDashboard } from "../provider";
+import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";
 import {
 	BarList,
 	Card,
@@ -9,6 +10,23 @@ import {
 	UpdatedChip,
 	binByInterval,
 } from "../components/primitives";
+
+interface LiveSpanRow {
+	traceId: string;
+	spanId: string;
+	parentSpanId: string | null;
+	serviceName: string | null;
+	spanName: string;
+	spanKind: number;
+	statusCode: number;
+	statusMessage: string | null;
+	startTime: string;
+	endTime: string;
+	durationMs: number;
+}
+
+const isSpanEvent = (e: TailEvent): e is TailEvent<LiveSpanRow> =>
+	e.kind === "span";
 
 // ── Types ──
 
@@ -232,6 +250,13 @@ export function TelemetryDashboard({
 	const [category, setCategory] = useState("all");
 	const [loading, setLoading] = useState(true);
 	const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null);
+	const [liveMode, setLiveMode] = useState(false);
+
+	const liveTail = useLiveTail<LiveSpanRow>(isSpanEvent, {
+		kinds: ["span"],
+		enabled: liveMode && mode === "traces",
+		maxRows: 500,
+	});
 
 	const serviceOptions = useMemo(() => {
 		const svcs =
@@ -398,6 +423,35 @@ export function TelemetryDashboard({
 				>
 					REFRESH
 				</button>
+				{mode === "traces" && (
+					<button
+						type="button"
+						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
+							liveMode
+								? "bg-sys-error text-white"
+								: "bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
+						}`}
+						onClick={() => setLiveMode((v) => !v)}
+						title={liveMode ? "Stop streaming" : "Stream spans in real time"}
+					>
+						{liveMode ? (liveTail.connected ? "● LIVE" : "○ CONNECTING") : "LIVE"}
+					</button>
+				)}
+				{liveMode && mode === "traces" && (
+					<button
+						type="button"
+						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
+							liveTail.paused
+								? "bg-sys-warning text-white"
+								: "bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
+						}`}
+						onClick={liveTail.togglePause}
+					>
+						{liveTail.paused
+							? `RESUME${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
+							: "PAUSE"}
+					</button>
+				)}
 				<button
 					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
 					onClick={handleExport}
@@ -410,7 +464,15 @@ export function TelemetryDashboard({
 				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">INITIALIZING...</p>
 			) : null}
 
-			{mode === "traces" && overview && (
+			{mode === "traces" && liveMode && (
+				<LiveSpansView
+					rows={liveTail.rows}
+					paused={liveTail.paused}
+					connected={liveTail.connected}
+					error={liveTail.error}
+				/>
+			)}
+			{mode === "traces" && !liveMode && overview && (
 				<TracesView
 					overview={overview}
 					hours={Number(hours) || 6}
@@ -430,6 +492,69 @@ export function TelemetryDashboard({
 				/>
 			)}
 		</div>
+	);
+}
+
+// ── Live Spans View ──
+
+function LiveSpansView({
+	rows,
+	paused,
+	connected,
+	error,
+}: {
+	rows: LiveSpanRow[];
+	paused: boolean;
+	connected: boolean;
+	error: string | null;
+}) {
+	return (
+		<Card className="min-h-0 flex-1 overflow-y-auto p-3">
+			<SectionTitle
+				title="Live spans"
+				note={`${rows.length.toLocaleString()} streamed${paused ? " · paused" : ""}`}
+			/>
+			<div className="flex flex-col mt-1">
+				{rows.map((span) => {
+					const isError = span.statusCode === 2;
+					return (
+						<div
+							key={`${span.traceId}:${span.spanId}`}
+							className="border-b-[1px] border-sys-surface-low p-2 font-mono text-[0.75rem] flex items-start gap-2 last:border-b-0"
+						>
+							<span
+								className={`px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${
+									isError
+										? "bg-sys-error text-white"
+										: "bg-sys-surface-high text-sys-on-surface"
+								}`}
+							>
+								{isError ? "ERR" : "OK"}
+							</span>
+							<div className="flex-1 min-w-0">
+								<div className="flex justify-between items-center mb-1">
+									<span className="font-bold truncate">
+										{span.serviceName || "unknown"} · {span.spanName}
+									</span>
+									<span className="opacity-60 flex-none pl-2">
+										{Math.round(span.durationMs)}ms · {fmtTs(span.startTime)}
+									</span>
+								</div>
+								<p className="opacity-60 m-0 break-all">
+									trace {span.traceId.slice(0, 16)}… · span {span.spanId.slice(0, 8)}…
+									{span.statusMessage ? ` · ${span.statusMessage}` : ""}
+								</p>
+							</div>
+						</div>
+					);
+				})}
+			</div>
+			{rows.length === 0 && (
+				<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+					{connected ? "Waiting for spans…" : error || "Connecting…"}
+				</p>
+			)}
+		</Card>
 	);
 }
 

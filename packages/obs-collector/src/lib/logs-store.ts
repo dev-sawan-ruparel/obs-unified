@@ -20,8 +20,9 @@ export class LogsStore {
 		const stmt = this.db.prepare(`
       INSERT INTO logs (
         project_id, log_id, trace_id, span_id, service_name, severity, severity_number,
-        logger_name, message, attributes_json, occurred_at, received_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        logger_name, message, attributes_json, flags, dropped_attributes_count,
+        occurred_at, received_at, expires_at, session_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
 		const batch = logs.map((l) => {
@@ -38,9 +39,12 @@ export class LogsStore {
 				l.loggerName,
 				l.message,
 				l.attributesJson,
+				l.flags,
+				l.droppedAttributesCount,
 				l.occurredAt,
 				l.receivedAt,
 				l.expiresAt,
+				l.sessionId ?? null,
 			);
 		});
 
@@ -109,6 +113,8 @@ export class LogsStore {
 			loggerName: r.logger_name,
 			message: r.message,
 			attributesJson: r.attributes_json,
+			flags: r.flags ?? 0,
+			droppedAttributesCount: r.dropped_attributes_count ?? 0,
 			occurredAt: r.occurred_at,
 			receivedAt: r.received_at,
 			expiresAt: r.expires_at,

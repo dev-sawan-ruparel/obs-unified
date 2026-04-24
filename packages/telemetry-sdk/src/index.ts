@@ -50,6 +50,28 @@ export function initObservability(config: ObservabilityConfig): void {
 // ── AI tracking ──
 export { type AILoggerConfig, flushAICalls, initAI, trackAICall } from "./ai";
 
+// ── AI span helpers (OpenInference) ──
+export {
+	type AISpan,
+	type ChainSpanOptions,
+	type EmbeddingSpanOptions,
+	type LLMSpan,
+	type LLMSpanOptions,
+	type RetrievedDocument,
+	type RetrieverSpan,
+	type RetrieverSpanOptions,
+	type ToolSpanOptions,
+	clearAISessionContext,
+	getAISessionContext,
+	setAISessionContext,
+	startAgentSpan,
+	startChainSpan,
+	startEmbeddingSpan,
+	startLLMSpan,
+	startRetrieverSpan,
+	startToolSpan,
+} from "./ai-spans";
+
 // ── Logger ──
 export {
 	createLogger,

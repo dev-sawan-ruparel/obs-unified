@@ -11,6 +11,14 @@ binding = "DB"
 database_name = "obs-collector-db"
 database_id = "local-dev-collector"
 
+[[durable_objects.bindings]]
+name = "TAIL_HUB"
+class_name = "TailHub"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["TailHub"]
+
 [vars]
 RETENTION_HOURS = "72"
 # Set these in production (wrangler secret put):

@@ -1,8 +1,9 @@
 {
-	"name": "@obs-demo/api",
+	"name": "@obs-demo/app",
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"type-check": "tsc --noEmit",
 		"dev": "wrangler dev --port 8787 --inspector-port 9230"
 	},
 	"dependencies": {

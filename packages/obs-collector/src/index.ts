@@ -2,14 +2,19 @@ import { createTelemetryCollectorApp, type CollectorConfig } from "./framework/c
 import { createIngestAuth } from "./auth/ingest-auth";
 import { createDashboardAuth } from "./auth/dashboard-auth";
 import { aiReceiverPlugin } from "./plugins/ai-receiver";
+import { aiSpanPayloadsProcessorPlugin } from "./plugins/ai-span-payloads-processor";
 import { botFilterPlugin } from "./plugins/bot-filter";
+import { genAiNormalizerPlugin } from "./plugins/gen-ai-normalizer";
 import { defaultSpanEnrichmentPlugin } from "./plugins/default-span-enrichment";
 import { issueEnrichmentPlugin } from "./plugins/issue-enrichment";
 import { issueInsightsPlugin } from "./plugins/issue-insights";
 import { logsReceiverPlugin } from "./plugins/logs-receiver";
+import { metricsReceiverPlugin } from "./plugins/metrics-receiver";
 import { otlpReceiverPlugin } from "./plugins/otlp-receiver";
 import { queryRoutesPlugin } from "./plugins/query-routes";
 import { redactionProcessorPlugin } from "./plugins/redaction-processor";
+import { tailRoutesPlugin } from "./plugins/tail-routes";
+import { timelineRoutesPlugin } from "./plugins/timeline-routes";
 import { uaEnrichmentPlugin } from "./plugins/ua-enrichment";
 import { usageNormalizationPlugin } from "./plugins/usage-normalization";
 import { usagePrivacyPlugin } from "./plugins/usage-privacy";
@@ -44,14 +49,19 @@ export { createDashboardAuth } from "./auth/dashboard-auth";
 
 export {
 	aiReceiverPlugin,
+	aiSpanPayloadsProcessorPlugin,
 	botFilterPlugin,
 	defaultSpanEnrichmentPlugin,
+	genAiNormalizerPlugin,
 	issueEnrichmentPlugin,
 	issueInsightsPlugin,
 	logsReceiverPlugin,
+	metricsReceiverPlugin,
 	otlpReceiverPlugin,
 	queryRoutesPlugin,
 	redactionProcessorPlugin,
+	tailRoutesPlugin,
+	timelineRoutesPlugin,
 	uaEnrichmentPlugin,
 	usageNormalizationPlugin,
 	usagePrivacyPlugin,
@@ -69,14 +79,23 @@ export {
 	evaluateAllRules,
 };
 
+export { TailHub } from "./durable-objects/tail-hub";
+export type { TailEvent, TailKind } from "./durable-objects/tail-hub";
+
 export { ProjectsStore } from "./lib/projects-store";
 export { AlertsStore, compareValue } from "./lib/alerts-store";
+export { MetricsStore } from "./lib/metrics-store";
 
 /** All built-in plugins in recommended registration order */
 export const allPlugins = [
 	defaultSpanEnrichmentPlugin,
 	issueEnrichmentPlugin,
 	redactionProcessorPlugin,
+	// Normalize vendor gen_ai.* attrs → OpenInference before payload routing.
+	genAiNormalizerPlugin,
+	// Must run after redaction + normalization so stored payloads reflect the
+	// redacted form and cover both native-SDK and gen_ai spans.
+	aiSpanPayloadsProcessorPlugin,
 	usageNormalizationPlugin,
 	usagePrivacyPlugin,
 	uaEnrichmentPlugin,
@@ -85,6 +104,7 @@ export const allPlugins = [
 	otlpReceiverPlugin,
 	usageReceiverPlugin,
 	logsReceiverPlugin,
+	metricsReceiverPlugin,
 	aiReceiverPlugin,
 	identityReceiverPlugin,
 	replayReceiverPlugin,
@@ -95,6 +115,8 @@ export const allPlugins = [
 	usersQueryRoutesPlugin,
 	replayQueryRoutesPlugin,
 	alertsRoutesPlugin,
+	tailRoutesPlugin,
+	timelineRoutesPlugin,
 ];
 
 export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>

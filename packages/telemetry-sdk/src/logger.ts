@@ -1,11 +1,12 @@
 /**
- * Structured logger (from DecisionOps).
+ * Structured logger.
  * JSON-line output with OTEL severity numbers.
  * WARN/ERROR auto-attach to active span as events.
- * Now also forwards logs to the observability collector.
+ * Forwards logs to the collector as OTLP/HTTP+JSON
+ * (`ExportLogsServiceRequest`, proto-JSON encoded).
  */
 
-import type { JsonValue, LogInput, LogPayload } from "@obs/types";
+import type { JsonValue } from "@obs/types";
 import { getActiveSpan } from "./span";
 
 const SEVERITY_DEBUG = 5;
@@ -28,10 +29,21 @@ export interface LoggerConfig {
 	serviceName: string;
 }
 
+interface BufferedLog {
+	severity: LogSeverity;
+	severityNumber: number;
+	loggerName: string;
+	message: string;
+	attributes?: Record<string, JsonValue>;
+	occurredAtNs: string; // uint64 nanoseconds as decimal string
+	traceId?: string;
+	spanId?: string;
+}
+
 const MAX_BUFFER_SIZE = 500;
 
 let logConfig: LoggerConfig | null = null;
-let logBuffer: LogInput[] = [];
+let logBuffer: BufferedLog[] = [];
 let flushInProgress = false;
 
 export function initLogger(config: LoggerConfig) {
@@ -43,7 +55,7 @@ export async function flushLogs() {
 
 	flushInProgress = true;
 	const batch = logBuffer.splice(0, logBuffer.length);
-	const payload: LogPayload = { logs: batch };
+	const payload = buildOtlpLogsPayload(batch, logConfig.serviceName);
 
 	try {
 		const headers: Record<string, string> = {
@@ -64,6 +76,84 @@ export async function flushLogs() {
 	} finally {
 		flushInProgress = false;
 	}
+}
+
+/**
+ * Build an OTLP `ExportLogsServiceRequest` in proto-JSON form. Groups by
+ * logger name (InstrumentationScope) under a single resource bearing
+ * `service.name`. uint64 timestamps are encoded as decimal strings per the
+ * proto-JSON spec.
+ */
+function buildOtlpLogsPayload(batch: BufferedLog[], serviceName: string) {
+	const byLogger = new Map<string, BufferedLog[]>();
+	for (const log of batch) {
+		const existing = byLogger.get(log.loggerName);
+		if (existing) existing.push(log);
+		else byLogger.set(log.loggerName, [log]);
+	}
+
+	const scopeLogs = Array.from(byLogger.entries()).map(([name, logs]) => ({
+		scope: { name },
+		logRecords: logs.map(toOtlpLogRecord),
+	}));
+
+	return {
+		resourceLogs: [
+			{
+				resource: {
+					attributes: [
+						{ key: "service.name", value: { stringValue: serviceName } },
+					],
+				},
+				scopeLogs,
+			},
+		],
+	};
+}
+
+function toOtlpLogRecord(log: BufferedLog) {
+	const record: Record<string, unknown> = {
+		timeUnixNano: log.occurredAtNs,
+		observedTimeUnixNano: log.occurredAtNs,
+		severityNumber: log.severityNumber,
+		severityText: log.severity,
+		body: { stringValue: log.message },
+	};
+	if (log.attributes && Object.keys(log.attributes).length > 0) {
+		record.attributes = Object.entries(log.attributes).map(([k, v]) => ({
+			key: k,
+			value: toOtlpAnyValue(v),
+		}));
+	}
+	if (log.traceId) record.traceId = log.traceId;
+	if (log.spanId) record.spanId = log.spanId;
+	return record;
+}
+
+function toOtlpAnyValue(v: JsonValue): Record<string, unknown> {
+	if (v === null || v === undefined) return {};
+	if (typeof v === "string") return { stringValue: v };
+	if (typeof v === "boolean") return { boolValue: v };
+	if (typeof v === "number") {
+		return Number.isInteger(v)
+			? { intValue: String(v) }
+			: { doubleValue: v };
+	}
+	if (Array.isArray(v)) {
+		return { arrayValue: { values: v.map((x) => toOtlpAnyValue(x)) } };
+	}
+	return {
+		kvlistValue: {
+			values: Object.entries(v).map(([k, val]) => ({
+				key: k,
+				value: toOtlpAnyValue(val as JsonValue),
+			})),
+		},
+	};
+}
+
+function isoToNanoString(iso: string): string {
+	return `${new Date(iso).getTime()}000000`;
 }
 
 interface StructuredLogRecord {
@@ -119,16 +209,15 @@ export function createLogger(name: string): Logger {
 
 		const span = getActiveSpan();
 
-		// Add to remote collector buffer
-		const logObj: LogInput = {
+		const logObj: BufferedLog = {
 			severity,
+			severityNumber,
 			loggerName: name,
 			message,
 			attributes: (attributes as Record<string, JsonValue>) || undefined,
-			occurredAt: record.ts,
+			occurredAtNs: isoToNanoString(record.ts),
 			traceId: span?.traceId,
 			spanId: span?.spanId,
-			serviceName: logConfig?.serviceName,
 		};
 
 		// Drop oldest entries if buffer is at hard cap (collector unreachable)

@@ -1,10 +1,18 @@
-/** Union: A's JSON error handling, payload size limit, env-based retention */
+/** OTLP/HTTP trace receiver. Accepts JSON or protobuf, with gzip. */
 
-import type { OtlpTraceExportRequest } from "@obs/types";
 import { getConfiguredRetentionHours } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { toStoredSpans } from "../lib/otlp";
+import { publishTail, spanToTailEvent } from "../lib/tail-publisher";
+import {
+	OtlpDecodeError,
+	decodeTraceRequest,
+	readOtlpBody,
+} from "../otlp/decode";
+import { otlpRetryableError, traceResponse } from "../otlp/response";
 import { getProjectId } from "./_context";
+
+const MAX_SPANS_PER_REQUEST = 500;
 
 export const otlpReceiverPlugin: CollectorPlugin = {
 	name: "otlp-http-receiver",
@@ -12,48 +20,96 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 		app.post("/v1/traces", async (c) => {
 			const projectId = getProjectId(c);
 			const routeContext = runtime.createRouteContext(c.env, c);
-			let payload: OtlpTraceExportRequest;
+
+			let body;
 			try {
-				payload = await c.req.json<OtlpTraceExportRequest>();
-			} catch {
-				return c.json({ error: "Invalid JSON body" }, 400);
+				body = await readOtlpBody(c);
+			} catch (err) {
+				if (err instanceof OtlpDecodeError) {
+					return c.json({ error: err.message }, err.status);
+				}
+				throw err;
 			}
-			const resourceSpans = payload.resourceSpans ?? [];
-			const spanCount = resourceSpans.reduce(
-				(total, rs) =>
-					total +
-					(rs.scopeSpans ?? []).reduce(
-						(sum, ss) => sum + (ss.spans ?? []).length,
-						0,
-					),
-				0,
-			);
-			if (spanCount > 500) {
-				return c.json(
-					{ error: `Payload too large: ${spanCount} spans (max 500)` },
-					413,
-				);
+
+			let payload;
+			try {
+				payload = decodeTraceRequest(body);
+			} catch (err) {
+				if (err instanceof OtlpDecodeError) {
+					return c.json({ error: err.message }, err.status);
+				}
+				throw err;
 			}
+
+			// Count spans and truncate to cap, tracking rejected excess for the
+			// partial_success envelope. We rebuild a trimmed payload rather than
+			// touching the rest of the pipeline.
+			let total = 0;
+			let rejected = 0;
+			const trimmedResourceSpans = [];
+			for (const rs of payload.resourceSpans ?? []) {
+				const scopeSpans = [];
+				for (const ss of rs.scopeSpans ?? []) {
+					const spans = [];
+					for (const s of ss.spans ?? []) {
+						if (total >= MAX_SPANS_PER_REQUEST) {
+							rejected++;
+						} else {
+							spans.push(s);
+							total++;
+						}
+					}
+					scopeSpans.push({ ...ss, spans });
+				}
+				trimmedResourceSpans.push({ ...rs, scopeSpans });
+			}
+
 			const parsedSpans = toStoredSpans(
-				payload,
+				{ resourceSpans: trimmedResourceSpans },
 				projectId,
 				routeContext.now,
 				getConfiguredRetentionHours(c.env.RETENTION_HOURS),
 			);
+			// `toStoredSpans` silently drops spans with invalid trace/span IDs
+			// (length mismatch, non-hex). Surface those to the caller via
+			// partial_success rather than making them disappear.
+			const malformed = total - parsedSpans.length;
+			const totalRejected = rejected + malformed;
+
 			const spans = await runtime.runSpanProcessors(parsedSpans, routeContext);
 			const store = runtime.createStore(c.env);
-			const result = await store.ingest(spans);
+			try {
+				await store.ingest(spans);
+			} catch (err) {
+				console.error("[/v1/traces] storage error:", err);
+				return otlpRetryableError(
+					c,
+					503,
+					"Storage temporarily unavailable",
+				);
+			}
 
-			return c.json(
-				{
-					success: true,
-					inserted: result.inserted,
-					traceCount: result.traceCount,
-					processorCount: runtime.getRegisteredPluginNames().length,
-					timestamp: new Date().toISOString(),
-				},
-				202,
-			);
+			if (spans.length > 0 && c.env.TAIL_HUB) {
+				const events = spans.map(spanToTailEvent);
+				c.executionCtx.waitUntil(publishTail(c.env, events));
+			}
+
+			if (totalRejected > 0) {
+				const parts: string[] = [];
+				if (rejected > 0)
+					parts.push(
+						`${rejected} span(s) dropped over ${MAX_SPANS_PER_REQUEST}-span cap`,
+					);
+				if (malformed > 0)
+					parts.push(
+						`${malformed} span(s) rejected (invalid trace_id or span_id)`,
+					);
+				return traceResponse(c, body.wireFormat, {
+					rejected: totalRejected,
+					errorMessage: parts.join("; "),
+				});
+			}
+			return traceResponse(c, body.wireFormat);
 		});
 	},
 };

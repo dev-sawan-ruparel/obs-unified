@@ -2,7 +2,71 @@ import type {
 	AICallRecord,
 	AICallsOverviewOptions,
 	AICallsOverviewResponse,
+	AIEvaluationRecord,
+	AIEvaluationSource,
+	AIEvaluationsListOptions,
+	AIEvaluationsListResponse,
+	AISessionDetailResponse,
+	AISessionsListOptions,
+	AISessionsListResponse,
+	AISessionSummary,
+	AISpanRecord,
+	AISpansOverviewOptions,
+	AISpansOverviewResponse,
+	JsonValue,
 } from "@obs/types";
+import { computeCost } from "./ai-pricing";
+import { parseJsonRecord } from "./json";
+
+const attrNum = (
+	attrs: Record<string, JsonValue>,
+	key: string,
+): number | null => {
+	const v = attrs[key];
+	return typeof v === "number" && Number.isFinite(v) ? v : null;
+};
+
+const attrStr = (
+	attrs: Record<string, JsonValue>,
+	key: string,
+): string | null => {
+	const v = attrs[key];
+	return typeof v === "string" && v.length > 0 ? v : null;
+};
+
+/**
+ * Enrich a span's attributes with a computed `llm.cost.total_usd` when the
+ * span has token counts but no reported cost. Mutates the passed attrs
+ * object and returns the final cost (or null).
+ */
+const enrichCost = (attrs: Record<string, JsonValue>): number | null => {
+	const existing = attrNum(attrs, "llm.cost.total_usd");
+	if (existing !== null) return existing;
+	const model = attrStr(attrs, "llm.model_name");
+	const prompt = attrNum(attrs, "llm.token_count.prompt");
+	const completion = attrNum(attrs, "llm.token_count.completion");
+	if (prompt === null && completion === null) return null;
+	const cost = computeCost(model, prompt, completion);
+	if (cost === null) return null;
+	attrs["llm.cost.total_usd"] = cost;
+	attrs["llm.cost.computed"] = true;
+	return cost;
+};
+
+export interface IngestEvaluation {
+	projectId: string;
+	evaluationId: string;
+	traceId: string;
+	spanId: string;
+	name: string;
+	score: number | null;
+	label: string | null;
+	explanation: string | null;
+	source: AIEvaluationSource;
+	metadataJson: string | null;
+	createdAt: string;
+	expiresAt: string;
+}
 
 /** Clamp an integer to a safe range */
 const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
@@ -148,6 +212,438 @@ export class AIStore {
 		const { meta } = await this.db
 			.prepare(`DELETE FROM ai_calls WHERE expires_at < datetime('now')`)
 			.run();
-		return meta.changes;
+		const { meta: payloadMeta } = await this.db
+			.prepare(`DELETE FROM ai_span_payloads WHERE expires_at < datetime('now')`)
+			.run();
+		const { meta: evalMeta } = await this.db
+			.prepare(
+				`DELETE FROM ai_span_evaluations WHERE expires_at < datetime('now')`,
+			)
+			.run();
+		return (
+			meta.changes +
+			(payloadMeta?.changes ?? 0) +
+			(evalMeta?.changes ?? 0)
+		);
+	}
+
+	/**
+	 * Query OpenInference-kind spans joined with their side-table payloads.
+	 * Spans are identified by the presence of a span_kind row in
+	 * ai_span_payloads (written by ai-span-payloads-processor on ingest).
+	 */
+	async getAISpans(
+		options: AISpansOverviewOptions,
+	): Promise<AISpansOverviewResponse> {
+		if (!options.projectId)
+			throw new Error("AIStore.getAISpans: projectId is required");
+		const hours = clampInt(options.hours, 1, 720, 24);
+		const limit = clampInt(options.limit, 1, 1000, 100);
+
+		let sql = `
+      SELECT
+        s.trace_id            AS trace_id,
+        s.span_id             AS span_id,
+        s.parent_span_id      AS parent_span_id,
+        s.service_name        AS service_name,
+        s.span_name           AS span_name,
+        s.status_code         AS status_code,
+        s.status_message      AS status_message,
+        s.start_time          AS start_time,
+        s.end_time            AS end_time,
+        s.duration_ms         AS duration_ms,
+        s.attributes_json     AS attributes_json,
+        p.span_kind           AS span_kind,
+        p.input_json          AS input_json,
+        p.output_json         AS output_json
+      FROM ai_span_payloads p
+      INNER JOIN telemetry_spans s
+        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+      WHERE p.project_id = ?
+        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+    `;
+		const params: unknown[] = [options.projectId, hours];
+
+		if (options.kind) {
+			sql += ` AND p.span_kind = ?`;
+			params.push(options.kind);
+		}
+		if (options.service) {
+			sql += ` AND s.service_name = ?`;
+			params.push(options.service);
+		}
+		if (options.traceId) {
+			sql += ` AND s.trace_id = ?`;
+			params.push(options.traceId);
+		}
+
+		sql += ` ORDER BY s.start_time DESC LIMIT ?`;
+		params.push(limit);
+
+		const results = await this.db
+			.prepare(sql)
+			.bind(...params)
+			.all<any>();
+
+		const spans: AISpanRecord[] = (results.results || []).map((r) => {
+			const attrs = parseJsonRecord(r.attributes_json) as Record<
+				string,
+				JsonValue
+			>;
+			enrichCost(attrs);
+			return {
+				traceId: r.trace_id,
+				spanId: r.span_id,
+				parentSpanId: r.parent_span_id,
+				serviceName: r.service_name,
+				spanName: r.span_name,
+				spanKind: r.span_kind,
+				statusCode: r.status_code ?? 0,
+				statusMessage: r.status_message,
+				startTime: r.start_time,
+				endTime: r.end_time,
+				durationMs: r.duration_ms ?? 0,
+				attributes: attrs,
+				inputJson: r.input_json,
+				outputJson: r.output_json,
+			};
+		});
+
+		const byKind: Record<string, number> = {};
+		let errorSpans = 0;
+		for (const span of spans) {
+			byKind[span.spanKind] = (byKind[span.spanKind] ?? 0) + 1;
+			if (span.statusCode === 2) errorSpans++;
+		}
+
+		return {
+			spans,
+			summary: {
+				totalSpans: spans.length,
+				byKind,
+				errorSpans,
+			},
+			windowHours: hours,
+			timestamp: new Date().toISOString(),
+		};
+	}
+
+	// ── Sessions ─────────────────────────────────────────────────────────
+
+	/**
+	 * List sessions with aggregated stats across all their AI spans. A
+	 * "session" is any distinct non-null `session_id` stamped on an
+	 * ai_span_payloads row.
+	 */
+	async listSessions(
+		options: AISessionsListOptions,
+	): Promise<AISessionsListResponse> {
+		if (!options.projectId)
+			throw new Error("AIStore.listSessions: projectId is required");
+		const hours = clampInt(options.hours, 1, 720, 24);
+		const limit = clampInt(options.limit, 1, 1000, 100);
+
+		let sql = `
+      SELECT
+        p.session_id          AS session_id,
+        MAX(p.user_id)        AS user_id,
+        COUNT(*)              AS span_count,
+        SUM(CASE WHEN p.span_kind = 'LLM' THEN 1 ELSE 0 END) AS llm_span_count,
+        SUM(CASE WHEN s.status_code = 2 THEN 1 ELSE 0 END)   AS error_count,
+        SUM(CAST(json_extract(s.attributes_json, '$."llm.token_count.prompt"') AS REAL))     AS prompt_tokens,
+        SUM(CAST(json_extract(s.attributes_json, '$."llm.token_count.completion"') AS REAL)) AS completion_tokens,
+        SUM(CAST(json_extract(s.attributes_json, '$."llm.cost.total_usd"') AS REAL))         AS cost_usd,
+        MIN(s.start_time)     AS first_span_at,
+        MAX(s.start_time)     AS last_span_at,
+        COUNT(DISTINCT s.trace_id) AS trace_count
+      FROM ai_span_payloads p
+      INNER JOIN telemetry_spans s
+        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+      WHERE p.project_id = ?
+        AND p.session_id IS NOT NULL
+        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+    `;
+		const params: unknown[] = [options.projectId, hours];
+		if (options.userId) {
+			sql += ` AND p.user_id = ?`;
+			params.push(options.userId);
+		}
+		sql += ` GROUP BY p.session_id ORDER BY last_span_at DESC LIMIT ?`;
+		params.push(limit);
+
+		const results = await this.db
+			.prepare(sql)
+			.bind(...params)
+			.all<any>();
+
+		// Second query: most recent input per session, for list preview.
+		const previewSql = `
+      SELECT p.session_id, p.input_json, s.start_time
+      FROM ai_span_payloads p
+      INNER JOIN telemetry_spans s
+        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+      WHERE p.project_id = ?
+        AND p.session_id IS NOT NULL
+        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+        AND p.input_json IS NOT NULL
+      ORDER BY s.start_time DESC
+    `;
+		const previewRows = await this.db
+			.prepare(previewSql)
+			.bind(options.projectId, hours)
+			.all<any>();
+		const previewBySession = new Map<string, string>();
+		for (const row of previewRows.results || []) {
+			if (!previewBySession.has(row.session_id)) {
+				const raw = typeof row.input_json === "string" ? row.input_json : "";
+				previewBySession.set(
+					row.session_id,
+					raw.length > 200 ? `${raw.slice(0, 200)}…` : raw,
+				);
+			}
+		}
+
+		const sessions: AISessionSummary[] = (results.results || []).map((r) => {
+			const promptTokens = r.prompt_tokens ?? 0;
+			const completionTokens = r.completion_tokens ?? 0;
+			let totalCostUsd = r.cost_usd ?? 0;
+			// If no cost was reported, try computing on the fly. We don't have
+			// model here cheaply; leave as reported sum and rely on the detail
+			// endpoint to recompute per-span.
+			return {
+				sessionId: r.session_id,
+				userId: r.user_id ?? null,
+				spanCount: r.span_count ?? 0,
+				llmSpanCount: r.llm_span_count ?? 0,
+				errorCount: r.error_count ?? 0,
+				totalPromptTokens: promptTokens,
+				totalCompletionTokens: completionTokens,
+				totalCostUsd,
+				firstSpanAt: r.first_span_at,
+				lastSpanAt: r.last_span_at,
+				traceCount: r.trace_count ?? 0,
+				lastInputPreview: previewBySession.get(r.session_id) ?? null,
+			};
+		});
+
+		return {
+			sessions,
+			windowHours: hours,
+			timestamp: new Date().toISOString(),
+		};
+	}
+
+	/** Full detail for a single session: all spans + all evaluations. */
+	async getSession(
+		projectId: string,
+		sessionId: string,
+	): Promise<AISessionDetailResponse> {
+		if (!projectId) throw new Error("AIStore.getSession: projectId is required");
+		if (!sessionId) throw new Error("AIStore.getSession: sessionId is required");
+
+		const sql = `
+      SELECT
+        s.trace_id            AS trace_id,
+        s.span_id             AS span_id,
+        s.parent_span_id      AS parent_span_id,
+        s.service_name        AS service_name,
+        s.span_name           AS span_name,
+        s.status_code         AS status_code,
+        s.status_message      AS status_message,
+        s.start_time          AS start_time,
+        s.end_time            AS end_time,
+        s.duration_ms         AS duration_ms,
+        s.attributes_json     AS attributes_json,
+        p.span_kind           AS span_kind,
+        p.input_json          AS input_json,
+        p.output_json         AS output_json,
+        p.user_id             AS user_id
+      FROM ai_span_payloads p
+      INNER JOIN telemetry_spans s
+        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+      WHERE p.project_id = ? AND p.session_id = ?
+      ORDER BY s.start_time ASC
+      LIMIT 1000
+    `;
+		const results = await this.db
+			.prepare(sql)
+			.bind(projectId, sessionId)
+			.all<any>();
+
+		let userId: string | null = null;
+		let totalPromptTokens = 0;
+		let totalCompletionTokens = 0;
+		let totalCostUsd = 0;
+		let errorCount = 0;
+		let firstSpanAt: string | null = null;
+		let lastSpanAt: string | null = null;
+
+		const spans: AISpanRecord[] = (results.results || []).map((r) => {
+			const attrs = parseJsonRecord(r.attributes_json) as Record<
+				string,
+				JsonValue
+			>;
+			const cost = enrichCost(attrs);
+			if (!userId && r.user_id) userId = r.user_id;
+			totalPromptTokens += attrNum(attrs, "llm.token_count.prompt") ?? 0;
+			totalCompletionTokens +=
+				attrNum(attrs, "llm.token_count.completion") ?? 0;
+			if (cost !== null) totalCostUsd += cost;
+			if (r.status_code === 2) errorCount++;
+			if (!firstSpanAt || r.start_time < firstSpanAt) firstSpanAt = r.start_time;
+			if (!lastSpanAt || r.start_time > lastSpanAt) lastSpanAt = r.start_time;
+			return {
+				traceId: r.trace_id,
+				spanId: r.span_id,
+				parentSpanId: r.parent_span_id,
+				serviceName: r.service_name,
+				spanName: r.span_name,
+				spanKind: r.span_kind,
+				statusCode: r.status_code ?? 0,
+				statusMessage: r.status_message,
+				startTime: r.start_time,
+				endTime: r.end_time,
+				durationMs: r.duration_ms ?? 0,
+				attributes: attrs,
+				inputJson: r.input_json,
+				outputJson: r.output_json,
+			};
+		});
+
+		// Pull all evaluations for spans in this session.
+		let evaluations: AIEvaluationRecord[] = [];
+		if (spans.length > 0) {
+			const placeholders = spans.map(() => "(?, ?)").join(", ");
+			const bindings: unknown[] = [projectId];
+			for (const span of spans) {
+				bindings.push(span.traceId, span.spanId);
+			}
+			const evalSql = `
+        SELECT * FROM ai_span_evaluations
+        WHERE project_id = ?
+          AND (trace_id, span_id) IN (${placeholders})
+        ORDER BY created_at DESC
+      `;
+			const evalResults = await this.db
+				.prepare(evalSql)
+				.bind(...bindings)
+				.all<any>();
+			evaluations = (evalResults.results || []).map((r) => ({
+				evaluationId: r.evaluation_id,
+				projectId: r.project_id,
+				traceId: r.trace_id,
+				spanId: r.span_id,
+				name: r.name,
+				score: r.score,
+				label: r.label,
+				explanation: r.explanation,
+				source: r.source as AIEvaluationSource,
+				metadata: parseJsonRecord(r.metadata_json),
+				createdAt: r.created_at,
+				expiresAt: r.expires_at,
+			}));
+		}
+
+		return {
+			sessionId,
+			userId,
+			spans,
+			evaluations,
+			summary: {
+				spanCount: spans.length,
+				totalPromptTokens,
+				totalCompletionTokens,
+				totalCostUsd,
+				errorCount,
+				firstSpanAt,
+				lastSpanAt,
+			},
+			timestamp: new Date().toISOString(),
+		};
+	}
+
+	// ── Evaluations ──────────────────────────────────────────────────────
+
+	async ingestEvaluations(evaluations: IngestEvaluation[]): Promise<void> {
+		if (evaluations.length === 0) return;
+		const stmt = this.db.prepare(`
+      INSERT INTO ai_span_evaluations (
+        evaluation_id, project_id, trace_id, span_id, name,
+        score, label, explanation, source, metadata_json,
+        created_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+		await this.db.batch(
+			evaluations.map((e) =>
+				stmt.bind(
+					e.evaluationId,
+					e.projectId,
+					e.traceId,
+					e.spanId,
+					e.name,
+					e.score,
+					e.label,
+					e.explanation,
+					e.source,
+					e.metadataJson,
+					e.createdAt,
+					e.expiresAt,
+				),
+			),
+		);
+	}
+
+	async listEvaluations(
+		options: AIEvaluationsListOptions,
+	): Promise<AIEvaluationsListResponse> {
+		if (!options.projectId)
+			throw new Error("AIStore.listEvaluations: projectId is required");
+		const limit = clampInt(options.limit, 1, 1000, 200);
+
+		let sql = `SELECT * FROM ai_span_evaluations WHERE project_id = ?`;
+		const params: unknown[] = [options.projectId];
+
+		if (options.traceId) {
+			sql += ` AND trace_id = ?`;
+			params.push(options.traceId);
+		}
+		if (options.spanId) {
+			sql += ` AND span_id = ?`;
+			params.push(options.spanId);
+		}
+		if (options.name) {
+			sql += ` AND name = ?`;
+			params.push(options.name);
+		}
+
+		sql += ` ORDER BY created_at DESC LIMIT ?`;
+		params.push(limit);
+
+		const results = await this.db
+			.prepare(sql)
+			.bind(...params)
+			.all<any>();
+
+		const evaluations: AIEvaluationRecord[] = (results.results || []).map(
+			(r) => ({
+				evaluationId: r.evaluation_id,
+				projectId: r.project_id,
+				traceId: r.trace_id,
+				spanId: r.span_id,
+				name: r.name,
+				score: r.score,
+				label: r.label,
+				explanation: r.explanation,
+				source: r.source as AIEvaluationSource,
+				metadata: parseJsonRecord(r.metadata_json),
+				createdAt: r.created_at,
+				expiresAt: r.expires_at,
+			}),
+		);
+
+		return {
+			evaluations,
+			timestamp: new Date().toISOString(),
+		};
 	}
 }

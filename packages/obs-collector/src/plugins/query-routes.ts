@@ -44,6 +44,28 @@ export const queryRoutesPlugin: CollectorPlugin = {
 			});
 		});
 
+		app.get("/internal/telemetry/service-map", async (c) => {
+			const projectId = getProjectId(c);
+			const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
+			const hours = Math.min(
+				maxHours,
+				Math.max(
+					1,
+					Number.parseInt(
+						c.req.query("hours") || String(DEFAULT_WINDOW_HOURS),
+						10,
+					) || DEFAULT_WINDOW_HOURS,
+				),
+			);
+			const store = runtime.createStore(c.env);
+			const map = await store.getServiceMap({ projectId, hours });
+			return c.json({
+				...map,
+				windowHours: hours,
+				timestamp: new Date().toISOString(),
+			});
+		});
+
 		app.get("/internal/telemetry/traces/:traceId", async (c) => {
 			const projectId = getProjectId(c);
 			const store = runtime.createStore(c.env);

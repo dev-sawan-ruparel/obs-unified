@@ -1,4 +1,5 @@
 import type { JsonValue, StoredSpan } from "@obs/types";
+import { SESSION_ID_KEY } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 
@@ -47,10 +48,17 @@ export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
 							? attributes["server.address"]
 							: null);
 
+					const sessionId =
+						typeof attributes[SESSION_ID_KEY] === "string" &&
+						attributes[SESSION_ID_KEY].length > 0
+							? (attributes[SESSION_ID_KEY] as string)
+							: null;
+
 					return {
 						...span,
 						serviceName,
 						attributesJson: JSON.stringify(normalizedAttributes),
+						sessionId,
 					};
 				});
 			},

@@ -10,6 +10,9 @@ export type JsonValue = Primitive | JsonValue[] | { [key: string]: JsonValue };
 export interface CollectorEnv {
 	DB: D1Database;
 	REPLAYS_BUCKET?: R2Bucket;
+	/** Durable Object namespace for live-tail SSE pub/sub. Optional — when
+	 *  unbound the /internal/telemetry/tail endpoint returns 503. */
+	TAIL_HUB?: DurableObjectNamespace;
 	/** Write-only API key for SDK ingest endpoints (/v1/*) */
 	INGEST_KEY?: string;
 	/** Password for dashboard login */
@@ -58,25 +61,32 @@ export interface OtlpEvent {
 	name: string;
 	timeUnixNano?: string;
 	attributes?: OtlpKeyValue[];
+	droppedAttributesCount?: number;
 }
 
 export interface OtlpLink {
 	traceId: string;
 	spanId: string;
+	traceState?: string;
 	attributes?: OtlpKeyValue[];
+	droppedAttributesCount?: number;
 }
 
 export interface OtlpSpan {
 	traceId: string;
 	spanId: string;
 	parentSpanId?: string;
+	traceState?: string;
 	name: string;
 	kind?: number;
 	startTimeUnixNano?: string;
 	endTimeUnixNano?: string;
 	attributes?: OtlpKeyValue[];
+	droppedAttributesCount?: number;
 	events?: OtlpEvent[];
+	droppedEventsCount?: number;
 	links?: OtlpLink[];
+	droppedLinksCount?: number;
 	status?: { code?: number; message?: string };
 }
 
@@ -101,6 +111,7 @@ export interface StoredSpan {
 	traceId: string;
 	spanId: string;
 	parentSpanId: string | null;
+	traceState: string | null;
 	serviceName: string | null;
 	scopeName: string | null;
 	scopeVersion: string | null;
@@ -112,11 +123,16 @@ export interface StoredSpan {
 	endTime: string;
 	durationMs: number;
 	attributesJson: string;
+	droppedAttributesCount: number;
 	resourceAttributesJson: string;
 	eventsJson: string;
+	droppedEventsCount: number;
 	linksJson: string;
+	droppedLinksCount: number;
 	receivedAt: string;
 	expiresAt: string;
+	/** Denormalized from attributes["session.id"] at ingest; null when absent. */
+	sessionId?: string | null;
 }
 
 // ── Database Row Types ──
@@ -214,6 +230,34 @@ export interface TelemetryOverviewResponse {
 		service: string;
 		status: string;
 	};
+	timestamp: string;
+}
+
+// ── Service Map ──
+
+export interface ServiceMapNode {
+	service: string;
+	spanCount: number;
+	errorCount: number;
+	traceCount: number;
+	errorRate: number;
+}
+
+export interface ServiceMapEdge {
+	source: string;
+	target: string;
+	calls: number;
+	errors: number;
+	errorRate: number;
+	p50DurationMs: number;
+	p95DurationMs: number;
+	rps: number;
+}
+
+export interface ServiceMapResponse {
+	nodes: ServiceMapNode[];
+	edges: ServiceMapEdge[];
+	windowHours: number;
 	timestamp: string;
 }
 
@@ -548,21 +592,6 @@ export interface UsageSessionDetailResponse {
 
 export type LogSeverity = "DEBUG" | "INFO" | "WARN" | "ERROR" | "FATAL";
 
-export interface LogInput {
-	traceId?: string;
-	spanId?: string;
-	serviceName?: string;
-	severity: LogSeverity;
-	loggerName?: string;
-	message: string;
-	attributes?: Record<string, JsonValue>;
-	occurredAt?: string;
-}
-
-export interface LogPayload {
-	logs: LogInput[];
-}
-
 export interface LogRecord {
 	projectId: string;
 	logId: string;
@@ -574,9 +603,13 @@ export interface LogRecord {
 	loggerName: string | null;
 	message: string;
 	attributesJson: string | null;
+	flags: number;
+	droppedAttributesCount: number;
 	occurredAt: string;
 	receivedAt: string;
 	expiresAt: string;
+	/** Denormalized from attributes["session.id"] at ingest. */
+	sessionId?: string | null;
 }
 
 export interface LogRow {
@@ -708,6 +741,144 @@ export interface AICallsOverviewResponse {
 		errorCalls: number;
 	};
 	windowHours: number;
+	timestamp: string;
+}
+
+// ── OpenInference AI Spans ──
+
+/** An OpenInference-kind span joined with its side-table payload. */
+export interface AISpanRecord {
+	traceId: string;
+	spanId: string;
+	parentSpanId: string | null;
+	serviceName: string | null;
+	spanName: string;
+	spanKind: string; // OpenInferenceSpanKind
+	statusCode: number;
+	statusMessage: string | null;
+	startTime: string;
+	endTime: string;
+	durationMs: number;
+	/** Full parsed attributes_json (excluding ai.payload.* — those live on the payload). */
+	attributes: Record<string, JsonValue>;
+	inputJson: string | null;
+	outputJson: string | null;
+}
+
+export interface AISpansOverviewOptions {
+	projectId: string;
+	hours: number;
+	kind?: string;
+	service?: string;
+	traceId?: string;
+	limit?: number;
+}
+
+export interface AISpansOverviewResponse {
+	spans: AISpanRecord[];
+	summary: {
+		totalSpans: number;
+		byKind: Record<string, number>;
+		errorSpans: number;
+	};
+	windowHours: number;
+	timestamp: string;
+}
+
+// ── AI Sessions (conversation threads) ──
+
+/** One row per unique session.id, with aggregates across its AI spans. */
+export interface AISessionSummary {
+	sessionId: string;
+	userId: string | null;
+	spanCount: number;
+	llmSpanCount: number;
+	errorCount: number;
+	totalPromptTokens: number;
+	totalCompletionTokens: number;
+	totalCostUsd: number;
+	firstSpanAt: string;
+	lastSpanAt: string;
+	/** Distinct trace ids this session spans. Useful for traversal. */
+	traceCount: number;
+	/** A preview of the most recent user input, for list rendering. */
+	lastInputPreview: string | null;
+}
+
+export interface AISessionsListOptions {
+	projectId: string;
+	hours: number;
+	userId?: string;
+	limit?: number;
+}
+
+export interface AISessionsListResponse {
+	sessions: AISessionSummary[];
+	windowHours: number;
+	timestamp: string;
+}
+
+export interface AISessionDetailResponse {
+	sessionId: string;
+	userId: string | null;
+	spans: AISpanRecord[];
+	evaluations: AIEvaluationRecord[];
+	summary: {
+		spanCount: number;
+		totalPromptTokens: number;
+		totalCompletionTokens: number;
+		totalCostUsd: number;
+		errorCount: number;
+		firstSpanAt: string | null;
+		lastSpanAt: string | null;
+	};
+	timestamp: string;
+}
+
+// ── AI Span Evaluations ──
+
+export type AIEvaluationSource = "llm_judge" | "code" | "human" | "user";
+
+export interface AIEvaluationInput {
+	traceId: string;
+	spanId: string;
+	name: string;
+	score?: number;
+	label?: string;
+	explanation?: string;
+	source: AIEvaluationSource;
+	metadata?: Record<string, JsonValue>;
+}
+
+export interface AIEvaluationPayload {
+	evaluations: AIEvaluationInput[];
+}
+
+export interface AIEvaluationRecord {
+	evaluationId: string;
+	projectId: string;
+	traceId: string;
+	spanId: string;
+	name: string;
+	score: number | null;
+	label: string | null;
+	explanation: string | null;
+	source: AIEvaluationSource;
+	metadata: Record<string, JsonValue>;
+	createdAt: string;
+	expiresAt: string;
+}
+
+export interface AIEvaluationsListOptions {
+	projectId: string;
+	traceId?: string;
+	spanId?: string;
+	name?: string;
+	limit?: number;
+}
+
+export interface AIEvaluationsListResponse {
+	evaluations: AIEvaluationRecord[];
 	timestamp: string;
 }
 

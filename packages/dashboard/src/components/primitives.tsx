@@ -2,6 +2,7 @@ import {
 	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	useCallback,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -507,4 +508,309 @@ export function binByInterval(
 		buckets[idx]++;
 	}
 	return buckets;
+}
+
+// ── Percentile helper ──
+
+/** Linear-interpolated percentile. `p` is 0..1. Returns 0 for empty input. */
+export function percentile(values: number[], p: number): number {
+	if (values.length === 0) return 0;
+	const sorted = [...values].sort((a, b) => a - b);
+	const idx = (sorted.length - 1) * p;
+	const lo = Math.floor(idx);
+	const hi = Math.ceil(idx);
+	if (lo === hi) return sorted[lo]!;
+	const w = idx - lo;
+	return sorted[lo]! * (1 - w) + sorted[hi]! * w;
+}
+
+// ── Chip (clickable filter token) ──
+
+export function Chip({
+	children,
+	active,
+	onClick,
+	onClear,
+	tone = "default",
+}: {
+	children: ReactNode;
+	active?: boolean;
+	onClick?: () => void;
+	onClear?: () => void;
+	tone?: "default" | "primary" | "accent" | "warning" | "error";
+}) {
+	const toneClass =
+		tone === "primary"
+			? "bg-sys-primary text-white"
+			: tone === "accent"
+				? "bg-sys-accent text-white"
+				: tone === "warning"
+					? "bg-sys-warning text-black"
+					: tone === "error"
+						? "bg-sys-error text-white"
+						: active
+							? "bg-sys-surface-low text-sys-on-surface border border-sys-primary"
+							: "bg-sys-surface-low text-sys-on-surface border border-sys-outline";
+	return (
+		<span
+			className={`inline-flex items-center gap-1 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${toneClass} ${
+				onClick ? "cursor-pointer hover:opacity-80" : ""
+			}`}
+			onClick={onClick}
+		>
+			{children}
+			{onClear && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onClear();
+					}}
+					className="ml-1 opacity-70 hover:opacity-100 cursor-pointer"
+					aria-label="Clear"
+				>
+					×
+				</button>
+			)}
+		</span>
+	);
+}
+
+// ── JsonBlock: pretty-prints JSON, collapsible, copy-to-clipboard ──
+
+const PREVIEW_CHARS = 280;
+
+export function JsonBlock({
+	value,
+	label,
+	accent,
+	maxHeight = 220,
+}: {
+	value: string | null | undefined;
+	label?: string;
+	accent?: "primary" | "error" | "accent" | "default";
+	maxHeight?: number;
+}) {
+	const [expanded, setExpanded] = useState(false);
+	const [copied, setCopied] = useState(false);
+
+	if (!value) {
+		return (
+			<div className="flex flex-col">
+				{label && <BlockLabel>{label}</BlockLabel>}
+				<div className="bg-sys-surface-low p-2 text-[0.75rem] opacity-50 italic border-l-[3px] border-sys-outline">
+					empty
+				</div>
+			</div>
+		);
+	}
+
+	const borderClass =
+		accent === "error"
+			? "border-sys-error text-sys-error"
+			: accent === "accent"
+				? "border-sys-accent text-sys-on-surface"
+				: "border-sys-primary text-sys-on-surface";
+
+	const pretty = useMemo(() => tryPrettyJson(value), [value]);
+	const raw = pretty ?? value;
+	const isLong = raw.length > PREVIEW_CHARS;
+	const visible = expanded || !isLong ? raw : `${raw.slice(0, PREVIEW_CHARS)}…`;
+
+	const onCopy = async () => {
+		try {
+			await navigator.clipboard.writeText(raw);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1200);
+		} catch {
+			// noop — clipboard unavailable (e.g. http context)
+		}
+	};
+
+	return (
+		<div className="flex flex-col min-w-0">
+			{label && (
+				<div className="flex items-center justify-between gap-2 mb-1">
+					<BlockLabel>{label}</BlockLabel>
+					<div className="flex items-center gap-2">
+						{pretty && (
+							<span className="text-[0.5rem] font-bold uppercase tracking-[0.05em] opacity-40">
+								JSON
+							</span>
+						)}
+						<button
+							type="button"
+							onClick={onCopy}
+							className="text-[0.5rem] font-bold uppercase tracking-[0.05em] opacity-60 hover:opacity-100 cursor-pointer"
+						>
+							{copied ? "✓ copied" : "copy"}
+						</button>
+					</div>
+				</div>
+			)}
+			<pre
+				className={`bg-sys-surface-low p-2 text-[0.6875rem] leading-relaxed border-l-[3px] break-all whitespace-pre-wrap font-mono overflow-y-auto ${borderClass}`}
+				style={{ maxHeight: expanded ? maxHeight * 2 : maxHeight }}
+			>
+				{visible}
+			</pre>
+			{isLong && (
+				<button
+					type="button"
+					onClick={() => setExpanded((v) => !v)}
+					className="mt-1 text-[0.5rem] font-bold uppercase tracking-[0.05em] opacity-60 hover:opacity-100 cursor-pointer self-start"
+				>
+					{expanded ? "▴ collapse" : `▾ expand (${raw.length.toLocaleString()} chars)`}
+				</button>
+			)}
+		</div>
+	);
+}
+
+function BlockLabel({ children }: { children: ReactNode }) {
+	return (
+		<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
+			{children}
+		</div>
+	);
+}
+
+function tryPrettyJson(value: string): string | null {
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return null;
+	try {
+		return JSON.stringify(JSON.parse(trimmed), null, 2);
+	} catch {
+		return null;
+	}
+}
+
+// ── Waterfall: gantt-style timing visualization for a span tree ──
+
+export interface WaterfallSpan {
+	spanId: string;
+	parentSpanId: string | null;
+	startTime: string;
+	endTime: string;
+	durationMs: number;
+	label: string;
+	/** Tailwind bg-* class for the bar */
+	color: string;
+	/** Optional click handler to jump to details */
+	onClick?: () => void;
+	isError?: boolean;
+}
+
+export function Waterfall({
+	spans,
+	height = 18,
+	rowGap = 2,
+}: {
+	spans: WaterfallSpan[];
+	height?: number;
+	rowGap?: number;
+}) {
+	if (spans.length === 0) return null;
+
+	// Compute window
+	const times = spans.map((s) => new Date(s.startTime).getTime());
+	const ends = spans.map((s) => new Date(s.endTime).getTime());
+	const windowStart = Math.min(...times);
+	const windowEnd = Math.max(...ends, windowStart + 1);
+	const windowMs = Math.max(1, windowEnd - windowStart);
+
+	return (
+		<div className="flex flex-col gap-[2px]">
+			{spans.map((s) => {
+				const start = new Date(s.startTime).getTime();
+				const end = new Date(s.endTime).getTime();
+				const leftPct = ((start - windowStart) / windowMs) * 100;
+				const widthPct = Math.max(0.5, ((end - start) / windowMs) * 100);
+				return (
+					<button
+						key={s.spanId}
+						type="button"
+						onClick={s.onClick}
+						className="group relative flex items-center text-[0.6875rem] font-mono text-left bg-transparent cursor-pointer hover:bg-sys-surface-low transition-none"
+						style={{ height: height + rowGap * 2, paddingBlock: rowGap }}
+					>
+						<div className="relative h-full w-full bg-sys-surface-low/30">
+							<div
+								className={`absolute top-0 ${s.isError ? "bg-sys-error" : s.color} opacity-90 group-hover:opacity-100`}
+								style={{
+									left: `${leftPct}%`,
+									width: `${widthPct}%`,
+									height: "100%",
+								}}
+							/>
+							<div
+								className="absolute inset-y-0 flex items-center gap-2 px-2 pointer-events-none"
+								style={{ left: 0, right: 0 }}
+							>
+								<span className="font-bold truncate text-sys-on-surface">
+									{s.label}
+								</span>
+								<span className="opacity-60 tabular-nums">
+									{s.durationMs.toFixed(0)}ms
+								</span>
+							</div>
+						</div>
+					</button>
+				);
+			})}
+			<div className="mt-1 flex justify-between text-[0.5rem] font-mono uppercase tracking-[0.05em] opacity-50">
+				<span>0ms</span>
+				<span>{(windowMs / 2).toFixed(0)}ms</span>
+				<span>{windowMs.toFixed(0)}ms</span>
+			</div>
+		</div>
+	);
+}
+
+// ── Chat bubble: for conversation-style session thread ──
+
+export function ChatBubble({
+	role,
+	children,
+	timestamp,
+	subtitle,
+	accent,
+}: {
+	role: "user" | "assistant" | "system" | "tool";
+	children: ReactNode;
+	timestamp?: string;
+	subtitle?: string;
+	accent?: "primary" | "accent" | "warning" | "error";
+}) {
+	const align =
+		role === "user" ? "self-start" : role === "assistant" ? "self-end" : "self-center";
+	const bg =
+		role === "user"
+			? "bg-sys-surface"
+			: role === "assistant"
+				? accent === "error"
+					? "bg-sys-error/10 border border-sys-error"
+					: "bg-sys-primary/10 border border-sys-primary"
+				: role === "tool"
+					? "bg-sys-surface-low border border-sys-accent"
+					: "bg-sys-surface-low";
+	const maxWidth = role === "system" || role === "tool" ? "max-w-[96%]" : "max-w-[78%]";
+
+	return (
+		<div className={`flex flex-col ${align} ${maxWidth}`}>
+			<div className="mb-1 flex items-baseline gap-2 text-[0.5rem] font-bold uppercase tracking-[0.1em] opacity-60">
+				<span>{role}</span>
+				{subtitle && <span className="opacity-70">{subtitle}</span>}
+				{timestamp && (
+					<span className="opacity-50 font-mono">
+						{new Date(timestamp).toLocaleTimeString()}
+					</span>
+				)}
+			</div>
+			<div className={`px-3 py-2 text-[0.75rem] font-mono leading-relaxed ${bg}`}>
+				{children}
+			</div>
+		</div>
+	);
 }

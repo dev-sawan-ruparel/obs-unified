@@ -6,14 +6,17 @@
 		"type-check": "pnpm -r run type-check",
 		"test": "pnpm -r run test",
 		"dev:collector": "pnpm --filter @obs-demo/collector run dev",
-		"dev:api": "pnpm --filter @obs-demo/api run dev",
+		"dev:demo": "pnpm --filter @obs-demo/app run dev",
 		"dev:web": "pnpm --filter @obs-demo/web run dev",
-		"dev": "pnpm run dev:collector & pnpm run dev:api & pnpm run dev:web & wait",
+		"dev": "pnpm run dev:collector & pnpm run dev:demo & pnpm run dev:web & wait",
 		"setup": "pnpm --filter @obs-demo/collector run db:setup",
+		"demo": "curl -s http://127.0.0.1:8787/api/demo/run-all | tee /dev/stderr | head -c 500",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
-		"e2e:alerts": "bash scripts/e2e-alerts/run-all.sh"
+		"e2e:alerts": "bash scripts/e2e-alerts/run-all.sh",
+		"e2e:otlp": "bash scripts/e2e-otlp/run.sh",
+		"e2e:ai-parity": "bash scripts/e2e-ai-parity/run.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",

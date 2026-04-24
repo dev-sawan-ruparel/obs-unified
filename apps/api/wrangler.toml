@@ -1,8 +1,0 @@
-name = "obs-demo-api"
-compatibility_date = "2025-01-01"
-compatibility_flags = ["nodejs_compat"]
-main = "src/index.ts"
-
-[vars]
-OBS_COLLECTOR_URL = "http://localhost:8790"
-OBS_INGEST_KEY = ""

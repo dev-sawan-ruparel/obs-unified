@@ -17,6 +17,16 @@ export function initAI(config: AILoggerConfig) {
 	aiConfig = config;
 }
 
+/**
+ * @deprecated Use typed span helpers from `./ai-spans` instead —
+ * `startLLMSpan`, `startToolSpan`, `startRetrieverSpan`, etc. They emit
+ * OpenInference-compatible spans into the trace tree, which unlocks
+ * tool-call / RAG / agent-loop debugging and parity with Arize Phoenix.
+ *
+ * `trackAICall` will continue to work against the legacy `/v1/ai` endpoint
+ * and `ai_calls` table during the migration, but is scheduled for removal
+ * once the dashboard reads exclusively from `/internal/ai/spans`.
+ */
 export function trackAICall(
 	call: Omit<AICallInput, "traceId" | "spanId" | "serviceName" | "occurredAt">,
 ) {

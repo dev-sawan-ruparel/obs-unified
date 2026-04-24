@@ -101,6 +101,30 @@ interface Props {
 	onNavigate: (route: { tab?: string; sessionId?: string }) => void;
 }
 
+type SessionFilter = "all" | "ended_in_error" | "dropoff" | "slow";
+
+interface FilteredSession {
+	sessionId: string;
+	visitorId: string;
+	firstSeen: string;
+	lastSeen: string;
+	eventCount: number;
+	pageViewCount: number;
+	errorCount: number;
+	lastPath: string | null;
+	referrer: string | null;
+	interactionCount: number;
+	maxLoadTimeMs: number | null;
+}
+
+interface FilteredSessionsResponse {
+	sessions: FilteredSession[];
+	filter: SessionFilter;
+	hours: number;
+	slowMs: number;
+	timestamp: string;
+}
+
 export function UsageDashboard({ onNavigate }: Props) {
 	const api = useApi();
 	const [overview, setOverview] = useState<UsageOverview | null>(null);
@@ -108,6 +132,8 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const [hours, setHours] = useState("72");
 	const [pathFilter, setPathFilter] = useState("all");
 	const [includeAdmin, setIncludeAdmin] = useState(false);
+	const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
+	const [filteredSessions, setFilteredSessions] = useState<FilteredSession[] | null>(null);
 
 	const [leftWidth, setLeftWidth] = useState(60);
 
@@ -143,6 +169,35 @@ export function UsageDashboard({ onNavigate }: Props) {
 			if (timer) clearTimeout(timer);
 		};
 	}, [api, hours, pathFilter, includeAdmin]);
+
+	useEffect(() => {
+		if (sessionFilter === "all") {
+			setFilteredSessions(null);
+			return;
+		}
+		let cancelled = false;
+		(async () => {
+			try {
+				const qs = new URLSearchParams({
+					hours,
+					filter: sessionFilter,
+					limit: "100",
+				});
+				const res = await api<FilteredSessionsResponse>(
+					`/usage/sessions?${qs.toString()}`,
+				);
+				if (!cancelled) setFilteredSessions(res.sessions);
+			} catch (err) {
+				if (!cancelled) {
+					console.error(err);
+					setFilteredSessions([]);
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [api, hours, sessionFilter]);
 
 	const pathOptions = useMemo(
 		() => (overview ? ["all", ...overview.pages.map((p) => p.path)] : ["all"]),
@@ -434,36 +489,77 @@ export function UsageDashboard({ onNavigate }: Props) {
 					</div>
 				</div>
 
-                {/* Right Area (Recent Sessions) */}
+                {/* Right Area (Sessions Explorer) */}
                 <div className="hidden lg:flex flex-1 min-w-[280px] max-w-[400px] flex-col bg-sys-surface min-h-0 h-full">
-					<div className="px-3 py-2 text-[0.875rem] font-bold uppercase tracking-[0.05em] sticky top-0 bg-sys-surface">
-						Recent Sessions
+					<div className="sticky top-0 bg-sys-surface px-3 py-2 flex flex-col gap-1">
+						<div className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">Sessions</div>
+						<div className="flex flex-wrap gap-1">
+							{([
+								["all", "All"],
+								["ended_in_error", "Errored"],
+								["dropoff", "Drop-off"],
+								["slow", "Slow"],
+							] as Array<[SessionFilter, string]>).map(([key, label]) => (
+								<button
+									key={key}
+									type="button"
+									onClick={() => setSessionFilter(key)}
+									className={`px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer border-[1px] ${
+										sessionFilter === key
+											? "bg-sys-primary text-white border-sys-primary"
+											: "bg-sys-surface-low text-sys-on-surface border-sys-outline hover:bg-sys-surface-high"
+									}`}
+								>
+									{label}
+								</button>
+							))}
+						</div>
 					</div>
 					<div className="flex flex-col overflow-y-auto [&>button:nth-child(even)]:bg-sys-surface-low">
-						{overview.recentSessions.map((sess) => (
-							<button
-								key={sess.sessionId}
-								onClick={() => onNavigate({ tab: 'replay', sessionId: sess.sessionId })}
-								className="w-full text-left p-3 transition-none hover:bg-sys-surface-high group flex flex-col gap-3 relative"
-							>
-								{/* The Local-First Indicator */}
-								<div className="absolute left-0 top-0 bottom-0 w-[4px] bg-sys-primary hidden group-hover:block" />
-								
-								<div className="flex items-center justify-between">
-                                    <span className="font-mono font-bold text-[0.875rem] truncate max-w-[200px]">
-                                        {sess.lastPath || "DIRECT"}
-                                    </span>
-                                    <span className="text-[0.75rem] font-mono opacity-60 group-hover:bg-sys-primary group-hover:text-white group-hover:opacity-100 px-1">
-                                        {sess.sessionId.slice(0, 8)} ➔
-                                    </span>
-                                </div>
-								<div className="flex gap-3 text-[0.625rem] font-bold uppercase tracking-[0.05em]">
-									<span className="bg-sys-surface-high px-2 py-1">{sess.eventCount} EV</span>
-                                    <span className="bg-sys-surface-high px-2 py-1">{sess.pageViewCount} PV</span>
-                                    {sess.errorCount > 0 && <span className="bg-sys-error text-white px-2 py-1">{sess.errorCount} ERR</span>}
-								</div>
-							</button>
-						))}
+						{(sessionFilter === "all"
+							? overview.recentSessions.map((s) => ({
+								...s,
+								interactionCount: 0,
+								maxLoadTimeMs: null as number | null,
+							}))
+							: filteredSessions ?? []
+						).map((sess) => {
+							const badges: Array<{ label: string; className: string }> = [
+								{ label: `${sess.eventCount} EV`, className: "bg-sys-surface-high" },
+								{ label: `${sess.pageViewCount} PV`, className: "bg-sys-surface-high" },
+							];
+							if (sess.errorCount > 0)
+								badges.push({ label: `${sess.errorCount} ERR`, className: "bg-sys-error text-white" });
+							if (sessionFilter === "dropoff" && sess.interactionCount === 0)
+								badges.push({ label: "NO INTERACTION", className: "bg-sys-warning text-white" });
+							if (sessionFilter === "slow" && sess.maxLoadTimeMs != null)
+								badges.push({ label: `${Math.round(sess.maxLoadTimeMs)}MS LOAD`, className: "bg-sys-warning text-white" });
+							return (
+								<button
+									key={sess.sessionId}
+									onClick={() => onNavigate({ tab: "replay", sessionId: sess.sessionId })}
+									className="w-full text-left p-3 transition-none hover:bg-sys-surface-high group flex flex-col gap-3 relative"
+								>
+									<div className="absolute left-0 top-0 bottom-0 w-[4px] bg-sys-primary hidden group-hover:block" />
+									<div className="flex items-center justify-between">
+										<span className="font-mono font-bold text-[0.875rem] truncate max-w-[200px]">{sess.lastPath || "DIRECT"}</span>
+										<span className="text-[0.75rem] font-mono opacity-60 group-hover:bg-sys-primary group-hover:text-white group-hover:opacity-100 px-1">
+											{sess.sessionId.slice(0, 8)} ➔
+										</span>
+									</div>
+									<div className="flex gap-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] flex-wrap">
+										{badges.map((b, i) => (
+											<span key={i} className={`${b.className} px-2 py-1`}>{b.label}</span>
+										))}
+									</div>
+								</button>
+							);
+						})}
+						{sessionFilter !== "all" && filteredSessions !== null && filteredSessions.length === 0 && (
+							<p className="p-3 text-[0.75rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+								No sessions match this filter.
+							</p>
+						)}
 					</div>
 				</div>
 			</div>

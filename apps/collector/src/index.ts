@@ -7,6 +7,8 @@ import {
 } from "@obs/collector";
 import type { CollectorEnv } from "@obs/types";
 
+export { TailHub } from "@obs/collector";
+
 /**
  * Collector worker.
  *

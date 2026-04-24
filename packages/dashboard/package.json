@@ -13,6 +13,8 @@
 	},
 	"dependencies": {
 		"@obs/types": "workspace:*",
+		"@xyflow/react": "^12.10.2",
+		"dagre": "^0.8.5",
 		"rrweb-player": "1.0.0-alpha.4"
 	},
 	"peerDependencies": {
@@ -22,6 +24,7 @@
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260405.1",
 		"@tailwindcss/vite": "^4.2.2",
+		"@types/dagre": "^0.7.54",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.1",

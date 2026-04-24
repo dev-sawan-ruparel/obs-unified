@@ -453,6 +453,99 @@ export class UsageStore {
 		};
 	}
 
+	/**
+	 * List sessions with an optional qualitative filter.
+	 *
+	 * Aggregates per session_id in a single query; supports three filters
+	 * derived from session-level rollups: sessions that errored, sessions
+	 * with no interactions (engagement drop-off), and sessions with slow
+	 * page loads.
+	 */
+	async listSessions(options: {
+		projectId: string;
+		hours: number;
+		filter: "all" | "ended_in_error" | "dropoff" | "slow";
+		slowMs?: number;
+		limit?: number;
+	}): Promise<{
+		sessions: Array<
+			UsageSessionSummary & {
+				interactionCount: number;
+				maxLoadTimeMs: number | null;
+			}
+		>;
+	}> {
+		if (!options.projectId)
+			throw new Error("UsageStore.listSessions: projectId is required");
+		const cutoff = cutoffIso(options.hours);
+		const slowMs = options.slowMs ?? 3000;
+		const limit = Math.max(1, Math.min(1000, options.limit ?? 200));
+
+		const result = await this.db
+			.prepare(
+				`SELECT
+					session_id,
+					MIN(visitor_id) AS visitor_id,
+					MIN(occurred_at) AS first_seen,
+					MAX(occurred_at) AS last_seen,
+					COUNT(*) AS event_count,
+					SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) AS page_view_count,
+					SUM(CASE WHEN event_type = 'interaction' THEN 1 ELSE 0 END) AS interaction_count,
+					SUM(CASE WHEN event_type = 'frontend_error' OR severity = 'error' THEN 1 ELSE 0 END) AS error_count,
+					MAX(CASE WHEN event_type = 'page_view' THEN CAST(json_extract(properties_json, '$.loadTimeMs') AS REAL) ELSE NULL END) AS max_load_ms,
+					(SELECT referrer FROM usage_events ref WHERE ref.project_id = ue.project_id AND ref.session_id = ue.session_id ORDER BY occurred_at ASC LIMIT 1) AS referrer,
+					(SELECT page_path FROM usage_events lp WHERE lp.project_id = ue.project_id AND lp.session_id = ue.session_id ORDER BY occurred_at DESC LIMIT 1) AS last_path
+				FROM usage_events ue
+				WHERE project_id = ? AND received_at >= ?
+				GROUP BY session_id
+				ORDER BY last_seen DESC
+				LIMIT ?`,
+			)
+			.bind(options.projectId, cutoff, limit * 3)
+			.all<{
+				session_id: string;
+				visitor_id: string;
+				first_seen: string;
+				last_seen: string;
+				event_count: number;
+				page_view_count: number;
+				interaction_count: number;
+				error_count: number;
+				max_load_ms: number | null;
+				referrer: string | null;
+				last_path: string | null;
+			}>();
+
+		const raw = (result.results ?? []).map((r) => ({
+			sessionId: r.session_id,
+			visitorId: r.visitor_id,
+			firstSeen: r.first_seen,
+			lastSeen: r.last_seen,
+			eventCount: r.event_count,
+			pageViewCount: r.page_view_count,
+			errorCount: r.error_count,
+			lastPath: r.last_path,
+			referrer: r.referrer,
+			interactionCount: r.interaction_count,
+			maxLoadTimeMs: r.max_load_ms,
+		}));
+
+		const filtered = raw.filter((s) => {
+			switch (options.filter) {
+				case "ended_in_error":
+					return s.errorCount > 0;
+				case "dropoff":
+					return s.pageViewCount >= 1 && s.interactionCount === 0;
+				case "slow":
+					return s.maxLoadTimeMs !== null && s.maxLoadTimeMs >= slowMs;
+				default:
+					return true;
+			}
+		});
+
+		return { sessions: filtered.slice(0, limit) };
+	}
+
 	async purgeExpired(): Promise<number> {
 		const now = new Date().toISOString();
 		const result = await this.db
