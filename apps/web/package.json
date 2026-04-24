@@ -4,7 +4,9 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build"
+		"build": "vite build",
+		"test:e2e": "playwright test features.spec.ts",
+		"test:e2e:all": "playwright test"
 	},
 	"dependencies": {
 		"@obs/analytics-sdk": "workspace:*",
