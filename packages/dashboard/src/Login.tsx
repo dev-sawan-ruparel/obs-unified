@@ -42,7 +42,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 				<div className="text-[0.875rem] font-bold uppercase tracking-widest text-sys-on-surface">
 					obs-unified
 				</div>
-				<div className="text-[0.75rem] uppercase tracking-[0.05em] text-sys-outline">
+				<div className="text-[0.75rem] uppercase tracking-[0.05em] text-sys-on-surface-muted">
 					Enter dashboard password to continue
 				</div>
 

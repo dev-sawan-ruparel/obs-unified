@@ -373,7 +373,7 @@ export function TelemetryDashboard({
 					}}
 				/>
 				<button
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
 					onClick={() => setSearch(searchInput.trim())}
 				>
 					SEARCH
@@ -429,7 +429,7 @@ export function TelemetryDashboard({
 						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
 							liveMode
 								? "bg-sys-error text-white"
-								: "bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
+								: "bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
 						}`}
 						onClick={() => setLiveMode((v) => !v)}
 						title={liveMode ? "Stop streaming" : "Stream spans in real time"}
@@ -443,7 +443,7 @@ export function TelemetryDashboard({
 						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
 							liveTail.paused
 								? "bg-sys-warning text-white"
-								: "bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
+								: "bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
 						}`}
 						onClick={liveTail.togglePause}
 					>
@@ -453,7 +453,7 @@ export function TelemetryDashboard({
 					</button>
 				)}
 				<button
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
 					onClick={handleExport}
 				>
 					EXPORT

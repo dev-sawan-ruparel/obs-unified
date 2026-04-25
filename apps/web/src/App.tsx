@@ -11,6 +11,10 @@ import {
 	ProjectsDashboard,
 	AlertsDashboard,
 	ProjectSwitcher,
+	GlobalSearch,
+	TimeRangePicker,
+	FilterPanel,
+	FilterGroup,
 } from "@obs/dashboard";
 import { useEffect, useState } from "react";
 
@@ -61,29 +65,78 @@ function useRoute(): Route {
 
 // ── App ──
 
-const TABS = [
-	{ key: "playground", label: "Playground" },
-	{ key: "traces", label: "Traces" },
-	{ key: "service-map", label: "Service Map" },
-	{ key: "issues", label: "Issues" },
-	{ key: "logs", label: "Logs" },
-	{ key: "ai", label: "AI Calls" },
-	{ key: "usage", label: "Usage" },
-	{ key: "replay", label: "Replays" },
-	{ key: "timeline", label: "Timeline" },
-	{ key: "alerts", label: "Alerts" },
-	{ key: "resources", label: "Resources" },
-	{ key: "projects", label: "Projects" },
-] as const;
+type NavItem = { key: string; label: string; short: string };
+type NavGroup = { label: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+	{
+		label: "Observe",
+		items: [
+			{ key: "timeline", label: "Timeline", short: "TL" },
+			{ key: "service-map", label: "Service Map", short: "SM" },
+			{ key: "logs", label: "Logs", short: "LG" },
+		],
+	},
+	{
+		label: "Investigate",
+		items: [
+			{ key: "traces", label: "Traces", short: "TR" },
+			{ key: "issues", label: "Issues", short: "IS" },
+			{ key: "ai", label: "AI Calls", short: "AI" },
+		],
+	},
+	{
+		label: "Experience",
+		items: [{ key: "replay", label: "Replays", short: "RP" }],
+	},
+	{
+		label: "Operate",
+		items: [
+			{ key: "alerts", label: "Alerts", short: "AL" },
+			{ key: "usage", label: "Usage", short: "US" },
+			{ key: "resources", label: "Resources", short: "RS" },
+		],
+	},
+];
+
+const PINNED_ITEMS: NavItem[] = [
+	{ key: "projects", label: "Projects", short: "PR" },
+	{ key: "playground", label: "Playground", short: "PG" },
+];
+
+const RAIL_COLLAPSED_KEY = "obs.railCollapsed";
+
+function readRailCollapsed(): boolean {
+	if (typeof localStorage === "undefined") return false;
+	try {
+		return localStorage.getItem(RAIL_COLLAPSED_KEY) === "1";
+	} catch {
+		return false;
+	}
+}
+
+function writeRailCollapsed(collapsed: boolean): void {
+	if (typeof localStorage === "undefined") return;
+	try {
+		localStorage.setItem(RAIL_COLLAPSED_KEY, collapsed ? "1" : "0");
+	} catch {
+		// ignore
+	}
+}
 
 export function App() {
 	const route = useRoute();
 	const { trackInteraction } = useAnalytics();
+	const [collapsed, setCollapsed] = useState<boolean>(readRailCollapsed);
 
 	// Set default hash on first load
 	useEffect(() => {
 		if (!location.hash) location.hash = "/traces";
 	}, []);
+
+	useEffect(() => {
+		writeRailCollapsed(collapsed);
+	}, [collapsed]);
 
 	const switchTab = (tab: string) => {
 		trackInteraction("tab_switch", { from: route.tab, to: tab });
@@ -95,28 +148,108 @@ export function App() {
 		});
 	};
 
+	const renderNavItem = ({ key, label, short }: NavItem) => {
+		const active = route.tab === key;
+		if (collapsed) {
+			return (
+				<button
+					key={key}
+					onClick={() => switchTab(key)}
+					title={label}
+					className={`relative mx-auto my-0.5 flex h-9 w-9 items-center justify-center text-[0.6875rem] font-bold uppercase tracking-[0.08em] transition-none ${
+						active
+							? "bg-sys-primary text-white"
+							: "bg-sys-surface-low text-sys-on-surface-muted hover:bg-sys-surface-high hover:text-sys-on-surface"
+					}`}
+				>
+					{short}
+				</button>
+			);
+		}
+		return (
+			<button
+				key={key}
+				onClick={() => switchTab(key)}
+				className={`relative flex h-8 items-center pl-4 pr-3 text-left text-[0.8125rem] transition-none ${
+					active
+						? "bg-sys-surface-low font-semibold text-sys-on-surface"
+						: "font-medium text-sys-on-surface-muted hover:bg-sys-surface-low hover:text-sys-on-surface"
+				}`}
+			>
+				{active && (
+					<span
+						aria-hidden
+						className="absolute left-0 top-0 h-full w-[3px] bg-sys-primary"
+					/>
+				)}
+				{label}
+			</button>
+		);
+	};
+
 	return (
-		<div className="flex h-screen flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface">
-			<header className="flex h-12 flex-none items-center gap-2 bg-sys-surface px-2 py-2">
-				<span className="mr-6 text-xs font-bold uppercase tracking-widest text-sys-on-surface">
-					obs-unified
-				</span>
-				<ProjectSwitcher />
-				{TABS.map(({ key, label }) => (
+		<div className="flex h-screen overflow-hidden bg-sys-bg font-sans text-sys-on-surface">
+			<aside
+				className={`flex h-full flex-none flex-col border-r border-sys-outline-soft bg-sys-surface ${
+					collapsed ? "w-[56px]" : "w-[220px]"
+				}`}
+			>
+				<div
+					className={`flex h-12 flex-none items-center border-b border-sys-outline-soft ${
+						collapsed ? "justify-center" : "px-4"
+					}`}
+				>
+					<span
+						className={`font-bold uppercase tracking-[0.14em] text-sys-on-surface ${
+							collapsed ? "text-[0.625rem]" : "text-[0.8125rem]"
+						}`}
+						title={collapsed ? "obs-unified" : undefined}
+					>
+						{collapsed ? "OBS" : "obs-unified"}
+					</span>
+				</div>
+				<nav className="flex-1 overflow-y-auto py-3">
+					{NAV_GROUPS.map((group) => (
+						<div key={group.label} className={collapsed ? "mb-2" : "mb-4"}>
+							{!collapsed && (
+								<div className="mb-1 px-4 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
+									{group.label}
+								</div>
+							)}
+							{collapsed && (
+								<div
+									aria-hidden
+									className="mx-auto mb-1 h-[1px] w-6 bg-sys-outline-soft"
+								/>
+							)}
+							<div className="flex flex-col">
+								{group.items.map(renderNavItem)}
+							</div>
+						</div>
+					))}
+				</nav>
+				<div className="flex-none border-t border-sys-outline-soft py-2">
+					{PINNED_ITEMS.map(renderNavItem)}
 					<button
-						key={key}
-						onClick={() => switchTab(key)}
-						className={`px-3 py-1.5 text-[0.875rem] uppercase tracking-[0.05em] transition-none ${
-							route.tab === key
-								? "bg-sys-surface-low font-bold text-sys-on-surface"
-								: "text-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
+						type="button"
+						onClick={() => setCollapsed((v) => !v)}
+						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+						className={`mt-1 flex h-8 items-center text-[0.8125rem] font-medium text-sys-on-surface-subtle hover:text-sys-on-surface ${
+							collapsed ? "mx-auto w-9 justify-center" : "px-4"
 						}`}
 					>
-						{label}
+						<span aria-hidden>{collapsed ? "»" : "«"}</span>
+						{!collapsed && <span className="ml-2">Collapse</span>}
 					</button>
-				))}
-			</header>
-			<main className="min-h-0 flex-1 overflow-y-auto">
+				</div>
+			</aside>
+			<div className="flex min-w-0 flex-1 flex-col">
+				<header className="flex h-12 flex-none items-center gap-3 border-b border-sys-outline-soft bg-sys-surface px-3">
+					<GlobalSearch />
+					<TimeRangePicker />
+					<ProjectSwitcher />
+				</header>
+				<main className="min-h-0 flex-1 overflow-y-auto">
 				{route.tab === "playground" && <Playground />}
 				{route.tab === "traces" && (
 					<TelemetryDashboard
@@ -153,7 +286,8 @@ export function App() {
 				{route.tab === "alerts" && <AlertsDashboard />}
 				{route.tab === "resources" && <ResourcesDashboard />}
 				{route.tab === "projects" && <ProjectsDashboard />}
-			</main>
+				</main>
+			</div>
 		</div>
 	);
 }
@@ -162,6 +296,15 @@ function Playground() {
 	const { trackInteraction, identify, startReplay, fetch: analyticalFetch } = useAnalytics();
 	const [response, setResponse] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+	const [severityFilter, setSeverityFilter] = useState<Set<string>>(new Set());
+
+	const toggleSet = (s: Set<string>, v: string) => {
+		const next = new Set(s);
+		if (next.has(v)) next.delete(v);
+		else next.add(v);
+		return next;
+	};
 
 	const call = async (path: string, label: string, opts?: RequestInit) => {
 		setLoading(true);
@@ -179,8 +322,63 @@ function Playground() {
 		}
 	};
 
+	const activeFilterCount = statusFilter.size + severityFilter.size;
+
 	return (
-		<div className="p-3">
+		<div className="flex h-full min-h-0">
+			<FilterPanel
+				storageKey="playground.filters"
+				onClear={
+					activeFilterCount > 0
+						? () => {
+								setStatusFilter(new Set());
+								setSeverityFilter(new Set());
+							}
+						: undefined
+				}
+			>
+				<FilterGroup title="Status" count={statusFilter.size}>
+					<div className="flex flex-col gap-1">
+						{["ok", "error", "timeout", "cancelled"].map((v) => (
+							<label
+								key={v}
+								className="flex cursor-pointer items-center gap-2 text-[0.75rem] text-sys-on-surface-muted hover:text-sys-on-surface"
+							>
+								<input
+									type="checkbox"
+									checked={statusFilter.has(v)}
+									onChange={() =>
+										setStatusFilter((s) => toggleSet(s, v))
+									}
+									className="h-3 w-3 accent-sys-primary"
+								/>
+								<span className="uppercase tracking-[0.05em]">{v}</span>
+							</label>
+						))}
+					</div>
+				</FilterGroup>
+				<FilterGroup title="Severity" count={severityFilter.size}>
+					<div className="flex flex-col gap-1">
+						{["debug", "info", "warn", "error"].map((v) => (
+							<label
+								key={v}
+								className="flex cursor-pointer items-center gap-2 text-[0.75rem] text-sys-on-surface-muted hover:text-sys-on-surface"
+							>
+								<input
+									type="checkbox"
+									checked={severityFilter.has(v)}
+									onChange={() =>
+										setSeverityFilter((s) => toggleSet(s, v))
+									}
+									className="h-3 w-3 accent-sys-primary"
+								/>
+								<span className="uppercase tracking-[0.05em]">{v}</span>
+							</label>
+						))}
+					</div>
+				</FilterGroup>
+			</FilterPanel>
+			<div className="flex-1 overflow-y-auto p-3">
 			<div className="mb-2 flex flex-wrap gap-3">
 				<Btn onClick={() => call("/api/health", "health")} disabled={loading}>
 					Health
@@ -315,6 +513,7 @@ function Playground() {
 					{response}
 				</pre>
 			)}
+			</div>
 		</div>
 	);
 }
@@ -339,7 +538,7 @@ function Btn({
 				? "bg-sys-primary text-white hover:bg-micro-gradient"
 				: c === "warn"
 					? "bg-transparent text-sys-error shadow-[inset_0_0_0_1px_var(--color-sys-error)] hover:bg-sys-surface-low"
-					: "bg-transparent text-sys-outline shadow-[inset_0_0_0_1px_var(--color-sys-outline)] hover:bg-sys-surface-low hover:text-sys-on-surface";
+					: "bg-transparent text-sys-on-surface-muted shadow-[inset_0_0_0_1px_var(--color-sys-outline)] hover:bg-sys-surface-low hover:text-sys-on-surface";
 	return (
 		<button
 			onClick={onClick}

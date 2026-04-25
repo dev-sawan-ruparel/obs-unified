@@ -9,7 +9,7 @@ export function ProjectSwitcher() {
 
 	return (
 		<div className="flex items-center gap-2 mr-4">
-			<span className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60">
+			<span className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
 				Project
 			</span>
 			<select
@@ -21,7 +21,7 @@ export function ProjectSwitcher() {
 					setTimeout(() => window.location.reload(), 0);
 				}}
 				disabled={loading || !!error}
-				className="bg-sys-surface text-sys-on-surface text-[0.75rem] font-bold uppercase tracking-[0.05em] px-2 py-1 border-none outline outline-1 outline-sys-outline hover:outline-sys-primary cursor-pointer"
+				className="bg-sys-surface text-sys-on-surface text-[0.8125rem] font-medium px-2 py-1 border-none outline outline-1 outline-sys-outline hover:outline-sys-primary cursor-pointer"
 				title={error ? `Failed to load projects: ${error}` : current?.name}
 			>
 				{loading && <option value={projectId}>LOADING…</option>}

@@ -17,10 +17,20 @@ export interface DashboardConfig {
 	projectId: string;
 	/** Change the active project id. Persists to localStorage. */
 	setProjectId: (id: string) => void;
+	/** Global time window in minutes. Dashboards can opt in to read this. */
+	timeWindowMins: number;
+	/** Change the global time window. Persists to localStorage. */
+	setTimeWindowMins: (mins: number) => void;
+	/** Global free-text search. Dashboards can opt in to read this. */
+	search: string;
+	/** Change the global search string. */
+	setSearch: (q: string) => void;
 }
 
 const DashboardContext = createContext<DashboardConfig | null>(null);
 const LOCAL_STORAGE_KEY = "obs.selectedProjectId";
+const TIME_WINDOW_KEY = "obs.timeWindowMins";
+const DEFAULT_TIME_WINDOW_MINS = 360;
 
 export function useDashboard(): DashboardConfig {
 	const ctx = useContext(DashboardContext);
@@ -48,6 +58,26 @@ function writeProjectId(id: string): void {
 	}
 }
 
+function readInitialTimeWindow(): number {
+	if (typeof localStorage === "undefined") return DEFAULT_TIME_WINDOW_MINS;
+	try {
+		const raw = localStorage.getItem(TIME_WINDOW_KEY);
+		const n = raw ? Number(raw) : NaN;
+		return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIME_WINDOW_MINS;
+	} catch {
+		return DEFAULT_TIME_WINDOW_MINS;
+	}
+}
+
+function writeTimeWindow(mins: number): void {
+	if (typeof localStorage === "undefined") return;
+	try {
+		localStorage.setItem(TIME_WINDOW_KEY, String(mins));
+	} catch {
+		// ignore
+	}
+}
+
 /**
  * Provides configuration to all dashboard components.
  *
@@ -66,13 +96,27 @@ export function ObsDashboardProvider({
 	children: ReactNode;
 }) {
 	const [projectId, setProjectIdState] = useState<string>(readInitialProjectId);
+	const [timeWindowMins, setTimeWindowMinsState] = useState<number>(readInitialTimeWindow);
+	const [search, setSearchState] = useState<string>("");
 
 	useEffect(() => {
 		writeProjectId(projectId);
 	}, [projectId]);
 
+	useEffect(() => {
+		writeTimeWindow(timeWindowMins);
+	}, [timeWindowMins]);
+
 	const setProjectId = useCallback((id: string) => {
 		setProjectIdState(id);
+	}, []);
+
+	const setTimeWindowMins = useCallback((mins: number) => {
+		setTimeWindowMinsState(mins);
+	}, []);
+
+	const setSearch = useCallback((q: string) => {
+		setSearchState(q);
 	}, []);
 
 	const config = useMemo<DashboardConfig>(() => {
@@ -92,8 +136,12 @@ export function ObsDashboardProvider({
 			fetcher: fetcher ?? defaultFetcher,
 			projectId,
 			setProjectId,
+			timeWindowMins,
+			setTimeWindowMins,
+			search,
+			setSearch,
 		};
-	}, [basePath, fetcher, projectId, setProjectId]);
+	}, [basePath, fetcher, projectId, setProjectId, timeWindowMins, setTimeWindowMins, search, setSearch]);
 
 	return (
 		<DashboardContext.Provider value={config}>

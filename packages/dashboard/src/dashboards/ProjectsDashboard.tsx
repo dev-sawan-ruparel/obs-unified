@@ -64,7 +64,7 @@ export function ProjectsDashboard() {
 					PROJECTS
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.875rem] font-mono text-sys-outline uppercase">
+				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted uppercase">
 					Multi-tenancy & ingest keys
 				</span>
 				<div className="ml-auto flex gap-2">
@@ -129,7 +129,7 @@ export function ProjectsDashboard() {
 					<button
 						type="button"
 						onClick={() => setShowCreate(false)}
-						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 					>
 						CANCEL
 					</button>
@@ -175,7 +175,7 @@ export function ProjectsDashboard() {
 											setProjectId(p.id);
 											setTimeout(() => window.location.reload(), 0);
 										}}
-										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 									>
 										SWITCH
 									</button>

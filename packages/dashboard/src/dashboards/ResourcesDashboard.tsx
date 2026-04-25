@@ -75,7 +75,7 @@ export function ResourcesDashboard() {
 					PLATFORM RESOURCES
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.75rem] font-mono text-sys-outline uppercase">
+				<span className="text-[0.75rem] font-mono text-sys-on-surface-muted uppercase">
 					Scale & integrity · project-scoped
 				</span>
 				<div className="ml-auto flex items-center gap-2">
@@ -112,7 +112,7 @@ export function ResourcesDashboard() {
 			)}
 
 			{loading && !data && !error && (
-				<div className="flex h-40 items-center justify-center font-mono text-[0.75rem] font-bold uppercase tracking-[0.1em] text-sys-outline">
+				<div className="flex h-40 items-center justify-center font-mono text-[0.75rem] font-bold uppercase tracking-[0.1em] text-sys-on-surface-muted">
 					ANALYZING TOPOLOGY…
 				</div>
 			)}

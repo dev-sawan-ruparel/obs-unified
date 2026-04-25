@@ -315,7 +315,7 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 						onClick={() =>
 							setChannels([...channels, { type: "webhook", url: "" }])
 						}
-						className="px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+						className="px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 					>
 						+ ADD
 					</button>
@@ -358,7 +358,7 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 				<button
 					type="button"
 					onClick={onCancel}
-					className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+					className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 				>
 					CANCEL
 				</button>

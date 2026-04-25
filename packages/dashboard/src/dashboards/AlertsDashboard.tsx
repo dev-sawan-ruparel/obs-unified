@@ -114,7 +114,7 @@ export function AlertsDashboard() {
 					ALERTS
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.875rem] font-mono text-sys-outline uppercase">
+				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted uppercase">
 					Threshold rules · webhook delivery · 5-min evaluation
 				</span>
 				<div className="ml-auto flex gap-2">
@@ -184,7 +184,7 @@ export function AlertsDashboard() {
 							>
 								<div>
 									{!r.enabled ? (
-										<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-surface-low text-sys-outline">
+										<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-surface-low text-sys-on-surface-muted">
 											OFF
 										</span>
 									) : r.currentState === "firing" ? (
@@ -214,7 +214,7 @@ export function AlertsDashboard() {
 									<button
 										type="button"
 										onClick={() => toggleEnabled(r)}
-										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 									>
 										{r.enabled ? "DISABLE" : "ENABLE"}
 									</button>

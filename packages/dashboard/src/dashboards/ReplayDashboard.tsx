@@ -261,7 +261,7 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 					placeholder="SEARCH REPLAYS (e.g. users, links)..."
 					disabled
 				/>
-				<button className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
+				<button className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
 					SEARCH
 				</button>
 				{selectedSessionId && (

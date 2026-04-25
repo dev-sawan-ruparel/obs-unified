@@ -98,7 +98,7 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 					<button
 						type="button"
 						onClick={onClose}
-						className="px-3 py-1 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+						className="px-3 py-1 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 					>
 						CLOSE
 					</button>
@@ -123,7 +123,7 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 							<button
 								type="button"
 								onClick={() => setJustCreated(null)}
-								className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-outline outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+								className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 							>
 								DISMISS
 							</button>
@@ -204,7 +204,7 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 									</div>
 									<div>
 										{k.revokedAt ? (
-											<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-surface-low text-sys-outline">
+											<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-surface-low text-sys-on-surface-muted">
 												REVOKED
 											</span>
 										) : (

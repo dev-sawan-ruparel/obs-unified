@@ -9,6 +9,8 @@ export { UsageDashboard } from "./dashboards/UsageDashboard";
 export { ProjectsDashboard } from "./dashboards/ProjectsDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { ProjectSwitcher } from "./components/ProjectSwitcher";
+export { GlobalSearch, TimeRangePicker } from "./components/TopBar";
+export { FilterPanel, FilterGroup } from "./components/FilterPanel";
 export { useProjects } from "./hooks/useProjects";
 export { Login } from "./Login";
 export { AuthGate } from "./AuthGate";
