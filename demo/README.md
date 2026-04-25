@@ -87,11 +87,14 @@ After ~30 seconds the load-generator starts driving traffic. Visit:
 
 ## Tweaking
 
-- **Different ingest key / project**:
-  ```bash
-  OBS_UNIFIED_KEY=obs_my_key pnpm demo:up
-  OBS_UNIFIED_PROJECT=staging pnpm demo:up
-  ```
+- **Different ingest key / project**: edit
+  `demo/otelcol-config-extras.yml`, change the `authorization` /
+  `x-project-id` headers, then `pnpm demo:setup` to copy the change
+  into `upstream/` and `docker compose restart otel-collector` to pick
+  it up. (The OTel collector's expander doesn't read shell-style
+  `${VAR:-default}` so we can't surface these as env vars without
+  threading them through `demo/upstream/.env` and switching to the
+  `${env:VAR}` syntax.)
 - **Inject a failure** (toggle a flag in the demo's UI at
   `http://localhost:8080/feature` or the flagd config in
   `demo/upstream/src/flagd/demo.flagd.json`).

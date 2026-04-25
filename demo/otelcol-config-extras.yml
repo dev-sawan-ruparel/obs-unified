@@ -19,13 +19,17 @@
 
 exporters:
   otlphttp/obs-unified:
-    endpoint: ${OBS_UNIFIED_ENDPOINT:-http://host.docker.internal:8790}
-    # `tls.insecure: true` is fine for localhost; flip when shipping to prod.
+    # OTel collector's expansion is `${env:VAR}` (with no shell-style
+    # ${VAR:-default}). Hardcoding dev defaults here; override by editing
+    # this file before `pnpm demo:setup` or by replacing the values with
+    # `${env:OBS_UNIFIED_ENDPOINT}` etc. and setting them in
+    # demo/upstream/.env.
+    endpoint: http://host.docker.internal:8790
     tls:
       insecure: true
     headers:
-      authorization: Bearer ${OBS_UNIFIED_KEY:-obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504}
-      x-project-id: ${OBS_UNIFIED_PROJECT:-default}
+      authorization: Bearer obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504
+      x-project-id: default
     # Buffer + retry are sane defaults — the demo emits a lot.
     sending_queue:
       enabled: true
