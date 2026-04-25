@@ -3,8 +3,8 @@ import type {
 	AlertRule,
 	AlertState,
 	AlertWebhookChannel,
-	CollectorEnv,
 } from "@obs/types";
+import type { CollectorEnv } from "../framework/env";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 
 interface WebhookPayload {

@@ -1,11 +1,7 @@
-import type {
-	CollectorEnv,
-	CollectorRouteContext,
-	StoredSpan,
-	UsageEventRecord,
-} from "@obs/types";
+import type { StoredSpan, UsageEventRecord } from "@obs/types";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import type { CollectorEnv, CollectorRouteContext } from "./env";
 import { AIStore } from "../lib/ai-store";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";

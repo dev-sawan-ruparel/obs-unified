@@ -44,6 +44,12 @@ export {
 	type UsageEventProcessorPlugin,
 } from "./framework/collector";
 
+export type {
+	CollectorApp,
+	CollectorEnv,
+	CollectorRouteContext,
+} from "./framework/env";
+
 export { createIngestAuth } from "./auth/ingest-auth";
 export { createDashboardAuth } from "./auth/dashboard-auth";
 

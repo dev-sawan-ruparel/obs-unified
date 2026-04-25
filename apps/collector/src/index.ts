@@ -4,8 +4,8 @@ import {
 	createIngestAuth,
 	createDashboardAuth,
 	evaluateAllRules,
+	type CollectorEnv,
 } from "@obs/collector";
-import type { CollectorEnv } from "@obs/types";
 
 export { TailHub } from "@obs/collector";
 

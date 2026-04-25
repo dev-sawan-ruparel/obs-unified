@@ -1,4 +1,4 @@
-import type { CollectorEnv } from "@obs/types";
+import type { CollectorEnv } from "../framework/env";
 import type { MiddlewareHandler } from "hono";
 import { ProjectsStore } from "../lib/projects-store";
 

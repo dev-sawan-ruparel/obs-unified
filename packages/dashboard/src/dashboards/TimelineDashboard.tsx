@@ -111,7 +111,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 	const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 	const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
 	const [showPasteId, setShowPasteId] = useState(false);
-	const eventRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const eventRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
 	const selectedEvent = useMemo(() => {
 		if (!data || !selectedEventId) return null;
