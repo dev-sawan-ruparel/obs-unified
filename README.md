@@ -156,6 +156,33 @@ Visit your collector URL in a browser. Enter the dashboard password. Done.
 https://obs.my-app.com/dashboard
 ```
 
+### Seed sample data (local dev)
+
+To populate every dashboard tab with synthetic data while developing the
+UI — without manually clicking through the Playground or waiting on
+real traffic — run the seeder. It writes traces, logs, AI calls, usage
+events, and alert rules straight to your local collector:
+
+```bash
+pnpm run dev      # start collector + demo + dashboard (in separate panes works too)
+pnpm run seed     # writes ~70 spans, 20 logs, 12 AI calls, 49 usage events, 3 alert rules
+```
+
+After the seed finishes, every tab (Traces / Service Map / Issues /
+Logs / AI Calls / Usage / Timeline / Alerts / Resources / Projects)
+has data. The only tab that still needs a real browser is **Replays**
+— rrweb chunks are captured client-side, so visit the Playground tab
+and click "Start replay" once.
+
+The seeder reads `DASHBOARD_PASSWORD` and `OBS_INGEST_KEY` from env
+(falling back to the dev defaults), and accepts overrides:
+
+```bash
+node scripts/seed-everything/run.mjs \
+  --collector http://localhost:8790 \
+  --rounds 10
+```
+
 ## Packages
 
 | Package | Purpose |

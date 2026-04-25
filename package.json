@@ -11,6 +11,7 @@
 		"dev": "pnpm run dev:collector & pnpm run dev:demo & pnpm run dev:web & wait",
 		"setup": "pnpm --filter @obs-demo/collector run db:setup",
 		"demo": "curl -s http://127.0.0.1:8787/api/demo/run-all | tee /dev/stderr | head -c 500",
+		"seed": "node scripts/seed-everything/run.mjs",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
