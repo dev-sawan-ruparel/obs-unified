@@ -35,3 +35,6 @@ lerna-debug.log*
 # OS files
 .DS_Store
 *.pem
+
+# Claude Code: user-specific permissions, not for sharing
+.claude/settings.local.json
