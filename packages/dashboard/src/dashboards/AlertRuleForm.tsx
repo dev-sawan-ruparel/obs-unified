@@ -9,6 +9,12 @@ import type {
 	LogSeverity,
 } from "@obs/types";
 import { useMemo, useState } from "react";
+import { Button } from "../components/Button";
+import {
+	Field,
+	SelectField,
+	TextField,
+} from "../components/forms";
 
 interface Props {
 	initial?: AlertRule;
@@ -112,87 +118,80 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 			)}
 
 			<Field label="Name">
-				<input
+				<TextField
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 					placeholder="High error rate on checkout"
-					className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+					className="w-full"
 				/>
 			</Field>
 
 			<div className="grid grid-cols-4 gap-2">
 				<Field label="Signal">
-					<select
+					<SelectField
 						value={signal}
 						onChange={(e) => changeSignal(e.target.value as AlertSignal)}
-						className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
-					>
-						{SIGNALS.map((s) => (
-							<option key={s.value} value={s.value}>
-								{s.label}
-							</option>
-						))}
-					</select>
+						className="w-full"
+						options={SIGNALS.map((s): [string, string] => [s.value, s.label])}
+					/>
 				</Field>
 				<Field label="Comparison">
-					<select
+					<SelectField
 						value={comparison}
 						onChange={(e) => setComparison(e.target.value as AlertComparison)}
-						className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full font-mono"
-					>
-						{COMPARISONS.map((c) => (
-							<option key={c} value={c}>
-								{c}
-							</option>
-						))}
-					</select>
+						mono
+						className="w-full"
+						options={COMPARISONS.map((c): [string, string] => [c, c])}
+					/>
 				</Field>
 				<Field label="Threshold">
-					<input
+					<TextField
 						type="number"
 						value={threshold}
 						onChange={(e) => setThreshold(e.target.value)}
-						className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full font-mono"
+						mono
+						className="w-full"
 					/>
 				</Field>
 				<Field label="Window (min)">
-					<input
+					<TextField
 						type="number"
 						value={windowMins}
 						onChange={(e) => setWindowMins(e.target.value)}
-						min="1"
-						className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full font-mono"
+						min={1}
+						mono
+						className="w-full"
 					/>
 				</Field>
 			</div>
 
 			{/* Signal-specific filters */}
 			<div className="border-[1px] border-sys-outline p-3">
-				<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60 mb-2">
+				<div className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle mb-2">
 					Filter
 				</div>
 				{signal === "spans" && (
 					<div className="grid grid-cols-3 gap-2">
 						<Field label="Service (optional)">
-							<input
+							<TextField
 								value={(query as any).serviceName ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, serviceName: e.target.value || undefined })
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+								className="w-full"
 							/>
 						</Field>
 						<Field label="Span name (optional)">
-							<input
+							<TextField
 								value={(query as any).spanName ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, spanName: e.target.value || undefined })
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+								className="w-full"
 							/>
 						</Field>
 						<Field label="Status">
-							<select
+							<SelectField
 								value={(query as any).statusCode ?? ""}
 								onChange={(e) =>
 									setQuery({
@@ -200,28 +199,29 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 										statusCode: (e.target.value as "error" | "ok") || undefined,
 									})
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
-							>
-								<option value="">any</option>
-								<option value="error">error</option>
-								<option value="ok">ok</option>
-							</select>
+								className="w-full"
+								options={[
+									["", "Any"],
+									["error", "Error"],
+									["ok", "OK"],
+								]}
+							/>
 						</Field>
 					</div>
 				)}
 				{signal === "logs" && (
 					<div className="grid grid-cols-2 gap-2">
 						<Field label="Service (optional)">
-							<input
+							<TextField
 								value={(query as any).serviceName ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, serviceName: e.target.value || undefined })
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+								className="w-full"
 							/>
 						</Field>
 						<Field label="Severity">
-							<select
+							<SelectField
 								value={(query as any).severity ?? ""}
 								onChange={(e) =>
 									setQuery({
@@ -229,38 +229,38 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 										severity: (e.target.value as LogSeverity) || undefined,
 									})
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
-							>
-								<option value="">any</option>
-								{LOG_SEVERITIES.map((s) => (
-									<option key={s} value={s}>
-										{s}
-									</option>
-								))}
-							</select>
+								className="w-full"
+								options={[
+									["", "Any"],
+									...LOG_SEVERITIES.map(
+										(s): [string, string] => [s, s],
+									),
+								]}
+							/>
 						</Field>
 					</div>
 				)}
 				{signal === "usage" && (
 					<div className="grid grid-cols-2 gap-2">
 						<Field label="Event name (optional)">
-							<input
+							<TextField
 								value={(query as any).eventName ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, eventName: e.target.value || undefined })
 								}
 								placeholder="UncaughtError"
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+								className="w-full"
 							/>
 						</Field>
 						<Field label="Path pattern (SQL LIKE)">
-							<input
+							<TextField
 								value={(query as any).pathPattern ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, pathPattern: e.target.value || undefined })
 								}
 								placeholder="/checkout%"
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full font-mono"
+								mono
+								className="w-full"
 							/>
 						</Field>
 					</div>
@@ -268,25 +268,25 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 				{signal === "ai" && (
 					<div className="grid grid-cols-3 gap-2">
 						<Field label="Provider (optional)">
-							<input
+							<TextField
 								value={(query as any).provider ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, provider: e.target.value || undefined })
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+								className="w-full"
 							/>
 						</Field>
 						<Field label="Model (optional)">
-							<input
+							<TextField
 								value={(query as any).model ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, model: e.target.value || undefined })
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
+								className="w-full"
 							/>
 						</Field>
 						<Field label="Errors only">
-							<select
+							<SelectField
 								value={(query as any).isError ? "true" : ""}
 								onChange={(e) =>
 									setQuery({
@@ -294,11 +294,12 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 										isError: e.target.value === "true" ? true : undefined,
 									})
 								}
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline w-full"
-							>
-								<option value="">all calls</option>
-								<option value="true">errors only</option>
-							</select>
+								className="w-full"
+								options={[
+									["", "All calls"],
+									["true", "Errors only"],
+								]}
+							/>
 						</Field>
 					</div>
 				)}
@@ -307,87 +308,74 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 			{/* Channels */}
 			<div className="border-[1px] border-sys-outline p-3">
 				<div className="flex items-center justify-between mb-2">
-					<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60">
+					<div className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
 						Webhook channels
 					</div>
-					<button
-						type="button"
+					<Button
+						size="xs"
 						onClick={() =>
 							setChannels([...channels, { type: "webhook", url: "" }])
 						}
-						className="px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 					>
-						+ ADD
-					</button>
+						+ Add
+					</Button>
 				</div>
 				<div className="flex flex-col gap-2">
 					{channels.map((ch, idx) => (
 						<div key={idx} className="flex gap-2 items-center">
-							<input
+							<TextField
 								value={(ch as AlertWebhookChannel).url}
 								onChange={(e) => {
 									const next = [...channels];
-									next[idx] = { ...(ch as AlertWebhookChannel), url: e.target.value };
+									next[idx] = {
+										...(ch as AlertWebhookChannel),
+										url: e.target.value,
+									};
 									setChannels(next);
 								}}
 								placeholder="https://hooks.slack.com/…"
-								className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline flex-1 font-mono"
+								mono
+								className="flex-1"
 							/>
-							<button
-								type="button"
-								onClick={() => setChannels(channels.filter((_, i) => i !== idx))}
-								className="px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-error outline outline-1 outline-sys-error hover:bg-sys-surface-low cursor-pointer"
+							<Button
+								size="xs"
+								className="text-sys-error outline-sys-error"
+								onClick={() =>
+									setChannels(channels.filter((_, i) => i !== idx))
+								}
 							>
-								REMOVE
-							</button>
+								Remove
+							</Button>
 						</div>
 					))}
 				</div>
 			</div>
 
-			<label className="flex items-center gap-2 text-[0.75rem] font-semibold">
+			<label className="flex items-center gap-2 text-[0.8125rem] font-medium">
 				<input
 					type="checkbox"
 					checked={enabled}
 					onChange={(e) => setEnabled(e.target.checked)}
+					className="accent-sys-primary"
 				/>
 				Enabled
 			</label>
 
 			<div className="flex gap-2 justify-end">
-				<button
-					type="button"
-					onClick={onCancel}
-					className="px-3 py-1.5 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
-				>
+				<Button size="sm" onClick={onCancel}>
 					Cancel
-				</button>
-				<button
-					type="button"
+				</Button>
+				<Button
+					variant="primary"
+					size="sm"
 					onClick={submit}
 					disabled={!canSubmit || submitting}
-					className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 				>
 					{submitting ? "Saving…" : initial ? "Save" : "Create"}
-				</button>
+				</Button>
 			</div>
 		</div>
 	);
 }
 
-function Field({
-	label,
-	children,
-}: {
-	label: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<div className="flex flex-col gap-1">
-			<label className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60">
-				{label}
-			</label>
-			{children}
-		</div>
-	);
-}
+// Field is imported from components/forms.tsx

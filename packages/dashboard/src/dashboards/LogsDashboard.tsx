@@ -11,6 +11,9 @@ import {
 	UpdatedChip,
 	binByInterval,
 } from "../components/primitives";
+import { Button } from "../components/Button";
+import { Input, Select } from "../components/forms";
+import { StateRow } from "../components/states";
 
 interface LiveLogRow {
 	logId: string;
@@ -129,74 +132,64 @@ export function LogsDashboard() {
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<input
+				<Input
 					type="text"
-					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
+					className="min-w-[200px] flex-1"
 					placeholder="Search log messages, attributes…"
 					disabled
 				/>
-				<select
-					className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+				<Select
 					value={hours}
 					onChange={(e) => setHours(e.target.value)}
-				>
-					<option value="1">Last 1h</option>
-					<option value="6">Last 6h</option>
-					<option value="24">Last 24h</option>
-					<option value="72">Last 72h</option>
-				</select>
-				<select
-					className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+					options={[
+						["1", "Last 1h"],
+						["6", "Last 6h"],
+						["24", "Last 24h"],
+						["72", "Last 72h"],
+					]}
+				/>
+				<Select
 					value={severityFilter}
-					onChange={(e) => setSeverityFilter(e.target.value as typeof severityFilter)}
-				>
-					<option value="all">All severities</option>
-					<option value="ERROR">Errors only</option>
-					<option value="WARN">Warns only</option>
-					<option value="INFO">Info only</option>
-				</select>
-				<button
-					type="button"
-					className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
-					onClick={loadAll}
-				>
+					onChange={(e) =>
+						setSeverityFilter(e.target.value as typeof severityFilter)
+					}
+					options={[
+						["all", "All severities"],
+						["ERROR", "Errors only"],
+						["WARN", "Warns only"],
+						["INFO", "Info only"],
+					]}
+				/>
+				<Button variant="primary" onClick={loadAll}>
 					Refresh
-				</button>
-				<button
-					type="button"
-					className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none cursor-pointer${
-						liveMode
-							? "bg-sys-error text-white"
-							: "bg-sys-surface-high text-sys-on-surface border-[1px] border-sys-outline"
-					}`}
+				</Button>
+				<Button
+					variant="ghost"
+					active={liveMode}
+					activeClassName="bg-sys-error text-white font-semibold"
 					onClick={() => setLiveMode((v) => !v)}
 					title={liveMode ? "Stop streaming" : "Stream logs in real time"}
 				>
 					{liveMode ? (liveTail.connected ? "● Live" : "○ Connecting") : "Live"}
-				</button>
+				</Button>
 				{liveMode && (
-					<button
-						type="button"
-						className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none cursor-pointer${
-							liveTail.paused
-								? "bg-sys-warning text-white"
-								: "bg-sys-surface-high text-sys-on-surface border-[1px] border-sys-outline"
-						}`}
+					<Button
+						variant="ghost"
+						active={liveTail.paused}
+						activeClassName="bg-sys-warning text-white font-semibold"
 						onClick={liveTail.togglePause}
 					>
 						{liveTail.paused
-							? `RESUME${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
+							? `Resume${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
 							: "Pause"}
-					</button>
+					</Button>
 				)}
 				<div className="ml-auto">
 					<UpdatedChip at={overview?.timestamp ?? null} />
 				</div>
 			</div>
 
-			{loading && !overview && (
-				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">Initializing...</p>
-			)}
+			{loading && !overview && <StateRow>Initializing…</StateRow>}
 
 			{overview && (
 				<>

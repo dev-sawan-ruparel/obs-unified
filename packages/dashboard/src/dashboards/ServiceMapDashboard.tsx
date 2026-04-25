@@ -15,6 +15,8 @@ import dagre from "dagre";
 import "@xyflow/react/dist/style.css";
 import { useApi } from "../use-api";
 import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
+import { Button } from "../components/Button";
+import { Select } from "../components/forms";
 
 type ServiceNodeData = {
 	service: string;
@@ -163,23 +165,19 @@ export function ServiceMapDashboard() {
 				<span className="text-[0.875rem] font-semibold">
 					Service map
 				</span>
-				<select
-					className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+				<Select
 					value={hours}
 					onChange={(e) => setHours(e.target.value)}
-				>
-					<option value="1">Last 1h</option>
-					<option value="6">Last 6h</option>
-					<option value="24">Last 24h</option>
-					<option value="72">Last 72h</option>
-				</select>
-				<button
-					type="button"
-					className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
-					onClick={load}
-				>
+					options={[
+						["1", "Last 1h"],
+						["6", "Last 6h"],
+						["24", "Last 24h"],
+						["72", "Last 72h"],
+					]}
+				/>
+				<Button variant="primary" onClick={load}>
 					Refresh
-				</button>
+				</Button>
 				<div className="ml-auto flex items-center gap-4 text-[0.75rem] font-mono opacity-70">
 					<span>{data?.nodes.length ?? 0} services</span>
 					<span>{data?.edges.length ?? 0} edges</span>

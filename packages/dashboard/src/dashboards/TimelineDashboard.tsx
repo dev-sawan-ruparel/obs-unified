@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApi } from "../use-api";
 import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
+import { Button } from "../components/Button";
+import { Input } from "../components/forms";
+import { StateRow } from "../components/states";
 
 type Kind = "span" | "log" | "usage";
 
@@ -135,12 +138,10 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<span className="text-[0.875rem] font-semibold">
-					Timeline
-				</span>
-				<input
+				<span className="text-[0.8125rem] font-semibold">Timeline</span>
+				<Input
 					type="text"
-					className="h-8 min-w-[260px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
+					className="min-w-[260px] flex-1 font-mono"
 					placeholder="Session ID"
 					value={sessionInput}
 					onChange={(e) => setSessionInput(e.target.value)}
@@ -148,38 +149,30 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 						if (e.key === "Enter") setSessionId(sessionInput.trim());
 					}}
 				/>
-				<button
-					type="button"
-					className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
-					onClick={() => setSessionId(sessionInput.trim())}
-				>
+				<Button variant="primary" onClick={() => setSessionId(sessionInput.trim())}>
 					Load
-				</button>
+				</Button>
 				{(["span", "log", "usage"] as Kind[]).map((k) => (
-					<button
+					<Button
 						key={k}
-						type="button"
+						size="xs"
+						active={kindFilter.has(k)}
+						activeClassName="bg-sys-on-surface text-sys-surface font-semibold"
 						onClick={() => toggleKind(k)}
-						className={`px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer border-[1px] ${
-							kindFilter.has(k)
-								? "bg-sys-on-surface text-sys-surface border-sys-on-surface"
-								: "bg-sys-surface-low text-sys-on-surface border-sys-outline"
-						}`}
 						title={`Toggle ${KIND_LABEL[k]}`}
 					>
 						{KIND_LABEL[k]} · {data?.counts[k === "span" ? "spans" : k === "log" ? "logs" : "usage"] ?? 0}
-					</button>
+					</Button>
 				))}
 				{data?.replay && (
-					<button
-						type="button"
-						className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-accent text-white hover:bg-micro-gradient transition-none cursor-pointer"
+					<Button
+						variant="accent"
 						onClick={() =>
 							onNavigate({ tab: "replay", sessionId: data.sessionId })
 						}
 					>
-						OPEN REPLAY · {data.replay.chunkCount}
-					</button>
+						Open replay · {data.replay.chunkCount}
+					</Button>
 				)}
 				<div className="ml-auto">
 					<UpdatedChip at={data?.timestamp ?? null} />
@@ -188,17 +181,13 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 
 			{!sessionId && (
 				<Card className="p-3">
-					<p className="text-[0.875rem] opacity-60 font-semibold">
+					<p className="text-[0.8125rem] text-sys-on-surface-muted">
 						Enter a session id to load its timeline.
 					</p>
 				</Card>
 			)}
 
-			{sessionId && loading && !data && (
-				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">
-					Loading...
-				</p>
-			)}
+			{sessionId && loading && !data && <StateRow>Loading…</StateRow>}
 
 			{data && durationMs > 0 && (
 				<Card className="mb-2 p-3">

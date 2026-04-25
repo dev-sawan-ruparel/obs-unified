@@ -1,6 +1,11 @@
 import type { IngestKey, IngestKeyWithPlaintext, Project } from "@obs/types";
 import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
+import { Button } from "../components/Button";
+import { Field, TextField } from "../components/forms";
+import { Tag } from "../components/Tag";
+import { DataTable } from "../components/DataTable";
+import { EmptyState } from "../components/states";
 
 interface Props {
 	project: Project;
@@ -88,52 +93,44 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 			<div className="bg-sys-bg border-[1px] border-sys-outline w-full max-w-[720px] max-h-[90vh] overflow-auto">
 				<div className="flex items-center justify-between px-4 py-3 border-b-[1px] border-sys-outline bg-sys-surface">
 					<div>
-						<div className="text-[0.875rem] font-bold tracking-widest text-sys-on-surface">
-							INGEST KEYS — {project.name.toUpperCase()}
+						<div className="text-[0.8125rem] font-semibold text-sys-on-surface">
+							Ingest keys · {project.name}
 						</div>
-						<div className="text-[0.625rem] font-mono opacity-60 mt-1">
+						<div className="text-[0.625rem] font-mono text-sys-on-surface-muted mt-1">
 							/projects/{project.slug}
 						</div>
 					</div>
-					<button
-						type="button"
-						onClick={onClose}
-						className="px-3 py-1 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
-					>
+					<Button size="sm" onClick={onClose}>
 						Close
-					</button>
+					</Button>
 				</div>
 
 				{justCreated && (
 					<div className="mx-4 mt-4 p-3 bg-sys-primary/10 border-l-[4px] border-sys-primary">
-						<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] text-sys-primary mb-2">
-							NEW KEY — COPY NOW, IT WILL NOT BE SHOWN AGAIN
+						<div className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-primary mb-2">
+							New key — copy now, it will not be shown again
 						</div>
 						<div className="flex gap-2 items-center">
 							<code className="flex-1 font-mono text-[0.75rem] bg-sys-bg p-2 break-all border-[1px] border-sys-outline">
 								{justCreated.key}
 							</code>
-							<button
-								type="button"
+							<Button
+								variant="primary"
+								size="sm"
 								onClick={() => copyToClipboard(justCreated.key)}
-								className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer"
 							>
 								{copied ? "Copied" : "Copy"}
-							</button>
-							<button
-								type="button"
-								onClick={() => setJustCreated(null)}
-								className="px-3 py-1.5 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
-							>
+							</Button>
+							<Button size="sm" onClick={() => setJustCreated(null)}>
 								Dismiss
-							</button>
+							</Button>
 						</div>
 					</div>
 				)}
 
 				{error && (
 					<div className="mx-4 mt-4 p-3 bg-sys-error/10 border-l-[4px] border-sys-error">
-						<p className="text-[0.875rem] tracking-[0.05em] font-bold text-sys-error m-0">
+						<p className="text-[0.8125rem] font-medium text-sys-error m-0">
 							{error}
 						</p>
 					</div>
@@ -141,85 +138,82 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 
 				<div className="p-4">
 					<div className="mb-4 flex items-end gap-2">
-						<div className="flex flex-col gap-1 flex-1">
-							<label
-								htmlFor="new-key-name"
-								className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60"
-							>
-								New Key Name
-							</label>
-							<input
+						<Field label="New key name" htmlFor="new-key-name" className="flex-1">
+							<TextField
 								id="new-key-name"
 								value={newKeyName}
 								onChange={(e) => setNewKeyName(e.target.value)}
 								placeholder="e.g. production-api"
-								className="bg-sys-surface px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline"
 							/>
-						</div>
-						<button
-							type="button"
+						</Field>
+						<Button
+							variant="primary"
+							size="sm"
 							onClick={createKey}
 							disabled={creating}
-							className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 						>
 							{creating ? "Creating…" : "Create key"}
-						</button>
+						</Button>
 					</div>
 
-					<div className="bg-sys-surface border-[1px] border-sys-outline">
-						<div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 px-3 py-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60 border-b-[1px] border-sys-outline">
-							<div>Name</div>
-							<div>Prefix</div>
-							<div>Created</div>
-							<div>Actions</div>
-						</div>
-						{loading && (
-							<div className="px-3 py-4 text-[0.875rem] opacity-60">
-								Loading…
-							</div>
-						)}
-						{!loading && keys.length === 0 && (
-							<div className="px-3 py-4 text-[0.875rem] opacity-60">
-								No keys yet.
-							</div>
-						)}
-						{!loading &&
-							keys.map((k) => (
-								<div
-									key={k.id}
-									className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 px-3 py-2 text-[0.875rem] border-b-[1px] border-sys-outline last:border-b-0 items-center"
-								>
-									<div
+					<DataTable<IngestKey>
+						rows={keys}
+						rowKey={(k) => k.id}
+						loading={loading}
+						emptyState={<EmptyState title="No keys yet" />}
+						columns={[
+							{
+								key: "name",
+								header: "Name",
+								width: "1fr",
+								cell: (k) => (
+									<span
 										className={
-											k.revokedAt ? "opacity-40 line-through" : "font-bold"
+											k.revokedAt
+												? "opacity-40 line-through"
+												: "font-semibold"
 										}
 									>
 										{k.name}
-									</div>
-									<div className="font-mono opacity-80 text-[0.75rem]">
-										{k.keyPrefix}…
-									</div>
-									<div className="font-mono opacity-60 text-[0.75rem]">
-										{new Date(k.createdAt).toLocaleString()}
-									</div>
-									<div>
-										{k.revokedAt ? (
-											<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-surface-low text-sys-on-surface-muted">
-												REVOKED
-											</span>
-										) : (
-											<button
-												type="button"
-												onClick={() => revokeKey(k.id)}
-												className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-error outline outline-1 outline-sys-error hover:bg-sys-surface-low cursor-pointer"
-											>
-												REVOKE
-											</button>
-										)}
-									</div>
-								</div>
-							))}
-					</div>
+									</span>
+								),
+							},
+							{
+								key: "prefix",
+								header: "Prefix",
+								width: "1fr",
+								font: "mono",
+								className: "text-[0.75rem] text-sys-on-surface-muted",
+								cell: (k) => `${k.keyPrefix}…`,
+							},
+							{
+								key: "created",
+								header: "Created",
+								width: "1fr",
+								font: "mono",
+								className: "text-[0.75rem] text-sys-on-surface-muted",
+								cell: (k) => new Date(k.createdAt).toLocaleString(),
+							},
+							{
+								key: "actions",
+								header: "Actions",
+								width: "auto",
+								cell: (k) =>
+									k.revokedAt ? (
+										<Tag tone="muted">Revoked</Tag>
+									) : (
+										<Button
+											variant="ghost"
+											size="xs"
+											className="text-sys-error outline-sys-error"
+											onClick={() => revokeKey(k.id)}
+										>
+											Revoke
+										</Button>
+									),
+							},
+						]}
+					/>
 
 					<div className="mt-4 text-[0.75rem] font-mono opacity-60 leading-relaxed">
 						Key revocation propagates within ~60 seconds due to the in-memory

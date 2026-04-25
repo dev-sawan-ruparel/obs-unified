@@ -10,6 +10,9 @@ import {
 	UpdatedChip,
 	binByInterval,
 } from "../components/primitives";
+import { Button } from "../components/Button";
+import { Input, Select } from "../components/forms";
+import { StateRow } from "../components/states";
 
 interface LiveSpanRow {
 	traceId: string;
@@ -362,9 +365,9 @@ export function TelemetryDashboard({
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			{/* Toolbar */}
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<input
+				<Input
 					type="text"
-					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 text-[0.8125rem] placeholder:text-sys-on-surface-subtle focus:border-sys-primary focus:outline-none transition-none"
+					className="min-w-[200px] flex-1"
 					placeholder="Search spans, attributes…"
 					value={searchInput}
 					onChange={(e) => setSearchInput(e.target.value)}
@@ -372,15 +375,10 @@ export function TelemetryDashboard({
 						if (e.key === "Enter") setSearch(searchInput.trim());
 					}}
 				/>
-				<button
-					className="px-3 py-1.5 text-[0.8125rem] font-medium bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
-					onClick={() => setSearch(searchInput.trim())}
-				>
-					Search
-				</button>
-				<Sel
+				<Button onClick={() => setSearch(searchInput.trim())}>Search</Button>
+				<Select
 					value={hours}
-					onChange={setHours}
+					onChange={(e) => setHours(e.target.value)}
 					options={[
 						["1", "1h"],
 						["6", "6h"],
@@ -388,27 +386,29 @@ export function TelemetryDashboard({
 						["72", "72h"],
 					]}
 				/>
-				<Sel
+				<Select
 					value={statusFilter}
-					onChange={setStatusFilter}
+					onChange={(e) => setStatusFilter(e.target.value)}
 					options={[
 						["all", "All status"],
 						["error", "Errors"],
 						["ok", "OK"],
 					]}
 				/>
-				<Sel
+				<Select
 					value={serviceFilter}
-					onChange={setServiceFilter}
-					options={serviceOptions.map((s) => [
-						s,
-						s === "all" ? "All services" : s,
-					])}
+					onChange={(e) => setServiceFilter(e.target.value)}
+					options={serviceOptions.map(
+						(s): [string, string] => [
+							s,
+							s === "all" ? "All services" : s,
+						],
+					)}
 				/>
 				{mode === "issues" && (
-					<Sel
+					<Select
 						value={category}
-						onChange={setCategory}
+						onChange={(e) => setCategory(e.target.value)}
 						options={[
 							["all", "All categories"],
 							["error", "Errors"],
@@ -417,52 +417,36 @@ export function TelemetryDashboard({
 						]}
 					/>
 				)}
-				<button
-					className="px-3 py-1.5 text-[0.8125rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
-					onClick={loadAll}
-				>
+				<Button variant="primary" onClick={loadAll}>
 					Refresh
-				</button>
+				</Button>
 				{mode === "traces" && (
-					<button
-						type="button"
-						className={`px-3 py-1.5 text-[0.8125rem] font-medium transition-none cursor-pointer ${
-							liveMode
-								? "bg-sys-error text-white"
-								: "bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
-						}`}
+					<Button
+						variant="ghost"
+						active={liveMode}
+						activeClassName="bg-sys-error text-white font-semibold"
 						onClick={() => setLiveMode((v) => !v)}
 						title={liveMode ? "Stop streaming" : "Stream spans in real time"}
 					>
 						{liveMode ? (liveTail.connected ? "● Live" : "○ Connecting") : "Live"}
-					</button>
+					</Button>
 				)}
 				{liveMode && mode === "traces" && (
-					<button
-						type="button"
-						className={`px-3 py-1.5 text-[0.8125rem] font-medium transition-none cursor-pointer ${
-							liveTail.paused
-								? "bg-sys-warning text-white"
-								: "bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
-						}`}
+					<Button
+						variant="ghost"
+						active={liveTail.paused}
+						activeClassName="bg-sys-warning text-white font-semibold"
 						onClick={liveTail.togglePause}
 					>
 						{liveTail.paused
 							? `Resume${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
 							: "Pause"}
-					</button>
+					</Button>
 				)}
-				<button
-					className="px-3 py-1.5 text-[0.8125rem] font-medium bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
-					onClick={handleExport}
-				>
-					Export
-				</button>
+				<Button onClick={handleExport}>Export</Button>
 			</div>
 
-			{loading && !overview ? (
-				<p className="p-3 text-[0.8125rem] text-sys-on-surface-muted">Initializing…</p>
-			) : null}
+			{loading && !overview ? <StateRow>Initializing…</StateRow> : null}
 
 			{mode === "traces" && liveMode && (
 				<LiveSpansView
@@ -1245,26 +1229,4 @@ function AttrTable({ attrs }: { attrs: [string, unknown][] }) {
 	);
 }
 
-function Sel({
-	value,
-	onChange,
-	options,
-}: {
-	value: string;
-	onChange: (v: string) => void;
-	options: string[][];
-}) {
-	return (
-		<select
-			value={value}
-			onChange={(e) => onChange(e.target.value)}
-			className="h-8 bg-transparent text-[0.8125rem] font-medium text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
-		>
-			{options.map(([v, l]) => (
-				<option key={v} value={v}>
-					{l}
-				</option>
-			))}
-		</select>
-	);
-}
+// `Sel` removed — replaced by <Select> primitive in components/forms.tsx.

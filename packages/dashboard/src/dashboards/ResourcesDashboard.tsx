@@ -7,6 +7,8 @@ import {
 	Stat,
 	UpdatedChip,
 } from "../components/primitives";
+import { Button } from "../components/Button";
+import { Tag } from "../components/Tag";
 
 interface ResourcesData {
 	d1: {
@@ -71,22 +73,22 @@ export function ResourcesDashboard() {
 	return (
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-3 py-2 border border-[#E5E7E3]">
-				<span className="text-[0.875rem] font-bold tracking-widest">
+				<span className="text-[0.8125rem] font-semibold">
 					Platform resources
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.75rem] font-mono text-sys-on-surface-muted">
+				<span className="text-[0.8125rem] text-sys-on-surface-muted">
 					Scale & integrity · project-scoped
 				</span>
 				<div className="ml-auto flex items-center gap-2">
-					<button
-						type="button"
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={load}
 						disabled={loading}
-						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer disabled:opacity-40"
 					>
 						{loading ? "Loading…" : "Refresh"}
-					</button>
+					</Button>
 					<UpdatedChip at={lastUpdated} />
 				</div>
 			</div>
@@ -94,19 +96,17 @@ export function ResourcesDashboard() {
 			{error && (
 				<Card accent="error" className="mb-2 p-3">
 					<div className="flex items-center gap-3">
-						<span className="text-[0.625rem] font-bold uppercase tracking-[0.1em] text-sys-error">
-							FAILED TO LOAD
-						</span>
-						<span className="text-[0.75rem] font-mono opacity-70 break-all">
+						<Tag tone="error">Failed to load</Tag>
+						<span className="text-[0.75rem] font-mono text-sys-on-surface-muted break-all">
 							{error}
 						</span>
-						<button
-							type="button"
+						<Button
+							size="xs"
+							className="ml-auto text-sys-error outline-sys-error"
 							onClick={load}
-							className="ml-auto px-3 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-error outline outline-1 outline-sys-error hover:bg-sys-surface-low cursor-pointer"
 						>
-							RETRY
-						</button>
+							Retry
+						</Button>
 					</div>
 				</Card>
 			)}
@@ -151,14 +151,12 @@ export function ResourcesDashboard() {
 						<Card className="flex flex-col gap-3 p-4" accent="primary">
 							<div className="flex items-center justify-between">
 								<SectionTitle title="Data store (D1)" />
-								<span className="text-[0.625rem] px-2 py-0.5 bg-sys-surface-low text-sys-on-surface uppercase font-bold tracking-[0.05em]">
-									SQLITE
-								</span>
+								<Tag>SQLite</Tag>
 							</div>
 							<div className="font-mono text-[2.25rem] font-light leading-none tracking-tight">
 								{fmtNum(data.d1.rowDensity)}
 							</div>
-							<div className="text-[0.625rem] font-bold uppercase tracking-[0.1em] opacity-60">
+							<div className="text-[0.6875rem] text-sys-on-surface-muted">
 								Combined rows across 4 signal tables
 							</div>
 							<div className="mt-auto pt-3 border-t border-[#E5E7E3]">
@@ -179,14 +177,12 @@ export function ResourcesDashboard() {
 						<Card className="flex flex-col gap-3 p-4" accent="accent">
 							<div className="flex items-center justify-between">
 								<SectionTitle title="Blob storage (R2)" />
-								<span className="text-[0.625rem] px-2 py-0.5 bg-sys-accent text-white uppercase font-bold tracking-[0.05em]">
-									OBJECT
-								</span>
+								<Tag tone="accent">Object</Tag>
 							</div>
 							<div className="font-mono text-[2.25rem] font-light leading-none tracking-tight">
 								{fmtBytes(data.r2.storageBytes)}
 							</div>
-							<div className="text-[0.625rem] font-bold uppercase tracking-[0.1em] opacity-60">
+							<div className="text-[0.6875rem] text-sys-on-surface-muted">
 								Session replay footprint
 							</div>
 							<p className="mt-auto pt-3 border-t border-[#E5E7E3] text-[0.75rem] font-mono opacity-60 leading-relaxed">
@@ -199,9 +195,9 @@ export function ResourcesDashboard() {
 						<Card className="flex flex-col gap-3 p-4" accent="warning">
 							<div className="flex items-center justify-between">
 								<SectionTitle title="Compute (Worker)" />
-								<span className="text-[0.625rem] px-2 py-0.5 bg-sys-warning text-white uppercase font-bold tracking-[0.05em]">
+								<Tag tone="warning">
 									{data.worker.status.includes("Needs") ? "Pending auth" : "Live"}
-								</span>
+								</Tag>
 							</div>
 							<div className="font-mono text-[1.125rem] font-bold leading-tight tracking-tight text-sys-warning">
 								{data.worker.status}

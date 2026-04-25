@@ -3,6 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
 import { useDashboard } from "../provider";
 import { ProjectKeysModal } from "./ProjectKeysModal";
+import { Button } from "../components/Button";
+import { Field, TextField } from "../components/forms";
+import { Tag } from "../components/Tag";
+import { DataTable } from "../components/DataTable";
+import { EmptyState } from "../components/states";
 
 export function ProjectsDashboard() {
 	const api = useApi();
@@ -60,27 +65,27 @@ export function ProjectsDashboard() {
 	return (
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-4 py-2 border-[1px] border-sys-outline">
-				<span className="text-[0.875rem] font-bold tracking-widest text-sys-on-surface">
+				<span className="text-[0.8125rem] font-semibold text-sys-on-surface">
 					Projects
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted">
+				<span className="text-[0.8125rem] text-sys-on-surface-muted">
 					Multi-tenancy & ingest keys
 				</span>
 				<div className="ml-auto flex gap-2">
-					<button
-						type="button"
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={() => setShowCreate(true)}
-						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer"
 					>
 						+ New project
-					</button>
+					</Button>
 				</div>
 			</div>
 
 			{error && (
 				<div className="p-3 bg-sys-error/10 border-l-[4px] border-sys-error mb-2">
-					<p className="text-[0.875rem] tracking-[0.05em] font-bold text-sys-error m-0">
+					<p className="text-[0.8125rem] font-medium text-sys-error m-0">
 						{error}
 					</p>
 				</div>
@@ -88,111 +93,106 @@ export function ProjectsDashboard() {
 
 			{showCreate && (
 				<div className="mb-2 bg-sys-surface p-4 border-[1px] border-sys-outline flex items-end gap-2">
-					<div className="flex flex-col gap-1">
-						<label
-							htmlFor="new-name"
-							className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60"
-						>
-							Name
-						</label>
-						<input
+					<Field label="Name" htmlFor="new-name">
+						<TextField
 							id="new-name"
 							value={newName}
 							onChange={(e) => setNewName(e.target.value)}
 							placeholder="Acme"
-							className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline"
 						/>
-					</div>
-					<div className="flex flex-col gap-1">
-						<label
-							htmlFor="new-slug"
-							className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60"
-						>
-							Slug
-						</label>
-						<input
+					</Field>
+					<Field label="Slug" htmlFor="new-slug">
+						<TextField
 							id="new-slug"
 							value={newSlug}
+							mono
 							onChange={(e) => setNewSlug(e.target.value.toLowerCase())}
 							placeholder="acme"
-							className="bg-sys-bg px-2 py-1 text-[0.875rem] outline outline-1 outline-sys-outline font-mono"
 						/>
-					</div>
-					<button
-						type="button"
+					</Field>
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={createProject}
 						disabled={creating || !newName || !newSlug}
-						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 					>
 						{creating ? "Creating…" : "Create"}
-					</button>
-					<button
-						type="button"
-						onClick={() => setShowCreate(false)}
-						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
-					>
+					</Button>
+					<Button size="sm" onClick={() => setShowCreate(false)}>
 						Cancel
-					</button>
+					</Button>
 				</div>
 			)}
 
-			<div className="bg-sys-surface border-[1px] border-sys-outline">
-				<div className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 px-3 py-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60 border-b-[1px] border-sys-outline">
-					<div>Name</div>
-					<div>Slug</div>
-					<div>Created</div>
-					<div>Active</div>
-					<div>Actions</div>
-				</div>
-				{loading && (
-					<div className="px-3 py-4 text-[0.875rem] opacity-60">Loading…</div>
-				)}
-				{!loading && projects.length === 0 && (
-					<div className="px-3 py-4 text-[0.875rem] opacity-60">
-						No projects yet. The default project is seeded automatically.
-					</div>
-				)}
-				{!loading &&
-					projects.map((p) => (
-						<div
-							key={p.id}
-							className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 px-3 py-2 text-[0.875rem] border-b-[1px] border-sys-outline last:border-b-0 items-center"
-						>
-							<div className="font-bold">{p.name}</div>
-							<div className="font-mono opacity-80">{p.slug}</div>
-							<div className="font-mono opacity-60 text-[0.75rem]">
-								{new Date(p.createdAt).toLocaleString()}
-							</div>
-							<div>
-								{p.id === projectId ? (
-									<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white">
-										ACTIVE
-									</span>
-								) : (
-									<button
-										type="button"
-										onClick={() => {
-											setProjectId(p.id);
-											setTimeout(() => window.location.reload(), 0);
-										}}
-										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
-									>
-										SWITCH
-									</button>
-								)}
-							</div>
-							<div>
-								<button
-									type="button"
-									onClick={() => setKeysProject(p)}
-									className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-primary outline outline-1 outline-sys-primary hover:bg-sys-surface-low cursor-pointer"
+			<DataTable<Project>
+				rows={projects}
+				rowKey={(p) => p.id}
+				loading={loading}
+				emptyState={
+					<EmptyState
+						title="No projects yet"
+						description="The default project is seeded automatically."
+					/>
+				}
+				columns={[
+					{
+						key: "name",
+						header: "Name",
+						width: "1fr",
+						cell: (p) => <span className="font-semibold">{p.name}</span>,
+					},
+					{
+						key: "slug",
+						header: "Slug",
+						width: "1fr",
+						font: "mono",
+						cell: (p) => p.slug,
+					},
+					{
+						key: "created",
+						header: "Created",
+						width: "1fr",
+						font: "mono",
+						className: "text-[0.75rem] text-sys-on-surface-muted",
+						cell: (p) => new Date(p.createdAt).toLocaleString(),
+					},
+					{
+						key: "active",
+						header: "Active",
+						width: "auto",
+						cell: (p) =>
+							p.id === projectId ? (
+								<Tag tone="primary">Active</Tag>
+							) : (
+								<Button
+									variant="ghost"
+									size="xs"
+									onClick={() => {
+										setProjectId(p.id);
+										setTimeout(() => window.location.reload(), 0);
+									}}
 								>
-									KEYS
-								</button>
-							</div>
-						</div>
-					))}
-			</div>
+									Switch
+								</Button>
+							),
+					},
+					{
+						key: "actions",
+						header: "Actions",
+						width: "auto",
+						cell: (p) => (
+							<Button
+								variant="ghost"
+								size="xs"
+								className="text-sys-primary outline-sys-primary"
+								onClick={() => setKeysProject(p)}
+							>
+								Keys
+							</Button>
+						),
+					},
+				]}
+			/>
 
 			{keysProject && (
 				<ProjectKeysModal

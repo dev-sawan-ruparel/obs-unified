@@ -8,6 +8,8 @@ import {
 	TimeSeriesBars,
 	UpdatedChip,
 } from "../components/primitives";
+import { Button } from "../components/Button";
+import { Input, Select } from "../components/forms";
 
 interface UsageOverview {
 	summary: {
@@ -214,30 +216,33 @@ export function UsageDashboard({ onNavigate }: Props) {
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			{/* Toolbar */}
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<input
+				<Input
 					type="text"
-					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-					placeholder="Search paths, users..."
+					className="min-w-[200px] flex-1"
+					placeholder="Search paths, users…"
 					disabled
 				/>
-				<button className="px-3 py-1.5 text-[0.875rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
-					Search
-				</button>
-				<Sel
+				<Button disabled>Search</Button>
+				<Select
 					value={hours}
-					onChange={(v) => setHours(v)}
+					onChange={(e) => setHours(e.target.value)}
 					options={[
-						["6", "6H"],
-						["24", "24H"],
-						["72", "72H"],
-						["168", "7D"],
-						["720", "30D"],
+						["6", "6h"],
+						["24", "24h"],
+						["72", "72h"],
+						["168", "7d"],
+						["720", "30d"],
 					]}
 				/>
-				<Sel
+				<Select
 					value={pathFilter}
-					onChange={setPathFilter}
-					options={pathOptions.map((p) => [p, p === "all" ? "All paths" : p])}
+					onChange={(e) => setPathFilter(e.target.value)}
+					options={pathOptions.map(
+						(p): [string, string] => [
+							p,
+							p === "all" ? "All paths" : p,
+						],
+					)}
 				/>
 				<label className="flex items-center gap-3 text-[0.75rem] font-semibold text-sys-on-surface cursor-pointer">
 					<input
@@ -567,26 +572,4 @@ export function UsageDashboard({ onNavigate }: Props) {
 	);
 }
 
-function Sel({
-	value,
-	onChange,
-	options,
-}: {
-	value: string;
-	onChange: (v: string) => void;
-	options: string[][];
-}) {
-	return (
-		<select
-			value={value}
-			onChange={(e) => onChange(e.target.value)}
-			className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
-		>
-			{options.map(([v, l]) => (
-				<option key={v} value={v}>
-					{l}
-				</option>
-			))}
-		</select>
-	);
-}
+// `Sel` removed — replaced by <Select> primitive in components/forms.tsx.

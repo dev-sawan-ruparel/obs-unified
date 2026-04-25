@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import { useDashboard } from "../provider";
+import { Button } from "../components/Button";
+import { Input } from "../components/forms";
 
 const fmtTs = (iso: string) => {
 	try {
@@ -131,8 +133,8 @@ function ReplayPlayer({
 		}
 	}, [events]);
 
-	if (loading) return <div className="text-[0.875rem] font-semibold opacity-60 p-3 text-center">Loading replay visual buffer...</div>;
-	if (error) return <div className="text-[0.875rem] font-semibold text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">{error.toUpperCase()}</div>;
+	if (loading) return <div className="text-[0.8125rem] text-sys-on-surface-muted p-3 text-center">Loading replay visual buffer…</div>;
+	if (error) return <div className="text-[0.8125rem] font-medium text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">{error}</div>;
 
 	return (
 		<div className="bg-sys-bg border-[2px] border-sys-outline">
@@ -255,33 +257,28 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 			 onMouseLeave={handleMouseUp}
 		>
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<input
+				<Input
 					type="text"
-					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
+					className="min-w-[200px] flex-1"
 					placeholder="Search replays (e.g. users, links)…"
 					disabled
 				/>
-				<button className="px-3 py-1.5 text-[0.875rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
-					Search
-				</button>
+				<Button disabled>Search</Button>
 				{selectedSessionId && (
-                    <div className="ml-auto flex items-center gap-2">
-                        <button
-                            className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-error text-white hover:bg-sys-error/80 transition-none cursor-pointer"
-                            onClick={deleteReplay}
-                        >
-                            DELETE replay
-                        </button>
-                        <button
-                            className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
-                            onClick={() => {
-                                setSelectedSessionId(null);
-                                onNavigate({ tab: "replay" });
-                            }}
-                        >
-                            Clear selection
-                        </button>
-                    </div>
+					<div className="ml-auto flex items-center gap-2">
+						<Button variant="danger" onClick={deleteReplay}>
+							Delete replay
+						</Button>
+						<Button
+							variant="primary"
+							onClick={() => {
+								setSelectedSessionId(null);
+								onNavigate({ tab: "replay" });
+							}}
+						>
+							Clear selection
+						</Button>
+					</div>
 				)}
 			</div>
 

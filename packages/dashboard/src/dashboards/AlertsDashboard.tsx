@@ -7,6 +7,10 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
 import { AlertRuleForm } from "./AlertRuleForm";
+import { Button } from "../components/Button";
+import { Tag } from "../components/Tag";
+import { DataTable, type Column } from "../components/DataTable";
+import { EmptyState } from "../components/states";
 
 export function AlertsDashboard() {
 	const api = useApi();
@@ -110,27 +114,23 @@ export function AlertsDashboard() {
 	return (
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-4 py-2 border-[1px] border-sys-outline">
-				<span className="text-[0.875rem] font-bold tracking-widest text-sys-on-surface">
+				<span className="text-[0.8125rem] font-semibold text-sys-on-surface">
 					Alerts
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted">
+				<span className="text-[0.8125rem] text-sys-on-surface-muted">
 					Threshold rules · webhook delivery · 5-min evaluation
 				</span>
 				<div className="ml-auto flex gap-2">
-					<button
-						type="button"
-						onClick={() => setShowForm("new")}
-						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer"
-					>
+					<Button variant="primary" size="sm" onClick={() => setShowForm("new")}>
 						+ New rule
-					</button>
+					</Button>
 				</div>
 			</div>
 
 			{error && (
 				<div className="p-3 bg-sys-error/10 border-l-[4px] border-sys-error mb-2">
-					<p className="text-[0.875rem] tracking-[0.05em] font-bold text-sys-error m-0">
+					<p className="text-[0.8125rem] font-medium text-sys-error m-0">
 						{error}
 					</p>
 				</div>
@@ -157,90 +157,124 @@ export function AlertsDashboard() {
 			)}
 
 			<div className="grid grid-cols-[2fr_1fr] gap-2 flex-1 min-h-0">
-				<div className="bg-sys-surface border-[1px] border-sys-outline overflow-auto">
-					<div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-2 px-3 py-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60 border-b-[1px] border-sys-outline sticky top-0 bg-sys-surface">
-						<div>State</div>
-						<div>Name</div>
-						<div>Signal</div>
-						<div>Threshold</div>
-						<div>Window</div>
-						<div>Channels</div>
-						<div>Actions</div>
-					</div>
-					{loading && (
-						<div className="px-3 py-4 text-[0.875rem] opacity-60">Loading…</div>
-					)}
-					{!loading && rules.length === 0 && (
-						<div className="px-3 py-4 text-[0.875rem] opacity-60">
-							No rules yet. Click "+ New rule".
-						</div>
-					)}
-					{!loading &&
-						rules.map((r) => (
-							<div
-								key={r.id}
-								onClick={() => setSelectedRuleId(r.id)}
-								className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-2 px-3 py-2 text-[0.875rem] border-b-[1px] border-sys-outline last:border-b-0 items-center cursor-pointer hover:bg-sys-surface-low ${selectedRuleId === r.id ? "bg-sys-surface-low" : ""}`}
-							>
-								<div>
-									{!r.enabled ? (
-										<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-surface-low text-sys-on-surface-muted">
-											OFF
-										</span>
-									) : r.currentState === "firing" ? (
-										<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-error text-white animate-pulse">
-											FIRING
-										</span>
-									) : (
-										<span className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-primary/20 text-sys-primary">
-											OK
-										</span>
-									)}
-								</div>
-								<div className="font-bold truncate">{r.name}</div>
-								<div className="font-mono text-[0.75rem] opacity-80">
-									{r.signal}
-								</div>
-								<div className="font-mono text-[0.75rem]">
-									{r.comparison} {r.threshold}
-								</div>
-								<div className="font-mono text-[0.75rem]">
-									{r.windowMins}m
-								</div>
-								<div className="font-mono text-[0.75rem]">
-									{r.channels.length}
-								</div>
-								<div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-									<button
-										type="button"
-										onClick={() => toggleEnabled(r)}
-										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
-									>
-										{r.enabled ? "Disable" : "Enable"}
-									</button>
-									<button
-										type="button"
-										onClick={() => setShowForm({ editId: r.id })}
-										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-primary outline outline-1 outline-sys-primary hover:bg-sys-surface-low cursor-pointer"
-									>
-										EDIT
-									</button>
-									<button
-										type="button"
-										onClick={() => deleteRule(r.id)}
-										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-error outline outline-1 outline-sys-error hover:bg-sys-surface-low cursor-pointer"
-									>
-										DELETE
-									</button>
-								</div>
-							</div>
-						))}
-				</div>
+				<DataTable<AlertRule>
+					className="overflow-auto"
+					rows={rules}
+					rowKey={(r) => r.id}
+					loading={loading}
+					onRowClick={(r) => setSelectedRuleId(r.id)}
+					isRowActive={(r) => selectedRuleId === r.id}
+					emptyState={
+						<EmptyState
+							title="No rules yet"
+							description={'Click "+ New rule" to create one.'}
+						/>
+					}
+					columns={alertRuleColumns({
+						toggleEnabled,
+						edit: (id) => setShowForm({ editId: id }),
+						deleteRule,
+					})}
+				/>
 
 				<AlertDetail ruleId={selectedRuleId} rules={rules} />
 			</div>
 		</div>
 	);
+}
+
+function alertRuleColumns({
+	toggleEnabled,
+	edit,
+	deleteRule,
+}: {
+	toggleEnabled: (rule: AlertRule) => void;
+	edit: (id: string) => void;
+	deleteRule: (id: string) => void;
+}): Column<AlertRule>[] {
+	return [
+		{
+			key: "state",
+			header: "State",
+			width: "auto",
+			cell: (r) => {
+				if (!r.enabled) return <Tag tone="muted">Off</Tag>;
+				if (r.currentState === "firing")
+					return (
+						<Tag tone="error" pulse>
+							Firing
+						</Tag>
+					);
+				return <Tag tone="primary">OK</Tag>;
+			},
+		},
+		{
+			key: "name",
+			header: "Name",
+			width: "1fr",
+			cell: (r) => <span className="font-semibold truncate">{r.name}</span>,
+		},
+		{
+			key: "signal",
+			header: "Signal",
+			width: "auto",
+			font: "mono",
+			cell: (r) => r.signal,
+		},
+		{
+			key: "threshold",
+			header: "Threshold",
+			width: "auto",
+			font: "mono",
+			cell: (r) => `${r.comparison} ${r.threshold}`,
+		},
+		{
+			key: "window",
+			header: "Window",
+			width: "auto",
+			font: "mono",
+			cell: (r) => `${r.windowMins}m`,
+		},
+		{
+			key: "channels",
+			header: "Channels",
+			width: "auto",
+			font: "mono",
+			cell: (r) => r.channels.length,
+		},
+		{
+			key: "actions",
+			header: "Actions",
+			width: "auto",
+			cell: (r) => (
+				<div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+					<Button
+						variant="ghost"
+						size="xs"
+						onClick={() => toggleEnabled(r)}
+					>
+						{r.enabled ? "Disable" : "Enable"}
+					</Button>
+					<Button
+						variant="ghost"
+						size="xs"
+						className="text-sys-primary outline-sys-primary"
+						onClick={() => edit(r.id)}
+					>
+						Edit
+					</Button>
+					<Button
+						variant="ghost"
+						size="xs"
+						className="text-sys-error outline-sys-error"
+						onClick={() => deleteRule(r.id)}
+					>
+						Delete
+					</Button>
+				</div>
+			),
+		},
+	];
 }
 
 function AlertDetail({
@@ -315,14 +349,14 @@ function AlertDetail({
 					<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60">
 						Test run (live count)
 					</div>
-					<button
-						type="button"
+					<Button
+						variant="primary"
+						size="xs"
 						onClick={runTest}
 						disabled={testing}
-						className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 					>
 						{testing ? "Running…" : "Test"}
-					</button>
+					</Button>
 				</div>
 				{testResult && (
 					<div className="text-[0.875rem] font-mono">
