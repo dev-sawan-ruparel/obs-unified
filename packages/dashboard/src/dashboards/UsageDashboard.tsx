@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApi } from "../use-api";
+import { useTimeWindowHours } from "../provider";
 import {
 	BarList as NewBarList,
 	Card,
@@ -131,7 +132,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const api = useApi();
 	const [overview, setOverview] = useState<UsageOverview | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [hours, setHours] = useState("72");
+	const hours = String(useTimeWindowHours());
 	const [pathFilter, setPathFilter] = useState("all");
 	const [includeAdmin, setIncludeAdmin] = useState(false);
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
@@ -223,17 +224,6 @@ export function UsageDashboard({ onNavigate }: Props) {
 					disabled
 				/>
 				<Button disabled>Search</Button>
-				<Select
-					value={hours}
-					onChange={(e) => setHours(e.target.value)}
-					options={[
-						["6", "6h"],
-						["24", "24h"],
-						["72", "72h"],
-						["168", "7d"],
-						["720", "30d"],
-					]}
-				/>
 				<Select
 					value={pathFilter}
 					onChange={(e) => setPathFilter(e.target.value)}

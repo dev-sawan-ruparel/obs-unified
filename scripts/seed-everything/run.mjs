@@ -411,23 +411,45 @@ const seedTraces = async (sessionWindows = []) => {
 			},
 		});
 
-		// Outbound dependency for service-map edges
+		// Outbound dependency for service-map edges:
+		// CLIENT span in `svc` paired with a SERVER span in `downstream`,
+		// linked by parent_span_id so the cross-service self-join sees an edge.
 		const downstream =
 			services[(services.indexOf(svc) + 1) % services.length];
+		const clientSpanId = hex(8);
+		const downstreamStart = startMs + Math.floor(dur / 2);
+		const downstreamEnd = startMs + Math.floor(dur / 4);
 		allSpans.push({
 			service: svc,
 			span: {
 				traceId,
-				spanId: hex(8),
+				spanId: clientSpanId,
 				parentSpanId: rootSpanId,
 				name: `call ${downstream}`,
 				kind: 3, // CLIENT
-				startTimeUnixNano: agoNs(startMs + Math.floor(dur / 2)),
-				endTimeUnixNano: agoNs(startMs + Math.floor(dur / 4)),
+				startTimeUnixNano: agoNs(downstreamStart),
+				endTimeUnixNano: agoNs(downstreamEnd),
 				status: { code: isError ? 2 : 1 },
 				attributes: [
 					kv("peer.service", downstream),
 					kv("http.request.method", "GET"),
+				],
+			},
+		});
+		allSpans.push({
+			service: downstream,
+			span: {
+				traceId,
+				spanId: hex(8),
+				parentSpanId: clientSpanId,
+				name: `${downstream} handler`,
+				kind: 2, // SERVER
+				startTimeUnixNano: agoNs(downstreamStart - 1),
+				endTimeUnixNano: agoNs(downstreamEnd + 1),
+				status: { code: isError ? 2 : 1 },
+				attributes: [
+					kv("http.request.method", "GET"),
+					kv("http.route", `/internal/${downstream}`),
 				],
 			},
 		});

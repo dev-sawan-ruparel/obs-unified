@@ -14,9 +14,9 @@ import {
 import dagre from "dagre";
 import "@xyflow/react/dist/style.css";
 import { useApi } from "../use-api";
+import { useTimeWindowHours } from "../provider";
 import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
 import { Button } from "../components/Button";
-import { Select } from "../components/forms";
 
 type ServiceNodeData = {
 	service: string;
@@ -92,7 +92,7 @@ const nodeTypes = { service: ServiceNode };
 
 export function ServiceMapDashboard() {
 	const api = useApi();
-	const [hours, setHours] = useState("24");
+	const hours = String(useTimeWindowHours());
 	const [data, setData] = useState<ServiceMapResponse | null>(null);
 	const [loading, setLoading] = useState(false);
 
@@ -165,16 +165,6 @@ export function ServiceMapDashboard() {
 				<span className="text-[0.875rem] font-semibold">
 					Service map
 				</span>
-				<Select
-					value={hours}
-					onChange={(e) => setHours(e.target.value)}
-					options={[
-						["1", "Last 1h"],
-						["6", "Last 6h"],
-						["24", "Last 24h"],
-						["72", "Last 72h"],
-					]}
-				/>
 				<Button variant="primary" onClick={load}>
 					Refresh
 				</Button>
@@ -217,6 +207,12 @@ export function ServiceMapDashboard() {
 							<Background color="var(--color-sys-outline)" gap={24} />
 							<Controls />
 						</ReactFlow>
+						{data && data.nodes.length > 0 && data.edges.length === 0 && (
+							<div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 max-w-md bg-sys-surface-low px-3 py-2 text-[0.75rem] text-sys-on-surface-muted shadow-[inset_0_0_0_1px_var(--color-sys-outline-soft)]">
+								<span className="font-semibold text-sys-on-surface">No service-to-service edges in this window.</span>{" "}
+								Edges are derived from cross-service parent→child spans. Confirm your SDKs propagate trace context across HTTP/queue calls.
+							</div>
+						)}
 					</div>
 				)}
 			</div>

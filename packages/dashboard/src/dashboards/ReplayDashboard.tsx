@@ -292,7 +292,7 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 					</div>
 					<div className="flex-1 overflow-y-auto cursor-default">
 						{loadingList && <div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">Loading replays...</div>}
-						{!loadingList && replaysList.length === 0 && <div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">NO replays found</div>}
+						{!loadingList && replaysList.length === 0 && <div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">No replays found.</div>}
 						{replaysList.map((r) => {
 							const active = r.session_id === selectedSessionId;
 							return (
@@ -331,8 +331,8 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 				>
 					{!selectedSessionId ? (
 						<div className="flex-1 flex flex-col items-center justify-center p-2 text-center text-sys-on-surface bg-sys-surface border-[1px] border-sys-outline">
-							<p className="font-semibold text-[1rem] font-mono tracking-tight opacity-60">Select A session TO replay</p>
-							<p className="text-[0.875rem] mt-2 opacity-50 max-w-sm">Replays allow you to visually observe a user's chronological path and interaction context decoupled from generic aggregate usages.</p>
+							<p className="font-semibold text-[1rem] font-mono tracking-tight opacity-60">Select a session to replay</p>
+							<p className="text-[0.875rem] mt-2 opacity-50 max-w-sm">Visually observe a user's chronological path through the app, with interaction context decoupled from aggregate usage.</p>
 						</div>
 					) : loading ? (
 						<div className="flex-1 flex justify-center items-center text-[0.875rem] tracking-[0.05em] font-bold opacity-60 bg-sys-surface border-[1px] border-sys-outline">Loading session telemetry...</div>

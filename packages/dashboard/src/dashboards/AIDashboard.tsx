@@ -10,6 +10,7 @@ import type {
 	JsonValue,
 } from "@obs/types";
 import { useApi } from "../use-api";
+import { useTimeWindowHours } from "../provider";
 import { MessageView } from "../components/MessageView";
 import {
 	BarList,
@@ -94,14 +95,14 @@ type View = "spans" | "sessions";
 
 export function AIDashboard() {
 	const [view, setView] = useState<View>("spans");
-	const [hours, setHours] = useState("24");
+	const hours = String(useTimeWindowHours());
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface">
 			{view === "sessions" ? (
-				<SessionsView hours={hours} setHours={setHours} view={view} setView={setView} />
+				<SessionsView hours={hours} view={view} setView={setView} />
 			) : (
-				<SpansView hours={hours} setHours={setHours} view={view} setView={setView} />
+				<SpansView hours={hours} view={view} setView={setView} />
 			)}
 		</div>
 	);
@@ -112,15 +113,11 @@ export function AIDashboard() {
 function Toolbar({
 	view,
 	setView,
-	hours,
-	setHours,
 	children,
 	updatedAt,
 }: {
 	view: View;
 	setView: (v: View) => void;
-	hours: string;
-	setHours: (h: string) => void;
 	children?: React.ReactNode;
 	updatedAt?: string | null;
 }) {
@@ -136,17 +133,7 @@ function Toolbar({
 			</div>
 			<div className="h-5 w-px bg-sys-outline/40 mx-1" />
 			{children}
-			<select
-				className="h-7 bg-transparent text-[0.6875rem] font-semibold text-sys-on-surface border-b border-sys-outline focus:outline-none focus:border-sys-primary cursor-pointer ml-auto"
-				value={hours}
-				onChange={(e) => setHours(e.target.value)}
-			>
-				<option value="1">1h</option>
-				<option value="6">6h</option>
-				<option value="24">24h</option>
-				<option value="72">72h</option>
-				<option value="168">7d</option>
-			</select>
+			<div className="ml-auto" />
 			<UpdatedChip at={updatedAt ?? null} />
 		</div>
 	);
@@ -180,12 +167,11 @@ function ViewTab({
 
 interface SpansViewProps {
 	hours: string;
-	setHours: (h: string) => void;
 	view: View;
 	setView: (v: View) => void;
 }
 
-function SpansView({ hours, setHours, view, setView }: SpansViewProps) {
+function SpansView({ hours, view, setView }: SpansViewProps) {
 	const api = useApi();
 	const [overview, setOverview] = useState<AISpansOverviewResponse | null>(null);
 	const [kind, setKind] = useState<string>("");
@@ -355,8 +341,6 @@ function SpansView({ hours, setHours, view, setView }: SpansViewProps) {
 			<Toolbar
 				view={view}
 				setView={setView}
-				hours={hours}
-				setHours={setHours}
 				updatedAt={overview?.timestamp ?? null}
 			>
 				<input
@@ -911,7 +895,7 @@ function EvaluationsList({ evaluations }: { evaluations: AIEvaluationRecord[] })
 
 // ── Sessions view ──────────────────────────────────────────────────────────
 
-function SessionsView({ hours, setHours, view, setView }: SpansViewProps) {
+function SessionsView({ hours, view, setView }: SpansViewProps) {
 	const api = useApi();
 	const [data, setData] = useState<AISessionsListResponse | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
@@ -960,8 +944,6 @@ function SessionsView({ hours, setHours, view, setView }: SpansViewProps) {
 			<Toolbar
 				view={view}
 				setView={setView}
-				hours={hours}
-				setHours={setHours}
 				updatedAt={data?.timestamp ?? null}
 			>
 				<div className="text-[0.6875rem] font-mono opacity-60">

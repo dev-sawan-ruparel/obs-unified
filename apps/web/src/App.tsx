@@ -105,6 +105,7 @@ const PINNED_ITEMS: NavItem[] = [
 ];
 
 const RAIL_COLLAPSED_KEY = "obs.railCollapsed";
+const THEME_KEY = "obs.theme";
 
 function readRailCollapsed(): boolean {
 	if (typeof localStorage === "undefined") return false;
@@ -124,10 +125,38 @@ function writeRailCollapsed(collapsed: boolean): void {
 	}
 }
 
+type Theme = "light" | "dark";
+
+function readTheme(): Theme {
+	if (typeof localStorage === "undefined") return "light";
+	try {
+		const v = localStorage.getItem(THEME_KEY);
+		return v === "dark" ? "dark" : "light";
+	} catch {
+		return "light";
+	}
+}
+
+function writeTheme(theme: Theme): void {
+	if (typeof localStorage === "undefined") return;
+	try {
+		localStorage.setItem(THEME_KEY, theme);
+	} catch {
+		// ignore
+	}
+}
+
 export function App() {
 	const route = useRoute();
 	const { trackInteraction } = useAnalytics();
-	const [collapsed, setCollapsed] = useState<boolean>(readRailCollapsed);
+	// User's stated preference — persisted, only written by explicit toggle.
+	const [userCollapsed, setUserCollapsed] = useState<boolean>(readRailCollapsed);
+	// Whether the viewport is forcing a collapse independent of preference.
+	const [viewportForce, setViewportForce] = useState<boolean>(
+		typeof window !== "undefined" && window.innerWidth < 1100,
+	);
+	const collapsed = viewportForce || userCollapsed;
+	const [theme, setTheme] = useState<Theme>(readTheme);
 
 	// Set default hash on first load
 	useEffect(() => {
@@ -135,8 +164,26 @@ export function App() {
 	}, []);
 
 	useEffect(() => {
-		writeRailCollapsed(collapsed);
-	}, [collapsed]);
+		writeRailCollapsed(userCollapsed);
+	}, [userCollapsed]);
+
+	useEffect(() => {
+		writeTheme(theme);
+		document.documentElement.dataset.theme = theme;
+	}, [theme]);
+
+	useEffect(() => {
+		const onResize = () => setViewportForce(window.innerWidth < 1100);
+		onResize();
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, []);
+
+	const toggleCollapsed = () => {
+		// If the viewport is forcing collapse, the toggle no-ops.
+		if (viewportForce) return;
+		setUserCollapsed((v) => !v);
+	};
 
 	const switchTab = (tab: string) => {
 		trackInteraction("tab_switch", { from: route.tab, to: tab });
@@ -232,9 +279,31 @@ export function App() {
 					{PINNED_ITEMS.map(renderNavItem)}
 					<button
 						type="button"
-						onClick={() => setCollapsed((v) => !v)}
-						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+						onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+						title={theme === "dark" ? "Switch to light" : "Switch to dark"}
 						className={`mt-1 flex h-8 items-center text-[0.8125rem] font-medium text-sys-on-surface-subtle hover:text-sys-on-surface ${
+							collapsed ? "mx-auto w-9 justify-center" : "px-4"
+						}`}
+					>
+						<span aria-hidden>{theme === "dark" ? "☀" : "☾"}</span>
+						{!collapsed && (
+							<span className="ml-2">
+								{theme === "dark" ? "Light" : "Dark"} mode
+							</span>
+						)}
+					</button>
+					<button
+						type="button"
+						onClick={toggleCollapsed}
+						title={
+							viewportForce
+								? "Sidebar collapsed (viewport too narrow)"
+								: collapsed
+									? "Expand sidebar"
+									: "Collapse sidebar"
+						}
+						disabled={viewportForce}
+						className={`mt-1 flex h-8 items-center text-[0.8125rem] font-medium text-sys-on-surface-subtle hover:text-sys-on-surface disabled:opacity-50 disabled:cursor-not-allowed ${
 							collapsed ? "mx-auto w-9 justify-center" : "px-4"
 						}`}
 					>
@@ -544,7 +613,7 @@ function Btn({
 			onClick={onClick}
 			disabled={disabled}
 			title={title}
-			className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none disabled:opacity-40 rounded-none cursor-pointer${cls}`}
+			className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none disabled:opacity-40 rounded-none cursor-pointer ${cls}`}
 		>
 			{children}
 		</button>

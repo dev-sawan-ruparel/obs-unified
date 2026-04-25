@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useDashboard } from "../provider";
+import { useDashboard, useTimeWindowHours } from "../provider";
 import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";
 import {
 	BarList,
@@ -233,7 +233,7 @@ export function TelemetryDashboard({
 		if (!r.ok) throw new Error(`${r.status}`);
 		return r.json();
 	}, [basePath, fetcher]);
-	const [hours, setHours] = useState("6");
+	const hours = String(useTimeWindowHours());
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [serviceFilter, setServiceFilter] = useState("all");
 	const [search, setSearch] = useState("");
@@ -376,16 +376,6 @@ export function TelemetryDashboard({
 					}}
 				/>
 				<Button onClick={() => setSearch(searchInput.trim())}>Search</Button>
-				<Select
-					value={hours}
-					onChange={(e) => setHours(e.target.value)}
-					options={[
-						["1", "1h"],
-						["6", "6h"],
-						["24", "24h"],
-						["72", "72h"],
-					]}
-				/>
 				<Select
 					value={statusFilter}
 					onChange={(e) => setStatusFilter(e.target.value)}
@@ -1017,7 +1007,7 @@ function IssuesView({
 							onClick={() => onSelect(issue)}
 						>
 							<div className="flex items-center gap-3">
-								<Badge cls={issue.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-white"}>
+								<Badge cls={issue.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-sys-bg"}>
 									{issue.severity}
 								</Badge>
 								<Badge cls="bg-sys-surface-low text-sys-on-surface outline outline-[1px] outline-sys-outline">
@@ -1037,19 +1027,19 @@ function IssuesView({
 					))}
 				</div>
 				{overview.issues.length === 0 && (
-					<p className="p-3 text-[0.875rem] font-semibold opacity-60">NO issues.</p>
+					<p className="p-3 text-[0.875rem] font-semibold opacity-60">No issues.</p>
 				)}
 			</div>
 
 			{/* Detail */}
 			<div className="bg-sys-surface p-3 overflow-y-auto">
 				{!selected ? (
-					<p className="text-[0.875rem] font-semibold opacity-60">Select AN issue TO inspect.</p>
+					<p className="text-[0.875rem] font-semibold opacity-60">Select an issue to inspect.</p>
 				) : (
 					<div className="space-y-6">
 						<div>
 							<div className="flex items-center gap-3 mb-2">
-								<Badge cls={selected.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-white"}>
+								<Badge cls={selected.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-sys-bg"}>
 									{selected.severity}
 								</Badge>
 								<Badge cls="bg-sys-surface-low text-sys-on-surface outline outline-[1px] outline-sys-outline">

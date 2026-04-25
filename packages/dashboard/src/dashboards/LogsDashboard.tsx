@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LogsOverviewResponse } from "@obs/types";
 import { useApi } from "../use-api";
+import { useTimeWindowHours } from "../provider";
 import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";
 import {
 	BarList,
@@ -31,7 +32,7 @@ const isLogEvent = (e: TailEvent): e is TailEvent<LiveLogRow> => e.kind === "log
 export function LogsDashboard() {
 	const api = useApi();
 	const [overview, setOverview] = useState<LogsOverviewResponse | null>(null);
-	const [hours, setHours] = useState("24");
+	const hours = String(useTimeWindowHours());
 	const [loading, setLoading] = useState(false);
 	const [severityFilter, setSeverityFilter] = useState<"all" | "ERROR" | "WARN" | "INFO">("all");
 	const [liveMode, setLiveMode] = useState(false);
@@ -137,16 +138,6 @@ export function LogsDashboard() {
 					className="min-w-[200px] flex-1"
 					placeholder="Search log messages, attributes…"
 					disabled
-				/>
-				<Select
-					value={hours}
-					onChange={(e) => setHours(e.target.value)}
-					options={[
-						["1", "Last 1h"],
-						["6", "Last 6h"],
-						["24", "Last 24h"],
-						["72", "Last 72h"],
-					]}
 				/>
 				<Select
 					value={severityFilter}

@@ -21,10 +21,6 @@ export interface DashboardConfig {
 	timeWindowMins: number;
 	/** Change the global time window. Persists to localStorage. */
 	setTimeWindowMins: (mins: number) => void;
-	/** Global free-text search. Dashboards can opt in to read this. */
-	search: string;
-	/** Change the global search string. */
-	setSearch: (q: string) => void;
 }
 
 const DashboardContext = createContext<DashboardConfig | null>(null);
@@ -38,6 +34,15 @@ export function useDashboard(): DashboardConfig {
 		throw new Error("useDashboard must be used within <ObsDashboardProvider>");
 	}
 	return ctx;
+}
+
+/**
+ * Hours derived from the global TimeRangePicker. Minimum 1.
+ * Use this instead of a per-dashboard `useState("hours")`.
+ */
+export function useTimeWindowHours(): number {
+	const { timeWindowMins } = useDashboard();
+	return Math.max(1, Math.round(timeWindowMins / 60));
 }
 
 function readInitialProjectId(): string {
@@ -97,7 +102,6 @@ export function ObsDashboardProvider({
 }) {
 	const [projectId, setProjectIdState] = useState<string>(readInitialProjectId);
 	const [timeWindowMins, setTimeWindowMinsState] = useState<number>(readInitialTimeWindow);
-	const [search, setSearchState] = useState<string>("");
 
 	useEffect(() => {
 		writeProjectId(projectId);
@@ -113,10 +117,6 @@ export function ObsDashboardProvider({
 
 	const setTimeWindowMins = useCallback((mins: number) => {
 		setTimeWindowMinsState(mins);
-	}, []);
-
-	const setSearch = useCallback((q: string) => {
-		setSearchState(q);
 	}, []);
 
 	const config = useMemo<DashboardConfig>(() => {
@@ -138,10 +138,8 @@ export function ObsDashboardProvider({
 			setProjectId,
 			timeWindowMins,
 			setTimeWindowMins,
-			search,
-			setSearch,
 		};
-	}, [basePath, fetcher, projectId, setProjectId, timeWindowMins, setTimeWindowMins, search, setSearch]);
+	}, [basePath, fetcher, projectId, setProjectId, timeWindowMins, setTimeWindowMins]);
 
 	return (
 		<DashboardContext.Provider value={config}>

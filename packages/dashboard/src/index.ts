@@ -32,5 +32,6 @@ export {
 	type DashboardConfig,
 	ObsDashboardProvider,
 	useDashboard,
+	useTimeWindowHours,
 } from "./provider";
 export { useApi, useRawFetch } from "./use-api";
