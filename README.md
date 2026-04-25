@@ -156,32 +156,54 @@ Visit your collector URL in a browser. Enter the dashboard password. Done.
 https://obs.my-app.com/dashboard
 ```
 
-### Seed sample data (local dev)
+### Populate dashboards with realistic data
 
-To populate every dashboard tab with synthetic data while developing the
-UI — without manually clicking through the Playground or waiting on
-real traffic — run the seeder. It writes traces, logs, AI calls, usage
-events, and alert rules straight to your local collector:
+Two paths, depending on whether you have Docker.
+
+#### Recommended — point the OpenTelemetry Astronomy Shop at the collector
+
+The canonical OSS observability demo (~15 microservices in Go / Java /
+.NET / Node / Python / Rust, all emitting OTLP natively) becomes our
+data source. It includes a Locust load generator that drives the React
+frontend continuously, and built-in feature flags for failure injection
+that exercise Service Map + Issues realistically.
+
+```bash
+pnpm dev:collector   # in one terminal
+pnpm demo:setup      # one-time: clones the demo into demo/upstream/
+pnpm demo:up         # docker compose up; ~30 s to first traffic
+```
+
+Open `http://localhost:5173` — Traces, Service Map, Issues, Logs, and
+Metrics all populate from real microservice traffic. Tear down with
+`pnpm demo:down`. Full details: [demo/README.md](demo/README.md).
+
+> Requires Docker + docker-compose v2. ~6 GB RAM. First run pulls ~3 GB
+> of images.
+
+#### Fallback — synthetic seeder (no Docker)
+
+Faster but less realistic — writes ~70 spans, 20 logs, 12 AI calls, 49
+usage events, and 3 alert rules straight to the collector:
 
 ```bash
 pnpm run dev      # start collector + demo + dashboard (in separate panes works too)
-pnpm run seed     # writes ~70 spans, 20 logs, 12 AI calls, 49 usage events, 3 alert rules
+pnpm run seed
 ```
 
-After the seed finishes, every tab (Traces / Service Map / Issues /
-Logs / AI Calls / Usage / Timeline / Alerts / Resources / Projects)
-has data. The only tab that still needs a real browser is **Replays**
-— rrweb chunks are captured client-side, so visit the Playground tab
-and click "Start replay" once.
-
-The seeder reads `DASHBOARD_PASSWORD` and `OBS_INGEST_KEY` from env
-(falling back to the dev defaults), and accepts overrides:
+The synthetic seeder doesn't generate Service Map edges or sustained
+load; use it when you want to iterate on UI without booting Docker.
 
 ```bash
+# overrides
 node scripts/seed-everything/run.mjs \
   --collector http://localhost:8790 \
   --rounds 10
 ```
+
+The only tab that needs a real browser regardless is **Replays** —
+rrweb chunks are captured client-side, so visit the Playground tab and
+click "Start replay" once.
 
 ## Packages
 

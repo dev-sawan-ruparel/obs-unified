@@ -16,6 +16,9 @@ out
 playwright-report
 test-results
 
+# OpenTelemetry Demo — cloned by `pnpm demo:setup`, never committed
+demo/upstream/
+
 # Environment variables
 .env
 .env.local

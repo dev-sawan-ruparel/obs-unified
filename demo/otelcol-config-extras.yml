@@ -1,0 +1,62 @@
+# obs-unified — extras config for the OpenTelemetry Demo's collector
+#
+# This file is loaded by the demo's otel-collector AS A SECOND CONFIG via
+# `--config=/etc/otelcol-config.yml --config=/etc/otelcol-config-extras.yml`.
+# Multiple --config flags are merged in order, so anything we add here is
+# appended to the demo's defaults — we don't replace them, we extend them.
+#
+# What we're doing:
+#   - Defining one new exporter (`otlphttp/obs-unified`) that ships traces,
+#     logs, and metrics over OTLP/HTTP to our local collector at :8790.
+#   - Re-declaring the three signal pipelines so our exporter is added
+#     alongside the demo's existing ones (Jaeger / Prometheus / OpenSearch).
+#     The demo's processors are reused via the same names — extras files
+#     can reference processors defined in the base config.
+#
+# Auth: our collector requires a Bearer token + project header on /v1/*.
+# The PROJECT_KEY default below matches apps/web/.env.development.local —
+# override via env if you've rotated the dev key.
+
+exporters:
+  otlphttp/obs-unified:
+    endpoint: ${OBS_UNIFIED_ENDPOINT:-http://host.docker.internal:8790}
+    # `tls.insecure: true` is fine for localhost; flip when shipping to prod.
+    tls:
+      insecure: true
+    headers:
+      authorization: Bearer ${OBS_UNIFIED_KEY:-obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504}
+      x-project-id: ${OBS_UNIFIED_PROJECT:-default}
+    # Buffer + retry are sane defaults — the demo emits a lot.
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+
+service:
+  pipelines:
+    traces:
+      # Note on merging: when two config files both define a service.pipelines
+      # entry, the later file (extras) wins outright — arrays don't merge.
+      # So we have to re-declare ALL the exporters the demo's base file uses,
+      # then add ours. Names below match exactly what the demo's
+      # otelcol-config.yml declares (otlp_grpc/jaeger not "otlp",
+      # otlp_http/prometheus not "otlphttp/prometheus").
+      exporters:
+        - otlp_grpc/jaeger          # demo's Jaeger
+        - debug
+        - spanmetrics               # connector — keep the demo's RED metrics flow
+        - otlphttp/obs-unified      # ← us
+    metrics:
+      exporters:
+        - otlp_http/prometheus
+        - debug
+        - otlphttp/obs-unified      # ← us
+    logs:
+      exporters:
+        - opensearch
+        - debug
+        - otlphttp/obs-unified      # ← us
