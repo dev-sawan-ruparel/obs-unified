@@ -54,7 +54,15 @@ const step = async (label, fn) => {
 	process.stdout.write(`  ${label.padEnd(38)} `);
 	try {
 		const result = await fn();
-		console.log(ok("✓"), result ? dim(`(${result})`) : "");
+		// Result can be a plain string or a richer object that exposes a
+		// `.summary` field for display while passing other data through.
+		const display =
+			typeof result === "string"
+				? result
+				: result && typeof result === "object" && "summary" in result
+					? result.summary
+					: "";
+		console.log(ok("✓"), display ? dim(`(${display})`) : "");
 		return result;
 	} catch (e) {
 		console.log(err(`✗ ${e.message}`));
@@ -107,17 +115,37 @@ const dashFetch = async (cookie, path, init = {}) => {
 
 // ── usage events (Usage / Sessions / Timeline tabs) ─────────────────
 
+/**
+ * Seed usage. Returns the session windows so spans + logs can later be
+ * stamped with the same session.id (and time-aligned) so the Timeline tab
+ * shows a real cross-signal join.
+ *
+ * @returns {Promise<{ inserted: number, sessions: Array<{
+ *   sessionId: string;
+ *   visitorId: string;
+ *   startMs: number;
+ *   endMs: number;
+ * }> }>}
+ */
 const seedUsage = async () => {
 	const sessions = 4;
 	const eventsPerSession = 12;
 	const visitorBase = `seed-${Date.now().toString(36)}`;
 	const events = [];
 	const now = Date.now();
+	const sessionWindows = [];
 
 	for (let s = 0; s < sessions; s++) {
 		const sessionId = `${visitorBase}-s${s}`;
 		const visitorId = `${visitorBase}-v${s}`;
 		const startTs = now - (sessions - s) * 5 * 60_000;
+		const eventDurationMs = (eventsPerSession - 1) * 7_000;
+		sessionWindows.push({
+			sessionId,
+			visitorId,
+			startMs: startTs,
+			endMs: startTs + eventDurationMs,
+		});
 		const paths = ["/", "/dashboard", "/dashboard/traces", "/dashboard/logs"];
 
 		for (let i = 0; i < eventsPerSession; i++) {
@@ -188,7 +216,10 @@ const seedUsage = async () => {
 		const data = await res.json().catch(() => ({}));
 		inserted += data.inserted ?? slice.length;
 	}
-	return `${inserted} events across ${sessions} sessions`;
+	return {
+		summary: `${inserted} events across ${sessionWindows.length} sessions`,
+		sessions: sessionWindows,
+	};
 };
 
 // ── alerts ──────────────────────────────────────────────────────────
@@ -290,7 +321,7 @@ const ingestPost = async (path, body) => {
 
 // ── traces (Traces, Service Map, Issues) ────────────────────────────
 
-const seedTraces = async () => {
+const seedTraces = async (sessionWindows = []) => {
 	const services = ["obs-demo", "checkout-api", "payments-worker", "edge"];
 	const routes = [
 		{ name: "GET /api/items", durMin: 30, durMax: 90, errorRate: 0 },
@@ -303,17 +334,47 @@ const seedTraces = async () => {
 	];
 
 	const allSpans = [];
-	for (let r = 0; r < ROUNDS * 4; r++) {
+	const totalRounds = ROUNDS * 4;
+	let sessionStamped = 0;
+
+	for (let r = 0; r < totalRounds; r++) {
 		const svc = services[r % services.length];
 		const route = routes[r % routes.length];
 		const traceId = hex(16);
 		const rootSpanId = hex(8);
-		const startMs = Math.floor(
-			Math.random() * 60 * 1000 * 60 * 4, // last 4 hours
-		);
+
+		// 60% of spans are stamped with a session.id so Timeline shows a real
+		// cross-signal join. Pick a session round-robin and place the span
+		// somewhere inside its time window.
+		const inSession =
+			sessionWindows.length > 0 && r % 5 < 3
+				? sessionWindows[r % sessionWindows.length]
+				: null;
+
+		let startMs;
+		if (inSession) {
+			const winMs = inSession.endMs - inSession.startMs;
+			const offsetIntoWindow = Math.floor(Math.random() * winMs);
+			startMs =
+				Date.now() - inSession.startMs - offsetIntoWindow;
+			sessionStamped++;
+		} else {
+			startMs = Math.floor(Math.random() * 60 * 1000 * 60 * 4); // last 4h
+		}
+
 		const dur =
 			route.durMin + Math.floor(Math.random() * (route.durMax - route.durMin));
 		const isError = Math.random() < route.errorRate;
+
+		const baseAttrs = [
+			kv("http.request.method", route.name.split(" ")[0]),
+			kv("url.path", route.name.split(" ")[1]),
+			kv("http.response.status_code", isError ? 500 : 200),
+		];
+		if (inSession) {
+			baseAttrs.push(kv("session.id", inSession.sessionId));
+			baseAttrs.push(kv("user.id", inSession.visitorId));
+		}
 
 		// Root server span
 		allSpans.push({
@@ -326,11 +387,7 @@ const seedTraces = async () => {
 				startTimeUnixNano: agoNs(startMs + dur),
 				endTimeUnixNano: agoNs(startMs),
 				status: { code: isError ? 2 : 1, message: isError ? "internal error" : "" },
-				attributes: [
-					kv("http.request.method", route.name.split(" ")[0]),
-					kv("url.path", route.name.split(" ")[1]),
-					kv("http.response.status_code", isError ? 500 : 200),
-				],
+				attributes: baseAttrs,
 			},
 		});
 
@@ -389,12 +446,12 @@ const seedTraces = async () => {
 	}));
 
 	await ingestPost("/v1/traces", { resourceSpans });
-	return `${allSpans.length} spans across ${bySvc.size} services`;
+	return `${allSpans.length} spans across ${bySvc.size} services (${sessionStamped} stamped with session.id)`;
 };
 
 // ── logs ────────────────────────────────────────────────────────────
 
-const seedLogs = async () => {
+const seedLogs = async (sessionWindows = []) => {
 	const services = ["obs-demo", "checkout-api", "payments-worker"];
 	const samples = [
 		{ severity: "INFO", body: "Database query successful", count: 8 },
@@ -410,10 +467,39 @@ const seedLogs = async () => {
 	];
 
 	const logRecords = [];
+	let sessionStamped = 0;
+	let recordIndex = 0;
 	for (const sample of samples) {
 		for (let i = 0; i < sample.count; i++) {
 			const svc = services[i % services.length];
-			const offsetMs = Math.floor(Math.random() * 3 * 60 * 60 * 1000);
+			const idx = recordIndex++;
+
+			// Same 60% session-stamping logic as traces — log records placed
+			// inside one of the seeded session windows so the Timeline lanes
+			// light up with backend logs alongside frontend events.
+			const inSession =
+				sessionWindows.length > 0 && idx % 5 < 3
+					? sessionWindows[idx % sessionWindows.length]
+					: null;
+
+			let offsetMs;
+			if (inSession) {
+				const winMs = inSession.endMs - inSession.startMs;
+				const offsetIntoWindow = Math.floor(Math.random() * winMs);
+				offsetMs = Date.now() - inSession.startMs - offsetIntoWindow;
+				sessionStamped++;
+			} else {
+				offsetMs = Math.floor(Math.random() * 3 * 60 * 60 * 1000);
+			}
+
+			const attrs = [
+				kv("logger.name", `${svc}.handler`),
+				kv("environment", "dev"),
+			];
+			if (inSession) {
+				attrs.push(kv("session.id", inSession.sessionId));
+			}
+
 			logRecords.push({
 				service: svc,
 				record: {
@@ -422,10 +508,7 @@ const seedLogs = async () => {
 					severityNumber:
 						sample.severity === "ERROR" ? 17 : sample.severity === "WARN" ? 13 : 9,
 					body: { stringValue: sample.body },
-					attributes: [
-						kv("logger.name", `${svc}.handler`),
-						kv("environment", "dev"),
-					],
+					attributes: attrs,
 					traceId: hex(16),
 					spanId: hex(8),
 				},
@@ -445,7 +528,7 @@ const seedLogs = async () => {
 	}));
 
 	await ingestPost("/v1/logs", { resourceLogs });
-	return `${logRecords.length} log records`;
+	return `${logRecords.length} log records (${sessionStamped} stamped with session.id)`;
 };
 
 // ── AI calls ────────────────────────────────────────────────────────
@@ -541,10 +624,21 @@ if (!cookie) {
 	process.exit(1);
 }
 
-await step("traces / service map / issues (/v1/traces)", seedTraces);
-await step("logs (/v1/logs)", seedLogs);
+// Seed usage first so we have session windows. Spans + logs then get
+// stamped with session.id matching those windows — that's what makes the
+// Timeline tab show a real cross-signal join (frontend events alongside
+// backend spans/logs in the same session).
+const usageResult = await step(
+	"usage / sessions / timeline (/v1/usage)",
+	seedUsage,
+);
+const sessionWindows = usageResult?.sessions ?? [];
+
+await step("traces / service map / issues (/v1/traces)", () =>
+	seedTraces(sessionWindows),
+);
+await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
 await step("AI calls (/v1/traces with LLM kind)", seedAi);
-await step("usage / sessions / timeline (/v1/usage)", seedUsage);
 await step("alert rules (/internal/alerts/rules)", () => seedAlerts(cookie));
 
 console.log();

@@ -187,10 +187,13 @@ export class UsageTracker {
 		try {
 			const start = performance.now();
 			const baseUrl = this.config.endpoint.replace("/events", "");
+			// Note: do NOT send `Cache-Control` here — adding it to the request
+			// would force a CORS preflight that needs the collector to allow
+			// it, and we already pass `cache: "no-store"` so the browser will
+			// bypass HTTP cache without the header.
 			const res = await fetch(`${baseUrl}/health`, {
 				method: "GET",
 				cache: "no-store",
-				headers: { "Cache-Control": "no-cache" }
 			});
 			if (!res.ok) return;
 			const rtt = performance.now() - start;
