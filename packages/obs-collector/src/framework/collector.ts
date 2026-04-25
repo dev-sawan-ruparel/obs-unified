@@ -152,7 +152,8 @@ export const createTelemetryCollectorApp = (
 		if (c.req.method === "OPTIONS") {
 			const headers: Record<string, string> = {
 				"Access-Control-Allow-Methods": "POST, OPTIONS",
-				"Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+				"Access-Control-Allow-Headers":
+					"Content-Type, Authorization, X-API-Key, X-Project-Id, Cache-Control",
 				"Access-Control-Max-Age": "86400",
 			};
 			if (allowList.length === 0 || (origin && allowList.includes(origin))) {

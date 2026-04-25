@@ -9,6 +9,14 @@ import { defineConfig } from "vite";
 const collectorUrl = process.env.DEV_COLLECTOR_URL ?? "http://localhost:8790";
 const demoUrl = process.env.DEV_DEMO_URL ?? "http://localhost:8787";
 
+// fflate (transitively pulled by rrweb-snapshot for replay compression)
+// does `try { require("worker_threads") } catch {}` to feature-detect the
+// Node runtime. In a normal browser bundle that throws and the catch
+// silently sets Worker = undefined. Vite's CJS externalizer instead
+// returns a warn-on-access stub, so the try/catch never fires and
+// fflate's contract is broken. This alias points the import at our
+// shim that exports `Worker = undefined` directly — same end state as
+// the catch branch, no warning. See src/shims/worker-threads.ts.
 const workerThreadsShim = fileURLToPath(
 	new URL("./src/shims/worker-threads.ts", import.meta.url),
 );
@@ -16,13 +24,7 @@ const workerThreadsShim = fileURLToPath(
 export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	resolve: {
-		alias: [
-			// rrweb/rrweb-player conditionally `require("worker_threads")` for
-			// SSR setups; in the browser that import resolves to a Vite
-			// "externalized" stub that throws on access. Replace it with a
-			// proper noop so the console isn't full of warnings.
-			{ find: "worker_threads", replacement: workerThreadsShim },
-		],
+		alias: [{ find: "worker_threads", replacement: workerThreadsShim }],
 	},
 	server: {
 		port: Number(process.env.DEV_WEB_PORT ?? 5173),
