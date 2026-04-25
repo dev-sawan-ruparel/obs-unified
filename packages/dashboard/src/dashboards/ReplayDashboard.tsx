@@ -131,8 +131,8 @@ function ReplayPlayer({
 		}
 	}, [events]);
 
-	if (loading) return <div className="text-[0.875rem] font-bold opacity-60 uppercase tracking-[0.05em] p-3 text-center">LOADING REPLAY VISUAL BUFFER...</div>;
-	if (error) return <div className="text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">{error.toUpperCase()}</div>;
+	if (loading) return <div className="text-[0.875rem] font-semibold opacity-60 p-3 text-center">Loading replay visual buffer...</div>;
+	if (error) return <div className="text-[0.875rem] font-semibold text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">{error.toUpperCase()}</div>;
 
 	return (
 		<div className="bg-sys-bg border-[2px] border-sys-outline">
@@ -258,28 +258,28 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 				<input
 					type="text"
 					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-					placeholder="SEARCH REPLAYS (e.g. users, links)..."
+					placeholder="Search replays (e.g. users, links)…"
 					disabled
 				/>
-				<button className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
-					SEARCH
+				<button className="px-3 py-1.5 text-[0.875rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
+					Search
 				</button>
 				{selectedSessionId && (
                     <div className="ml-auto flex items-center gap-2">
                         <button
-                            className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-error text-white hover:bg-sys-error/80 transition-none cursor-pointer"
+                            className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-error text-white hover:bg-sys-error/80 transition-none cursor-pointer"
                             onClick={deleteReplay}
                         >
-                            DELETE REPLAY
+                            DELETE replay
                         </button>
                         <button
-                            className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
+                            className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
                             onClick={() => {
                                 setSelectedSessionId(null);
                                 onNavigate({ tab: "replay" });
                             }}
                         >
-                            CLEAR SELECTION
+                            Clear selection
                         </button>
                     </div>
 				)}
@@ -290,12 +290,12 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 				{/* Left Sidebar Menu */}
 				<div style={{ width: sidebarWidth }} className="flex-none bg-sys-surface flex flex-col h-full overflow-hidden border-[1px] border-sys-outline select-none">
 					<div className="flex-none p-3 border-b-[2px] border-sys-outline flex justify-between items-center">
-						<span className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">LATEST REPLAYS</span>
+						<span className="text-[0.875rem] font-semibold">Latest replays</span>
 						<span className="text-[0.625rem] font-mono opacity-60 font-bold bg-sys-bg px-2 py-0.5">{replaysList.length} SESSIONS</span>
 					</div>
 					<div className="flex-1 overflow-y-auto cursor-default">
-						{loadingList && <div className="p-4 text-[0.75rem] uppercase font-bold tracking-[0.05em] opacity-60 text-center">LOADING REPLAYS...</div>}
-						{!loadingList && replaysList.length === 0 && <div className="p-4 text-[0.75rem] uppercase font-bold tracking-[0.05em] opacity-60 text-center">NO REPLAYS FOUND</div>}
+						{loadingList && <div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">Loading replays...</div>}
+						{!loadingList && replaysList.length === 0 && <div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">NO replays found</div>}
 						{replaysList.map((r) => {
 							const active = r.session_id === selectedSessionId;
 							return (
@@ -334,11 +334,11 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 				>
 					{!selectedSessionId ? (
 						<div className="flex-1 flex flex-col items-center justify-center p-2 text-center text-sys-on-surface bg-sys-surface border-[1px] border-sys-outline">
-							<p className="font-bold text-[1rem] font-mono tracking-tight uppercase opacity-60">SELECT A SESSION TO REPLAY</p>
+							<p className="font-semibold text-[1rem] font-mono tracking-tight opacity-60">Select A session TO replay</p>
 							<p className="text-[0.875rem] mt-2 opacity-50 max-w-sm">Replays allow you to visually observe a user's chronological path and interaction context decoupled from generic aggregate usages.</p>
 						</div>
 					) : loading ? (
-						<div className="flex-1 flex justify-center items-center text-[0.875rem] tracking-[0.05em] font-bold opacity-60 bg-sys-surface border-[1px] border-sys-outline">LOADING SESSION TELEMETRY...</div>
+						<div className="flex-1 flex justify-center items-center text-[0.875rem] tracking-[0.05em] font-bold opacity-60 bg-sys-surface border-[1px] border-sys-outline">Loading session telemetry...</div>
 					) : selected ? (
 						<div className="flex flex-col gap-2 flex-1 overflow-y-auto">
 							<div className="grid grid-cols-4 gap-2 flex-none">
@@ -368,9 +368,9 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 
 							<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
 								<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
-									<span className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">FULL EVENT STREAM ({combinedTimeline.length} ENTRIES)</span>
-									<button className="text-[0.75rem] font-bold uppercase tracking-[0.05em] hover:text-sys-primary cursor-pointer transition-none underline" onClick={() => copy(JSON.stringify(selected, null, 2))}>
-										COPY JSON
+									<span className="text-[0.875rem] font-semibold">Full event stream ({combinedTimeline.length} entries)</span>
+									<button className="text-[0.75rem] font-semibold hover:text-sys-primary cursor-pointer transition-none underline" onClick={() => copy(JSON.stringify(selected, null, 2))}>
+										Copy JSON
 									</button>
 								</div>
 								<div className="flex-1 overflow-y-auto pb-4">

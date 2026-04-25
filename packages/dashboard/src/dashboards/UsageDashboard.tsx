@@ -217,11 +217,11 @@ export function UsageDashboard({ onNavigate }: Props) {
 				<input
 					type="text"
 					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-					placeholder="SEARCH PATHS, USERS..."
+					placeholder="Search paths, users..."
 					disabled
 				/>
-				<button className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
-					SEARCH
+				<button className="px-3 py-1.5 text-[0.875rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-not-allowed">
+					Search
 				</button>
 				<Sel
 					value={hours}
@@ -237,16 +237,16 @@ export function UsageDashboard({ onNavigate }: Props) {
 				<Sel
 					value={pathFilter}
 					onChange={setPathFilter}
-					options={pathOptions.map((p) => [p, p === "all" ? "ALL PATHS" : p.toUpperCase()])}
+					options={pathOptions.map((p) => [p, p === "all" ? "All paths" : p])}
 				/>
-				<label className="flex items-center gap-3 text-[0.75rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface cursor-pointer">
+				<label className="flex items-center gap-3 text-[0.75rem] font-semibold text-sys-on-surface cursor-pointer">
 					<input
 						type="checkbox"
 						checked={includeAdmin}
 						onChange={(e) => setIncludeAdmin(e.target.checked)}
 						className="accent-sys-primary"
 					/>
-					ADMIN
+					Admin
 				</label>
 				<div className="ml-auto">
 					<UpdatedChip at={overview.timestamp} />
@@ -381,7 +381,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 
 					{/* Top Pages */}
 					<div className="bg-sys-surface p-3">
-						<div className="mb-2 text-[0.875rem] font-bold uppercase tracking-[0.05em]">
+						<div className="mb-2 text-[0.875rem] font-semibold">
 							Top Pages
 						</div>
 						<table className="w-full text-left text-[0.875rem]">
@@ -426,7 +426,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 
 					{/* Event Mix */}
 					<div className="bg-sys-surface p-3">
-						<div className="mb-2 text-[0.875rem] font-bold uppercase tracking-[0.05em]">
+						<div className="mb-2 text-[0.875rem] font-semibold">
 							Event Mix
 						</div>
 						<table className="w-full text-left text-[0.875rem]">
@@ -456,12 +456,12 @@ export function UsageDashboard({ onNavigate }: Props) {
 
 					{/* Frontend Errors */}
 					<div className="bg-sys-surface p-3">
-						<div className="mb-2 text-[0.875rem] font-bold uppercase tracking-[0.05em]">
-							SYSTEM_HALT
+						<div className="mb-2 text-[0.875rem] font-semibold">
+							System_halt
 						</div>
 						<div className="flex flex-col">
 							{overview.frontendErrors.length === 0 ? (
-								<p className="py-2 text-[0.875rem] opacity-60">NO SYSTEM HALTS DETECTED.</p>
+								<p className="py-2 text-[0.875rem] opacity-60">NO system halts detected.</p>
 							) : (
 								overview.frontendErrors.map((err) => (
 									<div
@@ -470,7 +470,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 									>
 										<span className="block h-[12px] w-[6px] bg-sys-error flex-none" />
 										<span className="min-w-0 flex-1 truncate font-mono text-[0.875rem] font-bold text-sys-error">
-											{err.errorMessage || err.errorName || "SYSTEM_ERROR"}
+											{err.errorMessage || err.errorName || "System_error"}
 										</span>
 										<span className="flex-none font-mono text-[0.75rem] opacity-80">{err.pagePath}</span>
 										<button
@@ -492,7 +492,7 @@ export function UsageDashboard({ onNavigate }: Props) {
                 {/* Right Area (Sessions Explorer) */}
                 <div className="hidden lg:flex flex-1 min-w-[280px] max-w-[400px] flex-col bg-sys-surface min-h-0 h-full">
 					<div className="sticky top-0 bg-sys-surface px-3 py-2 flex flex-col gap-1">
-						<div className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">Sessions</div>
+						<div className="text-[0.875rem] font-semibold">Sessions</div>
 						<div className="flex flex-wrap gap-1">
 							{([
 								["all", "All"],
@@ -531,7 +531,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 							if (sess.errorCount > 0)
 								badges.push({ label: `${sess.errorCount} ERR`, className: "bg-sys-error text-white" });
 							if (sessionFilter === "dropoff" && sess.interactionCount === 0)
-								badges.push({ label: "NO INTERACTION", className: "bg-sys-warning text-white" });
+								badges.push({ label: "NO interaction", className: "bg-sys-warning text-white" });
 							if (sessionFilter === "slow" && sess.maxLoadTimeMs != null)
 								badges.push({ label: `${Math.round(sess.maxLoadTimeMs)}MS LOAD`, className: "bg-sys-warning text-white" });
 							return (
@@ -542,7 +542,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 								>
 									<div className="absolute left-0 top-0 bottom-0 w-[4px] bg-sys-primary hidden group-hover:block" />
 									<div className="flex items-center justify-between">
-										<span className="font-mono font-bold text-[0.875rem] truncate max-w-[200px]">{sess.lastPath || "DIRECT"}</span>
+										<span className="font-mono font-bold text-[0.875rem] truncate max-w-[200px]">{sess.lastPath || "Direct"}</span>
 										<span className="text-[0.75rem] font-mono opacity-60 group-hover:bg-sys-primary group-hover:text-white group-hover:opacity-100 px-1">
 											{sess.sessionId.slice(0, 8)} ➔
 										</span>
@@ -556,7 +556,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 							);
 						})}
 						{sessionFilter !== "all" && filteredSessions !== null && filteredSessions.length === 0 && (
-							<p className="p-3 text-[0.75rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+							<p className="p-3 text-[0.75rem] opacity-60 font-semibold">
 								No sessions match this filter.
 							</p>
 						)}
@@ -580,7 +580,7 @@ function Sel({
 		<select
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
-			className="h-8 bg-transparent text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+			className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
 		>
 			{options.map(([v, l]) => (
 				<option key={v} value={v}>

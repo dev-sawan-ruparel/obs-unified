@@ -135,13 +135,13 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<span className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">
+				<span className="text-[0.875rem] font-semibold">
 					Timeline
 				</span>
 				<input
 					type="text"
 					className="h-8 min-w-[260px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-					placeholder="SESSION ID"
+					placeholder="Session ID"
 					value={sessionInput}
 					onChange={(e) => setSessionInput(e.target.value)}
 					onKeyDown={(e) => {
@@ -150,10 +150,10 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 				/>
 				<button
 					type="button"
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
 					onClick={() => setSessionId(sessionInput.trim())}
 				>
-					LOAD
+					Load
 				</button>
 				{(["span", "log", "usage"] as Kind[]).map((k) => (
 					<button
@@ -173,7 +173,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 				{data?.replay && (
 					<button
 						type="button"
-						className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-accent text-white hover:bg-micro-gradient transition-none cursor-pointer"
+						className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-accent text-white hover:bg-micro-gradient transition-none cursor-pointer"
 						onClick={() =>
 							onNavigate({ tab: "replay", sessionId: data.sessionId })
 						}
@@ -188,7 +188,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 
 			{!sessionId && (
 				<Card className="p-3">
-					<p className="text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+					<p className="text-[0.875rem] opacity-60 font-semibold">
 						Enter a session id to load its timeline.
 					</p>
 				</Card>
@@ -196,7 +196,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 
 			{sessionId && loading && !data && (
 				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">
-					LOADING...
+					Loading...
 				</p>
 			)}
 
@@ -278,7 +278,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 						})}
 					</div>
 					{filteredEvents.length === 0 && (
-						<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+						<p className="py-2 text-[0.875rem] opacity-60 font-semibold">
 							No events matching selected kinds.
 						</p>
 					)}

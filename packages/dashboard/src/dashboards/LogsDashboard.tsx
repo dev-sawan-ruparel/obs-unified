@@ -132,39 +132,39 @@ export function LogsDashboard() {
 				<input
 					type="text"
 					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-					placeholder="SEARCH LOG MESSAGES, ATTRIBUTES..."
+					placeholder="Search log messages, attributes…"
 					disabled
 				/>
 				<select
-					className="h-8 bg-transparent text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+					className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
 					value={hours}
 					onChange={(e) => setHours(e.target.value)}
 				>
-					<option value="1">LAST 1H</option>
-					<option value="6">LAST 6H</option>
-					<option value="24">LAST 24H</option>
-					<option value="72">LAST 72H</option>
+					<option value="1">Last 1h</option>
+					<option value="6">Last 6h</option>
+					<option value="24">Last 24h</option>
+					<option value="72">Last 72h</option>
 				</select>
 				<select
-					className="h-8 bg-transparent text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+					className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
 					value={severityFilter}
 					onChange={(e) => setSeverityFilter(e.target.value as typeof severityFilter)}
 				>
-					<option value="all">ALL SEVERITIES</option>
-					<option value="ERROR">ERRORS ONLY</option>
-					<option value="WARN">WARNS ONLY</option>
-					<option value="INFO">INFO ONLY</option>
+					<option value="all">All severities</option>
+					<option value="ERROR">Errors only</option>
+					<option value="WARN">Warns only</option>
+					<option value="INFO">Info only</option>
 				</select>
 				<button
 					type="button"
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
 					onClick={loadAll}
 				>
-					REFRESH
+					Refresh
 				</button>
 				<button
 					type="button"
-					className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
+					className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none cursor-pointer${
 						liveMode
 							? "bg-sys-error text-white"
 							: "bg-sys-surface-high text-sys-on-surface border-[1px] border-sys-outline"
@@ -172,12 +172,12 @@ export function LogsDashboard() {
 					onClick={() => setLiveMode((v) => !v)}
 					title={liveMode ? "Stop streaming" : "Stream logs in real time"}
 				>
-					{liveMode ? (liveTail.connected ? "● LIVE" : "○ CONNECTING") : "LIVE"}
+					{liveMode ? (liveTail.connected ? "● Live" : "○ Connecting") : "Live"}
 				</button>
 				{liveMode && (
 					<button
 						type="button"
-						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
+						className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none cursor-pointer${
 							liveTail.paused
 								? "bg-sys-warning text-white"
 								: "bg-sys-surface-high text-sys-on-surface border-[1px] border-sys-outline"
@@ -186,7 +186,7 @@ export function LogsDashboard() {
 					>
 						{liveTail.paused
 							? `RESUME${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
-							: "PAUSE"}
+							: "Pause"}
 					</button>
 				)}
 				<div className="ml-auto">
@@ -195,7 +195,7 @@ export function LogsDashboard() {
 			</div>
 
 			{loading && !overview && (
-				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">INITIALIZING...</p>
+				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">Initializing...</p>
 			)}
 
 			{overview && (
@@ -289,7 +289,7 @@ export function LogsDashboard() {
 							))}
 						</div>
 						{liveFilteredLogs.length === 0 && (
-							<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+							<p className="py-2 text-[0.875rem] opacity-60 font-semibold">
 								{liveTail.connected ? "Waiting for logs…" : liveTail.error || "Connecting…"}
 							</p>
 						)}
@@ -335,7 +335,7 @@ export function LogsDashboard() {
 							))}
 						</div>
 						{filteredLogs.length === 0 && (
-							<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+							<p className="py-2 text-[0.875rem] opacity-60 font-semibold">
 								No logs{severityFilter !== "all" ? ` at ${severityFilter}` : ""} in window.
 							</p>
 						)}

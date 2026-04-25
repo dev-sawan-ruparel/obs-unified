@@ -61,19 +61,19 @@ export function ProjectsDashboard() {
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-4 py-2 border-[1px] border-sys-outline">
 				<span className="text-[0.875rem] font-bold tracking-widest text-sys-on-surface">
-					PROJECTS
+					Projects
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted uppercase">
+				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted">
 					Multi-tenancy & ingest keys
 				</span>
 				<div className="ml-auto flex gap-2">
 					<button
 						type="button"
 						onClick={() => setShowCreate(true)}
-						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer"
+						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer"
 					>
-						+ NEW PROJECT
+						+ New project
 					</button>
 				</div>
 			</div>
@@ -122,16 +122,16 @@ export function ProjectsDashboard() {
 						type="button"
 						onClick={createProject}
 						disabled={creating || !newName || !newSlug}
-						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
+						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 					>
-						{creating ? "CREATING…" : "CREATE"}
+						{creating ? "Creating…" : "Create"}
 					</button>
 					<button
 						type="button"
 						onClick={() => setShowCreate(false)}
-						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 					>
-						CANCEL
+						Cancel
 					</button>
 				</div>
 			)}
@@ -145,7 +145,7 @@ export function ProjectsDashboard() {
 					<div>Actions</div>
 				</div>
 				{loading && (
-					<div className="px-3 py-4 text-[0.875rem] opacity-60">LOADING…</div>
+					<div className="px-3 py-4 text-[0.875rem] opacity-60">Loading…</div>
 				)}
 				{!loading && projects.length === 0 && (
 					<div className="px-3 py-4 text-[0.875rem] opacity-60">

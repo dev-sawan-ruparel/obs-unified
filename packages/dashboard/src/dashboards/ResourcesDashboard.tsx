@@ -72,10 +72,10 @@ export function ResourcesDashboard() {
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-3 py-2 border border-[#E5E7E3]">
 				<span className="text-[0.875rem] font-bold tracking-widest">
-					PLATFORM RESOURCES
+					Platform resources
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.75rem] font-mono text-sys-on-surface-muted uppercase">
+				<span className="text-[0.75rem] font-mono text-sys-on-surface-muted">
 					Scale & integrity · project-scoped
 				</span>
 				<div className="ml-auto flex items-center gap-2">
@@ -83,9 +83,9 @@ export function ResourcesDashboard() {
 						type="button"
 						onClick={load}
 						disabled={loading}
-						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer disabled:opacity-40"
+						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer disabled:opacity-40"
 					>
-						{loading ? "LOADING…" : "REFRESH"}
+						{loading ? "Loading…" : "Refresh"}
 					</button>
 					<UpdatedChip at={lastUpdated} />
 				</div>
@@ -112,8 +112,8 @@ export function ResourcesDashboard() {
 			)}
 
 			{loading && !data && !error && (
-				<div className="flex h-40 items-center justify-center font-mono text-[0.75rem] font-bold uppercase tracking-[0.1em] text-sys-on-surface-muted">
-					ANALYZING TOPOLOGY…
+				<div className="flex h-40 items-center justify-center font-mono text-[0.75rem] font-semibold tracking-[0.1em] text-sys-on-surface-muted">
+					Analyzing topology…
 				</div>
 			)}
 
@@ -200,7 +200,7 @@ export function ResourcesDashboard() {
 							<div className="flex items-center justify-between">
 								<SectionTitle title="Compute (Worker)" />
 								<span className="text-[0.625rem] px-2 py-0.5 bg-sys-warning text-white uppercase font-bold tracking-[0.05em]">
-									{data.worker.status.includes("Needs") ? "PENDING AUTH" : "LIVE"}
+									{data.worker.status.includes("Needs") ? "Pending auth" : "Live"}
 								</span>
 							</div>
 							<div className="font-mono text-[1.125rem] font-bold leading-tight tracking-tight text-sys-warning">

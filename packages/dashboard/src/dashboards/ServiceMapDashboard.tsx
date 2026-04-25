@@ -68,7 +68,7 @@ function ServiceNode({ data }: NodeProps<Node<ServiceNodeData>>) {
 			style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
 		>
 			<Handle type="target" position={Position.Left} style={{ background: "var(--color-sys-outline)" }} />
-			<div className="truncate text-[0.875rem] font-bold uppercase tracking-[0.05em]">
+			<div className="truncate text-[0.875rem] font-semibold">
 				{data.service}
 			</div>
 			<div className="flex justify-between opacity-70">
@@ -160,25 +160,25 @@ export function ServiceMapDashboard() {
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<span className="text-[0.875rem] font-bold uppercase tracking-[0.05em]">
+				<span className="text-[0.875rem] font-semibold">
 					Service map
 				</span>
 				<select
-					className="h-8 bg-transparent text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+					className="h-8 bg-transparent text-[0.875rem] font-semibold text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
 					value={hours}
 					onChange={(e) => setHours(e.target.value)}
 				>
-					<option value="1">LAST 1H</option>
-					<option value="6">LAST 6H</option>
-					<option value="24">LAST 24H</option>
-					<option value="72">LAST 72H</option>
+					<option value="1">Last 1h</option>
+					<option value="6">Last 6h</option>
+					<option value="24">Last 24h</option>
+					<option value="72">Last 72h</option>
 				</select>
 				<button
 					type="button"
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.875rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
 					onClick={load}
 				>
-					REFRESH
+					Refresh
 				</button>
 				<div className="ml-auto flex items-center gap-4 text-[0.75rem] font-mono opacity-70">
 					<span>{data?.nodes.length ?? 0} services</span>
@@ -196,11 +196,11 @@ export function ServiceMapDashboard() {
 			<div className="relative min-h-0 flex-1 bg-sys-surface border border-[#E5E7E3]">
 				{loading && !data ? (
 					<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">
-						INITIALIZING...
+						Initializing...
 					</p>
 				) : data && data.nodes.length === 0 ? (
 					<div className="flex h-full items-center justify-center">
-						<p className="text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+						<p className="text-[0.875rem] opacity-60 font-semibold">
 							No services in window.
 						</p>
 					</div>

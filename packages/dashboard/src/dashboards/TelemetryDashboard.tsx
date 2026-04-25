@@ -161,12 +161,12 @@ const catCls: Record<string, string> = {
 	dependency: "border-purple-500 bg-purple-500/10 text-purple-700",
 };
 const SPAN_KIND: Record<number, string> = {
-	0: "UNSPECIFIED",
-	1: "INTERNAL",
-	2: "SERVER",
-	3: "CLIENT",
-	4: "PRODUCER",
-	5: "CONSUMER",
+	0: "Unspecified",
+	1: "Internal",
+	2: "Server",
+	3: "Client",
+	4: "Producer",
+	5: "Consumer",
 };
 
 // api helper is now provided via useDashboard context
@@ -364,8 +364,8 @@ export function TelemetryDashboard({
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
 				<input
 					type="text"
-					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-					placeholder="SEARCH SPANS, ATTRIBUTES..."
+					className="h-8 min-w-[200px] flex-1 border-b-[2px] border-sys-outline bg-transparent px-2 text-[0.8125rem] placeholder:text-sys-on-surface-subtle focus:border-sys-primary focus:outline-none transition-none"
+					placeholder="Search spans, attributes…"
 					value={searchInput}
 					onChange={(e) => setSearchInput(e.target.value)}
 					onKeyDown={(e) => {
@@ -373,27 +373,27 @@ export function TelemetryDashboard({
 					}}
 				/>
 				<button
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.8125rem] font-medium bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
 					onClick={() => setSearch(searchInput.trim())}
 				>
-					SEARCH
+					Search
 				</button>
 				<Sel
 					value={hours}
 					onChange={setHours}
 					options={[
-						["1", "1H"],
-						["6", "6H"],
-						["24", "24H"],
-						["72", "72H"],
+						["1", "1h"],
+						["6", "6h"],
+						["24", "24h"],
+						["72", "72h"],
 					]}
 				/>
 				<Sel
 					value={statusFilter}
 					onChange={setStatusFilter}
 					options={[
-						["all", "ALL STATUS"],
-						["error", "ERRORS"],
+						["all", "All status"],
+						["error", "Errors"],
 						["ok", "OK"],
 					]}
 				/>
@@ -402,7 +402,7 @@ export function TelemetryDashboard({
 					onChange={setServiceFilter}
 					options={serviceOptions.map((s) => [
 						s,
-						s === "all" ? "ALL SERVICES" : s.toUpperCase(),
+						s === "all" ? "All services" : s,
 					])}
 				/>
 				{mode === "issues" && (
@@ -410,23 +410,23 @@ export function TelemetryDashboard({
 						value={category}
 						onChange={setCategory}
 						options={[
-							["all", "ALL CATEGORIES"],
-							["error", "ERRORS"],
-							["latency", "LATENCY"],
-							["dependency", "DEPS"],
+							["all", "All categories"],
+							["error", "Errors"],
+							["latency", "Latency"],
+							["dependency", "Deps"],
 						]}
 					/>
 				)}
 				<button
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.8125rem] font-semibold bg-sys-primary text-white hover:bg-micro-gradient transition-none cursor-pointer"
 					onClick={loadAll}
 				>
-					REFRESH
+					Refresh
 				</button>
 				{mode === "traces" && (
 					<button
 						type="button"
-						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
+						className={`px-3 py-1.5 text-[0.8125rem] font-medium transition-none cursor-pointer ${
 							liveMode
 								? "bg-sys-error text-white"
 								: "bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
@@ -434,13 +434,13 @@ export function TelemetryDashboard({
 						onClick={() => setLiveMode((v) => !v)}
 						title={liveMode ? "Stop streaming" : "Stream spans in real time"}
 					>
-						{liveMode ? (liveTail.connected ? "● LIVE" : "○ CONNECTING") : "LIVE"}
+						{liveMode ? (liveTail.connected ? "● Live" : "○ Connecting") : "Live"}
 					</button>
 				)}
 				{liveMode && mode === "traces" && (
 					<button
 						type="button"
-						className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none cursor-pointer ${
+						className={`px-3 py-1.5 text-[0.8125rem] font-medium transition-none cursor-pointer ${
 							liveTail.paused
 								? "bg-sys-warning text-white"
 								: "bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface"
@@ -448,20 +448,20 @@ export function TelemetryDashboard({
 						onClick={liveTail.togglePause}
 					>
 						{liveTail.paused
-							? `RESUME${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
-							: "PAUSE"}
+							? `Resume${liveTail.buffered > 0 ? ` (${liveTail.buffered})` : ""}`
+							: "Pause"}
 					</button>
 				)}
 				<button
-					className="px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
+					className="px-3 py-1.5 text-[0.8125rem] font-medium bg-transparent text-sys-on-surface-muted outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface transition-none cursor-pointer"
 					onClick={handleExport}
 				>
-					EXPORT
+					Export
 				</button>
 			</div>
 
 			{loading && !overview ? (
-				<p className="p-3 text-[0.875rem] tracking-[0.05em] font-bold opacity-60">INITIALIZING...</p>
+				<p className="p-3 text-[0.8125rem] text-sys-on-surface-muted">Initializing…</p>
 			) : null}
 
 			{mode === "traces" && liveMode && (
@@ -550,7 +550,7 @@ function LiveSpansView({
 				})}
 			</div>
 			{rows.length === 0 && (
-				<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">
+				<p className="py-2 text-[0.875rem] opacity-60 font-semibold">
 					{connected ? "Waiting for spans…" : error || "Connecting…"}
 				</p>
 			)}
@@ -682,8 +682,8 @@ function TracesView({
 			</div>
 
 			<div className="bg-sys-surface p-3">
-				<div className="mb-2 text-[0.875rem] font-bold uppercase tracking-[0.05em]">
-					TRACES
+				<div className="mb-2 text-[0.875rem] font-semibold">
+					Traces
 				</div>
 				<div className="flex flex-col">
 					{overview.traces.map((t) => {
@@ -757,14 +757,14 @@ function TracesView({
 								)}
 								{isExpanded && !detail && (
 									<div className="bg-sys-bg p-2 border-t-[1px] border-sys-surface-low font-mono text-[0.75rem] opacity-60">
-										LOADING SPANS...
+										Loading spans...
 									</div>
 								)}
 							</div>
 						);
 					})}
 					{overview.traces.length === 0 && (
-						<p className="py-2 text-[0.875rem] opacity-60 uppercase tracking-[0.05em] font-bold">No traces found.</p>
+						<p className="py-2 text-[0.875rem] opacity-60 font-semibold">No traces found.</p>
 					)}
 				</div>
 			</div>
@@ -824,14 +824,14 @@ function TraceDetailView({
 					className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 transition-none"
 					onClick={() => copy(JSON.stringify(trace, null, 2))}
 				>
-					COPY JSON
+					Copy JSON
 				</button>
 			</div>
 
 			{/* Waterfall — always show, click row to expand span */}
 			<div className="bg-sys-surface p-2 border border-sys-surface-low">
-				<p className="m-0 mb-2 text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-70">
-					WATERFALL
+				<p className="m-0 mb-2 text-[0.75rem] font-semibold opacity-70">
+					Waterfall
 				</p>
 				{tree.map((s) => {
 					const sStart = new Date(s.startTime).getTime();
@@ -920,7 +920,7 @@ function SpanView({ span }: { span: SpanDetail }) {
 					className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 text-[0.75rem] font-mono transition-none"
 					onClick={() => copy(JSON.stringify(span, null, 2))}
 				>
-					COPY JSON
+					Copy JSON
 				</button>
 			</div>
 			<div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[0.75rem]">
@@ -1021,7 +1021,7 @@ function IssuesView({
 			{/* Queue */}
 			<div className="bg-sys-surface overflow-y-auto">
 				<div className="sticky top-0 z-10 flex items-center justify-between bg-sys-surface px-3 py-2">
-					<span className="text-[0.75rem] font-bold uppercase tracking-[0.05em]">
+					<span className="text-[0.75rem] font-semibold">
 						ISSUES ({overview.issues.length})
 					</span>
 				</div>
@@ -1053,14 +1053,14 @@ function IssuesView({
 					))}
 				</div>
 				{overview.issues.length === 0 && (
-					<p className="p-3 text-[0.875rem] font-bold uppercase tracking-[0.05em] opacity-60">NO ISSUES.</p>
+					<p className="p-3 text-[0.875rem] font-semibold opacity-60">NO issues.</p>
 				)}
 			</div>
 
 			{/* Detail */}
 			<div className="bg-sys-surface p-3 overflow-y-auto">
 				{!selected ? (
-					<p className="text-[0.875rem] font-bold uppercase tracking-[0.05em] opacity-60">SELECT AN ISSUE TO INSPECT.</p>
+					<p className="text-[0.875rem] font-semibold opacity-60">Select AN issue TO inspect.</p>
 				) : (
 					<div className="space-y-6">
 						<div>
@@ -1081,23 +1081,23 @@ function IssuesView({
 						</div>
 						<div className="grid grid-cols-2 gap-2 font-mono text-[0.75rem] border-y-[1px] border-sys-surface-low py-2">
 							<span className="opacity-60 flex flex-col gap-1">
-								SERVICE
+								Service
 								<span className="font-bold opacity-100">{selected.serviceName}</span>
 							</span>
 							<span className="opacity-60 flex flex-col gap-1">
-								TRACES
+								Traces
 								<span className="font-bold text-sys-error opacity-100">
 									{selected.affectedTraceCount}
 								</span>
 							</span>
 							<span className="opacity-60 flex flex-col gap-1">
-								CULPRIT
+								Culprit
 								<span className="font-bold opacity-100 truncate">
 									{selected.culpritSpanName}
 								</span>
 							</span>
 							<span className="opacity-60 flex flex-col gap-1">
-								LAST SEEN
+								Last seen
 								<span className="font-bold opacity-100">
 									{fmtTs(selected.lastSeen)}
 								</span>
@@ -1112,8 +1112,8 @@ function IssuesView({
 							<div className="space-y-6">
 								{issueDetail.culpritSpans.length > 0 && (
 									<div>
-										<p className="m-0 mb-3 text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-70">
-											CULPRIT SPANS
+										<p className="m-0 mb-3 text-[0.75rem] font-semibold opacity-70">
+											Culprit spans
 										</p>
 										<table className="w-full text-left">
 											<thead>
@@ -1152,8 +1152,8 @@ function IssuesView({
 								)}
 								{issueDetail.traces.length > 0 && (
 									<div>
-										<p className="m-0 mb-3 text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-70">
-											AFFECTED TRACES
+										<p className="m-0 mb-3 text-[0.75rem] font-semibold opacity-70">
+											Affected traces
 										</p>
 										<div className="flex flex-col bg-sys-bg">
 											{issueDetail.traces.map((t) => (
@@ -1258,7 +1258,7 @@ function Sel({
 		<select
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
-			className="h-8 bg-transparent text-[0.875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
+			className="h-8 bg-transparent text-[0.8125rem] font-medium text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer"
 		>
 			{options.map(([v, l]) => (
 				<option key={v} value={v}>

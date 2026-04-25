@@ -39,10 +39,10 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 				onSubmit={handleSubmit}
 				className="flex w-[360px] flex-col gap-4 bg-sys-surface p-6 border-[1px] border-sys-outline"
 			>
-				<div className="text-[0.875rem] font-bold uppercase tracking-widest text-sys-on-surface">
+				<div className="text-[0.875rem] font-semibold text-sys-on-surface">
 					obs-unified
 				</div>
-				<div className="text-[0.75rem] uppercase tracking-[0.05em] text-sys-on-surface-muted">
+				<div className="text-[0.75rem] text-sys-on-surface-muted">
 					Enter dashboard password to continue
 				</div>
 
@@ -50,13 +50,13 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 					type="password"
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
-					placeholder="PASSWORD"
+					placeholder="Password"
 					autoFocus
 					className="h-10 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
 				/>
 
 				{error && (
-					<div className="text-[0.75rem] font-bold uppercase tracking-[0.05em] text-sys-error">
+					<div className="text-[0.75rem] font-semibold text-sys-error">
 						{error}
 					</div>
 				)}
@@ -64,9 +64,9 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 				<button
 					type="submit"
 					disabled={loading || !password}
-					className="h-10 bg-sys-primary text-[0.875rem] font-bold uppercase tracking-[0.05em] text-white hover:bg-micro-gradient transition-none cursor-pointer disabled:opacity-40"
+					className="h-10 bg-sys-primary text-[0.875rem] font-semibold text-white hover:bg-micro-gradient transition-none cursor-pointer disabled:opacity-40"
 				>
-					{loading ? "AUTHENTICATING..." : "LOGIN"}
+					{loading ? "Authenticating..." : "Login"}
 				</button>
 			</form>
 		</div>

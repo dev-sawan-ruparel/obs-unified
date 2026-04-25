@@ -101,8 +101,8 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 
 	return (
 		<div className="bg-sys-surface p-4 border-[1px] border-sys-outline flex flex-col gap-3">
-			<div className="text-[0.875rem] font-bold tracking-widest uppercase">
-				{initial ? "EDIT RULE" : "NEW RULE"}
+			<div className="text-[0.875rem] font-semibold">
+				{initial ? "Edit rule" : "New rule"}
 			</div>
 
 			{err && (
@@ -345,7 +345,7 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 				</div>
 			</div>
 
-			<label className="flex items-center gap-2 text-[0.75rem] font-bold uppercase tracking-[0.05em]">
+			<label className="flex items-center gap-2 text-[0.75rem] font-semibold">
 				<input
 					type="checkbox"
 					checked={enabled}
@@ -358,17 +358,17 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 				<button
 					type="button"
 					onClick={onCancel}
-					className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+					className="px-3 py-1.5 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 				>
-					CANCEL
+					Cancel
 				</button>
 				<button
 					type="button"
 					onClick={submit}
 					disabled={!canSubmit || submitting}
-					className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
+					className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 				>
-					{submitting ? "SAVING…" : initial ? "SAVE" : "CREATE"}
+					{submitting ? "Saving…" : initial ? "Save" : "Create"}
 				</button>
 			</div>
 		</div>

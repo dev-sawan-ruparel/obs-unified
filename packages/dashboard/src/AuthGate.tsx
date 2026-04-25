@@ -50,8 +50,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 	if (state === "checking") {
 		return (
-			<div className="flex h-screen items-center justify-center bg-sys-bg font-sans text-[0.75rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface-muted">
-				CHECKING SESSION…
+			<div className="flex h-screen items-center justify-center bg-sys-bg font-sans text-[0.75rem] font-semibold text-sys-on-surface-muted">
+				Checking session…
 			</div>
 		);
 	}

@@ -156,7 +156,7 @@ export function App() {
 					key={key}
 					onClick={() => switchTab(key)}
 					title={label}
-					className={`relative mx-auto my-0.5 flex h-9 w-9 items-center justify-center text-[0.6875rem] font-bold uppercase tracking-[0.08em] transition-none ${
+					className={`relative mx-auto my-0.5 flex h-9 w-9 items-center justify-center text-[0.6875rem] font-semibold tracking-[0.08em] transition-none ${
 						active
 							? "bg-sys-primary text-white"
 							: "bg-sys-surface-low text-sys-on-surface-muted hover:bg-sys-surface-high hover:text-sys-on-surface"
@@ -352,7 +352,7 @@ function Playground() {
 									}
 									className="h-3 w-3 accent-sys-primary"
 								/>
-								<span className="uppercase tracking-[0.05em]">{v}</span>
+								<span className="">{v}</span>
 							</label>
 						))}
 					</div>
@@ -372,7 +372,7 @@ function Playground() {
 									}
 									className="h-3 w-3 accent-sys-primary"
 								/>
-								<span className="uppercase tracking-[0.05em]">{v}</span>
+								<span className="">{v}</span>
 							</label>
 						))}
 					</div>
@@ -544,7 +544,7 @@ function Btn({
 			onClick={onClick}
 			disabled={disabled}
 			title={title}
-			className={`px-3 py-1.5 text-[0.875rem] font-bold uppercase tracking-[0.05em] transition-none disabled:opacity-40 rounded-none cursor-pointer ${cls}`}
+			className={`px-3 py-1.5 text-[0.875rem] font-semibold transition-none disabled:opacity-40 rounded-none cursor-pointer${cls}`}
 		>
 			{children}
 		</button>

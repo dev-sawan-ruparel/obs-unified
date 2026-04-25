@@ -98,9 +98,9 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 					<button
 						type="button"
 						onClick={onClose}
-						className="px-3 py-1 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+						className="px-3 py-1 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 					>
-						CLOSE
+						Close
 					</button>
 				</div>
 
@@ -116,16 +116,16 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 							<button
 								type="button"
 								onClick={() => copyToClipboard(justCreated.key)}
-								className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer"
+								className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer"
 							>
-								{copied ? "COPIED" : "COPY"}
+								{copied ? "Copied" : "Copy"}
 							</button>
 							<button
 								type="button"
 								onClick={() => setJustCreated(null)}
-								className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
+								className="px-3 py-1.5 text-[0.75rem] font-semibold bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 							>
-								DISMISS
+								Dismiss
 							</button>
 						</div>
 					</div>
@@ -160,9 +160,9 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 							type="button"
 							onClick={createKey}
 							disabled={creating}
-							className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
+							className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 						>
-							{creating ? "CREATING…" : "CREATE KEY"}
+							{creating ? "Creating…" : "Create key"}
 						</button>
 					</div>
 
@@ -175,7 +175,7 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 						</div>
 						{loading && (
 							<div className="px-3 py-4 text-[0.875rem] opacity-60">
-								LOADING…
+								Loading…
 							</div>
 						)}
 						{!loading && keys.length === 0 && (

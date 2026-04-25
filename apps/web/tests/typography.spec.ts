@@ -208,4 +208,32 @@ test.describe("Typography audit", () => {
 			fullPage: false,
 		});
 	});
+
+	// ── Visual sweep: every dashboard, screenshot only ──
+	for (const tab of [
+		"traces",
+		"service-map",
+		"issues",
+		"logs",
+		"ai",
+		"usage",
+		"replay",
+		"timeline",
+		"alerts",
+		"resources",
+		"projects",
+		"playground",
+	]) {
+		test(`screenshot: ${tab}`, async ({ page }) => {
+			await mockApis(page);
+			await page.setViewportSize({ width: 1440, height: 900 });
+			await page.goto(`/#/${tab}`);
+			await page.waitForLoadState("networkidle");
+			await page.waitForTimeout(400);
+			await page.screenshot({
+				path: `tests/__screenshots__/page-${tab}.png`,
+				fullPage: false,
+			});
+		});
+	}
 });

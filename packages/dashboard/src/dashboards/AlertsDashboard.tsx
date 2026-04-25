@@ -111,19 +111,19 @@ export function AlertsDashboard() {
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-y-auto">
 			<div className="mb-2 flex flex-none items-center gap-4 bg-sys-surface px-4 py-2 border-[1px] border-sys-outline">
 				<span className="text-[0.875rem] font-bold tracking-widest text-sys-on-surface">
-					ALERTS
+					Alerts
 				</span>
 				<div className="h-4 w-[1px] bg-sys-outline" />
-				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted uppercase">
+				<span className="text-[0.875rem] font-mono text-sys-on-surface-muted">
 					Threshold rules · webhook delivery · 5-min evaluation
 				</span>
 				<div className="ml-auto flex gap-2">
 					<button
 						type="button"
 						onClick={() => setShowForm("new")}
-						className="px-3 py-1.5 text-[0.75rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer"
+						className="px-3 py-1.5 text-[0.75rem] font-semibold bg-sys-primary text-white hover:opacity-90 cursor-pointer"
 					>
-						+ NEW RULE
+						+ New rule
 					</button>
 				</div>
 			</div>
@@ -168,11 +168,11 @@ export function AlertsDashboard() {
 						<div>Actions</div>
 					</div>
 					{loading && (
-						<div className="px-3 py-4 text-[0.875rem] opacity-60">LOADING…</div>
+						<div className="px-3 py-4 text-[0.875rem] opacity-60">Loading…</div>
 					)}
 					{!loading && rules.length === 0 && (
 						<div className="px-3 py-4 text-[0.875rem] opacity-60">
-							No rules yet. Click NEW RULE.
+							No rules yet. Click "+ New rule".
 						</div>
 					)}
 					{!loading &&
@@ -198,7 +198,7 @@ export function AlertsDashboard() {
 									)}
 								</div>
 								<div className="font-bold truncate">{r.name}</div>
-								<div className="font-mono text-[0.75rem] opacity-80 uppercase">
+								<div className="font-mono text-[0.75rem] opacity-80">
 									{r.signal}
 								</div>
 								<div className="font-mono text-[0.75rem]">
@@ -216,7 +216,7 @@ export function AlertsDashboard() {
 										onClick={() => toggleEnabled(r)}
 										className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-transparent text-sys-on-surface-muted outline outline-1 outline-sys-outline hover:bg-sys-surface-low cursor-pointer"
 									>
-										{r.enabled ? "DISABLE" : "ENABLE"}
+										{r.enabled ? "Disable" : "Enable"}
 									</button>
 									<button
 										type="button"
@@ -321,7 +321,7 @@ function AlertDetail({
 						disabled={testing}
 						className="px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] bg-sys-primary text-white hover:opacity-90 cursor-pointer disabled:opacity-40"
 					>
-						{testing ? "RUNNING…" : "TEST"}
+						{testing ? "Running…" : "Test"}
 					</button>
 				</div>
 				{testResult && (
@@ -337,7 +337,7 @@ function AlertDetail({
 									: "text-sys-primary font-bold"
 							}
 						>
-							{testResult.wouldFire ? "WOULD FIRE" : "OK"}
+							{testResult.wouldFire ? "Would fire" : "OK"}
 						</span>
 					</div>
 				)}
@@ -348,7 +348,7 @@ function AlertDetail({
 					Evaluations (24h)
 				</div>
 				{loading && (
-					<div className="text-[0.75rem] opacity-60">LOADING…</div>
+					<div className="text-[0.75rem] opacity-60">Loading…</div>
 				)}
 				{!loading && evaluations.length === 0 && (
 					<div className="text-[0.75rem] opacity-60">No evaluations yet.</div>

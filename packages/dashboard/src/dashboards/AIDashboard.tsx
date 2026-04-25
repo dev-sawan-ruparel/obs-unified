@@ -31,13 +31,13 @@ import {
 
 const SPAN_KINDS = [
 	"LLM",
-	"TOOL",
-	"RETRIEVER",
-	"EMBEDDING",
-	"CHAIN",
-	"AGENT",
-	"RERANKER",
-	"GUARDRAIL",
+	"Tool",
+	"Retriever",
+	"Embedding",
+	"Chain",
+	"Agent",
+	"Reranker",
+	"Guardrail",
 ] as const;
 
 // Muted, distinct hue per kind. Matches the overall monochrome palette.
@@ -55,7 +55,7 @@ const KIND_BG: Record<string, string> = {
 function KindBadge({ kind }: { kind: string }) {
 	const bg = KIND_BG[kind] ?? "bg-sys-surface-low";
 	const text =
-		kind === "CHAIN" || kind === "AGENT"
+		kind === "Chain" || kind === "Agent"
 			? "text-sys-on-surface border border-sys-outline"
 			: "text-white";
 	return (
@@ -137,7 +137,7 @@ function Toolbar({
 			<div className="h-5 w-px bg-sys-outline/40 mx-1" />
 			{children}
 			<select
-				className="h-7 bg-transparent text-[0.6875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface border-b border-sys-outline focus:outline-none focus:border-sys-primary cursor-pointer ml-auto"
+				className="h-7 bg-transparent text-[0.6875rem] font-semibold text-sys-on-surface border-b border-sys-outline focus:outline-none focus:border-sys-primary cursor-pointer ml-auto"
 				value={hours}
 				onChange={(e) => setHours(e.target.value)}
 			>
@@ -165,7 +165,7 @@ function ViewTab({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`px-3 h-7 text-[0.6875rem] font-bold uppercase tracking-[0.08em] cursor-pointer ${
+			className={`px-3 h-7 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer${
 				active
 					? "bg-sys-primary text-white"
 					: "bg-transparent text-sys-on-surface hover:bg-sys-surface-low"
@@ -367,7 +367,7 @@ function SpansView({ hours, setHours, view, setView }: SpansViewProps) {
 					className="h-7 min-w-[240px] max-w-[320px] flex-1 border-b border-sys-outline bg-transparent px-2 text-[0.75rem] font-mono placeholder:opacity-40 focus:border-sys-primary focus:outline-none"
 				/>
 				<select
-					className="h-7 bg-transparent text-[0.6875rem] font-bold uppercase tracking-[0.05em] border-b border-sys-outline focus:outline-none focus:border-sys-primary cursor-pointer"
+					className="h-7 bg-transparent text-[0.6875rem] font-semibold border-b border-sys-outline focus:outline-none focus:border-sys-primary cursor-pointer"
 					value={kind}
 					onChange={(e) => setKind(e.target.value)}
 				>
@@ -764,7 +764,7 @@ function DetailTabBtn({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`px-3 py-2 text-[0.6875rem] font-bold uppercase tracking-[0.08em] cursor-pointer border-b-2 ${
+			className={`px-3 py-2 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer border-b-2${
 				active
 					? "border-sys-primary text-sys-on-surface"
 					: "border-transparent text-sys-on-surface/60 hover:text-sys-on-surface hover:bg-sys-surface-low"
@@ -900,7 +900,7 @@ function EvaluationsList({ evaluations }: { evaluations: AIEvaluationRecord[] })
 							{e.explanation}
 						</div>
 					)}
-					<div className="mt-1 text-[0.5625rem] font-mono uppercase tracking-[0.05em] opacity-40">
+					<div className="mt-1 text-[0.5625rem] font-mono opacity-40">
 						{new Date(e.createdAt).toLocaleString()}
 					</div>
 				</div>
