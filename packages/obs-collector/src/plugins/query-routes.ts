@@ -66,6 +66,36 @@ export const queryRoutesPlugin: CollectorPlugin = {
 			});
 		});
 
+		app.get("/internal/telemetry/services/:service/operations", async (c) => {
+			const projectId = getProjectId(c);
+			const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
+			const hours = Math.min(
+				maxHours,
+				Math.max(
+					1,
+					Number.parseInt(
+						c.req.query("hours") || String(DEFAULT_WINDOW_HOURS),
+						10,
+					) || DEFAULT_WINDOW_HOURS,
+				),
+			);
+			const service = c.req.param("service");
+			if (!service) {
+				return c.json({ error: "Bad Request", message: "service is required" }, 400);
+			}
+			const store = runtime.createStore(c.env);
+			const result = await store.getServiceOperations({
+				projectId,
+				service,
+				hours,
+			});
+			return c.json({
+				...result,
+				windowHours: hours,
+				timestamp: new Date().toISOString(),
+			});
+		});
+
 		app.get("/internal/telemetry/traces/:traceId", async (c) => {
 			const projectId = getProjectId(c);
 			const store = runtime.createStore(c.env);

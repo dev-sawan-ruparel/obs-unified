@@ -912,28 +912,86 @@ export class TelemetryStore {
 				trace_count: number;
 			}>();
 
+		// Edges come from two relationships:
+		//   1. Synchronous: child span's parent_span_id points at the parent's
+		//      span_id within the same trace, and they're in different services.
+		//   2. Asynchronous: child span carries a `link` (in links_json) back
+		//      to a producer span in another service — this is how OpenTelemetry
+		//      represents Kafka / RabbitMQ / SQS / Pub/Sub dispatch, because
+		//      consumers can process messages long after producers close their
+		//      span and a single consume can correspond to many produces.
+		// We UNION ALL both — duplicates are accumulated as separate calls,
+		// which matches the synchronous semantics (each child = one call).
 		const edgeRowsResult = await this.db
 			.prepare(
-				`SELECT
-					p.service_name AS source,
-					c.service_name AS target,
-					c.status_code AS status_code,
-					c.duration_ms AS duration_ms
-				FROM telemetry_spans p
-				JOIN telemetry_spans c
-					ON c.parent_span_id = p.span_id
-					AND c.trace_id = p.trace_id
-					AND c.project_id = p.project_id
-				WHERE p.project_id = ?
-					AND p.received_at >= ?
-					AND c.received_at >= ?
-					AND p.service_name IS NOT NULL
-					AND c.service_name IS NOT NULL
-					AND p.service_name != c.service_name
-				ORDER BY c.received_at DESC
+				`WITH parent_child_edges AS (
+					SELECT
+						p.service_name AS source,
+						c.service_name AS target,
+						c.status_code AS status_code,
+						c.duration_ms AS duration_ms,
+						c.received_at AS received_at
+					FROM telemetry_spans p
+					JOIN telemetry_spans c
+						ON c.parent_span_id = p.span_id
+						AND c.trace_id = p.trace_id
+						AND c.project_id = p.project_id
+					WHERE p.project_id = ?
+						AND p.received_at >= ?
+						AND c.received_at >= ?
+						AND p.service_name IS NOT NULL
+						AND c.service_name IS NOT NULL
+						AND p.service_name != c.service_name
+				),
+				link_edges AS (
+					SELECT
+						producer.service_name AS source,
+						consumer.service_name AS target,
+						consumer.status_code AS status_code,
+						consumer.duration_ms AS duration_ms,
+						consumer.received_at AS received_at
+					-- Pre-filter consumers in a subquery so json_each is only
+					-- invoked on spans that actually carry links. Without this
+					-- gate the cross product fans out across every span in the
+					-- window and the query times out on tens of thousands of
+					-- rows.
+					FROM (
+						SELECT trace_id, span_id, project_id, service_name,
+							status_code, duration_ms, received_at, links_json
+						FROM telemetry_spans
+						WHERE project_id = ?
+							AND received_at >= ?
+							AND links_json IS NOT NULL
+							AND links_json != '[]'
+					) consumer,
+						json_each(consumer.links_json) link
+					-- Match on (trace_id, span_id) so the lookup hits the
+					-- composite PRIMARY KEY index. span_id alone has no index
+					-- (only the composite PK), so a span_id-only join would
+					-- full-scan per link.
+					JOIN telemetry_spans producer
+						ON producer.trace_id = json_extract(link.value, '$.traceId')
+						AND producer.span_id = json_extract(link.value, '$.spanId')
+						AND producer.project_id = consumer.project_id
+					WHERE producer.received_at >= ?
+						AND consumer.service_name IS NOT NULL
+						AND producer.service_name IS NOT NULL
+						AND producer.service_name != consumer.service_name
+				)
+				SELECT * FROM parent_child_edges
+				UNION ALL
+				SELECT * FROM link_edges
+				ORDER BY received_at DESC
 				LIMIT 50000`,
 			)
-			.bind(options.projectId, cutoff, cutoff)
+			.bind(
+				options.projectId,
+				cutoff,
+				cutoff,
+				options.projectId,
+				cutoff,
+				cutoff,
+			)
 			.all<{
 				source: string;
 				target: string;
@@ -988,6 +1046,146 @@ export class TelemetryStore {
 		}));
 
 		return { nodes, edges };
+	}
+
+	/**
+	 * Operations breakdown for a single service — used by the service-map's
+	 * click-through drawer. Returns top operations by traffic, plus recent
+	 * error spans for quick triage.
+	 */
+	async getServiceOperations(options: {
+		projectId: string;
+		service: string;
+		hours: number;
+	}): Promise<{
+		service: string;
+		spanCount: number;
+		traceCount: number;
+		errorCount: number;
+		operations: Array<{
+			spanName: string;
+			calls: number;
+			errors: number;
+			errorRate: number;
+			p50DurationMs: number;
+			p95DurationMs: number;
+		}>;
+		recentErrors: Array<{
+			traceId: string;
+			spanId: string;
+			spanName: string;
+			statusMessage: string | null;
+			durationMs: number;
+			startTime: string;
+		}>;
+	}> {
+		if (!options.projectId)
+			throw new Error("TelemetryStore.getServiceOperations: projectId is required");
+		const cutoff = cutoffIso(options.hours);
+
+		// Top operations — group by span_name, accumulate durations in JS.
+		const opsResult = await this.db
+			.prepare(
+				`SELECT
+					span_name,
+					COUNT(*) AS calls,
+					SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS errors,
+					duration_ms
+				FROM telemetry_spans
+				WHERE project_id = ?
+					AND service_name = ?
+					AND received_at >= ?
+				ORDER BY received_at DESC
+				LIMIT 20000`,
+			)
+			.bind(options.projectId, options.service, cutoff)
+			.all<{
+				span_name: string;
+				calls: number;
+				errors: number;
+				duration_ms: number;
+			}>();
+
+		interface OpAcc {
+			calls: number;
+			errors: number;
+			durations: number[];
+		}
+		const opMap = new Map<string, OpAcc>();
+		let totalSpans = 0;
+		let totalErrors = 0;
+		const traceIds = new Set<string>();
+		for (const row of opsResult.results ?? []) {
+			totalSpans += 1;
+			if (row.errors > 0) totalErrors += 1;
+			let acc = opMap.get(row.span_name);
+			if (!acc) {
+				acc = { calls: 0, errors: 0, durations: [] };
+				opMap.set(row.span_name, acc);
+			}
+			acc.calls += 1;
+			if (row.errors > 0) acc.errors += 1;
+			acc.durations.push(row.duration_ms ?? 0);
+		}
+		const operations = Array.from(opMap.entries())
+			.map(([spanName, acc]) => ({
+				spanName,
+				calls: acc.calls,
+				errors: acc.errors,
+				errorRate: acc.calls > 0 ? acc.errors / acc.calls : 0,
+				p50DurationMs: percentile(acc.durations, 0.5),
+				p95DurationMs: percentile(acc.durations, 0.95),
+			}))
+			.sort((l, r) => r.calls - l.calls)
+			.slice(0, 12);
+
+		// Recent error spans for triage.
+		const errorRows = await this.db
+			.prepare(
+				`SELECT trace_id, span_id, span_name, status_message, duration_ms, start_time
+				FROM telemetry_spans
+				WHERE project_id = ?
+					AND service_name = ?
+					AND received_at >= ?
+					AND status_code = 2
+				ORDER BY received_at DESC
+				LIMIT 10`,
+			)
+			.bind(options.projectId, options.service, cutoff)
+			.all<{
+				trace_id: string;
+				span_id: string;
+				span_name: string;
+				status_message: string | null;
+				duration_ms: number;
+				start_time: string;
+			}>();
+
+		// Distinct trace count for this service.
+		const traceCountRow = await this.db
+			.prepare(
+				`SELECT COUNT(DISTINCT trace_id) AS trace_count
+				FROM telemetry_spans
+				WHERE project_id = ? AND service_name = ? AND received_at >= ?`,
+			)
+			.bind(options.projectId, options.service, cutoff)
+			.first<{ trace_count: number }>();
+
+		return {
+			service: options.service,
+			spanCount: totalSpans,
+			traceCount: traceCountRow?.trace_count ?? 0,
+			errorCount: totalErrors,
+			operations,
+			recentErrors: (errorRows.results ?? []).map((r) => ({
+				traceId: r.trace_id,
+				spanId: r.span_id,
+				spanName: r.span_name,
+				statusMessage: r.status_message,
+				durationMs: r.duration_ms,
+				startTime: r.start_time,
+			})),
+		};
 	}
 
 	/** Purge expired rows (from A) */

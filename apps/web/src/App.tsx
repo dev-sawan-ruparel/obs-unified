@@ -327,7 +327,9 @@ export function App() {
 						onNavigate={navigate}
 					/>
 				)}
-				{route.tab === "service-map" && <ServiceMapDashboard />}
+				{route.tab === "service-map" && (
+					<ServiceMapDashboard onNavigate={navigate} />
+				)}
 				{route.tab === "issues" && (
 					<TelemetryDashboard
 						mode="issues"
