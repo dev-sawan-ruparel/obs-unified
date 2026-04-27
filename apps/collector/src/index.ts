@@ -1,4 +1,5 @@
 import {
+	createAnalysesRunHandler,
 	createDefaultCollectorApp,
 	createRetentionCleanupHandler,
 	createIngestAuth,
@@ -45,10 +46,12 @@ const createApp = (env: CollectorEnv) => {
 let app: ReturnType<typeof createApp> | null = null;
 
 const cleanup = createRetentionCleanupHandler();
+const analysesRun = createAnalysesRunHandler();
 
 // Cron dispatcher: route each trigger to the appropriate handler by event.cron.
-// - "0 * * * *"    → hourly retention cleanup
+// - "* * * * *"    → run any due Analyses (RFC 0002 — 60s freshness for Tier 0)
 // - "*/5 * * * *"  → alert evaluator
+// - "0 * * * *"    → hourly retention cleanup
 async function scheduled(
 	event: ScheduledEvent,
 	env: CollectorEnv,
@@ -58,7 +61,12 @@ async function scheduled(
 		ctx.waitUntil(evaluateAllRules(env));
 		return;
 	}
-	await cleanup.scheduled(event, env, ctx);
+	if (event.cron === "0 * * * *") {
+		await cleanup.scheduled(event, env, ctx);
+		return;
+	}
+	// Default — every-minute analyses tick.
+	await analysesRun.scheduled(event, env, ctx);
 }
 
 export default {

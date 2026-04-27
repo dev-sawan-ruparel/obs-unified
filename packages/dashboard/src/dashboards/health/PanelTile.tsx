@@ -1,5 +1,6 @@
 import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs/types";
 import { Tag, type TagTone } from "../../components/Tag";
+import { tileHref } from "./tile-href";
 
 const STATUS_TONE: Record<AnalysisStatus, TagTone> = {
 	ok: "primary",
@@ -141,15 +142,15 @@ export interface PanelTileProps {
  */
 export function PanelTile({ definition, result }: PanelTileProps) {
 	const status: AnalysisStatus = result?.status ?? "unknown";
+	const href = tileHref(definition);
 
 	// "Computing…" placeholder. Roughly matches the height of an active tile so
 	// the grid doesn't pop when results land.
 	if (result === null) {
 		return (
-			<div
-				// TODO(stage-4): navigate to investigation page on click.
-				onClick={(): void => {}}
-				className="flex flex-col bg-sys-surface border border-sys-outline-soft min-h-[120px] cursor-pointer hover:bg-sys-surface-low"
+			<a
+				href={href}
+				className="flex flex-col bg-sys-surface border border-sys-outline-soft min-h-[120px] cursor-pointer hover:bg-sys-surface-low no-underline text-inherit"
 			>
 				<div className="flex items-start justify-between gap-2 px-3 pt-2.5 pb-2">
 					<span className="text-[0.875rem] font-semibold leading-snug truncate">
@@ -160,7 +161,7 @@ export function PanelTile({ definition, result }: PanelTileProps) {
 				<div className="flex flex-1 items-center justify-center px-3 pb-3 text-[0.75rem] text-sys-on-surface-subtle italic">
 					computing…
 				</div>
-			</div>
+			</a>
 		);
 	}
 
@@ -184,11 +185,13 @@ export function PanelTile({ definition, result }: PanelTileProps) {
 					: "var(--color-sys-on-surface-muted)";
 
 	return (
-		<div
-			// TODO(stage-4): navigate to the investigation page (or filtered raw
-			// signal view) for this analysis when clicked.
-			onClick={(): void => {}}
-			className="flex flex-col bg-sys-surface border border-sys-outline-soft min-h-[120px] cursor-pointer hover:bg-sys-surface-low"
+		<a
+			// Stage 1: tile click drops the user into the relevant raw-signal view
+			// filtered by this analysis's scope. Stage 4 will swap this for the
+			// matching investigation page (with this href as the fallback).
+			href={href}
+			data-test-tile-href={href}
+			className="flex flex-col bg-sys-surface border border-sys-outline-soft min-h-[120px] cursor-pointer hover:bg-sys-surface-low no-underline text-inherit"
 		>
 			<div className="flex items-start justify-between gap-2 px-3 pt-2.5 pb-1.5">
 				<span className="text-[0.875rem] font-semibold leading-snug truncate">
@@ -244,6 +247,6 @@ export function PanelTile({ definition, result }: PanelTileProps) {
 					updated {formatFreshness(result.generatedAt)}
 				</div>
 			)}
-		</div>
+		</a>
 	);
 }

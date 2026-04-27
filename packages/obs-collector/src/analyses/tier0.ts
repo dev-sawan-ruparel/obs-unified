@@ -159,7 +159,8 @@ const latencyP95Overall: AnalysisDefinition = {
 	group: "Health",
 	source: "tier0",
 	view: "tile",
-	refreshSeconds: 300,
+	// Latency is one of the primary signals; 60s matches Tier 0 spec.
+	refreshSeconds: 60,
 	sql: `
 		WITH cur AS (
 			SELECT duration_ms,

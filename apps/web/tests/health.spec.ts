@@ -181,6 +181,91 @@ test.describe("Health Dashboard", () => {
 		});
 	});
 
+	test("clicking a service tile lands on /traces filtered by service", async ({
+		page,
+	}) => {
+		const results: Entry[] = [
+			{
+				definition: {
+					id: "service_error_rate::checkout",
+					title: "checkout · errors",
+					group: "Services",
+					source: "tier1",
+					view: "tile",
+					refreshSeconds: 60,
+					scope: { service: "checkout" },
+				},
+				result: {
+					analysisId: "service_error_rate::checkout",
+					projectId: "default",
+					generatedAt: NOW,
+					paramsHash: null,
+					status: "warn",
+					primaryValue: 0.04,
+					baselineValue: 0.01,
+					deltaPct: 300,
+					payload: {},
+					narrative: null,
+					narrativeSignature: null,
+					durationMs: 8,
+				},
+			},
+		];
+		await mockAnalyses(page, results);
+		await page.goto("/#/health");
+
+		// Wait for the tile to render so the link is in the DOM.
+		await expect(page.locator("text=checkout · errors")).toBeVisible({
+			timeout: 10000,
+		});
+
+		// The tile's href encodes the scope; clicking it should land us on traces
+		// with the same service filter.
+		await page
+			.locator(`[data-test-tile-href*="service=checkout"]`)
+			.first()
+			.click();
+		await expect(page).toHaveURL(/\/#\/traces\?service=checkout/);
+	});
+
+	test("Tier-0 tile lands on /traces with no scope filter", async ({ page }) => {
+		const results: Entry[] = [
+			{
+				definition: {
+					id: "overall_error_rate",
+					title: "Overall error rate",
+					group: "Health",
+					source: "tier0",
+					view: "tile",
+					refreshSeconds: 60,
+				},
+				result: {
+					analysisId: "overall_error_rate",
+					projectId: "default",
+					generatedAt: NOW,
+					paramsHash: null,
+					status: "ok",
+					primaryValue: 0.001,
+					baselineValue: 0.001,
+					deltaPct: 0,
+					payload: {},
+					narrative: null,
+					narrativeSignature: null,
+					durationMs: 5,
+				},
+			},
+		];
+		await mockAnalyses(page, results);
+		await page.goto("/#/health");
+
+		await expect(page.locator("text=Overall error rate")).toBeVisible({
+			timeout: 10000,
+		});
+
+		const tile = page.locator(`a[data-test-tile-href]`).first();
+		await expect(tile).toHaveAttribute("href", "#/traces");
+	});
+
 	test("panel renders 'computing…' placeholder when result is null", async ({
 		page,
 	}) => {

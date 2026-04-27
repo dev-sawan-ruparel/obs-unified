@@ -213,11 +213,13 @@ interface Props {
 	mode: "traces" | "issues";
 	initialTraceId?: string;
 	initialIssueId?: string;
+	initialService?: string;
 	onNavigate: (route: {
 		tab?: string;
 		traceId?: string;
 		issueId?: string;
 		sessionId?: string;
+		service?: string;
 	}) => void;
 }
 
@@ -225,6 +227,7 @@ export function TelemetryDashboard({
 	mode,
 	initialTraceId,
 	initialIssueId,
+	initialService,
 	onNavigate,
 }: Props) {
 	const { basePath, fetcher } = useDashboard();
@@ -235,7 +238,9 @@ export function TelemetryDashboard({
 	}, [basePath, fetcher]);
 	const hours = String(useTimeWindowHours());
 	const [statusFilter, setStatusFilter] = useState("all");
-	const [serviceFilter, setServiceFilter] = useState("all");
+	const [serviceFilter, setServiceFilter] = useState(
+		initialService ?? "all",
+	);
 	const [search, setSearch] = useState("");
 	const [searchInput, setSearchInput] = useState("");
 	const [overview, setOverview] = useState<Overview | null>(null);
@@ -305,6 +310,13 @@ export function TelemetryDashboard({
 				.catch(() => {});
 		}
 	}, [initialTraceId]);
+
+	// Re-sync the service filter when the URL's ?service= param changes —
+	// e.g. when the Health tab opens /#/traces?service=checkout and the user
+	// then jumps to a different service from the same tab.
+	useEffect(() => {
+		if (initialService) setServiceFilter(initialService);
+	}, [initialService]);
 
 	useEffect(() => {
 		if (initialIssueId && !issueDetail) {

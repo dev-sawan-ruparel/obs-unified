@@ -39,6 +39,7 @@ export {
 	type CollectorConfig,
 	type CollectorPlugin,
 	type CollectorRuntime,
+	createAnalysesRunHandler,
 	createRetentionCleanupHandler,
 	createTelemetryCollectorApp,
 	type SpanProcessorPlugin,

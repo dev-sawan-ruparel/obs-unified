@@ -3,8 +3,12 @@ compatibility_date = "2025-01-01"
 main = "src/index.ts"
 
 [triggers]
-# Hourly retention cleanup + every-5-min alert evaluator.
-crons = ["0 * * * *", "*/5 * * * *"]
+# Every-minute analyses runner (RFC 0002 — Tier 0 panels need 60s freshness),
+# every-5-min alert evaluator, hourly retention cleanup. All three patterns
+# fire the same scheduled handler; the runner only writes results for
+# analyses whose `last_run + refreshSeconds < now`, so the per-minute tick
+# is cheap when nothing is due.
+crons = ["* * * * *", "*/5 * * * *", "0 * * * *"]
 
 [[d1_databases]]
 binding = "DB"

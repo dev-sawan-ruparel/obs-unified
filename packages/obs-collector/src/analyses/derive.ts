@@ -316,7 +316,9 @@ const makeDependencyHealth = (
 	group: "Dependencies",
 	source: "tier1",
 	view: "tile",
-	refreshSeconds: 60,
+	// Dependency edges change shape slowly; sampling every 5 min keeps the
+	// per-minute analyses tick cheap on installs with many edges.
+	refreshSeconds: 300,
 	scope: { source, target },
 	// Error rate on the child-side spans of the edge over the last 5 minutes
 	// vs trailing 1h baseline. We identify edges by joining child↔parent on
@@ -475,7 +477,9 @@ const makeAiCostBurn = (projectId: string): AnalysisDefinition => ({
 	group: "AI",
 	source: "tier1",
 	view: "tile",
-	refreshSeconds: 60,
+	// Cost moves slowly compared to error rates; 5 min cadence keeps the
+	// per-minute tick cheap.
+	refreshSeconds: 300,
 	// USD spent in the last hour vs the prior hour, summed from ai_calls.
 	// Status by relative delta: critical>50%, warn>20%. unknown if no cost
 	// signal at all.
@@ -528,7 +532,9 @@ const makeAiErrorRate = (projectId: string): AnalysisDefinition => ({
 	group: "AI",
 	source: "tier1",
 	view: "tile",
-	refreshSeconds: 60,
+	// AI error rate is per-call; 5 min cadence balances signal vs cost on
+	// installs with hundreds of LLM spans.
+	refreshSeconds: 300,
 	// is_error = 1 fraction in the last 5 minutes vs trailing 1h baseline.
 	// Same thresholds as overall_error_rate.
 	sql: `

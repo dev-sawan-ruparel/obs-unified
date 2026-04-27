@@ -244,9 +244,24 @@ export const createRetentionCleanupHandler = () => ({
 		console.log(
 			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls, ${metricsPurged} metric points, ${analysesPurged} analysis results`,
 		);
+	},
+});
 
-		// RFC 0002 Stage 1: run any due Analyses on the same scheduled tick.
-		// Isolated from retention so a runner failure can't block purges.
+/**
+ * RFC 0002 Stage 1 — run any due Analyses. Cheap to call frequently because
+ * `runAllDueAnalyses` filters by `last_run + refreshSeconds < now` before
+ * touching D1.
+ *
+ * Wire to a per-minute trigger in wrangler.toml: `crons = ["* * * * *"]`.
+ * Kept distinct from retention so the per-minute tick doesn't sweep every
+ * retention table every cycle.
+ */
+export const createAnalysesRunHandler = () => ({
+	async scheduled(
+		_event: ScheduledEvent,
+		env: CollectorEnv,
+		_ctx: ExecutionContext,
+	): Promise<void> {
 		try {
 			const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
 			const summary = await runAllDueAnalyses({ env, retentionHours });

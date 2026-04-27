@@ -26,6 +26,7 @@ type Route = {
 	traceId?: string;
 	issueId?: string;
 	sessionId?: string;
+	service?: string;
 };
 
 function parseHash(): Route {
@@ -38,6 +39,7 @@ function parseHash(): Route {
 		traceId: params.get("trace") ?? undefined,
 		issueId: params.get("issue") ?? undefined,
 		sessionId: params.get("session") ?? undefined,
+		service: params.get("service") ?? undefined,
 	};
 }
 
@@ -49,6 +51,7 @@ function navigate(route: Partial<Route>) {
 	if (next.traceId) params.set("trace", next.traceId);
 	if (next.issueId) params.set("issue", next.issueId);
 	if (next.sessionId) params.set("session", next.sessionId);
+	if (next.service) params.set("service", next.service);
 	const qs = params.toString();
 	if (qs) hash += `?${qs}`;
 	location.hash = hash;
@@ -327,6 +330,7 @@ export function App() {
 					<TelemetryDashboard
 						mode="traces"
 						initialTraceId={route.traceId}
+						initialService={route.service}
 						onNavigate={navigate}
 					/>
 				)}
