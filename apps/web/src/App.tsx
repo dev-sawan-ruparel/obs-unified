@@ -5,6 +5,7 @@ import {
 	UsageDashboard,
 	LogsDashboard,
 	AIDashboard,
+	HealthDashboard,
 	ReplayDashboard,
 	ResourcesDashboard,
 	ServiceMapDashboard,
@@ -28,10 +29,10 @@ type Route = {
 };
 
 function parseHash(): Route {
-	const hash = location.hash.slice(1) || "/traces";
+	const hash = location.hash.slice(1) || "/health";
 	const [path, query] = hash.split("?");
 	const params = new URLSearchParams(query ?? "");
-	const tab = path.replace(/^\//, "").split("/")[0] || "traces";
+	const tab = path.replace(/^\//, "").split("/")[0] || "health";
 	return {
 		tab,
 		traceId: params.get("trace") ?? undefined,
@@ -72,6 +73,7 @@ const NAV_GROUPS: NavGroup[] = [
 	{
 		label: "Observe",
 		items: [
+			{ key: "health", label: "Health", short: "HE" },
 			{ key: "timeline", label: "Timeline", short: "TL" },
 			{ key: "service-map", label: "Service Map", short: "SM" },
 			{ key: "logs", label: "Logs", short: "LG" },
@@ -160,7 +162,7 @@ export function App() {
 
 	// Set default hash on first load
 	useEffect(() => {
-		if (!location.hash) location.hash = "/traces";
+		if (!location.hash) location.hash = "/health";
 	}, []);
 
 	useEffect(() => {
@@ -320,6 +322,7 @@ export function App() {
 				</header>
 				<main className="min-h-0 flex-1 overflow-y-auto">
 				{route.tab === "playground" && <Playground />}
+				{route.tab === "health" && <HealthDashboard />}
 				{route.tab === "traces" && (
 					<TelemetryDashboard
 						mode="traces"

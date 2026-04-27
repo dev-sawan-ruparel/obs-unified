@@ -1061,3 +1061,85 @@ export interface AlertRuleInput {
 	channels: AlertChannel[];
 	enabled?: boolean;
 }
+
+// ── Application-aware Analyses (RFC 0002, Stage 1) ──────────────────────────
+//
+// An Analysis is a unit of "answer" — a fetch + optional analyze + optional
+// narrate, produced on a schedule or on demand. Stage 1 covers SQL-only
+// analyses driven by the existing scheduled handler. analyze/narrate layers
+// arrive in later stages.
+
+export type AnalysisStatus = "ok" | "warn" | "critical" | "unknown";
+export type AnalysisView = "tile" | "page" | "alert";
+export type AnalysisSource = "tier0" | "tier1" | "user" | "llm-suggested";
+
+/**
+ * Capability-based grouping for the Health tab. Determined at registration
+ * time; the dashboard uses these as section headers.
+ */
+export type AnalysisGroup =
+	| "Health"
+	| "Services"
+	| "Dependencies"
+	| "Async"
+	| "AI"
+	| "Frontend"
+	| "Custom";
+
+/**
+ * The persisted definition of an Analysis. SQL-only analyses (Stage 1)
+ * carry their query string here; analyses that compute via Polars / LLM
+ * (later stages) point at a handler id instead.
+ */
+export interface AnalysisDefinition {
+	id: string;
+	title: string;
+	group: AnalysisGroup;
+	source: AnalysisSource;
+	view: AnalysisView;
+	/** Refresh interval in seconds. 0 / undefined = on-demand only. */
+	refreshSeconds?: number;
+	/** Stage 1: literal SQL string. Later stages add `handler: string` for sidecar dispatch. */
+	sql?: string;
+	/** JSON-serializable metadata about scope (e.g. service name, edge endpoints). */
+	scope?: Record<string, unknown>;
+}
+
+/**
+ * Result of running an Analysis once. Persisted to `analysis_results` and
+ * read by the dashboard. Stage 1 leaves `narrative` and `narrativeSignature`
+ * as `null` — they fill in at Stage 3.
+ */
+export interface AnalysisResult {
+	analysisId: string;
+	projectId: string;
+	generatedAt: string;
+	paramsHash: string | null;
+	status: AnalysisStatus;
+	primaryValue: number | null;
+	baselineValue: number | null;
+	deltaPct: number | null;
+	payload: Record<string, unknown>;
+	narrative: string | null;
+	narrativeSignature: string | null;
+	durationMs: number;
+}
+
+export interface AnalysesListResponse {
+	analyses: AnalysisDefinition[];
+	timestamp: string;
+}
+
+export interface AnalysisResultResponse {
+	definition: AnalysisDefinition;
+	result: AnalysisResult | null;
+	timestamp: string;
+}
+
+export interface AnalysisResultsBulkResponse {
+	results: Array<{
+		definition: AnalysisDefinition;
+		result: AnalysisResult | null;
+	}>;
+	timestamp: string;
+}

@@ -28,6 +28,7 @@ import { replayQueryRoutesPlugin } from "./plugins/replay-query-routes";
 import { platformRoutesPlugin } from "./plugins/platform-routes";
 import { projectsRoutesPlugin } from "./plugins/projects-routes";
 import { alertsRoutesPlugin } from "./plugins/alerts-routes";
+import { analysesRoutesPlugin } from "./plugins/analyses-routes";
 import {
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
@@ -81,6 +82,7 @@ export {
 	platformRoutesPlugin,
 	projectsRoutesPlugin,
 	alertsRoutesPlugin,
+	analysesRoutesPlugin,
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
 };
@@ -121,6 +123,7 @@ export const allPlugins = [
 	usersQueryRoutesPlugin,
 	replayQueryRoutesPlugin,
 	alertsRoutesPlugin,
+	analysesRoutesPlugin,
 	tailRoutesPlugin,
 	timelineRoutesPlugin,
 ];

@@ -1,8 +1,11 @@
+import { getConfiguredRetentionHours } from "@obs/types/constants";
 import type { StoredSpan, UsageEventRecord } from "@obs/types";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { CollectorEnv, CollectorRouteContext } from "./env";
 import { AIStore } from "../lib/ai-store";
+import { AnalysesStore } from "../lib/analyses-store";
+import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
 import { TelemetryStore } from "../lib/store";
@@ -220,6 +223,7 @@ export const createRetentionCleanupHandler = () => ({
 		const logsStore = new LogsStore(env.DB);
 		const aiStore = new AIStore(env.DB);
 		const metricsStore = new MetricsStore(env.DB);
+		const analysesStore = new AnalysesStore(env.DB);
 
 		const [
 			telemetryPurged,
@@ -227,16 +231,30 @@ export const createRetentionCleanupHandler = () => ({
 			logsPurged,
 			aiPurged,
 			metricsPurged,
+			analysesPurged,
 		] = await Promise.all([
 			telemetryStore.purgeExpired(),
 			usageStore.purgeExpired(),
 			logsStore.purgeExpired(),
 			aiStore.purgeExpired(),
 			metricsStore.purgeExpired(),
+			analysesStore.purgeExpired(),
 		]);
 
 		console.log(
-			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls, ${metricsPurged} metric points`,
+			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls, ${metricsPurged} metric points, ${analysesPurged} analysis results`,
 		);
+
+		// RFC 0002 Stage 1: run any due Analyses on the same scheduled tick.
+		// Isolated from retention so a runner failure can't block purges.
+		try {
+			const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
+			const summary = await runAllDueAnalyses({ env, retentionHours });
+			console.log(
+				`[analyses] Refreshed ${summary.refreshed} definitions, ran ${summary.ran} analyses (${summary.failed} failed)`,
+			);
+		} catch (error) {
+			console.log(`[analyses] scheduled run failed:`, error);
+		}
 	},
 });

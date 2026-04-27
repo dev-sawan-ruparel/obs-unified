@@ -115,4 +115,13 @@ export type {
 	AlertEvaluationRow,
 	AlertStateRow,
 	AlertTestResponse,
+	AnalysisStatus,
+	AnalysisView,
+	AnalysisSource,
+	AnalysisGroup,
+	AnalysisDefinition,
+	AnalysisResult,
+	AnalysesListResponse,
+	AnalysisResultResponse,
+	AnalysisResultsBulkResponse,
 } from "./types";
