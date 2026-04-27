@@ -24,6 +24,17 @@ export interface CollectorEnv {
 	ALLOW_UNAUTHENTICATED?: string;
 	TELEMETRY_REDACT_FIELDS?: string;
 	RETENTION_HOURS?: string;
+	/**
+	 * Stage 3 narrative pipeline (RFC 0002).
+	 * - ANTHROPIC_API_KEY: enables LLM-generated narratives. When unset, the
+	 *   narrate pass is skipped entirely; data still flows.
+	 * - NARRATIVE_MODEL: Anthropic model id (default "claude-haiku-4-5").
+	 * - NARRATIVE_BUDGET_PER_HOUR: max narrative writes per project per hour.
+	 *   Acts as a safety rail against a flapping panel running up cost.
+	 */
+	ANTHROPIC_API_KEY?: string;
+	NARRATIVE_MODEL?: string;
+	NARRATIVE_BUDGET_PER_HOUR?: string;
 	/** @deprecated Use INGEST_KEY instead */
 	TELEMETRY_INGEST_TOKEN?: string;
 	/** @deprecated Use INGEST_KEY instead */

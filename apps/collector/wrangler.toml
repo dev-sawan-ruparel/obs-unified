@@ -29,6 +29,11 @@ RETENTION_HOURS = "72"
 # INGEST_KEY = "your-ingest-api-key"
 # DASHBOARD_PASSWORD = "your-dashboard-password"
 # ALLOWED_ORIGINS = "https://my-app.com"
+# RFC 0002 Stage 3 — narrative pipeline. Optional; when ANTHROPIC_API_KEY is
+# unset the narrate pass is skipped and panels remain data-only.
+# ANTHROPIC_API_KEY = "sk-ant-…"
+# NARRATIVE_MODEL = "claude-haiku-4-5"
+# NARRATIVE_BUDGET_PER_HOUR = "50"
 ALLOW_UNAUTHENTICATED = "true"
 
 [[r2_buckets]]

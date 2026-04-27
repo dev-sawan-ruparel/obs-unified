@@ -27,11 +27,21 @@ import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs/ty
 import { getAllAnalysesForProject } from "../analyses/index";
 import type { CollectorEnv } from "../framework/env";
 import { AnalysesStore } from "./analyses-store";
+import {
+	computeSignature,
+	evaluateGate,
+	type NarrativeIntent,
+} from "./narrate-gate";
+import { generateNarrative, LlmCallError, type LlmConfig } from "./llm";
 
 export interface AnalysisRunContext {
 	db: D1Database;
 	projectId: string;
 	retentionHours: number;
+	/** Stage 3: narrative LLM config. Undefined = narratives disabled. */
+	llm?: LlmConfig;
+	/** Stage 3: max narrative-writes per project per hour. Default 50. */
+	narrativeBudgetPerHour?: number;
 }
 
 interface AnalysisSqlRow {
@@ -122,6 +132,14 @@ export async function runSqlAnalysis(
 
 	const generatedAt = new Date().toISOString();
 
+	const payload = parsePayload(row?.payload);
+	const narrativeSignature = computeSignature({
+		status,
+		primaryValue,
+		baselineValue,
+		payload,
+	});
+
 	return {
 		analysisId: def.id,
 		projectId: ctx.projectId,
@@ -131,11 +149,82 @@ export async function runSqlAnalysis(
 		primaryValue,
 		baselineValue,
 		deltaPct,
-		payload: parsePayload(row?.payload),
+		payload,
 		narrative: null,
-		narrativeSignature: null,
+		narrativeSignature,
 		durationMs: Date.now() - startedAt,
 	};
+}
+
+/**
+ * RFC 0002 Stage 3 — narrate pass. Decides whether to call the LLM,
+ * reuse a cached narrative, or skip; mutates the result in place.
+ *
+ * Budget is checked once at call time (not pre-decided per panel) so
+ * the runner doesn't waste effort computing gates for analyses that
+ * won't get a turn anyway. `[narrate]` log lines are the operator's
+ * audit trail for "why didn't this panel narrate?".
+ */
+async function narratePass(
+	def: AnalysisDefinition,
+	current: AnalysisResult,
+	previous: AnalysisResult | null,
+	ctx: AnalysisRunContext,
+	store: AnalysesStore,
+	budgetState: { remaining: number },
+): Promise<void> {
+	if (!def.narrate) return;
+	if (!ctx.llm) return;
+
+	const intent: NarrativeIntent = evaluateGate(def.narrate.only_when, {
+		current,
+		previous,
+	});
+
+	if (intent === "skip") return;
+
+	if (intent === "reuse" && previous?.narrative) {
+		current.narrative = previous.narrative;
+		// Keep the previous signature so subsequent runs continue to compare
+		// against the state that produced this narrative.
+		current.narrativeSignature = previous.narrativeSignature;
+		return;
+	}
+
+	if (intent !== "call") return;
+
+	if (budgetState.remaining <= 0) {
+		console.log(
+			`[narrate] ${def.id}: budget exhausted, falling back to reuse`,
+		);
+		if (previous?.narrative) {
+			current.narrative = previous.narrative;
+			current.narrativeSignature = previous.narrativeSignature;
+		}
+		return;
+	}
+
+	try {
+		budgetState.remaining -= 1;
+		const text = await generateNarrative(
+			{ definition: def, current, previous },
+			ctx.llm,
+		);
+		current.narrative = text;
+		// Keep the just-computed signature so cache compare works next run.
+	} catch (error) {
+		const msg =
+			error instanceof LlmCallError
+				? `${error.message}`
+				: error instanceof Error
+					? error.message
+					: String(error);
+		console.log(`[narrate] ${def.id}: LLM call failed: ${msg}`);
+		if (previous?.narrative) {
+			current.narrative = previous.narrative;
+			current.narrativeSignature = previous.narrativeSignature;
+		}
+	}
 }
 
 /**
@@ -149,7 +238,12 @@ export async function runSqlAnalysis(
 export async function runAllDueAnalyses(
 	ctx: { env: CollectorEnv; retentionHours: number },
 	_runtime?: unknown,
-): Promise<{ ran: number; failed: number; refreshed: number }> {
+): Promise<{
+	ran: number;
+	failed: number;
+	refreshed: number;
+	narrated: number;
+}> {
 	const store = new AnalysesStore(ctx.env.DB);
 	const projectId = "default";
 	const now = Date.now();
@@ -185,13 +279,33 @@ export async function runAllDueAnalyses(
 	// 2. Find what's due and run them.
 	const due = await store.getDueAnalyses(projectId, now);
 	if (due.length === 0) {
-		return { ran: 0, failed: 0, refreshed };
+		return { ran: 0, failed: 0, refreshed, narrated: 0 };
 	}
+
+	// Narrative LLM config — present only when an API key is set on the
+	// worker. We don't fail the run if it's missing; we just skip the
+	// narrate pass entirely (every panel still produces numbers).
+	const llm: LlmConfig | undefined = ctx.env.ANTHROPIC_API_KEY
+		? {
+				apiKey: ctx.env.ANTHROPIC_API_KEY,
+				model: ctx.env.NARRATIVE_MODEL || "claude-haiku-4-5",
+			}
+		: undefined;
+	const narrativeBudgetPerHour =
+		Number.parseInt(ctx.env.NARRATIVE_BUDGET_PER_HOUR ?? "", 10) || 50;
+	const narrativesUsed = llm
+		? await store.countNarrativesInWindow(projectId, 60)
+		: 0;
+	const budgetState = {
+		remaining: Math.max(0, narrativeBudgetPerHour - narrativesUsed),
+	};
 
 	const runCtx: AnalysisRunContext = {
 		db: ctx.env.DB,
 		projectId,
 		retentionHours: ctx.retentionHours,
+		llm,
+		narrativeBudgetPerHour,
 	};
 
 	// Run with bounded concurrency. D1 is happy with a handful of parallel
@@ -202,6 +316,7 @@ export async function runAllDueAnalyses(
 	const CONCURRENCY = 4;
 	let ran = 0;
 	let failed = 0;
+	let narrated = 0;
 	const queue = [...due];
 	const workers: Promise<void>[] = [];
 	for (let w = 0; w < CONCURRENCY; w += 1) {
@@ -212,6 +327,24 @@ export async function runAllDueAnalyses(
 					if (!def) return;
 					try {
 						const result = await runSqlAnalysis(def, runCtx);
+						// Stage 3: narrate pass. Reads previous result from D1 to
+						// run gate logic + signature cache; isolated from query
+						// failures so a flaky LLM doesn't drop the data row.
+						if (def.narrate && runCtx.llm) {
+							const previous = await store.getLatestResult(
+								projectId,
+								def.id,
+							);
+							await narratePass(
+								def,
+								result,
+								previous,
+								runCtx,
+								store,
+								budgetState,
+							);
+							if (result.narrative) narrated += 1;
+						}
 						await store.insertResult(result, expiresAt);
 						await store.markRan(projectId, def.id, result.generatedAt);
 						ran += 1;
@@ -228,5 +361,5 @@ export async function runAllDueAnalyses(
 	}
 	await Promise.all(workers);
 
-	return { ran, failed, refreshed };
+	return { ran, failed, refreshed, narrated };
 }

@@ -241,7 +241,16 @@ export function PanelTile({ definition, result }: PanelTileProps) {
 					/>
 				)}
 			</div>
-			{/* Stage 3 will render result.narrative here */}
+			{/* RFC 0002 Stage 3: narrative line. Sits on a left-border accent
+			    in the panel's status color. No quotes, no chat bubbles. */}
+			{result.narrative ? (
+				<div
+					className={`mx-3 mb-2 border-l-[3px] pl-2 py-0.5 text-[0.75rem] leading-snug ${narrativeBorderClass(status)} ${narrativeTextClass(status)}`}
+					data-test-narrative
+				>
+					{result.narrative}
+				</div>
+			) : null}
 			{stale && (
 				<div className="px-3 pb-2 text-[0.625rem] text-sys-on-surface-subtle">
 					updated {formatFreshness(result.generatedAt)}
@@ -250,3 +259,23 @@ export function PanelTile({ definition, result }: PanelTileProps) {
 		</a>
 	);
 }
+
+const narrativeBorderClass = (status: AnalysisStatus): string => {
+	switch (status) {
+		case "critical":
+			return "border-l-sys-error";
+		case "warn":
+			return "border-l-sys-warning";
+		case "ok":
+			return "border-l-sys-primary";
+		default:
+			return "border-l-sys-outline";
+	}
+};
+
+const narrativeTextClass = (status: AnalysisStatus): string => {
+	// Slightly muted body text so the number above stays the lede, but
+	// still readable. Critical narratives lean a bit darker.
+	if (status === "critical") return "text-sys-on-surface";
+	return "text-sys-on-surface-muted";
+};

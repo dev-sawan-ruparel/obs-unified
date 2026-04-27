@@ -28,6 +28,11 @@ const overallErrorRate: AnalysisDefinition = {
 	source: "tier0",
 	view: "tile",
 	refreshSeconds: 60,
+	narrate: {
+		prompt:
+			"Errors moved to {{primary}} (was {{baseline}}, {{delta_pct}}). Name the dominant offending span name or service if visible in the payload, with a time anchor.",
+		only_when: "status_changed || delta_pct>20",
+	},
 	sql: `
 		WITH now_window AS (
 			SELECT
@@ -105,6 +110,11 @@ const topErrorServices: AnalysisDefinition = {
 	source: "tier0",
 	view: "tile",
 	refreshSeconds: 60,
+	narrate: {
+		prompt:
+			"List the top 1–2 erroring services and their counts (from payload). Include a time anchor like 'in the last 5 minutes'.",
+		only_when: "signature_changed",
+	},
 	sql: `
 		WITH per_service AS (
 			SELECT
@@ -161,6 +171,11 @@ const latencyP95Overall: AnalysisDefinition = {
 	view: "tile",
 	// Latency is one of the primary signals; 60s matches Tier 0 spec.
 	refreshSeconds: 60,
+	narrate: {
+		prompt:
+			"p95 moved to {{primary}}ms from {{baseline}}ms ({{delta_pct}}). Name the slowest service or route if visible in the payload, with a time anchor.",
+		only_when: "status_changed || delta_pct>25",
+	},
 	sql: `
 		WITH cur AS (
 			SELECT duration_ms,
@@ -368,6 +383,11 @@ const activeSessions: AnalysisDefinition = {
 // no logs in either window.
 const logErrorRate: AnalysisDefinition = {
 	id: "log_error_rate",
+	narrate: {
+		prompt:
+			"Log error rate is {{primary}} (was {{baseline}}, {{delta_pct}}). If a logger or message pattern dominates the payload, name it. Time anchor.",
+		only_when: "status_changed || delta_pct>25",
+	},
 	title: "Log error rate",
 	group: "Health",
 	source: "tier0",

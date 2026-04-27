@@ -298,6 +298,41 @@ export class AnalysesStore {
 			.run();
 	}
 
+	/**
+	 * Count how many narrative-bearing results we've written for this project
+	 * in the trailing `windowMinutes`. Used as a per-project safety rail
+	 * (RFC 0002 Stage 3 narrative budget) so a misconfigured `only_when` or
+	 * a flapping panel can't run up an LLM bill.
+	 *
+	 * Counts `narrative IS NOT NULL`, including reuse-cached narratives,
+	 * because what we're protecting against is *write rate* — the budget
+	 * caps generation, not display. Reused narratives don't actually call
+	 * the LLM, so the more accurate "calls in last hour" reading is just
+	 * a proxy. For Stage 3 this is good enough; if it bites we'll add a
+	 * dedicated `narrative_calls` table.
+	 */
+	async countNarrativesInWindow(
+		projectId: string,
+		windowMinutes: number,
+	): Promise<number> {
+		if (!projectId)
+			throw new Error(
+				"AnalysesStore.countNarrativesInWindow: projectId is required",
+			);
+		const since = Date.now() - windowMinutes * 60 * 1000;
+		const row = await this.db
+			.prepare(
+				`SELECT COUNT(*) AS n
+				FROM analysis_results
+				WHERE project_id = ?
+					AND narrative IS NOT NULL
+					AND generated_at >= ?`,
+			)
+			.bind(projectId, since)
+			.first<{ n: number }>();
+		return row?.n ?? 0;
+	}
+
 	async purgeExpired(): Promise<number> {
 		const now = Date.now();
 		const result = await this.db

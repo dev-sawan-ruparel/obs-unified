@@ -266,7 +266,7 @@ export const createAnalysesRunHandler = () => ({
 			const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
 			const summary = await runAllDueAnalyses({ env, retentionHours });
 			console.log(
-				`[analyses] Refreshed ${summary.refreshed} definitions, ran ${summary.ran} analyses (${summary.failed} failed)`,
+				`[analyses] Refreshed ${summary.refreshed} definitions, ran ${summary.ran} analyses (${summary.failed} failed, ${summary.narrated} narrated)`,
 			);
 		} catch (error) {
 			console.log(`[analyses] scheduled run failed:`, error);

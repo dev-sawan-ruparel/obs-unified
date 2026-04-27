@@ -1087,6 +1087,38 @@ export type AnalysisGroup =
 	| "Custom";
 
 /**
+ * Narrative spec — the prompt the LLM gets and the gate predicate that
+ * decides whether to call the LLM at all on a given run.
+ *
+ * Gate predicate language (mini DSL evaluated in `narrate-gate.ts`):
+ *
+ *   status_changed         status moved between {ok,warn,critical,unknown}
+ *   delta_pct>N            |primary - baseline| / baseline × 100 > N
+ *   delta_pct>=N            (and >, <, <=, !=, == — N is a number)
+ *   signature_changed      narrativeSignature differs from previous result's
+ *   always                 never gate (use sparingly)
+ *   never                  never narrate (equivalent to omitting the spec)
+ *   <a> && <b>             both must hold
+ *   <a> || <b>             either holds
+ *
+ * The first run of a panel always narrates if the spec is present and
+ * not `never`, since there's no previous to compare against.
+ */
+export interface NarrativeSpec {
+	/**
+	 * Prompt template. {{title}}, {{primary}}, {{baseline}}, {{delta_pct}},
+	 * {{status}}, {{trace_ids}}, {{service}} are substituted from the result
+	 * before the LLM call. Keep it ≤2 sentences worth of guidance — the
+	 * system prompt enforces declarative tone, citation, and time anchor.
+	 */
+	prompt: string;
+	/**
+	 * Gate predicate string. See language above. Default: `status_changed`.
+	 */
+	only_when?: string;
+}
+
+/**
  * The persisted definition of an Analysis. SQL-only analyses (Stage 1)
  * carry their query string here; analyses that compute via Polars / LLM
  * (later stages) point at a handler id instead.
@@ -1103,6 +1135,8 @@ export interface AnalysisDefinition {
 	sql?: string;
 	/** JSON-serializable metadata about scope (e.g. service name, edge endpoints). */
 	scope?: Record<string, unknown>;
+	/** Stage 3: optional narrative spec. Absent = panel never narrates. */
+	narrate?: NarrativeSpec;
 }
 
 /**

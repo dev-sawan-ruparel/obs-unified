@@ -266,6 +266,74 @@ test.describe("Health Dashboard", () => {
 		await expect(tile).toHaveAttribute("href", "#/traces");
 	});
 
+	test("renders narrative line on a tile that has one", async ({ page }) => {
+		const NARRATIVE =
+			"checkout error rate jumped to 12% from 0.8% (+1450%) starting 8m ago, dominated by GET /checkout/submit failures";
+		const results: Entry[] = [
+			{
+				definition: {
+					id: "service_error_rate::checkout",
+					title: "checkout — error rate",
+					group: "Services",
+					source: "tier1",
+					view: "tile",
+					refreshSeconds: 60,
+					scope: { service: "checkout" },
+					narrate: {
+						prompt: "Explain in one sentence.",
+						only_when: "status_changed || delta_pct>25",
+					},
+				},
+				result: {
+					analysisId: "service_error_rate::checkout",
+					projectId: "default",
+					generatedAt: NOW,
+					paramsHash: null,
+					status: "critical",
+					primaryValue: 0.12,
+					baselineValue: 0.008,
+					deltaPct: 1450,
+					payload: {},
+					narrative: NARRATIVE,
+					narrativeSignature: "critical|0.12|0.01|",
+					durationMs: 8,
+				},
+			},
+		];
+		await mockAnalyses(page, results);
+		await page.goto("/#/health");
+
+		await expect(page.locator(`text=checkout — error rate`)).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(page.locator(`[data-test-narrative]`)).toContainText(
+			"checkout error rate jumped",
+		);
+	});
+
+	test("panel without a narrative does not render the narrative slot", async ({
+		page,
+	}) => {
+		const results: Entry[] = [
+			entry(
+				"throughput_slope",
+				"Throughput slope",
+				"Health",
+				"ok",
+				5734,
+				5500,
+			),
+		];
+		await mockAnalyses(page, results);
+		await page.goto("/#/health");
+
+		await expect(page.locator("text=Throughput slope")).toBeVisible({
+			timeout: 10000,
+		});
+		// No narrative span should be present.
+		await expect(page.locator("[data-test-narrative]")).toHaveCount(0);
+	});
+
 	test("panel renders 'computing…' placeholder when result is null", async ({
 		page,
 	}) => {

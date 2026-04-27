@@ -163,6 +163,10 @@ const makeServiceErrorRate = (
 	view: "tile",
 	refreshSeconds: 60,
 	scope: { service },
+	narrate: {
+		prompt: `${service} error rate moved to {{primary}} (was {{baseline}}, {{delta_pct}}). If the payload names the dominant span/route, call it out. Time anchor.`,
+		only_when: "status_changed || delta_pct>25",
+	},
 	// Last 5 minutes vs trailing 1h baseline (excluding the current 5m).
 	// Status thresholds match overall_error_rate: critical>5%, warn>1%.
 	sql: `
@@ -244,6 +248,10 @@ const makeServiceLatencyP95 = (
 	view: "tile",
 	refreshSeconds: 60,
 	scope: { service },
+	narrate: {
+		prompt: `${service} p95 moved to {{primary}}ms from {{baseline}}ms ({{delta_pct}}). Name the span pattern dominating the tail if visible. Time anchor.`,
+		only_when: "status_changed || delta_pct>30",
+	},
 	// p95 of duration_ms over the last hour vs. same hour yesterday.
 	// Approximate via ROW_NUMBER (no native percentile in SQLite).
 	// Status by delta_pct: critical>50%, warn>20%, ok else.

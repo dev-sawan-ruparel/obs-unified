@@ -121,6 +121,7 @@ export type {
 	AnalysisGroup,
 	AnalysisDefinition,
 	AnalysisResult,
+	NarrativeSpec,
 	AnalysesListResponse,
 	AnalysisResultResponse,
 	AnalysisResultsBulkResponse,
