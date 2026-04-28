@@ -1177,3 +1177,43 @@ export interface AnalysisResultsBulkResponse {
 	}>;
 	timestamp: string;
 }
+
+/**
+ * RFC 0002 Stage 5 — Ask box. Quick-ask single-turn shape.
+ *
+ * The dashboard sends `{ question }`, the collector runs an LLM tool-use
+ * loop (currently with two tools: `list_analyses`, `run_analysis`), and
+ * returns:
+ *   - `answer`: one or two declarative sentences citing the analyses
+ *     it consulted. Subject to the same rendering rules as panel
+ *     narratives (no first-person, time anchor, ≤2 sentences).
+ *   - `evidence`: the analysis id + result for each `run_analysis` call
+ *     the model made. The UI links these so users can click through.
+ *   - `queries`: a flat audit log of the tool calls. Powers the "Show
+ *     the queries I ran" expander; users build trust by spot-checking.
+ *   - `error`: populated when the loop bailed (no API key, model
+ *     timeout, iteration cap). `answer` will be null in that case.
+ */
+export interface AskQuery {
+	tool: "list_analyses" | "run_analysis";
+	args: Record<string, unknown>;
+	durationMs: number;
+}
+
+export interface AskEvidence {
+	analysisId: string;
+	result: AnalysisResult | null;
+	definition: AnalysisDefinition;
+}
+
+export interface AskRequest {
+	question: string;
+}
+
+export interface AskResponse {
+	answer: string | null;
+	evidence: AskEvidence[];
+	queries: AskQuery[];
+	error: string | null;
+	timestamp: string;
+}

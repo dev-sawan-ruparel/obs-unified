@@ -16,6 +16,7 @@ import {
 	ProjectSwitcher,
 	GlobalSearch,
 	TimeRangePicker,
+	AskBox,
 	FilterPanel,
 	FilterGroup,
 } from "@obs/dashboard";
@@ -336,6 +337,9 @@ export function App() {
 					<GlobalSearch />
 					<TimeRangePicker />
 					<ProjectSwitcher />
+					<div className="ml-auto">
+						<AskBox />
+					</div>
 				</header>
 				<main className="min-h-0 flex-1 overflow-y-auto">
 				{route.tab === "playground" && <Playground />}

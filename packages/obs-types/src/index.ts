@@ -125,4 +125,8 @@ export type {
 	AnalysesListResponse,
 	AnalysisResultResponse,
 	AnalysisResultsBulkResponse,
+	AskQuery,
+	AskEvidence,
+	AskRequest,
+	AskResponse,
 } from "./types";
