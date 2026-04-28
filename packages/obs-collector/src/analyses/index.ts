@@ -9,6 +9,7 @@
 import type { AnalysisDefinition } from "@obs/types";
 
 import { deriveAnalysesForProject } from "./derive";
+import { INVESTIGATION_ANALYSES } from "./investigations";
 import { TIER0_ANALYSES } from "./tier0";
 
 interface D1PreparedStatement {
@@ -29,8 +30,9 @@ export const getAllAnalysesForProject = async (
 	ctx: AnalysisContext,
 ): Promise<AnalysisDefinition[]> => {
 	const tier1 = await deriveAnalysesForProject(projectId, ctx.db);
-	return [...TIER0_ANALYSES, ...tier1];
+	return [...TIER0_ANALYSES, ...INVESTIGATION_ANALYSES, ...tier1];
 };
 
 export { TIER0_ANALYSES } from "./tier0";
+export { INVESTIGATION_ANALYSES } from "./investigations";
 export { deriveAnalysesForProject } from "./derive";

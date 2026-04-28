@@ -1,5 +1,7 @@
 export { AIDashboard } from "./dashboards/AIDashboard";
 export { HealthDashboard } from "./dashboards/HealthDashboard";
+export { InvestigationsDashboard } from "./dashboards/InvestigationsDashboard";
+export { InvestigationPage } from "./dashboards/InvestigationPage";
 export { LogsDashboard } from "./dashboards/LogsDashboard";
 export { ReplayDashboard } from "./dashboards/ReplayDashboard";
 export { ResourcesDashboard } from "./dashboards/ResourcesDashboard";

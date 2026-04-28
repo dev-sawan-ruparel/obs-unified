@@ -1,14 +1,18 @@
 /**
- * RFC 0002 Stage 1 — read-only HTTP surface for application-aware Analyses.
+ * RFC 0002 — HTTP surface for application-aware Analyses.
  *
- *   GET /internal/analyses               — list registered definitions
- *   GET /internal/analyses/:id/result    — definition + latest result (404 if unknown id)
- *   GET /internal/analyses/results       — bulk: every definition + its latest result
+ *   GET  /internal/analyses               — list registered definitions
+ *   GET  /internal/analyses/:id/result    — definition + latest result
+ *   GET  /internal/analyses/results       — bulk: every definition + latest
+ *   POST /internal/analyses/:id/run       — Stage 4: on-demand re-run for
+ *                                            view: "page" investigations
  *
- * Writes happen via the scheduled handler (see analyses-runner.ts), not
- * here — the dashboard is read-only against this surface in Stage 1.
+ * Cron writes happen via the scheduled handler (see analyses-runner.ts).
+ * The on-demand POST exists so an investigation page's [Re-run] button
+ * doesn't have to wait for the next 5-min tick.
  */
 
+import { getConfiguredRetentionHours } from "@obs/types/constants";
 import type {
 	AnalysesListResponse,
 	AnalysisResultResponse,
@@ -16,6 +20,7 @@ import type {
 } from "@obs/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { AnalysesStore } from "../lib/analyses-store";
+import { runSqlAnalysis } from "../lib/analyses-runner";
 import { getProjectId } from "./_context";
 
 export const analysesRoutesPlugin: CollectorPlugin = {
@@ -46,6 +51,66 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 				timestamp: new Date().toISOString(),
 			};
 			return c.json(response);
+		});
+
+		// Stage 4 [Re-run] target. Re-executes the SQL right now and persists
+		// the new result. We deliberately keep this narrow:
+		//   - only `view: "page"` definitions (tile cron is fast enough)
+		//   - no narrate pass on the on-demand path; the page UI uses the most
+		//     recent narrative from the cron tick (cheaper, avoids surprise
+		//     LLM calls from a button click)
+		app.post("/internal/analyses/:id/run", async (c) => {
+			const projectId = getProjectId(c);
+			const id = c.req.param("id");
+			if (!id) {
+				return c.json(
+					{ error: "Bad Request", message: "id is required" },
+					400,
+				);
+			}
+			const store = new AnalysesStore(c.env.DB);
+			const definitions = await store.listDefinitions(projectId);
+			const definition = definitions.find((def) => def.id === id);
+			if (!definition) {
+				return c.json(
+					{ error: "Not Found", message: `Analysis ${id} not found` },
+					404,
+				);
+			}
+			if (definition.view !== "page") {
+				return c.json(
+					{
+						error: "Bad Request",
+						message: "on-demand run only supported for view=page analyses",
+					},
+					400,
+				);
+			}
+			const retentionHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
+			const expiresAt = Date.now() + retentionHours * 3600 * 1000;
+			try {
+				const result = await runSqlAnalysis(definition, {
+					db: c.env.DB,
+					projectId,
+					retentionHours,
+				});
+				await store.insertResult(result, expiresAt);
+				await store.markRan(projectId, definition.id, result.generatedAt);
+				const response: AnalysisResultResponse = {
+					definition,
+					result,
+					timestamp: new Date().toISOString(),
+				};
+				return c.json(response);
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : String(error);
+				console.log(`[analyses] on-demand run failed for ${id}:`, message);
+				return c.json(
+					{ error: "Internal Server Error", message },
+					500,
+				);
+			}
 		});
 
 		app.get("/internal/analyses/:id/result", async (c) => {

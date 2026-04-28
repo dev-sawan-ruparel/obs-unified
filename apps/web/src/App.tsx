@@ -6,6 +6,8 @@ import {
 	LogsDashboard,
 	AIDashboard,
 	HealthDashboard,
+	InvestigationsDashboard,
+	InvestigationPage,
 	ReplayDashboard,
 	ResourcesDashboard,
 	ServiceMapDashboard,
@@ -27,19 +29,27 @@ type Route = {
 	issueId?: string;
 	sessionId?: string;
 	service?: string;
+	/** Stage 4: investigation page id, parsed from /#/investigate/<id>. */
+	investigationId?: string;
 };
 
 function parseHash(): Route {
 	const hash = location.hash.slice(1) || "/health";
 	const [path, query] = hash.split("?");
 	const params = new URLSearchParams(query ?? "");
-	const tab = path.replace(/^\//, "").split("/")[0] || "health";
+	const segments = path.replace(/^\//, "").split("/").filter(Boolean);
+	const tab = segments[0] || "health";
+	const investigationId =
+		tab === "investigate" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
 	return {
 		tab,
 		traceId: params.get("trace") ?? undefined,
 		issueId: params.get("issue") ?? undefined,
 		sessionId: params.get("session") ?? undefined,
 		service: params.get("service") ?? undefined,
+		investigationId,
 	};
 }
 
@@ -47,6 +57,9 @@ function navigate(route: Partial<Route>) {
 	const current = parseHash();
 	const next = { ...current, ...route };
 	let hash = `/${next.tab}`;
+	if (next.tab === "investigate" && next.investigationId) {
+		hash += `/${encodeURIComponent(next.investigationId)}`;
+	}
 	const params = new URLSearchParams();
 	if (next.traceId) params.set("trace", next.traceId);
 	if (next.issueId) params.set("issue", next.issueId);
@@ -85,6 +98,7 @@ const NAV_GROUPS: NavGroup[] = [
 	{
 		label: "Investigate",
 		items: [
+			{ key: "investigate", label: "Investigations", short: "IV" },
 			{ key: "traces", label: "Traces", short: "TR" },
 			{ key: "issues", label: "Issues", short: "IS" },
 			{ key: "ai", label: "AI Calls", short: "AI" },
@@ -326,6 +340,15 @@ export function App() {
 				<main className="min-h-0 flex-1 overflow-y-auto">
 				{route.tab === "playground" && <Playground />}
 				{route.tab === "health" && <HealthDashboard />}
+				{route.tab === "investigate" &&
+					(route.investigationId ? (
+						<InvestigationPage
+							investigationId={route.investigationId}
+							onNavigate={navigate}
+						/>
+					) : (
+						<InvestigationsDashboard onNavigate={navigate} />
+					))}
 				{route.tab === "traces" && (
 					<TelemetryDashboard
 						mode="traces"
