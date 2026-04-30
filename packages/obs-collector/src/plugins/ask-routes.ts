@@ -56,18 +56,28 @@ export const askRoutesPlugin: CollectorPlugin = {
 
 			const projectId = getProjectId(c);
 			// OpenAI wins if both keys are set.
-			const llm: LlmConfig | null = c.env.OPENAI_API_KEY
+			// Empty strings in .dev.vars come through as "" (not undefined),
+			// so coerce to undefined explicitly — otherwise an empty
+			// OPENAI_BASE_URL clobbers the default and we end up POSTing
+			// to a relative URL.
+			const openaiBase = c.env.OPENAI_BASE_URL?.trim()
+				? c.env.OPENAI_BASE_URL
+				: undefined;
+			const narrativeModel = c.env.NARRATIVE_MODEL?.trim()
+				? c.env.NARRATIVE_MODEL
+				: undefined;
+			const llm: LlmConfig | null = c.env.OPENAI_API_KEY?.trim()
 				? {
 						provider: "openai",
 						apiKey: c.env.OPENAI_API_KEY,
-						model: c.env.NARRATIVE_MODEL || "gpt-4o-mini",
-						apiUrl: c.env.OPENAI_BASE_URL,
+						model: narrativeModel ?? "gpt-4o-mini",
+						apiUrl: openaiBase,
 					}
-				: c.env.ANTHROPIC_API_KEY
+				: c.env.ANTHROPIC_API_KEY?.trim()
 					? {
 							provider: "anthropic",
 							apiKey: c.env.ANTHROPIC_API_KEY,
-							model: c.env.NARRATIVE_MODEL || "claude-haiku-4-5",
+							model: narrativeModel ?? "claude-haiku-4-5",
 						}
 					: null;
 			if (!llm) {

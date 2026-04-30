@@ -287,19 +287,26 @@ export async function runAllDueAnalyses(
 	// narrate pass entirely (every panel still produces numbers).
 	//
 	// Provider preference: OpenAI wins when both keys are set — configuring
-	// both is presumed deliberate.
-	const llm: LlmConfig | undefined = ctx.env.OPENAI_API_KEY
+	// both is presumed deliberate. Empty-string env values from .dev.vars
+	// are coerced to undefined so they don't accidentally override defaults.
+	const openaiBase = ctx.env.OPENAI_BASE_URL?.trim()
+		? ctx.env.OPENAI_BASE_URL
+		: undefined;
+	const narrativeModel = ctx.env.NARRATIVE_MODEL?.trim()
+		? ctx.env.NARRATIVE_MODEL
+		: undefined;
+	const llm: LlmConfig | undefined = ctx.env.OPENAI_API_KEY?.trim()
 		? {
 				provider: "openai",
 				apiKey: ctx.env.OPENAI_API_KEY,
-				model: ctx.env.NARRATIVE_MODEL || "gpt-4o-mini",
-				apiUrl: ctx.env.OPENAI_BASE_URL,
+				model: narrativeModel ?? "gpt-4o-mini",
+				apiUrl: openaiBase,
 			}
-		: ctx.env.ANTHROPIC_API_KEY
+		: ctx.env.ANTHROPIC_API_KEY?.trim()
 			? {
 					provider: "anthropic",
 					apiKey: ctx.env.ANTHROPIC_API_KEY,
-					model: ctx.env.NARRATIVE_MODEL || "claude-haiku-4-5",
+					model: narrativeModel ?? "claude-haiku-4-5",
 				}
 			: undefined;
 	const narrativeBudgetPerHour =
