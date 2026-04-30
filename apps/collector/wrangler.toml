@@ -29,10 +29,20 @@ RETENTION_HOURS = "72"
 # INGEST_KEY = "your-ingest-api-key"
 # DASHBOARD_PASSWORD = "your-dashboard-password"
 # ALLOWED_ORIGINS = "https://my-app.com"
-# RFC 0002 Stage 3 — narrative pipeline. Optional; when ANTHROPIC_API_KEY is
-# unset the narrate pass is skipped and panels remain data-only.
+# RFC 0002 Stage 3 + 5 — narrative pipeline + Ask box. Optional; when
+# neither API key is set the narrate pass and Ask endpoint are disabled
+# and panels remain data-only.
+#
+# Either provider works; OpenAI wins if both are set.
 # ANTHROPIC_API_KEY = "sk-ant-…"
-# NARRATIVE_MODEL = "claude-haiku-4-5"
+# OPENAI_API_KEY    = "sk-…"
+# OPENAI_BASE_URL   = "https://api.openai.com/v1"   # override for openrouter,
+#                                                    # vLLM, azure-openai-compat,
+#                                                    # ollama, etc.
+# NARRATIVE_MODEL          = "claude-haiku-4-5"  # provider-specific (default
+#                                                #   gpt-4o-mini for openai,
+#                                                #   claude-haiku-4-5 for
+#                                                #   anthropic)
 # NARRATIVE_BUDGET_PER_HOUR = "50"
 # Auth is enforced locally; DASHBOARD_PASSWORD is in .dev.vars and ingest keys
 # are created via the dashboard. To re-enable open-mode dev, set this to "true".

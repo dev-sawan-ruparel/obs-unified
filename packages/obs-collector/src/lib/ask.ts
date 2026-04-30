@@ -153,6 +153,18 @@ export async function runAsk(
 	question: string,
 	deps: AskRunDeps,
 ): Promise<AskResponse> {
+	if (deps.llm.provider === "openai") {
+		// Lazy import to keep Anthropic-only paths zero-cost.
+		const { runAskOpenAI } = await import("./openai");
+		return runAskOpenAI(question, deps);
+	}
+	return runAskAnthropic(question, deps);
+}
+
+async function runAskAnthropic(
+	question: string,
+	deps: AskRunDeps,
+): Promise<AskResponse> {
 	const startedAt = new Date().toISOString();
 	const queries: AskQuery[] = [];
 	const evidence = new Map<string, AskEvidence>();

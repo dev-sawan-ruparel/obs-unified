@@ -24,10 +24,25 @@ export interface NarrativeRequest {
 	previous: AnalysisResult | null;
 }
 
+/**
+ * Provider discriminator. The collector picks one based on which API key
+ * env var is set (OpenAI takes precedence when both are set, since users
+ * who configure both presumably did so deliberately for OpenAI).
+ *
+ *   anthropic  → POST https://api.anthropic.com/v1/messages
+ *   openai     → POST https://api.openai.com/v1/chat/completions
+ *                (apiUrl override lets you point at openrouter, vLLM,
+ *                 azure-openai-compat, ollama, etc.)
+ */
+export type LlmProvider = "anthropic" | "openai";
+
 export interface LlmConfig {
+	provider: LlmProvider;
 	apiKey: string;
-	model: string; // e.g. "claude-haiku-4-5"
-	apiUrl?: string; // default https://api.anthropic.com/v1/messages
+	/** Model id. Provider-specific. e.g. "claude-haiku-4-5" / "gpt-4o-mini". */
+	model: string;
+	/** Override base URL — Anthropic-compatible or OpenAI-compatible. */
+	apiUrl?: string;
 }
 
 const DEFAULT_API_URL = "https://api.anthropic.com/v1/messages";
@@ -143,7 +158,7 @@ export class LlmCallError extends Error {
 }
 
 /**
- * Call Anthropic's /messages endpoint and return a one-line narrative.
+ * Provider dispatcher for narrative generation.
  *
  * Returns `null` when:
  *   - the model returns the sentinel NO_NARRATIVE
@@ -152,6 +167,19 @@ export class LlmCallError extends Error {
  * count the failure against the budget without writing a bogus narrative.
  */
 export async function generateNarrative(
+	req: NarrativeRequest,
+	config: LlmConfig,
+): Promise<string | null> {
+	if (config.provider === "openai") {
+		// Lazy import to keep the Anthropic-only path zero-cost on the worker
+		// boot and avoid a circular import between llm.ts and openai.ts.
+		const { generateNarrativeOpenAI } = await import("./openai");
+		return generateNarrativeOpenAI(req, config);
+	}
+	return generateNarrativeAnthropic(req, config);
+}
+
+async function generateNarrativeAnthropic(
 	req: NarrativeRequest,
 	config: LlmConfig,
 ): Promise<string | null> {

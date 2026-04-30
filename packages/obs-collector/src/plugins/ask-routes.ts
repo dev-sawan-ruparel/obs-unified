@@ -55,23 +55,32 @@ export const askRoutesPlugin: CollectorPlugin = {
 			}
 
 			const projectId = getProjectId(c);
-			const apiKey = c.env.ANTHROPIC_API_KEY;
-			if (!apiKey) {
+			// OpenAI wins if both keys are set.
+			const llm: LlmConfig | null = c.env.OPENAI_API_KEY
+				? {
+						provider: "openai",
+						apiKey: c.env.OPENAI_API_KEY,
+						model: c.env.NARRATIVE_MODEL || "gpt-4o-mini",
+						apiUrl: c.env.OPENAI_BASE_URL,
+					}
+				: c.env.ANTHROPIC_API_KEY
+					? {
+							provider: "anthropic",
+							apiKey: c.env.ANTHROPIC_API_KEY,
+							model: c.env.NARRATIVE_MODEL || "claude-haiku-4-5",
+						}
+					: null;
+			if (!llm) {
 				const response: AskResponse = {
 					answer: null,
 					evidence: [],
 					queries: [],
 					error:
-						"Ask is not configured — set ANTHROPIC_API_KEY on the collector to enable it.",
+						"Ask is not configured — set OPENAI_API_KEY or ANTHROPIC_API_KEY on the collector to enable it.",
 					timestamp: new Date().toISOString(),
 				};
 				return c.json(response, 503);
 			}
-
-			const llm: LlmConfig = {
-				apiKey,
-				model: c.env.NARRATIVE_MODEL || "claude-haiku-4-5",
-			};
 
 			const store = new AnalysesStore(c.env.DB);
 

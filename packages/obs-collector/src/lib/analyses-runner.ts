@@ -285,12 +285,23 @@ export async function runAllDueAnalyses(
 	// Narrative LLM config — present only when an API key is set on the
 	// worker. We don't fail the run if it's missing; we just skip the
 	// narrate pass entirely (every panel still produces numbers).
-	const llm: LlmConfig | undefined = ctx.env.ANTHROPIC_API_KEY
+	//
+	// Provider preference: OpenAI wins when both keys are set — configuring
+	// both is presumed deliberate.
+	const llm: LlmConfig | undefined = ctx.env.OPENAI_API_KEY
 		? {
-				apiKey: ctx.env.ANTHROPIC_API_KEY,
-				model: ctx.env.NARRATIVE_MODEL || "claude-haiku-4-5",
+				provider: "openai",
+				apiKey: ctx.env.OPENAI_API_KEY,
+				model: ctx.env.NARRATIVE_MODEL || "gpt-4o-mini",
+				apiUrl: ctx.env.OPENAI_BASE_URL,
 			}
-		: undefined;
+		: ctx.env.ANTHROPIC_API_KEY
+			? {
+					provider: "anthropic",
+					apiKey: ctx.env.ANTHROPIC_API_KEY,
+					model: ctx.env.NARRATIVE_MODEL || "claude-haiku-4-5",
+				}
+			: undefined;
 	const narrativeBudgetPerHour =
 		Number.parseInt(ctx.env.NARRATIVE_BUDGET_PER_HOUR ?? "", 10) || 50;
 	const narrativesUsed = llm

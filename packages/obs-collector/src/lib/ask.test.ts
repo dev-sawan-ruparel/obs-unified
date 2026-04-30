@@ -38,7 +38,11 @@ const result = (overrides: Partial<AnalysisResult> = {}): AnalysisResult => ({
 	...overrides,
 });
 
-const llm = { apiKey: "test-key", model: "claude-haiku-4-5" };
+const llm = {
+	provider: "anthropic" as const,
+	apiKey: "test-key",
+	model: "claude-haiku-4-5",
+};
 
 const mockFetchSequence = (responses: Array<Record<string, unknown>>) => {
 	let i = 0;

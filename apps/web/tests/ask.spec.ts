@@ -150,7 +150,7 @@ test.describe("Ask box", () => {
 				evidence: [],
 				queries: [],
 				error:
-					"Ask is not configured — set ANTHROPIC_API_KEY on the collector to enable it.",
+					"Ask is not configured — set OPENAI_API_KEY or ANTHROPIC_API_KEY on the collector to enable it.",
 				timestamp: NOW,
 			},
 			503,
@@ -164,7 +164,7 @@ test.describe("Ask box", () => {
 			timeout: 10000,
 		});
 		await expect(page.locator("[data-test-ask-error]")).toContainText(
-			/ANTHROPIC_API_KEY/i,
+			/OPENAI_API_KEY|ANTHROPIC_API_KEY/i,
 		);
 	});
 });

@@ -26,13 +26,22 @@ export interface CollectorEnv {
 	RETENTION_HOURS?: string;
 	/**
 	 * Stage 3 narrative pipeline (RFC 0002).
-	 * - ANTHROPIC_API_KEY: enables LLM-generated narratives. When unset, the
-	 *   narrate pass is skipped entirely; data still flows.
-	 * - NARRATIVE_MODEL: Anthropic model id (default "claude-haiku-4-5").
+	 * Either ANTHROPIC_API_KEY or OPENAI_API_KEY enables the narrate pass +
+	 * Ask box. When neither is set, panels remain data-only.
+	 *
+	 * If both are set, OpenAI wins — configuring both is presumed deliberate.
+	 *
+	 * - ANTHROPIC_API_KEY: enables Anthropic /messages.
+	 * - OPENAI_API_KEY: enables OpenAI /chat/completions. Use OPENAI_BASE_URL
+	 *   to point at compatible endpoints (openrouter, vLLM, azure, ollama).
+	 * - NARRATIVE_MODEL: model id. Defaults are provider-specific
+	 *   (claude-haiku-4-5 for anthropic, gpt-4o-mini for openai).
 	 * - NARRATIVE_BUDGET_PER_HOUR: max narrative writes per project per hour.
 	 *   Acts as a safety rail against a flapping panel running up cost.
 	 */
 	ANTHROPIC_API_KEY?: string;
+	OPENAI_API_KEY?: string;
+	OPENAI_BASE_URL?: string;
 	NARRATIVE_MODEL?: string;
 	NARRATIVE_BUDGET_PER_HOUR?: string;
 	/** @deprecated Use INGEST_KEY instead */
