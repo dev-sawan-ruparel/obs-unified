@@ -333,6 +333,63 @@ export class AnalysesStore {
 		return row?.n ?? 0;
 	}
 
+	/**
+	 * RFC 0002 Stage 6 — Ask-box auto-pinning input.
+	 *
+	 * Records that an analysis was cited in evidence on a successful Ask
+	 * answer. The Health tab's Pinned group derives from `getTopAskedAnalyses`
+	 * which reads these rows. We deliberately keep this table append-only
+	 * and keyed only by `(project_id, analysis_id, asked_at)` — pinning is
+	 * inherently observational; explicit user pins live elsewhere.
+	 */
+	async recordAskEvidence(
+		projectId: string,
+		analysisIds: readonly string[],
+	): Promise<void> {
+		if (!projectId)
+			throw new Error("AnalysesStore.recordAskEvidence: projectId required");
+		const unique = Array.from(new Set(analysisIds.filter(Boolean)));
+		if (unique.length === 0) return;
+		const askedAt = Date.now();
+		const stmt = this.db.prepare(
+			`INSERT INTO ask_evidence_events (project_id, analysis_id, asked_at)
+			 VALUES (?, ?, ?)`,
+		);
+		for (const id of unique) {
+			await stmt.bind(projectId, id, askedAt).run();
+		}
+	}
+
+	/**
+	 * Top N analyses cited by the Ask box in the trailing window. Used as
+	 * the auto-pin signal — no manual UX, just "what are people actually
+	 * asking about right now?"
+	 */
+	async getTopAskedAnalyses(
+		projectId: string,
+		windowDays = 7,
+		limit = 6,
+	): Promise<Array<{ analysisId: string; citations: number }>> {
+		if (!projectId)
+			throw new Error("AnalysesStore.getTopAskedAnalyses: projectId required");
+		const since = Date.now() - windowDays * 24 * 3600 * 1000;
+		const result = await this.db
+			.prepare(
+				`SELECT analysis_id, COUNT(*) AS citations
+				FROM ask_evidence_events
+				WHERE project_id = ? AND asked_at >= ?
+				GROUP BY analysis_id
+				ORDER BY citations DESC, MAX(asked_at) DESC
+				LIMIT ?`,
+			)
+			.bind(projectId, since, limit)
+			.all<{ analysis_id: string; citations: number }>();
+		return (result.results ?? []).map((r) => ({
+			analysisId: r.analysis_id,
+			citations: r.citations,
+		}));
+	}
+
 	async purgeExpired(): Promise<number> {
 		const now = Date.now();
 		const result = await this.db

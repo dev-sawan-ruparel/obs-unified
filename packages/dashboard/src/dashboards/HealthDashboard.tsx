@@ -149,7 +149,24 @@ export function HealthDashboard() {
 		return entries.filter((e) => statusOf(e) !== "ok");
 	}, [entries, focusMode]);
 
-	const grouped = useMemo(() => groupPanels(visibleEntries), [visibleEntries]);
+	// Stage 6 — auto-pinned panels render in their own section at the top
+	// of the dashboard, deduped from their native group. The `pinned` flag
+	// is computed server-side from Ask-box citations over the past week, so
+	// the user gets a "what people are actually asking about" surface
+	// without manual config.
+	const pinnedEntries = useMemo(
+		() =>
+			visibleEntries
+				.filter((e) => e.definition.pinned === true)
+				.slice()
+				.sort(sortPanels),
+		[visibleEntries],
+	);
+	const groupedEntries = useMemo(
+		() => visibleEntries.filter((e) => !e.definition.pinned),
+		[visibleEntries],
+	);
+	const grouped = useMemo(() => groupPanels(groupedEntries), [groupedEntries]);
 	const totalPanels = entries.length;
 	const hiddenByFocus = focusMode ? counts.ok : 0;
 
@@ -235,7 +252,7 @@ export function HealthDashboard() {
 						}
 					/>
 				</div>
-			) : grouped.length === 0 ? (
+			) : grouped.length === 0 && pinnedEntries.length === 0 ? (
 				<div className="bg-sys-surface border-[1px] border-sys-outline">
 					<EmptyState
 						title="Everything looks healthy"
@@ -250,6 +267,26 @@ export function HealthDashboard() {
 				</div>
 			) : (
 				<div className="flex flex-col gap-3">
+					{pinnedEntries.length > 0 ? (
+						<section
+							className="flex flex-col"
+							data-test-pinned-section
+						>
+							<SectionTitle
+								title="Pinned"
+								note={`${pinnedEntries.length} ${pinnedEntries.length === 1 ? "panel" : "panels"} · auto-derived from Ask citations`}
+							/>
+							<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+								{pinnedEntries.map((p) => (
+									<PanelTile
+										key={p.definition.id}
+										definition={p.definition}
+										result={p.result}
+									/>
+								))}
+							</div>
+						</section>
+					) : null}
 					{grouped.map(({ group, panels }) => (
 						<section key={group} className="flex flex-col">
 							<SectionTitle

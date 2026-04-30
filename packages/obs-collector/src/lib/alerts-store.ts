@@ -31,6 +31,7 @@ const rowToRule = (row: AlertRuleRow, state?: AlertStateRow): AlertRule => ({
 	enabled: row.enabled === 1,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
+	analysisId: row.analysis_id ?? null,
 	currentState: state?.current_state,
 	lastStateChange: state?.last_state_change ?? null,
 });
@@ -132,8 +133,8 @@ export class AlertsStore {
 		const now = new Date().toISOString();
 		await this.db
 			.prepare(
-				`INSERT INTO alert_rules (id, project_id, name, signal, query_json, threshold, window_mins, comparison, channels_json, enabled, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO alert_rules (id, project_id, name, signal, query_json, threshold, window_mins, comparison, channels_json, enabled, created_at, updated_at, analysis_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.bind(
 				id,
@@ -148,6 +149,7 @@ export class AlertsStore {
 				input.enabled === false ? 0 : 1,
 				now,
 				now,
+				input.analysisId ?? null,
 			)
 			.run();
 
@@ -173,6 +175,8 @@ export class AlertsStore {
 			comparison: patch.comparison ?? existing.comparison,
 			channels: patch.channels ?? existing.channels,
 			enabled: patch.enabled ?? existing.enabled,
+			analysisId:
+				"analysisId" in patch ? patch.analysisId : existing.analysisId,
 		};
 		this.validateInput(merged);
 
@@ -181,7 +185,7 @@ export class AlertsStore {
 			.prepare(
 				`UPDATE alert_rules SET
            name = ?, signal = ?, query_json = ?, threshold = ?, window_mins = ?,
-           comparison = ?, channels_json = ?, enabled = ?, updated_at = ?
+           comparison = ?, channels_json = ?, enabled = ?, updated_at = ?, analysis_id = ?
          WHERE id = ? AND project_id = ?`,
 			)
 			.bind(
@@ -194,6 +198,7 @@ export class AlertsStore {
 				JSON.stringify(merged.channels),
 				merged.enabled === false ? 0 : 1,
 				now,
+				merged.analysisId ?? null,
 				id,
 				projectId,
 			)
@@ -293,6 +298,21 @@ export class AlertsStore {
 	// ── Evaluators (count-over-window per signal) ──
 
 	async evaluateRule(rule: AlertRule): Promise<number> {
+		// Stage 6 — analysis-bound rule. Read the analysis's latest
+		// primary value instead of running the rule's raw query. Falls
+		// through to the legacy path if no result has landed yet so the
+		// alert behaves as "metric unknown / 0" rather than throwing.
+		if (rule.analysisId) {
+			const row = await this.db
+				.prepare(
+					`SELECT primary_value FROM analysis_results
+					WHERE project_id = ? AND analysis_id = ?
+					ORDER BY generated_at DESC LIMIT 1`,
+				)
+				.bind(rule.projectId, rule.analysisId)
+				.first<{ primary_value: number | null }>();
+			return row?.primary_value ?? 0;
+		}
 		switch (rule.signal) {
 			case "spans":
 				return this.evaluateSpanRule(rule);
@@ -303,6 +323,28 @@ export class AlertsStore {
 			case "ai":
 				return this.evaluateAIRule(rule);
 		}
+	}
+
+	/**
+	 * Stage 6 — fetch the latest narrative associated with this rule's
+	 * bound analysis. Used by the evaluator when firing an analysis-bound
+	 * alert so the webhook payload includes the human-readable
+	 * narrative, not just a threshold crossing.
+	 */
+	async getAnalysisNarrative(
+		projectId: string,
+		analysisId: string,
+	): Promise<{ narrative: string | null; status: string | null } | null> {
+		const row = await this.db
+			.prepare(
+				`SELECT narrative, status FROM analysis_results
+				WHERE project_id = ? AND analysis_id = ?
+				ORDER BY generated_at DESC LIMIT 1`,
+			)
+			.bind(projectId, analysisId)
+			.first<{ narrative: string | null; status: string | null }>();
+		if (!row) return null;
+		return { narrative: row.narrative ?? null, status: row.status ?? null };
 	}
 
 	private async evaluateSpanRule(rule: AlertRule): Promise<number> {

@@ -98,6 +98,22 @@ export const askRoutesPlugin: CollectorPlugin = {
 						return { definition, result: r };
 					},
 				});
+
+				// Stage 6 — log evidence citations for the auto-pin derivation.
+				// Only on successful answers; failed loops would skew the signal
+				// (the model often calls every tool it has on the way to giving
+				// up). Best-effort: a write failure here doesn't fail the ask.
+				if (result.answer && result.evidence.length > 0) {
+					await store
+						.recordAskEvidence(
+							projectId,
+							result.evidence.map((e) => e.analysisId),
+						)
+						.catch((err) =>
+							console.log("[ask] recordAskEvidence failed:", err),
+						);
+				}
+
 				return c.json(result);
 			} catch (error) {
 				const message =

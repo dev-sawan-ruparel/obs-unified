@@ -194,19 +194,23 @@ const logAnomalySummary: AnalysisDefinition = {
 	},
 	sql: `
 		WITH recent AS (
-			SELECT COALESCE(logger_name, '<unknown>') AS logger,
+			-- Correlated subquery for sample_message uses the table alias
+			-- l1 so SQLite resolves the outer column reference; the AS alias
+			-- 'logger' defined in the SELECT list isn't visible inside a
+			-- correlated subquery in SQLite.
+			SELECT COALESCE(l1.logger_name, '<unknown>') AS logger,
 				COUNT(*) AS occurrences,
-				(SELECT body FROM logs l2
+				(SELECT l2.message FROM logs l2
 					WHERE l2.project_id = '{{PROJECT_ID}}'
-						AND l2.logger_name IS logger
+						AND COALESCE(l2.logger_name, '<unknown>') = COALESCE(l1.logger_name, '<unknown>')
 						AND l2.received_at >= datetime('now', '-5 minutes')
 						AND l2.severity_number >= 17
 					ORDER BY l2.received_at DESC LIMIT 1) AS sample_message
-			FROM logs
-			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-5 minutes')
-				AND severity_number >= 17
-			GROUP BY logger_name
+			FROM logs l1
+			WHERE l1.project_id = '{{PROJECT_ID}}'
+				AND l1.received_at >= datetime('now', '-5 minutes')
+				AND l1.severity_number >= 17
+			GROUP BY l1.logger_name
 		),
 		baseline AS (
 			SELECT DISTINCT COALESCE(logger_name, '<unknown>') AS logger

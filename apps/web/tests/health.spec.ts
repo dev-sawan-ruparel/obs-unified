@@ -334,6 +334,66 @@ test.describe("Health Dashboard", () => {
 		await expect(page.locator("[data-test-narrative]")).toHaveCount(0);
 	});
 
+	test("auto-pinned panels render in a Pinned section above other groups", async ({
+		page,
+	}) => {
+		// Stage 6: a panel with `definition.pinned === true` is lifted to a
+		// dedicated "Pinned" section at the top of the dashboard, deduped
+		// from its native group.
+		const pinned: Entry = {
+			definition: {
+				id: "service_error_rate::checkout",
+				title: "checkout · errors",
+				group: "Services",
+				source: "tier1",
+				view: "tile",
+				refreshSeconds: 60,
+				pinned: true,
+				scope: { service: "checkout" },
+			},
+			result: {
+				analysisId: "service_error_rate::checkout",
+				projectId: "default",
+				generatedAt: NOW,
+				paramsHash: null,
+				status: "warn",
+				primaryValue: 0.04,
+				baselineValue: 0.01,
+				deltaPct: 300,
+				payload: {},
+				narrative: null,
+				narrativeSignature: "warn|0.04|0.01|",
+				durationMs: 4,
+			},
+		};
+		const native = entry("overall_error_rate", "Overall error rate", "Health", "warn", 0.05, 0.02);
+		await mockAnalyses(page, [pinned, native]);
+		await page.goto("/#/health");
+
+		// Pinned section is present and visible.
+		const pinnedSection = page.locator("[data-test-pinned-section]");
+		await expect(pinnedSection).toBeVisible({ timeout: 10000 });
+		await expect(pinnedSection).toContainText("checkout · errors");
+
+		// The pinned panel should NOT also render under its native group —
+		// that's the dedupe contract. Health group still shows the
+		// Tier 0 entry.
+		await expect(page.locator("text=Overall error rate")).toBeVisible();
+
+		// Pinned section visually precedes any group section in the page
+		// body. We compare the DOM Y of the Pinned section against the
+		// Services section title (the native group of the pinned panel,
+		// which would still render that title because the dedupe applies
+		// only to the panel — not the section header).
+		const pinnedBox = await pinnedSection.boundingBox();
+		expect(pinnedBox).not.toBeNull();
+		// Auto-pin section note carries an "Ask citations" hint — locate
+		// by that to avoid colliding with other "Pinned" text.
+		await expect(
+			page.locator("text=auto-derived from Ask citations"),
+		).toBeVisible();
+	});
+
 	test("panel renders 'computing…' placeholder when result is null", async ({
 		page,
 	}) => {

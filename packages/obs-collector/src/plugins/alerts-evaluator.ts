@@ -19,6 +19,18 @@ interface WebhookPayload {
 	state: AlertState;
 	evaluatedAt: string;
 	projectId: string;
+	/**
+	 * RFC 0002 Stage 6 — populated when the rule is bound to an Analysis
+	 * (`rule.analysisId` set). The narrative is the gated, LLM-generated
+	 * sentence the dashboard panel was last showing — what's actually
+	 * happening, in plain English. Webhooks consuming this can put the
+	 * narrative in the Slack/PagerDuty body directly.
+	 */
+	analysis?: {
+		id: string;
+		narrative: string | null;
+		status: string | null;
+	};
 }
 
 async function fireWebhook(
@@ -78,6 +90,24 @@ export async function evaluateAllRules(env: CollectorEnv): Promise<{
 			const next: AlertState = shouldFire ? "firing" : "ok";
 			const now = new Date().toISOString();
 
+			// Stage 6: when the rule is bound to an analysis, pull the
+			// latest narrative + status so the webhook payload describes
+			// what's happening, not just "value > threshold".
+			const analysisAttachment = rule.analysisId
+				? await store
+						.getAnalysisNarrative(rule.projectId, rule.analysisId)
+						.then((n) =>
+							n
+								? {
+										id: rule.analysisId as string,
+										narrative: n.narrative,
+										status: n.status,
+									}
+								: undefined,
+						)
+						.catch(() => undefined)
+				: undefined;
+
 			if (previous === "ok" && next === "firing") {
 				const ok = await fireChannels(rule.channels, {
 					rule: { id: rule.id, name: rule.name, signal: rule.signal },
@@ -87,6 +117,7 @@ export async function evaluateAllRules(env: CollectorEnv): Promise<{
 					state: "firing",
 					evaluatedAt: now,
 					projectId: rule.projectId,
+					analysis: analysisAttachment,
 				});
 				await store.transitionState(rule.id, rule.projectId, "firing", now);
 				await store.recordEvaluation(
@@ -106,6 +137,7 @@ export async function evaluateAllRules(env: CollectorEnv): Promise<{
 					state: "ok",
 					evaluatedAt: now,
 					projectId: rule.projectId,
+					analysis: analysisAttachment,
 				});
 				await store.transitionState(rule.id, rule.projectId, "ok", now);
 				await store.recordEvaluation(rule.id, rule.projectId, value, "ok", ok);

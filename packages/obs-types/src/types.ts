@@ -995,6 +995,14 @@ export interface AlertRule {
 	enabled: boolean;
 	createdAt: string;
 	updatedAt: string;
+	/**
+	 * RFC 0002 Stage 6: when set, the evaluator reads the rule's value
+	 * from the latest result of this Analysis (`primary_value`) instead
+	 * of running the rule's `query`. Webhook payloads include the
+	 * analysis's narrative so the alert message is about what's
+	 * happening, not just a threshold crossing.
+	 */
+	analysisId?: string | null;
 	/** Current state (derived from alert_state table when listed) */
 	currentState?: AlertState;
 	/** Last state change time (derived) */
@@ -1014,6 +1022,8 @@ export interface AlertRuleRow {
 	enabled: number;
 	created_at: string;
 	updated_at: string;
+	/** Stage 6 — NULL on legacy rules. */
+	analysis_id?: string | null;
 }
 
 export interface AlertEvaluation {
@@ -1060,6 +1070,8 @@ export interface AlertRuleInput {
 	comparison: AlertComparison;
 	channels: AlertChannel[];
 	enabled?: boolean;
+	/** Stage 6 — bind to an Analysis instead of running the raw query. */
+	analysisId?: string | null;
 }
 
 // ── Application-aware Analyses (RFC 0002, Stage 1) ──────────────────────────
@@ -1137,6 +1149,12 @@ export interface AnalysisDefinition {
 	scope?: Record<string, unknown>;
 	/** Stage 3: optional narrative spec. Absent = panel never narrates. */
 	narrate?: NarrativeSpec;
+	/**
+	 * Stage 6: derived flag. `true` means the analysis is currently in the
+	 * dashboard's auto-pinned set (top-cited by the Ask box over the past
+	 * week). Computed at registry-load time; not persisted in the database.
+	 */
+	pinned?: boolean;
 }
 
 /**
