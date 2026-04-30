@@ -34,7 +34,9 @@ RETENTION_HOURS = "72"
 # ANTHROPIC_API_KEY = "sk-ant-…"
 # NARRATIVE_MODEL = "claude-haiku-4-5"
 # NARRATIVE_BUDGET_PER_HOUR = "50"
-ALLOW_UNAUTHENTICATED = "true"
+# Auth is enforced locally; DASHBOARD_PASSWORD is in .dev.vars and ingest keys
+# are created via the dashboard. To re-enable open-mode dev, set this to "true".
+ALLOW_UNAUTHENTICATED = "false"
 
 [[r2_buckets]]
 binding = "REPLAYS_BUCKET"
