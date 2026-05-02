@@ -163,6 +163,10 @@ export class UsageTracker {
 	/** API key for direct-to-collector mode */
 	private readonly apiKey?: string;
 
+	/** Whether we've already logged a clock-sync failure. Avoid log spam from
+	 *  a misconfigured collector URL by only warning once per session. */
+	private hasWarnedClockSync = false;
+
 	constructor(config: UsageTrackerConfig) {
 		// Resolve endpoint: collectorUrl+apiKey (new) or endpoint (legacy)
 		const resolvedEndpoint = config.collectorUrl
@@ -184,20 +188,38 @@ export class UsageTracker {
 	}
 
 	private async syncTime() {
+		// Resolve the collector's root /health endpoint regardless of what
+		// path was appended onto `endpoint` (e.g. /v1/usage for the new shape,
+		// /events for the legacy shape). The previous .replace("/events", "")
+		// silently no-op'd for the new shape, sending the request to
+		// /v1/usage/health — a non-existent route under /v1/* auth that 401s
+		// without CORS headers, which browsers then surface as a confusing
+		// "CORS blocked" error. Use URL resolution instead so /health
+		// always resolves to the origin root.
+		let healthUrl: string;
+		try {
+			healthUrl = new URL("/health", this.config.endpoint).toString();
+		} catch {
+			this.warnClockSyncOnce("invalid endpoint URL", this.config.endpoint);
+			return;
+		}
+
 		try {
 			const start = performance.now();
-			const baseUrl = this.config.endpoint.replace("/events", "");
 			// Note: do NOT send `Cache-Control` here — adding it to the request
 			// would force a CORS preflight that needs the collector to allow
 			// it, and we already pass `cache: "no-store"` so the browser will
 			// bypass HTTP cache without the header.
-			const res = await fetch(`${baseUrl}/health`, {
+			const res = await fetch(healthUrl, {
 				method: "GET",
 				cache: "no-store",
 			});
-			if (!res.ok) return;
+			if (!res.ok) {
+				this.warnClockSyncOnce(`clock sync HTTP ${res.status}`, healthUrl);
+				return;
+			}
 			const rtt = performance.now() - start;
-			
+
 			// Try to find a Date header which all normal servers append automatically
 			const dateStr = res.headers.get("Date");
 			if (dateStr) {
@@ -207,8 +229,16 @@ export class UsageTracker {
 				if (this.config.debug) console.log("[analytics-sdk] clock synced, offset:", this.timeOffsetMs, "ms");
 			}
 		} catch (e) {
-			if (this.config.debug) console.warn("[analytics-sdk] failed to sync time", e);
+			this.warnClockSyncOnce("clock sync failed", healthUrl, e);
 		}
+	}
+
+	private warnClockSyncOnce(message: string, ...rest: unknown[]) {
+		if (this.hasWarnedClockSync) return;
+		this.hasWarnedClockSync = true;
+		// Surface once at warn level so misconfiguration is visible without
+		// debug=true, but don't spam the console on every retry.
+		console.warn(`[analytics-sdk] ${message}`, ...rest);
 	}
 
 	private getNowAdjusted(): string {

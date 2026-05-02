@@ -163,8 +163,14 @@ export const createTelemetryCollectorApp = (
 
 		await next();
 
+		// Mutate the response headers directly rather than using c.header(),
+		// which queues the header for a response Hono is about to construct —
+		// no-op when downstream middleware already finalized the response via
+		// `c.json(...)` (e.g. auth returning 401). Without this, error
+		// responses ship CORS-naked and browsers misreport them as CORS
+		// blocks instead of the underlying status.
 		if (origin && (allowList.length === 0 || allowList.includes(origin))) {
-			c.header("Access-Control-Allow-Origin", origin);
+			c.res.headers.set("Access-Control-Allow-Origin", origin);
 		}
 	});
 
