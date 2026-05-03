@@ -12,6 +12,15 @@ export interface ObservabilityConfig {
 	serviceName: string;
 	/** Optional service version */
 	serviceVersion?: string;
+	/**
+	 * Additional HTTP headers attached to every collector POST (logs + AI).
+	 * Used by the obs-collector worker to mark self-emitted telemetry with
+	 * `X-Telemetry-Self: 1` so its own request middleware can short-circuit
+	 * and avoid an infinite export loop.
+	 *
+	 * See apps/collector/SELF_INSTRUMENTATION.md before changing this.
+	 */
+	extraHeaders?: Record<string, string>;
 }
 
 /**
@@ -37,11 +46,13 @@ export function initObservability(config: ObservabilityConfig): void {
 		collectorUrl: config.collectorUrl,
 		authToken: config.apiKey,
 		serviceName: config.serviceName,
+		extraHeaders: config.extraHeaders,
 	};
 	const aiConfig: AILoggerConfig = {
 		collectorUrl: config.collectorUrl,
 		authToken: config.apiKey,
 		serviceName: config.serviceName,
+		extraHeaders: config.extraHeaders,
 	};
 	initLogger(loggerConfig);
 	initAI(aiConfig);
@@ -98,4 +109,11 @@ export {
 	runWithSpan,
 	withChildSpan,
 } from "./span";
+
+// ── Cloudflare binding wrappers ──
+export { type WrapD1Options, wrapD1 } from "./d1";
+export { type WrapR2Options, wrapR2 } from "./r2";
+
+// ── HTTP client wrapper ──
+export { type WrapFetchOptions, wrapFetch } from "./fetch";
 

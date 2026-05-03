@@ -26,7 +26,7 @@ const MAX_QUESTION_CHARS = 1000;
 
 export const askRoutesPlugin: CollectorPlugin = {
 	name: "ask-routes",
-	register(app, _runtime) {
+	register(app, runtime) {
 		app.post("/internal/ask", async (c) => {
 			let body: Partial<AskRequest> = {};
 			try {
@@ -72,12 +72,14 @@ export const askRoutesPlugin: CollectorPlugin = {
 						apiKey: c.env.OPENAI_API_KEY,
 						model: narrativeModel ?? "gpt-4o-mini",
 						apiUrl: openaiBase,
+						tracer: runtime.withChildSpan,
 					}
 				: c.env.ANTHROPIC_API_KEY?.trim()
 					? {
 							provider: "anthropic",
 							apiKey: c.env.ANTHROPIC_API_KEY,
 							model: narrativeModel ?? "claude-haiku-4-5",
+							tracer: runtime.withChildSpan,
 						}
 					: null;
 			if (!llm) {
@@ -95,27 +97,54 @@ export const askRoutesPlugin: CollectorPlugin = {
 			const store = new AnalysesStore(c.env.DB);
 
 			try {
-				const result = await runAsk(question, {
-					llm,
-					listAnalyses: async (filters) => {
-						// Pull from the live registry so the model sees Tier 1 panels
-						// derived this tick, not stale ones in `analysis_definitions`.
-						const all = await getAllAnalysesForProject(projectId, {
-							db: c.env.DB,
-						});
-						return all.filter((d) => {
-							if (filters?.group && d.group !== filters.group) return false;
-							if (filters?.view && d.view !== filters.view) return false;
-							return true;
-						});
+				const startedAt = Date.now();
+				runtime.logger.info("[ask] llm call starting", {
+					project_id: projectId,
+					provider: llm.provider,
+					model: llm.model,
+					question_chars: question.length,
+				});
+				const result = await runtime.withChildSpan(
+					"ask.runAsk",
+					() =>
+						runAsk(question, {
+							llm,
+							listAnalyses: async (filters) => {
+								// Pull from the live registry so the model sees Tier 1
+								// panels derived this tick, not stale ones in
+								// `analysis_definitions`.
+								const all = await getAllAnalysesForProject(projectId, {
+									db: c.env.DB,
+								});
+								return all.filter((d) => {
+									if (filters?.group && d.group !== filters.group)
+										return false;
+									if (filters?.view && d.view !== filters.view) return false;
+									return true;
+								});
+							},
+							getLatestResult: async (id) => {
+								const definitions = await store.listDefinitions(projectId);
+								const definition = definitions.find((d) => d.id === id);
+								if (!definition) return null;
+								const r = await store.getLatestResult(projectId, id);
+								return { definition, result: r };
+							},
+						}),
+					{
+						"llm.provider": llm.provider,
+						"llm.model": llm.model,
+						"openinference.span.kind": "LLM",
 					},
-					getLatestResult: async (id) => {
-						const definitions = await store.listDefinitions(projectId);
-						const definition = definitions.find((d) => d.id === id);
-						if (!definition) return null;
-						const r = await store.getLatestResult(projectId, id);
-						return { definition, result: r };
-					},
+				);
+				runtime.logger.info("[ask] llm call finished", {
+					project_id: projectId,
+					provider: llm.provider,
+					model: llm.model,
+					latency_ms: Date.now() - startedAt,
+					evidence_count: result.evidence.length,
+					query_count: result.queries.length,
+					answered: Boolean(result.answer),
 				});
 
 				// Stage 6 — log evidence citations for the auto-pin derivation.
@@ -129,7 +158,9 @@ export const askRoutesPlugin: CollectorPlugin = {
 							result.evidence.map((e) => e.analysisId),
 						)
 						.catch((err) =>
-							console.log("[ask] recordAskEvidence failed:", err),
+							runtime.logger.warn("[ask] recordAskEvidence failed", {
+								error: err instanceof Error ? err.message : String(err),
+							}),
 						);
 				}
 
@@ -137,7 +168,7 @@ export const askRoutesPlugin: CollectorPlugin = {
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : String(error);
-				console.log(`[ask] failed:`, message);
+				runtime.logger.error("[ask] failed", { error: message });
 				const response: AskResponse = {
 					answer: null,
 					evidence: [],

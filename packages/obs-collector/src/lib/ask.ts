@@ -175,7 +175,7 @@ async function runAskAnthropic(
 	}> = [{ role: "user", content: question }];
 
 	for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
-		const response = await callAnthropic(deps.llm, messages);
+		const response = await callAnthropic(deps.llm, messages, iteration);
 
 		const toolUses = (response.content ?? []).filter(
 			(b) => b.type === "tool_use",
@@ -208,46 +208,77 @@ async function runAskAnthropic(
 		for (const block of toolUses) {
 			const t0 = Date.now();
 			let resultPayload: unknown;
-			try {
-				if (block.name === "list_analyses") {
-					const args = block.input ?? {};
+			const tracer = deps.llm.tracer;
+			const toolName = block.name;
+			const args = block.input ?? {};
+			const dispatchTool = async (
+				span: { setAttribute(k: string, v: unknown): void } | null,
+			): Promise<unknown> => {
+				if (toolName === "list_analyses") {
 					const all = await deps.listAnalyses({
 						group: typeof args.group === "string" ? args.group : undefined,
 						view: typeof args.view === "string" ? args.view : undefined,
 					});
-					resultPayload = all.slice(0, 80).map(summarizeDefinition);
+					const out = all.slice(0, 80).map(summarizeDefinition);
+					if (span) span.setAttribute("tool.result_count", out.length);
 					queries.push({
 						tool: "list_analyses",
 						args,
 						durationMs: Date.now() - t0,
 					});
-				} else if (block.name === "run_analysis") {
-					const args = block.input ?? {};
+					return out;
+				}
+				if (toolName === "run_analysis") {
 					const id = typeof args.id === "string" ? args.id : "";
 					if (!id) {
-						resultPayload = { error: "id is required" };
-					} else {
-						const found = await deps.getLatestResult(id);
-						if (!found) {
-							resultPayload = {
-								error: `analysis ${id} not found`,
-							};
-						} else {
-							resultPayload = summarizeResult(found.definition, found.result);
-							evidence.set(id, {
-								analysisId: id,
-								definition: found.definition,
-								result: found.result,
-							});
-						}
+						if (span) span.setAttribute("tool.outcome", "missing_id");
+						queries.push({
+							tool: "run_analysis",
+							args,
+							durationMs: Date.now() - t0,
+						});
+						return { error: "id is required" };
 					}
+					const found = await deps.getLatestResult(id);
 					queries.push({
 						tool: "run_analysis",
 						args,
 						durationMs: Date.now() - t0,
 					});
+					if (!found) {
+						if (span) span.setAttribute("tool.outcome", "not_found");
+						return { error: `analysis ${id} not found` };
+					}
+					if (span) {
+						span.setAttribute("tool.outcome", "ok");
+						span.setAttribute("analysis.id", id);
+						if (found.result) {
+							span.setAttribute("analysis.status", found.result.status);
+						}
+					}
+					evidence.set(id, {
+						analysisId: id,
+						definition: found.definition,
+						result: found.result,
+					});
+					return summarizeResult(found.definition, found.result);
+				}
+				if (span) span.setAttribute("tool.outcome", "unknown_tool");
+				return { error: `unknown tool: ${toolName}` };
+			};
+			try {
+				if (tracer) {
+					resultPayload = await tracer(
+						`tool.${toolName}`,
+						async (span) => dispatchTool(span),
+						{
+							"openinference.span.kind": "TOOL",
+							"tool.name": toolName,
+							"tool.args": JSON.stringify(args).slice(0, 512),
+						},
+					);
 				} else {
-					resultPayload = { error: `unknown tool: ${block.name}` };
+					resultPayload = await dispatchTool(null);
 				}
 			} catch (err) {
 				resultPayload = {
@@ -283,28 +314,63 @@ async function callAnthropic(
 		role: "user" | "assistant";
 		content: string | AnthropicContentBlock[];
 	}>,
+	turnIndex?: number,
 ): Promise<AnthropicResponse> {
 	const url = config.apiUrl ?? DEFAULT_API_URL;
-	const response = await fetch(url, {
-		method: "POST",
-		headers: {
-			"x-api-key": config.apiKey,
-			"anthropic-version": "2023-06-01",
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({
-			model: config.model,
-			max_tokens: 1024,
-			system: SYSTEM_PROMPT,
-			tools: TOOLS,
-			messages,
-		}),
-	});
-	if (!response.ok) {
-		const text = await response.text().catch(() => "");
-		throw new Error(
-			`anthropic ${response.status}: ${text.slice(0, 200)}`,
-		);
-	}
-	return (await response.json()) as AnthropicResponse;
+	const exec = async (
+		span: { setAttribute(k: string, v: unknown): void } | null,
+	): Promise<AnthropicResponse> => {
+		const response = await fetch(url, {
+			method: "POST",
+			headers: {
+				"x-api-key": config.apiKey,
+				"anthropic-version": "2023-06-01",
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				model: config.model,
+				max_tokens: 1024,
+				system: SYSTEM_PROMPT,
+				tools: TOOLS,
+				messages,
+			}),
+		});
+		if (span) span.setAttribute("http.response.status_code", response.status);
+		if (!response.ok) {
+			const text = await response.text().catch(() => "");
+			throw new Error(
+				`anthropic ${response.status}: ${text.slice(0, 200)}`,
+			);
+		}
+		const json = (await response.json()) as AnthropicResponse & {
+			usage?: { input_tokens?: number; output_tokens?: number };
+		};
+		if (span && json.usage) {
+			if (typeof json.usage.input_tokens === "number")
+				span.setAttribute("gen_ai.usage.input_tokens", json.usage.input_tokens);
+			if (typeof json.usage.output_tokens === "number")
+				span.setAttribute(
+					"gen_ai.usage.output_tokens",
+					json.usage.output_tokens,
+				);
+		}
+		if (span && json.stop_reason)
+			span.setAttribute("gen_ai.response.finish_reason", json.stop_reason);
+		return json;
+	};
+
+	if (!config.tracer) return exec(null);
+	const attrs: Record<string, unknown> = {
+		"openinference.span.kind": "LLM",
+		"gen_ai.system": "anthropic",
+		"gen_ai.request.model": config.model,
+		"gen_ai.request.max_tokens": 1024,
+		"http.url": url,
+	};
+	if (typeof turnIndex === "number") attrs["llm.turn"] = turnIndex;
+	return config.tracer(
+		"llm.anthropic.messages",
+		async (span) => exec(span),
+		attrs,
+	);
 }

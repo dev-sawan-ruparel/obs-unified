@@ -17,6 +17,7 @@
  */
 
 import type { AnalysisDefinition, AnalysisResult } from "@obs/types";
+import type { ChildSpanRunner } from "../framework/logger";
 
 export interface NarrativeRequest {
 	definition: AnalysisDefinition;
@@ -43,6 +44,13 @@ export interface LlmConfig {
 	model: string;
 	/** Override base URL — Anthropic-compatible or OpenAI-compatible. */
 	apiUrl?: string;
+	/**
+	 * Optional child-span runner. When set, every LLM API call (and tool
+	 * dispatch in the agent loop) is wrapped in an OpenInference-shaped span
+	 * with `gen_ai.system`, `gen_ai.request.model`, and post-call usage
+	 * attributes. Wired by the worker entrypoint via `runtime.withChildSpan`.
+	 */
+	tracer?: ChildSpanRunner;
 }
 
 const DEFAULT_API_URL = "https://api.anthropic.com/v1/messages";
@@ -186,40 +194,70 @@ async function generateNarrativeAnthropic(
 	const url = config.apiUrl ?? DEFAULT_API_URL;
 	const userPrompt = buildUserPrompt(req);
 
-	const response = await fetch(url, {
-		method: "POST",
-		headers: {
-			"x-api-key": config.apiKey,
-			"anthropic-version": "2023-06-01",
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({
-			model: config.model,
-			max_tokens: 200,
-			system: SYSTEM_PROMPT,
-			messages: [{ role: "user", content: userPrompt }],
-		}),
-	});
+	const tracer = config.tracer;
+	const callLLM = async (
+		span: { setAttribute(k: string, v: unknown): void } | null,
+	): Promise<string | null> => {
+		const response = await fetch(url, {
+			method: "POST",
+			headers: {
+				"x-api-key": config.apiKey,
+				"anthropic-version": "2023-06-01",
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				model: config.model,
+				max_tokens: 200,
+				system: SYSTEM_PROMPT,
+				messages: [{ role: "user", content: userPrompt }],
+			}),
+		});
+		if (span) {
+			span.setAttribute("http.response.status_code", response.status);
+		}
 
-	if (!response.ok) {
-		const text = await response.text().catch(() => "");
-		throw new LlmCallError(
-			`anthropic ${response.status}: ${text.slice(0, 200)}`,
-			response.status,
-		);
-	}
+		if (!response.ok) {
+			const text = await response.text().catch(() => "");
+			throw new LlmCallError(
+				`anthropic ${response.status}: ${text.slice(0, 200)}`,
+				response.status,
+			);
+		}
 
-	const body = (await response.json()) as {
-		content?: Array<{ type?: string; text?: string }>;
+		const body = (await response.json()) as {
+			content?: Array<{ type?: string; text?: string }>;
+			usage?: { input_tokens?: number; output_tokens?: number };
+		};
+		if (span && body.usage) {
+			if (typeof body.usage.input_tokens === "number")
+				span.setAttribute("gen_ai.usage.input_tokens", body.usage.input_tokens);
+			if (typeof body.usage.output_tokens === "number")
+				span.setAttribute(
+					"gen_ai.usage.output_tokens",
+					body.usage.output_tokens,
+				);
+		}
+		const text = (body.content ?? [])
+			.filter((block) => block?.type === "text")
+			.map((block) => block?.text ?? "")
+			.join("")
+			.trim();
+
+		if (!text || text === "NO_NARRATIVE") return null;
+		// Strip any accidental wrapping quotes the model might add despite the
+		// system prompt.
+		return text.replace(/^["']|["']$/g, "").trim();
 	};
-	const text = (body.content ?? [])
-		.filter((block) => block?.type === "text")
-		.map((block) => block?.text ?? "")
-		.join("")
-		.trim();
 
-	if (!text || text === "NO_NARRATIVE") return null;
-	// Strip any accidental wrapping quotes the model might add despite the
-	// system prompt.
-	return text.replace(/^["']|["']$/g, "").trim();
+	if (!tracer) return callLLM(null);
+	return tracer(
+		"llm.anthropic.messages",
+		async (span) => callLLM(span),
+		{
+			"openinference.span.kind": "LLM",
+			"gen_ai.system": "anthropic",
+			"gen_ai.request.model": config.model,
+			"gen_ai.request.max_tokens": 200,
+		},
+	);
 }

@@ -14,7 +14,7 @@ const MAX_POINTS_PER_REQUEST = 2000;
 
 export const metricsReceiverPlugin: CollectorPlugin = {
 	name: "metrics-http-receiver",
-	register(app) {
+	register(app, runtime) {
 		app.post("/v1/metrics", async (c) => {
 			const projectId = getProjectId(c);
 
@@ -60,7 +60,10 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 					expiresAt,
 				});
 			} catch (err) {
-				console.error("[/v1/metrics] storage error:", err);
+				runtime.logger.error("[/v1/metrics] storage error", {
+					project_id: projectId,
+					error: err instanceof Error ? err.message : String(err),
+				});
 				return otlpRetryableError(
 					c,
 					503,

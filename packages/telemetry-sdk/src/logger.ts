@@ -27,6 +27,13 @@ export interface LoggerConfig {
 	collectorUrl: string;
 	authToken?: string;
 	serviceName: string;
+	/**
+	 * Additional HTTP headers attached to every `/v1/logs` POST. Used by the
+	 * collector to mark its own self-emitted telemetry with `X-Telemetry-Self`
+	 * so the request middleware can short-circuit and avoid an export loop.
+	 * See apps/collector/SELF_INSTRUMENTATION.md.
+	 */
+	extraHeaders?: Record<string, string>;
 }
 
 interface BufferedLog {
@@ -60,6 +67,7 @@ export async function flushLogs() {
 	try {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
+			...(logConfig.extraHeaders ?? {}),
 		};
 		if (logConfig.authToken) {
 			headers["Authorization"] = `Bearer ${logConfig.authToken}`;

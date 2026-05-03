@@ -110,33 +110,74 @@ interface OpenAiChoice {
 
 interface OpenAiResponse {
 	choices?: OpenAiChoice[];
+	usage?: {
+		prompt_tokens?: number;
+		completion_tokens?: number;
+		total_tokens?: number;
+	};
 }
 
 const baseUrl = (cfg: LlmConfig) =>
 	(cfg.apiUrl ?? DEFAULT_API_URL).replace(/\/$/, "");
 
-const post = async <T>(
+interface PostMeta {
+	maxTokens?: number;
+	turnIndex?: number;
+}
+
+const post = async <T extends { usage?: OpenAiResponse["usage"] }>(
 	cfg: LlmConfig,
 	path: string,
 	body: unknown,
+	meta: PostMeta = {},
 ): Promise<T> => {
 	const url = `${baseUrl(cfg)}${path}`;
-	const response = await fetch(url, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${cfg.apiKey}`,
-			"content-type": "application/json",
-		},
-		body: JSON.stringify(body),
-	});
-	if (!response.ok) {
-		const text = await response.text().catch(() => "");
-		throw new LlmCallError(
-			`openai ${response.status}: ${text.slice(0, 200)}`,
-			response.status,
-		);
-	}
-	return (await response.json()) as T;
+	const exec = async (
+		span: { setAttribute(k: string, v: unknown): void } | null,
+	): Promise<T> => {
+		const response = await fetch(url, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${cfg.apiKey}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify(body),
+		});
+		if (span) span.setAttribute("http.response.status_code", response.status);
+		if (!response.ok) {
+			const text = await response.text().catch(() => "");
+			throw new LlmCallError(
+				`openai ${response.status}: ${text.slice(0, 200)}`,
+				response.status,
+			);
+		}
+		const json = (await response.json()) as T;
+		if (span && json.usage) {
+			if (typeof json.usage.prompt_tokens === "number")
+				span.setAttribute("gen_ai.usage.input_tokens", json.usage.prompt_tokens);
+			if (typeof json.usage.completion_tokens === "number")
+				span.setAttribute(
+					"gen_ai.usage.output_tokens",
+					json.usage.completion_tokens,
+				);
+			if (typeof json.usage.total_tokens === "number")
+				span.setAttribute("gen_ai.usage.total_tokens", json.usage.total_tokens);
+		}
+		return json;
+	};
+
+	if (!cfg.tracer) return exec(null);
+	const attrs: Record<string, unknown> = {
+		"openinference.span.kind": "LLM",
+		"gen_ai.system": "openai",
+		"gen_ai.request.model": cfg.model,
+		"http.url": url,
+	};
+	if (typeof meta.maxTokens === "number")
+		attrs["gen_ai.request.max_tokens"] = meta.maxTokens;
+	if (typeof meta.turnIndex === "number")
+		attrs["llm.turn"] = meta.turnIndex;
+	return cfg.tracer("llm.openai.chat", async (span) => exec(span), attrs);
 };
 
 // ── narrative (single-shot) ────────────────────────────────────────────────
@@ -229,14 +270,19 @@ export async function generateNarrativeOpenAI(
 	req: NarrativeRequest,
 	config: LlmConfig,
 ): Promise<string | null> {
-	const body = await post<OpenAiResponse>(config, "/chat/completions", {
-		model: config.model,
-		messages: [
-			{ role: "system", content: NARRATIVE_SYSTEM_PROMPT },
-			{ role: "user", content: buildNarrativeUserPrompt(req) },
-		],
-		max_tokens: 200,
-	});
+	const body = await post<OpenAiResponse>(
+		config,
+		"/chat/completions",
+		{
+			model: config.model,
+			messages: [
+				{ role: "system", content: NARRATIVE_SYSTEM_PROMPT },
+				{ role: "user", content: buildNarrativeUserPrompt(req) },
+			],
+			max_tokens: 200,
+		},
+		{ maxTokens: 200 },
+	);
 	const text = (body.choices?.[0]?.message?.content ?? "").trim();
 	if (!text || text === "NO_NARRATIVE") return null;
 	return text.replace(/^["']|["']$/g, "").trim();
@@ -294,12 +340,17 @@ export async function runAskOpenAI(
 	];
 
 	for (let i = 0; i < MAX_ITERATIONS; i += 1) {
-		const body = await post<OpenAiResponse>(deps.llm, "/chat/completions", {
-			model: deps.llm.model,
-			messages,
-			tools: OPENAI_TOOLS,
-			max_tokens: 1024,
-		});
+		const body = await post<OpenAiResponse>(
+			deps.llm,
+			"/chat/completions",
+			{
+				model: deps.llm.model,
+				messages,
+				tools: OPENAI_TOOLS,
+				max_tokens: 1024,
+			},
+			{ maxTokens: 1024, turnIndex: i },
+		);
 		const choice = body.choices?.[0];
 		const message = choice?.message;
 		const toolCalls = message?.tool_calls ?? [];
@@ -340,8 +391,12 @@ export async function runAskOpenAI(
 			} catch {
 				parsedArgs = {};
 			}
-			try {
-				if (call.function.name === "list_analyses") {
+			const toolName = call.function.name;
+			const tracer = deps.llm.tracer;
+			const dispatchTool = async (
+				span: { setAttribute(k: string, v: unknown): void } | null,
+			): Promise<unknown> => {
+				if (toolName === "list_analyses") {
 					const all = await deps.listAnalyses({
 						group:
 							typeof parsedArgs.group === "string"
@@ -352,42 +407,67 @@ export async function runAskOpenAI(
 								? parsedArgs.view
 								: undefined,
 					});
-					resultPayload = all.slice(0, 80).map(summarizeDefinition);
+					const out = all.slice(0, 80).map(summarizeDefinition);
+					if (span) span.setAttribute("tool.result_count", out.length);
 					queries.push({
 						tool: "list_analyses",
 						args: parsedArgs,
 						durationMs: Date.now() - t0,
 					});
-				} else if (call.function.name === "run_analysis") {
+					return out;
+				}
+				if (toolName === "run_analysis") {
 					const id =
 						typeof parsedArgs.id === "string" ? parsedArgs.id : "";
 					if (!id) {
-						resultPayload = { error: "id is required" };
-					} else {
-						const found = await deps.getLatestResult(id);
-						if (!found) {
-							resultPayload = { error: `analysis ${id} not found` };
-						} else {
-							resultPayload = summarizeResult(
-								found.definition,
-								found.result,
-							);
-							evidence.set(id, {
-								analysisId: id,
-								definition: found.definition,
-								result: found.result,
-							});
-						}
+						if (span) span.setAttribute("tool.outcome", "missing_id");
+						queries.push({
+							tool: "run_analysis",
+							args: parsedArgs,
+							durationMs: Date.now() - t0,
+						});
+						return { error: "id is required" };
 					}
+					const found = await deps.getLatestResult(id);
 					queries.push({
 						tool: "run_analysis",
 						args: parsedArgs,
 						durationMs: Date.now() - t0,
 					});
+					if (!found) {
+						if (span) span.setAttribute("tool.outcome", "not_found");
+						return { error: `analysis ${id} not found` };
+					}
+					if (span) {
+						span.setAttribute("tool.outcome", "ok");
+						span.setAttribute("analysis.id", id);
+						if (found.result) {
+							span.setAttribute("analysis.status", found.result.status);
+						}
+					}
+					evidence.set(id, {
+						analysisId: id,
+						definition: found.definition,
+						result: found.result,
+					});
+					return summarizeResult(found.definition, found.result);
+				}
+				if (span) span.setAttribute("tool.outcome", "unknown_tool");
+				return { error: `unknown tool: ${toolName}` };
+			};
+			try {
+				if (tracer) {
+					resultPayload = await tracer(
+						`tool.${toolName}`,
+						async (span) => dispatchTool(span),
+						{
+							"openinference.span.kind": "TOOL",
+							"tool.name": toolName,
+							"tool.args": JSON.stringify(parsedArgs).slice(0, 512),
+						},
+					);
 				} else {
-					resultPayload = {
-						error: `unknown tool: ${call.function.name}`,
-					};
+					resultPayload = await dispatchTool(null);
 				}
 			} catch (err) {
 				resultPayload = {

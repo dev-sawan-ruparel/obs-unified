@@ -14,7 +14,7 @@ const MAX_LOGS_PER_REQUEST = 1000;
 
 export const logsReceiverPlugin: CollectorPlugin = {
 	name: "logs-receiver",
-	register(app) {
+	register(app, runtime) {
 		app.post("/v1/logs", async (c) => {
 			const projectId = getProjectId(c);
 
@@ -82,7 +82,10 @@ export const logsReceiverPlugin: CollectorPlugin = {
 			try {
 				await store.ingestBatch(records);
 			} catch (err) {
-				console.error("[/v1/logs] storage error:", err);
+				runtime.logger.error("[/v1/logs] storage error", {
+					project_id: projectId,
+					error: err instanceof Error ? err.message : String(err),
+				});
 				return otlpRetryableError(
 					c,
 					503,

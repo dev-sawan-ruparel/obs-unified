@@ -1,4 +1,5 @@
 import type { Context, Hono } from "hono";
+import type { Logger } from "./logger";
 
 /**
  * Collector worker bindings + env vars.
@@ -44,6 +45,21 @@ export interface CollectorEnv {
 	OPENAI_BASE_URL?: string;
 	NARRATIVE_MODEL?: string;
 	NARRATIVE_BUDGET_PER_HOUR?: string;
+	/**
+	 * Self-instrumentation — collector dogfoods itself into the `obs-dashboard`
+	 * project via @obs/telemetry-sdk. When unset, self-instrumentation is a
+	 * no-op (collector still runs normally). See apps/collector/SELF_INSTRUMENTATION.md.
+	 */
+	OBS_DASHBOARD_INGEST_KEY?: string;
+	/** Self-URL for cron-time telemetry exports (no inbound request to derive from). */
+	OBS_COLLECTOR_SELF_URL?: string;
+	/**
+	 * When "true", the worker's self-instrumentation middleware awaits its
+	 * span/log export instead of using `ctx.waitUntil`. Miniflare drops
+	 * waitUntil after the response, losing post-async telemetry. Set in
+	 * `.dev.vars` only; production CF Workers should leave this unset.
+	 */
+	OBS_SELF_AWAIT_EXPORTS?: string;
 	/** @deprecated Use INGEST_KEY instead */
 	TELEMETRY_INGEST_TOKEN?: string;
 	/** @deprecated Use INGEST_KEY instead */
@@ -56,6 +72,7 @@ export interface CollectorRouteContext {
 	hono: Context<{ Bindings: CollectorEnv }>;
 	env: CollectorEnv;
 	now: Date;
+	logger: Logger;
 }
 
 export type CollectorApp = Hono<{ Bindings: CollectorEnv }>;

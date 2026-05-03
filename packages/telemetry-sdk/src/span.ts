@@ -48,6 +48,14 @@ export interface RequestSpan {
 
 const spanStorage = new AsyncLocalStorage<RequestSpan>();
 
+/**
+ * The span_id of the current logical parent for any new child span. Defaults
+ * to the request span's id, but `withChildSpan` pushes its child's id here so
+ * further `withChildSpan` (or wrapped binding) calls inside the wrapped fn
+ * become grandchildren rather than flat siblings of the request root.
+ */
+const parentSpanIdStorage = new AsyncLocalStorage<string>();
+
 export const getActiveSpan = (): RequestSpan | undefined =>
 	spanStorage.getStore();
 
@@ -102,9 +110,14 @@ export function createRequestSpan(
 			statusMessage = message;
 		},
 		createChildSpan(name, kind = 1) {
+			// Honor the current logical parent from AsyncLocalStorage so spans
+			// created inside a `withChildSpan` body nest under that body, not
+			// flat under the request root. Falls back to the request span's id
+			// when no nested context is active.
+			const parentSpanId = parentSpanIdStorage.getStore() ?? spanId;
 			const child: ChildSpanRecord = {
 				spanId: generateId(8),
-				parentSpanId: spanId,
+				parentSpanId,
 				name,
 				kind,
 				startTimeUnixNano: nowNano(),
@@ -195,13 +208,22 @@ export async function withChildSpan<T>(
 			end() {},
 		} as ChildSpan);
 	const child = parent.createChildSpan(name);
-	try {
-		const result = await fn(child);
-		child.end();
-		return result;
-	} catch (error) {
-		child.setStatus(2, error instanceof Error ? error.message : String(error));
-		child.end();
-		throw error;
-	}
+	// Push this child's span_id as the logical parent for the duration of fn.
+	// Any further `withChildSpan` / `wrapD1` calls inside fn read this value
+	// from AsyncLocalStorage and become grandchildren of `child`, not flat
+	// siblings under the request root.
+	return parentSpanIdStorage.run(child.spanId, async () => {
+		try {
+			const result = await fn(child);
+			child.end();
+			return result;
+		} catch (error) {
+			child.setStatus(
+				2,
+				error instanceof Error ? error.message : String(error),
+			);
+			child.end();
+			throw error;
+		}
+	});
 }

@@ -29,6 +29,9 @@ importers:
       '@obs/collector':
         specifier: workspace:*
         version: link:../../packages/obs-collector
+      '@obs/telemetry-sdk':
+        specifier: workspace:*
+        version: link:../../packages/telemetry-sdk
       '@obs/types':
         specifier: workspace:*
         version: link:../../packages/obs-types

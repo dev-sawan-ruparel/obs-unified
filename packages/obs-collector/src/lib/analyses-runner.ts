@@ -26,6 +26,11 @@
 import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs/types";
 import { getAllAnalysesForProject } from "../analyses/index";
 import type { CollectorEnv } from "../framework/env";
+import {
+	type ChildSpanRunner,
+	consoleLogger,
+	type Logger,
+} from "../framework/logger";
 import { AnalysesStore } from "./analyses-store";
 import {
 	computeSignature,
@@ -42,6 +47,8 @@ export interface AnalysisRunContext {
 	llm?: LlmConfig;
 	/** Stage 3: max narrative-writes per project per hour. Default 50. */
 	narrativeBudgetPerHour?: number;
+	/** Pluggable logger; defaults to console. */
+	logger?: Logger;
 }
 
 interface AnalysisSqlRow {
@@ -194,9 +201,9 @@ async function narratePass(
 	if (intent !== "call") return;
 
 	if (budgetState.remaining <= 0) {
-		console.log(
-			`[narrate] ${def.id}: budget exhausted, falling back to reuse`,
-		);
+		(ctx.logger ?? consoleLogger).warn("[narrate] budget exhausted", {
+			analysis_id: def.id,
+		});
 		if (previous?.narrative) {
 			current.narrative = previous.narrative;
 			current.narrativeSignature = previous.narrativeSignature;
@@ -219,7 +226,10 @@ async function narratePass(
 				: error instanceof Error
 					? error.message
 					: String(error);
-		console.log(`[narrate] ${def.id}: LLM call failed: ${msg}`);
+		(ctx.logger ?? consoleLogger).error("[narrate] LLM call failed", {
+			analysis_id: def.id,
+			error: msg,
+		});
 		if (previous?.narrative) {
 			current.narrative = previous.narrative;
 			current.narrativeSignature = previous.narrativeSignature;
@@ -236,7 +246,12 @@ async function narratePass(
  * available we'll iterate it here.
  */
 export async function runAllDueAnalyses(
-	ctx: { env: CollectorEnv; retentionHours: number },
+	ctx: {
+		env: CollectorEnv;
+		retentionHours: number;
+		logger?: Logger;
+		tracer?: ChildSpanRunner;
+	},
 	_runtime?: unknown,
 ): Promise<{
 	ran: number;
@@ -244,6 +259,7 @@ export async function runAllDueAnalyses(
 	refreshed: number;
 	narrated: number;
 }> {
+	const logger = ctx.logger ?? consoleLogger;
 	const store = new AnalysesStore(ctx.env.DB);
 	const projectId = "default";
 	const now = Date.now();
@@ -257,10 +273,10 @@ export async function runAllDueAnalyses(
 			db: ctx.env.DB,
 		});
 	} catch (error) {
-		console.log(
-			`[analyses] failed to load registered analyses for project=${projectId}:`,
-			error,
-		);
+		logger.error("[analyses] failed to load registered analyses", {
+			project_id: projectId,
+			error: error instanceof Error ? error.message : String(error),
+		});
 	}
 
 	let refreshed = 0;
@@ -269,10 +285,10 @@ export async function runAllDueAnalyses(
 			await store.upsertDefinition(projectId, def);
 			refreshed += 1;
 		} catch (error) {
-			console.log(
-				`[analyses] upsertDefinition failed for ${def.id}:`,
-				error,
-			);
+			logger.error("[analyses] upsertDefinition failed", {
+				analysis_id: def.id,
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 
@@ -301,12 +317,14 @@ export async function runAllDueAnalyses(
 				apiKey: ctx.env.OPENAI_API_KEY,
 				model: narrativeModel ?? "gpt-4o-mini",
 				apiUrl: openaiBase,
+				tracer: ctx.tracer,
 			}
 		: ctx.env.ANTHROPIC_API_KEY?.trim()
 			? {
 					provider: "anthropic",
 					apiKey: ctx.env.ANTHROPIC_API_KEY,
 					model: narrativeModel ?? "claude-haiku-4-5",
+					tracer: ctx.tracer,
 				}
 			: undefined;
 	const narrativeBudgetPerHour =
@@ -324,6 +342,7 @@ export async function runAllDueAnalyses(
 		retentionHours: ctx.retentionHours,
 		llm,
 		narrativeBudgetPerHour,
+		logger,
 	};
 
 	// Run with bounded concurrency. D1 is happy with a handful of parallel
@@ -368,10 +387,10 @@ export async function runAllDueAnalyses(
 						ran += 1;
 					} catch (error) {
 						failed += 1;
-						console.log(
-							`[analyses] analysis ${def.id} failed:`,
-							error instanceof Error ? error.message : error,
-						);
+						logger.error("[analyses] analysis failed", {
+							analysis_id: def.id,
+							error: error instanceof Error ? error.message : String(error),
+						});
 					}
 				}
 			})(),

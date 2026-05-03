@@ -5,6 +5,12 @@ export interface AILoggerConfig {
 	collectorUrl: string;
 	authToken?: string;
 	serviceName: string;
+	/**
+	 * Additional HTTP headers attached to every `/v1/ai` POST. Mirrors
+	 * `LoggerConfig.extraHeaders` — used by the collector for self-emit
+	 * loop prevention. See apps/collector/SELF_INSTRUMENTATION.md.
+	 */
+	extraHeaders?: Record<string, string>;
 }
 
 const MAX_BUFFER_SIZE = 200;
@@ -61,6 +67,7 @@ export async function flushAICalls() {
 	try {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
+			...(aiConfig.extraHeaders ?? {}),
 		};
 		if (aiConfig.authToken) {
 			headers["Authorization"] = `Bearer ${aiConfig.authToken}`;

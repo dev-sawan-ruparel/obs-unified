@@ -5,6 +5,11 @@ import type {
 	AlertWebhookChannel,
 } from "@obs/types";
 import type { CollectorEnv } from "../framework/env";
+import {
+	type ChildSpanRunner,
+	consoleLogger,
+	type Logger,
+} from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 
 interface WebhookPayload {
@@ -36,45 +41,70 @@ interface WebhookPayload {
 async function fireWebhook(
 	channel: AlertWebhookChannel,
 	payload: WebhookPayload,
+	logger: Logger,
+	tracer?: ChildSpanRunner,
 ): Promise<boolean> {
-	try {
-		const response = await fetch(channel.url, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				...(channel.headers ?? {}),
-			},
-			body: JSON.stringify(payload),
-			signal: AbortSignal.timeout(5000),
-		});
-		return response.ok;
-	} catch (err) {
-		console.error(
-			`[alerts-evaluator] webhook delivery failed for ${channel.url}:`,
-			err,
-		);
-		return false;
-	}
+	const exec = async (
+		span: { setAttribute(k: string, v: unknown): void } | null,
+	): Promise<boolean> => {
+		try {
+			const response = await fetch(channel.url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(channel.headers ?? {}),
+				},
+				body: JSON.stringify(payload),
+				signal: AbortSignal.timeout(5000),
+			});
+			if (span)
+				span.setAttribute("http.response.status_code", response.status);
+			return response.ok;
+		} catch (err) {
+			logger.error("[alerts-evaluator] webhook delivery failed", {
+				url: channel.url,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return false;
+		}
+	};
+	if (!tracer) return exec(null);
+	return tracer(
+		"webhook.alert",
+		async (span) => exec(span),
+		{
+			"http.method": "POST",
+			"http.url": channel.url,
+			"alert.state": payload.state,
+		},
+	);
 }
 
 async function fireChannels(
 	channels: AlertChannel[],
 	payload: WebhookPayload,
+	logger: Logger,
+	tracer?: ChildSpanRunner,
 ): Promise<boolean> {
 	if (channels.length === 0) return true;
 	const results = await Promise.all(
 		channels
 			.filter((ch): ch is AlertWebhookChannel => ch.type === "webhook")
-			.map((ch) => fireWebhook(ch, payload)),
+			.map((ch) => fireWebhook(ch, payload, logger, tracer)),
 	);
 	return results.every(Boolean);
 }
 
-export async function evaluateAllRules(env: CollectorEnv): Promise<{
+export async function evaluateAllRules(
+	env: CollectorEnv,
+	options?: { logger?: Logger; tracer?: ChildSpanRunner },
+): Promise<{
 	evaluated: number;
 	fired: number;
 	resolved: number;
 }> {
+	const logger = options?.logger ?? consoleLogger;
+	const tracer = options?.tracer;
 	const store = new AlertsStore(env.DB);
 	const rules = await store.listEnabledRules();
 
@@ -109,16 +139,21 @@ export async function evaluateAllRules(env: CollectorEnv): Promise<{
 				: undefined;
 
 			if (previous === "ok" && next === "firing") {
-				const ok = await fireChannels(rule.channels, {
-					rule: { id: rule.id, name: rule.name, signal: rule.signal },
-					value,
-					threshold: rule.threshold,
-					comparison: rule.comparison,
-					state: "firing",
-					evaluatedAt: now,
-					projectId: rule.projectId,
-					analysis: analysisAttachment,
-				});
+				const ok = await fireChannels(
+					rule.channels,
+					{
+						rule: { id: rule.id, name: rule.name, signal: rule.signal },
+						value,
+						threshold: rule.threshold,
+						comparison: rule.comparison,
+						state: "firing",
+						evaluatedAt: now,
+						projectId: rule.projectId,
+						analysis: analysisAttachment,
+					},
+					logger,
+					tracer,
+				);
 				await store.transitionState(rule.id, rule.projectId, "firing", now);
 				await store.recordEvaluation(
 					rule.id,
@@ -129,16 +164,21 @@ export async function evaluateAllRules(env: CollectorEnv): Promise<{
 				);
 				fired += 1;
 			} else if (previous === "firing" && next === "ok") {
-				const ok = await fireChannels(rule.channels, {
-					rule: { id: rule.id, name: rule.name, signal: rule.signal },
-					value,
-					threshold: rule.threshold,
-					comparison: rule.comparison,
-					state: "ok",
-					evaluatedAt: now,
-					projectId: rule.projectId,
-					analysis: analysisAttachment,
-				});
+				const ok = await fireChannels(
+					rule.channels,
+					{
+						rule: { id: rule.id, name: rule.name, signal: rule.signal },
+						value,
+						threshold: rule.threshold,
+						comparison: rule.comparison,
+						state: "ok",
+						evaluatedAt: now,
+						projectId: rule.projectId,
+						analysis: analysisAttachment,
+					},
+					logger,
+					tracer,
+				);
 				await store.transitionState(rule.id, rule.projectId, "ok", now);
 				await store.recordEvaluation(rule.id, rule.projectId, value, "ok", ok);
 				resolved += 1;
@@ -153,10 +193,11 @@ export async function evaluateAllRules(env: CollectorEnv): Promise<{
 				);
 			}
 		} catch (err) {
-			console.error(
-				`[alerts-evaluator] rule ${rule.id} evaluation failed:`,
-				err,
-			);
+			logger.error("[alerts-evaluator] rule evaluation failed", {
+				rule_id: rule.id,
+				project_id: rule.projectId,
+				error: err instanceof Error ? err.message : String(err),
+			});
 		}
 	}
 

@@ -4,7 +4,7 @@ import { getProjectId } from "./_context";
 
 export const replayReceiverPlugin: CollectorPlugin = {
 	name: "replay-receiver",
-	register(app) {
+	register(app, runtime) {
 		app.post("/v1/replays", async (c) => {
 			const projectId = getProjectId(c);
 			const payload = await c.req.json<ReplayChunkInput>();
@@ -14,7 +14,9 @@ export const replayReceiverPlugin: CollectorPlugin = {
 			const objectKey = `replays/${projectId}/${payload.sessionId}/${timestamp}-${payload.sequenceNumber}.json`;
 
 			if (!c.env.REPLAYS_BUCKET) {
-				console.error("REPLAYS_BUCKET binding is missing");
+				runtime.logger.error("REPLAYS_BUCKET binding is missing", {
+					project_id: projectId,
+				});
 				return c.json({ error: "Replay storage not configured" }, 500);
 			}
 

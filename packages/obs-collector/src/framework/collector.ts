@@ -3,6 +3,12 @@ import type { StoredSpan, UsageEventRecord } from "@obs/types";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { CollectorEnv, CollectorRouteContext } from "./env";
+import {
+	type ChildSpanRunner,
+	consoleLogger,
+	type Logger,
+	passthroughChildSpan,
+} from "./logger";
 import { AIStore } from "../lib/ai-store";
 import { AnalysesStore } from "../lib/analyses-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
@@ -60,12 +66,35 @@ export interface CollectorConfig {
 		middleware: MiddlewareHandler<{ Bindings: CollectorEnv }>;
 		registerRoutes: (app: Hono<{ Bindings: CollectorEnv }>) => void;
 	};
+	/**
+	 * Pluggable structured logger. Defaults to console output. Pass a logger
+	 * from `@obs/telemetry-sdk` to ship the collector's own log output as
+	 * OTLP — see apps/collector/SELF_INSTRUMENTATION.md.
+	 */
+	logger?: Logger;
+	/**
+	 * Wraps async work in a child span on the active request span. Wire this
+	 * to `@obs/telemetry-sdk`'s `withChildSpan` from the worker entrypoint to
+	 * surface LLM hops + DB-heavy paths as nested spans. Defaults to
+	 * pass-through.
+	 */
+	withChildSpan?: ChildSpanRunner;
 }
 
 export class CollectorRuntime implements CollectorPluginContext {
 	private readonly spanProcessors: SpanProcessorPlugin[] = [];
 	private readonly usageEventProcessors: UsageEventProcessorPlugin[] = [];
 	private readonly plugins: string[] = [];
+	readonly logger: Logger;
+	readonly withChildSpan: ChildSpanRunner;
+
+	constructor(
+		logger: Logger = consoleLogger,
+		withChildSpan: ChildSpanRunner = passthroughChildSpan,
+	) {
+		this.logger = logger;
+		this.withChildSpan = withChildSpan;
+	}
 
 	registerPlugin(plugin: CollectorPlugin): void {
 		this.plugins.push(plugin.name);
@@ -91,6 +120,7 @@ export class CollectorRuntime implements CollectorPluginContext {
 			hono,
 			env,
 			now: new Date(),
+			logger: this.logger,
 		};
 	}
 
@@ -137,7 +167,7 @@ export const createTelemetryCollectorApp = (
 		: pluginsOrConfig;
 
 	const app = new Hono<{ Bindings: CollectorEnv }>();
-	const runtime = new CollectorRuntime();
+	const runtime = new CollectorRuntime(config.logger, config.withChildSpan);
 
 	// Health endpoint — no auth required
 	app.get("/health", (c) => c.json({ status: "ok" }));
@@ -152,7 +182,7 @@ export const createTelemetryCollectorApp = (
 			const headers: Record<string, string> = {
 				"Access-Control-Allow-Methods": "POST, OPTIONS",
 				"Access-Control-Allow-Headers":
-					"Content-Type, Authorization, X-API-Key, X-Project-Id, Cache-Control",
+					"Content-Type, Authorization, X-API-Key, X-Project-Id, Cache-Control, X-Telemetry-Self",
 				"Access-Control-Max-Age": "86400",
 			};
 			if (allowList.length === 0 || (origin && allowList.includes(origin))) {
@@ -218,40 +248,48 @@ export const createTelemetryCollectorApp = (
  * Wire into wrangler.toml: `[triggers] crons = ["0 * * * *"]`
  * Source: AgentOwl + DecisionOps
  */
-export const createRetentionCleanupHandler = () => ({
-	async scheduled(
-		_event: ScheduledEvent,
-		env: CollectorEnv,
-		_ctx: ExecutionContext,
-	): Promise<void> {
-		const telemetryStore = new TelemetryStore(env.DB);
-		const usageStore = new UsageStore(env.DB);
-		const logsStore = new LogsStore(env.DB);
-		const aiStore = new AIStore(env.DB);
-		const metricsStore = new MetricsStore(env.DB);
-		const analysesStore = new AnalysesStore(env.DB);
+export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => {
+	const logger = options?.logger ?? consoleLogger;
+	return {
+		async scheduled(
+			_event: ScheduledEvent,
+			env: CollectorEnv,
+			_ctx: ExecutionContext,
+		): Promise<void> {
+			const telemetryStore = new TelemetryStore(env.DB);
+			const usageStore = new UsageStore(env.DB);
+			const logsStore = new LogsStore(env.DB);
+			const aiStore = new AIStore(env.DB);
+			const metricsStore = new MetricsStore(env.DB);
+			const analysesStore = new AnalysesStore(env.DB);
 
-		const [
-			telemetryPurged,
-			usagePurged,
-			logsPurged,
-			aiPurged,
-			metricsPurged,
-			analysesPurged,
-		] = await Promise.all([
-			telemetryStore.purgeExpired(),
-			usageStore.purgeExpired(),
-			logsStore.purgeExpired(),
-			aiStore.purgeExpired(),
-			metricsStore.purgeExpired(),
-			analysesStore.purgeExpired(),
-		]);
+			const [
+				telemetryPurged,
+				usagePurged,
+				logsPurged,
+				aiPurged,
+				metricsPurged,
+				analysesPurged,
+			] = await Promise.all([
+				telemetryStore.purgeExpired(),
+				usageStore.purgeExpired(),
+				logsStore.purgeExpired(),
+				aiStore.purgeExpired(),
+				metricsStore.purgeExpired(),
+				analysesStore.purgeExpired(),
+			]);
 
-		console.log(
-			`[retention-cleanup] Purged ${telemetryPurged} spans, ${usagePurged} usage, ${logsPurged} logs, ${aiPurged} ai calls, ${metricsPurged} metric points, ${analysesPurged} analysis results`,
-		);
-	},
-});
+			logger.info("[retention-cleanup] purged expired rows", {
+				spans: telemetryPurged,
+				usage: usagePurged,
+				logs: logsPurged,
+				ai_calls: aiPurged,
+				metric_points: metricsPurged,
+				analysis_results: analysesPurged,
+			});
+		},
+	};
+};
 
 /**
  * RFC 0002 Stage 1 — run any due Analyses. Cheap to call frequently because
@@ -262,20 +300,37 @@ export const createRetentionCleanupHandler = () => ({
  * Kept distinct from retention so the per-minute tick doesn't sweep every
  * retention table every cycle.
  */
-export const createAnalysesRunHandler = () => ({
-	async scheduled(
-		_event: ScheduledEvent,
-		env: CollectorEnv,
-		_ctx: ExecutionContext,
-	): Promise<void> {
-		try {
-			const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
-			const summary = await runAllDueAnalyses({ env, retentionHours });
-			console.log(
-				`[analyses] Refreshed ${summary.refreshed} definitions, ran ${summary.ran} analyses (${summary.failed} failed, ${summary.narrated} narrated)`,
-			);
-		} catch (error) {
-			console.log(`[analyses] scheduled run failed:`, error);
-		}
-	},
-});
+export const createAnalysesRunHandler = (options?: {
+	logger?: Logger;
+	tracer?: ChildSpanRunner;
+}) => {
+	const logger = options?.logger ?? consoleLogger;
+	const tracer = options?.tracer;
+	return {
+		async scheduled(
+			_event: ScheduledEvent,
+			env: CollectorEnv,
+			_ctx: ExecutionContext,
+		): Promise<void> {
+			try {
+				const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
+				const summary = await runAllDueAnalyses({
+					env,
+					retentionHours,
+					logger,
+					tracer,
+				});
+				logger.info("[analyses] scheduled run summary", {
+					refreshed: summary.refreshed,
+					ran: summary.ran,
+					failed: summary.failed,
+					narrated: summary.narrated,
+				});
+			} catch (error) {
+				logger.error("[analyses] scheduled run failed", {
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		},
+	};
+};

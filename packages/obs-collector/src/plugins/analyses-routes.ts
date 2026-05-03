@@ -25,7 +25,7 @@ import { getProjectId } from "./_context";
 
 export const analysesRoutesPlugin: CollectorPlugin = {
 	name: "analyses-routes",
-	register(app, _runtime) {
+	register(app, runtime) {
 		app.get("/internal/analyses", async (c) => {
 			const projectId = getProjectId(c);
 			const store = new AnalysesStore(c.env.DB);
@@ -105,7 +105,11 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : String(error);
-				console.log(`[analyses] on-demand run failed for ${id}:`, message);
+				runtime.logger.error("[analyses] on-demand run failed", {
+					analysis_id: id,
+					project_id: projectId,
+					error: message,
+				});
 				return c.json(
 					{ error: "Internal Server Error", message },
 					500,

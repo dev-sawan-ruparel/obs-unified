@@ -120,7 +120,12 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 					} catch (err) {
 						// Don't fail the whole ingest on payload side-table issues —
 						// the spans themselves are still useful.
-						console.error("[ai-span-payloads-processor] write failed:", err);
+						context.logger.error(
+							"[ai-span-payloads-processor] write failed",
+							{
+								error: err instanceof Error ? err.message : String(err),
+							},
+						);
 					}
 				}
 

@@ -81,7 +81,10 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 			try {
 				await store.ingest(spans);
 			} catch (err) {
-				console.error("[/v1/traces] storage error:", err);
+				runtime.logger.error("[/v1/traces] storage error", {
+					project_id: projectId,
+					error: err instanceof Error ? err.message : String(err),
+				});
 				return otlpRetryableError(
 					c,
 					503,

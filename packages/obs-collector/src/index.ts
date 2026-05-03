@@ -53,6 +53,9 @@ export type {
 	CollectorRouteContext,
 } from "./framework/env";
 
+export type { Logger } from "./framework/logger";
+export { consoleLogger } from "./framework/logger";
+
 export { createIngestAuth } from "./auth/ingest-auth";
 export { createDashboardAuth } from "./auth/dashboard-auth";
 
@@ -138,6 +141,8 @@ export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
 		auth: config?.auth,
 		allowedOrigins: config?.allowedOrigins,
 		dashboardAuth: config?.dashboardAuth,
+		logger: config?.logger,
+		withChildSpan: config?.withChildSpan,
 	});
 
 export default createTelemetryCollectorApp(allPlugins);
