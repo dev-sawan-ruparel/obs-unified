@@ -53,11 +53,17 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 
 			const store = new MetricsStore(c.env.DB);
 			try {
-				await store.ingestBatch({
-					projectId,
-					points,
-					receivedAt,
-					expiresAt,
+				await runtime.withChildSpan("metrics.ingest", async (span) => {
+					span.setAttribute("metrics.points_received", points.length + rejected);
+					span.setAttribute("metrics.points_rejected", rejected);
+					span.setAttribute("metrics.points_inserted", points.length);
+					span.setAttribute("project.id", projectId);
+					await store.ingestBatch({
+						projectId,
+						points,
+						receivedAt,
+						expiresAt,
+					});
 				});
 			} catch (err) {
 				runtime.logger.error("[/v1/metrics] storage error", {

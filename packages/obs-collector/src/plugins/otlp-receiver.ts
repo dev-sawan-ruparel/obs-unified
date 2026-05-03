@@ -79,7 +79,13 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 			const spans = await runtime.runSpanProcessors(parsedSpans, routeContext);
 			const store = runtime.createStore(c.env);
 			try {
-				await store.ingest(spans);
+				await runtime.withChildSpan("traces.ingest", async (span) => {
+					span.setAttribute("traces.spans_received", total);
+					span.setAttribute("traces.spans_rejected", totalRejected);
+					span.setAttribute("traces.spans_inserted", spans.length);
+					span.setAttribute("project.id", projectId);
+					await store.ingest(spans);
+				});
 			} catch (err) {
 				runtime.logger.error("[/v1/traces] storage error", {
 					project_id: projectId,

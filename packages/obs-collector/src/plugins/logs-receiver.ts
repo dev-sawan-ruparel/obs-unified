@@ -80,7 +80,13 @@ export const logsReceiverPlugin: CollectorPlugin = {
 			});
 
 			try {
-				await store.ingestBatch(records);
+				await runtime.withChildSpan("logs.ingest", async (span) => {
+					span.setAttribute("logs.records_received", decoded.length + rejected);
+					span.setAttribute("logs.records_rejected", rejected);
+					span.setAttribute("logs.records_inserted", records.length);
+					span.setAttribute("project.id", projectId);
+					await store.ingestBatch(records);
+				});
 			} catch (err) {
 				runtime.logger.error("[/v1/logs] storage error", {
 					project_id: projectId,

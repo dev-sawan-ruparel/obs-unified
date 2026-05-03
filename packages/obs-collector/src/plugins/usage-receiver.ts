@@ -102,7 +102,18 @@ export const usageReceiverPlugin: CollectorPlugin = {
 				runtime.createRouteContext(c.env, c),
 			);
 			const store = runtime.createUsageStore(c.env);
-			const result = await store.ingest(processed);
+			const result = await runtime.withChildSpan(
+				"usage.ingest",
+				async (span) => {
+					const r = await store.ingest(processed);
+					span.setAttribute("usage.events_received", rawEvents.length);
+					span.setAttribute("usage.events_valid", validInputs.length);
+					span.setAttribute("usage.events_inserted", r.inserted);
+					span.setAttribute("usage.session_count", r.sessionCount);
+					span.setAttribute("project.id", projectId);
+					return r;
+				},
+			);
 
 			return c.json({
 				success: true,

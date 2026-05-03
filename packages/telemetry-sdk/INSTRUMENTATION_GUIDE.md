@@ -15,9 +15,30 @@ consumers; call sites live in your app because only you know where they are.
 | **D1 query spans** | `wrapD1(env.DB)` | Wrap once at request boundary; pass `tracedEnv` to handlers |
 | **R2 object spans** | `wrapR2(env.BUCKET, { bucketName })` | Same — wrap at boundary; ops auto-emit `r2.*` spans |
 | **Outbound HTTP spans** | `wrapFetch(fetch, { skip? })` | Use the wrapped fetch instead of the global, *or* wrap individual sites with `withChildSpan` and OTel attributes |
+| **Processor pipeline spans (collector framework)** | `CollectorRuntime.runSpanProcessors` / `runUsageEventProcessors` auto-wrap each processor in `process.<name>` | Nothing — every receiver registered with the runtime gets per-stage tracing free |
 | **LLM call attributes** | `withChildSpan` + OpenInference convention (manual) | Stamp `openinference.span.kind="LLM"`, `gen_ai.system`, `gen_ai.request.model`, post-call usage attrs |
 | **Tool call spans** | `withChildSpan` + OpenInference convention (manual) | Stamp `openinference.span.kind="TOOL"`, `tool.name`, `tool.args`, `tool.result_*` |
 | Buffered logs → OTLP | `createLogger(name)` + `flushLogs()` | Use the logger; flush in `finally` |
+
+## What every API endpoint gets for free
+
+If you add a new endpoint that:
+
+- Reads/writes D1 via `c.env.DB` — every query auto-emits a `d1.*` child span.
+- Reads/writes R2 via `c.env.REPLAYS_BUCKET` — same for `r2.*`.
+- Runs the collector framework's processor pipeline — every processor in
+  the chain becomes a `process.<plugin_name>` span with input/output
+  counts, drop counts, and `processor.kind`.
+- Calls `runtime.withChildSpan("…", fn)` for any logical boundary you
+  want named (e.g. `usage.ingest`, `ask.runAsk`).
+
+…you don't have to write any per-endpoint tracer code. The request span
+is created by the worker fetch handler; the bindings are wrapped at the
+entrypoint; the processor pipeline traces itself. The only manual work
+is when an endpoint does *interesting* in-process work the framework
+can't see — typically LLM calls, agent loops, or operations whose
+business meaning matters more than their mechanics (which `withChildSpan`
+makes trivial to annotate).
 
 ## Minimal recipe
 

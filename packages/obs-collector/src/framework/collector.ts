@@ -139,7 +139,23 @@ export class CollectorRuntime implements CollectorPluginContext {
 		let nextSpans = spans;
 
 		for (const processor of this.spanProcessors) {
-			nextSpans = await processor.process(nextSpans, context);
+			const inputCount = nextSpans.length;
+			nextSpans = await this.withChildSpan(
+				`process.${processor.name}`,
+				async (span) => {
+					const out = await processor.process(nextSpans, context);
+					span.setAttribute("processor.kind", "span");
+					span.setAttribute("processor.name", processor.name);
+					span.setAttribute("processor.input_count", inputCount);
+					span.setAttribute("processor.output_count", out.length);
+					if (out.length !== inputCount)
+						span.setAttribute(
+							"processor.delta_count",
+							out.length - inputCount,
+						);
+					return out;
+				},
+			);
 		}
 
 		return nextSpans;
@@ -152,7 +168,23 @@ export class CollectorRuntime implements CollectorPluginContext {
 		let nextEvents = events;
 
 		for (const processor of this.usageEventProcessors) {
-			nextEvents = await processor.process(nextEvents, context);
+			const inputCount = nextEvents.length;
+			nextEvents = await this.withChildSpan(
+				`process.${processor.name}`,
+				async (span) => {
+					const out = await processor.process(nextEvents, context);
+					span.setAttribute("processor.kind", "usage");
+					span.setAttribute("processor.name", processor.name);
+					span.setAttribute("processor.input_count", inputCount);
+					span.setAttribute("processor.output_count", out.length);
+					if (out.length !== inputCount)
+						span.setAttribute(
+							"processor.delta_count",
+							out.length - inputCount,
+						);
+					return out;
+				},
+			);
 		}
 
 		return nextEvents;
