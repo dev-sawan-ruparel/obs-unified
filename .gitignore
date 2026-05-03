@@ -16,6 +16,12 @@ out
 playwright-report
 test-results
 
+# Makefile dev runtime — pid files and logs from `make run`
+.dev/
+
+# Rust build output
+sdks/rust/target/
+
 # OpenTelemetry Demo — cloned by `pnpm demo:setup`, never committed
 demo/upstream/
 

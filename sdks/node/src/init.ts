@@ -22,12 +22,12 @@
 import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { resourceFromAttributes } from "@opentelemetry/resources";
+import { Resource } from "@opentelemetry/resources";
 import {
 	BatchLogRecordProcessor,
 	type LogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
-import { NodeSDK } from "@opentelemetry/sdk-node";
+import { NodeSDK, type NodeSDKConfiguration } from "@opentelemetry/sdk-node";
 import {
 	BatchSpanProcessor,
 	type SpanProcessor,
@@ -67,7 +67,7 @@ export interface InitConfig {
 	 *   getNodeAutoInstrumentations() from
 	 *   "@opentelemetry/auto-instrumentations-node"
 	 */
-	instrumentations?: ConstructorParameters<typeof NodeSDK>[0]["instrumentations"];
+	instrumentations?: NodeSDKConfiguration["instrumentations"];
 	/** Enables OTel diag logging at the given level. Useful for first-time setup. */
 	debug?: boolean;
 }
@@ -121,7 +121,7 @@ export const init = (cfg: InitConfig): Shutdown => {
 			: undefined;
 
 	const sdk = new NodeSDK({
-		resource: resourceFromAttributes(resourceAttrs),
+		resource: new Resource(resourceAttrs),
 		spanProcessors,
 		logRecordProcessors,
 		sampler,

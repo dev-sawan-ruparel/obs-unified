@@ -12,10 +12,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use opentelemetry::{global, KeyValue};
-use opentelemetry_otlp::{LogExporter, SpanExporter, WithExportConfig};
+use opentelemetry_otlp::{LogExporter, SpanExporter, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::logs::{BatchLogProcessor, LoggerProvider};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
-use opentelemetry_sdk::trace::{BatchConfig, Sampler, TracerProvider};
+use opentelemetry_sdk::trace::{Sampler, TracerProvider};
 use opentelemetry_sdk::{runtime, Resource};
 use opentelemetry_semantic_conventions::resource as semres;
 
@@ -126,7 +126,6 @@ pub fn init(cfg: Config) -> Result<ObsGuard, Error> {
         .with_resource(resource.clone())
         .with_sampler(sampler)
         .with_batch_exporter(span_exporter, runtime::Tokio)
-        .with_batch_config(BatchConfig::default())
         .build();
     global::set_tracer_provider(tracer_provider.clone());
     global::set_text_map_propagator(TraceContextPropagator::new());
@@ -151,7 +150,7 @@ fn build_resource(cfg: &Config) -> Resource {
         attrs.push(KeyValue::new(semres::SERVICE_VERSION, v.clone()));
     }
     if let Some(env) = cfg.environment.as_ref() {
-        attrs.push(KeyValue::new(semres::DEPLOYMENT_ENVIRONMENT_NAME, env.clone()));
+        attrs.push(KeyValue::new("deployment.environment", env.clone()));
     }
     if let Some(pid) = cfg.project_id.as_ref() {
         attrs.push(KeyValue::new(crate::project::PROJECT_ID_ATTRIBUTE, pid.clone()));

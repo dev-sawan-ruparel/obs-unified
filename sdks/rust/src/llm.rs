@@ -9,7 +9,7 @@ use std::future::Future;
 
 use opentelemetry::global;
 use opentelemetry::trace::{
-    SpanKind, Status, Tracer as _, TracerProvider as _,
+    Span as _, SpanKind, Status, Tracer as _, TracerProvider as _,
 };
 use opentelemetry::KeyValue;
 
