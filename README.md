@@ -210,10 +210,28 @@ click "Start replay" once.
 | Package | Purpose |
 |---------|---------|
 | `@obs/collector` | Collector service — receives telemetry, stores in D1/SQLite, serves dashboard |
-| `@obs/telemetry-sdk` | Backend SDK — structured logging, request spans, AI call tracking |
+| `@obs/telemetry-sdk` | Backend SDK (Cloudflare Workers) — structured logging, request spans, D1/R2/fetch wrappers, AI call tracking |
 | `@obs/analytics-sdk` | Frontend SDK — page views, interactions, errors, session replay |
 | `@obs/dashboard` | Dashboard UI — React components (also serves as standalone SPA) |
 | `@obs/types` | Shared TypeScript types and constants |
+
+## Polyglot SDKs ([`sdks/`](./sdks))
+
+Thin OpenTelemetry SDK wrappers for non-Workers languages. They configure
+the standard OTel SDK to point at this collector and add OpenInference
+helpers for LLM/tool spans and project propagation. HTTP / DB / RPC
+auto-instrumentation comes from the OTel ecosystem of each language.
+
+| Language | Path | Package |
+|---|---|---|
+| Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obs-unified/sdk` |
+| Go | [`sdks/go`](./sdks/go) | `github.com/obs-unified/obs-unified/sdks/go` |
+| Rust | [`sdks/rust`](./sdks/rust) | `obs-unified` |
+
+Each SDK exposes the same surface — see [`sdks/README.md`](./sdks/README.md)
+for the cross-language API map. The instrumentation philosophy (what's
+auto vs. manual, when to annotate, how span nesting works) is documented
+once in [`packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md`](./packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md).
 
 ## Framework Examples
 

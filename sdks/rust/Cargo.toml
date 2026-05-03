@@ -1,0 +1,27 @@
+[package]
+name = "obs-unified"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Thin OpenTelemetry SDK wrapper for obs-unified — adds OpenInference LLM/tool helpers, project propagation, and one-line OTLP setup."
+license = "MIT"
+repository = "https://github.com/obs-unified/obs-unified"
+readme = "README.md"
+keywords = ["opentelemetry", "tracing", "observability", "llm", "openinference"]
+categories = ["development-tools::debugging"]
+
+[dependencies]
+opentelemetry = { version = "0.27", features = ["trace", "logs"] }
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace", "logs"] }
+opentelemetry-otlp = { version = "0.27", features = ["http-proto", "reqwest-client", "logs"] }
+opentelemetry-semantic-conventions = "0.27"
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"

@@ -1,0 +1,47 @@
+{
+	"name": "@obs-unified/sdk",
+	"version": "0.1.0",
+	"description": "Thin OpenTelemetry SDK wrapper for obs-unified — adds OpenInference LLM/tool helpers, project propagation, and one-line OTLP setup.",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": ["dist", "src", "README.md"],
+	"scripts": {
+		"build": "tsc",
+		"type-check": "tsc --noEmit",
+		"prepublishOnly": "pnpm build"
+	},
+	"keywords": [
+		"opentelemetry",
+		"otel",
+		"observability",
+		"openinference",
+		"llm",
+		"tracing",
+		"obs-unified"
+	],
+	"license": "MIT",
+	"dependencies": {
+		"@opentelemetry/api": "^1.9.0",
+		"@opentelemetry/exporter-logs-otlp-http": "^0.55.0",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
+		"@opentelemetry/resources": "^1.28.0",
+		"@opentelemetry/sdk-logs": "^0.55.0",
+		"@opentelemetry/sdk-node": "^0.55.0",
+		"@opentelemetry/sdk-trace-base": "^1.28.0",
+		"@opentelemetry/semantic-conventions": "^1.28.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"typescript": "^5.6.0"
+	},
+	"engines": {
+		"node": ">=18"
+	}
+}
