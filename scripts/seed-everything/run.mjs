@@ -21,6 +21,12 @@
  */
 
 import process from "node:process";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+
+// Get a tracer scoped to the seeder. The actual provider was set up in
+// `instrumentation.mjs` (loaded via --import). When run without that
+// loader, this returns a no-op tracer and every wrap is a pass-through.
+const tracer = trace.getTracer("obs-seeder");
 
 // ── args ────────────────────────────────────────────────────────────
 
@@ -52,22 +58,34 @@ const err = (s) => `\x1b[31m${s}\x1b[0m`;
 
 const step = async (label, fn) => {
 	process.stdout.write(`  ${label.padEnd(38)} `);
-	try {
-		const result = await fn();
-		// Result can be a plain string or a richer object that exposes a
-		// `.summary` field for display while passing other data through.
-		const display =
-			typeof result === "string"
-				? result
-				: result && typeof result === "object" && "summary" in result
-					? result.summary
-					: "";
-		console.log(ok("✓"), display ? dim(`(${display})`) : "");
-		return result;
-	} catch (e) {
-		console.log(err(`✗ ${e.message}`));
-		return null;
-	}
+	// Wrap the step in a span. Anything fn does — including the outbound
+	// fetches that undici instrumentation will trace — becomes children
+	// of this span, so the seed run shows up in obs-dashboard as a
+	// labelled tree of phases.
+	const spanName = `seed.${label.split(/\s/)[0].toLowerCase()}`;
+	return tracer.startActiveSpan(spanName, async (span) => {
+		span.setAttribute("seed.label", label);
+		try {
+			const result = await fn();
+			const display =
+				typeof result === "string"
+					? result
+					: result && typeof result === "object" && "summary" in result
+						? result.summary
+						: "";
+			if (display) span.setAttribute("seed.summary", display);
+			span.setStatus({ code: SpanStatusCode.OK });
+			console.log(ok("✓"), display ? dim(`(${display})`) : "");
+			return result;
+		} catch (e) {
+			span.recordException(e);
+			span.setStatus({ code: SpanStatusCode.ERROR, message: e.message });
+			console.log(err(`✗ ${e.message}`));
+			return null;
+		} finally {
+			span.end();
+		}
+	});
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -640,28 +658,47 @@ console.log(`  ${dim("password:")}  ${PASSWORD}`);
 console.log(`  ${dim("rounds:")}    ${ROUNDS}`);
 console.log();
 
-const cookie = await step("login to dashboard auth", dashboardLogin);
-if (!cookie) {
-	console.error(err("\n  cannot continue without dashboard auth — exiting"));
-	process.exit(1);
-}
+await tracer.startActiveSpan("seed.run", async (rootSpan) => {
+	rootSpan.setAttribute("seed.collector_url", COLLECTOR);
+	rootSpan.setAttribute("seed.demo_url", DEMO);
+	rootSpan.setAttribute("seed.rounds", ROUNDS);
 
-// Seed usage first so we have session windows. Spans + logs then get
-// stamped with session.id matching those windows — that's what makes the
-// Timeline tab show a real cross-signal join (frontend events alongside
-// backend spans/logs in the same session).
-const usageResult = await step(
-	"usage / sessions / timeline (/v1/usage)",
-	seedUsage,
-);
-const sessionWindows = usageResult?.sessions ?? [];
+	try {
+		const cookie = await step("login to dashboard auth", dashboardLogin);
+		if (!cookie) {
+			console.error(
+				err("\n  cannot continue without dashboard auth — exiting"),
+			);
+			rootSpan.setStatus({
+				code: SpanStatusCode.ERROR,
+				message: "dashboard auth failed",
+			});
+			process.exit(1);
+		}
 
-await step("traces / service map / issues (/v1/traces)", () =>
-	seedTraces(sessionWindows),
-);
-await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
-await step("AI calls (/v1/traces with LLM kind)", seedAi);
-await step("alert rules (/internal/alerts/rules)", () => seedAlerts(cookie));
+		// Seed usage first so we have session windows. Spans + logs then get
+		// stamped with session.id matching those windows — that's what makes
+		// the Timeline tab show a real cross-signal join (frontend events
+		// alongside backend spans/logs in the same session).
+		const usageResult = await step(
+			"usage / sessions / timeline (/v1/usage)",
+			seedUsage,
+		);
+		const sessionWindows = usageResult?.sessions ?? [];
+
+		await step("traces / service map / issues (/v1/traces)", () =>
+			seedTraces(sessionWindows),
+		);
+		await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
+		await step("AI calls (/v1/traces with LLM kind)", seedAi);
+		await step("alert rules (/internal/alerts/rules)", () =>
+			seedAlerts(cookie),
+		);
+		rootSpan.setStatus({ code: SpanStatusCode.OK });
+	} finally {
+		rootSpan.end();
+	}
+});
 
 console.log();
 console.log(`  ${ok("done.")} open http://localhost:5173 to see populated tabs`);

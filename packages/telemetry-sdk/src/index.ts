@@ -105,6 +105,8 @@ export {
 	type ChildSpan,
 	createRequestSpan,
 	getActiveSpan,
+	type IncomingTraceContext,
+	parseTraceparent,
 	type RequestSpan,
 	runWithSpan,
 	withChildSpan,

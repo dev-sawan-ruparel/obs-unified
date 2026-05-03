@@ -75,11 +75,46 @@ interface ChildSpanRecord {
 	statusMessage?: string;
 }
 
+/**
+ * Parsed inbound trace context. Pass this to `createRequestSpan` to make
+ * the new root span a continuation of the caller's trace — preserves the
+ * trace_id and links via parent_span_id, so distributed traces land as
+ * one tree across services.
+ *
+ * The W3C traceparent header format is `00-<traceId>-<parentSpanId>-<flags>`.
+ * Use {@link parseTraceparent} to convert the header value to this shape.
+ */
+export interface IncomingTraceContext {
+	traceId: string;
+	parentSpanId: string;
+}
+
+const TRACEPARENT_RE =
+	/^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
+
+/**
+ * Parse a W3C traceparent header. Returns `undefined` when the header is
+ * missing or malformed — callers should fall through to generating a
+ * fresh trace id in that case.
+ */
+export const parseTraceparent = (
+	header: string | null | undefined,
+): IncomingTraceContext | undefined => {
+	if (!header) return undefined;
+	const m = TRACEPARENT_RE.exec(header.trim().toLowerCase());
+	if (!m) return undefined;
+	const [, traceId, parentSpanId] = m;
+	// Reject all-zero ids per spec.
+	if (/^0+$/.test(traceId) || /^0+$/.test(parentSpanId)) return undefined;
+	return { traceId, parentSpanId };
+};
+
 export function createRequestSpan(
 	serviceName: string,
 	spanName: string,
+	incoming?: IncomingTraceContext,
 ): RequestSpan {
-	const traceId = generateId(16);
+	const traceId = incoming?.traceId ?? generateId(16);
 	const spanId = generateId(8);
 	const startTimeUnixNano = nowNano();
 	let endTimeUnixNano: string | undefined;
@@ -164,6 +199,9 @@ export function createRequestSpan(
 									{
 										traceId,
 										spanId,
+										...(incoming
+											? { parentSpanId: incoming.parentSpanId }
+											: {}),
 										name: spanName,
 										kind: 2,
 										startTimeUnixNano,

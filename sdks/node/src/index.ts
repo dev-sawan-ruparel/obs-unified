@@ -1,5 +1,5 @@
 // ── Init ─────────────────────────────────────────────────────────────────────
-export { type InitConfig, init, type Shutdown } from "./init";
+export { type InitConfig, init, type Shutdown } from "./init.js";
 
 // ── LLM + tool spans (OpenInference) ─────────────────────────────────────────
 export {
@@ -9,7 +9,7 @@ export {
 	type ToolSpanHandle,
 	withLLMSpan,
 	withToolSpan,
-} from "./llm";
+} from "./llm.js";
 
 // ── Project-id propagation ───────────────────────────────────────────────────
 export {
@@ -17,4 +17,4 @@ export {
 	PROJECT_ID_ATTRIBUTE,
 	PROJECT_ID_HEADER,
 	setProjectId,
-} from "./project";
+} from "./project.js";

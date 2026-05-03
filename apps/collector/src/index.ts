@@ -13,6 +13,7 @@ import {
 	flushAICalls,
 	flushLogs,
 	initObservability,
+	parseTraceparent,
 	type RequestSpan,
 	runWithSpan,
 	withChildSpan,
@@ -257,9 +258,16 @@ export default {
 		}
 
 		const url = new URL(request.url);
+		// Continue the caller's trace when they sent a W3C traceparent
+		// header — preserves trace_id and links via parent_span_id, so
+		// distributed traces from instrumented Node/Go/Rust services land
+		// as one tree rather than disconnected fragments. Falls back to
+		// minting a fresh trace id when the header is absent or invalid.
+		const incoming = parseTraceparent(request.headers.get("traceparent"));
 		const span = createRequestSpan(
 			SELF_SERVICE_NAME,
 			`${request.method} ${url.pathname}`,
+			incoming,
 		);
 		span.setAttribute("http.request.method", request.method);
 		span.setAttribute("url.path", url.pathname);
