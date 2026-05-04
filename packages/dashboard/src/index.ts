@@ -14,6 +14,11 @@ export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { ProjectSwitcher } from "./components/ProjectSwitcher";
 export { GlobalSearch, TimeRangePicker } from "./components/TopBar";
 export { AskBox } from "./components/AskBox";
+export {
+	ConnectedRail,
+	type ConnectedEntityKind,
+	type ConnectedRailProps,
+} from "./components/ConnectedRail";
 export { FilterPanel, FilterGroup } from "./components/FilterPanel";
 export { Button } from "./components/Button";
 export type { ButtonVariant, ButtonSize } from "./components/Button";

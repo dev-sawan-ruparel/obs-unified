@@ -11,6 +11,7 @@ import {
 	binByInterval,
 } from "../components/primitives";
 import { Button } from "../components/Button";
+import { ConnectedRail } from "../components/ConnectedRail";
 import { Input, Select } from "../components/forms";
 import { StateRow } from "../components/states";
 
@@ -987,8 +988,19 @@ function TraceDetailView({
 									{s.durationMs}ms
 								</span>
 							</div>
-							{/* Expanded span detail */}
-							{isExpanded && <SpanView span={s} />}
+							{/* Expanded span detail + RFC 0006 connected rail */}
+							{isExpanded && (
+								<div className="flex gap-2 ml-6 mr-2">
+									<div className="flex-1 min-w-0">
+										<SpanView span={s} />
+									</div>
+									<ConnectedRail
+										entityKind="span"
+										entityId={`${s.traceId}:${s.spanId}`}
+										traceId={s.traceId}
+									/>
+								</div>
+							)}
 						</div>
 					);
 				})}

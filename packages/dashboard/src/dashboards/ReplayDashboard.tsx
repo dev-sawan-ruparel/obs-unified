@@ -3,6 +3,7 @@ import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import { useDashboard } from "../provider";
 import { Button } from "../components/Button";
+import { ConnectedRail } from "../components/ConnectedRail";
 import { Input } from "../components/forms";
 
 const fmtTs = (iso: string) => {
@@ -460,6 +461,16 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 									)}
 								</div>
 							</div>
+
+							{/* RFC 0006 — connected rail for the session itself.
+							    Complements the interactions panel above which is
+							    session-scoped click→trace; this rail surfaces the
+							    rest of the identity-graph (logs, AI calls, etc.). */}
+							<ConnectedRail
+								entityKind="replay"
+								entityId={selected.session.sessionId}
+								sessionId={selected.session.sessionId}
+							/>
 
 							<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
 								<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
