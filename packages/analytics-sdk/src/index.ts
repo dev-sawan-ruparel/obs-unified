@@ -8,3 +8,12 @@ export {
 	withInteractionContext,
 	withInteractionContextAsync,
 } from "./interaction";
+
+// RFC 0004 — Mode A auto-propagation. The React provider installs this
+// automatically when `autoCorrelate` is enabled (default). Exported here
+// for non-React hosts that want to wire it up themselves.
+export {
+	INTERACTION_HEADER,
+	installAutoCorrelate,
+	type InstallAutoCorrelateOptions,
+} from "./auto-correlate";
