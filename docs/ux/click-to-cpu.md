@@ -277,6 +277,88 @@ A different starting point exercising the same shape — proving the "any-to-any
 
 ---
 
+## Scenario C — futex contention (eBPF)
+
+Validates the kernel-level layer. A trace shows an unexplained 200ms pause inside a span; the rail surfaces an off-CPU profile that explains it. **Requires Phase 5 ebpf integration to be live.**
+
+### Setup
+
+A user reports the dashboard's `/api/checkout` endpoint is intermittently slow. p95 has crept up but no service-level alert has fired.
+
+### Step 1 — Trace waterfall, the suspicious span
+
+```
+URL: /traces/c8d3f1…                                  ┌─ Connected rail ──────────────┐
+                                                      │                                │
+  POST /api/checkout · trace c8d3f1…                  │  Up:                           │
+  Total wall: 540ms · 8 spans · self-time 220ms       │   ▸ User session sess-3a91     │
+  ⚠ UNINSTRUMENTED 1   🔥 PROFILES 2                  │                                │
+                                                      │  Across:                       │
+  ┌─────────────────────────────────────────────┐     │   ▸ 12 logs in this trace     │
+  │ POST /api/checkout    ████ 540ms            │     │                                │
+  │  ├ db.query users     █ 12ms                │     │  Down:                         │
+  │  ├ inventory.reserve  ████████ 320ms 🔥 ⚠  │     │   ▸ 🔥 cpu profile            │
+  │  └ db.write order     █ 18ms                │     │   ▸ 🔥 off-cpu profile ←      │
+  └─────────────────────────────────────────────┘     │                                │
+                                                      │  Related:                      │
+  ⚠ inventory.reserve — self_ms 280ms / 320ms (87%)   │   ▸ Originating click          │
+     children may be missing instrumentation          │     (rrweb event)             │
+                                                      └────────────────────────────────┘
+
+  ◀ Click "🔥 off-cpu profile" — the suspicious span has no children
+    accounting for the time, but on-CPU profiling shows almost no
+    activity either. Off-CPU is the next layer.
+```
+
+### Step 2 — Off-CPU flame graph
+
+```
+URL: /profiles/prof-7e44?trace=c8d3f1…&type=offcpu      ┌─ Connected rail ──────────────┐
+                                                        │                                │
+  Off-CPU profile prof-7e44 · inventory-svc             │  Up:                           │
+  Window: 12:05:00 — 12:06:00                           │   ▸ Span inventory.reserve    │
+  Filter: trace_id = c8d3f1… (28 of 14,200 samples)     │   ▸ Trace c8d3f1…             │
+                                                        │                                │
+  ┌─────────────────────────────────────────────┐       │  Across:                       │
+  │  inventory.reserve → grpc.call → …          │       │   ▸ Other off-cpu profiles    │
+  │  └ futex_wait_queue                  84%  ⚑│       │     in this 5-min window      │
+  │    └ pthread_mutex_lock              84%   │       │                                │
+  │      └ inventory_pool::checkout      84%   │       │  Down: —                       │
+  │  └ epoll_wait                         12%  │       │                                │
+  │  └ (others)                            4%  │       │  Related:                      │
+  └─────────────────────────────────────────────┘       │   ▸ Same flame graph for     │
+                                                        │     full profile (no filter)  │
+  ⚑ inventory_pool::checkout holds a global mutex.      │                                │
+     280ms of off-CPU time waiting for it to release.   │                                │
+                                                        └────────────────────────────────┘
+
+  Insight: a single pool-wide mutex serializes every checkout. Split
+  the pool into shards or move to lock-free reservation.
+```
+
+### Step 3 — Confirming with concurrent traces
+
+The rail shows "Other off-cpu profiles in this 5-min window." Clicking through reveals the same `futex_wait_queue` pattern across 14 other in-flight `inventory.reserve` spans during the slow period — confirming this is contention, not a single-request anomaly.
+
+### What this exercises
+
+- **eBPF off-CPU profiling** (Phase 4 + 5): the kernel-level layer of the unified stack.
+- **Profile→trace join** (`profile_trace_index`): scoping the flame graph to one trace's samples instead of fleet-wide.
+- **The uninstrumented badge** (Phase 2.4): the original flag that pointed at `inventory.reserve` even before profiling was checked.
+- **The connected rail's "Down" section**: surfacing both CPU and off-CPU profiles next to a span that has neither child spans nor in-process attribution.
+
+### Status
+
+**Currently aspirational.** The pieces are in flight:
+- pprof ingest with `profile_type='offcpu'` ✅ (Phase 4.3)
+- Trace→profile join + 🔥 badge ✅ (Phase 4.6)
+- Off-CPU flame graph rendering ❌ (deferred with the rest of the flame-graph viewer; download via `?blob=true` and view in `pprof -http`)
+- Beyla / OTel-eBPF-Profiler integration recipes ✅ ([docs/howto/ebpf.md](../howto/ebpf.md))
+
+When the dashboard's flame-graph viewer lands, this scenario runs end-to-end against demo traffic. Until then, treat it as the design contract these RFCs collectively make good on.
+
+---
+
 ## The any-to-any matrix
 
 The product test in RFC 0003: from any starting entity, every neighbor is reachable in ≤ 2 clicks. Concretely:
