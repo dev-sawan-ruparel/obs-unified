@@ -5,6 +5,7 @@ import type {
 	AnalysisStatus,
 } from "@obs/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConnectedRail } from "../components/ConnectedRail";
 import { Tag, type TagTone } from "../components/Tag";
 import { useApi, useRawFetch } from "../use-api";
 
@@ -302,6 +303,16 @@ export function InvestigationPage({
 				{result
 					? `last run ${new Date(result.generatedAt).toLocaleString()}`
 					: "never run"}
+			</div>
+
+			{/* RFC 0006 — connected rail. Investigations are topic-related,
+			    not identity-related; the rail surfaces alerts bound to this
+			    analysis and recent narratives via the manifest endpoint. */}
+			<div className="mt-3">
+				<ConnectedRail
+					entityKind="analysis"
+					entityId={definition.id}
+				/>
 			</div>
 		</div>
 	);
