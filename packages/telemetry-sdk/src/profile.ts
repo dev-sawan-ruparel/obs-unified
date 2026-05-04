@@ -70,6 +70,130 @@ export interface PushProfileResult {
 	traceIdsIndexed: number;
 }
 
+// ── startProfiler — auto-loop wrapper ────────────────────────────────
+
+/**
+ * A profiler-agnostic capture function. Returns the gzipped pprof bytes
+ * for one sampling window plus the distinct trace_ids encountered (so
+ * the loop can pass them to `pushProfile`'s `traceIds` for the index;
+ * the collector now also extracts these at ingest, but supplying them
+ * here saves the worker a parse).
+ */
+export interface ProfileCapture {
+	blob: Uint8Array | ArrayBuffer | Buffer;
+	traceIds?: string[];
+	startTimestamp?: Date;
+	durationMs?: number;
+}
+
+export interface StartProfilerOptions {
+	collectorUrl: string;
+	apiKey: string;
+	serviceName: string;
+	profileType: PushProfileOptions["profileType"];
+	/** ms between sampling windows. Default 60_000. */
+	intervalMs?: number;
+	/** "datadog-pprof", "go-runtime-pprof", "pyroscope-java", etc. */
+	agent?: string;
+	/** Self-instrumentation passthrough. */
+	extraHeaders?: Record<string, string>;
+	/**
+	 * Capture one window of pprof bytes. RFC 0007 deliberately does NOT
+	 * bundle a profiler — supply the wrapper for whichever library you
+	 * picked (`@datadog/pprof` for Node, `pprof-rs` for Rust via Wasm,
+	 * etc.). See docs/howto/profiling.md for per-language recipes.
+	 */
+	capture: () => Promise<ProfileCapture>;
+	/** Optional callback for push errors — defaults to console.warn. */
+	onError?: (err: unknown) => void;
+}
+
+export interface ProfilerHandle {
+	stop: () => void;
+}
+
+/**
+ * Auto-loop helper that captures + pushes profiles on an interval. Wraps
+ * `pushProfile` and owns the timer; the actual sampling library is
+ * injected via `capture`. Returns a handle whose `stop()` halts the
+ * loop (any in-flight push completes first).
+ *
+ *   import { time, encode } from "@datadog/pprof";
+ *   import { startProfiler } from "@obs/telemetry-sdk";
+ *
+ *   const handle = startProfiler({
+ *     collectorUrl: process.env.OBS_COLLECTOR_URL!,
+ *     apiKey: process.env.OBS_INGEST_KEY!,
+ *     serviceName: "my-api",
+ *     profileType: "cpu",
+ *     intervalMs: 60_000,
+ *     agent: "datadog-pprof",
+ *     capture: async () => {
+ *       const profile = await time.profile({ durationMillis: 60_000 });
+ *       return { blob: await encode(profile), durationMs: 60_000 };
+ *     },
+ *   });
+ *
+ * Idempotent stop. Safe to call in non-Node environments — the timer
+ * unrefs so a process finishing other work doesn't hang.
+ */
+export function startProfiler(opts: StartProfilerOptions): ProfilerHandle {
+	const intervalMs = opts.intervalMs ?? 60_000;
+	const onError =
+		opts.onError ??
+		((err: unknown) => {
+			// Default surface — a profiling failure shouldn't bubble into
+			// the host service's error path.
+			// biome-ignore lint/suspicious/noConsole: best-effort fallback
+			console.warn("[obs/telemetry-sdk] startProfiler push failed", err);
+		});
+
+	let stopped = false;
+	let inFlight: Promise<unknown> | null = null;
+
+	const tick = async () => {
+		if (stopped) return;
+		try {
+			const capture = await opts.capture();
+			if (stopped) return;
+			inFlight = pushProfile({
+				collectorUrl: opts.collectorUrl,
+				apiKey: opts.apiKey,
+				serviceName: opts.serviceName,
+				profileType: opts.profileType,
+				blob: capture.blob,
+				traceIds: capture.traceIds,
+				agent: opts.agent,
+				startTimestamp: capture.startTimestamp,
+				durationMs: capture.durationMs,
+				extraHeaders: opts.extraHeaders,
+			});
+			await inFlight;
+		} catch (err) {
+			onError(err);
+		} finally {
+			inFlight = null;
+		}
+	};
+
+	// Fire-and-forget initial tick; subsequent ticks fire on the timer.
+	void tick();
+	const timer = setInterval(() => {
+		void tick();
+	}, intervalMs);
+	if (typeof timer.unref === "function") timer.unref();
+
+	return {
+		stop: () => {
+			stopped = true;
+			clearInterval(timer);
+			// Caller may want to await the in-flight push; we expose it
+			// via a then-able since stop() itself is sync.
+			void inFlight;
+		},
+	};
+}
+
 const toUint8 = (
 	blob: Uint8Array | ArrayBuffer | Buffer,
 ): Uint8Array =>

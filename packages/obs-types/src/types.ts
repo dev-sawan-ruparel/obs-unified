@@ -107,6 +107,14 @@ export interface StoredSpan {
 	 * where the SDK couldn't propagate (Mode B not used).
 	 */
 	interactionId?: string | null;
+	/**
+	 * RFC 0009 — denormalized from resource_attributes["telemetry.sdk.name"]
+	 * at ingest. Drives the service map's source filter: spans with
+	 * `telemetry_sdk_name = "beyla"` are considered eBPF-derived; anything
+	 * else (including null) is treated as SDK-derived. Lets users isolate
+	 * kernel-observed traffic without re-parsing JSON on every map render.
+	 */
+	telemetrySdkName?: string | null;
 }
 
 // ── Database Row Types ──

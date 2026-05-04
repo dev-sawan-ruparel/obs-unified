@@ -58,10 +58,18 @@ export const queryRoutesPlugin: CollectorPlugin = {
 				),
 			);
 			const store = runtime.createStore(c.env);
-			const map = await store.getServiceMap({ projectId, hours });
+			// RFC 0009 — `?source=sdk|ebpf|all` toggles which spans
+			// contribute. Default is `all` so existing dashboards see
+			// every edge. The dashboard's service-map view exposes the
+			// filter as a UI toggle.
+			const sourceParam = c.req.query("source");
+			const source: "all" | "sdk" | "ebpf" =
+				sourceParam === "sdk" || sourceParam === "ebpf" ? sourceParam : "all";
+			const map = await store.getServiceMap({ projectId, hours, source });
 			return c.json({
 				...map,
 				windowHours: hours,
+				source,
 				timestamp: new Date().toISOString(),
 			});
 		});
