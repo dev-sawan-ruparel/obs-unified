@@ -19,6 +19,10 @@ export {
 	type ConnectedEntityKind,
 	type ConnectedRailProps,
 } from "./components/ConnectedRail";
+export {
+	FlameGraph,
+	type FlameGraphProps,
+} from "./components/flame-graph/FlameGraph";
 export { FilterPanel, FilterGroup } from "./components/FilterPanel";
 export { Button } from "./components/Button";
 export type { ButtonVariant, ButtonSize } from "./components/Button";

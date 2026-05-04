@@ -13,6 +13,7 @@ import {
 } from "../components/primitives";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
+import { FlameGraph } from "../components/flame-graph/FlameGraph";
 import { Input, Select } from "../components/forms";
 import { StateRow } from "../components/states";
 
@@ -853,6 +854,7 @@ function TraceDetailView({
 			durationMs: number;
 		}>
 	>([]);
+	const [openProfileId, setOpenProfileId] = useState<string | null>(null);
 	useEffect(() => {
 		api<{
 			profiles: Array<{
@@ -865,6 +867,7 @@ function TraceDetailView({
 			.then((r) => setProfileMatches(r.profiles ?? []))
 			.catch(() => {});
 	}, [api, meta.traceId]);
+	const openProfile = profileMatches.find((p) => p.id === openProfileId);
 
 	return (
 		<div className="space-y-4">
@@ -909,15 +912,19 @@ function TraceDetailView({
 						<span className="opacity-100">{asyncParents}</span>
 					</span>
 				)}
-				{profileMatches.length > 0 && (
-					<span
-						className="text-sys-primary"
-						title={`${profileMatches.length} pprof profile(s) cover this trace. Click a row's badge to scope to that span.`}
+				{profileMatches.map((p) => (
+					<button
+						key={p.id}
+						type="button"
+						className={`text-sys-primary cursor-pointer underline hover:bg-sys-primary hover:text-white px-1 py-0.5 transition-none ${openProfileId === p.id ? "bg-sys-primary text-white" : ""}`}
+						onClick={() =>
+							setOpenProfileId(openProfileId === p.id ? null : p.id)
+						}
+						title={`Open ${p.profileType} flame graph for ${p.serviceName ?? "?"} (${p.durationMs}ms window). Scoped to this trace.`}
 					>
-						🔥 PROFILES{" "}
-						<span className="font-bold">{profileMatches.length}</span>
-					</span>
-				)}
+						🔥 {p.serviceName ?? "?"}/{p.profileType}
+					</button>
+				))}
 				{meta.errorSpanCount > 0 && (
 					<span className="text-sys-error">
 						ERRORS{" "}
@@ -936,6 +943,34 @@ function TraceDetailView({
 					Copy JSON
 				</button>
 			</div>
+
+			{/* RFC 0007 Phase 4.7 — flame graph viewer.
+			    Renders inline when the user clicks a 🔥 badge in the
+			    summary header. Scoped to this trace's samples via
+			    traceIdFilter so the rendered tree shows only what
+			    contributed to the open trace, not the full profile. */}
+			{openProfile && (
+				<div className="bg-sys-surface border border-sys-surface-low">
+					<div className="flex items-center gap-3 px-3 py-2 border-b border-sys-surface-low">
+						<span className="text-[0.75rem] font-bold opacity-70">
+							Flame graph · {openProfile.serviceName ?? "?"}/{openProfile.profileType}
+						</span>
+						<button
+							type="button"
+							onClick={() => setOpenProfileId(null)}
+							className="ml-auto text-[0.75rem] underline hover:text-sys-primary cursor-pointer"
+						>
+							Close
+						</button>
+					</div>
+					<FlameGraph
+						profileId={openProfile.id}
+						traceIdFilter={meta.traceId}
+						profileType={openProfile.profileType as "cpu" | "heap" | "wall" | "block" | "mutex" | "goroutine" | "offcpu"}
+						title={`Profile prof-${openProfile.id.slice(0, 8)} · scoped to trace`}
+					/>
+				</div>
+			)}
 
 			{/* Waterfall — always show, click row to expand span */}
 			<div className="bg-sys-surface p-2 border border-sys-surface-low">
