@@ -109,6 +109,59 @@ export const parseTraceparent = (
 	return { traceId, parentSpanId };
 };
 
+// ── RFC 0004 — interaction_id propagation ─────────────────────────────
+
+/** Standard span-attribute key for the click-scoped correlation id. */
+export const INTERACTION_ATTRIBUTE_KEY = "obs.interaction.id";
+
+/** Header name set by `@obs/analytics-sdk` on outbound requests. */
+export const INTERACTION_HEADER_NAME = "x-obs-interaction";
+
+const INTERACTION_ID_RE = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
+
+/**
+ * Parse + validate the `x-obs-interaction` header. Returns `undefined`
+ * when missing, empty, or malformed (not a 26-char Crockford-base32
+ * string). Reject malformed values rather than letting them flow through
+ * — a wrong interaction_id stamps the wrong join.
+ *
+ * Accepts whatever the host runtime exposes for headers — Hono's
+ * `c.req.header(...)`, Node's `req.headers[...]`, or a raw value pulled
+ * from a Headers instance — all return string | null | undefined which
+ * this function handles uniformly.
+ */
+export const parseInteractionHeader = (
+	header: string | null | undefined,
+): string | undefined => {
+	if (!header) return undefined;
+	const trimmed = header.trim();
+	if (!INTERACTION_ID_RE.test(trimmed)) return undefined;
+	return trimmed;
+};
+
+/**
+ * Convenience: stamp the interaction id from a request's headers onto a
+ * span. No-op when the header is missing or invalid. Idempotent — safe
+ * to call from multiple middleware layers.
+ *
+ *   const span = createRequestSpan(...);
+ *   stampInteractionFromRequest(span, request);
+ */
+export const stampInteractionFromRequest = (
+	span: { setAttribute(key: string, value: unknown): void },
+	request: Request | { headers: { get(name: string): string | null } | Headers },
+): string | undefined => {
+	const headers =
+		"headers" in request ? request.headers : (request as Request).headers;
+	const raw =
+		typeof headers.get === "function"
+			? headers.get(INTERACTION_HEADER_NAME)
+			: undefined;
+	const id = parseInteractionHeader(raw);
+	if (id !== undefined) span.setAttribute(INTERACTION_ATTRIBUTE_KEY, id);
+	return id;
+};
+
 export function createRequestSpan(
 	serviceName: string,
 	spanName: string,

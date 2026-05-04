@@ -16,6 +16,7 @@ import {
 	parseTraceparent,
 	type RequestSpan,
 	runWithSpan,
+	stampInteractionFromRequest,
 	withChildSpan,
 	wrapD1,
 	wrapR2,
@@ -271,6 +272,10 @@ export default {
 		);
 		span.setAttribute("http.request.method", request.method);
 		span.setAttribute("url.path", url.pathname);
+		// RFC 0004 — propagate the click-scoped correlation id from the
+		// inbound x-obs-interaction header onto the root span. No-op
+		// when the header is absent or malformed.
+		stampInteractionFromRequest(span, request);
 
 		// Replace env.DB / env.REPLAYS_BUCKET with traced bindings for the
 		// duration of this request so plugins/handlers reading `c.env.*`

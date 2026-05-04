@@ -106,9 +106,13 @@ export {
 	createRequestSpan,
 	getActiveSpan,
 	type IncomingTraceContext,
+	INTERACTION_ATTRIBUTE_KEY,
+	INTERACTION_HEADER_NAME,
+	parseInteractionHeader,
 	parseTraceparent,
 	type RequestSpan,
 	runWithSpan,
+	stampInteractionFromRequest,
 	withChildSpan,
 } from "./span";
 
