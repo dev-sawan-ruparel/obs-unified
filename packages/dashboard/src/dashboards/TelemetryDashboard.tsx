@@ -175,9 +175,28 @@ const SPAN_KIND: Record<number, string> = {
 // api helper is now provided via useDashboard context
 
 // Build a tree of spans for indented display
-function buildSpanTree(
-	spans: SpanDetail[],
-): Array<SpanDetail & { depth: number }> {
+/**
+ * RFC 0005 — derived self-time + async-parent flag.
+ *
+ * `selfMs` = wall - sum(children's wall). Clamped to 0 for "async parents"
+ * where children's durations exceed the parent's window (fan-out work
+ * that doesn't sum into the parent's wall-clock). The async flag drives
+ * a striped visualization that warns the viewer "self-time isn't
+ * meaningful for this row."
+ *
+ * `selfRatio` is selfMs/durationMs in [0, 1] — the bar visualization
+ * uses this to overlay a darker self-time portion on the light child
+ * portion.
+ */
+type SpanTreeNode = SpanDetail & {
+	depth: number;
+	selfMs: number;
+	selfRatio: number;
+	asyncParent: boolean;
+	childCount: number;
+};
+
+function buildSpanTree(spans: SpanDetail[]): SpanTreeNode[] {
 	const byId = new Map(spans.map((s) => [s.spanId, s]));
 	const children = new Map<string | null, SpanDetail[]>();
 	for (const s of spans) {
@@ -186,26 +205,61 @@ function buildSpanTree(
 		children.get(parentKey)!.push(s);
 	}
 
-	const result: Array<SpanDetail & { depth: number }> = [];
+	const result: SpanTreeNode[] = [];
 	const walk = (parentId: string | null, depth: number) => {
 		const kids = children.get(parentId) ?? [];
 		// Sort by start time
 		kids.sort((a, b) => a.startTime.localeCompare(b.startTime));
 		for (const s of kids) {
-			result.push({ ...s, depth });
+			const myKids = children.get(s.spanId) ?? [];
+			const childWall = myKids.reduce((acc, c) => acc + c.durationMs, 0);
+			const rawSelf = s.durationMs - childWall;
+			const asyncParent = rawSelf < 0;
+			const selfMs = Math.max(0, rawSelf);
+			const selfRatio = s.durationMs > 0 ? selfMs / s.durationMs : 0;
+			result.push({
+				...s,
+				depth,
+				selfMs,
+				selfRatio,
+				asyncParent,
+				childCount: myKids.length,
+			});
 			walk(s.spanId, depth + 1);
 		}
 	};
 	walk(null, 0);
-	// If tree walk missed any (e.g. orphaned spans), add them
+	// If tree walk missed any (e.g. orphaned spans), add them.
+	// Orphans have no parent in the trace, so their self-time = full duration.
 	if (result.length < spans.length) {
 		const seen = new Set(result.map((s) => s.spanId));
 		for (const s of spans) {
-			if (!seen.has(s.spanId)) result.push({ ...s, depth: 0 });
+			if (!seen.has(s.spanId)) {
+				result.push({
+					...s,
+					depth: 0,
+					selfMs: s.durationMs,
+					selfRatio: 1,
+					asyncParent: false,
+					childCount: 0,
+				});
+			}
 		}
 	}
 	return result;
 }
+
+/**
+ * RFC 0005 Phase 2.4 — heuristic for "this span hides uninstrumented
+ * work, consider profiling or adding child spans." Threshold is the
+ * starting calibration in the RFC; tune against real demo data before
+ * leaving draft.
+ */
+const isLikelyUninstrumented = (s: SpanTreeNode): boolean =>
+	!s.asyncParent &&
+	s.durationMs > 100 &&
+	s.selfRatio > 0.7 &&
+	s.childCount < 2;
 
 // ── Main ──
 
@@ -778,6 +832,14 @@ function TraceDetailView({
 	const traceDuration = traceEnd - traceStart || 1;
 	const tree = buildSpanTree(spans);
 
+	// RFC 0005 — per-trace summary aggregates. self-time across all spans
+	// is the wall-clock that hides in span bodies (not yet broken out into
+	// children). The asyncParent count is informational so the user knows
+	// some self-time numbers are clamped.
+	const totalSelfMs = tree.reduce((acc, s) => acc + s.selfMs, 0);
+	const asyncParents = tree.filter((s) => s.asyncParent).length;
+	const uninstrumentedCount = tree.filter(isLikelyUninstrumented).length;
+
 	return (
 		<div className="space-y-4">
 			{/* Summary bar */}
@@ -795,6 +857,32 @@ function TraceDetailView({
 				<span className="opacity-60">
 					SPANS <span className="opacity-100">{spans.length}</span>
 				</span>
+				{/* RFC 0005 — self-time + uninstrumented hints in the trace summary */}
+				<span
+					className="opacity-60"
+					title="Wall-clock time spent in span bodies that isn't broken out into child spans. High self-time often means an unprofiled hot path."
+				>
+					SELF{" "}
+					<span className="opacity-100">{Math.round(totalSelfMs)}MS</span>
+				</span>
+				{uninstrumentedCount > 0 && (
+					<span
+						className="text-sys-warn"
+						title="Spans where most time is unaccounted for — consider adding child spans, or attaching a profile (RFC 0007)."
+					>
+						⚠ UNINSTRUMENTED{" "}
+						<span className="font-bold">{uninstrumentedCount}</span>
+					</span>
+				)}
+				{asyncParents > 0 && (
+					<span
+						className="opacity-60"
+						title="Spans whose children's wall-clock exceeds the parent's window — fan-out work where self-time is not meaningful."
+					>
+						ASYNC{" "}
+						<span className="opacity-100">{asyncParents}</span>
+					</span>
+				)}
 				{meta.errorSpanCount > 0 && (
 					<span className="text-sys-error">
 						ERRORS{" "}
@@ -826,6 +914,19 @@ function TraceDetailView({
 					const width = Math.max(((sEnd - sStart) / traceDuration) * 100, 1);
 					const isExpanded = expandedSpanId === s.spanId;
 					const isError = s.statusCode === 2;
+					// RFC 0005 \u2014 self-time portion of the bar. The full bar
+					// renders at lighter opacity (children's wall); the inner
+					// dark sub-bar shows self_ms as a fraction of the span's
+					// own width. For async parents (children exceed parent
+					// wall) we render diagonal stripes since self-time is not
+					// meaningful for that row.
+					const selfBarWidth = width * s.selfRatio;
+					const baseColor = isError
+						? "bg-sys-error"
+						: s.parentSpanId
+							? "bg-sys-outline"
+							: "bg-sys-primary";
+					const uninstrumented = isLikelyUninstrumented(s);
 					return (
 						<div key={s.spanId}>
 							<div
@@ -843,13 +944,44 @@ function TraceDetailView({
 									<span className={isError ? "text-sys-error" : ""}>
 										{s.spanName}
 									</span>
+									{uninstrumented && (
+										<span
+											className="ml-1 text-sys-warn"
+											title={`${Math.round(s.selfMs)}ms of ${s.durationMs}ms is unaccounted for. Consider adding child spans or attaching a profile.`}
+										>
+											\u26a0
+										</span>
+									)}
 								</span>
 								{/* Bar */}
 								<div className="relative h-[8px] min-w-0 flex-1 bg-sys-bg">
-									<div
-										className={`absolute top-0 h-full ${isError ? "bg-sys-error" : s.parentSpanId ? "bg-sys-outline" : "bg-sys-primary"}`}
-										style={{ left: `${left}%`, width: `${width}%` }}
-									/>
+									{s.asyncParent ? (
+										// Striped pattern signals "self-time not meaningful"
+										<div
+											className={`absolute top-0 h-full opacity-60`}
+											style={{
+												left: `${left}%`,
+												width: `${width}%`,
+												backgroundImage: `repeating-linear-gradient(45deg, var(--color-sys-outline) 0 4px, transparent 4px 8px), linear-gradient(${isError ? "var(--color-sys-error)" : "var(--color-sys-primary)"}, ${isError ? "var(--color-sys-error)" : "var(--color-sys-primary)"})`,
+												backgroundBlendMode: "normal",
+											}}
+											title={`Async parent \u2014 children's wall (${Math.round(s.durationMs - s.selfMs)}ms) exceeds parent's window. Self-time clamped to 0.`}
+										/>
+									) : (
+										<>
+											{/* Lighter "outer" bar = full wall-clock */}
+											<div
+												className={`absolute top-0 h-full ${baseColor} opacity-30`}
+												style={{ left: `${left}%`, width: `${width}%` }}
+											/>
+											{/* Darker "inner" bar = self-time only */}
+											<div
+												className={`absolute top-0 h-full ${baseColor}`}
+												style={{ left: `${left}%`, width: `${selfBarWidth}%` }}
+												title={`Self ${Math.round(s.selfMs)}ms / ${s.durationMs}ms wall (${Math.round(s.selfRatio * 100)}%)`}
+											/>
+										</>
+									)}
 								</div>
 								<span className="w-16 flex-none text-right font-mono text-[0.75rem] opacity-60">
 									{s.durationMs}ms

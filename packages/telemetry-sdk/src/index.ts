@@ -123,3 +123,9 @@ export { type WrapR2Options, wrapR2 } from "./r2";
 // ── HTTP client wrapper ──
 export { type WrapFetchOptions, wrapFetch } from "./fetch";
 
+// ── Process metrics (RFC 0005) ──
+export {
+	enableProcessMetrics,
+	type EnableProcessMetricsOptions,
+} from "./process-metrics";
+
