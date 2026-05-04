@@ -14,8 +14,20 @@ import { AnalysesStore } from "../lib/analyses-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
+import { D1Adapter, type SqlDb } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
+
+/**
+ * Factory that materializes an `SqlDb` for the request's `env`. Per-request
+ * because Cloudflare's `D1Database` binding only exists once `env` is in
+ * scope; on Workers this is essentially free since `D1Adapter` is a thin
+ * wrapper. Hosts override this to inject a fake DB in tests, a different
+ * engine in alternate runtimes, or a tracing wrapper at the storage layer.
+ */
+export type SqlDbFactory = (env: CollectorEnv) => SqlDb;
+
+const defaultSqlDbFactory: SqlDbFactory = (env) => new D1Adapter(env.DB);
 
 export interface SpanProcessorPlugin {
 	name: string;
@@ -79,21 +91,40 @@ export interface CollectorConfig {
 	 * pass-through.
 	 */
 	withChildSpan?: ChildSpanRunner;
+	/**
+	 * RFC 0008 — override the storage adapter. Per-request factory because
+	 * `env.DB` only exists once a request lands. Defaults to wrapping
+	 * `env.DB` in `D1Adapter`. Override in tests (use `MemSqlDb`) or to add
+	 * a tracing layer at the storage seam.
+	 */
+	sqlDb?: SqlDbFactory;
 }
 
 export class CollectorRuntime implements CollectorPluginContext {
 	private readonly spanProcessors: SpanProcessorPlugin[] = [];
 	private readonly usageEventProcessors: UsageEventProcessorPlugin[] = [];
 	private readonly plugins: string[] = [];
+	private readonly sqlDbFactory: SqlDbFactory;
 	readonly logger: Logger;
 	readonly withChildSpan: ChildSpanRunner;
 
 	constructor(
 		logger: Logger = consoleLogger,
 		withChildSpan: ChildSpanRunner = passthroughChildSpan,
+		sqlDbFactory: SqlDbFactory = defaultSqlDbFactory,
 	) {
 		this.logger = logger;
 		this.withChildSpan = withChildSpan;
+		this.sqlDbFactory = sqlDbFactory;
+	}
+
+	/**
+	 * Materialize an `SqlDb` for this request. Stores will accept this
+	 * directly once Phase 1.5 of RFC 0008 lands; until then plugins that
+	 * want to bypass `c.env.DB` can call this to opt in early.
+	 */
+	getSqlDb(env: CollectorEnv): SqlDb {
+		return this.sqlDbFactory(env);
 	}
 
 	registerPlugin(plugin: CollectorPlugin): void {
@@ -199,7 +230,11 @@ export const createTelemetryCollectorApp = (
 		: pluginsOrConfig;
 
 	const app = new Hono<{ Bindings: CollectorEnv }>();
-	const runtime = new CollectorRuntime(config.logger, config.withChildSpan);
+	const runtime = new CollectorRuntime(
+		config.logger,
+		config.withChildSpan,
+		config.sqlDb,
+	);
 
 	// Health endpoint — no auth required
 	app.get("/health", (c) => c.json({ status: "ok" }));

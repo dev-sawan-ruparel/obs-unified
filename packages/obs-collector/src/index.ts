@@ -44,8 +44,11 @@ export {
 	createRetentionCleanupHandler,
 	createTelemetryCollectorApp,
 	type SpanProcessorPlugin,
+	type SqlDbFactory,
 	type UsageEventProcessorPlugin,
 } from "./framework/collector";
+
+export { D1Adapter, type SqlDb, type SqlStatement } from "./lib/sql-db";
 
 export type {
 	CollectorApp,
@@ -143,6 +146,7 @@ export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
 		dashboardAuth: config?.dashboardAuth,
 		logger: config?.logger,
 		withChildSpan: config?.withChildSpan,
+		sqlDb: config?.sqlDb,
 	});
 
 export default createTelemetryCollectorApp(allPlugins);
