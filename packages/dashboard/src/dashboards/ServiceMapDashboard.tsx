@@ -130,12 +130,15 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 	const [selectedService, setSelectedService] = useState<string | null>(null);
 	const [opsData, setOpsData] = useState<ServiceOperationsResponse | null>(null);
 	const [opsLoading, setOpsLoading] = useState(false);
+	// RFC 0009 — span source filter. Defaults to "all"; the user can
+	// toggle to isolate Beyla-derived edges or hide them.
+	const [source, setSource] = useState<"all" | "sdk" | "ebpf">("all");
 
 	const load = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await api<ServiceMapResponse>(
-				`/telemetry/service-map?hours=${hours}`,
+				`/telemetry/service-map?hours=${hours}&source=${source}`,
 			);
 			setData(res);
 		} catch (err) {
@@ -143,7 +146,7 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 		} finally {
 			setLoading(false);
 		}
-	}, [hours, api]);
+	}, [hours, api, source]);
 
 	const loadOps = useCallback(
 		async (service: string) => {
@@ -236,6 +239,34 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 					</span>
 					<UpdatedChip at={data?.timestamp ?? null} />
 				</div>
+			</div>
+
+			{/* RFC 0009 — span source filter. */}
+			<div className="mb-2 flex items-center gap-2 px-3 py-1 bg-sys-surface border border-[#E5E7E3]">
+				<span className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-60">
+					Edge source
+				</span>
+				{(["all", "sdk", "ebpf"] as const).map((s) => (
+					<button
+						key={s}
+						type="button"
+						onClick={() => setSource(s)}
+						className={`text-[0.75rem] font-mono px-2 py-1 border-[1px] cursor-pointer transition-none ${
+							source === s
+								? "bg-sys-primary text-white border-sys-primary"
+								: "border-sys-outline hover:bg-sys-surface-high"
+						}`}
+						title={
+							s === "sdk"
+								? "Only SDK-instrumented spans (telemetry.sdk.name not Beyla / not eBPF)"
+								: s === "ebpf"
+									? "Only eBPF-derived spans (Beyla, OTel-eBPF-profiler)"
+									: "Every span counts, regardless of source"
+						}
+					>
+						{s.toUpperCase()}
+					</button>
+				))}
 			</div>
 
 			<div className="relative flex min-h-0 flex-1 gap-2">

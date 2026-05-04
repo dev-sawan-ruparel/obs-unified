@@ -392,8 +392,8 @@ export class TelemetryStore {
           attributes_json, dropped_attributes_count,
           resource_attributes_json, events_json, dropped_events_count,
           links_json, dropped_links_count, received_at, expires_at,
-          session_id, interaction_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          session_id, interaction_id, telemetry_sdk_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 				.bind(
 					span.projectId,
@@ -422,6 +422,7 @@ export class TelemetryStore {
 					span.expiresAt,
 					span.sessionId ?? null,
 					span.interactionId ?? null,
+					span.telemetrySdkName ?? null,
 				);
 		});
 
@@ -873,6 +874,14 @@ export class TelemetryStore {
 	async getServiceMap(options: {
 		projectId: string;
 		hours: number;
+		/**
+		 * RFC 0009 Phase 5.3 — restrict to a span source.
+		 *   "all"  (default) — every span counts.
+		 *   "sdk"            — only SDK-instrumented spans (telemetry_sdk_name
+		 *                      not in the eBPF set, or null).
+		 *   "ebpf"           — only kernel-derived spans (Beyla and friends).
+		 */
+		source?: "all" | "sdk" | "ebpf";
 	}): Promise<{
 		nodes: Array<{
 			service: string;
@@ -895,6 +904,24 @@ export class TelemetryStore {
 		if (!options.projectId)
 			throw new Error("TelemetryStore.getServiceMap: projectId is required");
 		const cutoff = cutoffIso(options.hours);
+		const source = options.source ?? "all";
+
+		// RFC 0009 — eBPF-derived agents identify themselves via
+		// resource_attribute `telemetry.sdk.name`. The set is small and
+		// stable enough to inline; expand as new agents land.
+		const EBPF_SDK_NAMES = new Set(["beyla", "otel-ebpf-profiler"]);
+		const sourceClause =
+			source === "ebpf"
+				? ` AND telemetry_sdk_name IN (${Array.from(EBPF_SDK_NAMES)
+					.map(() => "?")
+					.join(",")})`
+				: source === "sdk"
+					? ` AND (telemetry_sdk_name IS NULL OR telemetry_sdk_name NOT IN (${Array.from(EBPF_SDK_NAMES)
+						.map(() => "?")
+						.join(",")}))`
+					: "";
+		const sourceBinds: unknown[] =
+			source === "all" ? [] : Array.from(EBPF_SDK_NAMES);
 
 		const nodesResult = await this.db
 			.prepare(
@@ -904,10 +931,10 @@ export class TelemetryStore {
 					SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_count,
 					COUNT(DISTINCT trace_id) AS trace_count
 				FROM telemetry_spans
-				WHERE project_id = ? AND received_at >= ? AND service_name IS NOT NULL
+				WHERE project_id = ? AND received_at >= ? AND service_name IS NOT NULL${sourceClause}
 				GROUP BY service_name`,
 			)
-			.bind(options.projectId, cutoff)
+			.bind(options.projectId, cutoff, ...sourceBinds)
 			.all<{
 				service_name: string;
 				span_count: number;
@@ -925,6 +952,33 @@ export class TelemetryStore {
 		//      span and a single consume can correspond to many produces.
 		// We UNION ALL both — duplicates are accumulated as separate calls,
 		// which matches the synchronous semantics (each child = one call).
+		// RFC 0009 — applying the source filter to *child* spans for sync
+		// edges and to *consumer* spans for async edges. The producer
+		// side is left unfiltered (an SDK-instrumented service that
+		// publishes to a Kafka topic still belongs in the eBPF view if
+		// the consumer is Beyla-instrumented; the edge represents the
+		// kernel-observed call, not the producer's instrumentation).
+		const childSourceClause =
+			source === "ebpf"
+				? ` AND c.telemetry_sdk_name IN (${Array.from(EBPF_SDK_NAMES)
+					.map(() => "?")
+					.join(",")})`
+				: source === "sdk"
+					? ` AND (c.telemetry_sdk_name IS NULL OR c.telemetry_sdk_name NOT IN (${Array.from(EBPF_SDK_NAMES)
+						.map(() => "?")
+						.join(",")}))`
+					: "";
+		const consumerSourceClause =
+			source === "ebpf"
+				? ` AND telemetry_sdk_name IN (${Array.from(EBPF_SDK_NAMES)
+					.map(() => "?")
+					.join(",")})`
+				: source === "sdk"
+					? ` AND (telemetry_sdk_name IS NULL OR telemetry_sdk_name NOT IN (${Array.from(EBPF_SDK_NAMES)
+						.map(() => "?")
+						.join(",")}))`
+					: "";
+
 		const edgeRowsResult = await this.db
 			.prepare(
 				`WITH parent_child_edges AS (
@@ -944,7 +998,7 @@ export class TelemetryStore {
 						AND c.received_at >= ?
 						AND p.service_name IS NOT NULL
 						AND c.service_name IS NOT NULL
-						AND p.service_name != c.service_name
+						AND p.service_name != c.service_name${childSourceClause}
 				),
 				link_edges AS (
 					SELECT
@@ -965,7 +1019,7 @@ export class TelemetryStore {
 						WHERE project_id = ?
 							AND received_at >= ?
 							AND links_json IS NOT NULL
-							AND links_json != '[]'
+							AND links_json != '[]'${consumerSourceClause}
 					) consumer,
 						json_each(consumer.links_json) link
 					-- Match on (trace_id, span_id) so the lookup hits the
@@ -991,8 +1045,10 @@ export class TelemetryStore {
 				options.projectId,
 				cutoff,
 				cutoff,
+				...sourceBinds,
 				options.projectId,
 				cutoff,
+				...sourceBinds,
 				cutoff,
 			)
 			.all<{

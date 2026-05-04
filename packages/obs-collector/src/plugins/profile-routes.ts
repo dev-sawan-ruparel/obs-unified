@@ -19,6 +19,11 @@
  */
 
 import type { CollectorPlugin } from "../framework/collector";
+import {
+	decodePprofBlob,
+	extractTraceIdsFromProfile,
+	filterPprofByTraceId,
+} from "../lib/parse-pprof";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -77,7 +82,16 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				);
 			}
 			const serviceName = c.req.header("x-obs-service") || null;
-			const traceIds = parseTraceIdsHeader(c.req.header("x-obs-trace-ids"));
+			// RFC 0007 acceptance #2 — ingest-time pprof parsing.
+			// The x-obs-trace-ids header is honored as a pre-extraction
+			// fast path (clients that already iterated the profile
+			// avoid us re-parsing on the worker), but we no longer
+			// require it: when absent, parse the blob and read sample
+			// labels directly. Closes the Phase 4 header-driven
+			// shortcut.
+			const headerTraceIds = parseTraceIdsHeader(
+				c.req.header("x-obs-trace-ids"),
+			);
 
 			const body = await c.req.arrayBuffer();
 			if (body.byteLength === 0) {
@@ -85,6 +99,29 @@ export const profileRoutesPlugin: CollectorPlugin = {
 			}
 			if (body.byteLength > 4 * 1024 * 1024) {
 				return c.json({ error: "blob too large (max 4 MB)" }, 413);
+			}
+
+			let traceIds: string[];
+			let parsedSampleCount: number | null = null;
+			if (headerTraceIds.length > 0) {
+				traceIds = headerTraceIds;
+			} else {
+				try {
+					const profile = await decodePprofBlob(body);
+					traceIds = extractTraceIdsFromProfile(profile);
+					parsedSampleCount = profile.samples.length;
+				} catch (err) {
+					// Bad blob shouldn't 500 — accept it without an
+					// index so the user at least gets aggregate views.
+					runtime.logger.warn(
+						"[profile-receiver] pprof parse failed; ingesting without trace_id index",
+						{
+							project_id: projectId,
+							error: err instanceof Error ? err.message : String(err),
+						},
+					);
+					traceIds = [];
+				}
 			}
 
 			const profileId = ulid();
@@ -140,7 +177,7 @@ export const profileRoutesPlugin: CollectorPlugin = {
 					durationMs,
 					body.byteLength,
 					objectKey,
-					null,
+					parsedSampleCount,
 					c.req.header("x-obs-agent") || "unknown",
 					null,
 					nowStr,
@@ -212,6 +249,43 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				const obj = await c.env.PROFILES_BUCKET.get(meta.blob_url);
 				if (!obj) {
 					return c.json({ error: "Blob not found in storage" }, 404);
+				}
+				// RFC 0007 acceptance #6 — server-side pre-filter.
+				// When `?trace_id=X` is set alongside `?blob=true`, parse
+				// the pprof, retain only samples with the matching label,
+				// and re-emit a smaller blob. Saves bandwidth on large
+				// JVM profiles where 99% of samples don't belong to the
+				// trace the user is drilling into.
+				const filterTraceId = c.req.query("trace_id");
+				if (filterTraceId) {
+					const raw = new Uint8Array(await obj.arrayBuffer());
+					try {
+						const profile = await decodePprofBlob(raw);
+						const filtered = await filterPprofByTraceId(
+							profile,
+							filterTraceId,
+						);
+						return new Response(filtered as unknown as BodyInit, {
+							headers: {
+								"Content-Type": "application/octet-stream",
+								"Content-Encoding": "gzip",
+								"Content-Disposition": `attachment; filename="${id}-trace-${filterTraceId.slice(0, 8)}.pprof.gz"`,
+								// Surface the size shrink so the UI can show savings.
+								"X-Obs-Filter-Original-Bytes": String(raw.byteLength),
+								"X-Obs-Filter-Filtered-Bytes": String(filtered.byteLength),
+							},
+						});
+					} catch (err) {
+						runtime.logger.warn(
+							"[profile-routes] filter failed; returning unfiltered blob",
+							{
+								profile_id: id,
+								trace_id: filterTraceId,
+								error: err instanceof Error ? err.message : String(err),
+							},
+						);
+						// Fall through to unfiltered.
+					}
 				}
 				return new Response(obj.body, {
 					headers: {

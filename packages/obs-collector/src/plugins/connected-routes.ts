@@ -23,7 +23,7 @@ import {
 	type SpanRef,
 	type UsageEventRef,
 } from "../lib/identity-index";
-import { sqlDbFor } from "../lib/sql-db";
+import { sqlDbFor, type SqlDb } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export type ConnectedEntityKind =
@@ -168,6 +168,67 @@ const linksFromUsage = (
 	};
 };
 
+/**
+ * RFC 0009 acceptance #5 — query profile_blobs joined with
+ * profile_trace_index to find profiles covering a trace, group by
+ * profile_type so CPU and off-CPU render as distinct sections.
+ * Returns a list of ConnectedSections (one per profile_type) for the
+ * Down field of a span manifest.
+ */
+const profileLinksForTrace = async (
+	db: SqlDb,
+	projectId: string,
+	traceId: string,
+): Promise<ConnectedSection[]> => {
+	const rows = await db
+		.prepare(
+			`SELECT b.id, b.service_name, b.profile_type, b.duration_ms
+			 FROM profile_trace_index i
+			 JOIN profile_blobs b ON b.id = i.profile_id
+			 WHERE i.project_id = ? AND i.trace_id = ?
+			 ORDER BY b.end_ts DESC LIMIT 50`,
+		)
+		.bind(projectId, traceId)
+		.all<{
+			id: string;
+			service_name: string | null;
+			profile_type: string;
+			duration_ms: number;
+		}>();
+
+	if (rows.results.length === 0) {
+		return [
+			{
+				label: "Profiles",
+				links: [],
+				emptyReason:
+					"No pprof profile covers this trace's window. Wire @obs/telemetry-sdk's startProfiler() (or run an eBPF agent) on the producing service to populate.",
+			},
+		];
+	}
+
+	// Group by profile_type so CPU and off-CPU surface as distinct rows.
+	const byType = new Map<string, typeof rows.results>();
+	for (const row of rows.results) {
+		const list = byType.get(row.profile_type) ?? [];
+		list.push(row);
+		byType.set(row.profile_type, list);
+	}
+
+	const sections: ConnectedSection[] = [];
+	for (const [type, list] of byType) {
+		const icon = type === "offcpu" ? "🌊" : "🔥";
+		sections.push({
+			label: `${icon} ${type === "offcpu" ? "Off-CPU profiles" : `${type[0].toUpperCase()}${type.slice(1)} profiles`}`,
+			links: list.map((r) => ({
+				label: `${r.service_name ?? "?"} · ${r.duration_ms}ms`,
+				href: `#/profiles/${r.id}?trace_id=${encodeURIComponent(traceId)}`,
+			})),
+		});
+	}
+	return sections;
+};
+
 const linksFromAi = (calls: AICallRef[], prefix: string): ConnectedSection => {
 	if (calls.length === 0) {
 		return {
@@ -239,6 +300,16 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						linksFromLogs(traceManifest.logs, "Logs in this trace"),
 						linksFromAi(traceManifest.aiCalls, "AI calls in this trace"),
 					];
+					// RFC 0009 acceptance #5 — surface pprof profiles
+					// (CPU + off-CPU) covering this trace's window in the
+					// rail's Down section. Each profile_type renders as
+					// its own link so a viewer can see at a glance whether
+					// only CPU was sampled or off-CPU is present too.
+					manifest.down = await profileLinksForTrace(
+						sqlDbFor(c.env),
+						projectId,
+						span.traceId,
+					);
 					if (span.interactionId) {
 						const interactionManifest = await index.byInteraction(
 							projectId,

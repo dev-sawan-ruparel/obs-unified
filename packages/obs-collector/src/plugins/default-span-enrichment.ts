@@ -63,12 +63,24 @@ export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
 							? (attributes[INTERACTION_ID_KEY] as string)
 							: null;
 
+					// RFC 0009 — denormalize telemetry.sdk.name from
+					// resource_attributes. Beyla and other eBPF agents set
+					// this to identify themselves; the service map's
+					// source filter uses it to distinguish kernel-observed
+					// edges from SDK-instrumented ones.
+					const telemetrySdkName =
+						typeof resourceAttributes["telemetry.sdk.name"] === "string" &&
+						(resourceAttributes["telemetry.sdk.name"] as string).length > 0
+							? (resourceAttributes["telemetry.sdk.name"] as string)
+							: null;
+
 					return {
 						...span,
 						serviceName,
 						attributesJson: JSON.stringify(normalizedAttributes),
 						sessionId,
 						interactionId,
+						telemetrySdkName,
 					};
 				});
 			},

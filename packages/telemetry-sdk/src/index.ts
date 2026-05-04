@@ -134,5 +134,9 @@ export {
 	pushProfile,
 	type PushProfileOptions,
 	type PushProfileResult,
+	startProfiler,
+	type StartProfilerOptions,
+	type ProfilerHandle,
+	type ProfileCapture,
 } from "./profile";
 
