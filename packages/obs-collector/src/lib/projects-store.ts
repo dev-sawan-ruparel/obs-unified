@@ -6,6 +6,7 @@ import type {
 	ProjectRow,
 } from "@obs/types";
 import { randomHex, sha256Hex } from "./hash";
+import type { SqlDb } from "./sql-db";
 
 const rowToProject = (row: ProjectRow): Project => ({
 	id: row.id,
@@ -26,7 +27,7 @@ const rowToKey = (row: IngestKeyRow): IngestKey => ({
 const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$/;
 
 export class ProjectsStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async listProjects(): Promise<Project[]> {
 		const rs = await this.db

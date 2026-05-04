@@ -14,6 +14,7 @@
 import {
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
+	INTERACTION_ID_KEY,
 	OPENINFERENCE_SPAN_KIND_KEY,
 	SESSION_ID_KEY,
 	USER_ID_KEY,
@@ -22,6 +23,7 @@ import {
 import type { JsonValue, StoredSpan } from "@obs/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
+import { sqlDbFor } from "../lib/sql-db";
 
 interface PayloadRow {
 	projectId: string;
@@ -32,6 +34,7 @@ interface PayloadRow {
 	outputJson: string | null;
 	sessionId: string | null;
 	userId: string | null;
+	interactionId: string | null;
 	receivedAt: string;
 	expiresAt: string;
 }
@@ -78,6 +81,7 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 						outputJson: hasOutput ? toJsonString(rawOutput) : null,
 						sessionId: asString(attrs[SESSION_ID_KEY]),
 						userId: asString(attrs[USER_ID_KEY]),
+						interactionId: asString(attrs[INTERACTION_ID_KEY]),
 						receivedAt: span.receivedAt,
 						expiresAt: span.expiresAt,
 					});
@@ -93,13 +97,13 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 
 				if (rows.length > 0) {
 					try {
-						const db = context.env.DB;
+						const db = sqlDbFor(context.env);
 						const stmt = db.prepare(
 							`INSERT OR REPLACE INTO ai_span_payloads (
 								project_id, trace_id, span_id, span_kind,
 								input_json, output_json, session_id, user_id,
-								received_at, expires_at
-							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+								received_at, expires_at, interaction_id
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 						);
 						await db.batch(
 							rows.map((r) =>
@@ -114,6 +118,7 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 									r.userId,
 									r.receivedAt,
 									r.expiresAt,
+									r.interactionId,
 								),
 							),
 						);

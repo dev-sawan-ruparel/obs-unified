@@ -1,5 +1,5 @@
 import type { JsonValue, StoredSpan } from "@obs/types";
-import { SESSION_ID_KEY } from "@obs/types/constants";
+import { INTERACTION_ID_KEY, SESSION_ID_KEY } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 
@@ -54,11 +54,21 @@ export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
 							? (attributes[SESSION_ID_KEY] as string)
 							: null;
 
+					// RFC 0004 — denormalize obs.interaction.id from attributes
+					// to a top-level column. Stamped by @obs/telemetry-sdk's
+					// stampInteractionFromRequest on the inbound request.
+					const interactionId =
+						typeof attributes[INTERACTION_ID_KEY] === "string" &&
+						attributes[INTERACTION_ID_KEY].length > 0
+							? (attributes[INTERACTION_ID_KEY] as string)
+							: null;
+
 					return {
 						...span,
 						serviceName,
 						attributesJson: JSON.stringify(normalizedAttributes),
 						sessionId,
+						interactionId,
 					};
 				});
 			},

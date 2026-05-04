@@ -1,4 +1,5 @@
 import type { CollectorPlugin } from "../framework/collector";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const platformRoutesPlugin: CollectorPlugin = {
@@ -6,7 +7,7 @@ export const platformRoutesPlugin: CollectorPlugin = {
 	register(app) {
 		app.get("/internal/platform/resources", async (c) => {
 			const projectId = getProjectId(c);
-			const db = c.env.DB;
+			const db = sqlDbFor(c.env);
 
 			const countFor = async (table: string) => {
 				const row = await db

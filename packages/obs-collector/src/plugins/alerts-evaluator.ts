@@ -11,6 +11,7 @@ import {
 	type Logger,
 } from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
+import { sqlDbFor } from "../lib/sql-db";
 
 interface WebhookPayload {
 	rule: {
@@ -105,7 +106,7 @@ export async function evaluateAllRules(
 }> {
 	const logger = options?.logger ?? consoleLogger;
 	const tracer = options?.tracer;
-	const store = new AlertsStore(env.DB);
+	const store = new AlertsStore(sqlDbFor(env));
 	const rules = await store.listEnabledRules();
 
 	let fired = 0;

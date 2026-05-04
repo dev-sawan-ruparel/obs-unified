@@ -39,6 +39,16 @@ export class MemSqlDb implements SqlDb {
 		return new MemSqlStatement(sql, [], this.calls, this.opts);
 	}
 
+	async batch(
+		statements: SqlStatement[],
+	): Promise<Array<{ meta: { changes: number } }>> {
+		const results: Array<{ meta: { changes: number } }> = [];
+		for (const stmt of statements) {
+			results.push(await stmt.run());
+		}
+		return results;
+	}
+
 	/** Filter recorded calls by a substring of the SQL — convenient in tests. */
 	callsMatching(needle: string): MemSqlDbCall[] {
 		return this.calls.filter((c) => c.sql.includes(needle));

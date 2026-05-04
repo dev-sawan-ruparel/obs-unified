@@ -1,5 +1,6 @@
 import type { CollectorPlugin } from "../framework/collector";
 import type { SessionReplayMetadataRow } from "@obs/types";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const replayQueryRoutesPlugin: CollectorPlugin = {
@@ -8,7 +9,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 		app.get("/internal/replays", async (c) => {
 			const projectId = getProjectId(c);
 			const limit = Math.max(1, Math.min(500, parseInt(c.req.query("limit") ?? "50", 10) || 50));
-			const { results } = await c.env.DB.prepare(
+			const { results } = await sqlDbFor(c.env).prepare(
 				`SELECT
 					r.*,
 					(SELECT page_path FROM usage_events e WHERE e.project_id = r.project_id AND e.session_id = r.session_id AND e.event_type = 'page_view' ORDER BY e.occurred_at ASC LIMIT 1) as starting_link
@@ -31,7 +32,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 				return c.json({ error: "Replay storage not configured" }, 500);
 			}
 
-			const metadata = await c.env.DB.prepare(
+			const metadata = await sqlDbFor(c.env).prepare(
 				`SELECT * FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`
 			)
 				.bind(projectId, sessionId)
@@ -75,7 +76,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			// 1. Check if it exists
-			const metadata = await c.env.DB.prepare(
+			const metadata = await sqlDbFor(c.env).prepare(
 				`SELECT * FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
 			)
 				.bind(projectId, sessionId)
@@ -95,7 +96,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			// 3. Delete metadata from DB
-			await c.env.DB.prepare(
+			await sqlDbFor(c.env).prepare(
 				`DELETE FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
 			)
 				.bind(projectId, sessionId)

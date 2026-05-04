@@ -2,6 +2,7 @@
 
 import type { CollectorPlugin } from "../framework/collector";
 import { MetricsStore } from "../lib/metrics-store";
+import { sqlDbFor } from "../lib/sql-db";
 import {
 	OtlpDecodeError,
 	decodeMetricsRequest,
@@ -51,7 +52,7 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 				now.getTime() + retentionHours * 60 * 60 * 1000,
 			).toISOString();
 
-			const store = new MetricsStore(c.env.DB);
+			const store = new MetricsStore(sqlDbFor(c.env));
 			try {
 				await runtime.withChildSpan("metrics.ingest", async (span) => {
 					span.setAttribute("metrics.points_received", points.length + rejected);

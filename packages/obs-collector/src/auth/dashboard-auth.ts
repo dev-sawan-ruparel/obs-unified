@@ -1,6 +1,7 @@
 import type { CollectorEnv } from "../framework/env";
 import type { MiddlewareHandler } from "hono";
 import { ProjectsStore } from "../lib/projects-store";
+import { sqlDbFor, type SqlDb } from "../lib/sql-db";
 
 const SESSION_COOKIE = "obs_session";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
@@ -13,7 +14,7 @@ interface ProjectCacheEntry {
 
 let projectCache: ProjectCacheEntry | null = null;
 
-async function knownProjectIds(db: D1Database, now: number): Promise<Set<string>> {
+async function knownProjectIds(db: SqlDb, now: number): Promise<Set<string>> {
 	if (projectCache && projectCache.expiresAt > now) {
 		return projectCache.ids;
 	}
@@ -156,7 +157,7 @@ export function createDashboardAuth(config: { password: string }): {
 		if (needsProject) {
 			const headerProject = c.req.header("X-Project-Id");
 			const projectId = headerProject?.trim() || "default";
-			const known = await knownProjectIds(c.env.DB, Date.now());
+			const known = await knownProjectIds(sqlDbFor(c.env), Date.now());
 			// Always allow 'default' so fresh installs don't 400 before any
 			// project is seeded (ensure_default_project runs via migration).
 			if (projectId !== "default" && !known.has(projectId)) {

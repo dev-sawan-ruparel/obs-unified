@@ -14,7 +14,8 @@ import { AnalysesStore } from "../lib/analyses-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
-import { D1Adapter, type SqlDb } from "../lib/sql-db";
+import { aggregatePropagation } from "../lib/propagation-metric";
+import { D1Adapter, sqlDbFor, type SqlDb } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
 
@@ -156,11 +157,11 @@ export class CollectorRuntime implements CollectorPluginContext {
 	}
 
 	createStore(env: CollectorEnv): TelemetryStore {
-		return new TelemetryStore(env.DB);
+		return new TelemetryStore(this.getSqlDb(env));
 	}
 
 	createUsageStore(env: CollectorEnv): UsageStore {
-		return new UsageStore(env.DB);
+		return new UsageStore(this.getSqlDb(env));
 	}
 
 	async runSpanProcessors(
@@ -323,12 +324,13 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 			env: CollectorEnv,
 			_ctx: ExecutionContext,
 		): Promise<void> {
-			const telemetryStore = new TelemetryStore(env.DB);
-			const usageStore = new UsageStore(env.DB);
-			const logsStore = new LogsStore(env.DB);
-			const aiStore = new AIStore(env.DB);
-			const metricsStore = new MetricsStore(env.DB);
-			const analysesStore = new AnalysesStore(env.DB);
+			const db = sqlDbFor(env);
+			const telemetryStore = new TelemetryStore(db);
+			const usageStore = new UsageStore(db);
+			const logsStore = new LogsStore(db);
+			const aiStore = new AIStore(db);
+			const metricsStore = new MetricsStore(db);
+			const analysesStore = new AnalysesStore(db);
 
 			const [
 				telemetryPurged,
@@ -354,6 +356,21 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 				metric_points: metricsPurged,
 				analysis_results: analysesPurged,
 			});
+
+			// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.
+			// Hourly aggregation rides the retention cron because cadence
+			// matches and both touch the same projects' tables.
+			try {
+				const propagation = await aggregatePropagation(db, new Date(), logger);
+				logger.info("[propagation-metric] hourly aggregation complete", {
+					projects: propagation.projects,
+					points_written: propagation.pointsWritten,
+				});
+			} catch (err) {
+				logger.error("[propagation-metric] aggregation failed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
 		},
 	};
 };

@@ -14,6 +14,18 @@
 
 export interface SqlDb {
 	prepare(sql: string): SqlStatement;
+	/**
+	 * Run multiple prepared statements as a batch. On D1 this maps to a
+	 * single network round-trip; on a future better-sqlite3 adapter it
+	 * wraps the calls in a transaction. Returns one result per statement
+	 * in input order, mirroring D1's `batch`.
+	 *
+	 * Statements MUST have been produced by this same `SqlDb` instance —
+	 * mixing adapters is an error and runtime behavior is undefined.
+	 */
+	batch(
+		statements: SqlStatement[],
+	): Promise<Array<{ meta: { changes: number } }>>;
 }
 
 export interface SqlStatement {
@@ -39,10 +51,46 @@ export class D1Adapter implements SqlDb {
 	prepare(sql: string): SqlStatement {
 		return new D1StatementAdapter(this.d1.prepare(sql));
 	}
+
+	async batch(
+		statements: SqlStatement[],
+	): Promise<Array<{ meta: { changes: number } }>> {
+		// Unwrap each statement back to its D1 form — D1's batch takes
+		// D1PreparedStatement[], not our typed wrapper.
+		const unwrapped = statements.map((s) => {
+			if (!(s instanceof D1StatementAdapter)) {
+				throw new Error(
+					"D1Adapter.batch: statement was not produced by D1Adapter",
+				);
+			}
+			return s.unwrap();
+		});
+		const results = await this.d1.batch(unwrapped);
+		return results.map((r) => ({
+			meta: { changes: r.meta?.changes ?? 0 },
+		}));
+	}
 }
+
+/**
+ * Convenience wrapper for the common case: take a `CollectorEnv`-shaped
+ * object and return an `SqlDb`. Most plugins don't have access to the
+ * `CollectorRuntime` (they get it at register time, not handler time)
+ * so they call this directly. Plugins that *do* hold the runtime should
+ * prefer `runtime.getSqlDb(env)` so a host-supplied `sqlDb` factory in
+ * `CollectorConfig` takes effect.
+ */
+export const sqlDbFor = (env: { DB: D1Database }): SqlDb =>
+	new D1Adapter(env.DB);
 
 class D1StatementAdapter implements SqlStatement {
 	constructor(private readonly stmt: D1PreparedStatement) {}
+
+	/** Internal escape hatch for `D1Adapter.batch` to recover the wrapped
+	 *  D1 statement. Not part of the public `SqlStatement` shape. */
+	unwrap(): D1PreparedStatement {
+		return this.stmt;
+	}
 
 	bind(...args: unknown[]): SqlStatement {
 		return new D1StatementAdapter(this.stmt.bind(...args));

@@ -143,13 +143,36 @@ function ReplayPlayer({
 	);
 }
 
-export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessionId?: string, onNavigate: (route: { tab?: string; sessionId?: string }) => void }) {
+interface TimelineGroup {
+	interactionId: string;
+	clickEvent: {
+		t: string;
+		title: string;
+		subtitle?: string;
+		payload: Record<string, unknown>;
+	} | null;
+	causedTraces: Array<{
+		traceId: string;
+		rootSpanId: string;
+		rootSpanName: string;
+		serviceName: string | null;
+		durationMs: number;
+		status: "ok" | "error";
+	}>;
+	relatedEvents: Array<{ kind: string; id: string }>;
+}
+
+export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessionId?: string, onNavigate: (route: { tab?: string; sessionId?: string; traceId?: string }) => void }) {
 	const { basePath, fetcher } = useDashboard();
 	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSessionId ?? null);
 	const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
 	const [traceEvents, setTraceEvents] = useState<any[]>([]);
 	const [playbackTime, setPlaybackTime] = useState<number | null>(null);
 	const [loading, setLoading] = useState(false);
+	// RFC 0004 — interaction groups derived from /internal/timeline. Empty
+	// object when the session predates Mode A or has no clicks with
+	// interaction_id stamped (informative-absence pattern from RFC 0006).
+	const [interactionGroups, setInteractionGroups] = useState<Record<string, TimelineGroup>>({});
 
 	const [replaysList, setReplaysList] = useState<ReplayRow[]>([]);
 	const [loadingList, setLoadingList] = useState(false);
@@ -170,14 +193,21 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 		setSelectedSessionId(id);
 		setTraceEvents([]);
 		setPlaybackTime(null);
+		setInteractionGroups({});
 		onNavigate({ tab: "replay", sessionId: id });
 		try {
-			const [detail, tracesObj] = await Promise.all([
+			const [detail, tracesObj, timeline] = await Promise.all([
 				fetcher(`${basePath}/usage/sessions/${encodeURIComponent(id)}`).then(r => r.json()) as Promise<SessionDetail>,
-				fetcher(`${basePath}/telemetry/overview?hours=72&q=${encodeURIComponent(id)}`).then(r => r.json()).catch(() => ({ traces: [] })) as Promise<{ traces: any[] }>
+				fetcher(`${basePath}/telemetry/overview?hours=72&q=${encodeURIComponent(id)}`).then(r => r.json()).catch(() => ({ traces: [] })) as Promise<{ traces: any[] }>,
+				// RFC 0004 — fetch the timeline so we can render the
+				// "interactions in this session" panel with click→trace
+				// links. Tolerate failure: older collectors don't ship the
+				// groups field, so we render the informative-absence state.
+				fetcher(`${basePath}/timeline/${encodeURIComponent(id)}`).then(r => r.json()).catch(() => ({ groups: {} })) as Promise<{ groups?: Record<string, TimelineGroup> }>
 			]);
 			setSessionDetail(detail);
 			setTraceEvents(tracesObj.traces || []);
+			setInteractionGroups(timeline.groups ?? {});
 		} catch {
 		} finally {
 			setLoading(false);
@@ -357,10 +387,78 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 								</div>
 							</div>
 							<div className="flex-none bg-sys-surface p-2 border-[1px] border-sys-outline">
-								<ReplayPlayer 
-									sessionId={selected.session.sessionId} 
+								<ReplayPlayer
+									sessionId={selected.session.sessionId}
 									onTimeUpdate={setPlaybackTime}
 								/>
+							</div>
+
+							{/* RFC 0004 — interactions panel. One row per click that
+							    minted an interaction_id, with one-click link to the
+							    trace it caused. Shows informative-absence (per RFC 0006)
+							    when no interactions are recorded for the session. */}
+							<div className="flex-none bg-sys-surface border-[1px] border-sys-outline">
+								<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
+									<span className="text-[0.875rem] font-semibold">
+										Interactions in this session
+										{Object.keys(interactionGroups).length > 0 && (
+											<span className="ml-2 text-[0.625rem] font-mono opacity-60 font-bold bg-sys-bg px-2 py-0.5">
+												{Object.keys(interactionGroups).length}
+											</span>
+										)}
+									</span>
+								</div>
+								<div className="max-h-[200px] overflow-y-auto">
+									{Object.keys(interactionGroups).length === 0 ? (
+										<div className="p-3 text-[0.75rem] opacity-60" title="Mode A propagation either isn't enabled in @obs/analytics-sdk or this session was recorded before RFC 0004 landed.">
+											—
+											<span className="ml-2">No interaction_id stamped on any event in this session.</span>
+										</div>
+									) : (
+										Object.values(interactionGroups).map((group) => (
+											<div
+												key={group.interactionId}
+												className="border-b-[1px] border-sys-surface-low px-3 py-2"
+											>
+												<div className="flex items-center gap-2 mb-1">
+													<span className="text-[0.625rem] font-mono opacity-60 font-bold bg-sys-bg px-1.5 py-0.5">
+														{group.interactionId.slice(0, 12)}…
+													</span>
+													<span className="text-[0.875rem] font-semibold truncate">
+														{group.clickEvent?.title ?? "(no click event)"}
+													</span>
+													{group.clickEvent?.subtitle && (
+														<span className="text-[0.75rem] opacity-60 truncate">
+															{group.clickEvent.subtitle}
+														</span>
+													)}
+												</div>
+												{group.causedTraces.length === 0 ? (
+													<div className="text-[0.75rem] opacity-60 ml-2" title="The click was recorded but no backend trace was ingested with this interaction_id. Likely the request didn't reach an instrumented service, or autoCorrelate dropped the header.">
+														— no trace caused by this click
+													</div>
+												) : (
+													<div className="flex flex-wrap gap-2 ml-2">
+														{group.causedTraces.map((trace) => (
+															<button
+																key={trace.traceId}
+																onClick={() => onNavigate({ tab: "traces", traceId: trace.traceId })}
+																className={`text-[0.75rem] font-mono px-2 py-1 border-[1px] hover:bg-sys-surface-high cursor-pointer transition-none ${
+																	trace.status === "error"
+																		? "border-sys-error text-sys-error"
+																		: "border-sys-outline"
+																}`}
+																title={`Open trace ${trace.traceId} (${trace.durationMs}ms)`}
+															>
+																🔗 {trace.serviceName ?? "unknown"} · {trace.rootSpanName} · {trace.durationMs}ms
+															</button>
+														))}
+													</div>
+												)}
+											</div>
+										))
+									)}
+								</div>
 							</div>
 
 							<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">

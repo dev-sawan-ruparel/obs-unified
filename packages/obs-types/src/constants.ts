@@ -31,6 +31,12 @@ export const AI_PAYLOAD_OUTPUT_KEY = "ai.payload.output";
 export const SESSION_ID_KEY = "session.id";
 export const USER_ID_KEY = "user.id";
 
+/** RFC 0004 — click-scoped correlation id. Stamped by @obs/telemetry-sdk's
+ * `stampInteractionFromRequest()` (and exported as INTERACTION_ATTRIBUTE_KEY
+ * from that package). Denormalized into telemetry_spans.interaction_id at
+ * ingest by the default span enrichment plugin. */
+export const INTERACTION_ID_KEY = "obs.interaction.id";
+
 export const OpenInferenceSpanKind = {
 	LLM: "LLM",
 	CHAIN: "CHAIN",

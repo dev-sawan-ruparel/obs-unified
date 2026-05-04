@@ -17,6 +17,7 @@ import type {
 	LogSeverity,
 } from "@obs/types";
 import { randomHex } from "./hash";
+import type { SqlDb } from "./sql-db";
 
 const rowToRule = (row: AlertRuleRow, state?: AlertStateRow): AlertRule => ({
 	id: row.id,
@@ -70,7 +71,7 @@ export function compareValue(
 }
 
 export class AlertsStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	validateInput(input: AlertRuleInput): void {
 		if (!input.name?.trim()) throw new Error("name is required");

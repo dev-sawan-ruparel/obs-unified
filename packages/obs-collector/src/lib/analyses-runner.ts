@@ -38,9 +38,10 @@ import {
 	type NarrativeIntent,
 } from "./narrate-gate";
 import { generateNarrative, LlmCallError, type LlmConfig } from "./llm";
+import { sqlDbFor, type SqlDb } from "./sql-db";
 
 export interface AnalysisRunContext {
-	db: D1Database;
+	db: SqlDb;
 	projectId: string;
 	retentionHours: number;
 	/** Stage 3: narrative LLM config. Undefined = narratives disabled. */
@@ -260,7 +261,8 @@ export async function runAllDueAnalyses(
 	narrated: number;
 }> {
 	const logger = ctx.logger ?? consoleLogger;
-	const store = new AnalysesStore(ctx.env.DB);
+	const db = sqlDbFor(ctx.env);
+	const store = new AnalysesStore(db);
 	const projectId = "default";
 	const now = Date.now();
 	const expiresAt = now + ctx.retentionHours * 3600 * 1000;
@@ -270,7 +272,7 @@ export async function runAllDueAnalyses(
 	let registered: AnalysisDefinition[] = [];
 	try {
 		registered = await getAllAnalysesForProject(projectId, {
-			db: ctx.env.DB,
+			db,
 		});
 	} catch (error) {
 		logger.error("[analyses] failed to load registered analyses", {
@@ -337,7 +339,7 @@ export async function runAllDueAnalyses(
 	};
 
 	const runCtx: AnalysisRunContext = {
-		db: ctx.env.DB,
+		db,
 		projectId,
 		retentionHours: ctx.retentionHours,
 		llm,

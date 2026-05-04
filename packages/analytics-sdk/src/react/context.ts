@@ -1,6 +1,9 @@
 import { createContext } from "react";
 import type { UsageTracker } from "../usage-tracker";
 
+// biome-ignore lint/suspicious/noExplicitAny: HOFs over arbitrary handlers
+type AnyHandler = (...args: any[]) => any;
+
 export interface AnalyticsContextValue {
 	tracker: UsageTracker;
 	trackInteraction: (
@@ -14,6 +17,19 @@ export interface AnalyticsContextValue {
 	identify: (userId: string, properties?: Record<string, unknown>) => void;
 	startReplay: () => void;
 	fetch: typeof window.fetch;
+	/**
+	 * RFC 0004 Mode B — wrap a click handler so the interaction_id active
+	 * at invocation time stays bound for the handler's full execution
+	 * (including async awaits inside the body). Use when a click handler
+	 * does deferred or long-running work that Mode A's microtask-scoped
+	 * propagation can't reach (setTimeout chains, debounced calls, etc.).
+	 *
+	 *   <button onClick={withInteraction(async () => {
+	 *     await delay(500);
+	 *     await fetch("/checkout"); // sees the id
+	 *   })} />
+	 */
+	withInteraction: <F extends AnyHandler>(handler: F) => F;
 }
 
 export const AnalyticsContext = createContext<AnalyticsContextValue | null>(
