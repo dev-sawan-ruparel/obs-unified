@@ -348,6 +348,36 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 				analysesStore.purgeExpired(),
 			]);
 
+			// RFC 0007 Phase 4.10 — profile_blobs retention. Cascade
+			// foreign key on profile_trace_index handles the join rows;
+			// we still need to delete the R2 blobs, which we do
+			// best-effort by reading the URLs first.
+			let profilesPurged = 0;
+			try {
+				const expiredProfiles = await db
+					.prepare(
+						`SELECT id, blob_url FROM profile_blobs WHERE expires_at < datetime('now') LIMIT 500`,
+					)
+					.all<{ id: string; blob_url: string }>();
+				if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
+					await Promise.allSettled(
+						expiredProfiles.results.map((p) =>
+							env.PROFILES_BUCKET!.delete(p.blob_url),
+						),
+					);
+				}
+				const deleted = await db
+					.prepare(
+						`DELETE FROM profile_blobs WHERE expires_at < datetime('now')`,
+					)
+					.run();
+				profilesPurged = deleted.meta.changes;
+			} catch (err) {
+				logger.error("[retention-cleanup] profile purge failed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+
 			logger.info("[retention-cleanup] purged expired rows", {
 				spans: telemetryPurged,
 				usage: usagePurged,
@@ -355,6 +385,7 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 				ai_calls: aiPurged,
 				metric_points: metricsPurged,
 				analysis_results: analysesPurged,
+				profile_blobs: profilesPurged,
 			});
 
 			// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.

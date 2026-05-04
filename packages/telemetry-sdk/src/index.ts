@@ -129,3 +129,10 @@ export {
 	type EnableProcessMetricsOptions,
 } from "./process-metrics";
 
+// ── pprof profile push (RFC 0007) ──
+export {
+	pushProfile,
+	type PushProfileOptions,
+	type PushProfileResult,
+} from "./profile";
+

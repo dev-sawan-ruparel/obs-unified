@@ -12,6 +12,13 @@ import type { Logger } from "./logger";
 export interface CollectorEnv {
 	DB: D1Database;
 	REPLAYS_BUCKET?: R2Bucket;
+	/**
+	 * RFC 0007 — pprof profile blob storage. Keyed by `${projectId}/${ts}/${profileId}.pprof.gz`.
+	 * Same dispatch pattern as REPLAYS_BUCKET — when unbound, the receiver
+	 * falls back to filesystem under `PROFILE_BLOB_DIR` (Node) or returns
+	 * 503 (Workers).
+	 */
+	PROFILES_BUCKET?: R2Bucket;
 	/** Durable Object namespace for live-tail SSE pub/sub. Optional — when
 	 *  unbound the /internal/telemetry/tail endpoint returns 503. */
 	TAIL_HUB?: DurableObjectNamespace;

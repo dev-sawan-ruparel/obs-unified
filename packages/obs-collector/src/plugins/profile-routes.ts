@@ -1,0 +1,344 @@
+/**
+ * RFC 0007 — pprof profiling receiver + read endpoints.
+ *
+ *   POST /v1/profiles/pprof              — accepts gzipped pprof blob
+ *   GET  /internal/profiles/:id          — proxies the blob back
+ *   GET  /internal/profiles/:id?trace_id=… — Phase 4.5 server-side filter
+ *
+ * Phase 4 minimal scope: ingest-time pprof parsing is deferred. The
+ * receiver writes the blob verbatim to R2 / filesystem and reads
+ * trace_ids from an `x-obs-trace-ids` header (comma-separated). The
+ * @obs/telemetry-sdk profile helper will stamp this; eBPF agents that
+ * don't emit the header just don't populate `profile_trace_index`,
+ * which means the trace waterfall's 🔥 badge won't fire for those
+ * profiles. Aggregate views still work.
+ *
+ * A follow-on commit can add server-side pprof parsing using a Buf-
+ * generated schema or pprof-format. The endpoint shape doesn't change
+ * when that lands.
+ */
+
+import type { CollectorPlugin } from "../framework/collector";
+import { sqlDbFor } from "../lib/sql-db";
+import { getProjectId } from "./_context";
+
+const PROFILE_TYPES = new Set([
+	"cpu",
+	"heap",
+	"wall",
+	"block",
+	"mutex",
+	"goroutine",
+	"offcpu",
+]);
+
+const ulid = (): string => {
+	// 26-char Crockford-base32 ULID. Deterministic enough for keys; we
+	// don't need TC39's exact format.
+	const ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+	const time = Date.now();
+	let timeStr = "";
+	let n = time;
+	for (let i = 0; i < 10; i++) {
+		timeStr = ENCODING[n % 32] + timeStr;
+		n = Math.floor(n / 32);
+	}
+	const bytes = new Uint8Array(16);
+	crypto.getRandomValues(bytes);
+	let randStr = "";
+	for (let i = 0; i < 16; i++) randStr += ENCODING[bytes[i] % 32];
+	return timeStr + randStr;
+};
+
+const TRACE_ID_RE = /^[0-9a-f]{16,32}$/i;
+
+const parseTraceIdsHeader = (header: string | null | undefined): string[] => {
+	if (!header) return [];
+	return header
+		.split(",")
+		.map((s) => s.trim().toLowerCase())
+		.filter((s) => TRACE_ID_RE.test(s));
+};
+
+export const profileRoutesPlugin: CollectorPlugin = {
+	name: "profile-routes",
+	register(app, runtime) {
+		// ── POST /v1/profiles/pprof ─────────────────────────────────────
+		app.post("/v1/profiles/pprof", async (c) => {
+			const projectId = getProjectId(c);
+
+			const profileType = (
+				c.req.header("x-obs-profile-type") || "cpu"
+			).toLowerCase();
+			if (!PROFILE_TYPES.has(profileType)) {
+				return c.json(
+					{ error: `unknown profile type: ${profileType}` },
+					400,
+				);
+			}
+			const serviceName = c.req.header("x-obs-service") || null;
+			const traceIds = parseTraceIdsHeader(c.req.header("x-obs-trace-ids"));
+
+			const body = await c.req.arrayBuffer();
+			if (body.byteLength === 0) {
+				return c.json({ error: "empty body" }, 400);
+			}
+			if (body.byteLength > 4 * 1024 * 1024) {
+				return c.json({ error: "blob too large (max 4 MB)" }, 413);
+			}
+
+			const profileId = ulid();
+			const now = new Date();
+			const nowStr = now.toISOString();
+			const dateKey = nowStr.slice(0, 10);
+			const objectKey = `profiles/${projectId}/${dateKey}/${profileId}.pprof.gz`;
+
+			// Storage dispatch — R2 first, no fallback yet (Workers-only).
+			if (!c.env.PROFILES_BUCKET) {
+				runtime.logger.error("PROFILES_BUCKET binding is missing", {
+					project_id: projectId,
+				});
+				return c.json({ error: "Profile storage not configured" }, 500);
+			}
+			await c.env.PROFILES_BUCKET.put(objectKey, body, {
+				httpMetadata: { contentType: "application/octet-stream" },
+			});
+
+			const retentionHours = parseInt(
+				c.env.RETENTION_HOURS || "72",
+				10,
+			);
+			const expiresAt = new Date(
+				now.getTime() + retentionHours * 60 * 60 * 1000,
+			).toISOString();
+
+			// Duration / window are optional headers; default to "now".
+			// Future: extract from the parsed pprof.
+			const durationMs = parseInt(
+				c.req.header("x-obs-duration-ms") || "0",
+				10,
+			);
+			const startTs = c.req.header("x-obs-start-ts") || nowStr;
+
+			const db = sqlDbFor(c.env);
+			await db
+				.prepare(
+					`INSERT INTO profile_blobs (
+						id, project_id, service_name, profile_type,
+						start_ts, end_ts, duration_ms, blob_size_bytes, blob_url,
+						sample_count, agent, resource_attrs_json,
+						received_at, expires_at
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				)
+				.bind(
+					profileId,
+					projectId,
+					serviceName,
+					profileType,
+					startTs,
+					nowStr,
+					durationMs,
+					body.byteLength,
+					objectKey,
+					null,
+					c.req.header("x-obs-agent") || "unknown",
+					null,
+					nowStr,
+					expiresAt,
+				)
+				.run();
+
+			if (traceIds.length > 0) {
+				const stmt = db.prepare(
+					`INSERT OR IGNORE INTO profile_trace_index (profile_id, trace_id, project_id) VALUES (?, ?, ?)`,
+				);
+				const batch = traceIds.map((tid) =>
+					stmt.bind(profileId, tid, projectId),
+				);
+				await db.batch(batch);
+			}
+
+			return c.json(
+				{
+					accepted: true,
+					profileId,
+					traceIdsIndexed: traceIds.length,
+				},
+				202,
+			);
+		});
+
+		// ── GET /internal/profiles/:id ─────────────────────────────────
+		app.get("/internal/profiles/:id", async (c) => {
+			const projectId = getProjectId(c);
+			const id = c.req.param("id");
+			const db = sqlDbFor(c.env);
+
+			const meta = await db
+				.prepare(
+					`SELECT id, service_name, profile_type, start_ts, end_ts,
+							duration_ms, blob_size_bytes, blob_url, sample_count,
+							agent, received_at, expires_at
+					 FROM profile_blobs
+					 WHERE project_id = ? AND id = ?`,
+				)
+				.bind(projectId, id)
+				.first<{
+					id: string;
+					service_name: string | null;
+					profile_type: string;
+					start_ts: string;
+					end_ts: string;
+					duration_ms: number;
+					blob_size_bytes: number;
+					blob_url: string;
+					sample_count: number | null;
+					agent: string | null;
+					received_at: string;
+					expires_at: string;
+				}>();
+
+			if (!meta) {
+				return c.json({ error: "Not found" }, 404);
+			}
+
+			// Optional: download the blob inline. Default returns metadata
+			// only; the dashboard's flame graph viewer will fetch the blob
+			// separately via ?blob=true.
+			if (c.req.query("blob") === "true") {
+				if (!c.env.PROFILES_BUCKET) {
+					return c.json({ error: "Profile storage not configured" }, 500);
+				}
+				const obj = await c.env.PROFILES_BUCKET.get(meta.blob_url);
+				if (!obj) {
+					return c.json({ error: "Blob not found in storage" }, 404);
+				}
+				return new Response(obj.body, {
+					headers: {
+						"Content-Type": "application/octet-stream",
+						"Content-Disposition": `attachment; filename="${id}.pprof.gz"`,
+					},
+				});
+			}
+
+			// Filtered traces requested — Phase 4.5. Server-side filter is a
+			// follow-up that needs pprof parsing; for now we return
+			// metadata + the trace_id list so the client can decide whether
+			// to fetch the full blob.
+			const trace_id = c.req.query("trace_id");
+			const traces = await db
+				.prepare(
+					trace_id
+						? `SELECT trace_id FROM profile_trace_index WHERE profile_id = ? AND project_id = ? AND trace_id = ?`
+						: `SELECT trace_id FROM profile_trace_index WHERE profile_id = ? AND project_id = ? LIMIT 1000`,
+				)
+				.bind(
+					...(trace_id
+						? [meta.id, projectId, trace_id]
+						: [meta.id, projectId]),
+				)
+				.all<{ trace_id: string }>();
+
+			return c.json({
+				profile: {
+					id: meta.id,
+					serviceName: meta.service_name,
+					profileType: meta.profile_type,
+					startTs: meta.start_ts,
+					endTs: meta.end_ts,
+					durationMs: meta.duration_ms,
+					blobSizeBytes: meta.blob_size_bytes,
+					sampleCount: meta.sample_count,
+					agent: meta.agent,
+					receivedAt: meta.received_at,
+					expiresAt: meta.expires_at,
+				},
+				traceIds: traces.results.map((r) => r.trace_id),
+				traceIdRequested: trace_id ?? null,
+			});
+		});
+
+		// ── GET /internal/profiles ─────────────────────────────────────
+		// Recent profiles, optionally scoped by trace_id (powers the
+		// 🔥 badge on the trace waterfall).
+		app.get("/internal/profiles", async (c) => {
+			const projectId = getProjectId(c);
+			const traceId = c.req.query("trace_id");
+			const serviceName = c.req.query("service");
+			const db = sqlDbFor(c.env);
+
+			if (traceId) {
+				const rows = await db
+					.prepare(
+						`SELECT b.id, b.service_name, b.profile_type, b.start_ts, b.end_ts,
+								b.duration_ms, b.blob_size_bytes, b.agent
+						 FROM profile_trace_index i
+						 JOIN profile_blobs b ON b.id = i.profile_id
+						 WHERE i.project_id = ? AND i.trace_id = ?
+						 ORDER BY b.end_ts DESC
+						 LIMIT 50`,
+					)
+					.bind(projectId, traceId)
+					.all<{
+						id: string;
+						service_name: string | null;
+						profile_type: string;
+						start_ts: string;
+						end_ts: string;
+						duration_ms: number;
+						blob_size_bytes: number;
+						agent: string | null;
+					}>();
+				return c.json({
+					profiles: rows.results.map((r) => ({
+						id: r.id,
+						serviceName: r.service_name,
+						profileType: r.profile_type,
+						startTs: r.start_ts,
+						endTs: r.end_ts,
+						durationMs: r.duration_ms,
+						blobSizeBytes: r.blob_size_bytes,
+						agent: r.agent,
+					})),
+				});
+			}
+
+			let sql = `SELECT id, service_name, profile_type, start_ts, end_ts,
+						 duration_ms, blob_size_bytes, agent
+				FROM profile_blobs WHERE project_id = ?`;
+			const binds: unknown[] = [projectId];
+			if (serviceName) {
+				sql += ` AND service_name = ?`;
+				binds.push(serviceName);
+			}
+			sql += ` ORDER BY end_ts DESC LIMIT 50`;
+
+			const rows = await db
+				.prepare(sql)
+				.bind(...binds)
+				.all<{
+					id: string;
+					service_name: string | null;
+					profile_type: string;
+					start_ts: string;
+					end_ts: string;
+					duration_ms: number;
+					blob_size_bytes: number;
+					agent: string | null;
+				}>();
+
+			return c.json({
+				profiles: rows.results.map((r) => ({
+					id: r.id,
+					serviceName: r.service_name,
+					profileType: r.profile_type,
+					startTs: r.start_ts,
+					endTs: r.end_ts,
+					durationMs: r.duration_ms,
+					blobSizeBytes: r.blob_size_bytes,
+					agent: r.agent,
+				})),
+			});
+		});
+	},
+};

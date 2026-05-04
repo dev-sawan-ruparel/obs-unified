@@ -31,6 +31,7 @@ import { alertsRoutesPlugin } from "./plugins/alerts-routes";
 import { analysesRoutesPlugin } from "./plugins/analyses-routes";
 import { askRoutesPlugin } from "./plugins/ask-routes";
 import { connectedRoutesPlugin } from "./plugins/connected-routes";
+import { profileRoutesPlugin } from "./plugins/profile-routes";
 import {
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
@@ -94,6 +95,7 @@ export {
 	analysesRoutesPlugin,
 	askRoutesPlugin,
 	connectedRoutesPlugin,
+	profileRoutesPlugin,
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
 };
@@ -139,6 +141,7 @@ export const allPlugins = [
 	tailRoutesPlugin,
 	timelineRoutesPlugin,
 	connectedRoutesPlugin,
+	profileRoutesPlugin,
 ];
 
 export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
