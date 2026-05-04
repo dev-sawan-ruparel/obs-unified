@@ -99,6 +99,14 @@ export interface StoredSpan {
 	expiresAt: string;
 	/** Denormalized from attributes["session.id"] at ingest; null when absent. */
 	sessionId?: string | null;
+	/**
+	 * RFC 0004 — click-scoped correlation ID minted by @obs/analytics-sdk and
+	 * propagated to backends via the x-obs-interaction header. Persisted as a
+	 * top-level column (not a span attribute) on telemetry_spans by ingest.
+	 * Null on server-originated work (cron, queue consumers) and on requests
+	 * where the SDK couldn't propagate (Mode B not used).
+	 */
+	interactionId?: string | null;
 }
 
 // ── Database Row Types ──
@@ -398,6 +406,13 @@ export interface UsageEventRecord {
 	utmSource: string | null;
 	utmMedium: string | null;
 	utmCampaign: string | null;
+	/**
+	 * RFC 0004 — click-scoped correlation ID. Set on usage events emitted
+	 * while a click/submit/keydown handler is active (or wrapped in
+	 * `withInteractionContext`). Null otherwise (e.g. page_view fired
+	 * outside any user interaction).
+	 */
+	interactionId?: string | null;
 }
 
 export interface UsageEventRow {
@@ -576,6 +591,12 @@ export interface LogRecord {
 	expiresAt: string;
 	/** Denormalized from attributes["session.id"] at ingest. */
 	sessionId?: string | null;
+	/**
+	 * RFC 0004 — click-scoped correlation ID. Inherited from the active root
+	 * span's interaction_id at log emit time. Null on logs emitted outside a
+	 * traced request (cron, queue consumer, server retry).
+	 */
+	interactionId?: string | null;
 }
 
 export interface LogRow {
@@ -664,6 +685,14 @@ export interface AICallRecord {
 	occurredAt: string;
 	receivedAt: string;
 	expiresAt: string;
+	/**
+	 * RFC 0004 — denormalized from the parent trace's root span. Lets us
+	 * pivot from an AI call directly to the user session that triggered
+	 * it without a two-hop join through telemetry_spans.
+	 */
+	sessionId?: string | null;
+	/** RFC 0004 — click-scoped correlation ID, same source as sessionId. */
+	interactionId?: string | null;
 }
 
 export interface AICallRow {
