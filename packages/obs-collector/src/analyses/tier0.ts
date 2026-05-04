@@ -457,6 +457,99 @@ const logErrorRate: AnalysisDefinition = {
 	`,
 };
 
+// ── service_cpu_utilization ─────────────────────────────────────────────────
+// RFC 0005 Phase 2.6 — fleet-wide process CPU utilization tile.
+// Reads `process.cpu.utilization` gauge points emitted by
+// @obs/telemetry-sdk's enableProcessMetrics() helper (or any other OTel
+// runtime-metrics exporter using the standard semconv).
+//
+// Status: critical if any service averaged >0.9 over the last 5 min,
+// warn if >0.7, ok otherwise. unknown if no process.cpu.* series at all
+// (the typical state on a fresh install before enableProcessMetrics
+// is wired into the user's services).
+const serviceCpuUtilization: AnalysisDefinition = {
+	id: "service_cpu_utilization",
+	title: "Service CPU utilization",
+	group: "Services",
+	source: "tier0",
+	view: "tile",
+	refreshSeconds: 60,
+	narrate: {
+		prompt:
+			"Name the busiest service and its average utilization over the last 5 minutes. Mention if it crossed a critical (>0.9) or warn (>0.7) threshold.",
+		only_when: "status_changed",
+	},
+	sql: `
+		WITH cpu_points AS (
+			SELECT
+				s.service_name,
+				p.value,
+				p.received_at
+			FROM metric_point p
+			JOIN metric_series s ON s.id = p.series_id
+			WHERE s.project_id = '{{PROJECT_ID}}'
+				AND s.name = 'process.cpu.utilization'
+				AND s.service_name IS NOT NULL
+				AND p.received_at >= datetime('now', '-30 minutes')
+		),
+		now_window AS (
+			SELECT service_name, AVG(value) AS avg_util
+			FROM cpu_points
+			WHERE received_at >= datetime('now', '-5 minutes')
+			GROUP BY service_name
+		),
+		base_window AS (
+			SELECT service_name, AVG(value) AS avg_util
+			FROM cpu_points
+			WHERE received_at >= datetime('now', '-30 minutes')
+				AND received_at <  datetime('now', '-5 minutes')
+			GROUP BY service_name
+		),
+		top_now AS (
+			SELECT service_name, avg_util
+			FROM now_window
+			ORDER BY avg_util DESC
+			LIMIT 5
+		),
+		spark AS (
+			SELECT
+				strftime('%Y-%m-%dT%H:%M:00Z', received_at) AS minute,
+				AVG(value) AS avg_util
+			FROM cpu_points
+			GROUP BY minute
+			ORDER BY minute ASC
+		),
+		fleet_max AS (
+			SELECT COALESCE(MAX(avg_util), 0) AS m FROM now_window
+		)
+		SELECT
+			CASE
+				WHEN NOT EXISTS (SELECT 1 FROM cpu_points) THEN 'unknown'
+				WHEN (SELECT m FROM fleet_max) > 0.9 THEN 'critical'
+				WHEN (SELECT m FROM fleet_max) > 0.7 THEN 'warn'
+				ELSE 'ok'
+			END AS status,
+			(SELECT m FROM fleet_max) AS primary_value,
+			(SELECT AVG(avg_util) FROM base_window) AS baseline_value,
+			(SELECT json_object(
+				'window', '5m',
+				'baselineWindow', '25m',
+				'topServices', (
+					SELECT json_group_array(json_object(
+						'service', service_name,
+						'avgUtilization', avg_util
+					)) FROM top_now
+				),
+				'sparkline', (
+					SELECT json_group_array(json_object(
+						'minute', minute,
+						'avgUtilization', avg_util
+					)) FROM spark
+				)
+			)) AS payload
+	`,
+};
+
 export const TIER0_ANALYSES: AnalysisDefinition[] = [
 	overallErrorRate,
 	topErrorServices,
@@ -464,4 +557,5 @@ export const TIER0_ANALYSES: AnalysisDefinition[] = [
 	throughputSlope,
 	activeSessions,
 	logErrorRate,
+	serviceCpuUtilization,
 ];
