@@ -167,14 +167,17 @@ This is the largest *current* gap for non-Cloudflare deployments.
 | k8s pod / node metrics | ✅ | ❌ | |
 | Node Exporter / Prometheus receiver | ✅ | ❌ | |
 
-> **Be upfront with users:** "Resources" today means *Cloudflare platform resources* (D1 / R2 / Worker), not *your application's host metrics*. Teams running obs-unified in a generic Docker container won't see CPU/memory of their app there. They can still emit OTLP metrics from their app and those land in the metrics tables — but no equivalent of Uptrace's `Hosts` view exists yet.
+> **Update (post-RFC 0009 Phase 5.2):** Resources dashboard now renders a "Linux hosts" mode when OTel `hostmetricsreceiver` is forwarding `system.*` metrics. Per-host CPU / memory / disk panels alongside the existing Cloudflare ones. Recipe: [docs/howto/ebpf.md § hostmetricsreceiver](../howto/ebpf.md#2-otel-hostmetricsreceiver--linux-host-cpumemorydiskneutral).
 
 ## Profiling
 
 | Feature | Uptrace | obs-unified | Notes |
 |---|---|---|---|
-| Continuous profiling (pprof / pyroscope) | ✅ | ❌ | |
-| Profile → span linkage | ✅ | ❌ | |
+| Continuous profiling (pprof / pyroscope) | ✅ | ✅ | RFC 0007 — accepts pprof from any agent (`@datadog/pprof`, pyroscope, parca-agent, OTel-eBPF-Profiler). [Setup](../howto/profiling.md). |
+| Profile → span linkage | ✅ | ✅ | `profile_trace_index` + 🔥 badge in trace waterfall. Per-trace flame graph viewer ships with the dashboard pprof viewer (deferred). |
+| Off-CPU profiling | ✅ | 🟡 | Ingests as `profile_type='offcpu'`; rendering side-by-side with on-CPU lands when the flame-graph viewer ships. |
+| Continuous profiling backend (storage + flame graph UI) | ✅ | 🟡 | Storage + ingest done. Built-in flame graph viewer deferred — download + view in `pprof -http` until then. |
+| eBPF agent compatibility (Parca-Agent / OTel-eBPF-Profiler) | ❌ N/A | ✅ | Both produce gzipped pprof at `/v1/profiles/pprof`. |
 
 ## Auth, multi-tenancy, governance
 
@@ -250,11 +253,28 @@ This is the largest *current* gap for non-Cloudflare deployments.
 | **Scale & retention** | ClickHouse: months × billions of rows |
 | **Multi-user / RBAC / SSO** | Required for any org with >1 team |
 | **Notification channels** | Native Slack/PagerDuty/Email; obs-unified is webhook-only |
-| **Continuous profiling** | Not in obs-unified at all |
 | **Anomaly-detection alerts** | Threshold-only in obs-unified |
 | **Grafana data source** | Doesn't exist for obs-unified |
 | **Maturity** | Years of production users; obs-unified is early |
 
+## What landed since this comparison was written
+
+The original draft of this doc predates the [RFC 0003 — Unified Stack](../../rfcs/0003-unified-stack.md) implementation. These columns have flipped from gap → ✅ since:
+
+| Capability | RFC | Status | Notes |
+|---|---|---|---|
+| Click-to-trace identity propagation | 0004 | ✅ | `interaction_id` flows from rrweb click → fetch header → root span → 5 signal tables. Replay viewer surfaces "Trace caused by this click". |
+| Span self-time + uninstrumented warning | 0005 | ✅ | Trace waterfall splits each span bar into accounted-for vs self-time; ⚠ badge on uninstrumented hot paths. |
+| Process CPU metric helper | 0005 | ✅ | `enableProcessMetrics()` SDK helper + `service_cpu_utilization` Health tile. |
+| Connected rail (no orphan detail pages) | 0006 | ✅ | Every span / log / AI call / replay / alert / analysis detail surfaces its identity-graph + topic neighbors in 1 click. Informative-empty-state pattern enforced. |
+| pprof profiling ingest | 0007 | ✅ | `/v1/profiles/pprof` accepts gzipped pprof from any agent. Trace→profile join via `profile_trace_index`. 🔥 badge in trace waterfall. |
+| Built-in flame-graph viewer | 0007 | 🟡 | Blobs are downloadable; in-dashboard viewer deferred to follow-up. |
+| Linux hosts mode (Resources dashboard) | 0009 | ✅ | OTel `hostmetricsreceiver` data renders per-host panels alongside the Cloudflare ones. |
+| eBPF integration recipes | 0009 | ✅ | docs/howto/ebpf.md walks through Beyla, hostmetrics, OTel-eBPF-Profiler / Parca-Agent. |
+| Storage seam (`SqlDb`) | 0008 | ✅ | All 8 stores + ~50 call sites migrated; D1 is one adapter. ClickHouse / Node are now small swaps, not rewrites. |
+
+Single remaining gap that materially affects the migration calculus from Uptrace: **OTLP/gRPC ingest** is still HTTP-only.
+
 ## TL;DR
 
-If you're a small team using Uptrace mostly for traces + service map + threshold alerts, obs-unified gives you that **plus** narrative analyses, RUM, replay, and LLM cost tracking — at the price of OTLP/HTTP-only ingest, no SSO, no Slack/PagerDuty, no continuous profiling, and a Resources tab that today only knows about Cloudflare. The migration cost is highest if you depend on UQL ad-hoc queries or OTLP/gRPC; lowest if your value from Uptrace is the dashboard, not the query language.
+If you're a small team using Uptrace mostly for traces + service map + threshold alerts, obs-unified gives you that **plus** narrative analyses, RUM, replay, LLM cost tracking, click-to-CPU navigation, pprof profiling, and a Connected rail that makes every detail surface one-click-from-everywhere. At the price of OTLP/HTTP-only ingest, no SSO, no native Slack/PagerDuty, and a built-in flame-graph viewer that hasn't shipped yet. The migration cost is highest if you depend on UQL ad-hoc queries or OTLP/gRPC; lowest if your value from Uptrace is the dashboard, not the query language.
