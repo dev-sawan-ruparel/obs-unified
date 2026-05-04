@@ -2,6 +2,7 @@ import type { CollectorEnv } from "../framework/env";
 import type { MiddlewareHandler } from "hono";
 import { sha256Hex } from "../lib/hash";
 import { ProjectsStore } from "../lib/projects-store";
+import { sqlDbFor } from "../lib/sql-db";
 
 const CACHE_TTL_MS = 60_000; // 60 seconds
 
@@ -58,7 +59,7 @@ export function createIngestAuth(config?: {
 			bootstrapDone = true;
 			const legacy = c.env.INGEST_KEY || c.env.TELEMETRY_INGEST_TOKEN;
 			if (legacy) {
-				const store = new ProjectsStore(c.env.DB);
+				const store = new ProjectsStore(sqlDbFor(c.env));
 				try {
 					await store.bootstrapEnvKey(legacy);
 				} catch (err) {
@@ -90,7 +91,7 @@ export function createIngestAuth(config?: {
 			return next();
 		}
 
-		const store = new ProjectsStore(c.env.DB);
+		const store = new ProjectsStore(sqlDbFor(c.env));
 		const match = await store.findByKeyHash(hash);
 		if (!match) {
 			return c.json({ error: "Unauthorized" }, 401);

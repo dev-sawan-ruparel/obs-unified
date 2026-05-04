@@ -6,6 +6,7 @@ import type {
 import { getConfiguredRetentionHours } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { AIStore, type IngestEvaluation } from "../lib/ai-store";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const aiReceiverPlugin: CollectorPlugin = {
@@ -25,7 +26,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 			if (payload.calls.length > 500) {
 				return c.json({ error: `Too many AI calls: ${payload.calls.length} (max 500)` }, 413);
 			}
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 
 			const retentionHours = parseInt(c.env.RETENTION_HOURS || "72", 10);
 			const now = new Date();
@@ -67,7 +68,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 
 		app.get("/internal/ai/overview", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 			const query = c.req.query();
 			const hours = parseInt(query.hours || "24", 10);
 
@@ -95,7 +96,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 		// regular trace tree.
 		app.get("/internal/ai/spans", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 			const query = c.req.query();
 
 			const response = await store.getAISpans({
@@ -164,7 +165,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 				});
 			}
 
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 			await store.ingestEvaluations(records);
 			return c.json({ accepted: records.length }, 202);
 		});
@@ -173,7 +174,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 		// aggregated stats (span count, tokens, cost, error count, etc.).
 		app.get("/internal/ai/sessions", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 			const query = c.req.query();
 			const response = await store.listSessions({
 				projectId,
@@ -188,7 +189,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 		// (across one or more traces) plus any evaluations attached to them.
 		app.get("/internal/ai/sessions/:sessionId", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 			const sessionId = c.req.param("sessionId");
 			const response = await store.getSession(projectId, sessionId);
 			return c.json(response);
@@ -197,7 +198,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 		// List evaluations, optionally scoped to a single span or trace.
 		app.get("/internal/ai/evaluations", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AIStore(c.env.DB);
+			const store = new AIStore(sqlDbFor(c.env));
 			const query = c.req.query();
 
 			const response = await store.listEvaluations({

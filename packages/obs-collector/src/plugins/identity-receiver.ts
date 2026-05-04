@@ -1,5 +1,6 @@
 import type { CollectorPlugin } from "../framework/collector";
 import type { IdentifyInput } from "@obs/types";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const identityReceiverPlugin: CollectorPlugin = {
@@ -35,7 +36,7 @@ export const identityReceiverPlugin: CollectorPlugin = {
 			// that contract — user_id is treated as globally unique and the
 			// first project to identify them "owns" the profile. project_id on
 			// the row reflects where the user was first seen.
-			await c.env.DB.prepare(
+			await sqlDbFor(c.env).prepare(
 				`INSERT INTO user_profiles (project_id, user_id, visitor_id, email, name, properties_json, first_seen_at, last_seen_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id) DO UPDATE SET

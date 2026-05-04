@@ -20,6 +20,7 @@ import type { CollectorPlugin } from "../framework/collector";
 import { AnalysesStore } from "../lib/analyses-store";
 import { runAsk } from "../lib/ask";
 import type { LlmConfig } from "../lib/llm";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 const MAX_QUESTION_CHARS = 1000;
@@ -94,7 +95,7 @@ export const askRoutesPlugin: CollectorPlugin = {
 				return c.json(response, 503);
 			}
 
-			const store = new AnalysesStore(c.env.DB);
+			const store = new AnalysesStore(sqlDbFor(c.env));
 
 			try {
 				const startedAt = Date.now();
@@ -114,7 +115,7 @@ export const askRoutesPlugin: CollectorPlugin = {
 								// panels derived this tick, not stale ones in
 								// `analysis_definitions`.
 								const all = await getAllAnalysesForProject(projectId, {
-									db: c.env.DB,
+									db: sqlDbFor(c.env),
 								});
 								return all.filter((d) => {
 									if (filters?.group && d.group !== filters.group)

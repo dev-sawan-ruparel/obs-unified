@@ -23,6 +23,7 @@ import {
 import type { JsonValue, StoredSpan } from "@obs/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
+import { sqlDbFor } from "../lib/sql-db";
 
 interface PayloadRow {
 	projectId: string;
@@ -96,7 +97,7 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 
 				if (rows.length > 0) {
 					try {
-						const db = context.env.DB;
+						const db = sqlDbFor(context.env);
 						const stmt = db.prepare(
 							`INSERT OR REPLACE INTO ai_span_payloads (
 								project_id, trace_id, span_id, span_kind,

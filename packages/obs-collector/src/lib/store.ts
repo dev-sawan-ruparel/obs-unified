@@ -26,6 +26,7 @@ import type {
 } from "@obs/types";
 
 import { parseJsonArray, parseJsonRecord } from "./json";
+import type { SqlDb } from "./sql-db";
 
 /** Map D1 snake_case row to camelCase StoredSpan */
 const rowToSpan = (row: Record<string, unknown>): StoredSpan => ({
@@ -372,7 +373,7 @@ const groupIssues = (
 // ── Store ──
 
 export class TelemetryStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingest(
 		spans: StoredSpan[],

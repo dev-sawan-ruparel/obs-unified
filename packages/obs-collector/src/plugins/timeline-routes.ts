@@ -1,4 +1,6 @@
 import type { CollectorPlugin } from "../framework/collector";
+import { IdentityIndex } from "../lib/identity-index";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export interface TimelineEvent {
@@ -96,81 +98,11 @@ export const timelineRoutesPlugin: CollectorPlugin = {
 				return c.json({ error: "sessionId required" }, 400);
 			}
 
-			const [spansRes, logsRes, usageRes, replayRes] = await Promise.all([
-				c.env.DB.prepare(
-					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
-						status_code, status_message, start_time, end_time, duration_ms,
-						interaction_id
-					FROM telemetry_spans
-					WHERE project_id = ? AND session_id = ?
-					ORDER BY start_time ASC
-					LIMIT 2000`,
-				)
-					.bind(projectId, sessionId)
-					.all<{
-						trace_id: string;
-						span_id: string;
-						parent_span_id: string | null;
-						service_name: string | null;
-						span_name: string;
-						status_code: number;
-						status_message: string | null;
-						start_time: string;
-						end_time: string;
-						duration_ms: number;
-						interaction_id: string | null;
-					}>(),
-				c.env.DB.prepare(
-					`SELECT log_id, trace_id, span_id, service_name, severity, logger_name, message, occurred_at,
-						interaction_id
-					FROM logs
-					WHERE project_id = ? AND session_id = ?
-					ORDER BY occurred_at ASC
-					LIMIT 2000`,
-				)
-					.bind(projectId, sessionId)
-					.all<{
-						log_id: string;
-						trace_id: string | null;
-						span_id: string | null;
-						service_name: string | null;
-						severity: string;
-						logger_name: string | null;
-						message: string;
-						occurred_at: string;
-						interaction_id: string | null;
-					}>(),
-				c.env.DB.prepare(
-					`SELECT event_id, event_type, event_name, page_path, severity, occurred_at,
-						interaction_id
-					FROM usage_events
-					WHERE project_id = ? AND session_id = ?
-					ORDER BY occurred_at ASC
-					LIMIT 2000`,
-				)
-					.bind(projectId, sessionId)
-					.all<{
-						event_id: string;
-						event_type: string;
-						event_name: string;
-						page_path: string | null;
-						severity: string | null;
-						occurred_at: string;
-						interaction_id: string | null;
-					}>(),
-				c.env.DB.prepare(
-					`SELECT first_chunk_at, last_chunk_at, chunk_count, events_count
-					FROM session_replay_metadata
-					WHERE session_id = ?`,
-				)
-					.bind(sessionId)
-					.first<{
-						first_chunk_at: string;
-						last_chunk_at: string;
-						chunk_count: number;
-						events_count: number;
-					}>(),
-			]);
+			// RFC 0008 — go through the IdentityIndex helper rather than
+			// duplicating per-signal SQL. Same indexed lookup, single
+			// ownership of the cross-signal join shape.
+			const index = new IdentityIndex(sqlDbFor(c.env));
+			const manifest = await index.bySession(projectId, sessionId);
 
 			const events: TimelineEvent[] = [];
 			// Stash root-span shapes for grouping. Indexed by trace_id since a
@@ -181,71 +113,71 @@ export const timelineRoutesPlugin: CollectorPlugin = {
 				TimelineGroup["causedTraces"]
 			>();
 
-			for (const s of spansRes.results ?? []) {
-				const interactionId = s.interaction_id ?? undefined;
+			for (const s of manifest.spans) {
+				const interactionId = s.interactionId ?? undefined;
 				events.push({
-					t: s.start_time,
+					t: s.startTime,
 					kind: "span",
-					id: `${s.trace_id}:${s.span_id}`,
-					title: `${s.service_name ?? "unknown"} · ${s.span_name}`,
-					subtitle: s.status_message ?? undefined,
-					severity: severityFromStatus(s.status_code),
-					durationMs: s.duration_ms,
+					id: `${s.traceId}:${s.spanId}`,
+					title: `${s.serviceName ?? "unknown"} · ${s.spanName}`,
+					subtitle: s.statusMessage ?? undefined,
+					severity: severityFromStatus(s.statusCode),
+					durationMs: s.durationMs,
 					interactionId,
 					payload: {
-						traceId: s.trace_id,
-						spanId: s.span_id,
-						parentSpanId: s.parent_span_id,
-						statusCode: s.status_code,
+						traceId: s.traceId,
+						spanId: s.spanId,
+						parentSpanId: s.parentSpanId,
+						statusCode: s.statusCode,
 					},
 				});
 				// Only root spans count as "the trace this click caused" — child
 				// spans are part of the same trace tree, so collecting them
 				// would double-count.
-				if (interactionId && s.parent_span_id === null) {
+				if (interactionId && s.parentSpanId === null) {
 					const list = rootSpansByInteraction.get(interactionId) ?? [];
 					list.push({
-						traceId: s.trace_id,
-						rootSpanId: s.span_id,
-						rootSpanName: s.span_name,
-						serviceName: s.service_name,
-						durationMs: s.duration_ms,
-						status: s.status_code === 2 ? "error" : "ok",
+						traceId: s.traceId,
+						rootSpanId: s.spanId,
+						rootSpanName: s.spanName,
+						serviceName: s.serviceName,
+						durationMs: s.durationMs,
+						status: s.statusCode === 2 ? "error" : "ok",
 					});
 					rootSpansByInteraction.set(interactionId, list);
 				}
 			}
 
-			for (const l of logsRes.results ?? []) {
+			for (const l of manifest.logs) {
 				events.push({
-					t: l.occurred_at,
+					t: l.occurredAt,
 					kind: "log",
-					id: l.log_id,
+					id: l.logId,
 					title: l.message.slice(0, 160),
-					subtitle: `${l.service_name ?? ""}${l.logger_name ? ` · ${l.logger_name}` : ""}`.trim(),
+					subtitle: `${l.serviceName ?? ""}${l.loggerName ? ` · ${l.loggerName}` : ""}`.trim(),
 					severity: severityFromLog(l.severity),
-					interactionId: l.interaction_id ?? undefined,
+					interactionId: l.interactionId ?? undefined,
 					payload: {
 						severity: l.severity,
-						traceId: l.trace_id,
-						spanId: l.span_id,
+						traceId: l.traceId,
+						spanId: l.spanId,
 					},
 				});
 			}
 
-			for (const u of usageRes.results ?? []) {
+			for (const u of manifest.usageEvents) {
 				events.push({
-					t: u.occurred_at,
+					t: u.occurredAt,
 					kind: "usage",
-					id: u.event_id,
-					title: `${u.event_type}${u.event_name && u.event_name !== u.event_type ? ` · ${u.event_name}` : ""}`,
-					subtitle: u.page_path ?? undefined,
-					severity: severityFromUsage(u.event_type, u.severity),
-					interactionId: u.interaction_id ?? undefined,
+					id: u.eventId,
+					title: `${u.eventType}${u.eventName && u.eventName !== u.eventType ? ` · ${u.eventName}` : ""}`,
+					subtitle: u.pagePath ?? undefined,
+					severity: severityFromUsage(u.eventType, u.severity),
+					interactionId: u.interactionId ?? undefined,
 					payload: {
-						eventType: u.event_type,
-						eventName: u.event_name,
-						pagePath: u.page_path,
+						eventType: u.eventType,
+						eventName: u.eventName,
+						pagePath: u.pagePath,
 					},
 				});
 			}
@@ -285,16 +217,16 @@ export const timelineRoutesPlugin: CollectorPlugin = {
 				firstSeen,
 				lastSeen,
 				counts: {
-					spans: spansRes.results?.length ?? 0,
-					logs: logsRes.results?.length ?? 0,
-					usage: usageRes.results?.length ?? 0,
+					spans: manifest.spans.length,
+					logs: manifest.logs.length,
+					usage: manifest.usageEvents.length,
 				},
-				replay: replayRes
+				replay: manifest.replay
 					? {
-						firstChunkAt: replayRes.first_chunk_at,
-						lastChunkAt: replayRes.last_chunk_at,
-						chunkCount: replayRes.chunk_count,
-						eventsCount: replayRes.events_count,
+						firstChunkAt: manifest.replay.firstChunkAt,
+						lastChunkAt: manifest.replay.lastChunkAt,
+						chunkCount: manifest.replay.chunkCount,
+						eventsCount: manifest.replay.eventsCount,
 					}
 					: null,
 				events,

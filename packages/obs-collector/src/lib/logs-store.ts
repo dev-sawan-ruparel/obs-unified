@@ -3,6 +3,7 @@ import type {
 	LogsOverviewOptions,
 	LogsOverviewResponse,
 } from "@obs/types";
+import type { SqlDb } from "./sql-db";
 
 /** Clamp an integer to a safe range */
 const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
@@ -12,7 +13,7 @@ const clampInt = (value: unknown, min: number, max: number, fallback: number): n
 };
 
 export class LogsStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingestBatch(logs: LogRecord[]): Promise<void> {
 		if (logs.length === 0) return;

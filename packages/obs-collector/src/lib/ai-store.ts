@@ -17,6 +17,7 @@ import type {
 } from "@obs/types";
 import { computeCost } from "./ai-pricing";
 import { parseJsonRecord } from "./json";
+import type { SqlDb } from "./sql-db";
 
 const attrNum = (
 	attrs: Record<string, JsonValue>,
@@ -76,7 +77,7 @@ const clampInt = (value: unknown, min: number, max: number, fallback: number): n
 };
 
 export class AIStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingestBatch(calls: AICallRecord[]): Promise<void> {
 		if (calls.length === 0) return;

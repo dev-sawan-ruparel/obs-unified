@@ -1,5 +1,6 @@
 import type { CollectorPlugin } from "../framework/collector";
 import type { ReplayChunkInput } from "@obs/types";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const replayReceiverPlugin: CollectorPlugin = {
@@ -27,7 +28,7 @@ export const replayReceiverPlugin: CollectorPlugin = {
 				httpMetadata: { contentType: "application/json" },
 			});
 
-			await c.env.DB.prepare(
+			await sqlDbFor(c.env).prepare(
 				`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(session_id) DO UPDATE SET

@@ -13,25 +13,13 @@
 import type { AnalysisDefinition } from "@obs/types";
 
 import { AnalysesStore } from "../lib/analyses-store";
+import type { SqlDb } from "../lib/sql-db";
 import { deriveAnalysesForProject } from "./derive";
 import { INVESTIGATION_ANALYSES } from "./investigations";
 import { TIER0_ANALYSES } from "./tier0";
 
-// We accept the worker-runtime D1Database here, but only use prepare/bind/all,
-// so a structural subtype keeps obs-collector tests free of cloudflare types.
-interface D1PreparedStatement {
-	bind(...values: unknown[]): D1PreparedStatement;
-	all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
-	first<T = Record<string, unknown>>(): Promise<T | null>;
-	run(): Promise<unknown>;
-}
-
-interface D1Database {
-	prepare(query: string): D1PreparedStatement;
-}
-
 export interface AnalysisContext {
-	db: D1Database;
+	db: SqlDb;
 }
 
 export const getAllAnalysesForProject = async (
@@ -46,8 +34,7 @@ export const getAllAnalysesForProject = async (
 	// loading never breaks because the optional signal is missing.
 	let pinnedIds = new Set<string>();
 	try {
-		// biome-ignore lint/suspicious/noExplicitAny: structural D1 vs runtime D1
-		const store = new AnalysesStore(ctx.db as any);
+		const store = new AnalysesStore(ctx.db);
 		const top = await store.getTopAskedAnalyses(projectId);
 		pinnedIds = new Set(top.map((t) => t.analysisId));
 	} catch {

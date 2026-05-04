@@ -28,6 +28,7 @@ import type {
 } from "@obs/types";
 
 import { parseJsonRecord } from "./json";
+import type { SqlDb } from "./sql-db";
 
 const cutoffIso = (hours: number): string =>
 	new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -83,7 +84,7 @@ const toSessionSummary = (rows: UsageEventRow[]): UsageSessionSummary => {
 };
 
 export class UsageStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingest(
 		events: UsageEventRecord[],

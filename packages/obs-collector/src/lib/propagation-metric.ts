@@ -23,6 +23,7 @@
 import type { DecodedMetricPoint } from "../otlp/decode";
 import type { Logger } from "../framework/logger";
 import { MetricsStore } from "./metrics-store";
+import type { SqlDb } from "./sql-db";
 
 const PROPAGATION_METRIC_NAME = "obs.interaction.propagation";
 
@@ -82,7 +83,7 @@ const buildPoint = (
 });
 
 const countsForSignal = async (
-	db: D1Database,
+	db: SqlDb,
 	projectId: string,
 	table: string,
 	hourCutoffIso: string,
@@ -109,7 +110,7 @@ const countsForSignal = async (
  * point; series identity stays stable).
  */
 export const aggregatePropagationForProject = async (
-	db: D1Database,
+	db: SqlDb,
 	projectId: string,
 	now: Date,
 	logger?: Logger,
@@ -159,7 +160,7 @@ export const aggregatePropagationForProject = async (
  * cron handler; cheap enough to run alongside retention cleanup.
  */
 export const aggregatePropagation = async (
-	db: D1Database,
+	db: SqlDb,
 	now: Date,
 	logger?: Logger,
 ): Promise<{ projects: number; pointsWritten: number }> => {

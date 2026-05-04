@@ -21,6 +21,7 @@ import type {
 } from "@obs/types";
 
 import { parseJsonRecord } from "./json";
+import type { SqlDb } from "./sql-db";
 
 interface DefinitionRow {
 	project_id: string;
@@ -90,7 +91,7 @@ const rowToResult = (row: ResultRow): AnalysisResult => ({
 });
 
 export class AnalysesStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async upsertDefinition(
 		projectId: string,
