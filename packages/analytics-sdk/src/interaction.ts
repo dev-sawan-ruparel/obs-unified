@@ -122,6 +122,67 @@ export const withInteractionContextAsync = async <T>(
 	}
 };
 
+// ── Higher-order wrapper ──
+//
+// `wrapInteraction` is the practical Mode-B form. It captures whatever
+// interaction is active at the moment the wrapped function is invoked
+// (typically a click — Mode A's listener has just pushed) and keeps it
+// active for the handler's full execution, including async awaits. Pop
+// happens in a `.finally` on the returned promise (when the handler is
+// async) or synchronously after return (when sync).
+//
+// Falls through cleanly when no interaction is active — the wrapped
+// handler runs as-is and never touches the stack.
+
+// biome-ignore lint/suspicious/noExplicitAny: HOFs over arbitrary functions
+type AnyHandler = (...args: any[]) => any;
+
+const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+	value !== null &&
+	typeof value === "object" &&
+	"then" in value &&
+	typeof (value as { then: unknown }).then === "function";
+
+/**
+ * Wrap a handler so it runs inside the interaction context that's active
+ * at call time. The id is held until the handler finishes — for async
+ * handlers this means awaits inside the body see the id even after Mode
+ * A's microtask pop has fired.
+ *
+ *   const onClick = wrapInteraction(async () => {
+ *     await delay(500);
+ *     await fetch("/checkout"); // carries x-obs-interaction
+ *   });
+ *
+ * If the handler returns a promise that never settles, the context is
+ * never popped — that's a leak in the handler, not this wrapper.
+ */
+export const wrapInteraction = <F extends AnyHandler>(handler: F): F => {
+	return ((...args: Parameters<F>) => {
+		const id = currentInteractionId();
+		if (id === undefined) {
+			// No interaction active at call time. Don't synthesize one —
+			// silent guessing produces wrong joins.
+			return handler(...args);
+		}
+
+		pushInteraction(id);
+		try {
+			const result = handler(...args);
+			if (isThenable(result)) {
+				// Async — keep the id active until the promise settles.
+				return Promise.resolve(result).finally(popInteraction);
+			}
+			// Sync return — pop immediately.
+			popInteraction();
+			return result;
+		} catch (err) {
+			popInteraction();
+			throw err;
+		}
+	}) as F;
+};
+
 // ── Test-only ──
 
 /** Reset the stack. Test-only — never call this in app code. */

@@ -20,6 +20,7 @@ import {
 	pushInteraction,
 	withInteractionContext,
 	withInteractionContextAsync,
+	wrapInteraction,
 } from "./interaction";
 
 afterEach(() => {
@@ -115,6 +116,82 @@ describe("withInteractionContextAsync", () => {
 			}),
 		).rejects.toThrow("nope");
 		expect(currentInteractionId()).toBeUndefined();
+	});
+});
+
+describe("wrapInteraction (Phase 1.4)", () => {
+	it("falls through when no interaction is active", () => {
+		const handler = (a: number) => a * 2;
+		const wrapped = wrapInteraction(handler);
+		expect(wrapped(3)).toBe(6);
+		expect(currentInteractionId()).toBeUndefined();
+	});
+
+	it("captures the id at invocation time and pops after sync return", () => {
+		pushInteraction("X");
+		const handler = () => currentInteractionId();
+		const wrapped = wrapInteraction(handler);
+		const result = wrapped();
+		expect(result).toBe("X");
+		// After sync return, our wrap has popped its copy. The original
+		// "X" is still on the stack from the explicit push above.
+		expect(currentInteractionId()).toBe("X");
+		popInteraction();
+		expect(currentInteractionId()).toBeUndefined();
+	});
+
+	it("keeps the id active across awaits in async handlers", async () => {
+		pushInteraction("X");
+		// Simulate Mode A's microtask pop that would normally fire while
+		// the handler is still awaiting — the wrapper's own push must
+		// outlive that.
+		queueMicrotask(() => popInteraction());
+
+		const observed: (string | undefined)[] = [];
+		const handler = async () => {
+			observed.push(currentInteractionId());
+			await new Promise((r) => setTimeout(r, 10));
+			observed.push(currentInteractionId());
+			await Promise.resolve();
+			observed.push(currentInteractionId());
+		};
+		const wrapped = wrapInteraction(handler);
+		await wrapped();
+
+		expect(observed).toEqual(["X", "X", "X"]);
+		expect(currentInteractionId()).toBeUndefined();
+	});
+
+	it("pops on rejection from an async handler", async () => {
+		pushInteraction("X");
+		const wrapped = wrapInteraction(async () => {
+			await Promise.resolve();
+			throw new Error("nope");
+		});
+
+		await expect(wrapped()).rejects.toThrow("nope");
+		// One layer popped (the wrap's copy). The original push from this
+		// test remains; clean up.
+		expect(currentInteractionId()).toBe("X");
+		popInteraction();
+	});
+
+	it("pops on throw from a sync handler", () => {
+		pushInteraction("X");
+		const wrapped = wrapInteraction(() => {
+			throw new Error("sync boom");
+		});
+
+		expect(() => wrapped()).toThrow("sync boom");
+		expect(currentInteractionId()).toBe("X"); // wrap's copy popped, outer remains
+		popInteraction();
+	});
+
+	it("preserves arguments and return value", () => {
+		pushInteraction("X");
+		const wrapped = wrapInteraction((a: number, b: string) => `${a}:${b}`);
+		expect(wrapped(7, "foo")).toBe("7:foo");
+		popInteraction();
 	});
 });
 

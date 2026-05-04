@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { installAutoCorrelate } from "../auto-correlate";
+import { wrapInteraction } from "../interaction";
 import { UsageTracker, type UsageTrackerConfig } from "../usage-tracker";
 import { AnalyticsContext, type AnalyticsContextValue } from "./context";
 
@@ -144,6 +145,7 @@ export function AnalyticsProvider({
 				headers.set("X-Obs-Session-Id", tracker.sessionId);
 				return window.fetch(input, { ...init, headers });
 			},
+			withInteraction: wrapInteraction,
 		}),
 		[tracker],
 	);

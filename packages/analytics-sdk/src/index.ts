@@ -7,6 +7,7 @@ export {
 	generateInteractionId,
 	withInteractionContext,
 	withInteractionContextAsync,
+	wrapInteraction,
 } from "./interaction";
 
 // RFC 0004 — Mode A auto-propagation. The React provider installs this
