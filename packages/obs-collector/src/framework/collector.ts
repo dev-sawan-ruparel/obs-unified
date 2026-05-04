@@ -14,6 +14,7 @@ import { AnalysesStore } from "../lib/analyses-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
+import { aggregatePropagation } from "../lib/propagation-metric";
 import { D1Adapter, type SqlDb } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
@@ -354,6 +355,21 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 				metric_points: metricsPurged,
 				analysis_results: analysesPurged,
 			});
+
+			// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.
+			// Hourly aggregation rides the retention cron because cadence
+			// matches and both touch the same projects' tables.
+			try {
+				const propagation = await aggregatePropagation(env.DB, new Date(), logger);
+				logger.info("[propagation-metric] hourly aggregation complete", {
+					projects: propagation.projects,
+					points_written: propagation.pointsWritten,
+				});
+			} catch (err) {
+				logger.error("[propagation-metric] aggregation failed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
 		},
 	};
 };
