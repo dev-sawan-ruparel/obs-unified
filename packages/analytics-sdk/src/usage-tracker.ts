@@ -8,6 +8,7 @@
  * - D's configurable secondary error endpoint
  */
 import { record } from "rrweb";
+import { currentInteractionId } from "./interaction";
 
 // ── Public config ──
 
@@ -59,6 +60,14 @@ interface UsageEventPayload {
 	severity?: UsageEventSeverity;
 	properties?: Record<string, unknown>;
 	context?: Record<string, unknown>;
+	/**
+	 * RFC 0004 — click-scoped correlation key. Set when the event is
+	 * emitted while an interaction is active (Mode A captures it
+	 * automatically; Mode B requires `withInteractionContext`). Null
+	 * for events outside any user interaction (e.g. autoflushed
+	 * page_view on initial mount).
+	 */
+	interactionId?: string;
 }
 
 // ── Helpers ──
@@ -394,6 +403,12 @@ export class UsageTracker {
 				if (typeof ev.timestamp === "number" && this.timeOffsetMs) {
 					ev.timestamp += this.timeOffsetMs;
 				}
+				// RFC 0004 — stamp the active interaction_id on each rrweb
+				// event so the replay viewer can pivot from a click event
+				// to its caused trace. Namespaced field to avoid colliding
+				// with rrweb's reserved keys.
+				const id = currentInteractionId();
+				if (id !== undefined) ev.obsInteractionId = id;
 				this.replayEvents.push(ev);
 				if (this.replayEvents.length >= 50) {
 					this.flushReplays();
@@ -496,6 +511,7 @@ export class UsageTracker {
 						: {}),
 				},
 				context: getViewportContext(),
+				interactionId: currentInteractionId(),
 			},
 		]);
 	}
@@ -516,6 +532,7 @@ export class UsageTracker {
 					this.config.maxMetadataLength,
 				),
 				context: getViewportContext(),
+				interactionId: currentInteractionId(),
 			},
 		]);
 	}
@@ -569,6 +586,7 @@ export class UsageTracker {
 					this.config.maxMetadataLength,
 				),
 				context: getViewportContext(),
+				interactionId: currentInteractionId(),
 			},
 		]);
 
