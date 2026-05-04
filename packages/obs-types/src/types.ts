@@ -374,6 +374,12 @@ export interface UsageEventInput {
 	severity?: UsageEventSeverity;
 	properties?: Record<string, unknown>;
 	context?: Record<string, unknown>;
+	/**
+	 * RFC 0004 — set by @obs/analytics-sdk when the event is emitted while
+	 * a click/submit/keydown interaction is active. Optional on the wire;
+	 * the receiver denormalizes into usage_events.interaction_id.
+	 */
+	interactionId?: string;
 }
 
 export interface UsageEventPayload {
@@ -659,6 +665,10 @@ export interface AICallInput {
 	isError?: boolean;
 	errorMessage?: string;
 	occurredAt?: string;
+	/** RFC 0004 — propagated from the active root span by the SDK. */
+	sessionId?: string;
+	/** RFC 0004 — same source as sessionId. */
+	interactionId?: string;
 }
 
 export interface AICallPayload {

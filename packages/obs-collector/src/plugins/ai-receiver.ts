@@ -54,6 +54,10 @@ export const aiReceiverPlugin: CollectorPlugin = {
 				occurredAt: call.occurredAt || nowStr,
 				receivedAt: nowStr,
 				expiresAt: expires,
+				// RFC 0004 — denormalized from the active root span, when the
+				// SDK was told to propagate it.
+				sessionId: call.sessionId ?? null,
+				interactionId: call.interactionId ?? null,
 			}));
 
 			await store.ingestBatch(records);

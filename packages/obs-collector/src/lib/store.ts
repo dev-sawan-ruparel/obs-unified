@@ -390,8 +390,9 @@ export class TelemetryStore {
           status_code, status_message, start_time, end_time, duration_ms,
           attributes_json, dropped_attributes_count,
           resource_attributes_json, events_json, dropped_events_count,
-          links_json, dropped_links_count, received_at, expires_at, session_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          links_json, dropped_links_count, received_at, expires_at,
+          session_id, interaction_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 				.bind(
 					span.projectId,
@@ -419,6 +420,7 @@ export class TelemetryStore {
 					span.receivedAt,
 					span.expiresAt,
 					span.sessionId ?? null,
+					span.interactionId ?? null,
 				);
 		});
 

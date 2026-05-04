@@ -54,6 +54,9 @@ const toUsageRecord = (
 	utmSource: null,
 	utmMedium: null,
 	utmCampaign: null,
+	// RFC 0004 — opaque correlation id from the analytics SDK; null when
+	// the event was emitted outside any user interaction.
+	interactionId: input.interactionId || null,
 });
 
 export const usageReceiverPlugin: CollectorPlugin = {

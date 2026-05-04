@@ -21,8 +21,8 @@ export class LogsStore {
       INSERT INTO logs (
         project_id, log_id, trace_id, span_id, service_name, severity, severity_number,
         logger_name, message, attributes_json, flags, dropped_attributes_count,
-        occurred_at, received_at, expires_at, session_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        occurred_at, received_at, expires_at, session_id, interaction_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
 		const batch = logs.map((l) => {
@@ -45,6 +45,7 @@ export class LogsStore {
 				l.receivedAt,
 				l.expiresAt,
 				l.sessionId ?? null,
+				l.interactionId ?? null,
 			);
 		});
 

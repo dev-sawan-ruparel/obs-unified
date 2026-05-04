@@ -85,8 +85,9 @@ export class AIStore {
       INSERT INTO ai_calls (
         project_id, call_id, trace_id, span_id, service_name, model_name, provider, call_type,
         request_json, response_json, prompt_tokens, completion_tokens, total_cost_usd,
-        latency_ms, is_error, error_message, occurred_at, received_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        latency_ms, is_error, error_message, occurred_at, received_at, expires_at,
+        session_id, interaction_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
 		const batch = calls.map((c) => {
@@ -112,6 +113,8 @@ export class AIStore {
 				c.occurredAt,
 				c.receivedAt,
 				c.expiresAt,
+				c.sessionId ?? null,
+				c.interactionId ?? null,
 			);
 		});
 

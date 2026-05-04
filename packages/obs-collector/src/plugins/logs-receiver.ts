@@ -59,6 +59,15 @@ export const logsReceiverPlugin: CollectorPlugin = {
 					(d.attributes["session.id"] as string).length > 0
 						? (d.attributes["session.id"] as string)
 						: null;
+				// RFC 0004 — denormalize obs.interaction.id from log
+				// attributes when the producer stamped it (telemetry-sdk's
+				// logger inherits the active span's attribute).
+				const interactionId =
+					d.attributes &&
+					typeof d.attributes["obs.interaction.id"] === "string" &&
+					(d.attributes["obs.interaction.id"] as string).length > 0
+						? (d.attributes["obs.interaction.id"] as string)
+						: null;
 				return {
 					projectId,
 					logId: crypto.randomUUID(),
@@ -76,6 +85,7 @@ export const logsReceiverPlugin: CollectorPlugin = {
 					receivedAt: nowStr,
 					expiresAt: expires,
 					sessionId,
+					interactionId,
 				};
 			});
 
