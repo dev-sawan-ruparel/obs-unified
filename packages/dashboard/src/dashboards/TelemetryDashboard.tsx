@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useApi } from "../use-api";
 import { useDashboard, useTimeWindowHours } from "../provider";
 import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";
 import {
@@ -841,6 +842,30 @@ function TraceDetailView({
 	const asyncParents = tree.filter((s) => s.asyncParent).length;
 	const uninstrumentedCount = tree.filter(isLikelyUninstrumented).length;
 
+	// RFC 0007 Phase 4.6 — does any pprof profile cover this trace?
+	// One query per trace; populates a state on first render.
+	const api = useApi();
+	const [profileMatches, setProfileMatches] = useState<
+		Array<{
+			id: string;
+			serviceName: string | null;
+			profileType: string;
+			durationMs: number;
+		}>
+	>([]);
+	useEffect(() => {
+		api<{
+			profiles: Array<{
+				id: string;
+				serviceName: string | null;
+				profileType: string;
+				durationMs: number;
+			}>;
+		}>(`/profiles?trace_id=${encodeURIComponent(meta.traceId)}`)
+			.then((r) => setProfileMatches(r.profiles ?? []))
+			.catch(() => {});
+	}, [api, meta.traceId]);
+
 	return (
 		<div className="space-y-4">
 			{/* Summary bar */}
@@ -882,6 +907,15 @@ function TraceDetailView({
 					>
 						ASYNC{" "}
 						<span className="opacity-100">{asyncParents}</span>
+					</span>
+				)}
+				{profileMatches.length > 0 && (
+					<span
+						className="text-sys-primary"
+						title={`${profileMatches.length} pprof profile(s) cover this trace. Click a row's badge to scope to that span.`}
+					>
+						🔥 PROFILES{" "}
+						<span className="font-bold">{profileMatches.length}</span>
 					</span>
 				)}
 				{meta.errorSpanCount > 0 && (
@@ -951,6 +985,14 @@ function TraceDetailView({
 											title={`${Math.round(s.selfMs)}ms of ${s.durationMs}ms is unaccounted for. Consider adding child spans or attaching a profile.`}
 										>
 											\u26a0
+										</span>
+									)}
+									{profileMatches.length > 0 && (
+										<span
+											className="ml-1 text-sys-primary"
+											title={`pprof profile(s) cover this trace: ${profileMatches.map((p) => `${p.serviceName ?? "?"}/${p.profileType}`).join(", ")}. Open Profiles tab to drill in.`}
+										>
+											{"\ud83d\udd25"}
 										</span>
 									)}
 								</span>
