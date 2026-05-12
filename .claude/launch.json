@@ -16,6 +16,12 @@
 				"DEV_COLLECTOR_URL": "http://localhost:28790",
 				"DEV_WEB_PORT": "5174"
 			}
+		},
+		{
+			"name": "docs",
+			"runtimeExecutable": "bash",
+			"runtimeArgs": ["-c", "cd ../obs-unified-docs && pnpm dev"],
+			"port": 3000
 		}
 	]
 }
