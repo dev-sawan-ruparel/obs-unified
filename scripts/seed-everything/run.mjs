@@ -131,18 +131,41 @@ const dashFetch = async (cookie, path, init = {}) => {
 	return res.json().catch(() => ({}));
 };
 
+// ── RFC 0004 — interaction_id minting ───────────────────────────────
+//
+// 26-char Crockford-base32, same shape as @obs/analytics-sdk emits at
+// click time. Time-prefixed so they sort within a session in seeded
+// data the same way real ids would.
+const ENCODING_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const mintInteractionId = () => {
+	let t = Date.now();
+	let timePart = "";
+	for (let i = 0; i < 10; i++) {
+		timePart = ENCODING_B32[t % 32] + timePart;
+		t = Math.floor(t / 32);
+	}
+	const bytes = crypto.getRandomValues(new Uint8Array(16));
+	let randPart = "";
+	for (let i = 0; i < 16; i++) randPart += ENCODING_B32[bytes[i] % 32];
+	return timePart + randPart;
+};
+
 // ── usage events (Usage / Sessions / Timeline tabs) ─────────────────
 
 /**
  * Seed usage. Returns the session windows so spans + logs can later be
  * stamped with the same session.id (and time-aligned) so the Timeline tab
- * shows a real cross-signal join.
+ * shows a real cross-signal join. Each "interaction" event gets a fresh
+ * interaction_id, returned in the session's `interactions` array so
+ * downstream signals (traces / logs / AI calls) can be linked back to
+ * the click that caused them.
  *
  * @returns {Promise<{ inserted: number, sessions: Array<{
  *   sessionId: string;
  *   visitorId: string;
  *   startMs: number;
  *   endMs: number;
+ *   interactions: Array<{ interactionId: string; occurredAt: number; name: string }>;
  * }> }>}
  */
 const seedUsage = async () => {
@@ -158,11 +181,13 @@ const seedUsage = async () => {
 		const visitorId = `${visitorBase}-v${s}`;
 		const startTs = now - (sessions - s) * 5 * 60_000;
 		const eventDurationMs = (eventsPerSession - 1) * 7_000;
+		const sessionInteractions = [];
 		sessionWindows.push({
 			sessionId,
 			visitorId,
 			startMs: startTs,
 			endMs: startTs + eventDurationMs,
+			interactions: sessionInteractions,
 		});
 		const paths = ["/", "/dashboard", "/dashboard/traces", "/dashboard/logs"];
 
@@ -170,18 +195,31 @@ const seedUsage = async () => {
 			const ts = startTs + i * 7_000;
 			const path = paths[i % paths.length];
 			const isLast = i === eventsPerSession - 1;
+			const isInteraction = i % 3 !== 0;
+			const interactionId = isInteraction ? mintInteractionId() : null;
+			if (interactionId) {
+				sessionInteractions.push({
+					interactionId,
+					occurredAt: ts,
+					name: `click_${i}`,
+				});
+			}
 
-			// page view
+			// page view (every 3rd event) or click
 			events.push({
-				type: i % 3 === 0 ? "page_view" : "interaction",
-				name: i % 3 === 0 ? "page_view" : `click_${i}`,
+				type: isInteraction ? "interaction" : "page_view",
+				name: isInteraction ? `click_${i}` : "page_view",
 				sessionId,
 				visitorId,
 				occurredAt: new Date(ts).toISOString(),
 				pagePath: path,
+				// RFC 0004 — interactionId is the click-scoped correlation
+				// key. Page views deliberately don't carry one — they're not
+				// the originating click of any downstream trace.
+				interactionId,
 				properties: {
 					seed: true,
-					action: i % 3 === 0 ? "navigate" : "click",
+					action: isInteraction ? "click" : "navigate",
 					target: `nav-${i}`,
 				},
 				context: {
@@ -389,9 +427,20 @@ const seedTraces = async (sessionWindows = []) => {
 			kv("url.path", route.name.split(" ")[1]),
 			kv("http.response.status_code", isError ? 500 : 200),
 		];
+		// RFC 0004 — when a trace falls inside a session window we also pick
+		// one of the session's interaction_ids so the rail's "Trace caused
+		// by this click" + "Originating click" links resolve against
+		// seeded data. Picked round-robin across the session's clicks.
+		let stampedInteractionId = null;
 		if (inSession) {
 			baseAttrs.push(kv("session.id", inSession.sessionId));
 			baseAttrs.push(kv("user.id", inSession.visitorId));
+			const interactions = inSession.interactions ?? [];
+			if (interactions.length > 0) {
+				const pick = interactions[r % interactions.length];
+				stampedInteractionId = pick.interactionId;
+				baseAttrs.push(kv("obs.interaction.id", stampedInteractionId));
+			}
 		}
 
 		// Root server span
@@ -409,6 +458,13 @@ const seedTraces = async (sessionWindows = []) => {
 			},
 		});
 
+		// Child spans inherit the parent's interaction_id so the rail's
+		// span-detail "Originating click" link resolves no matter which
+		// span the user lands on (root or a deep child).
+		const childInteractionKv = stampedInteractionId
+			? [kv("obs.interaction.id", stampedInteractionId)]
+			: [];
+
 		// Child DB span (always)
 		allSpans.push({
 			service: svc,
@@ -425,6 +481,7 @@ const seedTraces = async (sessionWindows = []) => {
 					kv("db.system", "sqlite"),
 					kv("db.statement", "SELECT * FROM users WHERE id = ?"),
 					kv("peer.service", "users-db"),
+					...childInteractionKv,
 				],
 			},
 		});
@@ -451,6 +508,7 @@ const seedTraces = async (sessionWindows = []) => {
 				attributes: [
 					kv("peer.service", downstream),
 					kv("http.request.method", "GET"),
+					...childInteractionKv,
 				],
 			},
 		});
@@ -468,6 +526,7 @@ const seedTraces = async (sessionWindows = []) => {
 				attributes: [
 					kv("http.request.method", "GET"),
 					kv("http.route", `/internal/${downstream}`),
+					...childInteractionKv,
 				],
 			},
 		});
@@ -538,6 +597,14 @@ const seedLogs = async (sessionWindows = []) => {
 			];
 			if (inSession) {
 				attrs.push(kv("session.id", inSession.sessionId));
+				// RFC 0004 — stamp obs.interaction.id on ~half of session
+				// logs so the rail's "logs from this trace" + "logs caused
+				// by this click" both have populated data to surface.
+				const interactions = inSession.interactions ?? [];
+				if (interactions.length > 0 && idx % 2 === 0) {
+					const pick = interactions[idx % interactions.length];
+					attrs.push(kv("obs.interaction.id", pick.interactionId));
+				}
 			}
 
 			logRecords.push({
@@ -573,7 +640,7 @@ const seedLogs = async (sessionWindows = []) => {
 
 // ── AI calls ────────────────────────────────────────────────────────
 
-const seedAi = async () => {
+const seedAi = async (sessionWindows = []) => {
 	const models = [
 		{ provider: "openai", model: "gpt-4o-mini", inputCost: 0.00015, outputCost: 0.0006 },
 		{ provider: "anthropic", model: "claude-3-5-haiku", inputCost: 0.001, outputCost: 0.005 },
@@ -588,23 +655,92 @@ const seedAi = async () => {
 
 	const aiSpans = [];
 	const sessionRoot = `seed-ai-${Date.now().toString(36)}`;
-	for (let i = 0; i < 12; i++) {
+	const totalCalls = 12;
+	// RFC 0006 Scenario B — last session is the "heavy spender" with 8
+	// high-cost calls in a row; the rest of the seed has the original
+	// shape. This lets the dashboard's AI tab show a believable spike,
+	// the cost-by-user view show one user dominating, and the rail's
+	// user → latest session → trace pivot resolve to populated data.
+	const heavySpenderSession =
+		sessionWindows.length > 0 ? sessionWindows[sessionWindows.length - 1] : null;
+
+	for (let i = 0; i < totalCalls; i++) {
 		const m = models[i % models.length];
 		const p = prompts[i % prompts.length];
-		const offsetMs = Math.floor(Math.random() * 3 * 60 * 60 * 1000);
+		const isHeavy = heavySpenderSession && i >= totalCalls - 8;
+
+		// Place heavy-spender calls inside the session window (so the
+		// timeline tab shows them lined up with the user's clicks); other
+		// calls scatter over the last 3 hours.
+		const offsetMs = isHeavy
+			? Date.now() - (heavySpenderSession.startMs +
+				Math.floor(
+					(heavySpenderSession.endMs - heavySpenderSession.startMs) *
+						(i / totalCalls),
+				))
+			: Math.floor(Math.random() * 3 * 60 * 60 * 1000);
+
 		const dur = 200 + Math.floor(Math.random() * 1500);
 		const isError = i === 7; // one failed call
-		const promptTokens = 150 + Math.floor(Math.random() * 400);
-		const completionTokens = isError ? 0 : 50 + Math.floor(Math.random() * 300);
+		// Heavy-spender prompts are longer + use the most expensive model so
+		// the cost ratio is visually obvious in the dashboard.
+		const promptTokens = isHeavy
+			? 1200 + Math.floor(Math.random() * 800)
+			: 150 + Math.floor(Math.random() * 400);
+		const completionTokens = isError
+			? 0
+			: isHeavy
+				? 600 + Math.floor(Math.random() * 400)
+				: 50 + Math.floor(Math.random() * 300);
+		const effectiveModel = isHeavy ? models[1] : m; // claude-3-5-haiku, most expensive
 		const cost =
-			(promptTokens * m.inputCost + completionTokens * m.outputCost) / 1000;
+			(promptTokens * effectiveModel.inputCost +
+				completionTokens * effectiveModel.outputCost) /
+			1000;
+
+		// Pick the session + interaction id for this call.
+		const session = isHeavy
+			? heavySpenderSession
+			: sessionWindows.length > 0 && i % 3 === 0
+				? sessionWindows[i % sessionWindows.length]
+				: null;
+		const sessionId = session ? session.sessionId : `${sessionRoot}-${i % 3}`;
+		const interactions = session?.interactions ?? [];
+		const interactionId =
+			interactions.length > 0
+				? interactions[i % interactions.length].interactionId
+				: null;
+
+		const attrs = [
+			kv("openinference.span.kind", "LLM"),
+			kv("llm.provider", effectiveModel.provider),
+			kv("llm.model_name", effectiveModel.model),
+			kv("llm.input_messages.0.message.role", "user"),
+			kv("llm.input_messages.0.message.content", p),
+			kv("llm.output_messages.0.message.role", "assistant"),
+			kv(
+				"llm.output_messages.0.message.content",
+				isError ? "" : `Sample response for "${p.slice(0, 30)}…"`,
+			),
+			kv("llm.token_count.prompt", promptTokens),
+			kv("llm.token_count.completion", completionTokens),
+			kv("llm.token_count.total", promptTokens + completionTokens),
+			kv("llm.cost_usd", cost),
+			kv("session.id", sessionId),
+		];
+		if (session) {
+			attrs.push(kv("user.id", session.visitorId));
+		}
+		if (interactionId) {
+			attrs.push(kv("obs.interaction.id", interactionId));
+		}
 
 		aiSpans.push({
 			service: "obs-demo",
 			span: {
 				traceId: hex(16),
 				spanId: hex(8),
-				name: `${m.provider}.chat`,
+				name: `${effectiveModel.provider}.chat`,
 				kind: 3, // CLIENT
 				startTimeUnixNano: agoNs(offsetMs + dur),
 				endTimeUnixNano: agoNs(offsetMs),
@@ -612,23 +748,7 @@ const seedAi = async () => {
 					code: isError ? 2 : 1,
 					message: isError ? "rate_limit_exceeded" : "",
 				},
-				attributes: [
-					kv("openinference.span.kind", "LLM"),
-					kv("llm.provider", m.provider),
-					kv("llm.model_name", m.model),
-					kv("llm.input_messages.0.message.role", "user"),
-					kv("llm.input_messages.0.message.content", p),
-					kv("llm.output_messages.0.message.role", "assistant"),
-					kv(
-						"llm.output_messages.0.message.content",
-						isError ? "" : `Sample response for "${p.slice(0, 30)}…"`,
-					),
-					kv("llm.token_count.prompt", promptTokens),
-					kv("llm.token_count.completion", completionTokens),
-					kv("llm.token_count.total", promptTokens + completionTokens),
-					kv("llm.cost_usd", cost),
-					kv("session.id", `${sessionRoot}-${i % 3}`),
-				],
+				attributes: attrs,
 			},
 		});
 	}
@@ -646,7 +766,84 @@ const seedAi = async () => {
 	];
 
 	await ingestPost("/v1/traces", { resourceSpans });
-	return `${aiSpans.length} AI spans across ${models.length} providers`;
+
+	// Also write to /v1/ai so the ai_calls denormalized table lights up
+	// — that's what the rail's "AI calls in this trace/session" sections
+	// query (not telemetry_spans). Without this the rail's AI links read
+	// as informative-absence even when the seed has plenty of AI traffic.
+	const aiCalls = aiSpans.map(({ span }) => {
+		const attrs = Object.fromEntries(
+			(span.attributes || []).map((kvp) => {
+				const v = kvp.value || {};
+				const val =
+					v.stringValue !== undefined
+						? v.stringValue
+						: v.intValue !== undefined
+							? Number(v.intValue)
+							: v.doubleValue !== undefined
+								? Number(v.doubleValue)
+								: v.boolValue !== undefined
+									? Boolean(v.boolValue)
+									: null;
+				return [kvp.key, val];
+			}),
+		);
+		return {
+			traceId: span.traceId,
+			spanId: span.spanId,
+			serviceName: "obs-demo",
+			modelName: attrs["llm.model_name"],
+			provider: attrs["llm.provider"],
+			callType: "chat",
+			promptTokens: attrs["llm.token_count.prompt"],
+			completionTokens: attrs["llm.token_count.completion"],
+			totalCostUsd: attrs["llm.cost_usd"],
+			latencyMs: 800,
+			isError: span.status?.code === 2,
+			errorMessage: span.status?.message || null,
+			occurredAt: new Date(
+				Number(BigInt(span.startTimeUnixNano) / 1_000_000n),
+			).toISOString(),
+			sessionId: attrs["session.id"] ?? null,
+			interactionId: attrs["obs.interaction.id"] ?? null,
+		};
+	});
+	await ingestPost("/v1/ai", { calls: aiCalls });
+
+	const heavyShare = heavySpenderSession ? 8 : 0;
+	return heavySpenderSession
+		? `${aiSpans.length} AI spans + ai_calls (${heavyShare} on heavy spender)`
+		: `${aiSpans.length} AI spans + ai_calls across ${models.length} providers`;
+};
+
+// ── identified users (Scenario B: AI cost spike → user pivot) ───────
+
+const seedUserProfiles = async (sessionWindows) => {
+	if (sessionWindows.length === 0) return "no sessions";
+	// Identify every seeded visitor so the rail's user → sessions pivot
+	// has populated data for any of them. The last one is the heavy
+	// spender — give them an obvious display name so the dashboard's
+	// user list makes the headline clear.
+	let created = 0;
+	for (let i = 0; i < sessionWindows.length; i++) {
+		const w = sessionWindows[i];
+		const isHeavy = i === sessionWindows.length - 1;
+		const userId = `user-${w.visitorId}`;
+		await ingestPost("/v1/identify", {
+			userId,
+			visitorId: w.visitorId,
+			email: isHeavy
+				? "heavy-spender@seed.local"
+				: `seed-user-${i}@seed.local`,
+			name: isHeavy ? "Heavy Spender (seed)" : `Seed User ${i}`,
+			properties: {
+				seed: true,
+				heavy_spender: isHeavy,
+			},
+		});
+		created += 1;
+	}
+	return `${created} profiles (1 heavy spender)`;
 };
 
 // ── main ────────────────────────────────────────────────────────────
@@ -690,7 +887,12 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 			seedTraces(sessionWindows),
 		);
 		await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
-		await step("AI calls (/v1/traces with LLM kind)", seedAi);
+		await step("AI calls (/v1/traces with LLM kind)", () =>
+			seedAi(sessionWindows),
+		);
+		await step("user profiles (/v1/identify)", () =>
+			seedUserProfiles(sessionWindows),
+		);
 		await step("alert rules (/internal/alerts/rules)", () =>
 			seedAlerts(cookie),
 		);
