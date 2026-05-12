@@ -115,7 +115,7 @@ describe("pprof-decoder blob handling", () => {
 		const ab = raw.buffer.slice(
 			raw.byteOffset,
 			raw.byteOffset + raw.byteLength,
-		);
+		) as ArrayBuffer;
 		const decoded = await decodePprofBlob(ab);
 		expect(decoded.samples).toHaveLength(1);
 	});

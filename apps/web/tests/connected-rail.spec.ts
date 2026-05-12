@@ -4,17 +4,33 @@ import { test, expect } from "@playwright/test";
  * RFC 0003 / 0006 Phase 6.6 — any-to-any matrix coverage.
  *
  * Walks the matrix from docs/ux/click-to-cpu.md § The any-to-any matrix.
- * Every cell marked `≤1` in that table corresponds to one `it()` here.
- * The skeleton lands first; cells flip from `test.skip` to `test` as
- * each path is manually verified against a running demo (Phase 6.4 / 6.5).
+ * Every cell marked `≤1` in that table corresponds to one `test()` here.
  *
- * Prerequisite:
- *   - `pnpm demo:up` running with the obs SDKs wired per
+ * Status: scaffold. Most cells are `test.skip` placeholders until the
+ * docker-compose demo SDK overlay (Phase 6.1-6.3) populates real
+ * interaction_id / pprof / Beyla data — the synthetic seed in
+ * `scripts/seed-everything/` can't exercise the happy paths these cells
+ * assert. See docs/implementation/shortcuts.md § "Live verification" for
+ * which rails are currently exercised manually.
+ *
+ * Today's coverage of the same contract:
+ *   - Server-side (manifest shape, count-collapse, informative-absence,
+ *     400 on unknown kind): packages/obs-collector/src/plugins/
+ *     connected-routes.test.ts (vitest, runs on every commit).
+ *   - Live cells: gated on E2E_LIVE_STACK=1 and the demo running.
+ *
+ * To run live cells against a live stack:
+ *   make run-with-demo && make seed
+ *   E2E_LIVE_STACK=1 pnpm --filter @obs-demo/web test:e2e:all
+ *
+ * Prerequisite for live cells:
+ *   - `make run-with-demo` running with SDKs wired per
  *     docs/implementation/demo-integration.md
  *   - dashboard at http://localhost:5173 with password e2e-test-pass
  */
 
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD ?? "e2e-test-pass";
+const LIVE_STACK = !!process.env.E2E_LIVE_STACK;
 
 test.describe("Connected rail — any-to-any matrix", () => {
 	test.beforeEach(async ({ page }) => {
@@ -26,7 +42,27 @@ test.describe("Connected rail — any-to-any matrix", () => {
 
 	// ── From a Trace ─────────────────────────────────────────────────────
 
-	test.skip("Trace → Span (≤1 click via waterfall row)", async () => {});
+	// Working template for the rest of the matrix. Other cells stay as
+	// test.skip until the demo SDK overlay (Phase 6.1-6.3) lands and we
+	// know real fixture trace ids to assert against. Run this with
+	// E2E_LIVE_STACK=1 against a `make run-with-demo` stack.
+	test("Trace → Span (≤1 click via waterfall row)", async ({ page }) => {
+		test.skip(!LIVE_STACK, "set E2E_LIVE_STACK=1 with `make run-with-demo` running");
+		await page.goto("/dashboard?tab=telemetry");
+		// First trace in the seed should expose its waterfall via inline expand.
+		const firstTraceRow = page.locator('[data-testid="trace-row"]').first();
+		await firstTraceRow.click();
+		// Span rows render as siblings inside the same expanded section.
+		const firstSpanRow = page
+			.locator('[data-testid="trace-waterfall-span"]')
+			.first();
+		await expect(firstSpanRow).toBeVisible();
+		await firstSpanRow.click();
+		// Rail must render the four canonical sections after navigation.
+		await expect(page.getByText("CONNECTED — SPAN")).toBeVisible();
+	});
+
+
 	test.skip("Trace → Log (≤1 click via rail 'Logs in this trace')", async () => {});
 	test.skip("Trace → Replay (≤1 click via rail when interaction_id present)", async () => {});
 	test.skip("Trace → Session (≤1 click via rail 'User session')", async () => {});
