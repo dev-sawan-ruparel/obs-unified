@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
 import { AlertRuleForm } from "./AlertRuleForm";
 import { Button } from "../components/Button";
+import { ConnectedRail } from "../components/ConnectedRail";
 import { Tag } from "../components/Tag";
 import { DataTable, type Column } from "../components/DataTable";
 import { EmptyState } from "../components/states";
@@ -177,7 +178,17 @@ export function AlertsDashboard() {
 					})}
 				/>
 
-				<AlertDetail ruleId={selectedRuleId} rules={rules} />
+				<div className="flex gap-2">
+					<div className="flex-1 min-w-0">
+						<AlertDetail ruleId={selectedRuleId} rules={rules} />
+					</div>
+					{selectedRuleId && (
+						<ConnectedRail
+							entityKind="alert"
+							entityId={selectedRuleId}
+						/>
+					)}
+				</div>
 			</div>
 		</div>
 	);

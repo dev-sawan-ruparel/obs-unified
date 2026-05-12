@@ -106,9 +106,13 @@ export {
 	createRequestSpan,
 	getActiveSpan,
 	type IncomingTraceContext,
+	INTERACTION_ATTRIBUTE_KEY,
+	INTERACTION_HEADER_NAME,
+	parseInteractionHeader,
 	parseTraceparent,
 	type RequestSpan,
 	runWithSpan,
+	stampInteractionFromRequest,
 	withChildSpan,
 } from "./span";
 
@@ -118,4 +122,21 @@ export { type WrapR2Options, wrapR2 } from "./r2";
 
 // ── HTTP client wrapper ──
 export { type WrapFetchOptions, wrapFetch } from "./fetch";
+
+// ── Process metrics (RFC 0005) ──
+export {
+	enableProcessMetrics,
+	type EnableProcessMetricsOptions,
+} from "./process-metrics";
+
+// ── pprof profile push (RFC 0007) ──
+export {
+	pushProfile,
+	type PushProfileOptions,
+	type PushProfileResult,
+	startProfiler,
+	type StartProfilerOptions,
+	type ProfilerHandle,
+	type ProfileCapture,
+} from "./profile";
 

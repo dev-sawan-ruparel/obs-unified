@@ -14,8 +14,21 @@ import { AnalysesStore } from "../lib/analyses-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
+import { aggregatePropagation } from "../lib/propagation-metric";
+import { D1Adapter, sqlDbFor, type SqlDb } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
+
+/**
+ * Factory that materializes an `SqlDb` for the request's `env`. Per-request
+ * because Cloudflare's `D1Database` binding only exists once `env` is in
+ * scope; on Workers this is essentially free since `D1Adapter` is a thin
+ * wrapper. Hosts override this to inject a fake DB in tests, a different
+ * engine in alternate runtimes, or a tracing wrapper at the storage layer.
+ */
+export type SqlDbFactory = (env: CollectorEnv) => SqlDb;
+
+const defaultSqlDbFactory: SqlDbFactory = (env) => new D1Adapter(env.DB);
 
 export interface SpanProcessorPlugin {
 	name: string;
@@ -79,21 +92,40 @@ export interface CollectorConfig {
 	 * pass-through.
 	 */
 	withChildSpan?: ChildSpanRunner;
+	/**
+	 * RFC 0008 — override the storage adapter. Per-request factory because
+	 * `env.DB` only exists once a request lands. Defaults to wrapping
+	 * `env.DB` in `D1Adapter`. Override in tests (use `MemSqlDb`) or to add
+	 * a tracing layer at the storage seam.
+	 */
+	sqlDb?: SqlDbFactory;
 }
 
 export class CollectorRuntime implements CollectorPluginContext {
 	private readonly spanProcessors: SpanProcessorPlugin[] = [];
 	private readonly usageEventProcessors: UsageEventProcessorPlugin[] = [];
 	private readonly plugins: string[] = [];
+	private readonly sqlDbFactory: SqlDbFactory;
 	readonly logger: Logger;
 	readonly withChildSpan: ChildSpanRunner;
 
 	constructor(
 		logger: Logger = consoleLogger,
 		withChildSpan: ChildSpanRunner = passthroughChildSpan,
+		sqlDbFactory: SqlDbFactory = defaultSqlDbFactory,
 	) {
 		this.logger = logger;
 		this.withChildSpan = withChildSpan;
+		this.sqlDbFactory = sqlDbFactory;
+	}
+
+	/**
+	 * Materialize an `SqlDb` for this request. Stores will accept this
+	 * directly once Phase 1.5 of RFC 0008 lands; until then plugins that
+	 * want to bypass `c.env.DB` can call this to opt in early.
+	 */
+	getSqlDb(env: CollectorEnv): SqlDb {
+		return this.sqlDbFactory(env);
 	}
 
 	registerPlugin(plugin: CollectorPlugin): void {
@@ -125,11 +157,11 @@ export class CollectorRuntime implements CollectorPluginContext {
 	}
 
 	createStore(env: CollectorEnv): TelemetryStore {
-		return new TelemetryStore(env.DB);
+		return new TelemetryStore(this.getSqlDb(env));
 	}
 
 	createUsageStore(env: CollectorEnv): UsageStore {
-		return new UsageStore(env.DB);
+		return new UsageStore(this.getSqlDb(env));
 	}
 
 	async runSpanProcessors(
@@ -199,7 +231,11 @@ export const createTelemetryCollectorApp = (
 		: pluginsOrConfig;
 
 	const app = new Hono<{ Bindings: CollectorEnv }>();
-	const runtime = new CollectorRuntime(config.logger, config.withChildSpan);
+	const runtime = new CollectorRuntime(
+		config.logger,
+		config.withChildSpan,
+		config.sqlDb,
+	);
 
 	// Health endpoint — no auth required
 	app.get("/health", (c) => c.json({ status: "ok" }));
@@ -288,12 +324,13 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 			env: CollectorEnv,
 			_ctx: ExecutionContext,
 		): Promise<void> {
-			const telemetryStore = new TelemetryStore(env.DB);
-			const usageStore = new UsageStore(env.DB);
-			const logsStore = new LogsStore(env.DB);
-			const aiStore = new AIStore(env.DB);
-			const metricsStore = new MetricsStore(env.DB);
-			const analysesStore = new AnalysesStore(env.DB);
+			const db = sqlDbFor(env);
+			const telemetryStore = new TelemetryStore(db);
+			const usageStore = new UsageStore(db);
+			const logsStore = new LogsStore(db);
+			const aiStore = new AIStore(db);
+			const metricsStore = new MetricsStore(db);
+			const analysesStore = new AnalysesStore(db);
 
 			const [
 				telemetryPurged,
@@ -311,6 +348,36 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 				analysesStore.purgeExpired(),
 			]);
 
+			// RFC 0007 Phase 4.10 — profile_blobs retention. Cascade
+			// foreign key on profile_trace_index handles the join rows;
+			// we still need to delete the R2 blobs, which we do
+			// best-effort by reading the URLs first.
+			let profilesPurged = 0;
+			try {
+				const expiredProfiles = await db
+					.prepare(
+						`SELECT id, blob_url FROM profile_blobs WHERE expires_at < datetime('now') LIMIT 500`,
+					)
+					.all<{ id: string; blob_url: string }>();
+				if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
+					await Promise.allSettled(
+						expiredProfiles.results.map((p) =>
+							env.PROFILES_BUCKET!.delete(p.blob_url),
+						),
+					);
+				}
+				const deleted = await db
+					.prepare(
+						`DELETE FROM profile_blobs WHERE expires_at < datetime('now')`,
+					)
+					.run();
+				profilesPurged = deleted.meta.changes;
+			} catch (err) {
+				logger.error("[retention-cleanup] profile purge failed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+
 			logger.info("[retention-cleanup] purged expired rows", {
 				spans: telemetryPurged,
 				usage: usagePurged,
@@ -318,7 +385,23 @@ export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => 
 				ai_calls: aiPurged,
 				metric_points: metricsPurged,
 				analysis_results: analysesPurged,
+				profile_blobs: profilesPurged,
 			});
+
+			// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.
+			// Hourly aggregation rides the retention cron because cadence
+			// matches and both touch the same projects' tables.
+			try {
+				const propagation = await aggregatePropagation(db, new Date(), logger);
+				logger.info("[propagation-metric] hourly aggregation complete", {
+					projects: propagation.projects,
+					points_written: propagation.pointsWritten,
+				});
+			} catch (err) {
+				logger.error("[propagation-metric] aggregation failed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
 		},
 	};
 };

@@ -21,6 +21,7 @@ import type {
 import type { CollectorPlugin } from "../framework/collector";
 import { AnalysesStore } from "../lib/analyses-store";
 import { runSqlAnalysis } from "../lib/analyses-runner";
+import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const analysesRoutesPlugin: CollectorPlugin = {
@@ -28,7 +29,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 	register(app, runtime) {
 		app.get("/internal/analyses", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AnalysesStore(c.env.DB);
+			const store = new AnalysesStore(sqlDbFor(c.env));
 			const analyses = await store.listDefinitions(projectId);
 			const response: AnalysesListResponse = {
 				analyses,
@@ -39,7 +40,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 
 		app.get("/internal/analyses/results", async (c) => {
 			const projectId = getProjectId(c);
-			const store = new AnalysesStore(c.env.DB);
+			const store = new AnalysesStore(sqlDbFor(c.env));
 			const definitions = await store.listDefinitions(projectId);
 			const ids = definitions.map((def) => def.id);
 			const latest = await store.getLatestResultsBulk(projectId, ids);
@@ -68,7 +69,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 					400,
 				);
 			}
-			const store = new AnalysesStore(c.env.DB);
+			const store = new AnalysesStore(sqlDbFor(c.env));
 			const definitions = await store.listDefinitions(projectId);
 			const definition = definitions.find((def) => def.id === id);
 			if (!definition) {
@@ -90,7 +91,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 			const expiresAt = Date.now() + retentionHours * 3600 * 1000;
 			try {
 				const result = await runSqlAnalysis(definition, {
-					db: c.env.DB,
+					db: sqlDbFor(c.env),
 					projectId,
 					retentionHours,
 				});
@@ -126,7 +127,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 					400,
 				);
 			}
-			const store = new AnalysesStore(c.env.DB);
+			const store = new AnalysesStore(sqlDbFor(c.env));
 			const definitions = await store.listDefinitions(projectId);
 			const definition = definitions.find((def) => def.id === id);
 			if (!definition) {

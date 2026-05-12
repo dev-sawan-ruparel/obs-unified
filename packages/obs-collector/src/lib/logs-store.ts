@@ -3,6 +3,7 @@ import type {
 	LogsOverviewOptions,
 	LogsOverviewResponse,
 } from "@obs/types";
+import type { SqlDb } from "./sql-db";
 
 /** Clamp an integer to a safe range */
 const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
@@ -12,7 +13,7 @@ const clampInt = (value: unknown, min: number, max: number, fallback: number): n
 };
 
 export class LogsStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingestBatch(logs: LogRecord[]): Promise<void> {
 		if (logs.length === 0) return;
@@ -21,8 +22,8 @@ export class LogsStore {
       INSERT INTO logs (
         project_id, log_id, trace_id, span_id, service_name, severity, severity_number,
         logger_name, message, attributes_json, flags, dropped_attributes_count,
-        occurred_at, received_at, expires_at, session_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        occurred_at, received_at, expires_at, session_id, interaction_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
 		const batch = logs.map((l) => {
@@ -45,6 +46,7 @@ export class LogsStore {
 				l.receivedAt,
 				l.expiresAt,
 				l.sessionId ?? null,
+				l.interactionId ?? null,
 			);
 		});
 

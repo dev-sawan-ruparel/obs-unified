@@ -17,6 +17,7 @@ import type {
 } from "@obs/types";
 import { computeCost } from "./ai-pricing";
 import { parseJsonRecord } from "./json";
+import type { SqlDb } from "./sql-db";
 
 const attrNum = (
 	attrs: Record<string, JsonValue>,
@@ -76,7 +77,7 @@ const clampInt = (value: unknown, min: number, max: number, fallback: number): n
 };
 
 export class AIStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingestBatch(calls: AICallRecord[]): Promise<void> {
 		if (calls.length === 0) return;
@@ -85,8 +86,9 @@ export class AIStore {
       INSERT INTO ai_calls (
         project_id, call_id, trace_id, span_id, service_name, model_name, provider, call_type,
         request_json, response_json, prompt_tokens, completion_tokens, total_cost_usd,
-        latency_ms, is_error, error_message, occurred_at, received_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        latency_ms, is_error, error_message, occurred_at, received_at, expires_at,
+        session_id, interaction_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
 		const batch = calls.map((c) => {
@@ -112,6 +114,8 @@ export class AIStore {
 				c.occurredAt,
 				c.receivedAt,
 				c.expiresAt,
+				c.sessionId ?? null,
+				c.interactionId ?? null,
 			);
 		});
 

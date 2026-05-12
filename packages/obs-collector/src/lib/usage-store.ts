@@ -28,6 +28,7 @@ import type {
 } from "@obs/types";
 
 import { parseJsonRecord } from "./json";
+import type { SqlDb } from "./sql-db";
 
 const cutoffIso = (hours: number): string =>
 	new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -83,7 +84,7 @@ const toSessionSummary = (rows: UsageEventRow[]): UsageSessionSummary => {
 };
 
 export class UsageStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async ingest(
 		events: UsageEventRecord[],
@@ -100,8 +101,9 @@ export class UsageStore {
           page_path, page_title, referrer, severity, source,
           context_json, properties_json, user_agent, occurred_at,
           received_at, expires_at, country, browser, os,
-          device_type, is_bot, utm_source, utm_medium, utm_campaign
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          device_type, is_bot, utm_source, utm_medium, utm_campaign,
+          interaction_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 				.bind(
 					event.projectId,
@@ -129,6 +131,7 @@ export class UsageStore {
 					event.utmSource,
 					event.utmMedium,
 					event.utmCampaign,
+					event.interactionId ?? null,
 				);
 		});
 

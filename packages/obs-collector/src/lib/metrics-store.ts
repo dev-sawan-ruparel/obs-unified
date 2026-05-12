@@ -8,6 +8,7 @@
  */
 
 import type { DecodedMetricPoint } from "../otlp/decode";
+import type { SqlDb, SqlStatement } from "./sql-db";
 
 interface SeriesRow {
 	id: string;
@@ -15,7 +16,7 @@ interface SeriesRow {
 }
 
 export class MetricsStore {
-	constructor(private readonly db: D1Database) {}
+	constructor(private readonly db: SqlDb) {}
 
 	async purgeExpired(): Promise<number> {
 		const result = await this.db
@@ -109,7 +110,7 @@ export class MetricsStore {
 				resource_attrs_json, attributes_json, identity, created_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
-		const toInsert: D1PreparedStatement[] = [];
+		const toInsert: SqlStatement[] = [];
 		const createdAt = new Date().toISOString();
 		for (const [identity, p] of byIdentity.entries()) {
 			if (existing.has(identity)) continue;

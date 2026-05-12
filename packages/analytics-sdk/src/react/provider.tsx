@@ -1,4 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { installAutoCorrelate } from "../auto-correlate";
+import { wrapInteraction } from "../interaction";
 import { UsageTracker, type UsageTrackerConfig } from "../usage-tracker";
 import { AnalyticsContext, type AnalyticsContextValue } from "./context";
 
@@ -7,6 +9,16 @@ export interface AnalyticsProviderProps extends UsageTrackerConfig {
 	trackPageViews?: boolean;
 	captureErrors?: boolean;
 	trackOutboundLinks?: boolean;
+	/**
+	 * RFC 0004 Mode A — install global click/submit/keydown listeners and
+	 * patch `fetch` + `XMLHttpRequest` to inject the `x-obs-interaction`
+	 * header on outbound calls. Default `true`.
+	 *
+	 * Disable if another instrumentation library already patches `fetch`
+	 * and you want to avoid layered wrappers, or in non-browser hosts.
+	 * Mode B (`useAnalytics().withInteraction`) is unaffected by this flag.
+	 */
+	autoCorrelate?: boolean;
 }
 
 export function AnalyticsProvider({
@@ -14,6 +26,7 @@ export function AnalyticsProvider({
 	trackPageViews = true,
 	captureErrors = true,
 	trackOutboundLinks = true,
+	autoCorrelate = true,
 	...config
 }: AnalyticsProviderProps) {
 	const trackerRef = useRef<UsageTracker | null>(null);
@@ -82,6 +95,15 @@ export function AnalyticsProvider({
 		};
 	}, [tracker, captureErrors]);
 
+	// RFC 0004 Mode A — auto-propagate interaction_id via global click
+	// listener + fetch/XHR patch. Mounted once (the installer is
+	// idempotent); cleaned up on unmount so HMR doesn't double-patch.
+	useEffect(() => {
+		if (!autoCorrelate) return;
+		const cleanup = installAutoCorrelate();
+		return cleanup;
+	}, [autoCorrelate]);
+
 	// Outbound link tracking
 	useEffect(() => {
 		if (!trackOutboundLinks) return;
@@ -123,6 +145,7 @@ export function AnalyticsProvider({
 				headers.set("X-Obs-Session-Id", tracker.sessionId);
 				return window.fetch(input, { ...init, headers });
 			},
+			withInteraction: wrapInteraction,
 		}),
 		[tracker],
 	);

@@ -13,6 +13,7 @@ import {
 	binByInterval,
 } from "../components/primitives";
 import { Button } from "../components/Button";
+import { ConnectedRail } from "../components/ConnectedRail";
 import { Input, Select } from "../components/forms";
 import { StateRow } from "../components/states";
 
@@ -381,7 +382,15 @@ export function LogsDashboard() {
 
 				<aside className="flex w-[320px] flex-none flex-col gap-2 overflow-y-auto">
 					{selectedLog ? (
-						<LogDetailDrawer log={selectedLog} onClose={() => setSelectedLog(null)} />
+						<>
+							<LogDetailDrawer log={selectedLog} onClose={() => setSelectedLog(null)} />
+							{/* RFC 0006 — connected rail next to the log detail drawer */}
+							<ConnectedRail
+								entityKind="log"
+								entityId={selectedLog.logId}
+								traceId={selectedLog.traceId ?? undefined}
+							/>
+						</>
 					) : (
 						<>
 							{byService.length > 0 && (

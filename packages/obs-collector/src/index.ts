@@ -30,6 +30,8 @@ import { projectsRoutesPlugin } from "./plugins/projects-routes";
 import { alertsRoutesPlugin } from "./plugins/alerts-routes";
 import { analysesRoutesPlugin } from "./plugins/analyses-routes";
 import { askRoutesPlugin } from "./plugins/ask-routes";
+import { connectedRoutesPlugin } from "./plugins/connected-routes";
+import { profileRoutesPlugin } from "./plugins/profile-routes";
 import {
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
@@ -44,8 +46,11 @@ export {
 	createRetentionCleanupHandler,
 	createTelemetryCollectorApp,
 	type SpanProcessorPlugin,
+	type SqlDbFactory,
 	type UsageEventProcessorPlugin,
 } from "./framework/collector";
+
+export { D1Adapter, type SqlDb, type SqlStatement } from "./lib/sql-db";
 
 export type {
 	CollectorApp,
@@ -89,6 +94,8 @@ export {
 	alertsRoutesPlugin,
 	analysesRoutesPlugin,
 	askRoutesPlugin,
+	connectedRoutesPlugin,
+	profileRoutesPlugin,
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
 };
@@ -133,6 +140,8 @@ export const allPlugins = [
 	askRoutesPlugin,
 	tailRoutesPlugin,
 	timelineRoutesPlugin,
+	connectedRoutesPlugin,
+	profileRoutesPlugin,
 ];
 
 export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
@@ -143,6 +152,7 @@ export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
 		dashboardAuth: config?.dashboardAuth,
 		logger: config?.logger,
 		withChildSpan: config?.withChildSpan,
+		sqlDb: config?.sqlDb,
 	});
 
 export default createTelemetryCollectorApp(allPlugins);

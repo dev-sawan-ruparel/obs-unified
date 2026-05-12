@@ -29,6 +29,13 @@ interface ResourcesData {
 	};
 }
 
+// RFC 0009 Phase 5.2 — Linux hosts payload from /internal/platform/hosts.
+interface HostMetrics {
+	host: string;
+	metrics: Record<string, number>;
+	updatedAt: string;
+}
+
 const fmtBytes = (bytes: number) => {
 	if (bytes === 0) return "0 B";
 	const k = 1024;
@@ -42,6 +49,7 @@ const fmtNum = (num: number) => new Intl.NumberFormat().format(num);
 export function ResourcesDashboard() {
 	const api = useApi();
 	const [data, setData] = useState<ResourcesData | null>(null);
+	const [hosts, setHosts] = useState<HostMetrics[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -50,13 +58,20 @@ export function ResourcesDashboard() {
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await api<{ success: boolean; resources: ResourcesData }>(
-				"/platform/resources",
-			);
+			const [res, hostsRes] = await Promise.all([
+				api<{ success: boolean; resources: ResourcesData }>("/platform/resources"),
+				// Linux hosts mode — fail-soft so older collectors and
+				// installs without OTel hostmetrics still render the
+				// Cloudflare panels.
+				api<{ success: boolean; hosts: HostMetrics[] }>("/platform/hosts").catch(
+					() => ({ success: true, hosts: [] as HostMetrics[] }),
+				),
+			]);
 			if (!res.success || !res.resources) {
 				throw new Error("collector returned an unexpected shape");
 			}
 			setData(res.resources);
+			setHosts(hostsRes.hosts ?? []);
 			setLastUpdated(new Date().toISOString());
 		} catch (err) {
 			console.error(err);
@@ -208,6 +223,52 @@ export function ResourcesDashboard() {
 							</p>
 						</Card>
 					</div>
+
+					{/* RFC 0009 Phase 5.2 — Linux hosts mode. Renders only when
+					    OTel hostmetrics are flowing in via the receiver. The
+					    informative-empty-state lives in docs/howto/ebpf.md. */}
+					{hosts.length > 0 && (
+						<div className="mt-2">
+							<div className="mb-2 flex items-center gap-3">
+								<SectionTitle title="Linux hosts" />
+								<Tag>OTel hostmetrics</Tag>
+							</div>
+							<div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+								{hosts.map((h) => {
+									const cpuUtil = h.metrics["system.cpu.utilization"] ?? null;
+									const memUsed = h.metrics["system.memory.usage"] ?? null;
+									const diskUsed = h.metrics["system.disk.io"] ?? null;
+									return (
+										<Card key={h.host} className="flex flex-col gap-3 p-4">
+											<div className="flex items-center justify-between">
+												<SectionTitle title={h.host} />
+												<Tag>linux</Tag>
+											</div>
+											<div className="grid grid-cols-3 gap-2">
+												<Stat
+													label="CPU"
+													value={cpuUtil !== null ? `${(cpuUtil * 100).toFixed(0)}%` : "—"}
+													accent="primary"
+												/>
+												<Stat
+													label="Memory"
+													value={memUsed !== null ? fmtBytes(memUsed) : "—"}
+													accent="accent"
+												/>
+												<Stat
+													label="Disk I/O"
+													value={diskUsed !== null ? fmtBytes(diskUsed) : "—"}
+												/>
+											</div>
+											<div className="mt-auto pt-3 border-t border-[#E5E7E3] text-[0.6875rem] font-mono opacity-60">
+												Updated {new Date(h.updatedAt).toLocaleTimeString()}
+											</div>
+										</Card>
+									);
+								})}
+							</div>
+						</div>
+					)}
 				</>
 			)}
 		</div>

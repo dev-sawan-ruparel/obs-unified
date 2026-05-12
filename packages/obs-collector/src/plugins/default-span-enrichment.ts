@@ -1,5 +1,5 @@
 import type { JsonValue, StoredSpan } from "@obs/types";
-import { SESSION_ID_KEY } from "@obs/types/constants";
+import { INTERACTION_ID_KEY, SESSION_ID_KEY } from "@obs/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 
@@ -54,11 +54,33 @@ export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
 							? (attributes[SESSION_ID_KEY] as string)
 							: null;
 
+					// RFC 0004 — denormalize obs.interaction.id from attributes
+					// to a top-level column. Stamped by @obs/telemetry-sdk's
+					// stampInteractionFromRequest on the inbound request.
+					const interactionId =
+						typeof attributes[INTERACTION_ID_KEY] === "string" &&
+						attributes[INTERACTION_ID_KEY].length > 0
+							? (attributes[INTERACTION_ID_KEY] as string)
+							: null;
+
+					// RFC 0009 — denormalize telemetry.sdk.name from
+					// resource_attributes. Beyla and other eBPF agents set
+					// this to identify themselves; the service map's
+					// source filter uses it to distinguish kernel-observed
+					// edges from SDK-instrumented ones.
+					const telemetrySdkName =
+						typeof resourceAttributes["telemetry.sdk.name"] === "string" &&
+						(resourceAttributes["telemetry.sdk.name"] as string).length > 0
+							? (resourceAttributes["telemetry.sdk.name"] as string)
+							: null;
+
 					return {
 						...span,
 						serviceName,
 						attributesJson: JSON.stringify(normalizedAttributes),
 						sessionId,
+						interactionId,
+						telemetrySdkName,
 					};
 				});
 			},

@@ -12,6 +12,7 @@ import type {
 import { useApi } from "../use-api";
 import { useTimeWindowHours } from "../provider";
 import { MessageView } from "../components/MessageView";
+import { ConnectedRail } from "../components/ConnectedRail";
 import {
 	BarList,
 	Card,
@@ -461,13 +462,23 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 				</Card>
 
 				{selected && (
-					<SpanDetailPane
-						span={selected}
-						traceSpans={traceSpans}
-						evaluations={evals}
-						onClose={() => setSelected(null)}
-						onJumpTo={(span) => setSelected(span)}
-					/>
+					<div className="flex gap-2 min-h-0 overflow-hidden">
+						<div className="flex-1 min-w-0">
+							<SpanDetailPane
+								span={selected}
+								traceSpans={traceSpans}
+								evaluations={evals}
+								onClose={() => setSelected(null)}
+								onJumpTo={(span) => setSelected(span)}
+							/>
+						</div>
+						{/* RFC 0006 — connected rail next to the AI span detail */}
+						<ConnectedRail
+							entityKind="ai_call"
+							entityId={selected.spanId}
+							traceId={selected.traceId}
+						/>
+					</div>
 				)}
 			</div>
 		</>
