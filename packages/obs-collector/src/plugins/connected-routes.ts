@@ -33,7 +33,8 @@ export type ConnectedEntityKind =
 	| "ai_call"
 	| "replay"
 	| "alert"
-	| "analysis";
+	| "analysis"
+	| "user";
 
 const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"span",
@@ -43,6 +44,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"replay",
 	"alert",
 	"analysis",
+	"user",
 ]);
 
 export interface ConnectedLink {
@@ -444,6 +446,63 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						label: "Session",
 						links: [linkToSession(sessionId)],
 					});
+				}
+			} else if (kind === "user") {
+				// RFC 0006 Scenario B — pivot from a user. Loads the user's
+				// most recent sessions and surfaces top-line activity in
+				// `across`. The "first" session is the canonical "latest
+				// session" link used by the AI-cost-spike walkthrough.
+				const userManifest = await index.byUser(projectId, id, {
+					sessions: 5,
+					limit: 50,
+				});
+				const recentSessions = Array.from(
+					new Set(
+						userManifest.usageEvents
+							.map((e) => e.sessionId)
+							.filter((s): s is string => Boolean(s)),
+					),
+				);
+				manifest.up = [
+					{
+						label: "User",
+						links: [],
+						emptyReason:
+							"User is the root identity — no parent context above.",
+					},
+				];
+				if (recentSessions.length > 0) {
+					manifest.across = [
+						{
+							label: "Latest session",
+							links: [linkToSession(recentSessions[0])],
+						},
+						{
+							label: "Recent sessions",
+							links: recentSessions
+								.slice(0, MAX_LINKS_INLINE)
+								.map((sid) => linkToSession(sid)),
+						},
+						linksFromSpans(userManifest.spans, "Recent traces"),
+						linksFromAi(userManifest.aiCalls, "Recent AI calls"),
+					];
+				} else {
+					manifest.across = [
+						{
+							label: "Sessions",
+							links: [],
+							emptyReason:
+								"No sessions found for this user. user_profiles needs a visitor_id, and that visitor needs at least one usage_event with a session_id.",
+						},
+					];
+				}
+				if (userManifest.replay) {
+					manifest.related = [
+						{
+							label: "Replay",
+							links: [linkToSession(userManifest.replay.sessionId)],
+						},
+					];
 				}
 			} else if (kind === "alert" || kind === "analysis") {
 				// Alerts and Analyses are topic-related, not identity-related.

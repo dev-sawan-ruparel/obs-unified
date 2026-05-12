@@ -151,11 +151,113 @@ describe("IdentityIndex.byInteraction", () => {
 });
 
 describe("IdentityIndex.byUser", () => {
-	it("throws NotImplemented rather than returning an empty manifest", async () => {
+	it("returns an empty manifest when no user_profiles row matches", async () => {
 		const db = new MemSqlDb({ all: noRows, first: noFirst });
 		const index = new IdentityIndex(db);
-		await expect(index.byUser("proj-1", "user-1")).rejects.toThrow(
-			/not implemented/i,
-		);
+		const manifest = await index.byUser("proj-1", "user-nope");
+		expect(manifest.spans).toEqual([]);
+		expect(manifest.usageEvents).toEqual([]);
+		expect(manifest.replay).toBeNull();
+		// Only the user_profiles lookup should fire; we never get to the
+		// session enumeration step.
+		expect(db.callsMatching("FROM user_profiles")).toHaveLength(1);
+		expect(db.callsMatching("FROM telemetry_spans")).toHaveLength(0);
+	});
+
+	it("returns empty (but does not error) when user exists with no usage sessions", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM user_profiles")) {
+					return { visitor_id: "v-1" };
+				}
+				return null;
+			},
+			all: () => [],
+		});
+		const index = new IdentityIndex(db);
+		const manifest = await index.byUser("proj-1", "user-1");
+		expect(manifest.usageEvents).toEqual([]);
+		expect(manifest.spans).toEqual([]);
+		// User_profiles + session enumeration ran; signal tables did not.
+		expect(db.callsMatching("FROM user_profiles")).toHaveLength(1);
+		expect(db.callsMatching("DISTINCT session_id")).toHaveLength(1);
+		expect(db.callsMatching("FROM telemetry_spans")).toHaveLength(0);
+	});
+
+	it("fans out across the user's recent sessions with IN-list binds", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM user_profiles")) return { visitor_id: "v-1" };
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("DISTINCT session_id")) {
+					return [
+						{ session_id: "sess-A", last_at: "2026-05-04T12:00:00Z" },
+						{ session_id: "sess-B", last_at: "2026-05-04T11:00:00Z" },
+					];
+				}
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "t1",
+							span_id: "s1",
+							parent_span_id: null,
+							service_name: "api",
+							span_name: "POST /buy",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:00Z",
+							duration_ms: 200,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("FROM ai_calls")) {
+					return [
+						{
+							call_id: "ai-1",
+							trace_id: "t1",
+							model_name: "gpt-4o-mini",
+							provider: "openai",
+							total_cost_usd: 0.42,
+							occurred_at: "2026-05-04T12:00:01Z",
+							interaction_id: null,
+						},
+					];
+				}
+				return [];
+			},
+		});
+		const index = new IdentityIndex(db);
+		const manifest = await index.byUser("proj-1", "user-1");
+
+		expect(manifest.spans).toHaveLength(1);
+		expect(manifest.aiCalls).toHaveLength(1);
+		expect(manifest.aiCalls[0].totalCostUsd).toBe(0.42);
+
+		// Spans query must include both session_ids in the IN-list binds.
+		const spanCall = db.callsMatching("FROM telemetry_spans")[0];
+		expect(spanCall).toBeDefined();
+		expect(spanCall.sql).toContain("session_id IN");
+		expect(spanCall.binds).toContain("sess-A");
+		expect(spanCall.binds).toContain("sess-B");
+	});
+
+	it("clamps sessions option to a safe upper bound", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM user_profiles")) return { visitor_id: "v-1" };
+				return null;
+			},
+			all: () => [],
+		});
+		const index = new IdentityIndex(db);
+		await index.byUser("proj-1", "user-1", { sessions: 9999 });
+
+		const sessionsCall = db.callsMatching("DISTINCT session_id")[0];
+		// Last bind is the LIMIT; should be clamped to ≤20.
+		const limit = sessionsCall.binds[sessionsCall.binds.length - 1] as number;
+		expect(limit).toBeLessThanOrEqual(20);
 	});
 });

@@ -303,3 +303,86 @@ describe("ConnectedRail manifest — kind validation", () => {
 		expect(res.status).toBeGreaterThanOrEqual(400);
 	});
 });
+
+describe("ConnectedRail manifest — user entity (RFC 0006 Scenario B)", () => {
+	it("surfaces latest session + recent traces + AI calls for a user with activity", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM user_profiles")) {
+					return { visitor_id: "vis-user-1" };
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("DISTINCT session_id")) {
+					return [
+						{ session_id: "sess-latest", last_at: "2026-05-04T12:00:00Z" },
+						{ session_id: "sess-prior", last_at: "2026-05-04T11:00:00Z" },
+					];
+				}
+				if (sql.includes("FROM usage_events")) {
+					return [
+						{
+							event_id: "evt-1",
+							event_type: "interaction",
+							event_name: "click",
+							page_path: "/dashboard",
+							severity: null,
+							occurred_at: "2026-05-04T12:00:00Z",
+							interaction_id: null,
+							session_id: "sess-latest",
+						},
+					];
+				}
+				if (sql.includes("FROM ai_calls")) {
+					return [
+						{
+							call_id: "ai-pricey",
+							trace_id: "tx-1",
+							model_name: "gpt-4o-mini",
+							provider: "openai",
+							total_cost_usd: 0.42,
+							occurred_at: "2026-05-04T12:00:01Z",
+							interaction_id: null,
+						},
+					];
+				}
+				return [];
+			},
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/user/user-1");
+
+		// "Latest session" is the canonical scenario-B pivot.
+		const latestSection = m.across.find((s) =>
+			s.label.toLowerCase().includes("latest session"),
+		);
+		expect(latestSection).toBeDefined();
+		expect(latestSection!.links[0].href).toContain("sess-latest");
+
+		const aiSection = m.across.find((s) =>
+			s.label.toLowerCase().includes("ai call"),
+		);
+		expect(aiSection).toBeDefined();
+		expect(aiSection!.links.length).toBeGreaterThan(0);
+
+		// Up section is informative-absence (user is root).
+		expect(m.up[0].emptyReason).toBeDefined();
+	});
+
+	it("returns informative absence when the user has no usage_events sessions", async () => {
+		const db = new MemSqlDb({
+			first: (sql) =>
+				sql.includes("FROM user_profiles") ? { visitor_id: "v" } : null,
+			all: () => [],
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/user/user-nope");
+		const sessionsSection = m.across.find((s) =>
+			s.label.toLowerCase().includes("session"),
+		);
+		expect(sessionsSection).toBeDefined();
+		expect(sessionsSection!.links).toEqual([]);
+		expect(sessionsSection!.emptyReason).toContain("visitor_id");
+	});
+});

@@ -26,7 +26,8 @@ export type ConnectedEntityKind =
 	| "ai_call"
 	| "replay"
 	| "alert"
-	| "analysis";
+	| "analysis"
+	| "user";
 
 interface ConnectedLink {
 	label: string;
