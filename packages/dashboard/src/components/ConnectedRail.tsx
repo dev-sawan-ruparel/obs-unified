@@ -63,6 +63,13 @@ export interface ConnectedRailProps {
 	onNavigate?: (href: string) => void;
 }
 
+// Title-case the four canonical section names so the group label can be
+// compared against its parent section header. When the only group inside
+// a section is a placeholder labeled identically to its section ("Up" /
+// "Down" / "Related"), we skip the inner label to avoid the visual
+// "UP / Up — emptyReason" duplication.
+const SECTION_NAMES = new Set(["Up", "Across", "Down", "Related"]);
+
 const SectionHeader = ({ children }: { children: React.ReactNode }) => (
 	<div className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-70 mt-3 mb-1">
 		{children}
@@ -71,19 +78,23 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => (
 
 const SectionGroup = ({
 	section,
+	suppressLabel,
 	onNavigate,
 }: {
 	section: ConnectedSection;
+	suppressLabel?: boolean;
 	onNavigate?: (href: string) => void;
 }) => {
 	if (section.links.length === 0) {
 		return (
 			<div className="px-1 py-1">
-				<div className="text-[0.875rem] font-semibold opacity-90">
-					{section.label}
-				</div>
+				{!suppressLabel && (
+					<div className="text-[0.875rem] font-semibold opacity-90">
+						{section.label}
+					</div>
+				)}
 				<div
-					className="text-[0.75rem] opacity-60 italic mt-1"
+					className={`text-[0.75rem] opacity-60 italic ${suppressLabel ? "" : "mt-1"}`}
 					title={section.emptyReason}
 				>
 					— {section.emptyReason ?? "No neighbors."}
@@ -113,6 +124,44 @@ const SectionGroup = ({
 			</div>
 		</div>
 	);
+};
+
+// Strip the inner group label when it's a redundant duplicate of the
+// outer section header. RFC 0006's "informative absence" requirement is
+// for SECTIONS, not for individual groups — when a section contains
+// nothing but a placeholder whose label matches the section name (UP →
+// "Up — User is the root identity"), the doubled label adds noise
+// without conveying anything. Populated groups keep their labels.
+const shouldSuppressGroupLabel = (
+	section: ConnectedSection,
+	parentHeader: string,
+): boolean =>
+	section.links.length === 0 &&
+	(section.label === parentHeader ||
+		section.label.toLowerCase() === parentHeader.toLowerCase()) &&
+	SECTION_NAMES.has(parentHeader);
+
+// De-dupe near-identical adjacent groups: when "Latest session" and
+// "Recent sessions" both render the same single session link, only show
+// the first. Pattern emerges on users with one session in the window;
+// keeping both is visual noise that suggests two distinct things exist.
+const dedupeAdjacent = (
+	sections: ConnectedSection[],
+): ConnectedSection[] => {
+	const out: ConnectedSection[] = [];
+	for (const section of sections) {
+		const prev = out[out.length - 1];
+		if (
+			prev &&
+			prev.links.length === 1 &&
+			section.links.length === 1 &&
+			prev.links[0].href === section.links[0].href
+		) {
+			continue;
+		}
+		out.push(section);
+	}
+	return out;
 };
 
 export function ConnectedRail({
@@ -145,7 +194,7 @@ export function ConnectedRail({
 
 	if (loading) {
 		return (
-			<aside className="w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
+			<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
 				<div className="text-[0.75rem] opacity-60">Loading neighbors...</div>
 			</aside>
 		);
@@ -153,7 +202,7 @@ export function ConnectedRail({
 
 	if (error || !manifest) {
 		return (
-			<aside className="w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
+			<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
 				<div className="text-[0.75rem] text-sys-error" title={error ?? ""}>
 					Failed to load related entities
 				</div>
@@ -161,28 +210,36 @@ export function ConnectedRail({
 		);
 	}
 
-	const renderGroup = (sections: ConnectedSection[]) =>
-		sections.map((s, i) => (
+	const renderGroup = (sections: ConnectedSection[], parentHeader: string) => {
+		const deduped = dedupeAdjacent(sections);
+		return deduped.map((s, i) => (
 			<SectionGroup
 				key={`${s.label}-${i}`}
 				section={s}
+				suppressLabel={shouldSuppressGroupLabel(s, parentHeader)}
 				onNavigate={onNavigate}
 			/>
 		));
+	};
 
+	// min-w-[260px] guards against the layout bug where a flex parent
+	// squeezes the rail down to ~10px and monospace content character-wraps
+	// vertically. The aside is meant to be a fixed-width sidebar — not a
+	// resizable column. overflow-y-auto lets the inner content scroll
+	// independently rather than being chopped by overflow:hidden parents.
 	return (
-		<aside className="w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2 overflow-y-auto">
+		<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2 overflow-y-auto">
 			<div className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-50 mb-2">
 				Connected — {entityKind}
 			</div>
 			<SectionHeader>Up</SectionHeader>
-			{renderGroup(manifest.up)}
+			{renderGroup(manifest.up, "Up")}
 			<SectionHeader>Across</SectionHeader>
-			{renderGroup(manifest.across)}
+			{renderGroup(manifest.across, "Across")}
 			<SectionHeader>Down</SectionHeader>
-			{renderGroup(manifest.down)}
+			{renderGroup(manifest.down, "Down")}
 			<SectionHeader>Related</SectionHeader>
-			{renderGroup(manifest.related)}
+			{renderGroup(manifest.related, "Related")}
 		</aside>
 	);
 }

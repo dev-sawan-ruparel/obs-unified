@@ -78,9 +78,17 @@ const linkToTrace = (traceId: string, label?: string): ConnectedLink => ({
 	href: `#/traces/${traceId}`,
 });
 
+// Show the LAST 12 characters of the session id. ULIDs / UUIDs have most
+// of their entropy in the tail; the prefix is timestamp- or cohort-shared
+// across sessions in the same window. Slicing the head means every link
+// in a busy session looks identical ("session seed-mp27eaj" × 4).
 const linkToSession = (sessionId: string): ConnectedLink => ({
-	label: `session ${sessionId.slice(0, 12)}`,
+	label:
+		sessionId.length > 12
+			? `session …${sessionId.slice(-12)}`
+			: `session ${sessionId}`,
 	href: `#/replay?session=${encodeURIComponent(sessionId)}`,
+	sample: sessionId,
 });
 
 const linksFromSpans = (
