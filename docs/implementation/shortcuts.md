@@ -89,6 +89,30 @@ Status legend:
 
 ---
 
+## Wrangler dev — `--test-scheduled` required for cron-driven features
+
+**RFC 0002 Stage 4 + RFC 0004 #8.**
+
+**Symptom:** the Investigations tab rendered "No investigations yet" even with a
+fully populated synthetic seed (96 spans / 20 logs / 12 AI calls). Tier 0
+analyses are inserted into `analysis_definitions` only by the every-minute
+analyses cron — `wrangler dev` doesn't fire scheduled handlers automatically.
+
+**What shipped:** the dev script in `apps/collector/package.json` now passes
+`--test-scheduled`, so the cron fires every minute *and* operators can trigger
+on demand via `curl 'http://localhost:8790/__scheduled?cron=*+*+*+*+*'` (used
+right after `make seed`). Production CF Workers honor cron natively — this
+flag only affects dev.
+
+**Status:** ✅ Resolved. Documented because anyone running the demo cold for
+the first time will hit the same empty state until they wait 60s or hit the
+trigger URL.
+
+**Path forward (optional polish):** `pnpm seed` could curl `/__scheduled` once
+at the end so the dashboard is "warm" immediately after seeding. Tracked.
+
+---
+
 ## Propagation metric is hourly, not "after one minute"
 
 **RFC 0004 acceptance criterion #8.**
@@ -227,6 +251,80 @@ actual hash.
 | Service map source filter (RFC 0009 #3) | feat/unified/close-gaps | (TBD) |
 | Connected rail profile entity (RFC 0009 #5) | feat/unified/close-gaps | (TBD) |
 | Connected rail synthetic tests | feat/unified/close-gaps | (TBD) |
+
+---
+
+## Live verification — what was exercised vs what stays gated
+
+This section tracks acceptance criteria against the **synthetic seed** (`pnpm seed`) currently in
+`packages/obs-collector/scripts/`. Verified live against the local dev stack on 2026-05-05.
+
+### ✅ Live-verified against synthetic seed
+
+- **Phase 6.4 — Connected rail rendered for every entity kind.** Span detail
+  (trace `ba10bdc031d96170` → span `dfc6a5c960a3057c`), Log detail
+  (`Connection timeout`), AI call (`gpt-4o-mini` LLM span), Alert (`Spike in
+  span errors`) — all four entity kinds render `CONNECTED — <KIND>` with the
+  Up / Across / Down / Related four-section shape. Empty sections render
+  informative-absence text per RFC 0006, e.g. `Down → "No pprof profile covers
+  this trace's window. Wire @obs/telemetry-sdk's startProfiler() (or run an
+  eBPF agent) on the producing service to populate."`
+- **RFC 0006 cross-signal join.** AI call rail surfaced `Spans in this trace:
+  obs-demo · openai.chat` — IdentityIndex stitched the AI call to its parent
+  trace's span sibling.
+- **Phase 2 trace summary header.** Trace detail emits SELF / ⚠ UNINSTRUMENTED
+  badge / SPANS / DURATION (verified `1227ms duration, SELF 1227MS, ⚠
+  UNINSTRUMENTED 1` on the openai.chat span).
+- **Phase 3 trace waterfall.** Inline expansion below the trace row renders the
+  span hierarchy with status, duration, and selectable spans.
+- **RFC 0009 #3 — service map source filter.** ALL → 4 services, 4 edges, 24
+  calls. SDK → same (no spans tagged `telemetry.sdk.name="beyla"` in seed).
+  EBPF → 0 services / 0 edges / 0 calls. Toggle wires through end-to-end.
+- **Phase 1.10 timeline (RFC 0006 origin patterns).** Timeline renders 4
+  sessions, interleaves usage / span / log events on a per-session timeline
+  with deltas. Seed's `interaction · click_N` events show up but with no
+  `interaction_id` propagation — see gating below.
+- **Logs / AI calls / Alerts list views.** Histograms, severity filters,
+  by-service/by-kind breakdowns all populated from real D1 rows.
+- **RFC 0002 Stage 4 — Investigations.** All three universal investigations
+  (`investigate.error_top_offenders`, `investigate.latency_outlier_attribution`,
+  `investigate.log_anomaly_summary`) render with real evidence rows derived
+  from the seeded telemetry: top error services {obs-demo:6, checkout-api:6,
+  payments-worker:4, edge:3}, latency tail offenders, and `seed-everything` as
+  the new ERROR logger ("Connection timeout"). The `CONNECTED — ANALYSIS`
+  rail also renders for these pages. No LLM narrative produced because no API
+  key is configured locally — the page UI handles this with explicit copy
+  ("No narrative yet — the cron tick hasn't produced one for this run").
+
+### 🟡 Gated on docker-compose demo (Phase 6.1-6.3)
+
+These remain `[ ]` in `docs/implementation/sequencing.md`; the synthetic seed
+predates the relevant SDK paths and can't exercise them:
+
+- **RFC 0004 Mode A end-to-end.** Seed's `interaction` events are typed-string
+  usage records, not full ULID interaction_ids stamped onto spans/logs. The
+  rail's `RELATED → Originating click` therefore renders the informative-absence
+  text "Server-originated work — not bound to a user click." That is the
+  **correct** rendering for un-instrumented data, but the **happy-path** (rail
+  showing the click that started a trace) needs the demo SDK overlay.
+- **RFC 0007 — flame graph viewer.** No pprof profiles in the seed, so the rail's
+  `Down → Profiles` correctly says "No pprof profile covers this trace's
+  window." The viewer code path (Phase 4.7) only exercises against profiles
+  produced by `startProfiler()` on the demo.
+- **RFC 0009 #2 — Linux hosts.** Seed has no `system.*` host metrics. The
+  Resources dashboard renders the Cloudflare panels and silently skips the
+  Linux per-host grid. Will populate when the demo's Beyla / otel-ebpf
+  exporter feeds metrics.
+- **RFC 0009 #3 — eBPF-source edges.** Filter works structurally (returns 0
+  when nothing matches) but the SDK→eBPF visual contrast is gated on the demo
+  emitting Beyla-tagged spans.
+- **RFC 0005 — uninstrumented-badge calibration.** Threshold is the RFC's
+  starting heuristic; seed produces 1 `⚠ UNINSTRUMENTED` badge on the openai
+  span. Calibration (whether the badge fires too often / too rarely) needs the
+  Astronomy Shop demo's real trace shapes.
+
+The Playwright matrix in `apps/web/tests/connected-rail.spec.ts` flips
+`test.skip()` → active per cell as each gating item closes.
 
 ---
 
