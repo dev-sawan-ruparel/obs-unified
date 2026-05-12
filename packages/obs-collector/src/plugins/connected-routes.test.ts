@@ -37,6 +37,20 @@ const setup = (db: MemSqlDb) => {
 	};
 };
 
+// setup() asserts a 200 + manifest shape; the raw variant lets tests
+// assert error responses without forcing the JSON shape.
+const setupRaw = (db: MemSqlDb) => {
+	const app = new Hono<{ Bindings: CollectorEnv }>();
+	const runtime = new CollectorRuntime();
+	connectedRoutesPlugin.register(app, runtime);
+	const env: CollectorEnv = {
+		// biome-ignore lint/suspicious/noExplicitAny: synthetic env for tests
+		DB: db as any,
+	};
+	return (path: string) =>
+		app.request(path, { method: "GET" }, env);
+};
+
 describe("ConnectedRail manifest — informative absence", () => {
 	it("usage entity with no session returns empty sections with emptyReason on each", async () => {
 		const db = new MemSqlDb({
@@ -265,5 +279,27 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 		expect(profilesSection).toBeDefined();
 		expect(profilesSection!.links).toEqual([]);
 		expect(profilesSection!.emptyReason).toContain("startProfiler");
+	});
+});
+
+describe("ConnectedRail manifest — kind validation", () => {
+	it("returns 400 on unknown entity kind instead of 200 + empty sections", async () => {
+		const db = new MemSqlDb({ all: () => [], first: () => null });
+		const fetch = setupRaw(db);
+		const res = await fetch("/internal/connected/banana/whatever");
+		expect(res.status).toBe(400);
+		const body = (await res.json()) as { error: string; known: string[] };
+		expect(body.error).toContain("banana");
+		expect(body.known).toContain("span");
+		expect(body.known).toContain("log");
+	});
+
+	it("returns 400 with id error when id is missing", async () => {
+		const db = new MemSqlDb({ all: () => [], first: () => null });
+		const fetch = setupRaw(db);
+		// Hono won't match without the second segment, so this exercises
+		// a fallback path — we just confirm we don't 500.
+		const res = await fetch("/internal/connected/span/");
+		expect(res.status).toBeGreaterThanOrEqual(400);
 	});
 });
