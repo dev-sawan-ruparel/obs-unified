@@ -23,6 +23,7 @@ import {
 	initObservability,
 	runWithSpan,
 	setAISessionContext,
+	stampInteractionFromRequest,
 	startRetrieverSpan,
 	startToolSpan,
 	withChildSpan,
@@ -49,12 +50,20 @@ interface Env {
 const app = new Hono<{ Bindings: Env }>();
 const logger = createLogger("obs-demo");
 
-// CORS for local dashboard
+// CORS for local dashboard. allowHeaders explicitly enumerates the obs
+// session + interaction headers so the browser doesn't strip them via
+// preflight (custom non-safelisted request headers need explicit allow).
 app.use(
 	"*",
 	cors({
 		origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
 		credentials: true,
+		allowHeaders: [
+			"Content-Type",
+			"Authorization",
+			"X-Obs-Session-Id",
+			"x-obs-interaction",
+		],
 	}),
 );
 
@@ -68,7 +77,10 @@ app.use("*", async (c, next) => {
 	await next();
 });
 
-// Root span middleware: every request gets a span, exported on exit
+// Root span middleware: every request gets a span, exported on exit.
+// RFC 0004 — pulls `x-obs-interaction` from the inbound request and
+// stamps it on the span so the rail's "Trace caused by this click"
+// pivot works end-to-end. No-op when the header is absent or invalid.
 app.use("*", async (c, next) => {
 	const method = c.req.method;
 	const path = new URL(c.req.url).pathname;
@@ -76,6 +88,13 @@ app.use("*", async (c, next) => {
 
 	span.setAttribute("http.request.method", method);
 	span.setAttribute("url.path", path);
+	stampInteractionFromRequest(span, c.req.raw);
+
+	// Surface the session id from the dashboard's analytics provider too.
+	// Same rationale: the rail's Replay → Trace link needs session_id on
+	// the span to join across signals.
+	const sessionId = c.req.header("x-obs-session-id");
+	if (sessionId) span.setAttribute("session.id", sessionId);
 
 	try {
 		await runWithSpan(span, () => next());
