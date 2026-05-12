@@ -962,10 +962,19 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 				</div>
 			</Toolbar>
 
+			{/* When a session is selected, the conversation pane needs a real
+			    minimum width or its monospace content (long error messages
+			    like rate_limit_exceeded, multi-line model outputs) collapses
+			    to one-character-per-line vertical text. minmax(360px,…) for
+			    the conversation column guarantees ChatBubble's break-words
+			    has somewhere to actually break. The session list is secondary
+			    here, so we let IT shrink first on narrow viewports. */}
 			<div
 				className="flex-1 min-h-0 grid gap-2 p-2"
 				style={{
-					gridTemplateColumns: selected ? "minmax(320px,400px) minmax(0,1fr)" : "minmax(0,1fr)",
+					gridTemplateColumns: selected
+						? "minmax(240px,360px) minmax(360px,1fr)"
+						: "minmax(0,1fr)",
 				}}
 			>
 				<Card className="min-h-0 overflow-hidden flex flex-col">

@@ -85,27 +85,58 @@ function ReplayPlayer({
 	const { basePath, fetcher } = useDashboard();
 	const [events, setEvents] = useState<any[] | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
+	// Tri-state: "" (no message yet), { kind: "absence" } (expected — no
+	// rrweb chunks were ever recorded for this session), or { kind: "error" }
+	// (something actually went wrong — network, 5xx, parse). Absence renders
+	// as informative-absence per RFC 0006; error keeps the red treatment.
+	const [issue, setIssue] = useState<
+		| { kind: "absence" | "error"; message: string }
+		| null
+	>(null);
 	const playerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		setLoading(true);
-		setError("");
+		setIssue(null);
 		setEvents(null);
 
 		fetcher(`${basePath}/replays/${encodeURIComponent(sessionId)}`)
-			.then((r) => {
-				if (!r.ok) throw new Error("Replay not found or error loading");
-				return r.json() as Promise<{ events?: any[] }>;
+			.then(async (r) => {
+				if (r.status === 404) {
+					setIssue({
+						kind: "absence",
+						message:
+							"No rrweb replay was recorded for this session. Visit /playground and click \"Start replay\" to capture one in a real browser.",
+					});
+					return null;
+				}
+				if (!r.ok) {
+					setIssue({
+						kind: "error",
+						message: `Replay fetch failed: ${r.status} ${r.statusText}`,
+					});
+					return null;
+				}
+				return (await r.json()) as { events?: any[] };
 			})
 			.then((data) => {
-				if (data && data.events && data.events.length > 2) {
+				if (!data) return;
+				if (data.events && data.events.length > 2) {
 					setEvents(data.events);
 				} else {
-					setError("No visual replay data available for this session.");
+					setIssue({
+						kind: "absence",
+						message:
+							"Session exists but has too few rrweb events to render. Replays under ~3 frames are skipped.",
+					});
 				}
 			})
-			.catch((e) => setError(e.message))
+			.catch((e) =>
+				setIssue({
+					kind: "error",
+					message: e instanceof Error ? e.message : String(e),
+				}),
+			)
 			.finally(() => setLoading(false));
 	}, [sessionId]);
 
@@ -135,7 +166,21 @@ function ReplayPlayer({
 	}, [events]);
 
 	if (loading) return <div className="text-[0.8125rem] text-sys-on-surface-muted p-3 text-center">Loading replay visual buffer…</div>;
-	if (error) return <div className="text-[0.8125rem] font-medium text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">{error}</div>;
+	if (issue?.kind === "absence")
+		return (
+			<div
+				className="text-[0.8125rem] text-sys-on-surface-muted p-3 italic border-[1px] border-sys-outline-soft"
+				title={issue.message}
+			>
+				— {issue.message}
+			</div>
+		);
+	if (issue?.kind === "error")
+		return (
+			<div className="text-[0.8125rem] font-medium text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">
+				{issue.message}
+			</div>
+		);
 
 	return (
 		<div className="bg-sys-bg border-[2px] border-sys-outline">
