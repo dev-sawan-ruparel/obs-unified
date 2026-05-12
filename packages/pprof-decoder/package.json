@@ -1,0 +1,16 @@
+{
+	"name": "@obs/pprof-decoder",
+	"version": "1.0.0",
+	"description": "Minimal pprof decoder + encoder. Runs in browsers and Cloudflare Workers (uses DecompressionStream/CompressionStream).",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.2"
+	}
+}

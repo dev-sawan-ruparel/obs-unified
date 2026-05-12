@@ -138,6 +138,9 @@ importers:
 
   packages/dashboard:
     dependencies:
+      '@obs/pprof-decoder':
+        specifier: workspace:*
+        version: link:../pprof-decoder
       '@obs/types':
         specifier: workspace:*
         version: link:../obs-types
@@ -193,6 +196,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.11.0
         version: 2.11.0
+      '@obs/pprof-decoder':
+        specifier: workspace:*
+        version: link:../pprof-decoder
       '@obs/types':
         specifier: workspace:*
         version: link:../obs-types
@@ -215,6 +221,12 @@ importers:
       hono:
         specifier: ^4.12.11
         version: 4.12.11
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
+  packages/pprof-decoder:
+    devDependencies:
       typescript:
         specifier: ^6.0.2
         version: 6.0.2

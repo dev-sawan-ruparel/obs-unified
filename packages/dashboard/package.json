@@ -12,6 +12,7 @@
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@obs/pprof-decoder": "workspace:*",
 		"@obs/types": "workspace:*",
 		"@xyflow/react": "^12.10.2",
 		"dagre": "^0.8.5",
