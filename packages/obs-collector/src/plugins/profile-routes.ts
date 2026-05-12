@@ -37,13 +37,15 @@ const PROFILE_TYPES = new Set([
 	"offcpu",
 ]);
 
-const ulid = (): string => {
-	// 26-char Crockford-base32 ULID. Deterministic enough for keys; we
-	// don't need TC39's exact format.
+// Time-sortable random id for profile blob keys. Not a real ULID — no
+// monotonic clock and we use modulo over crypto bytes for the random
+// suffix — but the format (10-char time prefix + 16-char random) gives
+// us lexicographic ordering by ingest time, which is what the R2 path
+// layout assumes. The "ULID" name was misleading.
+const profileId = (): string => {
 	const ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-	const time = Date.now();
 	let timeStr = "";
-	let n = time;
+	let n = Date.now();
 	for (let i = 0; i < 10; i++) {
 		timeStr = ENCODING[n % 32] + timeStr;
 		n = Math.floor(n / 32);
@@ -53,6 +55,18 @@ const ulid = (): string => {
 	let randStr = "";
 	for (let i = 0; i < 16; i++) randStr += ENCODING[bytes[i] % 32];
 	return timeStr + randStr;
+};
+
+// Parse a non-negative integer from an untrusted source. Returns the
+// fallback when the input is missing, malformed, NaN, negative, or
+// non-finite. parseInt happily returns NaN for "foo" and that NaN was
+// being written verbatim to D1 as "Invalid Date" / NaN before this
+// landed.
+const parseNonNegInt = (value: string | null | undefined, fallback: number): number => {
+	if (value == null) return fallback;
+	const parsed = Number.parseInt(value, 10);
+	if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+	return parsed;
 };
 
 const TRACE_ID_RE = /^[0-9a-f]{16,32}$/i;
@@ -104,6 +118,9 @@ export const profileRoutesPlugin: CollectorPlugin = {
 			let traceIds: string[];
 			let parsedSampleCount: number | null = null;
 			if (headerTraceIds.length > 0) {
+				// Client pre-extracted trace ids — accept verbatim without
+				// re-parsing. Decode failures on the blob itself are reported
+				// at read time.
 				traceIds = headerTraceIds;
 			} else {
 				try {
@@ -111,24 +128,34 @@ export const profileRoutesPlugin: CollectorPlugin = {
 					traceIds = extractTraceIdsFromProfile(profile);
 					parsedSampleCount = profile.samples.length;
 				} catch (err) {
-					// Bad blob shouldn't 500 — accept it without an
-					// index so the user at least gets aggregate views.
+					// No client-side trace_id header and the blob doesn't
+					// decode. Return 422 so the agent learns its emit path
+					// is broken — silently accepting corrupt blobs into R2
+					// makes ingest debugging impossible.
 					runtime.logger.warn(
-						"[profile-receiver] pprof parse failed; ingesting without trace_id index",
+						"[profile-receiver] pprof parse failed (no header fallback)",
 						{
 							project_id: projectId,
+							size: body.byteLength,
 							error: err instanceof Error ? err.message : String(err),
 						},
 					);
-					traceIds = [];
+					return c.json(
+						{
+							error: "pprof decode failed",
+							hint: "Set x-obs-trace-ids header to bypass server-side parsing.",
+							details: err instanceof Error ? err.message : String(err),
+						},
+						422,
+					);
 				}
 			}
 
-			const profileId = ulid();
+			const id = profileId();
 			const now = new Date();
 			const nowStr = now.toISOString();
 			const dateKey = nowStr.slice(0, 10);
-			const objectKey = `profiles/${projectId}/${dateKey}/${profileId}.pprof.gz`;
+			const objectKey = `profiles/${projectId}/${dateKey}/${id}.pprof.gz`;
 
 			// Storage dispatch — R2 first, no fallback yet (Workers-only).
 			if (!c.env.PROFILES_BUCKET) {
@@ -141,19 +168,22 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				httpMetadata: { contentType: "application/octet-stream" },
 			});
 
-			const retentionHours = parseInt(
-				c.env.RETENTION_HOURS || "72",
-				10,
+			// 72-hour default, clamped to a sane upper bound so a misconfigured
+			// env var can't push expires_at thousands of years out.
+			const RETENTION_MAX_HOURS = 24 * 90;
+			const retentionHours = Math.min(
+				parseNonNegInt(c.env.RETENTION_HOURS, 72),
+				RETENTION_MAX_HOURS,
 			);
 			const expiresAt = new Date(
 				now.getTime() + retentionHours * 60 * 60 * 1000,
 			).toISOString();
 
 			// Duration / window are optional headers; default to "now".
-			// Future: extract from the parsed pprof.
-			const durationMs = parseInt(
-				c.req.header("x-obs-duration-ms") || "0",
-				10,
+			// Untrusted client input — parseNonNegInt drops NaN / negative.
+			const durationMs = parseNonNegInt(
+				c.req.header("x-obs-duration-ms"),
+				0,
 			);
 			const startTs = c.req.header("x-obs-start-ts") || nowStr;
 
@@ -168,7 +198,7 @@ export const profileRoutesPlugin: CollectorPlugin = {
 					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 				.bind(
-					profileId,
+					id,
 					projectId,
 					serviceName,
 					profileType,
@@ -189,16 +219,14 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				const stmt = db.prepare(
 					`INSERT OR IGNORE INTO profile_trace_index (profile_id, trace_id, project_id) VALUES (?, ?, ?)`,
 				);
-				const batch = traceIds.map((tid) =>
-					stmt.bind(profileId, tid, projectId),
-				);
+				const batch = traceIds.map((tid) => stmt.bind(id, tid, projectId));
 				await db.batch(batch);
 			}
 
 			return c.json(
 				{
 					accepted: true,
-					profileId,
+					profileId: id,
 					traceIdsIndexed: traceIds.length,
 				},
 				202,
@@ -295,10 +323,8 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				});
 			}
 
-			// Filtered traces requested — Phase 4.5. Server-side filter is a
-			// follow-up that needs pprof parsing; for now we return
-			// metadata + the trace_id list so the client can decide whether
-			// to fetch the full blob.
+			// Metadata + trace_id list (no blob). The full server-side
+			// pprof filter runs above when `?blob=true&trace_id=…`.
 			const trace_id = c.req.query("trace_id");
 			const traces = await db
 				.prepare(
