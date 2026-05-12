@@ -196,6 +196,11 @@ export class AIStore {
 			occurredAt: r.occurred_at,
 			receivedAt: r.received_at,
 			expiresAt: r.expires_at,
+			// RFC 0006 — the rail's "Latest session" / "Click that caused
+			// this trace" pivots both need these denormalized identity
+			// columns, so they need to survive the overview projection.
+			sessionId: r.session_id ?? null,
+			interactionId: r.interaction_id ?? null,
 		}));
 
 		return {
