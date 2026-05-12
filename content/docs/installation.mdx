@@ -1,0 +1,91 @@
+---
+title: Installation
+description: Clone, install, migrate the local D1, bring the stack up.
+---
+
+## Prerequisites
+
+- **Node.js 22+** and **pnpm 10+**
+- A POSIX shell (bash / zsh)
+- macOS or Linux (Cloudflare's local `workerd` runs on both; Windows works via WSL2)
+- Optional: Docker, only if you want to run the upstream OTel Astronomy Shop demo
+
+## Clone and install
+
+```bash
+git clone https://github.com/sawanruparel/obs-unified.git
+cd obs-unified
+pnpm install
+```
+
+The repo is a pnpm monorepo with seven workspace packages and three demo apps. `pnpm install` wires them together via the workspace protocol — no `npm link` needed.
+
+## Set up the local D1 database
+
+The collector stores telemetry in Cloudflare D1 (SQLite-on-the-edge). Locally, `wrangler` runs D1 against a SQLite file under `.wrangler/state/v3/d1`. Run the migrations once:
+
+```bash
+pnpm --filter @obs-demo/collector run db:setup
+```
+
+This calls the versioned migration runner (`apps/collector/scripts/migrate.mjs`) which:
+
+- Creates a `schema_migrations` tracking table
+- Applies every file in `packages/obs-collector/src/migrations/*.sql` not yet recorded
+- Auto-backfills the tracking table for re-runs on a partially-migrated DB
+
+Re-running is safe; only new migrations get applied.
+
+## Run the stack
+
+The top-level `Makefile` orchestrates the three local services:
+
+```bash
+make run-with-demo
+```
+
+| Service | Port | Purpose |
+| --- | --- | --- |
+| `collector` | `8790` | Cloudflare-Worker collector (OTLP ingest + dashboard read API) |
+| `web` | `5173` | React dashboard |
+| `demo-local` | `8787` | Synthetic demo API for end-to-end testing |
+
+Verify with `make status`. Logs stream via `make logs`. Stop everything with `make stop`.
+
+### First-time dashboard login
+
+The dashboard is password-gated. Default local password: `e2e-test-pass`. Override via `DASHBOARD_PASSWORD` in `apps/collector/.dev.vars`.
+
+## Seed synthetic data
+
+To see populated tabs without manually instrumenting an app first, run the seeder:
+
+```bash
+pnpm seed
+```
+
+This populates:
+
+- 4 sessions × 12 usage events (page views + clicks, each click with an `interaction_id`)
+- ~96 spans across 4 services with `session_id` + `interaction_id` stamped
+- 20 log records (some carrying `interaction_id`)
+- 12 AI call spans (8 concentrated on a "Heavy Spender" user — for the Scenario B walkthrough)
+- 4 identified users in `user_profiles`
+- 3 alert rules
+
+Open [http://localhost:5173](http://localhost:5173). You should see populated dashboards across every tab.
+
+## Production deployment
+
+`apps/collector` deploys as a Cloudflare Worker. Set up the D1 binding + R2 bucket in your Cloudflare account, point `wrangler.toml` at them, then:
+
+```bash
+pnpm --filter @obs-demo/collector run db:migrate:remote
+pnpm --filter @obs-demo/collector exec wrangler deploy
+```
+
+The dashboard (`apps/web`) builds with Vite and can be served from any static host. Point `VITE_OBS_COLLECTOR_URL` at your deployed collector.
+
+<Callout type="warn">
+The migration runner has a `--remote` mode but it cannot auto-backfill — if your production D1 had ad-hoc DDL applied outside the runner, manually `INSERT INTO schema_migrations (name) VALUES (...)` for each one before the first `db:migrate:remote` run.
+</Callout>

@@ -1,0 +1,222 @@
+---
+title: SDKs
+description: Two packages — analytics-sdk for the browser, telemetry-sdk for the server. They share an identity skeleton.
+---
+
+obs-unified provides two SDKs that share one identity-propagation contract:
+
+| Package | Where it runs | What it does |
+| --- | --- | --- |
+| `@obs/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
+| `@obs/telemetry-sdk` | Node.js / Cloudflare Workers / Bun | Creates OTLP spans, captures logs and AI calls, reads the inbound `x-obs-interaction` header and stamps it on the active span |
+
+Both packages live in the obs-unified monorepo (`packages/analytics-sdk` and `packages/telemetry-sdk`). They're published under the `@obs/*` scope.
+
+## The identity skeleton
+
+```text
+user_id → session_id → interaction_id → trace_id → span_id
+```
+
+The browser SDK owns the left half (user / session / interaction). The server SDK owns the right half (trace / span). They meet at the **`x-obs-interaction` request header** that the browser sets on outbound fetches and the server stamps onto the resulting span.
+
+Once a signal carries `interaction_id`, the dashboard's [Connected rail](/docs/what-to-expect) can pivot from any entity to "the click that caused this trace" in one click.
+
+## @obs/analytics-sdk
+
+### Install
+
+```bash
+pnpm add @obs/analytics-sdk
+```
+
+For React hosts the SDK exports a provider component; for other hosts call the lower-level `installAutoCorrelate()` directly.
+
+### React quick start
+
+```tsx
+import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs/analytics-sdk/react";
+
+export function Root() {
+	return (
+		<AnalyticsProvider
+			collectorUrl="https://your-collector.example.com"
+			apiKey={import.meta.env.VITE_OBS_INGEST_KEY}
+			trackPageViews
+			captureErrors
+			storagePrefix="myapp"
+		>
+			<AnalyticsErrorBoundary context="App" fallback={<ErrorPage />}>
+				<App />
+			</AnalyticsErrorBoundary>
+		</AnalyticsProvider>
+	);
+}
+```
+
+The provider:
+
+- Mints a `session_id` on first mount, persists it for ~30 minutes of inactivity
+- Tracks page views automatically on `pushState` / `popstate`
+- Captures uncaught errors and unhandled promise rejections
+- Installs the **Mode A** auto-correlator: a global capture-phase listener on `click`, `submit`, `keydown` that mints a fresh `interaction_id`, plus a global `fetch` + `XMLHttpRequest` wrapper that injects the `x-obs-interaction` header on outbound requests
+- Provides `useAnalytics()` hook for explicit calls
+
+### Inside a component
+
+```tsx
+import { useAnalytics } from "@obs/analytics-sdk/react";
+
+export function CheckoutButton() {
+	const { trackInteraction, identify, withInteraction } = useAnalytics();
+
+	const onSubmit = withInteraction(async () => {
+		// fetch() inside here automatically carries x-obs-interaction
+		const res = await fetch("/api/checkout", { method: "POST" });
+		trackInteraction("checkout_submitted", { status: res.status });
+	});
+
+	return <button onClick={onSubmit}>Place order</button>;
+}
+```
+
+### Identifying users
+
+```ts
+identify("user-42", { email: "alice@example.com", plan: "pro" });
+```
+
+Calls `POST /v1/identify` on the collector with `userId`, `visitorId`, `email`, `name`, `properties`. The endpoint upserts into `user_profiles` and uses `MIN(...)` to preserve the earliest `first_seen_at` on conflict.
+
+For historical imports / backfills, you can also pass an optional `firstSeenAt` ISO timestamp:
+
+```ts
+await fetch(`${collector}/v1/identify`, {
+	method: "POST",
+	body: JSON.stringify({
+		userId: "user-42",
+		visitorId: "vis-abc",
+		email: "alice@example.com",
+		firstSeenAt: "2026-01-15T08:30:00Z",
+	}),
+});
+```
+
+Future timestamps are rejected silently — clock-skewed clients can't poison the table.
+
+### Mode B: explicit interaction context
+
+Auto-correlation (Mode A) handles synchronous handlers and shallow `await` chains. Deeper async flows (debounces, setTimeout-queued work, state-machine transitions) escape the microtask cascade. For those, use `withInteractionContext`:
+
+```ts
+import { withInteractionContext, currentInteractionId } from "@obs/analytics-sdk";
+
+// Capture at click time
+const id = currentInteractionId();
+
+// Re-enter the context wherever the work actually happens
+setTimeout(() => {
+	withInteractionContext(id!, () => {
+		fetch("/api/long-running"); // carries the click's interaction_id
+	});
+}, 500);
+```
+
+## @obs/telemetry-sdk
+
+### Install
+
+```bash
+pnpm add @obs/telemetry-sdk
+```
+
+### Cloudflare Worker / Hono quick start
+
+```ts
+import {
+	createRequestSpan,
+	initObservability,
+	runWithSpan,
+	stampInteractionFromRequest,
+	flushLogs,
+	flushAICalls,
+} from "@obs/telemetry-sdk";
+
+app.use("*", async (c, next) => {
+	initObservability({
+		collectorUrl: c.env.OBS_COLLECTOR_URL,
+		apiKey: c.env.OBS_INGEST_KEY,
+		serviceName: "checkout-api",
+	});
+	await next();
+});
+
+app.use("*", async (c, next) => {
+	const span = createRequestSpan("checkout-api", `${c.req.method} ${c.req.path}`);
+	span.setAttribute("http.request.method", c.req.method);
+	// RFC 0004 — closes the click-to-trace loop. No-op if header is missing.
+	stampInteractionFromRequest(span, c.req.raw);
+
+	try {
+		await runWithSpan(span, () => next());
+		span.setStatus(c.res.status >= 400 ? 2 : 1);
+	} finally {
+		span.end();
+		await exportSpan(c.env, span);
+		await Promise.all([flushLogs(), flushAICalls()]);
+	}
+});
+```
+
+The same primitives work in plain Node.js — replace `c.env` with `process.env`, replace the Hono context with a node request handler.
+
+### Child spans
+
+```ts
+import { withChildSpan } from "@obs/telemetry-sdk";
+
+const items = await withChildSpan("db.query.items", async (child) => {
+	child.setAttribute("db.system", "postgres");
+	child.setAttribute("db.statement", "SELECT * FROM items");
+	return await db.query("SELECT * FROM items");
+});
+```
+
+Child spans inherit the parent's trace context and interaction id automatically.
+
+### Logs
+
+```ts
+import { createLogger } from "@obs/telemetry-sdk";
+
+const logger = createLogger("checkout-api");
+
+logger.info("Cart loaded", { cartId, itemCount: items.length });
+logger.error("Stripe webhook signature failed", { traceId, error });
+```
+
+Logs are flushed at request end via `flushLogs()`. If a span is active, the log inherits `trace_id`, `span_id`, `session_id`, and `interaction_id`.
+
+### AI calls
+
+The SDK exposes typed helpers for OpenInference-style LLM spans:
+
+```ts
+import { startToolSpan, startRetrieverSpan, setAISessionContext } from "@obs/telemetry-sdk";
+
+setAISessionContext({ sessionId, userId });
+
+await startRetrieverSpan("vector.search", { input: query }, async (span) => {
+	span.setAttribute("retriever.k", 10);
+	return await db.vectorSearch(query);
+});
+```
+
+## Wire-format compatibility
+
+The collector accepts standard OTLP/HTTP at:
+
+- `POST /v1/traces` — protobuf or JSON OTLP traces
+- `POST /v1/logs` — protobuf or JSON OTLP logs
+
+So any OTel-compatible producer (the Go collector, OpenInference instrumentations, Beyla eBPF agent) works alongside the obs SDKs. The obs SDKs add the `x-obs-interaction` header and the `obs.interaction.id` span attribute — native OTel SDKs don't, which is why the [click-to-trace pivot is gated on the obs SDKs](/docs/what-to-expect#scenario-a).

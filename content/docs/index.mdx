@@ -1,0 +1,25 @@
+---
+title: Welcome
+description: A single observability stack where every signal is reachable from every other in ≤2 clicks.
+---
+
+obs-unified ships traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses into one Cloudflare-Worker collector backed by D1 (SQL) and R2 (blob storage). A React dashboard renders them, and the **Connected rail** on every detail page surfaces the entity's neighbors so the user can pivot in one click.
+
+## What's in this documentation
+
+- [Installation](/docs/installation) — clone the monorepo, install dependencies, bring the stack up on `localhost:5173`.
+- [SDKs](/docs/sdks) — `@obs/analytics-sdk` (browser, click + interaction propagation) and `@obs/telemetry-sdk` (Node/Workers, OTLP spans + interaction header).
+- [Instrumenting](/docs/instrumenting) — concrete React + Worker examples that produce signals correlated end-to-end.
+- [What to expect](/docs/what-to-expect) — the two click-to-CPU scenarios the platform was built around, with the rail's role at every hop.
+
+## The unified-stack promise
+
+```text
+user_id → session_id → interaction_id → trace_id → span_id
+```
+
+That identity skeleton is propagated by the SDKs and stored on every signal. Read the [SDKs](/docs/sdks) page for which ID is minted where, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
+
+<Callout type="info">
+This documentation describes the platform as it ships on `main` today. RFCs that informed the design live in `rfcs/0003-unified-stack.md` through `rfcs/0009-ebpf-tracing-bridge.md` in the obs-unified repo.
+</Callout>

@@ -1,0 +1,5 @@
+{
+	"title": "obs-unified",
+	"description": "Install, instrument, and read the unified observability dashboard.",
+	"pages": ["index", "installation", "sdks", "instrumenting", "what-to-expect"]
+}
