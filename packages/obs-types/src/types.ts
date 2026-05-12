@@ -903,6 +903,14 @@ export interface IdentifyInput {
 	email?: string;
 	name?: string;
 	properties?: Record<string, JsonValue>;
+	/**
+	 * Optional ISO timestamp for the user's first observed activity.
+	 * When the SDK calls identify() at runtime this is always "now"; the
+	 * field exists for backfill / replay imports / synthetic seeds where
+	 * the historical first-seen-at would otherwise collapse to identify-
+	 * call time. Server clamps to ISO and ignores values in the future.
+	 */
+	firstSeenAt?: string;
 }
 
 export interface UserProfileRow {

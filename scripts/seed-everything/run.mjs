@@ -832,6 +832,11 @@ const seedUserProfiles = async (sessionWindows) => {
 		const w = sessionWindows[i];
 		const isHeavy = i === sessionWindows.length - 1;
 		const userId = `user-${w.visitorId}`;
+		// Backdate firstSeenAt to the user's first session start. Without
+		// this every seeded user shows firstSeenAt = lastSeenAt = "now",
+		// which makes the user-detail page look unconvincing — every user
+		// appears to have arrived in the same second.
+		const firstSeenAt = new Date(w.startMs).toISOString();
 		await ingestPost("/v1/identify", {
 			userId,
 			visitorId: w.visitorId,
@@ -843,6 +848,7 @@ const seedUserProfiles = async (sessionWindows) => {
 				seed: true,
 				heavy_spender: isHeavy,
 			},
+			firstSeenAt,
 		});
 		created += 1;
 	}

@@ -999,8 +999,18 @@ function TraceDetailView({
 					const uninstrumented = isLikelyUninstrumented(s);
 					return (
 						<div key={s.spanId}>
-							<div
-								className={`flex cursor-pointer items-center gap-2 py-1.5 hover:bg-sys-surface-low transition-none border-b border-sys-bg ${isExpanded ? "bg-sys-surface-low" : ""}`}
+							{/* Waterfall row is a real <button> so keyboard users can
+							    Tab/Space into it and screen readers announce it. The
+							    data-testid is the selector the Playwright matrix uses
+							    to drive Span → X navigations (see
+							    apps/web/tests/connected-rail.spec.ts). */}
+							<button
+								type="button"
+								data-testid="trace-waterfall-span"
+								data-span-id={s.spanId}
+								data-trace-id={s.traceId}
+								aria-expanded={isExpanded}
+								className={`flex w-full cursor-pointer items-center gap-2 py-1.5 text-left hover:bg-sys-surface-low transition-none border-b border-sys-bg ${isExpanded ? "bg-sys-surface-low" : ""}`}
 								onClick={() => onExpandSpan(isExpanded ? null : s.spanId)}
 							>
 								{/* Indented label */}
@@ -1064,7 +1074,7 @@ function TraceDetailView({
 								<span className="w-16 flex-none text-right font-mono text-[0.75rem] opacity-60">
 									{s.durationMs}ms
 								</span>
-							</div>
+							</button>
 							{/* Expanded span detail + RFC 0006 connected rail */}
 							{isExpanded && (
 								<div className="flex gap-2 ml-6 mr-2">
