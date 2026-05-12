@@ -434,7 +434,7 @@ const seedTraces = async (sessionWindows = []) => {
 		let stampedInteractionId = null;
 		if (inSession) {
 			baseAttrs.push(kv("session.id", inSession.sessionId));
-			baseAttrs.push(kv("user.id", inSession.visitorId));
+			baseAttrs.push(kv("user.id", `user-${inSession.visitorId}`));
 			const interactions = inSession.interactions ?? [];
 			if (interactions.length > 0) {
 				const pick = interactions[r % interactions.length];
@@ -729,7 +729,10 @@ const seedAi = async (sessionWindows = []) => {
 			kv("session.id", sessionId),
 		];
 		if (session) {
-			attrs.push(kv("user.id", session.visitorId));
+			// OTel semantics: user.id is the authenticated identity, not the
+// anonymous visitor. Use the user_profiles PK so the dashboard's
+// `👤 {userId}` chip can link straight to the user detail page.
+attrs.push(kv("user.id", `user-${session.visitorId}`));
 		}
 		if (interactionId) {
 			attrs.push(kv("obs.interaction.id", interactionId));

@@ -1025,7 +1025,16 @@ function SessionRow({
 				<span className="opacity-60">{session.spanCount} spans</span>
 			</div>
 			<div className="mt-1 flex flex-wrap items-center gap-2 text-[0.625rem] font-mono opacity-70">
-				{session.userId && <span>👤 {session.userId}</span>}
+				{session.userId && (
+					<a
+						href={`#/users/${encodeURIComponent(session.userId)}`}
+						onClick={(e) => e.stopPropagation()}
+						className="hover:underline cursor-pointer"
+						title="Open user detail"
+					>
+						👤 {session.userId}
+					</a>
+				)}
 				{session.llmSpanCount > 0 && <span>{session.llmSpanCount} LLM</span>}
 				{session.totalCostUsd > 0 && (
 					<span>${session.totalCostUsd.toFixed(4)}</span>
@@ -1079,7 +1088,15 @@ function ConversationPane({
 						{detail.sessionId}
 					</div>
 					<div className="flex flex-wrap items-center gap-3 text-[0.625rem] font-mono opacity-70">
-						{detail.userId && <span>👤 {detail.userId}</span>}
+						{detail.userId && (
+							<a
+								href={`#/users/${encodeURIComponent(detail.userId)}`}
+								className="hover:underline cursor-pointer"
+								title="Open user detail (RFC 0006 — Scenario B pivot)"
+							>
+								👤 {detail.userId}
+							</a>
+						)}
 						<span>{detail.summary.spanCount} spans</span>
 						<span>
 							{detail.summary.totalPromptTokens}↑ /{" "}

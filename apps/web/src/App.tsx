@@ -13,6 +13,7 @@ import {
 	ServiceMapDashboard,
 	ProjectsDashboard,
 	AlertsDashboard,
+	UserDashboard,
 	ProjectSwitcher,
 	GlobalSearch,
 	TimeRangePicker,
@@ -32,6 +33,8 @@ type Route = {
 	service?: string;
 	/** Stage 4: investigation page id, parsed from /#/investigate/<id>. */
 	investigationId?: string;
+	/** RFC 0006 Scenario B: user_profiles.user_id from /#/users/<id>. */
+	userId?: string;
 };
 
 function parseHash(): Route {
@@ -44,6 +47,10 @@ function parseHash(): Route {
 		tab === "investigate" && segments.length > 1
 			? decodeURIComponent(segments.slice(1).join("/"))
 			: undefined;
+	const userId =
+		tab === "users" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
 	return {
 		tab,
 		traceId: params.get("trace") ?? undefined,
@@ -51,6 +58,7 @@ function parseHash(): Route {
 		sessionId: params.get("session") ?? undefined,
 		service: params.get("service") ?? undefined,
 		investigationId,
+		userId,
 	};
 }
 
@@ -60,6 +68,9 @@ function navigate(route: Partial<Route>) {
 	let hash = `/${next.tab}`;
 	if (next.tab === "investigate" && next.investigationId) {
 		hash += `/${encodeURIComponent(next.investigationId)}`;
+	}
+	if (next.tab === "users" && next.userId) {
+		hash += `/${encodeURIComponent(next.userId)}`;
 	}
 	const params = new URLSearchParams();
 	if (next.traceId) params.set("trace", next.traceId);
@@ -391,6 +402,11 @@ export function App() {
 				{route.tab === "alerts" && <AlertsDashboard />}
 				{route.tab === "resources" && <ResourcesDashboard />}
 				{route.tab === "projects" && <ProjectsDashboard />}
+				{route.tab === "users" && route.userId && (
+					<UserDashboard userId={route.userId} onNavigate={(href) => {
+						location.hash = href.startsWith("#") ? href.slice(1) : href;
+					}} />
+				)}
 				</main>
 			</div>
 		</div>

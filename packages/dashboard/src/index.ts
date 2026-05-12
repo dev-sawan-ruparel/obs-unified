@@ -9,6 +9,7 @@ export { ServiceMapDashboard } from "./dashboards/ServiceMapDashboard";
 export { TelemetryDashboard } from "./dashboards/TelemetryDashboard";
 export { TimelineDashboard } from "./dashboards/TimelineDashboard";
 export { UsageDashboard } from "./dashboards/UsageDashboard";
+export { UserDashboard, type UserDashboardProps } from "./dashboards/UserDashboard";
 export { ProjectsDashboard } from "./dashboards/ProjectsDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { ProjectSwitcher } from "./components/ProjectSwitcher";
