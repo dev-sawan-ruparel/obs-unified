@@ -259,6 +259,7 @@ export async function runAllDueAnalyses(
 	failed: number;
 	refreshed: number;
 	narrated: number;
+	skipped?: number;
 }> {
 	const logger = ctx.logger ?? consoleLogger;
 	const db = sqlDbFor(ctx.env);
@@ -353,8 +354,15 @@ export async function runAllDueAnalyses(
 	// per-analysis so a stuck SQL is identifiable in the log rather than
 	// silently swallowed.
 	const CONCURRENCY = 4;
+	// Lease window for the per-analysis claim. Long enough that a healthy
+	// narrative pass (LLM roundtrip + result insert) won't get rerun by the
+	// next tick, short enough that a worker crash unblocks the row within
+	// two ticks. 90 s sits between the every-minute cron and a typical LLM
+	// p95.
+	const CLAIM_LEASE_MS = 90_000;
 	let ran = 0;
 	let failed = 0;
+	let skipped = 0;
 	let narrated = 0;
 	const queue = [...due];
 	const workers: Promise<void>[] = [];
@@ -364,6 +372,19 @@ export async function runAllDueAnalyses(
 				while (queue.length > 0) {
 					const def = queue.shift();
 					if (!def) return;
+					const claimed = await store.claimAnalysis(
+						projectId,
+						def.id,
+						Date.now(),
+						CLAIM_LEASE_MS,
+					);
+					if (!claimed) {
+						skipped += 1;
+						logger.info("[analyses] skipped (lease held by another tick)", {
+							analysis_id: def.id,
+						});
+						continue;
+					}
 					try {
 						const result = await runSqlAnalysis(def, runCtx);
 						// Stage 3: narrate pass. Reads previous result from D1 to
@@ -385,10 +406,12 @@ export async function runAllDueAnalyses(
 							if (result.narrative) narrated += 1;
 						}
 						await store.insertResult(result, expiresAt);
+						// markRan releases the claim as a side-effect.
 						await store.markRan(projectId, def.id, result.generatedAt);
 						ran += 1;
 					} catch (error) {
 						failed += 1;
+						await store.releaseClaim(projectId, def.id);
 						logger.error("[analyses] analysis failed", {
 							analysis_id: def.id,
 							error: error instanceof Error ? error.message : String(error),
@@ -400,5 +423,5 @@ export async function runAllDueAnalyses(
 	}
 	await Promise.all(workers);
 
-	return { ran, failed, refreshed, narrated };
+	return { ran, failed, refreshed, narrated, skipped };
 }

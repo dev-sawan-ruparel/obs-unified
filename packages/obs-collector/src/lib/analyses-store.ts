@@ -197,13 +197,61 @@ export class AnalysesStore {
 		analysisId: string,
 		ranAt: string,
 	): Promise<void> {
+		// last_started_at = NULL releases the lease so the next tick is free
+		// to re-evaluate refresh_seconds against last_run_at.
 		await this.db
 			.prepare(
 				`UPDATE analysis_definitions
-				SET last_run_at = ?
+				SET last_run_at = ?, last_started_at = NULL
 				WHERE project_id = ? AND id = ?`,
 			)
 			.bind(ranAt, projectId, analysisId)
+			.run();
+	}
+
+	/**
+	 * Attempt to claim an analysis for the current tick. Returns true if
+	 * the row was successfully claimed (i.e., this caller is now responsible
+	 * for running it), false if another tick already holds an active lease.
+	 *
+	 * The atomic operation is a single UPDATE … WHERE that only matches when
+	 * the existing claim is NULL or older than the lease window. We use
+	 * meta.changes to detect whether the row actually moved; D1 returns 0
+	 * when the WHERE clause excluded the row.
+	 */
+	async claimAnalysis(
+		projectId: string,
+		analysisId: string,
+		now: number,
+		leaseMs: number,
+	): Promise<boolean> {
+		const nowIso = new Date(now).toISOString();
+		const leaseFloorIso = new Date(now - leaseMs).toISOString();
+		const result = await this.db
+			.prepare(
+				`UPDATE analysis_definitions
+				 SET last_started_at = ?
+				 WHERE project_id = ? AND id = ?
+				   AND (last_started_at IS NULL OR last_started_at < ?)`,
+			)
+			.bind(nowIso, projectId, analysisId, leaseFloorIso)
+			.run();
+		return (result.meta?.changes ?? 0) > 0;
+	}
+
+	/**
+	 * Release a lease without writing to last_run_at — used when the run
+	 * failed and we want the next tick to retry rather than wait the full
+	 * refresh_seconds window.
+	 */
+	async releaseClaim(projectId: string, analysisId: string): Promise<void> {
+		await this.db
+			.prepare(
+				`UPDATE analysis_definitions
+				 SET last_started_at = NULL
+				 WHERE project_id = ? AND id = ?`,
+			)
+			.bind(projectId, analysisId)
 			.run();
 	}
 
