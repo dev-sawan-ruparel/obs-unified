@@ -80,14 +80,6 @@ export interface EntityManifest {
 	replay: ReplayRef | null;
 }
 
-const EMPTY_MANIFEST: EntityManifest = {
-	spans: [],
-	logs: [],
-	usageEvents: [],
-	aiCalls: [],
-	replay: null,
-};
-
 const FETCH_LIMIT = 200;
 
 const mapSpan = (r: {
@@ -371,19 +363,17 @@ export class IdentityIndex {
 	 * sessions and hydrate per-session.
 	 */
 	async byUser(
-		projectId: string,
-		userId: string,
-		opts: { limit?: number } = {},
+		_projectId: string,
+		_userId: string,
+		_opts: { limit?: number } = {},
 	): Promise<EntityManifest> {
-		const limit = Math.min(opts.limit ?? 100, FETCH_LIMIT);
 		// user_id lives on user_profiles + (in some flows) on usage_events
-		// via session_id linkage. For the first cut we focus on
-		// user_profiles → session_id → other signals. Implementation deferred
-		// to a follow-up that joins user_profiles correctly.
-		void this;
-		void projectId;
-		void userId;
-		void limit;
-		return EMPTY_MANIFEST;
+		// via session_id linkage. Joining user_profiles correctly is a
+		// follow-up — until then, throw rather than returning an empty
+		// manifest, which would have been indistinguishable from "this user
+		// has no signals" at the call site.
+		throw new Error(
+			"IdentityIndex.byUser is not implemented yet; iterate user sessions and hydrate per-session via bySession()",
+		);
 	}
 }

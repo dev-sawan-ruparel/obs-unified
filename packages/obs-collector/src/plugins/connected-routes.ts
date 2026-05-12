@@ -35,6 +35,16 @@ export type ConnectedEntityKind =
 	| "alert"
 	| "analysis";
 
+const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
+	"span",
+	"log",
+	"usage",
+	"ai_call",
+	"replay",
+	"alert",
+	"analysis",
+]);
+
 export interface ConnectedLink {
 	label: string;
 	href: string;
@@ -264,11 +274,23 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 	register(app) {
 		app.get("/internal/connected/:kind/:id", async (c) => {
 			const projectId = getProjectId(c);
-			const kind = c.req.param("kind") as ConnectedEntityKind;
+			const rawKind = c.req.param("kind");
 			const id = c.req.param("id");
 			if (!id) {
 				return c.json({ error: "id required" }, 400);
 			}
+			if (!KNOWN_KINDS.has(rawKind)) {
+				// Unknown kinds used to fall through every `if` branch and
+				// return 200 + empty sections, which hid client bugs.
+				return c.json(
+					{
+						error: `unknown entity kind: ${rawKind}`,
+						known: [...KNOWN_KINDS],
+					},
+					400,
+				);
+			}
+			const kind = rawKind as ConnectedEntityKind;
 
 			const index = new IdentityIndex(sqlDbFor(c.env));
 
