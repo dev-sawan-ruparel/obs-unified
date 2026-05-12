@@ -1,17 +1,7 @@
-# dependencies
-node_modules
-.pnpm-store
-
-# Next.js
-.next
-out
-next-env.d.ts
-
-# fumadocs build artifacts
-.source
-
-# env
-.env*.local
-
-# OS
 .DS_Store
+/node_modules/
+
+# React Router
+/.react-router/
+/build/
+.source

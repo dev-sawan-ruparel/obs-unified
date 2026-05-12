@@ -1,6 +1,6 @@
 # obs-unified-docs
 
-Documentation site for [obs-unified](https://github.com/sawanruparel/obs-unified) — built with [Fumadocs](https://fumadocs.dev/) (Next.js + MDX).
+Documentation site for [obs-unified](https://github.com/sawanruparel/obs-unified) — built with [Fumadocs](https://fumadocs.dev/) on React Router 7 (SPA, no Next.js).
 
 ## Running locally
 
@@ -26,4 +26,8 @@ description: Short subtitle shown under the heading.
 
 ## Deploying
 
-Static export works (`next build` then deploy `.next` or `out/`). Any Next.js host (Vercel, Cloudflare Pages, self-hosted) is fine.
+```bash
+pnpm build
+```
+
+Output is a static site under `build/client/` — deploy to any static host (Cloudflare Pages, S3, Netlify, etc.). No Node server needed at runtime.
