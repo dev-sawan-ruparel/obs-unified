@@ -15,7 +15,7 @@ const FAQS: QA[] = [
   },
   {
     q: "Is obs-unified free and open source?",
-    a: "Yes — MIT-licensed. The full source for the collector, SDKs, dashboard, and the OpenTelemetry Astronomy Shop demo wiring lives at github.com/sawanruparel/obs-unified.",
+    a: "Yes — MIT-licensed. The full source for the collector, SDKs, dashboard, and the OpenTelemetry Astronomy Shop demo wiring lives at github.com/obs-unified/obs-unified.",
   },
   {
     q: "Can I embed the dashboard inside my own admin panel?",

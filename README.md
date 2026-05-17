@@ -1,6 +1,6 @@
 # presence
 
-Marketing / landing page for [obs-unified](https://github.com/sawanruparel/obs-unified).
+Marketing / landing page for [obs-unified](https://github.com/obs-unified/obs-unified).
 
 Vanilla TypeScript + Vite. No framework. Optimized for AEO (answer-engine
 optimization): JSON-LD `SoftwareApplication` and `FAQPage` schemas, semantic

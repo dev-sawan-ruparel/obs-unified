@@ -14,7 +14,7 @@ obs-unified replaces the patchwork of APM (Datadog, New Relic), error tracking
 LogRocket), and LLM observability (Langfuse, Helicone) with a single self-hosted
 stack. The full source is MIT-licensed.
 
-- Repository: https://github.com/sawanruparel/obs-unified
+- Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://obsunified.com/docs
 - License: MIT
 

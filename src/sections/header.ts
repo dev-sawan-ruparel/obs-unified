@@ -1,5 +1,5 @@
 const DOCS_URL = "https://obsunified.com/docs";
-const GITHUB_URL = "https://github.com/sawanruparel/obs-unified";
+const GITHUB_URL = "https://github.com/obs-unified/obs-unified";
 
 export function renderHeader(): string {
   return `

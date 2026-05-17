@@ -8,7 +8,7 @@ The site is a Vite-built static bundle deployed to **Cloudflare Pages** at `obsu
 
 1. Push this repo to GitHub.
 2. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git**.
-3. Pick `sawanruparel/presence`. Cloudflare reads `wrangler.toml` and pre-fills:
+3. Pick `obs-unified/presence`. Cloudflare reads `wrangler.toml` and pre-fills:
    - **Build command:** `pnpm install --frozen-lockfile && pnpm build`
    - **Build output directory:** `dist`
    - **Root directory:** `/`

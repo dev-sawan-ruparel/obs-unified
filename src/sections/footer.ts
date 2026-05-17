@@ -29,10 +29,10 @@ export function renderFooter(): string {
     </nav>
     <nav class="footer-nav" aria-label="Project">
       <h4>Project</h4>
-      <a href="https://github.com/sawanruparel/obs-unified" rel="noopener" target="_blank">GitHub</a>
-      <a href="https://github.com/sawanruparel/obs-unified/blob/main/README.md" rel="noopener" target="_blank">README</a>
-      <a href="https://github.com/sawanruparel/obs-unified/issues" rel="noopener" target="_blank">Issues</a>
-      <a href="https://github.com/sawanruparel/obs-unified/blob/main/CONTRIBUTING.md" rel="noopener" target="_blank">Contributing</a>
+      <a href="https://github.com/obs-unified/obs-unified" rel="noopener" target="_blank">GitHub</a>
+      <a href="https://github.com/obs-unified/obs-unified/blob/main/README.md" rel="noopener" target="_blank">README</a>
+      <a href="https://github.com/obs-unified/obs-unified/issues" rel="noopener" target="_blank">Issues</a>
+      <a href="https://github.com/obs-unified/obs-unified/blob/main/CONTRIBUTING.md" rel="noopener" target="_blank">Contributing</a>
     </nav>
   </div>
   <div class="container footer-bottom">
