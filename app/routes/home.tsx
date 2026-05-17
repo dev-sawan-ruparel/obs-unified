@@ -52,7 +52,7 @@ export default function Home() {
 					<Tile
 						to="/docs/sdks"
 						title="SDKs"
-						body="@obs/analytics-sdk + @obs/telemetry-sdk."
+						body="@obs-unified/analytics-sdk + @obs-unified/telemetry-sdk."
 					/>
 					<Tile
 						to="/docs/instrumenting"

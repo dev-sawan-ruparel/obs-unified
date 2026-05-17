@@ -1,6 +1,6 @@
 # obs-unified-docs
 
-Documentation site for [obs-unified](https://github.com/sawanruparel/obs-unified) — built with [Fumadocs](https://fumadocs.dev/) on React Router 7 (SPA, no Next.js).
+Documentation site for [obs-unified](https://github.com/obs-unified/obs-unified) — built with [Fumadocs](https://fumadocs.dev/) on React Router 7 (SPA, no Next.js).
 
 ## Running locally
 

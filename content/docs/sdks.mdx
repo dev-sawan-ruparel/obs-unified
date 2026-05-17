@@ -7,10 +7,10 @@ obs-unified provides two SDKs that share one identity-propagation contract:
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| `@obs/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
-| `@obs/telemetry-sdk` | Node.js / Cloudflare Workers / Bun | Creates OTLP spans, captures logs and AI calls, reads the inbound `x-obs-interaction` header and stamps it on the active span |
+| `@obs-unified/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
+| `@obs-unified/telemetry-sdk` | Node.js / Cloudflare Workers / Bun | Creates OTLP spans, captures logs and AI calls, reads the inbound `x-obs-interaction` header and stamps it on the active span |
 
-Both packages live in the obs-unified monorepo (`packages/analytics-sdk` and `packages/telemetry-sdk`). They're published under the `@obs/*` scope.
+Both packages live in the obs-unified monorepo (`packages/analytics-sdk` and `packages/telemetry-sdk`). They're published under the `@obs-unified/*` scope.
 
 ## The identity skeleton
 
@@ -22,12 +22,12 @@ The browser SDK owns the left half (user / session / interaction). The server SD
 
 Once a signal carries `interaction_id`, the dashboard's [Connected rail](/docs/what-to-expect) can pivot from any entity to "the click that caused this trace" in one click.
 
-## @obs/analytics-sdk
+## @obs-unified/analytics-sdk
 
 ### Install
 
 ```bash
-pnpm add @obs/analytics-sdk
+pnpm add @obs-unified/analytics-sdk
 ```
 
 For React hosts the SDK exports a provider component; for other hosts call the lower-level `installAutoCorrelate()` directly.
@@ -35,7 +35,7 @@ For React hosts the SDK exports a provider component; for other hosts call the l
 ### React quick start
 
 ```tsx
-import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs/analytics-sdk/react";
+import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs-unified/analytics-sdk/react";
 
 export function Root() {
 	return (
@@ -65,7 +65,7 @@ The provider:
 ### Inside a component
 
 ```tsx
-import { useAnalytics } from "@obs/analytics-sdk/react";
+import { useAnalytics } from "@obs-unified/analytics-sdk/react";
 
 export function CheckoutButton() {
 	const { trackInteraction, identify, withInteraction } = useAnalytics();
@@ -109,7 +109,7 @@ Future timestamps are rejected silently — clock-skewed clients can't poison th
 Auto-correlation (Mode A) handles synchronous handlers and shallow `await` chains. Deeper async flows (debounces, setTimeout-queued work, state-machine transitions) escape the microtask cascade. For those, use `withInteractionContext`:
 
 ```ts
-import { withInteractionContext, currentInteractionId } from "@obs/analytics-sdk";
+import { withInteractionContext, currentInteractionId } from "@obs-unified/analytics-sdk";
 
 // Capture at click time
 const id = currentInteractionId();
@@ -122,12 +122,12 @@ setTimeout(() => {
 }, 500);
 ```
 
-## @obs/telemetry-sdk
+## @obs-unified/telemetry-sdk
 
 ### Install
 
 ```bash
-pnpm add @obs/telemetry-sdk
+pnpm add @obs-unified/telemetry-sdk
 ```
 
 ### Cloudflare Worker / Hono quick start
@@ -140,7 +140,7 @@ import {
 	stampInteractionFromRequest,
 	flushLogs,
 	flushAICalls,
-} from "@obs/telemetry-sdk";
+} from "@obs-unified/telemetry-sdk";
 
 app.use("*", async (c, next) => {
 	initObservability({
@@ -173,7 +173,7 @@ The same primitives work in plain Node.js — replace `c.env` with `process.env`
 ### Child spans
 
 ```ts
-import { withChildSpan } from "@obs/telemetry-sdk";
+import { withChildSpan } from "@obs-unified/telemetry-sdk";
 
 const items = await withChildSpan("db.query.items", async (child) => {
 	child.setAttribute("db.system", "postgres");
@@ -187,7 +187,7 @@ Child spans inherit the parent's trace context and interaction id automatically.
 ### Logs
 
 ```ts
-import { createLogger } from "@obs/telemetry-sdk";
+import { createLogger } from "@obs-unified/telemetry-sdk";
 
 const logger = createLogger("checkout-api");
 
@@ -202,7 +202,7 @@ Logs are flushed at request end via `flushLogs()`. If a span is active, the log 
 The SDK exposes typed helpers for OpenInference-style LLM spans:
 
 ```ts
-import { startToolSpan, startRetrieverSpan, setAISessionContext } from "@obs/telemetry-sdk";
+import { startToolSpan, startRetrieverSpan, setAISessionContext } from "@obs-unified/telemetry-sdk";
 
 setAISessionContext({ sessionId, userId });
 

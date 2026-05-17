@@ -1,0 +1,6 @@
+# Cloudflare Pages config for obs-unified-docs.
+# Used by `wrangler pages deploy` and by Cloudflare's GitHub integration.
+
+name = "obs-unified-docs"
+pages_build_output_dir = "./build/client"
+compatibility_date = "2026-05-01"

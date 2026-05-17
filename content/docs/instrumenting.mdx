@@ -3,7 +3,7 @@ title: Instrumenting your app
 description: React frontend + Node/Worker backend wired together so signals correlate end-to-end.
 ---
 
-This page walks through wiring `@obs/analytics-sdk` and `@obs/telemetry-sdk` into a real two-tier app — a React frontend that calls a Worker backend — so a single user click produces a usage event, a span, a log, and (optionally) an AI call, all carrying the same `interaction_id`.
+This page walks through wiring `@obs-unified/analytics-sdk` and `@obs-unified/telemetry-sdk` into a real two-tier app — a React frontend that calls a Worker backend — so a single user click produces a usage event, a span, a log, and (optionally) an AI call, all carrying the same `interaction_id`.
 
 ## What "end-to-end correlation" means here
 
@@ -33,7 +33,7 @@ Every signal that flows out of the server while that request is in flight carrie
 
 ```tsx
 // src/main.tsx
-import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs/analytics-sdk/react";
+import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs-unified/analytics-sdk/react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 
@@ -59,7 +59,7 @@ By default `AnalyticsProvider` installs **Mode A auto-correlation**: clicks/subm
 
 ```tsx
 import { useEffect } from "react";
-import { useAnalytics } from "@obs/analytics-sdk/react";
+import { useAnalytics } from "@obs-unified/analytics-sdk/react";
 
 export function App() {
 	const { identify } = useAnalytics();
@@ -100,7 +100,7 @@ const onSubmit = async () => {
 ### 4. Mode B for async work
 
 ```tsx
-import { useAnalytics } from "@obs/analytics-sdk/react";
+import { useAnalytics } from "@obs-unified/analytics-sdk/react";
 
 export function DebouncedSearchBox() {
 	const { withInteraction } = useAnalytics();
@@ -133,7 +133,7 @@ import {
 	stampInteractionFromRequest,
 	flushLogs,
 	flushAICalls,
-} from "@obs/telemetry-sdk";
+} from "@obs-unified/telemetry-sdk";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -185,7 +185,7 @@ app.use("*", async (c, next) => {
 ### 2. Child spans + logs in your handlers
 
 ```ts
-import { withChildSpan, createLogger } from "@obs/telemetry-sdk";
+import { withChildSpan, createLogger } from "@obs-unified/telemetry-sdk";
 
 const log = createLogger("checkout-api");
 
@@ -215,7 +215,7 @@ Both the child spans and the log inherit `interaction_id` from the root span. Ev
 If your backend invokes an LLM, instrument it as an OpenInference-typed span:
 
 ```ts
-import { setAISessionContext } from "@obs/telemetry-sdk";
+import { setAISessionContext } from "@obs-unified/telemetry-sdk";
 
 setAISessionContext({ sessionId, userId });
 
