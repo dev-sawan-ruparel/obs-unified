@@ -1,0 +1,17 @@
+{
+  "$comment": "Registry of self-hosted GitHub Actions runners. Add a repo here, then run scripts/register.sh <key>.",
+  "runners": {
+    "obs-unified": {
+      "repo": "obs-unified/obs-unified",
+      "labels": ["self-hosted", "macOS", "arm64", "obs-unified"]
+    },
+    "obs-unified-docs": {
+      "repo": "obs-unified/obs-unified-docs",
+      "labels": ["self-hosted", "macOS", "arm64", "docs"]
+    },
+    "presence": {
+      "repo": "obs-unified/presence",
+      "labels": ["self-hosted", "macOS", "arm64", "presence"]
+    }
+  }
+}
