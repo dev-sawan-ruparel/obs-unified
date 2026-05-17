@@ -1,6 +1,6 @@
 # @obs-unified/cli
 
-Command-line entry point for [obs-unified](https://github.com/sawanruparel/obs-unified).
+Command-line entry point for [obs-unified](https://github.com/obs-unified/obs-unified).
 
 ```bash
 pnpm dlx @obs-unified/cli up         # spin up local stack

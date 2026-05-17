@@ -23,4 +23,4 @@ Pair this with any of:
 - A Hono backend on Cloudflare Workers (`obs-unified create my-api` → pick `hono-workers`)
 - Your existing backend, instrumented per the
   [Tier 1 SDK docs](https://obs-unified-docs.dev/docs/instrumenting)
-  or one of the [Tier 3 recipes](https://github.com/sawanruparel/obs-unified/tree/main/docs/recipes).
+  or one of the [Tier 3 recipes](https://github.com/obs-unified/obs-unified/tree/main/docs/recipes).

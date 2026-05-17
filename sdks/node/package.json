@@ -2,6 +2,20 @@
 	"name": "@obs-unified/sdk",
 	"version": "0.1.0",
 	"description": "Thin OpenTelemetry SDK wrapper for obs-unified — adds OpenInference LLM/tool helpers, project propagation, and one-line OTLP setup.",
+	"homepage": "https://obsunified.com",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/obs-unified/obs-unified.git",
+		"directory": "sdks/node"
+	},
+	"bugs": {
+		"url": "https://github.com/obs-unified/obs-unified/issues"
+	},
+	"author": "Sawan Ruparel",
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",

@@ -9,7 +9,7 @@ on:
 jobs:
   ts-check:
     name: TS — type-check + tests + build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,7 +26,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -41,7 +41,7 @@ jobs:
 
   go-sdk:
     name: Go SDK
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     defaults:
       run:
         working-directory: sdks/go
@@ -57,7 +57,7 @@ jobs:
 
   rust-sdk:
     name: Rust SDK
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     defaults:
       run:
         working-directory: sdks/rust
@@ -73,7 +73,7 @@ jobs:
 
   docker-collector:
     name: Docker — collector-node image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -89,7 +89,7 @@ jobs:
 
   integration:
     name: Integration — Postgres+MinIO+collector
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     needs: [docker-collector]
     services:
       postgres:
@@ -142,7 +142,7 @@ jobs:
 
   conformance-interaction-id:
     name: Conformance — interaction_id
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     needs: [ts-check, go-sdk, rust-sdk]
     steps:
       - uses: actions/checkout@v4

@@ -16,7 +16,7 @@ permissions:
 jobs:
   release:
     name: Release
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, obs-unified]
     steps:
       - uses: actions/checkout@v4
         with:

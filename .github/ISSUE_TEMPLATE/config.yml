@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/obs-unified/obs-unified/blob/main/SECURITY.md
+    about: Do not file public issues for security reports. See SECURITY.md.
+  - name: Documentation
+    url: https://obsunified.com/docs
+    about: Read the docs first — many "how do I…" questions are answered there.
