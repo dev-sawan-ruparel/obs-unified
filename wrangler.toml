@@ -1,6 +1,6 @@
 # Cloudflare Pages config for the obs-unified landing page.
 # Used by `wrangler pages deploy` and by Cloudflare's GitHub integration.
 
-name = "presence"
+name = "obsunified"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-01"
