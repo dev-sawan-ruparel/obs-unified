@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0d10" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://obsunified.com/" />
+
+    <title>obs-unified — self-hosted observability for traces, logs, AI calls, and session replay</title>
+    <meta
+      name="description"
+      content="obs-unified is an open-source, self-hosted observability stack. One collector ingests OTLP traces, structured logs, AI/LLM calls, frontend usage events, and rrweb session replays — correlated end-to-end through user, session, interaction, trace, and span IDs."
+    />
+    <meta name="keywords" content="observability, self-hosted, OpenTelemetry, OTLP, traces, logs, session replay, LLM observability, AI tracking, rrweb, Cloudflare Workers, D1" />
+    <meta name="author" content="obs-unified" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="obs-unified" />
+    <meta property="og:title" content="obs-unified — self-hosted observability" />
+    <meta property="og:description" content="One collector. Traces, logs, AI calls, usage, and session replay — correlated end-to-end. No external telemetry vendor required." />
+    <meta property="og:url" content="https://obsunified.com/" />
+    <meta property="og:image" content="https://obsunified.com/og.jpg" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="obs-unified — self-hosted observability" />
+    <meta name="twitter:description" content="One collector. Traces, logs, AI calls, usage, and session replay — correlated end-to-end." />
+    <meta name="twitter:image" content="https://obsunified.com/og.jpg" />
+
+    <link rel="preconnect" href="https://github.com" crossorigin />
+    <link rel="dns-prefetch" href="https://github.com" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://obsunified.com/#software",
+            "name": "obs-unified",
+            "alternateName": "obs",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Cross-platform (Cloudflare Workers, Node.js, Bun, Deno)",
+            "description": "Self-hosted observability platform that ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays into a single collector backed by D1 (SQLite) and R2.",
+            "url": "https://obsunified.com/",
+            "downloadUrl": "https://github.com/sawanruparel/obs-unified",
+            "codeRepository": "https://github.com/sawanruparel/obs-unified",
+            "programmingLanguage": ["TypeScript", "Go", "Rust"],
+            "license": "https://opensource.org/license/mit",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": [
+              "Distributed tracing (OTLP)",
+              "Structured logging with trace correlation",
+              "LLM/AI call tracking (tokens, cost, latency)",
+              "Frontend usage analytics",
+              "Session replay via rrweb",
+              "Service map and issues",
+              "Alert rules and notifications",
+              "Self-hosted on your own infrastructure"
+            ]
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://obsunified.com/#org",
+            "name": "obs-unified",
+            "url": "https://obsunified.com/",
+            "sameAs": ["https://github.com/sawanruparel/obs-unified"]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://obsunified.com/#website",
+            "url": "https://obsunified.com/",
+            "name": "obs-unified",
+            "publisher": { "@id": "https://obsunified.com/#org" }
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://obsunified.com/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is obs-unified?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "obs-unified is an open-source, self-hosted observability platform. A single collector service ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays, stores them in D1 (SQLite) and R2, and serves a React dashboard for querying and correlating them."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How is obs-unified different from Datadog, Sentry, or PostHog?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "obs-unified runs on your own infrastructure with no external telemetry vendor. It unifies the signal types that those tools split across separate products — APM traces, logs, error tracking, product analytics, session replay, and LLM observability — into one collector and one dashboard, correlated through a single identity chain (user → session → interaction → trace → span)."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What runtimes does obs-unified support?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The collector runs on Cloudflare Workers (D1 + R2) or any Node.js / Bun / Deno host with SQLite. SDKs ship for Node.js / TypeScript (Workers, Hono, Next.js, Express), Go, and Rust. Frontend instrumentation is a vanilla browser SDK with a React wrapper."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is obs-unified free and open source?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. obs-unified is MIT-licensed and the full source code lives at github.com/sawanruparel/obs-unified, including the collector, SDKs, dashboard, and OpenTelemetry Astronomy Shop demo wiring."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I install obs-unified?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Install the SDKs with npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk, deploy the @obs-unified/collector package to Cloudflare Workers or any Node host, set INGEST_KEY and DASHBOARD_PASSWORD, and call initObservability() in your backend. The dashboard is served by the collector at /dashboard."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

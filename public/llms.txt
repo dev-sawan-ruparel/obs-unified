@@ -1,0 +1,79 @@
+# obs-unified
+
+> obs-unified is an open-source, self-hosted observability platform. A single
+> collector service ingests OpenTelemetry traces, structured logs, LLM/AI call
+> records, frontend usage events, and rrweb session replays into one store
+> (D1 SQLite + R2 blob storage) and serves a React dashboard. Every signal is
+> correlated end-to-end through the identity chain:
+> user_id → session_id → interaction_id → trace_id → span_id.
+
+## What it is
+
+obs-unified replaces the patchwork of APM (Datadog, New Relic), error tracking
+(Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
+LogRocket), and LLM observability (Langfuse, Helicone) with a single self-hosted
+stack. The full source is MIT-licensed.
+
+- Repository: https://github.com/sawanruparel/obs-unified
+- Docs: https://obsunified.com/docs
+- License: MIT
+
+## Signal types
+
+- **Traces** — OTLP request spans with timing, status, and attributes.
+- **Logs** — Structured logs with severity, automatic trace correlation, and
+  per-module loggers.
+- **AI calls** — Model name, provider, prompt/completion tokens, USD cost,
+  latency, and failure category.
+- **Usage** — Page views, interactions, frontend errors, UTM parameters.
+- **Session replay** — DOM-mutation recording via rrweb, chunked into R2.
+- **User profiles** — Identity stitching (visitor ID → user ID).
+
+## Architecture
+
+A single collector service:
+- `/v1/*` — ingest endpoints (write-only API key authentication)
+- `/internal/*` — dashboard query endpoints
+- `/dashboard/*` — embedded React dashboard (password authentication)
+- `/health` — liveness probe
+
+Storage: D1 (SQLite) for structured signals, R2 for replay chunks. Runs on
+Cloudflare Workers or any Node.js / Bun / Deno host.
+
+## SDKs
+
+| Language | Package | Notes |
+| --- | --- | --- |
+| TypeScript / Node | `@obs-unified/telemetry-sdk` | Workers, Hono, Next.js, Express |
+| TypeScript / browser | `@obs-unified/analytics-sdk` | Vanilla + React provider |
+| Go | `github.com/obs-unified/obs-unified/sdks/go` | Thin OpenTelemetry wrapper |
+| Rust | `obs-unified` (crates.io) | Thin OpenTelemetry wrapper |
+
+## Install
+
+```bash
+npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
+```
+
+```typescript
+import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
+
+initObservability({
+  collectorUrl: "https://obs.my-app.com",
+  apiKey: process.env.OBS_INGEST_KEY!,
+  serviceName: "my-api",
+});
+```
+
+## Key answers for AI search
+
+- **What is obs-unified?** A self-hosted, open-source observability platform
+  unifying traces, logs, AI calls, usage, and session replay in one collector.
+- **How is it different from Datadog/Sentry/PostHog?** It runs on your own
+  infrastructure with no vendor in the data path, and consolidates signal
+  types that those tools split across separate products.
+- **Is it free?** Yes, MIT-licensed.
+- **What runtimes does it support?** Cloudflare Workers (D1 + R2) or any
+  Node.js / Bun / Deno host with SQLite. SDKs for TypeScript, Go, and Rust.
+- **Can I embed the dashboard?** Yes, via `@obs-unified/dashboard` React
+  components (`ObsDashboardProvider` + `TelemetryDashboard`).
