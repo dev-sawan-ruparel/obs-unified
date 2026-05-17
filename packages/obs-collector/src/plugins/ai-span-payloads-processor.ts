@@ -19,8 +19,8 @@ import {
 	SESSION_ID_KEY,
 	USER_ID_KEY,
 	isOpenInferenceSpanKind,
-} from "@obs/types/constants";
-import type { JsonValue, StoredSpan } from "@obs/types";
+} from "@obs-unified/types/constants";
+import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 import { sqlDbFor } from "../lib/sql-db";

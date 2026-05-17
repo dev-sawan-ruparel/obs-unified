@@ -4,11 +4,11 @@ import type {
 	UsageEventInput,
 	UsageEventPayload,
 	UsageEventRecord,
-} from "@obs/types";
+} from "@obs-unified/types";
 import {
 	DEFAULT_WINDOW_HOURS,
 	getConfiguredRetentionHours,
-} from "@obs/types/constants";
+} from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { retentionExpiry } from "../lib/otlp";
 import { getProjectId } from "./_context";

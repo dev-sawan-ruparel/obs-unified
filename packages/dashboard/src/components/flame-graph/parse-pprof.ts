@@ -1,6 +1,6 @@
 /**
  * Browser-side pprof helpers for the flame graph viewer. The wire-format
- * decoder lives in `@obs/pprof-decoder` (shared with the collector); this
+ * decoder lives in `@obs-unified/pprof-decoder` (shared with the collector); this
  * file adds the browser-only concerns:
  *
  *   - fetchAndDecodePprof — fetch a (gzipped) URL and decode.
@@ -11,7 +11,7 @@
 import {
 	decodePprofBlob,
 	type PprofProfile,
-} from "@obs/pprof-decoder";
+} from "@obs-unified/pprof-decoder";
 
 // Re-export the parsed-pprof types so this file remains the canonical
 // import for flame-graph consumers in the dashboard.
@@ -24,7 +24,7 @@ export {
 	type PprofProfile,
 	type PprofSample,
 	type PprofValueType,
-} from "@obs/pprof-decoder";
+} from "@obs-unified/pprof-decoder";
 
 /**
  * Fetch + ungzip + parse. Browsers expose `DecompressionStream("gzip")`

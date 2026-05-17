@@ -51,6 +51,19 @@ export {
 } from "./framework/collector";
 
 export { D1Adapter, type SqlDb, type SqlStatement } from "./lib/sql-db";
+export {
+	PostgresAdapter,
+	type PostgresAdapterOptions,
+} from "./lib/sql-db-postgres";
+export {
+	type BlobListOptions,
+	type BlobListResult,
+	type BlobObject,
+	type BlobPutOptions,
+	type BlobStore,
+	R2BlobStore,
+} from "./lib/blob-store";
+export { S3BlobStore, type S3BlobStoreOptions } from "./lib/blob-store-s3";
 
 export type {
 	CollectorApp,

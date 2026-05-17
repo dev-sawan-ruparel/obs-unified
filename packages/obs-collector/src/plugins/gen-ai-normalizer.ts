@@ -17,8 +17,8 @@ import {
 	AI_PAYLOAD_OUTPUT_KEY,
 	OPENINFERENCE_SPAN_KIND_KEY,
 	OpenInferenceSpanKind,
-} from "@obs/types/constants";
-import type { JsonValue, StoredSpan } from "@obs/types";
+} from "@obs-unified/types/constants";
+import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 

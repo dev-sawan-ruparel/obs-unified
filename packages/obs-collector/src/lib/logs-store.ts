@@ -2,7 +2,7 @@ import type {
 	LogRecord,
 	LogsOverviewOptions,
 	LogsOverviewResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import type { SqlDb } from "./sql-db";
 
 /** Clamp an integer to a safe range */

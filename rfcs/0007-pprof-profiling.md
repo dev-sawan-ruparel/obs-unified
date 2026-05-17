@@ -7,7 +7,7 @@
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Benefits from (does not require):** [RFC 0004 — Identity propagation](0004-identity-propagation.md)
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) Step 3 (flame graph scoped to trace) and Step 4 (cohort view from a profile)
-- **Target:** `@obs/collector`, `@obs/dashboard`, `@obs/telemetry-sdk`
+- **Target:** `@obs-unified/collector`, `@obs-unified/dashboard`, `@obs-unified/telemetry-sdk`
 
 ## Summary
 
@@ -32,7 +32,7 @@ Profiling is **not present in any form**:
 - No `/v1/profiles*` endpoint. ([metrics-receiver.ts](../packages/obs-collector/src/plugins/metrics-receiver.ts) is the only similarly-shaped plugin.)
 - No `profile_*` tables.
 - No flame-graph component in the dashboard.
-- No pprof helpers in `@obs/telemetry-sdk`.
+- No pprof helpers in `@obs-unified/telemetry-sdk`.
 
 The closest neighbor is RFC 0005 (CPU-time on spans), which is a coarse proxy but does not give function-level resolution.
 
@@ -146,10 +146,10 @@ This is what makes profiling feel native instead of bolted-on.
 
 ### SDK helper for Node
 
-In `@obs/telemetry-sdk`:
+In `@obs-unified/telemetry-sdk`:
 
 ```ts
-import { startProfiler } from "@obs/telemetry-sdk/profile";
+import { startProfiler } from "@obs-unified/telemetry-sdk/profile";
 
 startProfiler({
   type: "cpu",
@@ -175,7 +175,7 @@ For the eBPF case, Parca-Agent / OTel-eBPF-Profiler config pointing at `/v1/prof
 - `profile_blobs` table + R2/fs blob storage
 - Trace → profile join query
 - Span-detail flame graph (client-rendered, scoped to trace_id)
-- `@obs/telemetry-sdk` helper for Node
+- `@obs-unified/telemetry-sdk` helper for Node
 
 **Phase 2 (separate PR):**
 - Service-level "Profiles" surface (recent profiles, merge-on-demand for "last 1h aggregate")

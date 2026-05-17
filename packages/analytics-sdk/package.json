@@ -1,15 +1,45 @@
 {
-	"name": "@obs/analytics-sdk",
+	"name": "@obs-unified/analytics-sdk",
 	"version": "1.0.0",
-	"description": "Browser analytics SDK with React integration",
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./react": "./src/react/index.ts"
+	"description": "Browser analytics SDK — usage events, interaction_id auto-correlation, session replay, React provider.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sawanruparel/obs-unified.git",
+		"directory": "packages/analytics-sdk"
 	},
+	"keywords": [
+		"observability",
+		"analytics",
+		"session-replay",
+		"rrweb",
+		"react",
+		"obs-unified"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./react": {
+			"types": "./dist/react/index.d.ts",
+			"import": "./dist/react/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": false,
 	"scripts": {
+		"build": "tsup",
 		"type-check": "tsc --noEmit",
-		"test": "vitest run --passWithNoTests"
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
 	},
 	"peerDependencies": {
 		"react": "^18.0.0 || ^19.0.0"
@@ -22,6 +52,7 @@
 	"devDependencies": {
 		"@types/react": "^19.2.14",
 		"react": "^19.2.4",
+		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
 	},
 	"dependencies": {

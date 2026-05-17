@@ -25,7 +25,7 @@ import type {
 	UsageUtmCampaignSummary,
 	UsageUtmMediumSummary,
 	UsageUtmSourceSummary,
-} from "@obs/types";
+} from "@obs-unified/types";
 
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";

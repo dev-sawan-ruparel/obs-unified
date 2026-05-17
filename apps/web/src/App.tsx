@@ -1,4 +1,4 @@
-import { useAnalytics } from "@obs/analytics-sdk/react";
+import { useAnalytics } from "@obs-unified/analytics-sdk/react";
 import {
 	TelemetryDashboard,
 	TimelineDashboard,
@@ -20,7 +20,7 @@ import {
 	AskBox,
 	FilterPanel,
 	FilterGroup,
-} from "@obs/dashboard";
+} from "@obs-unified/dashboard";
 import { useEffect, useState } from "react";
 
 // ── Hash Router ──

@@ -222,7 +222,7 @@ const profileLinksForTrace = async (
 				label: "Profiles",
 				links: [],
 				emptyReason:
-					"No pprof profile covers this trace's window. Wire @obs/telemetry-sdk's startProfiler() (or run an eBPF agent) on the producing service to populate.",
+					"No pprof profile covers this trace's window. Wire @obs-unified/telemetry-sdk's startProfiler() (or run an eBPF agent) on the producing service to populate.",
 			},
 		];
 	}

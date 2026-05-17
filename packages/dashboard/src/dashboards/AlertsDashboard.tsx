@@ -3,7 +3,7 @@ import type {
 	AlertRule,
 	AlertRuleInput,
 	AlertTestResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
 import { AlertRuleForm } from "./AlertRuleForm";

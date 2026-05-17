@@ -7,7 +7,7 @@ import type {
 	AlertSignal,
 	AlertWebhookChannel,
 	LogSeverity,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import {

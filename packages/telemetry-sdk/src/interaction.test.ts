@@ -3,7 +3,7 @@
  *
  * Tests the receive side of the click-scoped correlation key. The
  * header itself is opaque ULID-shaped; we accept it only when it
- * matches the same Crockford-base32 26-char pattern @obs/analytics-sdk
+ * matches the same Crockford-base32 26-char pattern @obs-unified/analytics-sdk
  * mints. Anything else (empty, wrong shape, control characters) is
  * rejected so a corrupted header doesn't seed wrong joins.
  */

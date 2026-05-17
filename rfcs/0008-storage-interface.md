@@ -5,7 +5,7 @@
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-02
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
-- **Target:** `@obs/collector`
+- **Target:** `@obs-unified/collector`
 
 ## Summary
 
@@ -189,7 +189,7 @@ The whole RFC is type-shape work, ~800 LOC of mechanical refactor, no behavior c
 - **Risk: too much abstraction, slowed velocity.** A common failure mode of this kind of refactor. Mitigation: only `SqlDb` and `IdentityIndex` are introduced now; per-signal store interfaces are added *as we touch each store*, not in one big-bang PR.
 - **`Promise.all` fan-out on D1.** D1 doesn't support real parallelism well; concurrent prepares serialize. The `IdentityIndex` may not be faster than sequential. Measure before optimizing.
 - **Test double location.** Where does `MemSqlDb` live — `lib/test-utils/`? Probably yes, exported from a separate entry to keep production bundles slim.
-- **Should `Store` interfaces live in `@obs/types`?** Probably yes, so a host app can write its own implementation without depending on `@obs/collector`. Defer until someone asks.
+- **Should `Store` interfaces live in `@obs-unified/types`?** Probably yes, so a host app can write its own implementation without depending on `@obs-unified/collector`. Defer until someone asks.
 
 ## Why this RFC at all
 

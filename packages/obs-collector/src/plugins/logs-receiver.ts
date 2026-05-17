@@ -1,4 +1,4 @@
-import type { LogRecord, LogSeverity } from "@obs/types";
+import type { LogRecord, LogSeverity } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { LogsStore } from "../lib/logs-store";
 import { sqlDbFor } from "../lib/sql-db";

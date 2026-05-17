@@ -1,6 +1,6 @@
 name = "obs-demo-collector"
 compatibility_date = "2025-01-01"
-# Required by @obs/telemetry-sdk used for self-instrumentation:
+# Required by @obs-unified/telemetry-sdk used for self-instrumentation:
 # uses node:async_hooks (AsyncLocalStorage) and node:crypto (randomBytes).
 compatibility_flags = ["nodejs_compat"]
 main = "src/index.ts"

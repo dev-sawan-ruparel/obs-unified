@@ -4,7 +4,7 @@ import type { Logger } from "./logger";
 /**
  * Collector worker bindings + env vars.
  *
- * Lives here, not in `@obs/types`, because it references Cloudflare
+ * Lives here, not in `@obs-unified/types`, because it references Cloudflare
  * Workers ambient globals (`D1Database`, `R2Bucket`,
  * `DurableObjectNamespace`) that other packages — notably the web
  * dashboard — should not transitively depend on.
@@ -54,7 +54,7 @@ export interface CollectorEnv {
 	NARRATIVE_BUDGET_PER_HOUR?: string;
 	/**
 	 * Self-instrumentation — collector dogfoods itself into the `obs-dashboard`
-	 * project via @obs/telemetry-sdk. When unset, self-instrumentation is a
+	 * project via @obs-unified/telemetry-sdk. When unset, self-instrumentation is a
 	 * no-op (collector still runs normally). See apps/collector/SELF_INSTRUMENTATION.md.
 	 */
 	OBS_DASHBOARD_INGEST_KEY?: string;

@@ -1,4 +1,4 @@
-import type { AnalysisResult } from "@obs/types";
+import type { AnalysisResult } from "@obs-unified/types";
 import { describe, expect, it } from "vitest";
 import {
 	computeSignature,

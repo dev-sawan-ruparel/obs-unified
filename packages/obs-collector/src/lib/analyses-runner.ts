@@ -23,7 +23,7 @@
  * here from primary/baseline so individual SQL queries don't have to.
  */
 
-import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs/types";
+import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs-unified/types";
 import { getAllAnalysesForProject } from "../analyses/index";
 import type { CollectorEnv } from "../framework/env";
 import {

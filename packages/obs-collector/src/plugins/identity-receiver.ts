@@ -1,5 +1,5 @@
 import type { CollectorPlugin } from "../framework/collector";
-import type { IdentifyInput } from "@obs/types";
+import type { IdentifyInput } from "@obs-unified/types";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 

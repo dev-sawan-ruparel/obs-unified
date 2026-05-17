@@ -1,5 +1,5 @@
 import type { CollectorPlugin } from "../framework/collector";
-import type { UserProfileRow, UserProfileDetail } from "@obs/types";
+import type { UserProfileRow, UserProfileDetail } from "@obs-unified/types";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 

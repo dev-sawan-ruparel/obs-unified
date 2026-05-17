@@ -6,7 +6,7 @@
 - **Updated:** 2026-05-03
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) Steps 5–6 (session timeline + replay→trace closure)
-- **Target:** `@obs/analytics-sdk`, `@obs/telemetry-sdk`, `@obs/collector`, `@obs/types`
+- **Target:** `@obs-unified/analytics-sdk`, `@obs-unified/telemetry-sdk`, `@obs-unified/collector`, `@obs-unified/types`
 
 ## Summary
 
@@ -35,7 +35,7 @@ Once `interaction_id` exists, replay-to-trace navigation goes from "scroll the t
 2. **`ai_calls` lacks `session_id`.** It carries `trace_id` ([migration 005](../packages/obs-collector/src/migrations/005_ai_calls.sql)) but no session. To go from an AI call to the user session that triggered it, we have to join through the parent trace's spans. Two-hop, slow, often misses (some AI calls aren't tied to a trace).
 3. **`metric_point` exemplars are not indexed.** Metrics carry `service_name` and `attributes_json`. Exemplars (the correct mechanism for "which trace contributed to this metric point") exist as `exemplars_json` per-point — readable but not indexed, so reverse-lookup ("which metric points reference this trace_id?") is a full scan. Out of scope for this RFC; flagged as follow-up. Adding `session_id` as a column to `metric_point` would defeat the aggregation purpose of metrics and is **not** proposed.
 4. **No documented contract for `session_id` shape.** Today it's whatever the analytics SDK mints. We need a written invariant: "session_id is opaque, ≤ 128 chars, stable for the duration of a browser session, injected by the analytics SDK on every emitted record." Without this, a future SDK or a self-instrumenting backend could mint conflicting formats.
-5. **`@obs/analytics-sdk` does not instrument the user app's outbound `fetch` at all.** [usage-tracker.ts](../packages/analytics-sdk/src/usage-tracker.ts) uses `fetch` only to push events back to the collector (lines 213, 323, 341, 372, 459); it does not patch the global `fetch` to inject correlation headers on the user's app traffic. There is no `traceparent` injection, no `addEventListener` hook, no handler-stack mechanism. **Mode A in the proposed design is greenfield work** — we are not extending an existing fetch wrapper, we are adding one.
+5. **`@obs-unified/analytics-sdk` does not instrument the user app's outbound `fetch` at all.** [usage-tracker.ts](../packages/analytics-sdk/src/usage-tracker.ts) uses `fetch` only to push events back to the collector (lines 213, 323, 341, 372, 459); it does not patch the global `fetch` to inject correlation headers on the user's app traffic. There is no `traceparent` injection, no `addEventListener` hook, no handler-stack mechanism. **Mode A in the proposed design is greenfield work** — we are not extending an existing fetch wrapper, we are adding one.
 
 ## Proposed design
 
@@ -48,7 +48,7 @@ Once `interaction_id` exists, replay-to-trace navigation goes from "scroll the t
 
 2. **Propagate.** The SDK sets `x-obs-interaction: <id>` on outbound HTTP calls. Bespoke header, not `tracestate` (rationale below).
 
-3. **Honor.** The backend SDK (`@obs/telemetry-sdk`)'s middleware reads `x-obs-interaction` and attaches it to the root span as a top-level field — *not* as a span attribute, to avoid cardinality explosion in the attributes index.
+3. **Honor.** The backend SDK (`@obs-unified/telemetry-sdk`)'s middleware reads `x-obs-interaction` and attaches it to the root span as a top-level field — *not* as a span attribute, to avoid cardinality explosion in the attributes index.
 
 4. **Index.** Receivers persist `interaction_id` as a first-class column on `telemetry_spans`, `logs`, `usage_events`, and `ai_calls`.
 
@@ -63,7 +63,7 @@ We are explicit instead. Two propagation modes:
 **Mode B — manual (covers the rest).** For `setTimeout`, queued state-machine actions, debounced calls, etc., the SDK exposes:
 
 ```ts
-import { withInteractionContext, currentInteractionId } from "@obs/analytics-sdk";
+import { withInteractionContext, currentInteractionId } from "@obs-unified/analytics-sdk";
 
 setTimeout(() => {
   withInteractionContext(savedId, () => {
@@ -139,7 +139,7 @@ Partial indices (the `WHERE interaction_id IS NOT NULL`) keep the index small in
 
 ### SDK changes
 
-`@obs/analytics-sdk` — all greenfield, the SDK does not patch user `fetch` or listen for user-originated DOM events today:
+`@obs-unified/analytics-sdk` — all greenfield, the SDK does not patch user `fetch` or listen for user-originated DOM events today:
 
 - Add a global `addEventListener` hook for `click`, `submit`, `keydown` on user-initiated paths. On entry, mint a ULID and push onto a handler stack. On exit, pop.
 - Patch the global `fetch` and `XMLHttpRequest` to inject `x-obs-interaction` when the handler stack is non-empty (Mode A). This is the SDK's first time touching user `fetch`, so it must be opt-in via an `AnalyticsProvider` prop (`autoCorrelate?: boolean`, default true) and survive being loaded next to other instrumentation libraries that patch `fetch` (e.g. an OTel browser tracer).
@@ -147,7 +147,7 @@ Partial indices (the `WHERE interaction_id IS NOT NULL`) keep the index small in
 - React helper: `useAnalytics().withInteraction(handler)` snapshots the ID at click time; the returned wrapped handler restores it for the duration of its execution.
 - Attach `currentInteractionId()` to rrweb event meta payloads.
 
-`@obs/telemetry-sdk`:
+`@obs-unified/telemetry-sdk`:
 
 - Middleware reads `x-obs-interaction` and stores on the active span context.
 - Span exporter writes it as a span field (alongside `trace_id`, `span_id`), not as a span attribute.
@@ -190,14 +190,14 @@ Events with no `interaction_id` (cron jobs, server retries, anything pre-RFC-000
 
 ## Acceptance criteria
 
-The OTel Astronomy Shop demo today uses native OTel SDKs and does not include `@obs/analytics-sdk` in its frontend. End-to-end demo verification requires that integration as a prerequisite (tracked as a separate task — see [RFC 0003 § Demo SDK integration](0003-unified-stack.md#demo-prerequisites)).
+The OTel Astronomy Shop demo today uses native OTel SDKs and does not include `@obs-unified/analytics-sdk` in its frontend. End-to-end demo verification requires that integration as a prerequisite (tracked as a separate task — see [RFC 0003 § Demo SDK integration](0003-unified-stack.md#demo-prerequisites)).
 
 1. Migration applies cleanly; on a fresh DB all five `interaction_id` columns and the `ai_calls.session_id` column exist with their partial indices.
 2. **Mode A unit test:** A synthetic click handler that fires `fetch("/api")` synchronously results in the request carrying `x-obs-interaction` matching the click's `interaction_id`.
 3. **Mode A microtask test:** A handler `async () => { await Promise.resolve(); fetch(...) }` propagates correctly.
 4. **Mode A boundary test:** A handler `() => { setTimeout(() => fetch(...), 0) }` does **not** propagate (this is the documented limit). The metric `obs.interaction.propagation{propagated=false}` increments.
 5. **Mode B test:** Wrapping the same `setTimeout` body in `withInteractionContext(...)` *does* propagate.
-6. `@obs/telemetry-sdk` middleware reads `x-obs-interaction` and the resulting root span carries `interaction_id` as a top-level field.
+6. `@obs-unified/telemetry-sdk` middleware reads `x-obs-interaction` and the resulting root span carries `interaction_id` as a top-level field.
 7. `/internal/timeline/:sessionId` returns the new `groups` field alongside the flat `events` list. Each group bundles its originating click, the trace(s) that resulted, and related events emitted in the trace's window. Events without an `interaction_id` appear in the flat list only — they are not coerced into a synthetic group.
 8. The replay viewer's event detail (Step 6 in the UX walkthrough) renders a "Trace caused by this click" link when the click's `interaction_id` matches at least one span's `interaction_id`. The link is absent (with the "—" informative-absence pattern from RFC 0006) when no match exists.
 8. The `obs.interaction.propagation` metric appears in `metric_point` after one minute of demo traffic, with both `propagated=true` and `propagated=false` samples present (mixed real-world coverage is expected; 100% is not the bar).

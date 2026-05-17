@@ -6,7 +6,7 @@ import {
 	createDashboardAuth,
 	evaluateAllRules,
 	type CollectorEnv,
-} from "@obs/collector";
+} from "@obs-unified/collector";
 import {
 	createLogger,
 	createRequestSpan,
@@ -20,9 +20,9 @@ import {
 	withChildSpan,
 	wrapD1,
 	wrapR2,
-} from "@obs/telemetry-sdk";
+} from "@obs-unified/telemetry-sdk";
 
-export { TailHub } from "@obs/collector";
+export { TailHub } from "@obs-unified/collector";
 
 /**
  * Collector worker.

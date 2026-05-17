@@ -456,7 +456,7 @@ export function ReplayDashboard({ initialSessionId, onNavigate }: { initialSessi
 								</div>
 								<div className="max-h-[200px] overflow-y-auto">
 									{Object.keys(interactionGroups).length === 0 ? (
-										<div className="p-3 text-[0.75rem] opacity-60" title="Mode A propagation either isn't enabled in @obs/analytics-sdk or this session was recorded before RFC 0004 landed.">
+										<div className="p-3 text-[0.75rem] opacity-60" title="Mode A propagation either isn't enabled in @obs-unified/analytics-sdk or this session was recorded before RFC 0004 landed.">
 											—
 											<span className="ml-2">No interaction_id stamped on any event in this session.</span>
 										</div>

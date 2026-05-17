@@ -1,22 +1,53 @@
 {
-	"name": "@obs/types",
+	"name": "@obs-unified/types",
 	"version": "1.0.0",
 	"description": "Shared types, constants, and API client for observability",
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./constants": "./src/constants.ts",
-		"./api-client": "./src/api-client.ts"
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sawanruparel/obs-unified.git",
+		"directory": "packages/obs-types"
 	},
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./constants": {
+			"types": "./dist/constants.d.ts",
+			"import": "./dist/constants.js"
+		},
+		"./api-client": {
+			"types": "./dist/api-client.d.ts",
+			"import": "./dist/api-client.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": false,
 	"scripts": {
+		"build": "tsup",
 		"type-check": "tsc --noEmit",
-		"test": "vitest run --passWithNoTests"
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
 	},
 	"peerDependencies": {
 		"hono": "^4.7.0"
 	},
+	"peerDependenciesMeta": {
+		"hono": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"hono": "^4.12.11",
+		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
 	}
 }

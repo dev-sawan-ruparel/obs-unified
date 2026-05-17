@@ -15,7 +15,7 @@ import type {
 	AlertState,
 	AlertStateRow,
 	LogSeverity,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { randomHex } from "./hash";
 import type { SqlDb } from "./sql-db";
 

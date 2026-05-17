@@ -14,10 +14,15 @@
 //! what OTel doesn't ship.
 
 mod init;
+mod interaction;
 mod llm;
 mod project;
 
 pub use init::{init, Config, ObsGuard};
+pub use interaction::{
+    is_valid_interaction_id, stamp_interaction, HeaderCarrier, INTERACTION_ATTRIBUTE,
+    INTERACTION_HEADER,
+};
 pub use llm::{
     with_llm_span, with_tool_span, LlmOptions, LlmResult, LlmUsage, ToolOptions, ToolResult,
 };

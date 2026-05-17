@@ -24,11 +24,11 @@ Land the seam early so RFCs 0004 / 0007 are written against `SqlDb` from day one
 The load-bearing change. Once this lands, every downstream RFC's UX claims become testable. Many sub-units; ship in order.
 
 - [x] **1.1** Migration `027_identity_propagation.sql` — `interaction_id` column on `telemetry_spans`, `logs`, `usage_events`, `ai_calls`, `ai_span_payloads`; `session_id` on `ai_calls`; partial indices.
-- [x] **1.2** `@obs/analytics-sdk` — handler stack (push on click/submit/keydown, pop on return); ULID minting; `currentInteractionId()` / `withInteractionContext()` exports.
-- [x] **1.3** `@obs/analytics-sdk` — global `fetch` and `XMLHttpRequest` patch behind `autoCorrelate` prop (default true). Inject `x-obs-interaction` header. *Greenfield work — the SDK has never patched user `fetch` before.*
-- [x] **1.4** `@obs/analytics-sdk` — React `useAnalytics().withInteraction(handler)` helper. Snapshot ID at click time; restore inside the handler.
-- [x] **1.5** `@obs/analytics-sdk` — attach `currentInteractionId()` to rrweb event meta payloads.
-- [x] **1.6** `@obs/telemetry-sdk` — middleware reads `x-obs-interaction`, attaches to root span as a top-level field (not a span attribute).
+- [x] **1.2** `@obs-unified/analytics-sdk` — handler stack (push on click/submit/keydown, pop on return); ULID minting; `currentInteractionId()` / `withInteractionContext()` exports.
+- [x] **1.3** `@obs-unified/analytics-sdk` — global `fetch` and `XMLHttpRequest` patch behind `autoCorrelate` prop (default true). Inject `x-obs-interaction` header. *Greenfield work — the SDK has never patched user `fetch` before.*
+- [x] **1.4** `@obs-unified/analytics-sdk` — React `useAnalytics().withInteraction(handler)` helper. Snapshot ID at click time; restore inside the handler.
+- [x] **1.5** `@obs-unified/analytics-sdk` — attach `currentInteractionId()` to rrweb event meta payloads.
+- [x] **1.6** `@obs-unified/telemetry-sdk` — middleware reads `x-obs-interaction`, attaches to root span as a top-level field (not a span attribute).
 - [x] **1.7** Collector receivers persist `interaction_id` on each of the 5 tables. Stores updated to use Phase 0's `SqlDb`.
 - [x] **1.8** `obs.interaction.propagation` metric — emitted as a standard OTel counter with `(signal, propagated)` attributes. Health surface tile shows ratio per signal.
 - [x] **1.9** `/internal/timeline/:sessionId` — add `groups` field keyed by `interaction_id`, each bundling click + caused traces + related events. Flat `events` list stays for backwards compat.
@@ -58,7 +58,7 @@ UI-only work plus optional SDK helper. Independent of Phase 1; can start in para
 - [x] **2.2** Async-parent striping for spans where `self_ms < 0` after clamp.
 - [x] **2.3** Per-trace summary header — "Total wall: 1.4s — across 14 spans, 200ms self-time."
 - [x] **2.4** "Likely uninstrumented" badge with calibrated threshold. *Calibrate against Astronomy Shop demo before merge — adjust if spammy.*
-- [x] **2.5** `@obs/telemetry-sdk` — `enableProcessMetrics()` Node helper wrapping `@opentelemetry/instrumentation-runtime-node`.
+- [x] **2.5** `@obs-unified/telemetry-sdk` — `enableProcessMetrics()` Node helper wrapping `@opentelemetry/instrumentation-runtime-node`.
 - [x] **2.6** Health dashboard — per-service CPU sparkline tile when `process.cpu.utilization` is in `metric_point`.
 
 **Exit criteria:** waterfall visually distinguishes self-time on synthetic traces; badge fires on synthetic uninstrumented test case and not on dense ones; one demo service emits `process.cpu.*`.
@@ -70,7 +70,7 @@ UI-only work plus optional SDK helper. Independent of Phase 1; can start in para
 The UX shape. Depends on Phase 1 (interaction_id) for full power; can ship Phase-0-only sections earlier if desired. Per-surface PRs.
 
 - [x] **3.1** Manifest endpoint `/internal/connected/:kind/:id` for `span`, `log`, `usage`, `ai_call`, `replay`, `alert`, `analysis`. Built on `IdentityIndex` from Phase 1.5.3.
-- [x] **3.2** `<ConnectedRail />` component in `@obs/dashboard` with the four-section structure (Up / Across / Down / Related).
+- [x] **3.2** `<ConnectedRail />` component in `@obs-unified/dashboard` with the four-section structure (Up / Across / Down / Related).
 - [x] **3.3** Empty-state copy + tooltips per section per entity kind. *Load-bearing — see RFC 0006.*
 - [x] **3.4** Count-link pattern for sections with ≥ 5 neighbors. Hover preview of first 3.
 - [x] **3.5** Wire into `TelemetryDashboard`'s span drawer (highest-traffic surface first).
@@ -96,7 +96,7 @@ Function-level depth. Depends on Phase 0 (`SqlDb`) and benefits from Phase 1 (ri
 - [x] **4.5** `GET /internal/profiles/:id?trace_id=…` — server-side pre-filter for blobs > 500 KB. Re-serializes pprof with only matching samples.
 - [x] **4.6** Trace → profile join query; 🔥 badge on spans whose `trace_id` is in `profile_trace_index`.
 - [x] **4.7** Flame graph viewer (client-side, ~200 LOC SVG or small OSS lib). Filter by `trace_id` when scoped from a span.
-- [x] **4.8** `@obs/telemetry-sdk` — `startProfiler({ type: 'cpu' })` helper wrapping `@datadog/pprof`. Our wrapper labels each sample with the active OTel `trace_id`.
+- [x] **4.8** `@obs-unified/telemetry-sdk` — `startProfiler({ type: 'cpu' })` helper wrapping `@datadog/pprof`. Our wrapper labels each sample with the active OTel `trace_id`.
 - [x] **4.9** Profile entity in `<ConnectedRail />` (Phase 3).
 - [x] **4.10** Retention sweep extends to profile blobs + cascades `profile_trace_index` rows.
 - [x] **4.11** Per-language docs — `runtime/pprof` (Go), `pyroscope-python` (Python), `pyroscope-java` (JVM). Single `/v1/profiles/pprof` endpoint for all.
@@ -123,7 +123,7 @@ Documentation-heavy. Mostly unblocks itself once Phase 4 ships off-CPU profile r
 
 The demo currently uses native OTel SDKs. Several RFC acceptance criteria need our SDKs running in the demo. Land last so we validate against the assembled stack, not against synthetic harnesses.
 
-- [ ] **6.1** Replace OTel browser SDK in Astronomy Shop frontend (`demo/upstream/...`) with `@obs/analytics-sdk`. Wires up `interaction_id`, RUM events, replay. *Recipe documented in `docs/implementation/demo-integration.md`; operator-side run pending.*
+- [ ] **6.1** Replace OTel browser SDK in Astronomy Shop frontend (`demo/upstream/...`) with `@obs-unified/analytics-sdk`. Wires up `interaction_id`, RUM events, replay. *Recipe documented in `docs/implementation/demo-integration.md`; operator-side run pending.*
 - [ ] **6.2** Add `enableProcessMetrics()` to one or two demo backend services (frontend-svc, payment-svc — the ones the UX scenarios star). *Recipe documented; operator-side run pending.*
 - [ ] **6.3** Optional: configure `@datadog/pprof` via `startProfiler` on those two services so the demo has profiles to drill into. *Recipe documented; operator-side run pending.*
 - [ ] **6.4** Run UX Scenario A (alert → root cause) end-to-end. Capture a screencast. *Requires 6.1-6.3 first.*

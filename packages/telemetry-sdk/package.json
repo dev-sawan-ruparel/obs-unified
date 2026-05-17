@@ -1,17 +1,50 @@
 {
-	"name": "@obs/telemetry-sdk",
+	"name": "@obs-unified/telemetry-sdk",
 	"version": "1.0.0",
-	"description": "Server-side telemetry SDK: logger, spans, OTEL config, proxy routes",
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts"
+	"description": "Server-side telemetry SDK — OTLP spans, structured logger, AI/LLM helpers, interaction_id stamping. Workers wrappers under ./cloudflare.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sawanruparel/obs-unified.git",
+		"directory": "packages/telemetry-sdk"
 	},
+	"keywords": [
+		"observability",
+		"opentelemetry",
+		"otel",
+		"openinference",
+		"llm",
+		"cloudflare-workers",
+		"obs-unified"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./cloudflare": {
+			"types": "./dist/cloudflare.d.ts",
+			"import": "./dist/cloudflare.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md",
+		"INSTRUMENTATION_GUIDE.md"
+	],
+	"sideEffects": false,
 	"scripts": {
+		"build": "tsup",
 		"type-check": "tsc --noEmit",
-		"test": "vitest run --passWithNoTests"
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
 	},
 	"dependencies": {
-		"@obs/types": "workspace:*"
+		"@obs-unified/types": "workspace:*"
 	},
 	"peerDependencies": {
 		"@hono/otel": "^1.0.0",
@@ -28,10 +61,15 @@
 		},
 		"@opentelemetry/api": {
 			"optional": true
+		},
+		"hono": {
+			"optional": true
 		}
 	},
 	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260405.1",
 		"hono": "^4.12.11",
+		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
 	}
 }

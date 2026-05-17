@@ -1,5 +1,5 @@
 /**
- * Trust-boundary tests for @obs/pprof-decoder.
+ * Trust-boundary tests for @obs-unified/pprof-decoder.
  *
  * The collector decodes pprof bytes straight from untrusted producers
  * (telemetry-sdk emitters and Beyla agents). Bugs in this decoder either

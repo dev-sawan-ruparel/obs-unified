@@ -10,7 +10,7 @@
  *   - /api/demo/session     → multi-turn session with session.id stamping
  *   - /api/demo/run-all     → runs every demo scenario back-to-back
  *
- * The demo endpoints use OpenInference-typed spans via @obs/telemetry-sdk,
+ * The demo endpoints use OpenInference-typed spans via @obs-unified/telemetry-sdk,
  * so everything shows up in the dashboard's AI tab under service "obs-demo".
  */
 
@@ -27,7 +27,7 @@ import {
 	startRetrieverSpan,
 	startToolSpan,
 	withChildSpan,
-} from "@obs/telemetry-sdk";
+} from "@obs-unified/telemetry-sdk";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {

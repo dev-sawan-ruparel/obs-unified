@@ -1,7 +1,7 @@
 import type {
 	AnalysisDefinition,
 	AnalysisResult,
-} from "@obs/types";
+} from "@obs-unified/types";
 import {
 	afterEach,
 	beforeEach,

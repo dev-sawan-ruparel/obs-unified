@@ -5,7 +5,7 @@
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-02
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
-- **Target:** `@obs/dashboard`, `@obs/telemetry-sdk`, `@obs/collector`
+- **Target:** `@obs-unified/dashboard`, `@obs-unified/telemetry-sdk`, `@obs-unified/collector`
 
 ## Summary
 
@@ -92,7 +92,7 @@ We do not invent a new metric. We rely on what OTel already emits:
 
 **Dashboard work:** the Health dashboard renders a per-service tile showing recent `process.cpu.utilization` (or derived from `process.cpu.time` if utilization isn't emitted) alongside throughput from spans. Compute-bound services stand out.
 
-**SDK helper (optional):** `@obs/telemetry-sdk` adds an opt-in `enableProcessMetrics()` that wraps `@opentelemetry/instrumentation-runtime-node`, so users on Node who don't want to assemble OTel metric instrumentation by hand get it with one call. Workers don't expose `process.cpu.*`; we don't lie about this.
+**SDK helper (optional):** `@obs-unified/telemetry-sdk` adds an opt-in `enableProcessMetrics()` that wraps `@opentelemetry/instrumentation-runtime-node`, so users on Node who don't want to assemble OTel metric instrumentation by hand get it with one call. Workers don't expose `process.cpu.*`; we don't lie about this.
 
 ### Dashboard rendering
 
@@ -110,7 +110,7 @@ Two changes:
 2. The "likely uninstrumented" badge appears on a synthetic trace designed to trigger it (a 500ms parent span with no children); does not appear on traces where each span has dense child instrumentation.
 3. Per-trace summary header renders correct totals on the OTel Astronomy Shop demo (self-time only — uses span-tree math, no SDK changes required).
 4. Health dashboard renders a per-service CPU tile when `process.cpu.utilization` (or derived from `process.cpu.time`) is present in `metric_point` for that service. Tile shows "—" with a "no process metrics" hover when absent.
-5. `@obs/telemetry-sdk`'s `enableProcessMetrics()` (Node) results in `process.cpu.time` and `process.cpu.utilization` series being created in `metric_series` after one minute of runtime.
+5. `@obs-unified/telemetry-sdk`'s `enableProcessMetrics()` (Node) results in `process.cpu.time` and `process.cpu.utilization` series being created in `metric_series` after one minute of runtime.
 
 ## Why no per-span `cpu_ms`
 

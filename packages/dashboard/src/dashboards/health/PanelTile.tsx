@@ -1,4 +1,4 @@
-import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs/types";
+import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs-unified/types";
 import { Tag, type TagTone } from "../../components/Tag";
 import { tileHref } from "./tile-href";
 

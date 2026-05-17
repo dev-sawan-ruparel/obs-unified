@@ -2,7 +2,7 @@ import type {
 	AskEvidence,
 	AskQuery,
 	AskResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRawFetch } from "../use-api";
 

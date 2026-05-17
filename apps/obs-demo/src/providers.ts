@@ -5,7 +5,7 @@
  * provider, and attaches tokens / output to the span.
  */
 
-import { startLLMSpan } from "@obs/telemetry-sdk";
+import { startLLMSpan } from "@obs-unified/telemetry-sdk";
 
 export type ProviderName = "openai" | "anthropic" | "gemini";
 

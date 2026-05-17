@@ -1,4 +1,4 @@
-import type { AICallInput, AICallPayload } from "@obs/types";
+import type { AICallInput, AICallPayload } from "@obs-unified/types";
 import { getActiveSpan } from "./span";
 
 export interface AILoggerConfig {

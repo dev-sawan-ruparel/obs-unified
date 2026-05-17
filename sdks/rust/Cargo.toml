@@ -10,6 +10,10 @@ readme = "README.md"
 keywords = ["opentelemetry", "tracing", "observability", "llm", "openinference"]
 categories = ["development-tools::debugging"]
 
+[features]
+default = []
+http = ["dep:http"]
+
 [dependencies]
 opentelemetry = { version = "0.27", features = ["trace", "logs"] }
 opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace", "logs"] }
@@ -18,9 +22,11 @@ opentelemetry-semantic-conventions = "0.27"
 serde_json = "1"
 thiserror = "1"
 tokio = { version = "1", features = ["rt", "macros"] }
+http = { version = "1", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+serde = { version = "1", features = ["derive"] }
 
 [[example]]
 name = "basic"

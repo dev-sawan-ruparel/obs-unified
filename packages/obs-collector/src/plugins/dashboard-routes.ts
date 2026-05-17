@@ -4,11 +4,11 @@ import type { CollectorPlugin } from "../framework/collector";
  * Serves the dashboard SPA.
  *
  * For Cloudflare Workers: configure [assets] in wrangler.toml pointing to
- * the @obs/dashboard build output. The Workers runtime handles static file
+ * the @obs-unified/dashboard build output. The Workers runtime handles static file
  * serving automatically; this plugin provides the fallback route for SPA
  * client-side routing.
  *
- * For Node.js / other runtimes: serve static files from @obs/dashboard/dist
+ * For Node.js / other runtimes: serve static files from @obs-unified/dashboard/dist
  * using your framework's static file middleware, then mount this plugin for
  * the SPA fallback.
  */

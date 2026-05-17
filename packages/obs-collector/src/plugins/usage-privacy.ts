@@ -1,4 +1,4 @@
-import type { JsonValue, UsageEventRecord } from "@obs/types";
+import type { JsonValue, UsageEventRecord } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonValue } from "../lib/json";
 

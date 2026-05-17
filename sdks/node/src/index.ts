@@ -18,3 +18,12 @@ export {
 	PROJECT_ID_HEADER,
 	setProjectId,
 } from "./project.js";
+
+// ── Interaction-id propagation (spec/interaction-id.md) ──────────────────────
+export {
+	currentInteractionId,
+	INTERACTION_ATTRIBUTE,
+	INTERACTION_HEADER,
+	isValidInteractionId,
+	stampInteractionFromRequest,
+} from "./interaction.js";

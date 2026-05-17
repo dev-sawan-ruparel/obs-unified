@@ -5,6 +5,10 @@
 	"scripts": {
 		"type-check": "pnpm -r run type-check",
 		"test": "pnpm -r run test",
+		"build": "pnpm -r --filter \"./packages/*\" run build",
+		"changeset": "changeset",
+		"version-packages": "changeset version",
+		"release": "pnpm -r --filter \"./packages/*\" run build && changeset publish",
 		"dev:collector": "pnpm --filter @obs-demo/collector run dev",
 		"dev:demo": "pnpm --filter @obs-demo/app run dev",
 		"dev:web": "pnpm --filter @obs-demo/web run dev",
@@ -25,17 +29,20 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",
+		"@changesets/cli": "^2.27.10",
 		"@cloudflare/workers-types": "^4.20260405.1",
 		"@types/node": "^25.5.2",
+		"tsup": "^8.3.5",
 		"typescript": "^6.0.2",
 		"vitest": "^4.1.2"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
+			"@bufbuild/buf",
 			"esbuild",
-			"workerd",
+			"protobufjs",
 			"sharp",
-			"protobufjs"
+			"workerd"
 		]
 	}
 }

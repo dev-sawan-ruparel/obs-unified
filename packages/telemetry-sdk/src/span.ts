@@ -9,7 +9,7 @@ import type {
 	OtlpEvent,
 	OtlpKeyValue,
 	OtlpTraceExportRequest,
-} from "@obs/types";
+} from "@obs-unified/types";
 
 const generateId = (bytes: number): string =>
 	randomBytes(bytes).toString("hex");
@@ -114,7 +114,7 @@ export const parseTraceparent = (
 /** Standard span-attribute key for the click-scoped correlation id. */
 export const INTERACTION_ATTRIBUTE_KEY = "obs.interaction.id";
 
-/** Header name set by `@obs/analytics-sdk` on outbound requests. */
+/** Header name set by `@obs-unified/analytics-sdk` on outbound requests. */
 export const INTERACTION_HEADER_NAME = "x-obs-interaction";
 
 const INTERACTION_ID_RE = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;

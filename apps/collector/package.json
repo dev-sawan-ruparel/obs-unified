@@ -9,9 +9,9 @@
 		"db:migrate:remote": "node scripts/migrate.mjs --remote"
 	},
 	"dependencies": {
-		"@obs/collector": "workspace:*",
-		"@obs/telemetry-sdk": "workspace:*",
-		"@obs/types": "workspace:*",
+		"@obs-unified/collector": "workspace:*",
+		"@obs-unified/telemetry-sdk": "workspace:*",
+		"@obs-unified/types": "workspace:*",
 		"hono": "^4.12.11"
 	},
 	"devDependencies": {

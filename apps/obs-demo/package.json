@@ -7,8 +7,8 @@
 		"dev": "wrangler dev --port 8787 --inspector-port 9230"
 	},
 	"dependencies": {
-		"@obs/telemetry-sdk": "workspace:*",
-		"@obs/types": "workspace:*",
+		"@obs-unified/telemetry-sdk": "workspace:*",
+		"@obs-unified/types": "workspace:*",
 		"hono": "^4.12.11"
 	},
 	"devDependencies": {

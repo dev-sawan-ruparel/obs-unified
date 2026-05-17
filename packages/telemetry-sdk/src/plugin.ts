@@ -16,7 +16,7 @@ interface TelemetryPluginOptions {
  *
  * @example
  * ```ts
- * import { telemetryPlugin } from "@obs/telemetry-sdk";
+ * import { telemetryPlugin } from "@obs-unified/telemetry-sdk";
  *
  * const resolveConfig = telemetryPlugin(app, {
  *   defaultServiceName: "my-api",

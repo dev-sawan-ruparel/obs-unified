@@ -9,7 +9,7 @@
  *   - finish_reason: "stop" terminates the loop
  */
 
-import type { AnalysisDefinition, AnalysisResult } from "@obs/types";
+import type { AnalysisDefinition, AnalysisResult } from "@obs-unified/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAsk } from "./ask";
 

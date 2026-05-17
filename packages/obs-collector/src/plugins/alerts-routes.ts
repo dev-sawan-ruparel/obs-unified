@@ -1,4 +1,4 @@
-import type { AlertRuleInput, AlertTestResponse } from "@obs/types";
+import type { AlertRuleInput, AlertTestResponse } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import { sqlDbFor } from "../lib/sql-db";

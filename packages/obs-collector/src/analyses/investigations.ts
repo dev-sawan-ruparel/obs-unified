@@ -23,7 +23,7 @@
  * narrative and tables below.
  */
 
-import type { AnalysisDefinition } from "@obs/types";
+import type { AnalysisDefinition } from "@obs-unified/types";
 
 // ── error_top_offenders ────────────────────────────────────────────────────
 // Cohort-comparison investigation. "Which services contributed the most

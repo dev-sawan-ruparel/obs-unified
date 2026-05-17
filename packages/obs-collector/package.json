@@ -1,29 +1,69 @@
 {
-	"name": "@obs/collector",
+	"name": "@obs-unified/collector",
 	"version": "1.0.0",
-	"description": "Plugin-based observability collector runtime with D1 storage",
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./auth": "./src/auth/ingest-auth.ts"
+	"description": "Plugin-based observability collector runtime with pluggable SQL/blob storage.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sawanruparel/obs-unified.git",
+		"directory": "packages/obs-collector"
 	},
+	"keywords": [
+		"observability",
+		"opentelemetry",
+		"otlp",
+		"collector",
+		"cloudflare-workers",
+		"obs-unified"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./auth": {
+			"types": "./dist/auth.d.ts",
+			"import": "./dist/auth.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"migrations",
+		"README.md"
+	],
+	"sideEffects": false,
 	"scripts": {
+		"build": "tsup",
 		"type-check": "tsc --noEmit",
 		"test": "vitest run --passWithNoTests",
-		"codegen": "PATH=\"$PWD/node_modules/.bin:$PATH\" buf generate"
+		"codegen": "PATH=\"$PWD/node_modules/.bin:$PATH\" buf generate",
+		"prepublishOnly": "pnpm build"
 	},
 	"dependencies": {
 		"@bufbuild/protobuf": "^2.11.0",
-		"@obs/pprof-decoder": "workspace:*",
-		"@obs/types": "workspace:*"
+		"@obs-unified/pprof-decoder": "workspace:*",
+		"@obs-unified/types": "workspace:*"
 	},
 	"peerDependencies": {
-		"hono": "^4.7.0"
+		"hono": "^4.7.0",
+		"pg": "^8.13.0"
+	},
+	"peerDependenciesMeta": {
+		"pg": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@bufbuild/buf": "^1.68.1",
 		"@bufbuild/protoc-gen-es": "^2.11.0",
+		"@types/pg": "^8.11.10",
 		"hono": "^4.12.11",
+		"pg": "^8.13.1",
+		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
 	}
 }

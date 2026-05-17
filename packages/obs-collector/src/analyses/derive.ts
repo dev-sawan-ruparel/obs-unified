@@ -12,7 +12,7 @@
 // time. Identifiers in analysis ids are slugged (slashes, colons, spaces
 // → underscores) so they're URL-safe.
 
-import type { AnalysisDefinition } from "@obs/types";
+import type { AnalysisDefinition } from "@obs-unified/types";
 
 interface TelemetryShape {
 	services: string[];

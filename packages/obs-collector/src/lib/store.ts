@@ -23,7 +23,7 @@ import type {
 	TelemetryOverviewResponse,
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 
 import { parseJsonArray, parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";

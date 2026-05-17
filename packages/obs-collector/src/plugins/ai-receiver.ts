@@ -2,8 +2,8 @@ import type {
 	AICallPayload,
 	AICallRecord,
 	AIEvaluationPayload,
-} from "@obs/types";
-import { getConfiguredRetentionHours } from "@obs/types/constants";
+} from "@obs-unified/types";
+import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { AIStore, type IngestEvaluation } from "../lib/ai-store";
 import { sqlDbFor } from "../lib/sql-db";

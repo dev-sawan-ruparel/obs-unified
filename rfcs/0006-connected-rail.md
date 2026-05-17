@@ -7,7 +7,7 @@
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Depends on:** [RFC 0004 — Identity propagation](0004-identity-propagation.md)
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) — worked example with the rail at every step
-- **Target:** `@obs/dashboard`, `@obs/collector`
+- **Target:** `@obs-unified/dashboard`, `@obs-unified/collector`
 
 ## Summary
 
@@ -186,7 +186,7 @@ A surface that fails any of the above is treated as a regression.
 Order of work:
 
 1. Build the manifest endpoint on the collector for the seven Phase-1 entity kinds (`span`, `log`, `usage`, `ai_call`, `replay`, `alert`, `analysis`). Profile and kernel-event variants arrive with RFCs 0007 and 0009.
-2. Build `<ConnectedRail />` in `@obs/dashboard` with the four section structure (up / across / down / related).
+2. Build `<ConnectedRail />` in `@obs-unified/dashboard` with the four section structure (up / across / down / related).
 3. Wire it into TelemetryDashboard's span drawer first (highest-traffic surface).
 4. Wire into LogsDashboard, ReplayDashboard, AIDashboard, AlertsDashboard, InvestigationsDashboard in subsequent PRs.
 5. Add the policy to `CONTRIBUTING.md` or a `CLAUDE.md` section: every detail view ships with a rail.

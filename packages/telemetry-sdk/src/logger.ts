@@ -6,7 +6,7 @@
  * (`ExportLogsServiceRequest`, proto-JSON encoded).
  */
 
-import type { JsonValue } from "@obs/types";
+import type { JsonValue } from "@obs-unified/types";
 import { getActiveSpan } from "./span";
 
 const SEVERITY_DEBUG = 5;

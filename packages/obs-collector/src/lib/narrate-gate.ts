@@ -28,7 +28,7 @@
  * rather than blanking the panel. That's the "reuse" branch.
  */
 
-import type { AnalysisResult } from "@obs/types";
+import type { AnalysisResult } from "@obs-unified/types";
 
 export type NarrativeIntent = "call" | "reuse" | "skip";
 

@@ -3,7 +3,7 @@
  * gzip support. The Go reference receiver accepts either encoding on any
  * `/v1/*` endpoint; the SDK default is protobuf, so this path is load-bearing.
  *
- * Output shapes match the legacy `@obs/types` interfaces (`OtlpTraceExportRequest`
+ * Output shapes match the legacy `@obs-unified/types` interfaces (`OtlpTraceExportRequest`
  * et al.) so the existing `toStoredSpans` / log transform code keeps working
  * unchanged. IDs are normalized to lowercase hex; uint64 nanoseconds are kept
  * as strings to avoid precision loss.
@@ -18,7 +18,7 @@ import type {
 	OtlpKeyValue,
 	OtlpResourceSpans,
 	OtlpTraceExportRequest,
-} from "@obs/types";
+} from "@obs-unified/types";
 import {
 	type ExportLogsServiceRequest,
 	ExportLogsServiceRequestSchema,
@@ -106,7 +106,7 @@ const gunzip = async (input: ArrayBuffer): Promise<ArrayBuffer> => {
 
 /**
  * Decode an OTLP trace export request from wire bytes into the legacy
- * `@obs/types` shape consumed by `toStoredSpans`.
+ * `@obs-unified/types` shape consumed by `toStoredSpans`.
  */
 export const decodeTraceRequest = (
 	body: ReadBodyResult,

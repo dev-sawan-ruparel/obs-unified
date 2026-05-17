@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { LogRecord, LogsOverviewResponse } from "@obs/types";
+import type { LogRecord, LogsOverviewResponse } from "@obs-unified/types";
 import { useApi } from "../use-api";
 import { useTimeWindowHours } from "../provider";
 import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";

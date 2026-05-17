@@ -4,7 +4,7 @@
 - **Author:** @sawanruparel
 - **Created:** 2026-04-26
 - **Updated:** 2026-04-26
-- **Target:** `@obs/collector`, `@obs/dashboard`, new `@obs/stats` (Python sidecar)
+- **Target:** `@obs-unified/collector`, `@obs-unified/dashboard`, new `@obs-unified/stats` (Python sidecar)
 
 ## Summary
 
@@ -65,7 +65,7 @@ Explicitly out of scope for this RFC:
   `7577b14` are sufficient until we cross ~100M hot rows. ClickHouse vs
   DuckDB-vs-staying-on-D1 is a separate decision, deferred.
 - **Replacing the SDKs.** This RFC affects the collector and dashboard only.
-  Backend (`@obs/telemetry-sdk`) and frontend (`@obs/analytics-sdk`) SDKs
+  Backend (`@obs-unified/telemetry-sdk`) and frontend (`@obs-unified/analytics-sdk`) SDKs
   are unaffected.
 - **Killing the generic tabs.** Traces / Logs / Metrics / Service Map remain
   for power users. They become "raw signal" tabs, not the front door.
@@ -168,7 +168,7 @@ We need two runtimes, distinguished by capability:
   and `narrate is None` — i.e., pure SQL. This is the majority. The
   scheduled handler that already exists for retention cleanup picks up
   panel work.
-- **Python sidecar (new `@obs/stats`).** Handles Analyses with `analyze`
+- **Python sidecar (new `@obs-unified/stats`).** Handles Analyses with `analyze`
   or `narrate`. Runs Polars / scikit-learn / sentence-transformers / LLM
   calls. Probably FastAPI + Marimo, with each Analysis as a Python file
   exporting `def run(params) -> AnalysisResult`.
@@ -192,7 +192,7 @@ We need two runtimes, distinguished by capability:
 └──────────────────────────────────────────────────────┘
                               ↓ analyses needing analyze/narrate
 ┌──────────────────────────────────────────────────────┐
-│ Python sidecar (@obs/stats)                          │
+│ Python sidecar (@obs-unified/stats)                          │
 │  POST /run { analysis_id, params }                   │
 │    1. import analyses[analysis_id]                   │
 │    2. fetch raw data via collector /internal API     │
@@ -685,7 +685,7 @@ size. The narrative is missing but the structure works.
 
 ### Stage 2 — Python sidecar + analyze layer (≈1 week)
 
-- `@obs/stats` package: FastAPI + Polars, deployable as a sibling Worker
+- `@obs-unified/stats` package: FastAPI + Polars, deployable as a sibling Worker
   *or* a small VM (deferred).
 - Define `analyze` adapter — Worker scheduled handler can dispatch to
   sidecar via HTTP.

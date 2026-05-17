@@ -4,7 +4,7 @@
 - **Author:** @sawanruparel
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-03
-- **Target:** `@obs/collector`, `@obs/dashboard`, `@obs/telemetry-sdk`, `@obs/analytics-sdk`
+- **Target:** `@obs-unified/collector`, `@obs-unified/dashboard`, `@obs-unified/telemetry-sdk`, `@obs-unified/analytics-sdk`
 - **Children:** RFC 0004 — RFC 0009 (see [§ Child RFCs](#child-rfcs))
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) — the worked example this RFC tree must satisfy, with the *any-to-any matrix* that operationalizes the "≤ 2 clicks" contract
 
@@ -132,10 +132,10 @@ Ordered by leverage on the click-to-CPU thesis, not by code size:
 
 ### Demo prerequisites
 
-Several RFCs (0004 acceptance, 0005 acceptance, the headline replay→trace UX in 0006) reference the OTel Astronomy Shop demo. The demo currently uses **native OTel SDKs**, not `@obs/analytics-sdk` or `@obs/telemetry-sdk`. End-to-end demo verification of SDK-bound features therefore depends on a separate prerequisite task:
+Several RFCs (0004 acceptance, 0005 acceptance, the headline replay→trace UX in 0006) reference the OTel Astronomy Shop demo. The demo currently uses **native OTel SDKs**, not `@obs-unified/analytics-sdk` or `@obs-unified/telemetry-sdk`. End-to-end demo verification of SDK-bound features therefore depends on a separate prerequisite task:
 
-- Replace the demo frontend's tracing setup with `@obs/analytics-sdk` (gives `interaction_id`, RUM events, replay).
-- Optionally add `@obs/telemetry-sdk`'s `enableProcessMetrics()` to one or two demo backend services (gives `process.cpu.*` metrics).
+- Replace the demo frontend's tracing setup with `@obs-unified/analytics-sdk` (gives `interaction_id`, RUM events, replay).
+- Optionally add `@obs-unified/telemetry-sdk`'s `enableProcessMetrics()` to one or two demo backend services (gives `process.cpu.*` metrics).
 
 This is one shared PR, separate from any of the RFCs in this tree. It does not block ingest-side work or storage work — those can be acceptance-tested with synthetic traffic. It does block the click-to-CPU end-to-end demo.
 

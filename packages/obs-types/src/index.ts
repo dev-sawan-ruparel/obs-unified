@@ -1,6 +1,11 @@
 export type { TelemetryApiClientConfig } from "./api-client";
 export { TelemetryApiClient } from "./api-client";
 export {
+	isCompatibleSchemaVersion,
+	SCHEMA_VERSION,
+	SCHEMA_VERSION_HEADER,
+} from "./schema-version";
+export {
 	DEFAULT_WINDOW_HOURS,
 	getConfiguredRetentionHours,
 	MAX_DURATION_SAMPLE_SIZE,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ServiceMapResponse } from "@obs/types";
+import type { ServiceMapResponse } from "@obs-unified/types";
 import {
 	Background,
 	Controls,

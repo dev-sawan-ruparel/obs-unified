@@ -9,9 +9,9 @@
 		"test:e2e:all": "playwright test"
 	},
 	"dependencies": {
-		"@obs/analytics-sdk": "workspace:*",
-		"@obs/dashboard": "workspace:*",
-		"@obs/types": "workspace:*",
+		"@obs-unified/analytics-sdk": "workspace:*",
+		"@obs-unified/dashboard": "workspace:*",
+		"@obs-unified/types": "workspace:*",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
 		"rrweb": "2.0.0-alpha.20",

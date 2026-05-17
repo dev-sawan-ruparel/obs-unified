@@ -14,7 +14,7 @@ import type {
 	AISpansOverviewOptions,
 	AISpansOverviewResponse,
 	JsonValue,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { computeCost } from "./ai-pricing";
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";

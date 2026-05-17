@@ -22,7 +22,7 @@ import type {
 	AskEvidence,
 	AskQuery,
 	AskResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import type { LlmConfig, NarrativeRequest } from "./llm";
 import { LlmCallError } from "./llm";
 import type { AskRunDeps } from "./ask";

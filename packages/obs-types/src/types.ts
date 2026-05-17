@@ -4,7 +4,7 @@ export type Primitive = string | number | boolean | null;
 export type JsonValue = Primitive | JsonValue[] | { [key: string]: JsonValue };
 
 // CollectorEnv / CollectorRouteContext / CollectorApp moved to
-// @obs/obs-collector — they reference Cloudflare Workers ambient
+// @obs-unified/obs-collector — they reference Cloudflare Workers ambient
 // globals and pollute non-worker consumers like the web dashboard.
 
 // ── OTLP Wire Types ──
@@ -100,7 +100,7 @@ export interface StoredSpan {
 	/** Denormalized from attributes["session.id"] at ingest; null when absent. */
 	sessionId?: string | null;
 	/**
-	 * RFC 0004 — click-scoped correlation ID minted by @obs/analytics-sdk and
+	 * RFC 0004 — click-scoped correlation ID minted by @obs-unified/analytics-sdk and
 	 * propagated to backends via the x-obs-interaction header. Persisted as a
 	 * top-level column (not a span attribute) on telemetry_spans by ingest.
 	 * Null on server-originated work (cron, queue consumers) and on requests
@@ -383,7 +383,7 @@ export interface UsageEventInput {
 	properties?: Record<string, unknown>;
 	context?: Record<string, unknown>;
 	/**
-	 * RFC 0004 — set by @obs/analytics-sdk when the event is emitted while
+	 * RFC 0004 — set by @obs-unified/analytics-sdk when the event is emitted while
 	 * a click/submit/keydown interaction is active. Optional on the wire;
 	 * the receiver denormalizes into usage_events.interaction_id.
 	 */

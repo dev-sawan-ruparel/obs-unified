@@ -3,7 +3,7 @@
 Self-hosted observability for your project. Traces, logs, usage analytics, session replay, and AI call tracking — no external telemetry services required.
 
 ```
-npm install @obs/telemetry-sdk @obs/analytics-sdk
+npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
 ```
 
 ## Architecture
@@ -33,7 +33,7 @@ npm install @obs/telemetry-sdk @obs/analytics-sdk
 The collector is a standalone service that receives telemetry and serves the dashboard.
 
 ```bash
-npm install @obs/collector hono
+npm install @obs-unified/collector hono
 ```
 
 ```typescript
@@ -43,7 +43,7 @@ import {
   createRetentionCleanupHandler,
   createIngestAuth,
   createDashboardAuth,
-} from "@obs/collector";
+} from "@obs-unified/collector";
 
 const app = createDefaultCollectorApp({
   auth: {
@@ -75,11 +75,11 @@ Set environment variables:
 ### 2. Instrument Your Backend
 
 ```bash
-npm install @obs/telemetry-sdk
+npm install @obs-unified/telemetry-sdk
 ```
 
 ```typescript
-import { initObservability, createLogger, trackAICall } from "@obs/telemetry-sdk";
+import { initObservability, createLogger, trackAICall } from "@obs-unified/telemetry-sdk";
 
 // Initialize once at startup
 initObservability({
@@ -113,11 +113,11 @@ trackAICall({
 ### 3. Instrument Your Frontend
 
 ```bash
-npm install @obs/analytics-sdk
+npm install @obs-unified/analytics-sdk
 ```
 
 ```tsx
-import { AnalyticsProvider, useAnalytics } from "@obs/analytics-sdk/react";
+import { AnalyticsProvider, useAnalytics } from "@obs-unified/analytics-sdk/react";
 
 // Wrap your app
 function App() {
@@ -209,11 +209,11 @@ click "Start replay" once.
 
 | Package | Purpose |
 |---------|---------|
-| `@obs/collector` | Collector service — receives telemetry, stores in D1/SQLite, serves dashboard |
-| `@obs/telemetry-sdk` | Backend SDK (Cloudflare Workers) — structured logging, request spans, D1/R2/fetch wrappers, AI call tracking |
-| `@obs/analytics-sdk` | Frontend SDK — page views, interactions, errors, session replay |
-| `@obs/dashboard` | Dashboard UI — React components (also serves as standalone SPA) |
-| `@obs/types` | Shared TypeScript types and constants |
+| `@obs-unified/collector` | Collector service — receives telemetry, stores in D1/SQLite, serves dashboard |
+| `@obs-unified/telemetry-sdk` | Backend SDK (Cloudflare Workers) — structured logging, request spans, D1/R2/fetch wrappers, AI call tracking |
+| `@obs-unified/analytics-sdk` | Frontend SDK — page views, interactions, errors, session replay |
+| `@obs-unified/dashboard` | Dashboard UI — React components (also serves as standalone SPA) |
+| `@obs-unified/types` | Shared TypeScript types and constants |
 
 ## Polyglot SDKs ([`sdks/`](./sdks))
 
@@ -239,7 +239,7 @@ once in [`packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md`](./packages/telemetry
 
 ```typescript
 import { Hono } from "hono";
-import { initObservability, createLogger } from "@obs/telemetry-sdk";
+import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
 
 const app = new Hono();
 
@@ -257,7 +257,7 @@ app.use("*", async (c, next) => {
 
 ```typescript
 // lib/observability.ts
-import { initObservability } from "@obs/telemetry-sdk";
+import { initObservability } from "@obs-unified/telemetry-sdk";
 
 initObservability({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -270,7 +270,7 @@ initObservability({
 
 ```typescript
 import express from "express";
-import { initObservability, createLogger } from "@obs/telemetry-sdk";
+import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
 
 initObservability({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -292,7 +292,7 @@ app.get("/health", (req, res) => {
 For teams that want to embed observability views in their own admin panel:
 
 ```tsx
-import { ObsDashboardProvider, TelemetryDashboard } from "@obs/dashboard";
+import { ObsDashboardProvider, TelemetryDashboard } from "@obs-unified/dashboard";
 
 function AdminObservability() {
   return (

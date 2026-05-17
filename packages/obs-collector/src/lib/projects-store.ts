@@ -4,7 +4,7 @@ import type {
 	IngestKeyWithPlaintext,
 	Project,
 	ProjectRow,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { randomHex, sha256Hex } from "./hash";
 import type { SqlDb } from "./sql-db";
 

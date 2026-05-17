@@ -1,4 +1,4 @@
-import type { IngestKey, IngestKeyWithPlaintext, Project } from "@obs/types";
+import type { IngestKey, IngestKeyWithPlaintext, Project } from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
 import { useDashboard } from "../provider";

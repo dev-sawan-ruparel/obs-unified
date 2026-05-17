@@ -1,0 +1,38 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"description": "Conformance test fixtures for the obs-unified interaction_id wire spec. SDK porters consume this file to verify the four mandatory cases. See README.md alongside.",
+	"validIds": [
+		"01HZQ5W3K8M4P2X7N9B0CDEFGH",
+		"01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+		"00000000000000000000000000",
+		"ZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+	],
+	"invalidIds": [
+		{ "value": "", "reason": "empty" },
+		{ "value": "01HZQ5W3K8M4P2X7N9B0CDEFG", "reason": "too short (25 chars)" },
+		{ "value": "01HZQ5W3K8M4P2X7N9B0CDEFGHX", "reason": "too long (27 chars)" },
+		{ "value": "01hzq5w3k8m4p2x7n9b0cdefgh", "reason": "lowercase rejected" },
+		{ "value": "I1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'I'" },
+		{ "value": "L1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'L'" },
+		{ "value": "O1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'O'" },
+		{ "value": "U1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'U'" },
+		{ "value": "01HZQ5W3K8M4P2X7N9B0!DEFGH", "reason": "contains punctuation" }
+	],
+	"header": {
+		"name": "x-obs-interaction",
+		"caseSensitive": false,
+		"echoedInResponse": false
+	},
+	"attribute": {
+		"key": "obs.interaction.id",
+		"type": "string"
+	},
+	"absentHeader": {
+		"description": "When the inbound request has no x-obs-interaction header, the server SDK MUST be a no-op: no exception, no synthetic id, no attribute on the span, no warning at level >= WARN.",
+		"forbidden": [
+			"span.attribute['obs.interaction.id']",
+			"log[level=warn] containing 'interaction'",
+			"thrown exception"
+		]
+	}
+}

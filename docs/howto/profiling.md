@@ -30,7 +30,7 @@ If you can't extract trace_ids (e.g. you're running an eBPF agent that doesn't t
 
 ```ts
 import { time, encode } from "@datadog/pprof";
-import { pushProfile } from "@obs/telemetry-sdk";
+import { pushProfile } from "@obs-unified/telemetry-sdk";
 
 async function captureAndPush() {
   const profile = await time.profile({

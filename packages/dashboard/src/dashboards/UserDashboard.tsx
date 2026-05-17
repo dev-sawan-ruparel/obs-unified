@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
-import type { UserProfileDetail } from "@obs/types";
+import type { UserProfileDetail } from "@obs-unified/types";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Card, SectionTitle } from "../components/primitives";
 import { StateRow } from "../components/states";
@@ -103,7 +103,7 @@ export function UserDashboard({ userId, onNavigate }: UserDashboardProps) {
 					<StateRow>
 						{error
 							? `Failed to load user: ${error}`
-							: `User ${userId} not found. The user_profiles table is populated by /v1/identify calls from @obs/analytics-sdk's tracker.identify().`}
+							: `User ${userId} not found. The user_profiles table is populated by /v1/identify calls from @obs-unified/analytics-sdk's tracker.identify().`}
 					</StateRow>
 				</div>
 				<ConnectedRail

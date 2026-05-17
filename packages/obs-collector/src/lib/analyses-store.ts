@@ -18,7 +18,7 @@ import type {
 	AnalysisSource,
 	AnalysisStatus,
 	AnalysisView,
-} from "@obs/types";
+} from "@obs-unified/types";
 
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";

@@ -1,19 +1,46 @@
 {
-	"name": "@obs/dashboard",
+	"name": "@obs-unified/dashboard",
 	"version": "1.0.0",
-	"description": "Observability dashboard UI — standalone SPA and embeddable React components",
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts"
+	"description": "Observability dashboard UI — React components for embedding telemetry views in your own admin panel.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sawanruparel/obs-unified.git",
+		"directory": "packages/dashboard"
 	},
+	"keywords": [
+		"observability",
+		"dashboard",
+		"react",
+		"react-components",
+		"obs-unified"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": [
+		"*.css"
+	],
 	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
-		"type-check": "tsc --noEmit"
+		"build": "tsup",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
 	},
 	"dependencies": {
-		"@obs/pprof-decoder": "workspace:*",
-		"@obs/types": "workspace:*",
+		"@obs-unified/pprof-decoder": "workspace:*",
+		"@obs-unified/types": "workspace:*",
 		"@xyflow/react": "^12.10.2",
 		"dagre": "^0.8.5",
 		"rrweb-player": "2.0.0-alpha.20"
@@ -33,6 +60,7 @@
 		"react-dom": "^19.2.4",
 		"rrweb": "2.0.0-alpha.20",
 		"tailwindcss": "^4.2.2",
+		"tsup": "^8.3.5",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.5"
 	}

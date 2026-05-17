@@ -1,7 +1,7 @@
 import type {
 	AnalysisDefinition,
 	AnalysesListResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState } from "../components/states";
 import { SectionTitle } from "../components/primitives";

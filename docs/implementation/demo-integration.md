@@ -2,7 +2,7 @@
 
 The Astronomy Shop demo (`pnpm demo:up`) ships with native OTel SDKs. To exercise the click-to-CPU UX end-to-end you need our SDKs in addition. These instructions walk through that wiring without modifying upstream files (which would conflict with `pnpm demo:setup` updates).
 
-## 6.1 — Frontend: replace OTel browser SDK with @obs/analytics-sdk
+## 6.1 — Frontend: replace OTel browser SDK with @obs-unified/analytics-sdk
 
 The frontend lives in `demo/upstream/src/frontend`. We use a small overlay so resyncing the upstream demo doesn't blow away our changes.
 
@@ -11,7 +11,7 @@ The frontend lives in `demo/upstream/src/frontend`. We use a small overlay so re
 Add to `demo/overlays/frontend/src/obs-bootstrap.tsx`:
 
 ```tsx
-import { AnalyticsProvider } from "@obs/analytics-sdk/react";
+import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
 import type { ReactNode } from "react";
 
 export function ObsBootstrap({ children }: { children: ReactNode }) {
@@ -54,7 +54,7 @@ ReactDOM.createRoot(rootEl).render(
 The demo runs ~15 microservices. You don't need all of them instrumented — the UX scenarios star **frontend-svc** (Node) and **payment-svc** (Node). Wire the helper in those two:
 
 ```ts
-import { initObservability, enableProcessMetrics } from "@obs/telemetry-sdk";
+import { initObservability, enableProcessMetrics } from "@obs-unified/telemetry-sdk";
 
 initObservability({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -80,7 +80,7 @@ For Scenario A's flame graph step, configure `@datadog/pprof` on payment-svc:
 
 ```ts
 import { time, encode } from "@datadog/pprof";
-import { pushProfile } from "@obs/telemetry-sdk";
+import { pushProfile } from "@obs-unified/telemetry-sdk";
 
 setInterval(async () => {
   const profile = await time.profile({ durationMillis: 60_000 });
@@ -113,7 +113,7 @@ If steps 3-5 work, RFC 0003's "≤ 2 clicks to any neighbor" promise is verified
 
 ## 6.5 — UX Scenario B
 
-LLM cost spike scenario — needs `@obs/telemetry-sdk`'s `trackAICall` wired into one demo service that hits an LLM. The Astronomy Shop's recommendation service is a candidate; see its existing OTel instrumentation for the integration point.
+LLM cost spike scenario — needs `@obs-unified/telemetry-sdk`'s `trackAICall` wired into one demo service that hits an LLM. The Astronomy Shop's recommendation service is a candidate; see its existing OTel instrumentation for the integration point.
 
 ## 6.6 — Playwright matrix
 

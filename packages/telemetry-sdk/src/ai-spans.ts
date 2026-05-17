@@ -20,7 +20,7 @@ import {
 	OpenInferenceSpanKind,
 	SESSION_ID_KEY,
 	USER_ID_KEY,
-} from "@obs/types/constants";
+} from "@obs-unified/types/constants";
 import type { ChildSpan } from "./span";
 import { getActiveSpan } from "./span";
 

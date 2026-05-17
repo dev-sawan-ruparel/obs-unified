@@ -115,10 +115,10 @@ Unit tests use Vitest and are configured per-package. Currently packages have `-
 pnpm test
 
 # Run tests for a specific package
-pnpm --filter @obs/collector test
-pnpm --filter @obs/telemetry-sdk test
-pnpm --filter @obs/analytics-sdk test
-pnpm --filter @obs/types test
+pnpm --filter @obs-unified/collector test
+pnpm --filter @obs-unified/telemetry-sdk test
+pnpm --filter @obs-unified/analytics-sdk test
+pnpm --filter @obs-unified/types test
 ```
 
 ## Type Checking

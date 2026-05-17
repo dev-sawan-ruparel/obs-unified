@@ -7,7 +7,7 @@
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Depends on:** [RFC 0007 — pprof profiling](0007-pprof-profiling.md) for off-CPU and CPU eBPF-emitted profiles. Independent of RFC 0007 for Beyla-emitted spans and OTel hostmetrics.
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) — note: neither current scenario exercises eBPF. A *Scenario C — futex contention* worked example is a follow-up deliverable for this RFC, demonstrating the case where in-app spans show an unexplained pause and an off-CPU flame graph (or a Beyla-derived edge) closes the gap. Without that scenario, this RFC's UX claims are not concretely testable.
-- **Target:** documentation, demo configs; minimal code in `@obs/dashboard` (filters/tiles); none in `@obs/collector`
+- **Target:** documentation, demo configs; minimal code in `@obs-unified/dashboard` (filters/tiles); none in `@obs-unified/collector`
 
 ## Summary
 
@@ -165,7 +165,7 @@ The collector accepts both, prefers exact when the `trace_id` attribute is prese
 - **Sampling rate of Beyla spans.** A naive "every HTTP request is a span" generates spans at request throughput. Strongly recommend Beyla's own filtering / tail-sampling at the agent or via a downstream OTel collector tail-sampling processor. Document.
 - **Resource attrs convention.** OTel hostmetrics emit `host.name`, `host.id`. k8s deployments emit `k8s.pod.name`, `k8s.node.name`. The Resources dashboard groups by which? Probably both, with a switch.
 - **State of OTel-collector-contrib eBPF receivers (May 2026).** The most consolidated OTLP-native eBPF *tracing* path is Beyla, deployed as its own agent. There is ongoing work in OTel-collector-contrib for receivers that consume eBPF data inside the collector, but it's less consolidated than the agent-based path and the components are alpha. We recommend the agent path; revisit when collector-internal eBPF receivers stabilize.
-- **Off-CPU profiles in `@obs/telemetry-sdk`.** Per-process libraries can produce wall-clock profiles too (`@datadog/pprof` with mode `'wall'`). Should `startProfiler({ type: 'wall' })` be a first-class SDK option? Probably yes; small follow-up to RFC 0007.
+- **Off-CPU profiles in `@obs-unified/telemetry-sdk`.** Per-process libraries can produce wall-clock profiles too (`@datadog/pprof` with mode `'wall'`). Should `startProfiler({ type: 'wall' })` be a first-class SDK option? Probably yes; small follow-up to RFC 0007.
 - **Beyla deployment on non-k8s.** Beyla also runs as a sidecar or systemd service. Document the non-k8s recipe alongside the k8s one.
 - **Worked example.** The two scenarios in [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) do not exercise eBPF data. Before this RFC leaves draft, a *Scenario C — futex contention* should be added showing: an in-app trace with a 200 ms unexplained pause inside a span; the rail surfaces an off-CPU profile for the trace's window; the off-CPU flame graph reveals the futex; from there the rail jumps back to the contending span elsewhere in the trace. This both proves the eBPF integration works end-to-end and gives the comparison docs a concrete vignette.
 

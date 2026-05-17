@@ -26,7 +26,7 @@ import type {
 	AskEvidence,
 	AskQuery,
 	AskResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import type { LlmConfig } from "./llm";
 
 const DEFAULT_API_URL = "https://api.anthropic.com/v1/messages";

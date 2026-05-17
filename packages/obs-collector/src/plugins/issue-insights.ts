@@ -2,7 +2,7 @@ import {
 	DEFAULT_WINDOW_HOURS,
 	MAX_ISSUE_ROWS,
 	RETENTION_HOURS,
-} from "@obs/types/constants";
+} from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { getProjectId } from "./_context";
 

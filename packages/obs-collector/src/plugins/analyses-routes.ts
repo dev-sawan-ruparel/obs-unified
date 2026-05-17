@@ -12,12 +12,12 @@
  * doesn't have to wait for the next 5-min tick.
  */
 
-import { getConfiguredRetentionHours } from "@obs/types/constants";
+import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type {
 	AnalysesListResponse,
 	AnalysisResultResponse,
 	AnalysisResultsBulkResponse,
-} from "@obs/types";
+} from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { AnalysesStore } from "../lib/analyses-store";
 import { runSqlAnalysis } from "../lib/analyses-runner";

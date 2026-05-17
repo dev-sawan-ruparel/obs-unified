@@ -4,7 +4,7 @@ import type {
 	AnalysisResult,
 	AnalysisResultsBulkResponse,
 	AnalysisStatus,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApi } from "../use-api";
 import { Button } from "../components/Button";

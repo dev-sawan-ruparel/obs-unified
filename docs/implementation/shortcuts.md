@@ -31,7 +31,7 @@ Status legend:
 
 > "`startProfiler({type:'cpu', intervalMs: 60_000})` ... default: POST to OBS_COLLECTOR_URL/v1/profiles/pprof"
 
-**RFC text says:** an auto-looping helper in `@obs/telemetry-sdk` that wraps `@datadog/pprof`, samples on an interval, and pushes profiles automatically.
+**RFC text says:** an auto-looping helper in `@obs-unified/telemetry-sdk` that wraps `@datadog/pprof`, samples on an interval, and pushes profiles automatically.
 
 **What shipped (Phase 4):** `pushProfile({ blob, traceIds, profileType, ... })` — a single-shot helper that takes already-encoded gzipped pprof bytes and pushes them. Library-agnostic (no `@datadog/pprof` dep), but the user has to wire the sampling loop themselves.
 
@@ -267,7 +267,7 @@ This section tracks acceptance criteria against the **synthetic seed** (`pnpm se
   span errors`) — all four entity kinds render `CONNECTED — <KIND>` with the
   Up / Across / Down / Related four-section shape. Empty sections render
   informative-absence text per RFC 0006, e.g. `Down → "No pprof profile covers
-  this trace's window. Wire @obs/telemetry-sdk's startProfiler() (or run an
+  this trace's window. Wire @obs-unified/telemetry-sdk's startProfiler() (or run an
   eBPF agent) on the producing service to populate."`
 - **RFC 0006 cross-signal join.** AI call rail surfaced `Spans in this trace:
   obs-demo · openai.chat` — IdentityIndex stitched the AI call to its parent

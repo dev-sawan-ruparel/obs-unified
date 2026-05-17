@@ -8,7 +8,7 @@ import type {
 	AISpanRecord,
 	AISpansOverviewResponse,
 	JsonValue,
-} from "@obs/types";
+} from "@obs-unified/types";
 import { useApi } from "../use-api";
 import { useTimeWindowHours } from "../provider";
 import { MessageView } from "../components/MessageView";
