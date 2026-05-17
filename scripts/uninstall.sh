@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 # Unregister a runner from GitHub and remove its local directory.
-# Usage: scripts/uninstall.sh <key>
+#
+# Usage: scripts/uninstall.sh <key> [--help]
+#   <key>  runner key from runners.json
+#
+# Stops any launchd service for the runner first. Safe to run even if
+# registration failed midway or the local state is inconsistent.
 set -euo pipefail
+if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
+  awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0
+fi
 CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KEY="${1:-}"
-[[ -z "$KEY" ]] && { echo "usage: $0 <runner-key>" >&2; exit 1; }
+[[ -z "$KEY" ]] && { echo "usage: $0 <runner-key>   (see runners.json)" >&2; exit 1; }
 
 CONFIG="$CI_ROOT/runners.json"
 REPO="$(jq -er ".runners[\"$KEY\"].repo" "$CONFIG")"

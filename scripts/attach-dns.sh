@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Create the DNS CNAMEs that wire obsunified.com → Cloudflare Pages.
 #
+# Usage: scripts/attach-dns.sh [--help]
+#
 # Why this exists:
 #   Wrangler's OAuth token has `pages:write` + `zone:read` but not
 #   `dns:edit`, so it can attach a custom domain to a Pages project
@@ -10,10 +12,15 @@
 #   Cloudflare DNS for a while (newly-transferred zones often don't
 #   trigger the auto-create path).
 #
+# Idempotent: existing records with matching name are PUT-updated.
 # Reads CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID from ci/.env.deploy.
-# See ci/.env.deploy.example for the scopes the token needs.
+# Run scripts/check-env.sh first to verify the token works.
 
 set -euo pipefail
+
+if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
+  awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0
+fi
 
 CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Auto-source .env.deploy if present so the user doesn't have to export manually.

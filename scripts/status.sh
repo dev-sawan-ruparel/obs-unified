@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Show status of all configured runners locally + as known to GitHub.
+#
+# Usage: scripts/status.sh [--help]
+#
+# "LOCAL" column reports whether runners/<key>/ is configured on this host.
+# "GITHUB" column reports the runner's online/offline state as GitHub sees it.
 set -euo pipefail
+if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
+  awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0
+fi
 CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="$CI_ROOT/runners.json"
 

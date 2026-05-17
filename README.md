@@ -12,11 +12,19 @@ Workflow files in each repo target these runners with `runs-on: self-hosted`.
 
 ## Prerequisites
 
-- macOS or Linux host (this README is written for `Darwin arm64`)
-- [GitHub CLI](https://cli.github.com/) authenticated against GitHub
-  (`gh auth status` should report `repo` + `workflow` scopes — admin access
-  to each repo is needed to mint runner registration tokens)
-- `jq` (`brew install jq`)
+- macOS or Linux host (Darwin arm64 / Linux x86_64+arm64 tested)
+- [GitHub CLI](https://cli.github.com/) authenticated with `repo` + `workflow` scopes — admin on each repo is required to mint runner registration tokens
+- `jq` and `curl`
+
+Run a one-shot check:
+
+```bash
+scripts/check-prereqs.sh
+```
+
+It reports host/arch, every required tool, gh auth + scopes, and whether
+the Cloudflare `.env.deploy` is set up. Every script in this folder also
+accepts `--help`.
 
 ## One-time install
 
@@ -26,14 +34,13 @@ Download and extract the actions-runner binary into `.runner-bin/`:
 scripts/install.sh
 ```
 
-This pins to the latest stable release. Pin a specific version with
+Pins to the latest stable release by default. Pin a specific version with
 `RUNNER_VERSION=2.334.0 scripts/install.sh`.
 
 ## Register runners
 
-Add a runner per repo. The script reads `runners.json`, mints a registration
-token via the GitHub API, copies the binary into `runners/<key>/`, and
-configures it:
+The script reads `runners.json`, mints a registration token via the
+GitHub API, copies the binary into `runners/<key>/`, and configures it:
 
 ```bash
 scripts/register.sh obs-unified
@@ -42,17 +49,23 @@ scripts/register.sh presence
 ```
 
 After registration the runner is visible at
-`https://github.com/obs-unified/<repo>/settings/actions/runners`.
+`https://github.com/obs-unified/<repo>/settings/actions/runners`. **It shows
+as OFFLINE until you actually start it** — that's expected; the next step
+brings it online.
+
+If a `register.sh` invocation fails partway (e.g. expired token), the script
+auto-removes the half-configured `runners/<key>/` directory so you can
+re-run cleanly.
 
 ## Run
 
-Foreground (one runner, blocks the terminal):
+Foreground (one runner, blocks the terminal — good for debugging):
 
 ```bash
 scripts/start.sh presence
 ```
 
-Background (installs a launchd service that survives reboot):
+Background daemon (launchd; survives reboot, restarts on crash):
 
 ```bash
 scripts/install-service.sh presence
@@ -80,14 +93,19 @@ the local `runners/<key>/` directory.
 ```
 ci/
 ├── runners.json           # registry: which repos get a runner + labels
-├── scripts/               # lifecycle scripts
+├── .env.deploy.example    # template for Cloudflare token (see below)
+├── scripts/               # lifecycle scripts (all accept --help)
+│   ├── check-prereqs.sh   # one-shot validate host + tools + auth
 │   ├── install.sh         # download + extract actions-runner → .runner-bin/
 │   ├── register.sh        # configure a runner for one repo
 │   ├── start.sh           # foreground run
 │   ├── install-service.sh # background via launchd
 │   ├── status.sh          # local + GitHub state
-│   └── uninstall.sh       # tear down
+│   ├── uninstall.sh       # tear down
+│   ├── check-env.sh       # verify .env.deploy token against the CF API
+│   └── attach-dns.sh      # upsert obsunified.com / www / docs CNAMEs
 ├── .runner-bin/           # downloaded binary (gitignored)
+├── .env.deploy            # Cloudflare API token (gitignored)
 └── runners/               # per-repo runner instances (gitignored)
     ├── obs-unified/
     ├── obs-unified-docs/

@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 # Download + extract the GitHub Actions runner tarball into .runner-bin/.
+#
+# Usage: scripts/install.sh [--help]
+#
+# Pin a version: RUNNER_VERSION=2.334.0 scripts/install.sh
 # Idempotent: skips if already present at the desired version.
 set -euo pipefail
+
+if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
+  awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"
+  exit 0
+fi
 
 CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$CI_ROOT"

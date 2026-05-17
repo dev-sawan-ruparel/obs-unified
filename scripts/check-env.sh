@@ -1,7 +1,21 @@
 #!/usr/bin/env bash
 # Verify ci/.env.deploy is filled in and the token actually works against
-# the Cloudflare API. Run this once after pasting your token.
+# the Cloudflare API.
+#
+# Usage: scripts/check-env.sh [--help]
+#
+# Probes 4 endpoints to confirm each required scope is present:
+#   • account read     → Account ID is valid
+#   • zone read        → Zone:Read on obsunified.com
+#   • DNS list         → Zone:DNS:Edit on obsunified.com
+#   • Pages projects   → Account:Cloudflare Pages:Edit
+#
+# Exits 0 if all green, 1 with a specific scope name if any fail.
 set -euo pipefail
+
+if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
+  awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0
+fi
 
 CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$CI_ROOT/.env.deploy"
