@@ -483,11 +483,13 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 /* Architecture */
 .arch-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 56px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: start;
 }
-@media (max-width: 920px) { .arch-grid { grid-template-columns: 1fr; } }
+.arch-copy {
+  max-width: 820px;
+}
 .arch-copy h2 {
   font-size: clamp(26px, 3vw, 34px);
   font-weight: 300;
@@ -529,148 +531,145 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   text-transform: uppercase;
   white-space: nowrap;
 }
-.arch-map {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.95fr) minmax(120px, 0.7fr) minmax(220px, 1.15fr);
-  grid-template-areas:
-    "sources boundaries collector"
-    ". storage storage";
-  gap: 14px;
-  align-items: center;
+.arch-flow-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  overflow: visible;
 }
-.arch-source-stack {
-  grid-area: sources;
-  display: grid;
-  gap: 12px;
-  min-width: 0;
+.arch-zone,
+.arch-observe-shell {
+  fill: color-mix(in srgb, var(--color-sys-surface) 58%, transparent);
+  stroke: var(--color-sys-outline-soft);
+  stroke-width: 1;
 }
-.arch-boundaries {
-  grid-area: boundaries;
-  display: grid;
-  gap: 12px;
-  min-width: 0;
+.arch-observe-shell {
+  fill: color-mix(in srgb, var(--color-sys-primary) 5%, var(--color-sys-surface));
+  stroke: color-mix(in srgb, var(--color-sys-primary) 22%, var(--color-sys-outline-soft));
 }
-.arch-collector { grid-area: collector; }
-.arch-storage {
-  grid-area: storage;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.arch-zone-label,
+.arch-node-svg text,
+.arch-edge-label,
+.arch-pill text {
+  font-family: var(--font-mono);
 }
-.arch-node,
-.arch-boundary {
+.arch-zone-label {
+  fill: var(--color-sys-on-surface-subtle);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.arch-node-svg rect,
+.arch-pill rect {
+  fill: var(--color-sys-surface);
+  stroke: transparent;
+}
+.arch-node-source rect {
+  stroke: var(--color-sys-outline-soft);
+  stroke-width: 3;
+}
+.arch-node-auth rect {
+  fill: color-mix(in srgb, var(--color-sys-surface) 88%, var(--color-sys-primary));
+}
+.arch-node-read rect {
+  fill: color-mix(in srgb, var(--color-sys-surface) 88%, var(--color-sys-accent));
+}
+.arch-node-collector rect {
+  fill: var(--color-sys-surface);
+  stroke: var(--color-sys-primary);
+  stroke-width: 4;
+}
+.arch-node-storage rect {
+  fill: var(--color-sys-surface);
+  stroke: color-mix(in srgb, var(--color-sys-accent) 42%, var(--color-sys-outline-soft));
+  stroke-width: 3;
+}
+.arch-node-svg text {
+  fill: var(--color-sys-on-surface);
+  font-size: 17px;
+  font-weight: 700;
+}
+.arch-node-small {
+  fill: var(--color-sys-on-surface-muted) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+}
+.arch-node-tag {
+  fill: var(--color-sys-on-surface-subtle) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em;
+}
+.arch-route {
+  fill: var(--color-sys-on-surface-muted) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+.arch-pill rect {
+  fill: var(--color-sys-surface);
+  stroke: color-mix(in srgb, var(--color-sys-primary) 18%, transparent);
+}
+.arch-pill text {
+  fill: var(--color-sys-on-surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+.arch-edge {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.arch-edge-ingest { stroke: var(--color-sys-primary); marker-end: url("#arrow-ingest"); }
+.arch-edge-read { stroke: var(--color-sys-accent); marker-end: url("#arrow-read"); }
+.arch-edge-store { stroke: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); marker-end: url("#arrow-store"); }
+.arch-arrow-ingest { fill: var(--color-sys-primary); }
+.arch-arrow-read { fill: var(--color-sys-accent); }
+.arch-arrow-store { fill: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); }
+.arch-edge-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.arch-label-ingest { fill: var(--color-sys-primary); }
+.arch-label-store { fill: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); }
+.arch-label-read { fill: var(--color-sys-accent); }
+.arch-flow-stack {
+  display: none;
+  gap: 10px;
+  margin-top: 14px;
+}
+.arch-step {
   background: var(--color-sys-surface);
-  min-width: 0;
-}
-.arch-node {
-  padding: 14px;
-}
-.arch-source {
   border-left: 3px solid var(--color-sys-outline-soft);
+  padding: 12px;
 }
-.arch-collector {
-  border-left: 4px solid var(--color-sys-primary);
-  padding: 16px;
-}
-.arch-store {
-  border-left: 3px solid color-mix(in srgb, var(--color-sys-accent) 34%, var(--color-sys-outline-soft));
-}
-.arch-node-label {
+.arch-step strong {
   display: block;
   color: var(--color-sys-on-surface);
-  font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   margin-bottom: 4px;
 }
-.arch-node-meta {
-  display: block;
+.arch-step span {
   color: var(--color-sys-on-surface-muted);
+  display: block;
   font-size: 12.5px;
   line-height: 1.45;
 }
-.arch-boundary {
-  position: relative;
-  padding: 12px 12px 12px 16px;
-  font-family: var(--font-mono);
-  color: var(--color-sys-on-surface);
-}
-.arch-boundary::before,
-.arch-boundary::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  height: 2px;
-  background: var(--color-sys-primary);
-  transform: translateY(-50%);
-}
-.arch-boundary::before { left: -14px; width: 14px; }
-.arch-boundary::after { right: -14px; width: 14px; }
-.arch-flow-label {
-  display: block;
-  color: var(--color-sys-on-surface-subtle);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-}
-.arch-boundary strong {
-  font-size: 12px;
-  font-weight: 700;
-}
-.arch-routes {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-}
-.arch-routes span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: var(--color-sys-surface-low);
-  color: var(--color-sys-on-surface-muted);
-  padding: 7px 8px;
-}
-.arch-routes code {
-  background: transparent;
-  padding: 0;
-  color: var(--color-sys-on-surface);
-  white-space: nowrap;
-}
-@media (max-width: 1080px) {
-  .arch-map {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "sources"
-      "boundaries"
-      "collector"
-      "storage";
-  }
-  .arch-boundary::before,
-  .arch-boundary::after {
-    display: none;
-  }
-  .arch-boundaries {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+.arch-step-ingest { border-left-color: var(--color-sys-primary); }
+.arch-step-store { border-left-color: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); }
+.arch-step-read { border-left-color: var(--color-sys-accent); }
 @media (max-width: 540px) {
   .arch-visual { padding: 14px; }
   .arch-visual-head {
     align-items: flex-start;
     flex-direction: column;
   }
-  .arch-boundaries,
-  .arch-storage {
-    grid-template-columns: 1fr;
-  }
-  .arch-routes span {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2px;
-  }
+  .arch-flow-svg { display: none; }
+  .arch-flow-stack { display: grid; }
 }
 
 /* FAQ */
