@@ -12,7 +12,7 @@ export function renderFooter(): string {
           <!-- Prompt + record mark — see @obs-unified/brand/logo/mark.svg. -->
           <svg width="22" height="22" viewBox="0 0 32 32" fill="currentColor"><path d="M7 9 L10 14 L7 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="bevel" stroke-linecap="square"/><rect x="14" y="12.9" width="12" height="2.2"/><rect x="14" y="18.9" width="8" height="2.2"/></svg>
         </span>
-        <span class="brand-name">obs-unified</span>
+        <span class="brand-name">Observability Unified</span>
       </div>
       <p class="muted small footer-brand-copy">
         One collector for traces, logs, AI calls, product events, and replay.
@@ -43,7 +43,7 @@ export function renderFooter(): string {
   </div>
   <div class="footer-bottom-wrap">
     <div class="container footer-bottom">
-      <p class="muted small">© ${YEAR} obs-unified</p>
+      <p class="muted small">© ${YEAR} Observability Unified</p>
       <a class="footer-bottom-link" href="${GITHUB_URL}">GitHub</a>
     </div>
   </div>
