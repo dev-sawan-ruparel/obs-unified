@@ -40,18 +40,11 @@ export function renderFooter(): string {
         </a>
       `).join("")}
     </nav>
-    <nav class="footer-nav" aria-label="Project">
-      <h4>Project</h4>
-      <a href="${GITHUB_URL}">GitHub repository</a>
-      <a href="${GITHUB_URL}/issues">Issues and roadmap</a>
-      <a href="${GITHUB_URL}/blob/main/LICENSE">MIT license</a>
-      <a href="${GITHUB_URL}/releases">Releases</a>
-    </nav>
   </div>
   <div class="footer-bottom-wrap">
     <div class="container footer-bottom">
-      <p class="muted small">Open source under MIT · public repo on GitHub · ${YEAR}</p>
-      <p class="muted small">Cloudflare Workers/D1/R2 or Node/Postgres/S3-compatible storage.</p>
+      <p class="muted small">© ${YEAR} obs-unified</p>
+      <a class="footer-bottom-link" href="${GITHUB_URL}">GitHub</a>
     </div>
   </div>
 </footer>

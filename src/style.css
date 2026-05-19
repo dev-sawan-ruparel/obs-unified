@@ -725,7 +725,7 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1.45fr) repeat(3, minmax(150px, 1fr));
+  grid-template-columns: minmax(280px, 1.6fr) repeat(2, minmax(180px, 1fr));
   gap: 36px;
   padding-bottom: 42px;
 }
@@ -794,6 +794,11 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   padding-bottom: 22px;
   gap: 18px;
 }
+.footer-bottom-link {
+  color: var(--color-sys-on-surface-muted);
+  font-size: 13px;
+}
+.footer-bottom-link:hover { color: var(--color-sys-on-surface); }
 @media (max-width: 540px) { .footer-bottom { flex-direction: column; gap: 8px; } }
 
 /* Compare table */
