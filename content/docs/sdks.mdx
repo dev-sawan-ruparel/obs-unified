@@ -9,9 +9,9 @@ obs-unified ships first-party SDKs for **three backend languages** plus a browse
 
 | Language | Install | Where it runs |
 | --- | --- | --- |
-| **TypeScript** | `pnpm add @obs-unified/telemetry-sdk` | Node.js · Bun · Deno · Cloudflare Workers |
+| **TypeScript** | `pnpm add @obs-unified/telemetry-sdk` from GitHub Packages | Node.js · Bun · Deno · Cloudflare Workers |
 | **Go** | `go get github.com/obs-unified/obs-unified/sdks/go@latest` | Any Go 1.22+ binary |
-| **Rust** | `cargo add obs-unified` | Any Rust 1.75+ binary (Tokio runtime) |
+| **Rust** | Git dependency from `sdks/rust` | Any Rust 1.75+ binary (Tokio runtime) |
 
 All three expose the **same API surface**, so muscle memory ports across runtimes:
 
@@ -34,7 +34,16 @@ If your backend language isn't listed, any OTLP-compatible OpenTelemetry SDK wor
 
 This one is browser-only by definition — there's no parallel Go/Rust analytics SDK because that surface area is the web.
 
-All four packages live in the obs-unified monorepo. The TypeScript packages publish to npm under `@obs-unified/*`; the Go SDK is consumed straight from the `sdks/go` module path; the Rust crate publishes to crates.io as `obs-unified`.
+All four packages live in the obs-unified monorepo. The TypeScript packages publish to GitHub Packages under `@obs-unified/*`; GitHub Packages requires authentication even for public packages. The Go SDK is consumed straight from the public `sdks/go` module path. The Rust SDK is currently consumed as a Git dependency until a crates.io release is cut.
+
+### GitHub Packages setup
+
+```bash
+pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
+```
+
+Use your GitHub username and a classic personal access token with `read:packages`.
 
 ## The identity skeleton
 
@@ -51,6 +60,8 @@ Once a signal carries `interaction_id`, the dashboard's [Connected rail](/docs/w
 ### Install
 
 ```bash
+pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add @obs-unified/analytics-sdk
 ```
 
@@ -151,6 +162,8 @@ setTimeout(() => {
 ### Install
 
 ```bash
+pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add @obs-unified/telemetry-sdk
 ```
 
