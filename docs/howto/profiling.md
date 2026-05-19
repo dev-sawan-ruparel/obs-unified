@@ -22,7 +22,7 @@ x-obs-trace-ids: <id1>,<id2>,…          # optional but important — see below
 
 When your profiler tags samples with the active OTel `trace_id`, extract the distinct ids before pushing and pass them as a comma-separated list. The collector populates `profile_trace_index` so `/internal/profiles?trace_id=X` returns this profile, and the trace waterfall renders the 🔥 badge for any span belonging to that trace.
 
-If you can't extract trace_ids (e.g. you're running an eBPF agent that doesn't tag samples), omit the header. The profile still ingests; aggregate views still work; only the per-trace 🔥 badge is missing.
+If you can't extract trace_ids yourself, omit the header. The collector will parse valid pprof blobs and index any `trace_id` labels it finds. If the profiler does not tag samples with trace IDs (common with some eBPF setups), the profile still ingests and aggregate views still work; only the per-trace 🔥 badge is missing.
 
 ## Per-language recipes
 
@@ -133,7 +133,7 @@ curl -H "Authorization: Bearer <ingest-key>" \
   | jq '.profiles[] | {id, profileType, durationMs, blobSizeBytes}'
 ```
 
-You should see the profile listed. If your push included `x-obs-trace-ids`, drill in via:
+You should see the profile listed. If your push included `x-obs-trace-ids`, or the collector extracted trace IDs from the blob, drill in via:
 
 ```bash
 curl https://obs.my-app.com/internal/profiles/<id>
@@ -141,7 +141,15 @@ curl https://obs.my-app.com/internal/profiles/<id>
 
 The response includes the `traceIds` array.
 
-## What's not yet shipped
+To fetch a blob scoped to a single trace, request it with `blob=true` and `trace_id`:
 
-- **Server-side filtered blob** (`?trace_id=X` returning a re-serialized pprof with only matching samples) — accepted on the endpoint shape but not yet implemented; falls back to returning the full blob URL.
-- **Flame graph viewer in the dashboard** — pprof blobs are downloadable but a built-in flame-graph component lands in a follow-up. For now, download and view in `pprof -http`, Speedscope, or any pprof viewer.
+```bash
+curl -o trace.pprof.gz \
+  "https://obs.my-app.com/internal/profiles/<id>?blob=true&trace_id=<trace-id>"
+```
+
+The collector parses the profile, keeps only samples carrying that `trace_id` label, and returns a smaller gzipped pprof blob. If filtering fails, it falls back to the unfiltered blob and logs the decode error.
+
+## Dashboard viewer
+
+The trace waterfall shows a 🔥 badge when a profile is linked to the trace. Opening the profile renders the built-in flame graph viewer, scoped to that trace when trace labels are available. You can still download the blob and inspect it with `pprof -http`, Speedscope, or any pprof viewer.

@@ -5,7 +5,7 @@
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-03
 - **Target:** `@obs-unified/collector`, `@obs-unified/dashboard`, `@obs-unified/telemetry-sdk`, `@obs-unified/analytics-sdk`
-- **Children:** RFC 0004 — RFC 0009 (see [§ Child RFCs](#child-rfcs))
+- **Children:** RFC 0004 — RFC 0009 (see [§ Child RFCs](#child-rfcs)); RFC 0010 extends the same graph to agentic systems
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) — the worked example this RFC tree must satisfy, with the *any-to-any matrix* that operationalizes the "≤ 2 clicks" contract
 
 ## Summary
@@ -118,6 +118,12 @@ Each child takes a slice. They are independently mergeable but together produce 
 | [0007](0007-pprof-profiling.md) | pprof profiling receiver | 1, 2, 3 | — (benefits from 0004 for richer rail surfacing, but ships independently) |
 | [0008](0008-storage-interface.md) | Storage interface refactor | 3 | — |
 | [0009](0009-ebpf-tracing-bridge.md) | eBPF tracing bridge | 1, 2 | 0007 *only for off-CPU pprof rendering*; Beyla and hostmetrics paths are independent |
+
+Follow-on:
+
+| RFC | Title | Layer | Depends on |
+|---|---|---|---|
+| [0010](0010-agent-action-graph.md) | Agent action graph | 1, 2, 4, 6 | 0004, 0006, 0008 |
 
 ## Recommended phasing
 

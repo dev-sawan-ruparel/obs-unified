@@ -1,6 +1,6 @@
 # obs-unified
 
-Self-hosted observability for your project. Traces, logs, usage analytics, session replay, and AI call tracking — no external telemetry services required.
+Self-hosted observability for your project. Traces, logs, usage analytics, session replay, profiles, and AI call tracking — no external telemetry services required.
 
 ```
 npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
@@ -18,7 +18,7 @@ npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
   │                               ├─ /dashboard/* UI      │
   │                               └─ /health              │
   │                                    │                  │
-  │                               D1 / SQLite             │
+  │                               D1/R2 or Postgres/S3    │
   └──────────────────────────────────────────────────────┘
 ```
 
