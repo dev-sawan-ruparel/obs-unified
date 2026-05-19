@@ -6,7 +6,7 @@
 - **Updated:** 2026-05-18
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Depends on:** [RFC 0004 — Identity propagation](0004-identity-propagation.md), [RFC 0006 — Connected rail](0006-connected-rail.md), [RFC 0008 — Storage interface refactor](0008-storage-interface.md)
-- **Companion:** [docs/spec/interaction-id.md](../docs/spec/interaction-id.md), future `docs/spec/action-id.md`, future `docs/ux/agent-run-replay.md`
+- **Companion:** [docs/spec/interaction-id.md](../docs/spec/interaction-id.md), [docs/implementation/agent-action-graph.md](../docs/implementation/agent-action-graph.md), future `docs/spec/action-id.md`, future `docs/ux/agent-run-replay.md`
 - **Target:** `@obs-unified/collector`, `@obs-unified/telemetry-sdk`, `@obs-unified/dashboard`, docs
 
 ## Summary
@@ -38,6 +38,44 @@ The product promise becomes:
 > Follow any production action, whether human or AI agent initiated, from
 > cause to decision path to side effect to trace, replay, cost, policy,
 > and CPU.
+
+### Same data, new shape
+
+Agent observability does not introduce a wholly separate signal family.
+An agent run is composed of primitives obs-unified already understands:
+LLM calls, tool / function calls, backend spans, logs, retrieval-shaped
+events, eval / guardrail results, replay, and profiles.
+
+The delta is the envelope and edges:
+
+- `root_action_id` groups the whole run.
+- `action_id` names each meaningful step.
+- `caused_by_action_id` records parent / child causality.
+- existing spans, logs, AI payloads, replays, and profiles attach to
+  those IDs.
+
+Without this layer, users see a pile of LLM calls and spans. With it,
+they see the story of one production action.
+
+### End-user story
+
+A support agent updated the wrong invoice. Today, the engineer can find
+an LLM call, a tool call, a backend trace, and a log line, but must
+manually reconstruct how they relate.
+
+With this RFC implemented, they open the agent run and see:
+
+1. the user prompt or webhook that triggered the run;
+2. the classification step and prompt version;
+3. the retrieval step and selected documents;
+4. the invoice lookup tool call;
+5. the backend trace and logs caused by that tool call;
+6. the side-effecting update, including autonomy level;
+7. the guardrail / eval result;
+8. the final answer and total cost.
+
+From there, one click saves the run as an eval case so the same failure
+can be tested against the next prompt, model, or agent version.
 
 ## Motivation
 
@@ -126,10 +164,19 @@ As of May 2026:
 - OpenInference has a practical span-kind vocabulary used by current AI
   tracing systems: `AGENT`, `LLM`, `TOOL`, `RETRIEVER`, `EMBEDDING`,
   `RERANKER`, `GUARDRAIL`, `EVALUATOR`, `PROMPT`, and `CHAIN`.
+- Langfuse exposes a `Trace` / `Observation` / `Score` model with
+  `parent_observation_id` edges. LangSmith exposes a `Run` /
+  `parent_run_id` model. Both are widely deployed in production agent
+  stacks, and ingest paths from either are expected over time.
 
-The design principle: **ingest broadly, normalize narrowly**. We should
-accept OTLP GenAI / MCP and OpenInference-shaped traces, but normalize
-them into obs-unified's own action graph for storage, joins, and UI.
+The design principle: **ingest broadly, normalize narrowly**. We
+accept OTLP GenAI / MCP, OpenInference-shaped traces, and (over time)
+Langfuse `Observation` / LangSmith `Run` payloads, then normalize all
+of them into obs-unified's own action graph for storage, joins, and
+UI. We do not adopt any one upstream model as our internal schema:
+GenAI / MCP are still development status, OpenInference is
+attribute-flavored not entity-flavored, and the vendor models are
+tightly coupled to their respective UIs.
 
 ## Proposed design
 
@@ -399,7 +446,10 @@ CREATE INDEX IF NOT EXISTS idx_actions_project_agent_run
 Add narrower detail tables only where they reduce query pain:
 
 - `agent_runs` — durable run summary, goal, outcome, autonomy level,
-  aggregate cost / latency / eval status.
+  aggregate cost / latency / eval status. **Invariant:**
+  `agent_runs.id == actions.id` for the run's root action row; the
+  detail table holds run-level aggregates while the action row carries
+  graph identity.
 - `tool_calls` — tool name, args hash, result hash, error type,
   side-effect marker, approval state.
 - `retrieval_events` — retriever name, query hash, document refs,
@@ -407,6 +457,12 @@ Add narrower detail tables only where they reduce query pain:
 - `eval_results` — evaluator name, score, pass/fail, rubric/version.
 - `artifacts` — generated files, messages, patches, emails, tickets,
   DB mutations, or other outputs.
+
+The existing `ai_span_payloads` table (migration 019) keeps its role as
+the AI input/output store and gains an `action_id` column referencing
+`actions.id`. AI payload storage is therefore not duplicated: `actions`
+holds graph identity and aggregate metadata; `ai_span_payloads` holds
+the prompt / completion bytes. New ingest paths populate both.
 
 The `actions` table remains the graph spine. Detail tables are
 append-only leaves.
@@ -661,6 +717,13 @@ Informative empty states are required:
 - "No tool calls: this agent step completed without external tools."
 - "No evals: this run has not been evaluated."
 
+The Connected rail server endpoint is unchanged in shape:
+`/internal/connected/:kind/:id` continues to be the single route. New
+kinds `action`, `agent_run`, `tool_call` (and follow-up `retrieval`,
+`eval`, `artifact`) are added to the existing `:kind` parameter
+alongside the current `span`, `log`, `ai_call`, `replay`, `profile`,
+and `interaction` values — no new endpoints.
+
 ## Privacy and governance
 
 Agent telemetry can contain prompts, customer data, tool arguments,
@@ -685,17 +748,33 @@ Autonomy levels:
 | `autonomous_write` | Agent performed a side effect without human approval |
 | `blocked_by_policy` | Policy / guardrail prevented action |
 
+The tool-level marker and the action-level autonomy level compose: a
+tool call row in `tool_calls` carries `side_effect = true` when the
+tool mutated external state, and the parent action's `attrs_json`
+carries `autonomy_level`. The pair `(side_effect = true,
+autonomy_level = autonomous_write)` is the trigger condition for the
+autonomous-write review surface — dashboards filter on this
+combination rather than on either field alone.
+
 ## Phasing
 
 ### Phase 1 — Action graph spine
 
-- Add action schema and migrations.
-- Extend `IdentityIndex` with `byAction`, `byAgentRun`, and
-  `byActor`.
-- Map existing `interaction_id` records into action graph views where
-  possible.
+- Add action graph schema. Migrations start at 031 (current head is
+  030); new tables: `actions`, `agent_runs`, `tool_calls`,
+  `retrieval_events`, `eval_results`, `artifacts`. `ai_span_payloads`
+  gets an `action_id` column added in the same batch.
+- Extend `IdentityIndex` with `byAction`, `byAgentRun`, and `byActor`
+  alongside the existing `bySession` / `byTrace` / `byInteraction` /
+  `byUser` methods — same interface shape, no new index class.
+- Project existing browser-originated rows into the action graph by
+  deriving `action_id = root_action_id = interaction_id`. No row
+  migration; the projection is a read-time view so legacy dashboards
+  and queries that key off `interaction_id` keep working.
 - Add `/internal/actions/:id` and `/internal/agent-runs/:id`.
-- Connected rail shows action context for spans and AI calls.
+- Extend `/internal/connected/:kind/:id` with new `:kind` values
+  (`action`, `agent_run`, `tool_call`) so Connected rail shows action
+  context for spans and AI calls without a new endpoint.
 
 ### Phase 2 — Native SDK
 
@@ -710,6 +789,13 @@ Autonomy levels:
 - Normalize OTel MCP spans into actions.
 - Normalize OpenInference span kinds into actions.
 - Add conformance fixtures for common traces.
+
+Implementation pattern: each normalizer is a collector processor in the
+same shape as `ai-span-payloads-processor.ts` — it reads OTLP spans
+from the existing `/v1/traces` pipeline and writes derived rows into
+`actions` (and detail tables). No new ingest endpoint; no new
+transport. Processors compose, so OTel GenAI, MCP, and OpenInference
+can run in parallel on the same span stream.
 
 ### Phase 4 — Dashboard surfaces
 
@@ -758,6 +844,9 @@ Autonomy levels:
    links back to the source production entities.
 10. Existing click-to-CPU tests still pass; `interaction_id` behavior is
     unchanged for current browser SDK users.
+11. Existing `ai_span_payloads` records remain queryable through their
+    current surfaces and, for new ingest, also resolve to an
+    `action_id` for joins against the action graph.
 
 ## Non-goals
 
@@ -773,6 +862,12 @@ Autonomy levels:
   reconstruction from recorded telemetry, not re-execution.
 - **Solve offline evaluation in full.** Production-to-eval creates the
   dataset bridge; large-scale eval runners can come later.
+- **Ship a prompt registry, prompt playground, or experimentation
+  tooling.** Users coming from Langfuse, LangSmith, or Braintrust will
+  expect these. They are downstream of observability and out of scope
+  here. The action graph already carries `prompt_id` and
+  `prompt_version` as first-class dimensions, so a follow-up RFC can
+  layer a registry on without schema change.
 
 ## Risks and open questions
 
@@ -819,6 +914,20 @@ The wedge is not "another LLM observability dashboard." The wedge is
 that obs-unified already connects application telemetry, replay, AI
 calls, profiles, and identity propagation. Agent observability becomes
 the next layer of the same graph.
+
+The closest *philosophical* match in the market is Datadog LLM
+Observability and New Relic AI Monitoring — both layer agent telemetry
+inside an existing APM trace model rather than running a separate
+stack. The differentiator: obs-unified also unifies session replay,
+profiles, and browser identity in the same graph, so a single
+`caused_by_action_id` walk gets from a click to a tool call to a CPU
+flame graph without crossing product boundaries.
+
+Stand-alone agent-observability stacks (Langfuse, Arize Phoenix,
+LangSmith, Braintrust, W&B Weave) remain stronger on prompt
+management, dataset curation, and experiment ergonomics — see the
+non-goal above. obs-unified competes on unification, not on prompt
+tooling.
 
 ## Why this belongs after RFC 0009
 
