@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mark concepts — obs-unified</title>
+<style>
+  :root {
+    --green: #006B18;
+    --green-light: #2BA644;
+    --white: #FFFFFF;
+    --ink: #1A1C1C;
+    --canvas: #F9F9F9;
+    --plane: #FFFFFF;
+    --muted: #6B7171;
+    --rule: #E3E5E5;
+  }
+  html, body { background: var(--canvas); color: var(--ink); margin: 0; }
+  body {
+    font: 14px/1.5 "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+    padding: 40px;
+  }
+  h1 { font-weight: 300; font-size: 32px; letter-spacing: -0.8px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 32px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .card { background: var(--plane); padding: 24px; }
+  .card h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    font-weight: 700;
+    color: var(--green);
+    margin: 0 0 4px;
+  }
+  .card h3 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    letter-spacing: -0.3px;
+  }
+  .card p {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 24px;
+    min-height: 60px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .row:first-of-type { border-top: 0; }
+  .row .size-label {
+    color: var(--muted);
+    font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    width: 36px;
+    text-align: right;
+  }
+  .row .stage { display: flex; align-items: center; gap: 12px; }
+  .swatch-dark { background: #0E1110; padding: 8px; }
+  .lockup {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; letter-spacing: 2.8px; font-size: 14px;
+  }
+</style>
+</head>
+<body>
+  <h1>Mark concepts</h1>
+  <p class="lede">8 candidates at favicon / chrome / hero sizes. Light bg + dark bg. Wordmark lockup at the bottom of each card. A–E are trace/menu-family; F–H explore non-hamburger directions.</p>
+
+  <div class="grid">
+
+    <!-- A — current -->
+    <div class="card">
+      <h2>A · current</h2>
+      <h3>3 stacked bars, gradient</h3>
+      <p>Today's mark. Gradient #006B18 → #008821 on a 32×32 fill, three white bars at varying widths. Risk: reads like a hamburger menu at favicon size.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="a16" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#a16)"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="a16d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#a16d)"/><rect x="6" y="9" width="17" height="2.5" fill="#0E1110"/><rect x="6" y="14.75" width="11" height="2.5" fill="#0E1110"/><rect x="6" y="20.5" width="20" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="a32" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#a32)"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="a32d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#a32d)"/><rect x="6" y="9" width="17" height="2.5" fill="#0E1110"/><rect x="6" y="14.75" width="11" height="2.5" fill="#0E1110"/><rect x="6" y="20.5" width="20" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="a64" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#a64)"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="alk" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#alk)"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- B — flat current -->
+    <div class="card">
+      <h2>B · flat current</h2>
+      <h3>Same shape, no gradient</h3>
+      <p>The minimum change: drop the gradient on today's mark, keep the 3-bar glyph. Matches the rest of the flat, zero-radius system.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><rect x="6" y="9" width="17" height="2.5" fill="#0E1110"/><rect x="6" y="14.75" width="11" height="2.5" fill="#0E1110"/><rect x="6" y="20.5" width="20" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><rect x="6" y="9" width="17" height="2.5" fill="#0E1110"/><rect x="6" y="14.75" width="11" height="2.5" fill="#0E1110"/><rect x="6" y="20.5" width="20" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="9" width="17" height="2.5" fill="#fff"/><rect x="6" y="14.75" width="11" height="2.5" fill="#fff"/><rect x="6" y="20.5" width="20" height="2.5" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- C — span waterfall -->
+    <div class="card">
+      <h2>C · span waterfall</h2>
+      <h3>3 bars, offset like a trace</h3>
+      <p>Same 3-bar family, but bars start at different x-offsets — reads as a parent span with child spans. Distinctive vs. hamburger, on-domain for tracing, still terse.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6"  y="9"     width="20" height="2.5" fill="#fff"/><rect x="10" y="14.75" width="12" height="2.5" fill="#fff"/><rect x="8"  y="20.5"  width="16" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><rect x="6"  y="9"     width="20" height="2.5" fill="#0E1110"/><rect x="10" y="14.75" width="12" height="2.5" fill="#0E1110"/><rect x="8"  y="20.5"  width="16" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6"  y="9"     width="20" height="2.5" fill="#fff"/><rect x="10" y="14.75" width="12" height="2.5" fill="#fff"/><rect x="8"  y="20.5"  width="16" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><rect x="6"  y="9"     width="20" height="2.5" fill="#0E1110"/><rect x="10" y="14.75" width="12" height="2.5" fill="#0E1110"/><rect x="8"  y="20.5"  width="16" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6"  y="9"     width="20" height="2.5" fill="#fff"/><rect x="10" y="14.75" width="12" height="2.5" fill="#fff"/><rect x="8"  y="20.5"  width="16" height="2.5" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6"  y="9"     width="20" height="2.5" fill="#fff"/><rect x="10" y="14.75" width="12" height="2.5" fill="#fff"/><rect x="8"  y="20.5"  width="16" height="2.5" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- D — prompt + bar -->
+    <div class="card">
+      <h2>D · prompt + row</h2>
+      <h3>Caret with a single record</h3>
+      <p>A `›` glyph (terminal cursor) followed by one wide bar. Reads as "shell-native, one record at a time" — pulls on the terminal-green identity. More distinctive at 16×16.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><path d="M7 10 L11 16 L7 22" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="14" y="14.75" width="12" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><path d="M7 10 L11 16 L7 22" stroke="#0E1110" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="14" y="14.75" width="12" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><path d="M7 10 L11 16 L7 22" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="14" y="14.75" width="12" height="2.5" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><path d="M7 10 L11 16 L7 22" stroke="#0E1110" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="14" y="14.75" width="12" height="2.5" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><path d="M7 10 L11 16 L7 22" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="14" y="14.75" width="12" height="2.5" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><path d="M7 10 L11 16 L7 22" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="14" y="14.75" width="12" height="2.5" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- E — timeline + tick -->
+    <div class="card">
+      <h2>E · live timeline</h2>
+      <h3>Spans with a "now" cursor</h3>
+      <p>Two stacked bars plus a vertical "now" tick on the right. Reads as a live waterfall with a playhead. Closest to the existing motif but introduces motion/time.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="10.5" width="16" height="2.5" fill="#fff"/><rect x="10" y="18"   width="12" height="2.5" fill="#fff"/><rect x="24" y="7" width="2.5" height="18" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><rect x="6" y="10.5" width="16" height="2.5" fill="#0E1110"/><rect x="10" y="18"   width="12" height="2.5" fill="#0E1110"/><rect x="24" y="7" width="2.5" height="18" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="10.5" width="16" height="2.5" fill="#fff"/><rect x="10" y="18"   width="12" height="2.5" fill="#fff"/><rect x="24" y="7" width="2.5" height="18" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#2BA644"/><rect x="6" y="10.5" width="16" height="2.5" fill="#0E1110"/><rect x="10" y="18"   width="12" height="2.5" fill="#0E1110"/><rect x="24" y="7" width="2.5" height="18" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="10.5" width="16" height="2.5" fill="#fff"/><rect x="10" y="18"   width="12" height="2.5" fill="#fff"/><rect x="24" y="7" width="2.5" height="18" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><rect width="32" height="32" fill="#006B18"/><rect x="6" y="10.5" width="16" height="2.5" fill="#fff"/><rect x="10" y="18"   width="12" height="2.5" fill="#fff"/><rect x="24" y="7" width="2.5" height="18" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- F — observability scope -->
+    <div class="card">
+      <h2>F · scope</h2>
+      <h3>Scope with unified node</h3>
+      <p>A viewfinder-style scope with one centered node. It moves away from the three-line menu silhouette while keeping the observability idea: focus, inspect, unify.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="f16" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#f16)"/><rect x="7" y="7" width="8" height="2.75" fill="#fff"/><rect x="7" y="7" width="2.75" height="8" fill="#fff"/><rect x="17" y="7" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="7" width="2.75" height="8" fill="#fff"/><rect x="7" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="7" y="17" width="2.75" height="8" fill="#fff"/><rect x="17" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="17" width="2.75" height="8" fill="#fff"/><rect x="14" y="14" width="4" height="4" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="f16d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#f16d)"/><rect x="7" y="7" width="8" height="2.75" fill="#0E1110"/><rect x="7" y="7" width="2.75" height="8" fill="#0E1110"/><rect x="17" y="7" width="8" height="2.75" fill="#0E1110"/><rect x="22.25" y="7" width="2.75" height="8" fill="#0E1110"/><rect x="7" y="22.25" width="8" height="2.75" fill="#0E1110"/><rect x="7" y="17" width="2.75" height="8" fill="#0E1110"/><rect x="17" y="22.25" width="8" height="2.75" fill="#0E1110"/><rect x="22.25" y="17" width="2.75" height="8" fill="#0E1110"/><rect x="14" y="14" width="4" height="4" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="f32" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#f32)"/><rect x="7" y="7" width="8" height="2.75" fill="#fff"/><rect x="7" y="7" width="2.75" height="8" fill="#fff"/><rect x="17" y="7" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="7" width="2.75" height="8" fill="#fff"/><rect x="7" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="7" y="17" width="2.75" height="8" fill="#fff"/><rect x="17" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="17" width="2.75" height="8" fill="#fff"/><rect x="14" y="14" width="4" height="4" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="f32d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#f32d)"/><rect x="7" y="7" width="8" height="2.75" fill="#0E1110"/><rect x="7" y="7" width="2.75" height="8" fill="#0E1110"/><rect x="17" y="7" width="8" height="2.75" fill="#0E1110"/><rect x="22.25" y="7" width="2.75" height="8" fill="#0E1110"/><rect x="7" y="22.25" width="8" height="2.75" fill="#0E1110"/><rect x="7" y="17" width="2.75" height="8" fill="#0E1110"/><rect x="17" y="22.25" width="8" height="2.75" fill="#0E1110"/><rect x="22.25" y="17" width="2.75" height="8" fill="#0E1110"/><rect x="14" y="14" width="4" height="4" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="f64" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#f64)"/><rect x="7" y="7" width="8" height="2.75" fill="#fff"/><rect x="7" y="7" width="2.75" height="8" fill="#fff"/><rect x="17" y="7" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="7" width="2.75" height="8" fill="#fff"/><rect x="7" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="7" y="17" width="2.75" height="8" fill="#fff"/><rect x="17" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="17" width="2.75" height="8" fill="#fff"/><rect x="14" y="14" width="4" height="4" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="flk" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#flk)"/><rect x="7" y="7" width="8" height="2.75" fill="#fff"/><rect x="7" y="7" width="2.75" height="8" fill="#fff"/><rect x="17" y="7" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="7" width="2.75" height="8" fill="#fff"/><rect x="7" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="7" y="17" width="2.75" height="8" fill="#fff"/><rect x="17" y="22.25" width="8" height="2.75" fill="#fff"/><rect x="22.25" y="17" width="2.75" height="8" fill="#fff"/><rect x="14" y="14" width="4" height="4" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- G — unified monogram -->
+    <div class="card">
+      <h2>G · recommended</h2>
+      <h3>Unified monogram</h3>
+      <p>A hard-edged U cut from three strokes. It is the cleanest escape from the hamburger problem: instantly distinct at favicon size, quiet in the lockup, and literal to "unified."</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="g16" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#g16)"/><rect x="8" y="7" width="3.25" height="15" fill="#fff"/><rect x="20.75" y="7" width="3.25" height="15" fill="#fff"/><rect x="8" y="20.75" width="16" height="3.25" fill="#fff"/><rect x="14.375" y="11.5" width="3.25" height="3.25" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="g16d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#g16d)"/><rect x="8" y="7" width="3.25" height="15" fill="#0E1110"/><rect x="20.75" y="7" width="3.25" height="15" fill="#0E1110"/><rect x="8" y="20.75" width="16" height="3.25" fill="#0E1110"/><rect x="14.375" y="11.5" width="3.25" height="3.25" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="g32" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#g32)"/><rect x="8" y="7" width="3.25" height="15" fill="#fff"/><rect x="20.75" y="7" width="3.25" height="15" fill="#fff"/><rect x="8" y="20.75" width="16" height="3.25" fill="#fff"/><rect x="14.375" y="11.5" width="3.25" height="3.25" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="g32d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#g32d)"/><rect x="8" y="7" width="3.25" height="15" fill="#0E1110"/><rect x="20.75" y="7" width="3.25" height="15" fill="#0E1110"/><rect x="8" y="20.75" width="16" height="3.25" fill="#0E1110"/><rect x="14.375" y="11.5" width="3.25" height="3.25" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="g64" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#g64)"/><rect x="8" y="7" width="3.25" height="15" fill="#fff"/><rect x="20.75" y="7" width="3.25" height="15" fill="#fff"/><rect x="8" y="20.75" width="16" height="3.25" fill="#fff"/><rect x="14.375" y="11.5" width="3.25" height="3.25" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="glk" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#glk)"/><rect x="8" y="7" width="3.25" height="15" fill="#fff"/><rect x="20.75" y="7" width="3.25" height="15" fill="#fff"/><rect x="8" y="20.75" width="16" height="3.25" fill="#fff"/><rect x="14.375" y="11.5" width="3.25" height="3.25" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- H — node trace -->
+    <div class="card">
+      <h2>H · trace graph</h2>
+      <h3>Connected nodes</h3>
+      <p>Three nodes joined by one stepped trace. More explicitly observability than G, but busier at favicon size and closer to a diagram than a brand monogram.</p>
+
+      <div class="row">
+        <span class="size-label">16</span>
+        <div class="stage">
+          <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="h16" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#h16)"/><path d="M11 11 H16 V21 H21" stroke="#fff" stroke-width="2.75" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="7" y="7" width="6" height="6" fill="#fff"/><rect x="13" y="13" width="6" height="6" fill="#fff"/><rect x="19" y="19" width="6" height="6" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="h16d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#h16d)"/><path d="M11 11 H16 V21 H21" stroke="#0E1110" stroke-width="2.75" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="7" y="7" width="6" height="6" fill="#0E1110"/><rect x="13" y="13" width="6" height="6" fill="#0E1110"/><rect x="19" y="19" width="6" height="6" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">32</span>
+        <div class="stage">
+          <svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="h32" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#h32)"/><path d="M11 11 H16 V21 H21" stroke="#fff" stroke-width="2.75" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="7" y="7" width="6" height="6" fill="#fff"/><rect x="13" y="13" width="6" height="6" fill="#fff"/><rect x="19" y="19" width="6" height="6" fill="#fff"/></svg>
+          <div class="swatch-dark"><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="h32d" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2BA644"/><stop offset="1" stop-color="#38C254"/></linearGradient></defs><rect width="32" height="32" fill="url(#h32d)"/><path d="M11 11 H16 V21 H21" stroke="#0E1110" stroke-width="2.75" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="7" y="7" width="6" height="6" fill="#0E1110"/><rect x="13" y="13" width="6" height="6" fill="#0E1110"/><rect x="19" y="19" width="6" height="6" fill="#0E1110"/></svg></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="size-label">64</span>
+        <div class="stage">
+          <svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="h64" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#h64)"/><path d="M11 11 H16 V21 H21" stroke="#fff" stroke-width="2.75" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="7" y="7" width="6" height="6" fill="#fff"/><rect x="13" y="13" width="6" height="6" fill="#fff"/><rect x="19" y="19" width="6" height="6" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lockup">
+          <svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="hlk" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#006B18"/><stop offset="1" stop-color="#008821"/></linearGradient></defs><rect width="32" height="32" fill="url(#hlk)"/><path d="M11 11 H16 V21 H21" stroke="#fff" stroke-width="2.75" fill="none" stroke-linecap="square" stroke-linejoin="miter"/><rect x="7" y="7" width="6" height="6" fill="#fff"/><rect x="13" y="13" width="6" height="6" fill="#fff"/><rect x="19" y="19" width="6" height="6" fill="#fff"/></svg>
+          <span>OBS-UNIFIED</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
