@@ -54,7 +54,7 @@ Wrangler must be authenticated first (one-time): `wrangler login`. The Cloudflar
 
 | Repo | What it is |
 |---|---|
-| [`obs-unified`](https://github.com/obs-unified/obs-unified) | The product (collector + SDKs + dashboard). Private while pre-1.0. |
+| [`obs-unified`](https://github.com/obs-unified/obs-unified) | The product (collector + SDKs + dashboard). |
 | [`presence`](https://github.com/obs-unified/presence) | Landing page. Live at [obsunified.com](https://obsunified.com). |
 | [`ci`](https://github.com/obs-unified/ci) | Self-hosted runners + Cloudflare deploy automation. |
 

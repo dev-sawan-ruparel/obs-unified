@@ -13,6 +13,13 @@ import SearchDialog from '@/components/search';
 import NotFound from './routes/not-found';
 
 export const links: Route.LinksFunction = () => [
+  // Brand assets — synced from @obs-unified/brand. Re-run
+  // `node packages/brand/scripts/sync-to-projects.mjs` after edits.
+  { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+  { rel: 'alternate icon', href: '/favicon.ico' },
+  { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+  { rel: 'manifest', href: '/site.webmanifest' },
+
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
   {
     rel: 'preconnect',
@@ -31,6 +38,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#006B18" />
+
+        {/* Site-wide social defaults. Per-route Meta below can override
+            og:title / og:description; the og:image stays constant. */}
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="obs-unified" />
+        <meta
+          property="og:title"
+          content="obs-unified docs — self-hosted observability"
+        />
+        <meta
+          property="og:description"
+          content="Collector, dashboard, and SDKs for self-hosted traces, logs, AI calls, replay, usage, and alerts. MIT-licensed."
+        />
+        <meta property="og:url" content="https://docs.obsunified.com/" />
+        <meta
+          property="og:image"
+          content="https://docs.obsunified.com/og.jpg"
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="obs-unified docs — self-hosted observability"
+        />
+        <meta
+          name="twitter:description"
+          content="Collector, dashboard, and SDKs for self-hosted traces, logs, AI calls, replay, usage, and alerts."
+        />
+        <meta
+          name="twitter:image"
+          content="https://docs.obsunified.com/og.jpg"
+        />
         <Meta />
         <Links />
       </head>

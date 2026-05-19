@@ -3,7 +3,7 @@ title: Welcome
 description: A single observability stack where every signal is reachable from every other in ≤2 clicks.
 ---
 
-obs-unified ships traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses into one Cloudflare-Worker collector backed by D1 (SQL) and R2 (blob storage). A React dashboard renders them, and the **Connected rail** on every detail page surfaces the entity's neighbors so the user can pivot in one click.
+obs-unified ships traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses into one collector. The default deployment runs on Cloudflare Workers with D1 (SQL) and R2 (blob storage); the Node collector path uses Postgres and S3-compatible blob storage. A React dashboard renders the signals, and the **Connected rail** on every detail page surfaces the entity's neighbors so the user can pivot in one click.
 
 ## What's in this documentation
 

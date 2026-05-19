@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="obs-unified docs — read the source, run the stack">
+  <title>obs-unified docs</title>
+  <defs>
+    <linearGradient id="ouOgMarkDocs" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#006B18"/>
+      <stop offset="1" stop-color="#008821"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#F9F9F9"/>
+  <rect x="40" y="40" width="1120" height="550" fill="#FFFFFF"/>
+  <rect x="40" y="40" width="12" height="550" fill="#006B18"/>
+
+  <g transform="translate(96 80)">
+    <rect width="64" height="64" fill="url(#ouOgMarkDocs)"/>
+    <rect x="12" y="18"   width="34" height="5" fill="#FFFFFF"/>
+    <rect x="12" y="29.5" width="22" height="5" fill="#FFFFFF"/>
+    <rect x="12" y="41"   width="40" height="5" fill="#FFFFFF"/>
+    <text
+      x="86" y="42"
+      fill="#1A1C1C"
+      font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
+      font-size="20"
+      font-weight="700"
+      letter-spacing="2.8"
+    >OBS-UNIFIED</text>
+  </g>
+
+  <text
+    x="96" y="220"
+    fill="#006B18"
+    font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
+    font-size="14"
+    font-weight="700"
+    letter-spacing="1.7"
+  >DOCUMENTATION · DEPLOY · SDKs</text>
+
+  <text
+    x="96" y="328"
+    fill="#1A1C1C"
+    font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
+    font-size="92"
+    font-weight="300"
+    letter-spacing="-2.2"
+  >Read the source.</text>
+  <text
+    x="96" y="424"
+    fill="#006B18"
+    font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
+    font-size="92"
+    font-weight="300"
+    letter-spacing="-2.2"
+  >Run the stack.</text>
+
+  <text
+    x="96" y="478"
+    fill="#4E5555"
+    font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
+    font-size="22"
+    font-weight="400"
+  >Collector · Dashboard · Telemetry SDK · Analytics SDK · CLI</text>
+
+  <rect x="40" y="540" width="1120" height="50" fill="#F3F3F3"/>
+  <text
+    x="96" y="572"
+    fill="#6B7171"
+    font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+    font-size="14"
+    font-weight="500"
+  >docs.obs-unified.dev</text>
+  <text
+    x="1104" y="572"
+    text-anchor="end"
+    fill="#1A1C1C"
+    font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+    font-size="14"
+    font-weight="600"
+  >npm i @obs-unified/telemetry-sdk</text>
+</svg>
