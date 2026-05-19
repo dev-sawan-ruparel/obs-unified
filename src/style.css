@@ -235,6 +235,18 @@ code {
 }
 .hero-meta strong { color: var(--color-sys-primary); font-weight: 700; }
 
+/* Polyglot SDK indicator beside the npm install line — visually
+   subordinate to the primary install command but unmissable on scan. */
+.hero-meta-langs {
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid var(--color-sys-outline-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-sys-on-surface-subtle);
+}
+.hero-meta-langs strong { color: var(--color-sys-on-surface-muted); font-weight: 600; }
+
 /* Hero preview window — terminal/ledger aesthetic. */
 .window {
   background: var(--color-sys-surface);
@@ -414,6 +426,19 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   font-size: 11px;
   font-weight: 700;
 }
+/* Note above a code block — e.g. "TypeScript shown · same API in Go and Rust". */
+.preview-step-note {
+  margin: 0;
+  padding: 8px 18px 10px;
+  background: var(--color-sys-surface-low);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-sys-on-surface-subtle);
+  border-top: 1px solid var(--color-sys-outline-soft);
+}
+.preview-step-note strong { color: var(--color-sys-primary); font-weight: 700; }
+.preview-step-note a { color: var(--color-sys-primary); }
+
 .code-block {
   margin: 0;
   padding: 18px;

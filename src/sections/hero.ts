@@ -11,12 +11,13 @@ export function renderHero(): string {
         <span class="accent">two clicks away.</span>
       </h1>
       <p class="hero-lead">
-        <strong>obs-unified</strong> is a self-hosted observability stack where
-        traces, logs, AI calls, usage events, replays, alerts, and user profiles
-        all live in one collector — and the <strong>Connected rail</strong> on every
-        detail page surfaces the entity's neighbors, so you pivot from any signal
-        to any other in <strong>≤2 clicks</strong>. Runs end-to-end on Cloudflare
-        Workers + D1 + R2, with a Node collector path for Postgres + S3-compatible storage.
+        <strong>obs-unified</strong> is a self-hosted observability stack with
+        first-party SDKs for <strong>TypeScript, Go, and Rust</strong> — traces,
+        logs, AI calls, usage events, replays, alerts, and user profiles all live
+        in one collector, and the <strong>Connected rail</strong> on every detail
+        page surfaces the entity's neighbors so you pivot from any signal to any
+        other in <strong>≤2 clicks</strong>. Runs end-to-end on Cloudflare Workers
+        + D1 + R2, with a Node collector path for Postgres + S3-compatible storage.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${DOCS_URL}">
@@ -30,6 +31,7 @@ export function renderHero(): string {
       </div>
       <div class="hero-meta">
         <span><strong>npm</strong> install @obs-unified/telemetry-sdk</span>
+        <span class="hero-meta-langs">also: <strong>go get</strong> · <strong>cargo add</strong></span>
       </div>
       <p class="hero-chain">
         Identity propagated end-to-end:

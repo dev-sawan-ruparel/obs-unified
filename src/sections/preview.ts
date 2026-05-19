@@ -82,6 +82,7 @@ export function renderPreview(): string {
       </div>
       <div class="preview-card">
         <div class="preview-step"><span class="step-num">2</span> Instrument your backend</div>
+        <p class="preview-step-note">TypeScript shown · same API in <strong>Go</strong> and <strong>Rust</strong> — see <a href="https://docs.obsunified.com/docs/sdks">SDK docs</a></p>
         ${code("typescript", BACKEND)}
       </div>
       <div class="preview-card">

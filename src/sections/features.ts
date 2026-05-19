@@ -40,6 +40,11 @@ const FEATURES: Feature[] = [
     body: "Identity linking from anonymous visitor to logged-in user, with traits and event history. Every signal can be filtered by user and replayed from their perspective.",
     icon: `<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>`,
   },
+  {
+    title: "Polyglot SDKs",
+    body: "First-party SDKs for TypeScript, Go, and Rust — same API surface, same identity chain, all feeding one collector. Any OpenTelemetry SDK works as a fallback.",
+    icon: `<polyline points="8 18 2 12 8 6"/><polyline points="16 6 22 12 16 18"/><line x1="14" y1="4" x2="10" y2="20"/>`,
+  },
 ];
 
 function card({ title, body, icon }: Feature): string {
@@ -59,7 +64,7 @@ export function renderFeatures(): string {
 <section id="features" class="features" aria-labelledby="features-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">Seven signal types · one collector</p>
+      <p class="eyebrow">Every signal · every language · one collector</p>
       <h2 id="features-title">Every signal reachable from every other in ≤2 clicks.</h2>
       <p class="section-lead">
         obs-unified replaces the patchwork of APM + logging + product analytics + session replay
