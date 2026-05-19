@@ -2,14 +2,14 @@
   <title>obs-unified</title>
   <style>
     .bg { fill: #006B18; }
-    .fg { fill: #FFFFFF; }
+    .fg { fill: #FFFFFF; stroke: #FFFFFF; }
     @media (prefers-color-scheme: dark) {
       .bg { fill: #2BA644; }
-      .fg { fill: #0E1110; }
+      .fg { fill: #0E1110; stroke: #0E1110; }
     }
   </style>
   <rect class="bg" width="32" height="32"/>
-  <rect class="fg" x="6"  y="9"     width="17" height="2.5"/>
-  <rect class="fg" x="6"  y="14.75" width="11" height="2.5"/>
-  <rect class="fg" x="6"  y="20.5"  width="20" height="2.5"/>
+  <path class="fg" d="M7 9 L10 14 L7 19" fill="none" stroke-width="2.2" stroke-linejoin="bevel" stroke-linecap="square"/>
+  <rect class="fg" x="14" y="12.9" width="12" height="2.2" stroke="none"/>
+  <rect class="fg" x="14" y="18.9" width="8"  height="2.2" stroke="none"/>
 </svg>
