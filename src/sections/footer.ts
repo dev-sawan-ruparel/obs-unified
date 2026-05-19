@@ -34,9 +34,11 @@ export function renderFooter(): string {
       <span class="muted small">Open source · MIT</span>
     </nav>
   </div>
-  <div class="container footer-bottom">
-    <p class="muted small">© ${YEAR} obs-unified contributors</p>
-    <p class="muted small">Built with vanilla TypeScript + Vite</p>
+  <div class="footer-bottom-wrap">
+    <div class="container footer-bottom">
+      <p class="muted small">© ${YEAR} obs-unified contributors</p>
+      <p class="muted small">Built with vanilla TypeScript + Vite</p>
+    </div>
   </div>
 </footer>
 `;

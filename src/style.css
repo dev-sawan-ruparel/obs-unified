@@ -531,7 +531,7 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1.4fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 32px;
   padding-bottom: 36px;
 }
@@ -553,15 +553,14 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   font-size: 14px;
 }
 .footer-nav a:hover { color: var(--color-sys-on-surface); }
+.footer-bottom-wrap {
+  background: var(--color-sys-surface-low);
+}
 .footer-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding-top: 22px;
-  background: var(--color-sys-surface-low);
-  margin: 0 -24px;
-  padding-left: 24px;
-  padding-right: 24px;
   padding-bottom: 22px;
 }
 @media (max-width: 540px) { .footer-bottom { flex-direction: column; gap: 8px; } }
