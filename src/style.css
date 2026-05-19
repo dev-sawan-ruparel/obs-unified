@@ -498,16 +498,179 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 .arch-copy strong { color: var(--color-sys-on-surface); font-weight: 600; }
 .arch-list { color: var(--color-sys-on-surface-muted); padding-left: 18px; margin: 0 0 16px; }
 .arch-list li { margin-bottom: 8px; }
-.diagram {
+.arch-visual {
+  margin: 0;
   background: var(--color-sys-surface-low);
   border-left: 4px solid var(--color-sys-primary);
-  padding: 22px;
+  padding: 18px;
+  max-width: 100%;
+  min-width: 0;
+}
+.arch-visual-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  font-family: var(--font-mono);
+}
+.arch-kicker {
+  color: var(--color-sys-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+}
+.arch-state {
+  background: color-mix(in srgb, var(--color-sys-primary) 12%, transparent);
+  color: var(--color-sys-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.arch-map {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.95fr) minmax(120px, 0.7fr) minmax(220px, 1.15fr);
+  grid-template-areas:
+    "sources boundaries collector"
+    ". storage storage";
+  gap: 14px;
+  align-items: center;
+}
+.arch-source-stack {
+  grid-area: sources;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.arch-boundaries {
+  grid-area: boundaries;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.arch-collector { grid-area: collector; }
+.arch-storage {
+  grid-area: storage;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.arch-node,
+.arch-boundary {
+  background: var(--color-sys-surface);
+  min-width: 0;
+}
+.arch-node {
+  padding: 14px;
+}
+.arch-source {
+  border-left: 3px solid var(--color-sys-outline-soft);
+}
+.arch-collector {
+  border-left: 4px solid var(--color-sys-primary);
+  padding: 16px;
+}
+.arch-store {
+  border-left: 3px solid color-mix(in srgb, var(--color-sys-accent) 34%, var(--color-sys-outline-soft));
+}
+.arch-node-label {
+  display: block;
+  color: var(--color-sys-on-surface);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.arch-node-meta {
+  display: block;
+  color: var(--color-sys-on-surface-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.arch-boundary {
+  position: relative;
+  padding: 12px 12px 12px 16px;
+  font-family: var(--font-mono);
+  color: var(--color-sys-on-surface);
+}
+.arch-boundary::before,
+.arch-boundary::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  background: var(--color-sys-primary);
+  transform: translateY(-50%);
+}
+.arch-boundary::before { left: -14px; width: 14px; }
+.arch-boundary::after { right: -14px; width: 14px; }
+.arch-flow-label {
+  display: block;
+  color: var(--color-sys-on-surface-subtle);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.arch-boundary strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+.arch-routes {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
   font-family: var(--font-mono);
   font-size: 12.5px;
-  line-height: 1.55;
+}
+.arch-routes span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--color-sys-surface-low);
+  color: var(--color-sys-on-surface-muted);
+  padding: 7px 8px;
+}
+.arch-routes code {
+  background: transparent;
+  padding: 0;
   color: var(--color-sys-on-surface);
-  overflow-x: auto;
-  max-width: 100%;
+  white-space: nowrap;
+}
+@media (max-width: 1080px) {
+  .arch-map {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "sources"
+      "boundaries"
+      "collector"
+      "storage";
+  }
+  .arch-boundary::before,
+  .arch-boundary::after {
+    display: none;
+  }
+  .arch-boundaries {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 540px) {
+  .arch-visual { padding: 14px; }
+  .arch-visual-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .arch-boundaries,
+  .arch-storage {
+    grid-template-columns: 1fr;
+  }
+  .arch-routes span {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
 }
 
 /* FAQ */
