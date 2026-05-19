@@ -803,6 +803,14 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 
 /* Compare table */
 .compare .section-header { margin-bottom: 36px; }
+.cmp-asof {
+  color: var(--color-sys-on-surface-subtle);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  margin-left: 6px;
+}
 .cmp-scroll {
   overflow-x: auto;
   background: var(--color-sys-surface);
@@ -815,16 +823,17 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 .cmp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
-  min-width: 720px;
+  font-size: 13px;
+  /* Sized for label + obs-unified + 9 competitor columns (11 total). */
+  min-width: 1700px;
 }
 .cmp-table thead th {
   position: sticky;
   top: 0;
   background: var(--color-sys-surface-low);
-  padding: 14px 16px;
+  padding: 12px 12px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   text-align: left;
   color: var(--color-sys-on-surface);
   letter-spacing: -0.005em;
@@ -842,19 +851,36 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 .cmp-table tbody tr:nth-child(even) { background: var(--color-sys-surface-low); }
 .cmp-table tbody tr:hover { background: color-mix(in srgb, var(--color-sys-primary) 6%, transparent); }
 .cmp-row-label {
-  padding: 14px 16px;
+  padding: 12px 12px;
   font-weight: 500;
   color: var(--color-sys-on-surface);
   text-align: left;
   white-space: nowrap;
 }
 .cmp-cell {
-  padding: 14px 16px;
+  padding: 12px 12px;
   color: var(--color-sys-on-surface-muted);
   vertical-align: top;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.45;
 }
+/* Footnote superscript that links into the docs comparison page. */
+.cmp-ref {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 1px;
+}
+.cmp-ref a {
+  color: var(--color-sys-primary);
+  text-decoration: none;
+  padding: 0 1px;
+}
+.cmp-ref a:hover { text-decoration: underline; }
 .cmp-cell.cmp-yes { color: var(--color-sys-on-surface); }
 .cmp-cell.cmp-yes::before {
   content: "✓ ";
