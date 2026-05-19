@@ -1,10 +1,17 @@
-const INSTALL = `npm install @obs-unified/telemetry-sdk \\
-  @obs-unified/analytics-sdk`;
+import { SDK_DOCS_URL } from "../config";
+
+const SDK_PATHS = `Backend:
+  TypeScript  @obs-unified/* on GitHub Packages
+  Go          sdks/go
+  Rust        sdks/rust
+
+Browser:
+  React/vanilla  @obs-unified/analytics-sdk`;
 
 const BACKEND = `import {
   initObservability,
   createLogger,
-  trackAICall,
+  startLLMSpan,
 } from "@obs-unified/telemetry-sdk";
 
 initObservability({
@@ -18,13 +25,15 @@ const log = createLogger("checkout");
 app.post("/checkout", async (c) => {
   log.info("charge.starting", { user: c.user.id });
   const result = await stripe.charges.create({ amount: 4900 });
-  trackAICall({
-    modelName: "claude-sonnet-4",
-    promptTokens: 150,
-    completionTokens: 80,
-    latencyMs: 230,
-    totalCostUsd: 0.0021,
+
+  const llm = startLLMSpan({
+    provider: "anthropic",
+    model: "claude-sonnet-4",
   });
+  llm.setTokens({ prompt: 150, completion: 80, total: 230 });
+  llm.setCost(0.0021);
+  llm.end();
+
   return c.json(result);
 });`;
 
@@ -71,18 +80,19 @@ export function renderPreview(): string {
       <p class="eyebrow">Quick preview</p>
       <h2 id="preview-title">From zero to correlated signals in three steps</h2>
       <p class="section-lead">
-        Install the SDKs, point them at your collector, and call <code>initObservability()</code>.
-        Backend spans, frontend interactions, and AI calls share the same identity chain automatically.
+        Pick the SDKs for your runtime, point them at your collector, and initialize each service.
+        Backend spans, frontend interactions, and AI spans share the same identity chain automatically.
       </p>
     </header>
     <div class="preview-grid">
       <div class="preview-card">
-        <div class="preview-step"><span class="step-num">1</span> Install</div>
-        ${code("bash", INSTALL)}
+        <div class="preview-step"><span class="step-num">1</span> Pick SDKs</div>
+        <p class="preview-step-note">Full language examples live in the <a href="${SDK_DOCS_URL}">SDK docs</a></p>
+        ${code("text", SDK_PATHS)}
       </div>
       <div class="preview-card">
         <div class="preview-step"><span class="step-num">2</span> Instrument your backend</div>
-        <p class="preview-step-note">TypeScript shown · same API in <strong>Go</strong> and <strong>Rust</strong> — see <a href="https://docs.obsunified.com/docs/sdks">SDK docs</a></p>
+        <p class="preview-step-note">TypeScript shown · equivalent <strong>Go</strong> and <strong>Rust</strong> examples live in the <a href="${SDK_DOCS_URL}">SDK docs</a></p>
         ${code("typescript", BACKEND)}
       </div>
       <div class="preview-card">

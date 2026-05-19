@@ -1,4 +1,4 @@
-import { DOCS_URL, GITHUB_URL } from "../config";
+import { DOCS_URL, GITHUB_URL, SDK_DOCS_URL } from "../config";
 
 export function renderHero(): string {
   return `
@@ -16,7 +16,7 @@ export function renderHero(): string {
         logs, AI calls, usage events, replays, alerts, and user profiles all live
         in one collector, and the <strong>Connected rail</strong> on every detail
         page surfaces the entity's neighbors so you pivot from any signal to any
-        other in <strong>≤2 clicks</strong>. Runs end-to-end on Cloudflare Workers
+        other in <strong>≤2 clicks</strong>. Deploys on Cloudflare Workers
         + D1 + R2, with a Node collector path for Postgres + S3-compatible storage.
       </p>
       <div class="cta-row">
@@ -30,8 +30,8 @@ export function renderHero(): string {
         </a>
       </div>
       <div class="hero-meta">
-        <span><strong>npm</strong> install @obs-unified/telemetry-sdk</span>
-        <span class="hero-meta-langs">also: <strong>go get</strong> · <strong>cargo add</strong></span>
+        <span><strong>SDKs</strong> TypeScript · Go · Rust · browser</span>
+        <a class="hero-meta-langs" href="${SDK_DOCS_URL}">SDK docs</a>
       </div>
       <p class="hero-chain">
         Identity propagated end-to-end:
@@ -47,7 +47,7 @@ export function renderHero(): string {
         <div class="window-body">
           <div class="signal-row"><span class="tag tag-int">INTERACTION</span> button.checkout.click <span class="muted">user_412</span></div>
           <div class="signal-row indent"><span class="tag tag-trace">TRACE</span> POST /api/checkout <span class="muted">→ 187ms</span></div>
-          <div class="signal-row indent"><span class="tag tag-log">LOG</span> stripe.charge.created <span class="muted">amount=4900</span></div>
+          <div class="signal-row indent"><span class="tag tag-log">LOG</span> checkout.charge.created <span class="muted">amount=4900</span></div>
           <div class="signal-row indent"><span class="tag tag-ai">AI</span> claude-sonnet-4 · 230ms · $0.0021</div>
           <div class="signal-row indent"><span class="tag tag-replay">REPLAY</span> 00:42 → 00:51 <span class="muted">rrweb</span></div>
           <div class="signal-row indent"><span class="tag tag-alert">ALERT</span> p99 latency · threshold breach</div>

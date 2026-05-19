@@ -19,7 +19,7 @@ const ROWS: Row[] = [
   {
     label: "Traces / APM",
     obs: { v: "OTLP-native", tone: "yes" },
-    datadog: { v: "Proprietary", tone: "yes" },
+    datadog: { v: "Yes", tone: "yes" },
     sentry: { v: "Performance", tone: "partial" },
     posthog: { v: "—", tone: "no" },
   },
@@ -33,7 +33,7 @@ const ROWS: Row[] = [
   {
     label: "AI / LLM observability",
     obs: { v: "Built-in", tone: "yes" },
-    datadog: { v: "Add-on", tone: "partial" },
+    datadog: { v: "Separate product", tone: "partial" },
     sentry: { v: "—", tone: "no" },
     posthog: { v: "—", tone: "no" },
   },
@@ -98,8 +98,8 @@ export function renderCompare(): string {
       <p class="eyebrow">How it compares</p>
       <h2 id="compare-title">One stack instead of three</h2>
       <p class="section-lead">
-        Most teams glue together an APM, a product-analytics tool, and an error/session tool.
-        obs-unified covers all three, on your own infrastructure, with a single identity chain
+        Many teams glue together an APM, a product-analytics tool, and an error/session tool.
+        obs-unified keeps those workflows on your own infrastructure, with a single identity chain
         that lets you pivot between every signal type.
       </p>
     </header>
@@ -120,8 +120,7 @@ export function renderCompare(): string {
       </table>
     </div>
     <p class="cmp-footnote muted small">
-      Reflects each product's primary documented capabilities. Comparisons are positioning,
-      not benchmarks — every team's needs differ.
+      High-level positioning only; product capabilities and packaging change over time.
     </p>
   </div>
 </section>

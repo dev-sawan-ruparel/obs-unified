@@ -43,18 +43,17 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 
 ## SDKs
 
-| Language | Package | Notes |
+| Runtime | Package / workspace | Notes |
 | --- | --- | --- |
-| TypeScript / Node | `@obs-unified/telemetry-sdk` | Workers, Hono, Next.js, Express |
-| TypeScript / browser | `@obs-unified/analytics-sdk` | Vanilla + React provider |
-| Go | OpenTelemetry-compatible wrapper |  |
-| Rust | OpenTelemetry-compatible wrapper |  |
+| TypeScript / Node | `@obs-unified/telemetry-sdk` | GitHub Packages; Workers, Hono, Next.js, Express |
+| TypeScript / browser | `@obs-unified/analytics-sdk` | GitHub Packages; vanilla + React provider |
+| Go | `sdks/go` | OpenTelemetry-compatible wrapper |
+| Rust | `sdks/rust` | OpenTelemetry-compatible wrapper |
 
 ## Install
 
-```bash
-npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
-```
+Language-specific examples and GitHub Packages auth setup are maintained in the SDK docs:
+https://docs.obsunified.com/docs/sdks
 
 ```typescript
 import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
@@ -80,8 +79,9 @@ initObservability({
   you run it on (Cloudflare Workers + D1 + R2, or Node with Postgres + S3).
 - **What's the data retention model?** Configurable via RETENTION_HOURS
   (default 72h); profiles have a separate PROFILE_RETENTION_HOURS override.
-- **When do I outgrow D1?** Practical ceiling around 100M hot rows. Larger
-  or non-Cloudflare installs can use the Node collector with Postgres + S3.
+- **When do I outgrow D1?** D1 is the default low-ops path for small and
+  medium deployments. Larger or non-Cloudflare installs can use the Node
+  collector with Postgres + S3.
 - **Does it support SSO / multi-user?** Not today — ingest API key + single
   dashboard password. SSO/RBAC is tracked separately.
 - **What runtimes does it support?** Cloudflare Workers (D1 + R2) and a Node

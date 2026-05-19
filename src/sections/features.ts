@@ -32,7 +32,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: "Alerts",
-    body: "Alert rules over any signal — latency, error rate, AI spend, custom usage events. One rules engine, one notification surface, no Datadog monitor sprawl.",
+    body: "Alert rules over any signal — latency, error rate, AI spend, custom usage events. One rules engine and one notification surface across the stack.",
     icon: `<path d="M12 2a7 7 0 0 0-7 7v4l-2 3h18l-2-3V9a7 7 0 0 0-7-7z"/><path d="M9 18a3 3 0 0 0 6 0"/>`,
   },
   {

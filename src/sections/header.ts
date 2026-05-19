@@ -19,7 +19,7 @@ export function renderHeader(): string {
       <a href="#compare">Compare</a>
       <a href="#architecture">Architecture</a>
       <a href="#faq">FAQ</a>
-      <a href="${DOCS_URL}">Docs</a>
+      <a class="btn btn-ghost" href="${DOCS_URL}">Docs</a>
       <a class="btn btn-ghost" href="${GITHUB_URL}">GitHub</a>
     </nav>
   </div>

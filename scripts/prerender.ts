@@ -10,6 +10,7 @@ import { renderArchitecture } from "../src/sections/architecture";
 import { renderCompare } from "../src/sections/compare";
 import { renderFaq } from "../src/sections/faq";
 import { renderFooter } from "../src/sections/footer";
+import { renderJsonLdScript } from "../src/schema";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distHtml = resolve(__dirname, "../dist/index.html");
@@ -35,6 +36,7 @@ if (!APP_DIV.test(html)) {
 }
 
 let next = html.replace(APP_DIV, `<div id="app">${body}</div>`);
+next = next.replace("</head>", `    ${renderJsonLdScript()}\n  </head>`);
 
 // All content is static — drop the bundle script so the prod page ships pure HTML + CSS.
 // The CSS link remains intact.
