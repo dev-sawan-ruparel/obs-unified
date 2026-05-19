@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 32" role="img" aria-label="obs-unified (dark)">
+  <title>obs-unified</title>
+  <defs>
+    <linearGradient id="ouWordmarkDark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2BA644"/>
+      <stop offset="1" stop-color="#38C254"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" fill="url(#ouWordmarkDark)"/>
+  <rect x="6" y="9"  width="17" height="2.5" fill="#0E1110"/>
+  <rect x="6" y="14.75" width="11" height="2.5" fill="#0E1110"/>
+  <rect x="6" y="20.5" width="20" height="2.5" fill="#0E1110"/>
+  <text
+    x="46"
+    y="21.5"
+    fill="#E6E9E7"
+    font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
+    font-size="14"
+    font-weight="700"
+    letter-spacing="1.96"
+  >OBS-UNIFIED</text>
+</svg>

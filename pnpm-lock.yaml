@@ -119,6 +119,9 @@ importers:
       '@obs-unified/analytics-sdk':
         specifier: workspace:*
         version: link:../../packages/analytics-sdk
+      '@obs-unified/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       '@obs-unified/dashboard':
         specifier: workspace:*
         version: link:../../packages/dashboard
@@ -181,6 +184,12 @@ importers:
       typescript:
         specifier: ^6.0.2
         version: 6.0.2
+
+  packages/brand:
+    devDependencies:
+      sharp:
+        specifier: ^0.34.0
+        version: 0.34.5
 
   packages/cli:
     dependencies:

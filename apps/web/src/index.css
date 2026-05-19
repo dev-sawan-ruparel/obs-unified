@@ -1,64 +1,11 @@
 @import "tailwindcss";
 
+/* Design tokens — the canonical palette + typography + dark-mode
+   surface ladder live in @obs-unified/brand. Edit there, not here. */
+@import "@obs-unified/brand/theme.css";
+
 /* Tell Tailwind v4 to scan the dashboard package for class names —
    without this, the @tailwindcss/vite plugin auto-scan only covers
    the current app and new classes used in packages/dashboard/src/**
    silently fail to compile. */
 @source "../../../packages/dashboard/src/**/*.{ts,tsx}";
-
-@theme {
-  --color-sys-bg: #F9F9F9;
-  --color-sys-surface: #FFFFFF;
-  --color-sys-surface-low: #F3F3F3;
-  --color-sys-surface-high: #E8E8E8;
-  --color-sys-primary: #006B18;
-  --color-sys-primary-container: #008821;
-  --color-sys-error: #B7102A;
-  --color-sys-warning: #A56100;
-  --color-sys-accent: #17497B;
-  --color-sys-on-surface: #1A1C1C;
-  --color-sys-on-surface-muted: #4E5555;
-  --color-sys-on-surface-subtle: #6B7171;
-  --color-sys-outline: #BDCBB6;
-  --color-sys-outline-soft: #E5E7E3;
-  
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-
-@layer base {
-  * {
-    border-radius: 0px !important;
-  }
-
-  body {
-    background-color: var(--color-sys-bg);
-    color: var(--color-sys-on-surface);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-  }
-
-  /* Dark theme — opt-in via <html data-theme="dark">.
-     Inverts the surface ladder while keeping terminal-green primary
-     and system red intact. Hand-tuned to preserve WCAG contrast. */
-  html[data-theme="dark"] {
-    --color-sys-bg: #0E1110;
-    --color-sys-surface: #15191A;
-    --color-sys-surface-low: #1C2122;
-    --color-sys-surface-high: #262C2D;
-    --color-sys-primary: #2BA644;
-    --color-sys-primary-container: #38C254;
-    --color-sys-error: #E0556A;
-    --color-sys-warning: #D89248;
-    --color-sys-accent: #4F8FCB;
-    --color-sys-on-surface: #E6E9E7;
-    --color-sys-on-surface-muted: #9CA5A2;
-    --color-sys-on-surface-subtle: #6E7773;
-    --color-sys-outline: #2D3A30;
-    --color-sys-outline-soft: #1F2622;
-  }
-}
-
-.hover\:bg-micro-gradient:hover {
-  background: linear-gradient(135deg, var(--color-sys-primary) 0%, var(--color-sys-primary-container) 100%) !important;
-}

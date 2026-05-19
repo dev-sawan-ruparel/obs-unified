@@ -1,0 +1,45 @@
+{
+	"name": "@obs-unified/brand",
+	"version": "1.0.0",
+	"description": "Brand assets and design tokens for obs-unified — logo, favicons, OG images, and shared CSS tokens.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/obs-unified/obs-unified.git",
+		"directory": "packages/brand"
+	},
+	"type": "module",
+	"main": "./index.js",
+	"exports": {
+		".": "./index.js",
+		"./tokens.css": "./tokens/tokens.css",
+		"./theme.css": "./tokens/theme.css",
+		"./logo/mark.svg": "./logo/mark.svg",
+		"./logo/mark-dark.svg": "./logo/mark-dark.svg",
+		"./logo/wordmark.svg": "./logo/wordmark.svg",
+		"./logo/wordmark-dark.svg": "./logo/wordmark-dark.svg",
+		"./favicons/favicon.svg": "./favicons/favicon.svg",
+		"./og/obs-unified.svg": "./og/obs-unified.svg",
+		"./og/docs.svg": "./og/docs.svg",
+		"./og/presence.svg": "./og/presence.svg",
+		"./og/profile.svg": "./og/profile.svg",
+		"./og/profile-dark.svg": "./og/profile-dark.svg"
+	},
+	"files": [
+		"tokens",
+		"logo",
+		"favicons",
+		"og",
+		"index.js",
+		"README.md"
+	],
+	"scripts": {
+		"build:rasters": "node scripts/build-rasters.mjs",
+		"sync": "node scripts/sync-to-projects.mjs",
+		"test": "node scripts/verify-tokens.mjs"
+	},
+	"sideEffects": false,
+	"devDependencies": {
+		"sharp": "^0.34.0"
+	}
+}

@@ -1,0 +1,83 @@
+/*
+ * Tailwind v4 @theme variant of the obs-unified design tokens.
+ *
+ * Use this from any Tailwind v4 consumer (apps/web, packages/dashboard,
+ * obs-unified-docs). It declares the custom properties inside @theme so
+ * Tailwind generates matching utility classes (bg-sys-bg, text-sys-primary, …).
+ *
+ * Plain-CSS consumers (presence) should import ./tokens.css instead.
+ *
+ * Keep the values in this file IDENTICAL to ./tokens.css — they're the
+ * same palette, just declared in two syntaxes. If you change a token,
+ * change it in both files in the same commit.
+ */
+
+@theme {
+	--color-sys-bg: #f9f9f9;
+	--color-sys-surface: #ffffff;
+	--color-sys-surface-low: #f3f3f3;
+	--color-sys-surface-high: #e8e8e8;
+
+	--color-sys-primary: #006b18;
+	--color-sys-primary-container: #008821;
+
+	--color-sys-error: #b7102a;
+	--color-sys-warning: #a56100;
+	--color-sys-accent: #17497b;
+
+	--color-sys-on-surface: #1a1c1c;
+	--color-sys-on-surface-muted: #4e5555;
+	--color-sys-on-surface-subtle: #6b7171;
+
+	--color-sys-outline: #bdcbb6;
+	--color-sys-outline-soft: #e5e7e3;
+
+	--font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui,
+		sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+		"Segoe UI Symbol", "Noto Color Emoji";
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", "Courier New", monospace;
+}
+
+@layer base {
+	* {
+		border-radius: 0px !important;
+	}
+
+	body {
+		background-color: var(--color-sys-bg);
+		color: var(--color-sys-on-surface);
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	/* Dark theme — opt in via <html data-theme="dark">.
+	   Inverts the surface ladder while keeping terminal-green primary
+	   and system red intact. Hand-tuned to preserve WCAG contrast. */
+	html[data-theme="dark"] {
+		--color-sys-bg: #0e1110;
+		--color-sys-surface: #15191a;
+		--color-sys-surface-low: #1c2122;
+		--color-sys-surface-high: #262c2d;
+		--color-sys-primary: #2ba644;
+		--color-sys-primary-container: #38c254;
+		--color-sys-error: #e0556a;
+		--color-sys-warning: #d89248;
+		--color-sys-accent: #4f8fcb;
+		--color-sys-on-surface: #e6e9e7;
+		--color-sys-on-surface-muted: #9ca5a2;
+		--color-sys-on-surface-subtle: #6e7773;
+		--color-sys-outline: #2d3a30;
+		--color-sys-outline-soft: #1f2622;
+	}
+}
+
+/* Primary CTA micro-gradient — terminal-phosphor glow on hover. */
+.bg-micro-gradient,
+.hover\:bg-micro-gradient:hover {
+	background: linear-gradient(
+		135deg,
+		var(--color-sys-primary) 0%,
+		var(--color-sys-primary-container) 100%
+	) !important;
+}
