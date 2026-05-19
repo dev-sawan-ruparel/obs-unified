@@ -1,0 +1,748 @@
+---
+title: How obs-unified compares
+description: Vendor comparison with citations to Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout type="info" title="Reviewed 2026-05-19 · Next review 2026-08-19">
+Every claim about a third-party product on this page is anchored to a public vendor page (URL + quoted phrase). Vendor pricing and feature scope change frequently; the [obsunified.com comparison table](https://obsunified.com#compare) on the landing page footnote-references the anchors in this document, so updating this page updates the linked footnotes.
+</Callout>
+
+## What this page is
+
+A long-form companion to the comparison table on [obsunified.com](https://obsunified.com#compare). The landing-page table is intentionally terse — each cell footnote-links into this page for the underlying claim, source URL, and a representative quoted phrase. Use this page to:
+
+- Verify any claim that appears on the landing page.
+- Read the per-vendor profile in one place.
+- See what was deliberately **not** compared (Scope, below).
+
+## Scope
+
+We compared **nine third-party tools** along **ten capability axes**:
+
+- **In scope:** Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud (LGTM stack), SigNoz, Uptrace, HyperDX.
+- **Capability axes:** hosting model, pricing model, distributed traces / APM, structured logs, AI / LLM observability, session replay, product analytics, alerting, cross-signal correlation, data ownership.
+- **Out of scope:** infrastructure-only tools (Prometheus, Zabbix, Nagios), incident-response platforms (PagerDuty, Opsgenie), single-signal frontend tools (LogRocket, FullStory, Highlight), legacy enterprise-only suites (Splunk Observability Cloud, Dynatrace, AppDynamics, Elastic Observability). These are interesting but cover only a slice of what obs-unified covers, and including them would inflate the "—" column count without adding signal.
+
+We deliberately excluded **performance benchmarks** (ingest throughput, query latency, agent overhead) — those depend so heavily on deployment shape that any cross-vendor number would be misleading.
+
+## Methodology
+
+1. For each vendor, the lead capabilities page or pricing page on the vendor's own domain was fetched (docs.datadoghq.com, sentry.io, posthog.com, honeycomb.io, docs.newrelic.com, grafana.com, signoz.io, uptrace.dev, hyperdx.io / clickhouse.com).
+2. A factual claim was extracted with a quoted phrase that supports it.
+3. Each claim got an anchor id (e.g. `src-dd-pricing`) that the landing-page table footnotes into.
+4. Negative claims ("vendor does not have X") are flagged when the evidence is absence-of-marketing-page rather than an explicit denial — see vendor sections for which negatives are inferential.
+5. Capability scoping is **non-judgmental**: a vendor scoring "—" on session replay isn't worse than one scoring "✓" — it just doesn't sell that capability.
+
+## TL;DR
+
+> The nine vendors split into three clusters:
+>
+> - **SaaS-only full-stack** (Datadog, New Relic) — comprehensive coverage, opaque cost model, no data-residency option beyond region choice.
+> - **Single-signal-led** (Sentry on errors, PostHog on product analytics, Honeycomb on traces, Uptrace on traces) — strong in one area, partial elsewhere, all now growing into adjacent signals (Sentry has logs + AI agents; PostHog has logs + LLM analytics; Honeycomb has agent observability EA).
+> - **OSS-first OTel-native** (Grafana, SigNoz, Uptrace, HyperDX) — self-host friendly, OTLP-native; HyperDX is the only one in this cluster that ships session replay. Product analytics is absent across all four.
+>
+> obs-unified sits in the **OSS-first** cluster, and is the only tool in the whole comparison that ships **session replay (rrweb), LLM observability, *and* product analytics** alongside traces/logs/metrics — i.e. the only tool here that doesn't force you to bolt on PostHog or LogRocket on the side.
+
+## Comparison criteria
+
+The ten capability axes used in the landing-page table:
+
+1. **Hosting model** — can you run the vendor's backend in your own infrastructure, or only consume it as SaaS?
+2. **Pricing model** — what dimension is the bill metered on (host, GB, event, session, user)?
+3. **Traces / APM** — distributed tracing, with attention to whether OTLP is a first-class ingest path or a translation layer.
+4. **Structured logs** — log ingestion, parsing, search, and explicit trace correlation.
+5. **AI / LLM observability** — tracing of prompts/responses/tools/cost/eval for LLM-backed applications, as a vendor-shipped product (not a community plug-in).
+6. **Session replay** — DOM-level recording of browser sessions (typically rrweb-based).
+7. **Product analytics** — funnels, retention, cohorts, journey analysis over user-behavior events.
+8. **Alerting** — alert rule types and primary signals the rules can fire on.
+9. **Cross-signal correlation** — vendor's stated mechanism for pivoting between signal types.
+10. **Data ownership** — where customer telemetry physically lives, and what residency / self-host options exist.
+
+---
+
+## obs-unified
+
+Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage seam](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-seam.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, and profiles in one stack with a [Connected rail](/docs/what-to-expect#the-connected-rail) that exposes every cross-signal pivot in ≤2 clicks. Free; you pay your own infra bill.
+
+The rest of this page is the third-party comparison.
+
+---
+
+## Datadog
+
+The SaaS-only full-stack incumbent.
+
+### Hosting model <a id="src-dd-hosting" />
+
+SaaS-only. Customers pick a regional "site" (US1/US3/US5/EU1/AP1/AP2/Gov); data cannot cross sites and there is no general-purpose self-host or BYOC option for the Datadog backend itself.
+
+- Source: [Datadog Sites](https://docs.datadoghq.com/getting_started/site/)
+- > *"Datadog offers different sites throughout the world ... you cannot share data across sites."*
+- Note: Datadog Observability Pipelines runs in customer infra, but only as a [VM-deployed pre-processor](https://www.datadoghq.com/architecture/op-vm-deployment/) — not a self-hostable backend.
+
+### Pricing model <a id="src-dd-pricing" />
+
+Per-host for Infra ($15–$23/host/mo) and APM ($31–$40/host/mo); per-ingested/indexed GB for logs ($0.10/GB ingest, $1.70 per million indexed events); per-session for RUM; per-committer for code coverage; per-investigation for Bits AI SRE ($500 per 20 investigations).
+
+- Source: [Pricing | Datadog](https://www.datadoghq.com/pricing/)
+- > *"$15 Per host, per month"* (Infra Pro, annual), *"$0.10 Per ingested or scanned GB, per month"* (Log Ingestion).
+
+### Distributed traces / APM <a id="src-dd-otlp" />
+
+Datadog APM provides distributed tracing. The default/recommended path is the Datadog Agent plus Datadog tracing SDKs; OTLP ingest is supported, but the direct OTLP traces endpoint is **still in Preview** as of May 2026 (contact-CSM gated).
+
+- Source: [Datadog OTLP Intake Endpoint](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/)
+- > *"OTLP traces intake endpoint (in Preview): To request access for use, contact your Customer Success Manager."*
+
+### Structured logs <a id="src-dd-logs" />
+
+Yes. Ingestion is decoupled from indexing for cost control; trace correlation is explicit.
+
+- Source: [Log Management](https://docs.datadoghq.com/logs/)
+- > *"Connect your logs and traces to gain observability into your applications."*
+
+### AI / LLM observability <a id="src-dd-llm" />
+
+Yes — a dedicated **LLM Observability** product traces prompts/responses/tools, tracks tokens/latency/cost, and runs evaluations including hallucination + prompt-injection + sensitive-data checks. Metered per LLM span.
+
+- Source: [LLM Observability | Datadog](https://www.datadoghq.com/product/llm-observability/)
+- > *"Trace every request across prompts, model responses, retrieval steps, and tool calls"*.
+
+### Session replay <a id="src-dd-replay" />
+
+Yes — Session Replay ships as part of Real User Monitoring with link-out to backend traces.
+
+- Source: [Session Replay | Datadog](https://www.datadoghq.com/product/real-user-monitoring/session-replay/)
+- > *"jump from session replays to backend traces for full-stack visibility."*
+
+### Product analytics <a id="src-dd-pa" />
+
+Yes — **Product Analytics** is a distinct product within the Digital Experience suite (funnels, Sankey journeys, cohort/retention) sharing an SDK with RUM. (Up from "not shipped" in 2024.)
+
+- Source: [Product Analytics | Datadog](https://www.datadoghq.com/product/product-analytics/)
+- > *"a single SDK for RUM and Product Analytics"*.
+
+### Alerting <a id="src-dd-alerts" />
+
+Broad catalog: Metric, Anomaly, Forecast, Outlier, Change, Log, APM, Error Tracking, RUM, Synthetic, SLO, Composite, **Watchdog** (ML-based), Audit Trail, Database, Data Observability, CI, Cloud Cost, Network/NetFlow, Service Check.
+
+- Source: [Monitor Types](https://docs.datadoghq.com/monitors/types/)
+
+### Cross-signal correlation <a id="src-dd-correlation" />
+
+Marketed as a core differentiator; tag-based correlation across logs/metrics/traces.
+
+- Source: [Datadog Platform](https://www.datadoghq.com/product/)
+- > *"Navigate seamlessly between logs, metrics, and request traces."*
+
+---
+
+## Sentry
+
+Errors-first, growing into the full observability tent.
+
+### Hosting model <a id="src-se-hosting" />
+
+SaaS (sentry.io) plus a Docker-Compose self-hosted distribution explicitly scoped to low-volume / proof-of-concept deployments.
+
+- Source: [getsentry/self-hosted](https://github.com/getsentry/self-hosted)
+- > *"Sentry, feature-complete and packaged up for low-volume deployments and proofs-of-concept."*
+
+### Pricing model <a id="src-se-pricing" />
+
+Tier-priced base plan (Team $26/mo, Business $80/mo, Enterprise custom) with included quotas for errors / spans / replays / profiling; usage above quota is pay-as-you-go on per-unit dimensions (per-GB for logs and application metrics, per-hour for profiling, per-monitor for crons, per-alert for uptime).
+
+- Source: [Pricing | Sentry](https://sentry.io/pricing/)
+- > *"Logs +$0.50/GB additional"*, *"Continuous Profiling +$0.0315/hr"*.
+
+### Distributed traces / APM <a id="src-se-otlp" />
+
+Yes — Performance Monitoring with distributed tracing. OTLP traces and logs are supported via per-project DSN-derived endpoints (open beta); **OTLP metrics are not supported**.
+
+- Source: [OpenTelemetry Protocol (OTLP) | Sentry](https://docs.sentry.io/concepts/otlp/)
+- > *"Sentry can ingest OpenTelemetry traces and logs via OTLP endpoints. ... Sentry does not support OTLP metrics at this time."*
+
+### Structured logs <a id="src-se-logs" />
+
+Yes — a structured logs product that auto-links to active traces.
+
+- Source: [Logs | Sentry](https://docs.sentry.io/product/explore/logs/)
+- > *"send text-based log information from your applications, whether frontend or backend, to Sentry"* — *"searchable, trace-connected, and viewable alongside your errors."*
+
+### AI / LLM observability <a id="src-se-llm" />
+
+Yes — **AI Agent Monitoring** auto-captures agent runs / tool calls / model interactions. **Seer** is a separately-billed AI debugger that drafts root-cause analyses and autofix proposals over Sentry telemetry.
+
+- Source (Agent Monitoring): [AI Agent Monitoring | Sentry](https://docs.sentry.io/product/insights/agents/)
+- > *"automatically collect information about agent runs, tool calls, model interactions, and errors across your entire AI pipeline."*
+- Source (Seer): [Seer | Sentry](https://sentry.io/product/seer/)
+- > *"Sentry's debugging agent ... reads the stack trace, traces the root cause through your codebase, and drafts a fix."*
+
+### Session replay <a id="src-se-replay" />
+
+Yes — Session Replay is GA for web and mobile (Android, iOS, React Native).
+
+- Source: [Session Replay | Sentry](https://docs.sentry.io/product/explore/session-replay/)
+- > *"video-like reproductions of user interactions ... browser-based applications and certain native mobile platforms, such as Android, iOS, and React Native."*
+
+### Product analytics <a id="src-se-pa" />
+
+Not offered as a product. The closest in-platform capability is Discover / Dashboards / Trace Explorer over telemetry. **Inferential negative** — Sentry's [product index](https://sentry.io/welcome/) does not list a product-analytics SKU.
+
+### Alerting <a id="src-se-alerts" />
+
+Issue alerts on projects + Monitors, delivered via notifications, ticketing, webhooks, or integrations. Uptime monitoring and cron monitoring are billable line items in their own right.
+
+- Source: [Alerts | Sentry](https://docs.sentry.io/product/alerts/)
+- > *"An alert can send notifications, create tickets, call webhooks, or use other integrations — for issues coming from projects or Monitors."*
+
+### Cross-signal correlation <a id="src-se-correlation" />
+
+The trace ID is the join key across signals; logs are explicitly positioned as "trace-connected."
+
+- Source: [Tracing | Sentry](https://docs.sentry.io/concepts/key-terms/tracing/)
+- > *"The trace ID connects all the actions that take place, starting from the moment a user performs an action on the frontend ... all the way through to the actions this triggers across your application and services."*
+
+---
+
+## PostHog
+
+Product-analytics-led, aggressively growing into observability adjacencies.
+
+### Hosting model <a id="src-ph-hosting" />
+
+Cloud (US + EU) is the recommended deployment; open-source self-host is positioned for hobbyist/small deployments only, receives no commercial support, has no access to paid-plan features, and the previous Kubernetes Helm chart is **sunsetted**.
+
+- Source: [Self-host PostHog](https://posthog.com/docs/self-host)
+- > *"All paid-plan features are Cloud-only."* / *"New deployments of PostHog's paid open source product using Kubernetes are no longer supported."*
+- Supporting: [Self-host disclaimer](https://posthog.com/docs/self-host/open-source/disclaimer) — *"unlikely to scale past a couple 100ks events without significant effort."*
+
+### Pricing model <a id="src-ph-pricing" />
+
+Per-unit usage-based per product. Product Analytics from $0.00005/event; Session Replay $0.005/web recording; LLM Analytics from $0.00006/event; Logs from $0.25/GB; Error Tracking from $0.00037/exception; Feature Flags, Surveys, Data Warehouse, Pipelines, Workflows each have their own SKU.
+
+- Source: [PostHog pricing](https://posthog.com/pricing)
+
+### Distributed traces / APM <a id="src-ph-traces" />
+
+No general-purpose APM / distributed tracing. The only "traces" PostHog ships are LLM-scoped (a collection of LLM generations and spans for a single user-LLM interaction).
+
+- Source: [LLM Analytics Traces](https://posthog.com/docs/llm-analytics/traces)
+- > *"Traces are a collection of generations and spans that capture a full interaction between a user and an LLM."*
+
+### Structured logs <a id="src-ph-logs" />
+
+Yes — **Logs went GA on 2026-01-29**, OTLP-compatible (ingests via standard OpenTelemetry SDKs, no PostHog package required), priced from $0.25/GB.
+
+- Source: [Logs | PostHog](https://posthog.com/docs/logs)
+- > *"a powerful logging solution that works with the OpenTelemetry Protocol (OTLP)"*
+- Supporting: [Logs GA blog](https://posthog.com/blog/logs-ga) — *"Logs is generally available, and it lives in the same place as your errors, session replays, and product data."*
+
+### AI / LLM observability <a id="src-ph-llm" />
+
+Yes — **LLM Analytics** captures conversations, model performance, spans, costs, latency, and traces as PostHog events.
+
+- Source: [LLM Analytics](https://posthog.com/llm-analytics)
+- > *"Track conversations, model performance, spans, costs, latency, and traces in LLM applications"* — *"all as regular PostHog events."*
+
+### Session replay <a id="src-ph-replay" />
+
+Yes — built on rrweb.
+
+- Source: [Session replay ingestion](https://posthog.com/docs/how-posthog-works/recordings-ingestion)
+- > *"We use \`rrweb\` to collect \"snapshot data\" from the browser."*
+
+### Product analytics <a id="src-ph-pa" />
+
+Flagship product. Autocapture + jump-from-graph-to-recording is the headline pivot.
+
+- Source: [Product Analytics](https://posthog.com/product-analytics)
+- > *"you can jump from a graph to a session recording to visually see why something happened"* — autocapture *"tracks every click and pageview automatically."*
+
+### Alerting <a id="src-ph-alerts" />
+
+Alerts are scoped to **insights (trends only)** — fixed-threshold, relative-change, and anomaly-detection modes. Notifications via in-app, email, Slack, and webhooks. Not a general alerting engine over logs/errors/LLM-cost thresholds.
+
+- Source: [Alerts | PostHog](https://posthog.com/docs/alerts)
+- > *"Alerts enable you to monitor your insights and get notified when something important changes."* / *"alerts are supported on all trends."*
+
+### Cross-signal correlation <a id="src-ph-correlation" />
+
+Everything (analytics events, replays, errors, logs, LLM traces) lands on the same event store; the pitch is pivoting from a chart into the underlying session recording.
+
+- Source: [Logs GA blog](https://posthog.com/blog/logs-ga)
+- > *"Logs is generally available, and it lives in the same place as your errors, session replays, and product data."*
+
+---
+
+## Honeycomb
+
+Tracing-first SaaS that pioneered the "wide events" data model.
+
+### Hosting model <a id="src-hc-hosting" />
+
+SaaS, plus — as of **November 19, 2025** — **Honeycomb Private Cloud**: a customer-hosted or Honeycomb-managed deployment that runs exclusively in the customer's **AWS account** (no other clouds, no on-prem).
+
+- Source: [Honeycomb Private Cloud](https://www.honeycomb.io/platform/private-cloud)
+- > *"The power of Honeycomb, in your AWS environment."*
+- Supporting: [Private Cloud deployment models](https://docs.honeycomb.io/private-cloud/deployment-models)
+
+### Pricing model <a id="src-hc-pricing" />
+
+Event-volume based: Free up to 20M events/mo; Pro from $130/mo for up to 1.5B events/mo; Enterprise from a 10B events/year base allowance.
+
+- Source: [Honeycomb Pricing](https://www.honeycomb.io/pricing)
+
+### Distributed traces / APM <a id="src-hc-otlp" />
+
+OTLP-native — accepts OTLP over gRPC, HTTP/protobuf, and HTTP/JSON.
+
+- Source: [Send Data with OpenTelemetry](https://docs.honeycomb.io/send-data/opentelemetry/)
+- > *"Honeycomb supports receiving telemetry data via OpenTelemetry's native protocol, OTLP, over gRPC, HTTP/protobuf, and HTTP/JSON."*
+
+### Structured logs <a id="src-hc-logs" />
+
+No separate logs product — logs are modeled as **structured events** in the same wide-event store used for traces.
+
+- Source: [Events, Metrics, and Logs](https://docs.honeycomb.io/get-started/basics/observability/concepts/events-metrics-logs)
+- > *"a structured log can easily turn into a structured event."*
+
+### AI / LLM observability <a id="src-hc-llm" />
+
+Launched **2026-05-12**: **Agent Observability** (Agent Timeline, Canvas Agent, Skills, Auto-investigations) built on OpenTelemetry GenAI semantic conventions v1.40.0. As of May 2026, Agent Timeline is in **Early Access** (GA expected June 2026).
+
+- Source: [Honeycomb Launches Agent Observability](https://www.honeycomb.io/blog/honeycomb-launches-agent-observability-full-visibility-agentic-workflows)
+- > Agent Timeline connects *"every LLM call, tool invocation, agent handoff, and downstream system impact in real time."*
+
+### Session replay <a id="src-hc-replay" />
+
+Not offered. Their [Frontend Observability page](https://www.honeycomb.io/platform/frontend-observability) lists Core Web Vitals, errors, traces, and user journeys — but not session replay. Honeycomb has publicly [positioned against](https://www.honeycomb.io/blog/redefining-rum-comparative-gap-analysis-existing-tools) session-replay-led RUM.
+
+### Product analytics <a id="src-hc-pa" />
+
+Not offered. **Inferential negative** — there is no product-analytics page on honeycomb.io; the closest [Analyze](https://www.honeycomb.io/analyze) page positions analytics around telemetry, not user behavior.
+
+### Alerting <a id="src-hc-alerts" />
+
+**Triggers** (threshold alerts on queries), **BubbleUp** (outlier dimensional analysis), Anomaly Detection. Notifications via PagerDuty, Slack, Microsoft Teams, webhooks, and email.
+
+- Source: [Triggers](https://docs.honeycomb.io/notify/alert/triggers/)
+- Supporting: [BubbleUp](https://www.honeycomb.io/platform/bubbleup)
+
+### Cross-signal correlation <a id="src-hc-correlation" />
+
+A single unified wide-event store: logs/traces/metrics share the same query substrate.
+
+- Source: [Log Analytics](https://www.honeycomb.io/platform/log-analytics)
+- > *"Use one unified tool to manage logs, traces, and metrics."*
+
+### Data residency <a id="src-hc-residency" />
+
+SaaS in AWS us-east-1 (US) or AWS eu-west-1 (EU); Private Cloud in customer's AWS account across US, European, or APAC regions.
+
+- Source: [Data Residency in Europe](https://www.honeycomb.io/blog/honeycomb-launches-data-residency-europe)
+
+---
+
+## New Relic
+
+The original SaaS APM, now usage-priced.
+
+### Hosting model <a id="src-nr-hosting" />
+
+SaaS only across two regions (US and EU); accounts are pinned to a region at creation and data cannot be moved between them. No documented self-host / BYOC.
+
+- Source: [Choose your data center](https://docs.newrelic.com/docs/accounts/accounts-billing/account-setup/choose-your-data-center/)
+- > *"Customer Data from existing New Relic accounts cannot be transferred or shared across regions."*
+
+### Pricing model <a id="src-nr-pricing" />
+
+Usage-based: 100 GB/mo free ingest, then $0.40/GB (Original) or $0.60/GB (Data Plus) — **plus** per-user seat fees (Core $49/user, Full Platform up to $349/user/year on Pro).
+
+- Source: [New Relic Pricing](https://newrelic.com/pricing)
+
+### Distributed traces / APM <a id="src-nr-otlp" />
+
+Yes. **Native OTLP** is the recommended ingest path for OpenTelemetry data; regional endpoints (`otlp.nr-data.net` US, `otlp.eu01.nr-data.net` EU) over HTTP or gRPC.
+
+- Source: [New Relic OTLP endpoint](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/)
+- > *"New Relic supports native OTLP ingest and recommends it as the preferred method for sending OpenTelemetry data."*
+
+### Structured logs <a id="src-nr-logs" />
+
+Yes. Ingestion via APM agents, infrastructure agent, Fluentd/Fluent Bit/Logstash/Kubernetes, OTel Collector, or direct HTTP Log API. Server-side Grok parsing turns unstructured strings into queryable attributes.
+
+- Source: [Get started with log management](https://docs.newrelic.com/docs/logs/get-started/get-started-log-management/)
+- Supporting: [Parsing log data](https://docs.newrelic.com/docs/logs/ui-data/parsing/)
+
+### AI / LLM observability <a id="src-nr-llm" />
+
+Yes — **AI Monitoring** is positioned as "APM for AI," with end-to-end visibility into latency/cost/quality across supported vendors (OpenAI, Bedrock, DeepSeek).
+
+- Source: [Introduction to AI monitoring](https://docs.newrelic.com/docs/ai-monitoring/intro-to-ai-monitoring/)
+- > *"AI monitoring is our solution for application monitoring (APM) for AI. ... end-to-end visibility into performance, cost, and quality of supported models."*
+
+### Session replay <a id="src-nr-replay" />
+
+Yes — a Pro / Pro+SPA browser-agent feature (agent v1.260.0+); DOM-based (not screen video); 8-day retention; PII masked by default.
+
+- Source: [Session replay | New Relic](https://docs.newrelic.com/docs/browser/browser-monitoring/browser-pro-features/session-replay/get-started/)
+
+### Product analytics <a id="src-nr-pa" />
+
+No standalone product-analytics SKU. Behavioral capabilities (Sankey navigation paths, drop-offs, engagement) are folded into [Browser Monitoring](https://newrelic.com/platform/browser-monitoring) + ad-hoc NRQL.
+
+### Alerting <a id="src-nr-alerts" />
+
+NRQL-based conditions are the recommended path; conditions are organized within policies.
+
+- Source: [Create NRQL alert conditions](https://docs.newrelic.com/docs/alerts/create-alert/create-alert-condition/create-nrql-alert-conditions/)
+- > *"We recommend creating an alert using a NRQL alert condition."*
+
+### Cross-signal correlation <a id="src-nr-correlation" />
+
+**NRQL** is the SQL-like query language that spans every telemetry type (events, metric timeslices, dimensional metrics, spans, logs).
+
+- Source: [Introduction to NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/)
+- > *"The New Relic Query Language (NRQL) is a powerful tool you can use to query and understand nearly any type of data."*
+
+---
+
+## Grafana Cloud (LGTM stack)
+
+Multi-product OSS-led platform: Grafana + **L**oki + **T**empo + **M**imir + Pyroscope + Faro + Alloy + Beyla + OnCall + k6.
+
+### Hosting model <a id="src-gr-hosting" />
+
+Grafana Cloud (SaaS) or self-host any of the LGTM components as open source. All ten OSS projects are first-party Grafana Labs maintained.
+
+- Source: [Grafana Open Source Projects](https://grafana.com/oss/)
+- Supporting (self-hosting): each project has its own OSS repo under `github.com/grafana/{loki,tempo,mimir,pyroscope,faro,alloy,beyla}`.
+
+### Pricing model <a id="src-gr-pricing" />
+
+Free tier + Pro from $19/mo + usage-based per-unit charges: Metrics $6.50 per 1k series; Logs/Traces/Profiles $0.05/GB process + $0.40/GB write + $0.10/GB retain; Frontend Observability $0.75 per 1k sessions; Grafana Assistant $20/active AI user. Enterprise from $25k/year.
+
+- Source: [Grafana Cloud Pricing](https://grafana.com/pricing/)
+
+### Distributed traces / APM <a id="src-gr-otlp" />
+
+**Tempo** for traces; Grafana Cloud accepts OTLP for metrics, logs, and traces.
+
+- Source: [Grafana Cloud OTLP](https://grafana.com/docs/grafana-cloud/send-data/otlp/)
+- > *"Grafana Labs supports the ingestion of metrics, logs, and traces through OTLP into Grafana Cloud."*
+
+### Structured logs <a id="src-gr-logs" />
+
+**Loki** — "a horizontally scalable, highly available, multi-tenant log aggregation system using the same powerful data model as Prometheus."
+
+- Source: [Grafana Open Source](https://grafana.com/oss/) → Loki
+
+### AI / LLM observability <a id="src-gr-llm" />
+
+**Inferential negative.** Grafana Cloud ships **Grafana Assistant** ($20/active AI user) — but Assistant is a GenAI-powered helper for navigating Grafana itself, not an LLM observability product for tracing customers' LLM applications. We could not find a dedicated Grafana LLM-observability product page; mark as "Assistant only."
+
+- Source (for Assistant pricing existence): [Grafana Cloud Pricing](https://grafana.com/pricing/)
+
+### Session replay <a id="src-gr-replay" />
+
+Not offered. **Faro** (Frontend Observability) captures Core Web Vitals, errors, logs, and client-side traces — but not session replay.
+
+- Source: [Frontend Observability](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/)
+- > *"automatically captures real user performance metrics, errors, logs, and client-side traces."* (No mention of session replay.)
+
+### Product analytics <a id="src-gr-pa" />
+
+Not offered. **Inferential negative** — no product on the Grafana platform page targets funnels / retention / behavior.
+
+### Alerting <a id="src-gr-alerts" />
+
+**Grafana Alerting** — unified alert rules across data sources (metrics, logs, multi-dimensional).
+
+- Source: [Alerting overview](https://grafana.com/docs/grafana-cloud/alerting-and-irm/alerting/)
+
+### Cross-signal correlation <a id="src-gr-correlation" />
+
+Per-data-source plumbing — trace-to-logs / metrics-to-traces (exemplars) / split-pane views in Grafana Explore. Correlation is configured per-data-source rather than implicit in a single store.
+
+- Source: [Grafana Open Source](https://grafana.com/oss/) (platform-level framing)
+
+---
+
+## SigNoz
+
+OTel-native OSS alternative.
+
+### Hosting model <a id="src-sn-hosting" />
+
+SigNoz Cloud (SaaS) and self-hosted open-source — mix-and-match supported.
+
+- Source: [SigNoz/signoz on GitHub](https://github.com/SigNoz/signoz)
+- > *"Open-Source - you can use open-source, our cloud service or a mix of both based on your use case."*
+
+### Pricing model <a id="src-sn-pricing" />
+
+Pay-as-you-go: $0.30/GB ingested for traces and logs; $0.10 per million samples for metrics. Selectable retention (15 days–1 year for traces/logs; 1–13 months for metrics).
+
+- Source: [SigNoz Pricing](https://signoz.io/pricing/)
+- > *"$0.3/GB ingested"* (traces and logs); *"$0.1/mil samples"* (metrics).
+
+### Distributed traces / APM <a id="src-sn-otlp" />
+
+OTLP-native — core pitch. Built directly on the OpenTelemetry Collector.
+
+- Source: [Distributed Tracing | SigNoz](https://signoz.io/distributed-tracing/)
+- > *"Auto-instrument your applications with OpenTelemetry across all major languages and frameworks."*
+
+### Structured logs <a id="src-sn-logs" />
+
+Yes — Logs Explorer with attribute filters, multiple view modes, aggregation operators.
+
+- Source: [Logs | SigNoz](https://signoz.io/docs/userguide/logs/)
+
+### AI / LLM observability <a id="src-sn-llm" />
+
+Yes — dedicated **LLM Observability** surface tracing agent workflows, token usage, cost; auto-instruments OpenAI, Anthropic, Bedrock, LangChain, LlamaIndex, CrewAI.
+
+- Source: [LLM Observability | SigNoz](https://signoz.io/llm-observability/)
+
+### Session replay <a id="src-sn-replay" />
+
+Not offered. Maintainers have publicly stated it is not on the roadmap.
+
+- Source: [Discussion #3846](https://github.com/SigNoz/signoz/discussions/3846)
+- > *"As of now, this not in our near term roadmap (next 3-4 months)."*
+
+### Product analytics <a id="src-sn-pa" />
+
+Not offered. **Inferential negative** — no product-analytics surface on signoz.io.
+
+### Alerting <a id="src-sn-alerts" />
+
+Five alert types: metric-based, log-based, trace-based, exceptions-based, anomaly-based.
+
+- Source: [Alerts Management](https://signoz.io/docs/userguide/alerts-management/)
+
+### Cross-signal correlation <a id="src-sn-correlation" />
+
+OTel SDKs auto-inject `trace_id` + `span_id` into log records; UI exposes "Go to related logs" from a trace.
+
+- Source: [Correlate Traces and Logs](https://signoz.io/docs/traces-management/guides/correlate-traces-and-logs/)
+
+### Data ownership <a id="src-sn-residency" />
+
+Self-hosted: ClickHouse cluster behind a SigNoz-flavored OTel Collector. Cloud: US, EU, and India regions.
+
+- Source: [Architecture | SigNoz](https://signoz.io/docs/architecture/)
+
+---
+
+## Uptrace
+
+OTel + ClickHouse APM, OSS-first.
+
+### Hosting model <a id="src-up-hosting" />
+
+Self-host (open-source, AGPL-3.0) **or** Uptrace Cloud. ClickHouse for telemetry + PostgreSQL for metadata.
+
+- Source: [uptrace/uptrace on GitHub](https://github.com/uptrace/uptrace)
+- > *"Uptrace uses OpenTelemetry framework to collect data and ClickHouse database to store it. It also requires PostgreSQL database to store metadata such as metric names and alerts."*
+
+### Pricing model <a id="src-up-pricing" />
+
+Per-GB ingest: traces $0.10/GB, logs $0.10/GB, metrics $0.025 per million datapoints. 50 GB/mo free; 28-day default retention. **No per-seat fees.**
+
+- Source: [Uptrace Pricing](https://uptrace.dev/pricing)
+- > *"50 GB of traces, logs, and metrics free every month."*
+
+### Distributed traces / APM <a id="src-up-otlp" />
+
+OTLP-native. (The internal [obs-unified Uptrace migration doc](https://github.com/obs-unified/obs-unified/blob/main/docs/comparison/uptrace.md) notes Uptrace supports OTLP/gRPC and OTLP/HTTP; obs-unified is OTLP/HTTP-only as of this writing.)
+
+- Source: [Uptrace product](https://uptrace.dev/)
+- > *"OpenTelemetry-native observability platform"* — *"Uptrace unifies traces, metrics, and logs in a single platform."*
+
+### Structured logs <a id="src-up-logs" />
+
+Yes. Logs ingested via OTel; integrated with trace context.
+
+- Source: [Uptrace product page](https://uptrace.dev/) — *"unifies traces, metrics, and logs."*
+
+### AI / LLM observability <a id="src-up-llm" />
+
+Not offered. **Inferential negative** — no LLM observability product is listed on uptrace.dev as of May 2026.
+
+### Session replay <a id="src-up-replay" />
+
+Not offered.
+
+### Product analytics <a id="src-up-pa" />
+
+Not offered.
+
+### Alerting <a id="src-up-alerts" />
+
+**Metric monitors** and **Error monitors**. Notification channels: email, Slack, Mattermost, Telegram, Microsoft Teams, PagerDuty, Opsgenie, AlertManager, webhooks.
+
+- Source: [Uptrace Alerting](https://uptrace.dev/features/alerting)
+
+### Cross-signal correlation <a id="src-up-correlation" />
+
+Traces, metrics, logs in one ClickHouse-backed store, queried via UQL.
+
+- Source: [Uptrace product](https://uptrace.dev/)
+
+---
+
+## HyperDX
+
+ClickHouse-backed OSS observability; acquired by ClickHouse Inc. in March 2025 and now also offered as a managed component inside ClickHouse Cloud ("ClickStack").
+
+### Hosting model <a id="src-hx-hosting" />
+
+Three paths: (a) self-hosted OSS on your own ClickHouse cluster (MIT-licensed), (b) standalone HyperDX Cloud at hyperdx.io, (c) managed inside ClickHouse Cloud as part of ClickStack. The OSS project remains actively maintained after the acquisition.
+
+- Source: [ClickHouse acquires HyperDX](https://clickhouse.com/blog/clickhouse-acquires-hyperdx-the-future-of-open-source-observability)
+- > *"HyperDX Cloud will continue serving and onboarding new customers"* and *"the open-source project remains actively maintained and developed."*
+- Supporting: [hyperdxio/hyperdx](https://github.com/hyperdxio/hyperdx) (MIT licensed); [ClickStack in ClickHouse Cloud](https://clickhouse.com/blog/announcing-clickstack-in-clickhouse-cloud) (2025-08-06).
+
+### Pricing model <a id="src-hx-pricing" />
+
+Three tiers: Free ($0/mo, 3 GB/mo, 3-day retention, 1 user); Starter ($20/mo flat, 50 GB/mo included, 30-day retention, unlimited users, $0.40/GB overage, $0.40 per 100 DPM); Enterprise (custom, adds SAML SSO).
+
+- Source: [HyperDX Pricing](https://www.hyperdx.io/pricing)
+- > *"Includes 50 GB/mo," "$0.40 per additional 1 GB," "$0.40 per 100 metrics (1 DPM)," "Unlimited Users, Flat Rate."*
+
+### Distributed traces / APM <a id="src-hx-otlp" />
+
+OpenTelemetry-native — accepts OTLP over both HTTP (`https://in-otel.hyperdx.io`) and gRPC (`in-otel.hyperdx.io:4317`) for traces, logs, and metrics.
+
+- Source: [OpenTelemetry | HyperDX Docs](https://www.hyperdx.io/docs/install/opentelemetry)
+- > *"HyperDX accepts telemetry directly from OpenTelemetry code instrumentation or collectors."*
+
+### Structured logs <a id="src-hx-logs" />
+
+Yes — full-text search, native JSON parsing, live tail, and a "Log Patterns" feature that clusters related logs, all on top of ClickHouse.
+
+- Source: [hyperdxio/hyperdx](https://github.com/hyperdxio/hyperdx)
+- > *"An open source observability platform unifying session replays, logs, metrics, traces and errors powered by ClickHouse and OpenTelemetry."*
+
+### AI / LLM observability <a id="src-hx-llm" />
+
+No first-party LLM observability product. HyperDX is a documented OTLP destination for **OpenLLMetry** (Traceloop), **OpenLIT**, and **Mirascope** — so you get LLM tracing/token-cost via OTel-based instrumentation rather than a vendor-shipped LLM product.
+
+- Source: [LLM Observability with HyperDX and OpenLLMetry](https://www.traceloop.com/docs/openllmetry/integrations/hyperdx)
+- > HyperDX is *"an open source observability platform that natively supports OpenTelemetry"*; integration sets `TRACELOOP_BASE_URL=https://in-otel.hyperdx.io`.
+
+### Session replay <a id="src-hx-replay" />
+
+Yes — browser-side session replay via the HyperDX OTel browser SDK, **automatically linked** to the corresponding logs and traces. (The session-replay engine is not named on hyperdx.io pages; reported as rrweb-based elsewhere, but flagged here as "industry-standard browser session replay" rather than asserted.)
+
+- Source: [HyperDX](https://www.hyperdx.io/)
+- > *"Automatically link session replays with backend logs and traces"*; *"Unify Session Replays, Logs, Traces, Metrics and Errors."*
+
+### Product analytics <a id="src-hx-pa" />
+
+Not offered. **Confirmed absent** — no funnels, retention, or user-journey analytics on the docs nav, marketing site, or pricing page.
+
+- Source: [HyperDX Docs](https://www.hyperdx.io/docs)
+
+### Alerting <a id="src-hx-alerts" />
+
+Search-based and dashboard-chart-based alerts; threshold + duration + check-interval configurable (1m–1d). Notifications via Slack, Email, PagerDuty, or Slack Webhook.
+
+- Source: [Alerts | HyperDX Docs](https://www.hyperdx.io/docs/alerts)
+- > *"Set the threshold, duration, and notification method for the alert (Slack, Email, PagerDuty or Slack Webhook)."*
+
+### Cross-signal correlation <a id="src-hx-correlation" />
+
+**Auto-linking across signals** is the marketed differentiator — session replays, frontend events, backend traces, and logs share IDs so users one-click pivot between them.
+
+- Source: [HyperDX](https://www.hyperdx.io/)
+- > *"Trace every request from a user's browser and phone to your backend servers and async workers, automatically."*
+
+### Data ownership <a id="src-hx-residency" />
+
+Self-hosted: data lives entirely in your own ClickHouse cluster. Cloud: hosted in the United States; **no published EU region** as of this review.
+
+- Source: [DeploySentinel DPA](https://www.hyperdx.io/terms/dpa)
+- > *"DeploySentinel (HyperDX) will host and process Customer Personal Data in the United States."*
+- Supporting: [OSS vs Cloud](https://www.hyperdx.io/docs/oss-vs-cloud)
+
+---
+
+## Discussion
+
+This section is editorial (analysis, not vendor-cited facts). Where it points at vendor capabilities, the relevant anchor is linked back to the cited claim above.
+
+### Storage architecture as a cost-and-flexibility lever
+
+The vendors split along their primary storage backend, and that split shows up in pricing and operational shape:
+
+- **ClickHouse-backed open-source platforms** ([SigNoz](#src-sn-residency), [Uptrace](#src-up-hosting), [HyperDX](#src-hx-hosting)) inherit columnar compression and high-cardinality query performance from ClickHouse, which is what lets their per-GB ingest pricing ([SigNoz $0.30/GB](#src-sn-pricing), [Uptrace $0.10/GB](#src-up-pricing)) undercut per-host SaaS by an order of magnitude.
+- **Proprietary backends** ([Datadog](#src-dd-pricing), [New Relic](#src-nr-pricing)) meter on dimensions that map to their internal cost model (per host, per indexed event, per GB ingest + per user) and bill at higher per-unit rates.
+- **Wide-event store** ([Honeycomb](#src-hc-pricing)) is a third shape — single event store with event-volume pricing.
+- **PostHog** uses ClickHouse internally for events but exposes per-product SKUs ([per event, per recording, per LLM span](#src-ph-pricing)) rather than per-GB; storage shape and pricing shape are decoupled here.
+- **obs-unified** deliberately does **not** use ClickHouse. The default backend is **SQLite via Cloudflare D1**, with a Postgres adapter via the [storage seam](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-seam.md). The trade-off: D1 caps at ~100M hot rows per project (then archive sweep or move to Postgres), in exchange for zero operational cost on the Workers tier and a single-binary local deploy.
+
+The right backend depends on what you're optimizing for. ClickHouse pays off for high-cardinality search across billions of rows. SQLite/D1 pays off for projects whose hot-data ceiling is bounded and who want a single-binary or single-Worker deploy. No one shape is universally better.
+
+### Two product shapes: suites vs. graphs
+
+The vendors fall into two product shapes:
+
+- **Multi-product suites** ([Datadog](#src-dd-correlation), [Sentry](#src-se-correlation), [PostHog](#src-ph-correlation), [New Relic](#src-nr-correlation), [Grafana Cloud](#src-gr-correlation)) — each signal has its own product UI and SKU under a common brand. Correlation works *within* the suite (Datadog by tag, Sentry by trace_id, PostHog by event store, New Relic by NRQL, Grafana per-data-source). Strong on breadth, integration ecosystem, and enterprise controls.
+- **Unified telemetry graphs** ([SigNoz](#src-sn-correlation), [HyperDX](#src-hx-correlation), [Uptrace](#src-up-correlation), [Honeycomb](#src-hc-correlation), obs-unified) — all signals are nodes in one store and one UI. Pivots are first-class because there's nothing to pivot *between*. Stronger on cross-signal flow at the cost of fewer per-product surface features.
+
+Neither shape is wrong. Big organizations with established team boundaries (frontend RUM team vs. SRE vs. data team) often map cleanly to a suite. Smaller teams that own a vertical slice (backend → frontend → AI) often get more from a graph.
+
+### What's actually convergent
+
+A real trend across all nine vendors over the past 18 months: every one of them has added either LLM observability or structured logs (or both) to their offering. The vendor lines are blurring:
+
+- **Sentry** shipped Structured Logs ([cited above](#src-se-logs)) and AI Agent Monitoring + Seer ([cited](#src-se-llm)).
+- **PostHog** shipped Logs (GA 2026-01-29, [cited](#src-ph-logs)) and LLM Analytics ([cited](#src-ph-llm)).
+- **Honeycomb** shipped Agent Observability in Early Access (2026-05-12, [cited](#src-hc-llm)).
+- **Datadog** shipped Product Analytics ([cited](#src-dd-pa)) and LLM Observability ([cited](#src-dd-llm)).
+- **SigNoz**, **New Relic**, **Grafana Cloud**, and **HyperDX** all shipped LLM observability or LLM-instrumentation paths in the same window.
+
+obs-unified's positioning is the bet that the *graph shape* (one identity chain, one store, ≤2-click pivots) is the right organizing structure for that convergence — not that any specific vendor is wrong. Most of the vendors above will persist; the design hypothesis is just that convergence rewards graph shape over suite shape, and that "we own our data plane" is a multiplier on that.
+
+### Buyer guidance
+
+The factual table at the top is the answer to "what does each vendor do." This is the answer to "which one should I pick":
+
+- If you need **enterprise controls, a wide integration ecosystem, and quick deployment** with a per-host cost model your finance team has already approved → **Datadog** or **New Relic**.
+- If you need **errors + replay + traces** but don't want to think about infra → **Sentry**.
+- If you need **product analytics + replay** and observability is secondary → **PostHog**.
+- If you need **deep trace analysis** and you'll build the rest yourself → **Honeycomb**.
+- If you want **OSS, OTel-native, and ClickHouse-shaped pricing** → **SigNoz**, **HyperDX**, or **Uptrace** (mostly differ on UX taste; HyperDX is the only one with session replay; Uptrace is the only one with native OTLP/gRPC; SigNoz has the most alert types).
+- If you want a **fully composable LGTM stack** you can scale independently → **Grafana Cloud** (or self-host the components).
+- If you want **everything-in-one (traces, logs, metrics, replay, LLM, analytics) self-hosted on your infra with ≤2-click cross-signal pivots** → **obs-unified**, with the trade-offs in the next section.
+
+---
+
+## Where obs-unified fits
+
+obs-unified is the only tool in this comparison that is **simultaneously self-hostable, OTLP-native, and covers session replay + LLM observability + product analytics in one stack**. The closest neighbors are:
+
+- **HyperDX** — closest in *graph shape*: OSS, OTel-native, auto-linked replay + logs + traces. Differs in backend (ClickHouse vs. SQLite/D1), in LLM coverage (HyperDX inherits via OpenLLMetry rather than shipping LLM eval first-party), and in product analytics (absent).
+- **PostHog** — same multi-signal breadth (now that they ship logs + LLM analytics), but Cloud-only for paid features; primary scaffolding is product-analytics-shaped, not trace-shaped.
+- **SigNoz** — same OSS + OTel-native posture, but no session replay, no product analytics, no LLM cost tracking with eval (LLM observability is trace-shaped only).
+- **Grafana Cloud** — same OSS-friendly multi-component posture, but no session replay, no product analytics, no LLM observability for customer apps.
+
+The trade-offs working against obs-unified versus this set:
+
+- **Maturity** — early. Production deployments are limited; storage scale is bounded by the SqlDb adapter you pick (D1 caps at ~100M hot rows; Postgres is fine to billions).
+- **OTLP/gRPC** — not yet (OTLP/HTTP only as of this writing). Migrate gRPC exporters to HTTP or front with an OTel Collector.
+- **SSO / RBAC** — single-password auth today (see [Auth & multi-tenancy gap](https://github.com/obs-unified/obs-unified/blob/main/docs/comparison/uptrace.md#auth-multi-tenancy-governance) in the Uptrace comparison).
+- **Free-form dashboards / query language** — Analyses are LLM-narrative-shaped, not panel-shaped. There's no PromQL/NRQL/UQL equivalent.
+- **Generic infra metrics** — the Resources dashboard is Cloudflare-shaped first, with Linux-host mode added via the OTel `hostmetricsreceiver`. Non-Linux non-Cloudflare deployments have less curated coverage.
+
+These are the right axes to weigh obs-unified on. If any of the above are blockers, one of the other eight tools above is likely the right pick.
+
+## Refresh schedule
+
+Last full review: **2026-05-19** (this document). Next scheduled review: **2026-08-19** (quarterly). On each refresh, every cited URL is re-fetched and updated; any claim where the cited evidence has changed is updated or removed.
