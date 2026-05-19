@@ -7,7 +7,7 @@ const DIAGRAM = `                       Your Infrastructure
   │                                 ├─ /dashboard/* UI   │
   │                                 └─ /health           │
   │                                       │              │
-  │                                  D1 / SQLite + R2    │
+  │                                  D1/R2 or PG/S3      │
   └──────────────────────────────────────────────────────┘`;
 
 export function renderArchitecture(): string {
@@ -19,7 +19,8 @@ export function renderArchitecture(): string {
       <h2 id="arch-title">One collector. Two auth boundaries. Your data.</h2>
       <p>
         The <strong>collector</strong> is a single deployable service that receives telemetry,
-        stores it in D1 (SQLite) and R2 (blob), and serves the dashboard. Two auth boundaries
+        stores it in D1/R2 on Cloudflare or Postgres/S3-compatible storage on Node,
+        and serves the dashboard. Two auth boundaries
         keep ingest and read paths separate:
       </p>
       <ul class="arch-list">
@@ -27,11 +28,12 @@ export function renderArchitecture(): string {
         <li><strong>Dashboard → Collector</strong> — password login for human operators, like Grafana.</li>
       </ul>
       <p class="muted">
-        Runs on Cloudflare Workers (D1 + R2) or any Node, Bun, or Deno host with SQLite.
+        Cloudflare Workers + D1 + R2 is the default deployment path; the Node collector
+        runs with Postgres and S3-compatible blob storage.
         No external telemetry vendor in the data path.
       </p>
     </div>
-    <pre class="diagram" aria-label="Architecture diagram: backend and frontend send telemetry to a single collector backed by D1 SQLite and R2 storage">${DIAGRAM}</pre>
+    <pre class="diagram" aria-label="Architecture diagram: backend and frontend send telemetry to a single collector backed by Cloudflare D1/R2 or Postgres/S3 storage">${DIAGRAM}</pre>
   </div>
 </section>
 `;
