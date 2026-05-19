@@ -9,8 +9,8 @@ export function renderFooter(): string {
     <div class="footer-brand">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">
-          <!-- Three-rows ledger mark — see @obs-unified/brand/logo/mark.svg. -->
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="currentColor"><rect x="6" y="9" width="17" height="2.5"/><rect x="6" y="14.75" width="11" height="2.5"/><rect x="6" y="20.5" width="20" height="2.5"/></svg>
+          <!-- Prompt + record mark — see @obs-unified/brand/logo/mark.svg. -->
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="currentColor"><path d="M7 9 L10 14 L7 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="bevel" stroke-linecap="square"/><rect x="14" y="12.9" width="12" height="2.2"/><rect x="14" y="18.9" width="8" height="2.2"/></svg>
         </span>
         <span class="brand-name">obs-unified</span>
       </div>
