@@ -1,21 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="obs-unified docs — read the source, run the stack">
   <title>obs-unified docs</title>
-  <defs>
-    <linearGradient id="ouOgMarkDocs" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#006B18"/>
-      <stop offset="1" stop-color="#008821"/>
-    </linearGradient>
-  </defs>
-
   <rect width="1200" height="630" fill="#F9F9F9"/>
   <rect x="40" y="40" width="1120" height="550" fill="#FFFFFF"/>
   <rect x="40" y="40" width="12" height="550" fill="#006B18"/>
 
   <g transform="translate(96 80)">
-    <rect width="64" height="64" fill="url(#ouOgMarkDocs)"/>
-    <rect x="12" y="18"   width="34" height="5" fill="#FFFFFF"/>
-    <rect x="12" y="29.5" width="22" height="5" fill="#FFFFFF"/>
-    <rect x="12" y="41"   width="40" height="5" fill="#FFFFFF"/>
+    <rect width="64" height="64" fill="#006B18"/>
+    <path d="M14 18 L20 28 L14 38" fill="none" stroke="#FFFFFF" stroke-width="4.4" stroke-linejoin="bevel" stroke-linecap="square"/>
+    <rect x="28" y="25.8" width="24" height="4.4" fill="#FFFFFF"/>
+    <rect x="28" y="37.8" width="16" height="4.4" fill="#FFFFFF"/>
     <text
       x="86" y="42"
       fill="#1A1C1C"

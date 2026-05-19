@@ -1,13 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="obs-unified">
   <title>obs-unified</title>
-  <defs>
-    <linearGradient id="ouApple" x1="0" y1="0" x2="180" y2="180" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#006B18"/>
-      <stop offset="1" stop-color="#008821"/>
-    </linearGradient>
-  </defs>
-  <rect width="180" height="180" fill="url(#ouApple)"/>
-  <rect x="40" y="58"  width="92"  height="14" fill="#FFFFFF"/>
-  <rect x="40" y="84"  width="58"  height="14" fill="#FFFFFF"/>
-  <rect x="40" y="110" width="108" height="14" fill="#FFFFFF"/>
+  <rect width="180" height="180" fill="#006B18"/>
+  <path d="M39.375 50.625 L56.25 78.75 L39.375 106.875" fill="none" stroke="#FFFFFF" stroke-width="12.375" stroke-linejoin="bevel" stroke-linecap="square"/>
+  <rect x="78.75" y="72.5625"  width="67.5" height="12.375" fill="#FFFFFF"/>
+  <rect x="78.75" y="106.3125" width="45"   height="12.375" fill="#FFFFFF"/>
 </svg>
