@@ -1,4 +1,4 @@
-import { DOCS_URL, GITHUB_URL, PACKAGE_NAMES } from "../config";
+import { DOCS_URL, FOOTER_PACKAGES, GITHUB_URL } from "../config";
 
 const YEAR = new Date().getFullYear();
 
@@ -14,30 +14,44 @@ export function renderFooter(): string {
         </span>
         <span class="brand-name">obs-unified</span>
       </div>
-      <p class="muted small">Self-hosted observability. One collector, every signal.</p>
+      <p class="muted small footer-brand-copy">
+        One collector for traces, logs, AI calls, product events, and replay.
+        Keep the telemetry plane in your infrastructure.
+      </p>
+      <div class="footer-cta-row" aria-label="Primary project links">
+        <a href="${DOCS_URL}/installation">Start locally</a>
+        <a href="${GITHUB_URL}">View source</a>
+      </div>
     </div>
     <nav class="footer-nav" aria-label="Documentation">
       <h4>Docs</h4>
       <a href="${DOCS_URL}">Introduction</a>
       <a href="${DOCS_URL}/installation">Installation</a>
-      <a href="${DOCS_URL}/sdks">SDKs</a>
+      <a href="${DOCS_URL}/sdks">SDKs and packages</a>
       <a href="${DOCS_URL}/instrumenting">Instrumenting</a>
+      <a href="${DOCS_URL}/comparison">Comparison</a>
     </nav>
-    <div class="footer-nav" aria-label="Packages">
+    <nav class="footer-nav" aria-label="Packages">
       <h4>Packages</h4>
-      ${PACKAGE_NAMES.map((p) => `<span class="footer-pkg muted">${p}</span>`).join("")}
-    </div>
+      ${FOOTER_PACKAGES.map((p) => `
+        <a class="footer-package-link" href="${p.href}">
+          <span>${p.label}</span>
+          <code>${p.name}</code>
+        </a>
+      `).join("")}
+    </nav>
     <nav class="footer-nav" aria-label="Project">
       <h4>Project</h4>
-      <a href="${GITHUB_URL}">GitHub</a>
-      <a href="${DOCS_URL}">Read the docs</a>
-      <span class="muted small">Open source · MIT</span>
+      <a href="${GITHUB_URL}">GitHub repository</a>
+      <a href="${GITHUB_URL}/issues">Issues and roadmap</a>
+      <a href="${GITHUB_URL}/blob/main/LICENSE">MIT license</a>
+      <a href="${GITHUB_URL}/releases">Releases</a>
     </nav>
   </div>
   <div class="footer-bottom-wrap">
     <div class="container footer-bottom">
-      <p class="muted small">© ${YEAR} obs-unified contributors</p>
-      <p class="muted small">Built with vanilla TypeScript + Vite</p>
+      <p class="muted small">Open source under MIT · public repo on GitHub · ${YEAR}</p>
+      <p class="muted small">Cloudflare Workers/D1/R2 or Node/Postgres/S3-compatible storage.</p>
     </div>
   </div>
 </footer>

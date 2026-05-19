@@ -721,32 +721,68 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 /* Footer */
 .site-footer {
   background: var(--color-sys-surface);
-  padding: 56px 0 28px;
+  padding: 48px 0 0;
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 32px;
-  padding-bottom: 36px;
+  grid-template-columns: minmax(280px, 1.45fr) repeat(3, minmax(150px, 1fr));
+  gap: 36px;
+  padding-bottom: 42px;
 }
 @media (max-width: 720px) {
   .footer-grid { grid-template-columns: 1fr 1fr; }
 }
-.footer-brand { display: flex; flex-direction: column; gap: 12px; }
-.footer-nav { display: flex; flex-direction: column; gap: 10px; }
+.footer-brand { display: flex; flex-direction: column; gap: 14px; }
+.footer-brand-copy {
+  max-width: 420px;
+  line-height: 1.65;
+}
+.footer-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.footer-cta-row a {
+  color: var(--color-sys-on-surface);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-nav { display: flex; flex-direction: column; gap: 11px; }
 .footer-nav h4 {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--color-sys-on-surface-subtle);
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .footer-nav a {
   color: var(--color-sys-on-surface-muted);
   font-size: 14px;
+  line-height: 1.35;
 }
 .footer-nav a:hover { color: var(--color-sys-on-surface); }
+.footer-package-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.footer-package-link span {
+  color: var(--color-sys-on-surface);
+  font-size: 13px;
+  font-weight: 600;
+}
+.footer-package-link code {
+  background: transparent;
+  color: var(--color-sys-on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+.footer-package-link:hover code { color: var(--color-sys-on-surface); }
 .footer-bottom-wrap {
   background: var(--color-sys-surface-low);
 }
@@ -756,6 +792,7 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   align-items: center;
   padding-top: 22px;
   padding-bottom: 22px;
+  gap: 18px;
 }
 @media (max-width: 540px) { .footer-bottom { flex-direction: column; gap: 8px; } }
 
@@ -833,11 +870,9 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 }
 .cmp-footnote { margin-top: 14px; text-align: center; }
 
-/* Footer package list */
-.footer-pkg {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--color-sys-on-surface-muted);
+@media (max-width: 540px) {
+  .footer-grid { grid-template-columns: 1fr; }
+  .footer-bottom { align-items: flex-start; }
 }
 
 /* Focus rings — primary-green outline, no radius. */
