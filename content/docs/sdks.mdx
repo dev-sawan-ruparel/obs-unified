@@ -1,16 +1,40 @@
 ---
 title: SDKs
-description: Two packages — analytics-sdk for the browser, telemetry-sdk for the server. They share an identity skeleton.
+description: First-party SDKs for TypeScript, Go, and Rust on the backend; a browser SDK for usage and replay. They share one identity-propagation contract.
 ---
 
-obs-unified provides two SDKs that share one identity-propagation contract:
+obs-unified ships first-party SDKs for **three backend languages** plus a browser SDK, all sharing one identity-propagation contract.
+
+## Backend SDKs
+
+| Language | Install | Where it runs |
+| --- | --- | --- |
+| **TypeScript** | `pnpm add @obs-unified/telemetry-sdk` | Node.js · Bun · Deno · Cloudflare Workers |
+| **Go** | `go get github.com/obs-unified/obs-unified/sdks/go@latest` | Any Go 1.22+ binary |
+| **Rust** | `cargo add obs-unified` | Any Rust 1.75+ binary (Tokio runtime) |
+
+All three expose the **same API surface**, so muscle memory ports across runtimes:
+
+| Concept | TypeScript | Go | Rust |
+| --- | --- | --- | --- |
+| Init | `init(config)` | `obs.Init(ctx, cfg)` | `obs_unified::init(cfg)` |
+| LLM span | `withLLMSpan(opts, fn)` | `obs.WithLLMSpan(ctx, opts, fn)` | `with_llm_span(opts, fn).await` |
+| Tool span | `withToolSpan(opts, fn)` | `obs.WithToolSpan(ctx, opts, fn)` | `with_tool_span(opts, fn).await` |
+| Project ID | `setProjectId(id)` | `obs.SetProjectID(ctx, id)` | `set_project_id(id)` |
+
+These are deliberately **thin wrappers around OpenTelemetry**: one-line collector init, OpenInference-shaped helpers so LLM/tool spans render in the dashboard's AI tab, project-id propagation for multi-tenant, and the loop-guard header for services that ingest their own telemetry. HTTP server/client and database instrumentation come from the OTel ecosystem of your language (`@opentelemetry/instrumentation-http`, `otelhttp`, `tower-http` + `tracing-opentelemetry`, etc.).
+
+If your backend language isn't listed, any OTLP-compatible OpenTelemetry SDK works as a fallback — you just lose the `x-obs-interaction` click-to-trace stitching unless you set the header yourself.
+
+## Browser SDK
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
 | `@obs-unified/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
-| `@obs-unified/telemetry-sdk` | Node.js / Cloudflare Workers / Bun | Creates OTLP spans, captures logs and AI calls, reads the inbound `x-obs-interaction` header and stamps it on the active span |
 
-Both packages live in the obs-unified monorepo (`packages/analytics-sdk` and `packages/telemetry-sdk`). They're published under the `@obs-unified/*` scope.
+This one is browser-only by definition — there's no parallel Go/Rust analytics SDK because that surface area is the web.
+
+All four packages live in the obs-unified monorepo. The TypeScript packages publish to npm under `@obs-unified/*`; the Go SDK is consumed straight from the `sdks/go` module path; the Rust crate publishes to crates.io as `obs-unified`.
 
 ## The identity skeleton
 

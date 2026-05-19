@@ -3,12 +3,16 @@ title: Installation
 description: Clone, install, migrate the local D1, bring the stack up.
 ---
 
-## Prerequisites
+This page covers cloning and running the **obs-unified monorepo** — the collector, dashboard, and TypeScript SDKs. If you just want to instrument a service with one of the published SDKs, jump to the [SDKs page](/docs/sdks) instead; the per-language install commands there don't require any of the prerequisites below.
 
-- **Node.js 22+** and **pnpm 10+**
+## Prerequisites (for the monorepo)
+
+- **Node.js 22+** and **pnpm 10+** — required to build the collector, dashboard, and `@obs-unified/*` TypeScript packages
 - A POSIX shell (bash / zsh)
 - macOS or Linux (Cloudflare's local `workerd` runs on both; Windows works via WSL2)
 - Optional: Docker, only if you want to run the upstream OTel Astronomy Shop demo
+
+> The Go and Rust SDKs are separate Go/Cargo workspaces under `sdks/go` and `sdks/rust`. Working on those only needs the respective language toolchain (Go 1.22+ / Rust 1.75+), not Node.
 
 ## Clone and install
 
