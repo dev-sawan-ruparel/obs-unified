@@ -71,5 +71,8 @@
 		"hono": "^4.12.11",
 		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
 	}
 }

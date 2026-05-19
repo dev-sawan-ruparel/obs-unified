@@ -2,9 +2,17 @@
 
 Self-hosted observability for your project. Traces, logs, usage analytics, session replay, profiles, and AI call tracking — no external telemetry services required.
 
+The TypeScript packages publish to GitHub Packages. Configure the
+`@obs-unified` scope once, then install the SDKs:
+
+```bash
+pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
+pnpm add @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
 ```
-npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
-```
+
+See [docs/github-packages.md](docs/github-packages.md) for GitHub Packages
+authentication details and the Go/Rust install paths.
 
 ## Architecture
 
@@ -33,7 +41,7 @@ npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
 The collector is a standalone service that receives telemetry and serves the dashboard.
 
 ```bash
-npm install @obs-unified/collector hono
+pnpm add @obs-unified/collector hono
 ```
 
 ```typescript
@@ -75,7 +83,7 @@ Set environment variables:
 ### 2. Instrument Your Backend
 
 ```bash
-npm install @obs-unified/telemetry-sdk
+pnpm add @obs-unified/telemetry-sdk
 ```
 
 ```typescript
@@ -113,7 +121,7 @@ trackAICall({
 ### 3. Instrument Your Frontend
 
 ```bash
-npm install @obs-unified/analytics-sdk
+pnpm add @obs-unified/analytics-sdk
 ```
 
 ```tsx

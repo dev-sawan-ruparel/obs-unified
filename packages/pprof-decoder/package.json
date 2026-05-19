@@ -32,5 +32,8 @@
 	"devDependencies": {
 		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
 	}
 }

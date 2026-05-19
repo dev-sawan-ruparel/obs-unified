@@ -139,7 +139,15 @@ Give application authors a small manual API before framework wrappers.
   name, args hash, result hash, error type, side-effect marker, and
   approval state.
 - [ ] **3.6** Implement `recordRetrieval` and `recordEvaluation`.
-- [ ] **3.7** Add examples for a manual TypeScript agent and a
+- [ ] **3.7** Define and emit the full obs-unified attribute set per
+  RFC 0010 Attribute conventions in one shared module: `obs.action.id`,
+  `obs.action.root_id`, `obs.action.caused_by_id`, `obs.actor.type`,
+  `obs.actor.id`, `obs.agent.run_id`, `obs.agent.step_id`,
+  `obs.agent.autonomy_level`, `obs.tool.call_id`,
+  `obs.tool.side_effect`, `obs.eval.id`, `obs.policy.id`. SDK emit
+  paths and Phase 4 normalizers both consume this module — no
+  duplicate string constants.
+- [ ] **3.8** Add examples for a manual TypeScript agent and a
   click-triggered agent flow.
 
 **Exit criteria:** the wrong-invoice fixture can be produced by the
@@ -155,11 +163,18 @@ Map existing ecosystem traces into the same graph.
   rows from `gen_ai.*` spans in the existing `/v1/traces` pipeline.
 - [ ] **4.2** Add OTel MCP normalizer for `mcp.method.name`,
   `jsonrpc.request.id`, and MCP tool / resource / prompt operations.
-- [ ] **4.3** Add OpenInference normalizer for `AGENT`, `LLM`, `TOOL`,
-  `RETRIEVER`, `GUARDRAIL`, `EVALUATOR`, and `PROMPT` span kinds.
-- [ ] **4.4** Add conformance tests for all three normalizers using the
+- [ ] **4.3** Add OpenInference normalizer for all ten span kinds:
+  `AGENT`, `LLM`, `TOOL`, `RETRIEVER`, `EMBEDDING`, `RERANKER`,
+  `GUARDRAIL`, `EVALUATOR`, `PROMPT`, `CHAIN`. (`EMBEDDING`, `RERANKER`,
+  and `CHAIN` may map to a generic `action.step` kind in the first
+  pass; document the mapping in `docs/spec/action-id.md`.)
+- [ ] **4.4** Update `ai-span-payloads-processor.ts` to stamp
+  `action_id` on each payload row from the same span's derived or
+  inherited action context. Without this, `ai_span_payloads.action_id`
+  added in 1.2 stays null for new ingest.
+- [ ] **4.5** Add conformance tests for all three normalizers using the
   fixtures from Phase 0.
-- [ ] **4.5** Document quality levels: explicit native action IDs are
+- [ ] **4.6** Document quality levels: explicit native action IDs are
   high-confidence; collector-derived `(trace_id, span_id)` action IDs
   are navigation fallback.
 
@@ -201,7 +216,10 @@ Add aggregate views after the run-level experience proves the graph.
   version, tool, user / tenant, and workflow.
 - [ ] **6.3** Prompt / agent version diff: success rate, eval score,
   latency, cost, tool error rate, user-visible failure rate, downstream
-  service errors.
+  service errors. Initially populated from production eval results
+  (3.6 + 4.3 `EVALUATOR`); the comparison-against-eval-cases dimension
+  fills in after Phase 7 lands and is allowed to render as empty
+  before then.
 - [ ] **6.4** Autonomous-write review surface: rows where
   `side_effect = true` and `autonomy_level = autonomous_write`.
 
@@ -235,7 +253,14 @@ Reduce user instrumentation burden after the manual API is stable.
 - [ ] **8.1** OpenAI Agents SDK wrapper.
 - [ ] **8.2** LangGraph wrapper.
 - [ ] **8.3** Vercel AI SDK wrapper.
-- [ ] **8.4** MCP client / server helpers.
+- [ ] **8.4** MCP client / server helpers. Client side: inject
+  `traceparent`, `tracestate`, `baggage`, `obs.action.id`, and
+  `obs.action.root_id` into MCP `params._meta` on outgoing requests
+  and notifications. Server side: extract those values on inbound
+  MCP spans, set as parent action, and map `tools/call`,
+  `resources/read`, `prompts/get` to the corresponding action kinds.
+  Phase 4.2 covers the ingest-only path when neither helper is in use;
+  8.4 closes the cross-process causality gap that ingest cannot.
 - [ ] **8.5** Demand-driven follow-ups: LlamaIndex, Mastra, AutoGen.
 
 **Exit criteria:** at least two common agent stacks can emit high-quality

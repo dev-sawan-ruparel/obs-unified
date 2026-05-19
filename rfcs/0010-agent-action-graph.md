@@ -6,7 +6,7 @@
 - **Updated:** 2026-05-18
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Depends on:** [RFC 0004 — Identity propagation](0004-identity-propagation.md), [RFC 0006 — Connected rail](0006-connected-rail.md), [RFC 0008 — Storage interface refactor](0008-storage-interface.md)
-- **Companion:** [docs/spec/interaction-id.md](../docs/spec/interaction-id.md), [docs/implementation/agent-action-graph.md](../docs/implementation/agent-action-graph.md), future `docs/spec/action-id.md`, future `docs/ux/agent-run-replay.md`
+- **Companion:** [docs/spec/interaction-id.md](../docs/spec/interaction-id.md), [docs/implementation/agent-action-graph.md](../docs/implementation/agent-action-graph.md), future `docs/spec/action-id.md` (Phase 0.1), future `docs/ux/agent-run-replay.md` (Phase 0.4)
 - **Target:** `@obs-unified/collector`, `@obs-unified/telemetry-sdk`, `@obs-unified/dashboard`, docs
 
 ## Summary

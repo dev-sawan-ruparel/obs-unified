@@ -57,5 +57,8 @@
 	},
 	"dependencies": {
 		"rrweb": "2.0.0-alpha.20"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
 	}
 }
