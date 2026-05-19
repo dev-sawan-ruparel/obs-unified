@@ -549,7 +549,6 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   stroke: color-mix(in srgb, var(--color-sys-primary) 22%, var(--color-sys-outline-soft));
 }
 .arch-zone-label,
-.arch-node-svg text,
 .arch-edge-label,
 .arch-pill text {
   font-family: var(--font-mono);
@@ -588,22 +587,25 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 }
 .arch-node-svg text {
   fill: var(--color-sys-on-surface);
-  font-size: 17px;
+  font-family: var(--font-sans);
+  font-size: 16px;
   font-weight: 700;
 }
 .arch-node-small {
   fill: var(--color-sys-on-surface-muted) !important;
   font-family: var(--font-sans) !important;
-  font-size: 13.5px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
 }
 .arch-node-tag {
   fill: var(--color-sys-on-surface-subtle) !important;
+  font-family: var(--font-mono) !important;
   font-size: 11px !important;
   letter-spacing: 0.1em;
 }
 .arch-route {
   fill: var(--color-sys-on-surface-muted) !important;
+  font-family: var(--font-mono) !important;
   font-size: 13px !important;
   font-weight: 500 !important;
 }
@@ -613,6 +615,7 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 }
 .arch-pill text {
   fill: var(--color-sys-on-surface);
+  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 700;
 }

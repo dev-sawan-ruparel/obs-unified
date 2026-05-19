@@ -26,7 +26,7 @@ export function renderArchitecture(): string {
         <span class="arch-kicker">Client-owned telemetry plane</span>
         <span class="arch-state">No vendor in path</span>
       </div>
-      <svg class="arch-flow-svg" viewBox="0 0 920 560" role="img" aria-labelledby="arch-flow-title arch-flow-desc">
+      <svg class="arch-flow-svg" viewBox="0 0 1000 560" role="img" aria-labelledby="arch-flow-title arch-flow-desc">
         <title id="arch-flow-title">obs-unified telemetry and observation flow</title>
         <desc id="arch-flow-desc">Backend and browser telemetry use write-only ingest keys to reach the collector. The collector stores telemetry in Cloudflare or Node storage. Operators authenticate separately to observe traces, logs, AI calls, errors, and replay through the dashboard and API.</desc>
         <defs>
@@ -41,46 +41,46 @@ export function renderArchitecture(): string {
           </marker>
         </defs>
 
-        <rect class="arch-zone" x="14" y="44" width="654" height="492"></rect>
+        <rect class="arch-zone" x="14" y="44" width="750" height="492"></rect>
         <text class="arch-zone-label" x="34" y="76">runs inside your infrastructure</text>
 
         <g class="arch-node-svg arch-node-source" transform="translate(36 104)">
-          <rect width="170" height="82"></rect>
+          <rect width="200" height="82"></rect>
           <text x="18" y="30">Backend services</text>
           <text class="arch-node-small" x="18" y="56">OTLP spans · logs</text>
           <text class="arch-node-small" x="18" y="74">AI call traces</text>
         </g>
         <g class="arch-node-svg arch-node-source" transform="translate(36 224)">
-          <rect width="170" height="82"></rect>
+          <rect width="200" height="82"></rect>
           <text x="18" y="30">Browser app</text>
           <text class="arch-node-small" x="18" y="56">Usage · errors</text>
           <text class="arch-node-small" x="18" y="74">rrweb replay</text>
         </g>
         <g class="arch-node-svg arch-node-operator" transform="translate(36 374)">
-          <rect width="170" height="82"></rect>
+          <rect width="200" height="82"></rect>
           <text x="18" y="30">Operators</text>
           <text class="arch-node-small" x="18" y="56">Investigate incidents</text>
           <text class="arch-node-small" x="18" y="74">Review behavior</text>
         </g>
 
-        <g class="arch-node-svg arch-node-auth" transform="translate(270 104)">
-          <rect width="150" height="82"></rect>
+        <g class="arch-node-svg arch-node-auth" transform="translate(285 104)">
+          <rect width="180" height="82"></rect>
           <text class="arch-node-tag" x="18" y="27">WRITE-ONLY</text>
           <text x="18" y="55">Server key</text>
         </g>
-        <g class="arch-node-svg arch-node-auth" transform="translate(270 224)">
-          <rect width="150" height="82"></rect>
+        <g class="arch-node-svg arch-node-auth" transform="translate(285 224)">
+          <rect width="180" height="82"></rect>
           <text class="arch-node-tag" x="18" y="27">WRITE-ONLY</text>
           <text x="18" y="55">Browser key</text>
         </g>
-        <g class="arch-node-svg arch-node-auth arch-node-read" transform="translate(270 374)">
-          <rect width="150" height="82"></rect>
+        <g class="arch-node-svg arch-node-auth arch-node-read" transform="translate(285 374)">
+          <rect width="180" height="82"></rect>
           <text class="arch-node-tag" x="18" y="27">READ ACCESS</text>
           <text x="18" y="55">Dashboard login</text>
         </g>
 
-        <g class="arch-node-svg arch-node-collector" transform="translate(500 142)">
-          <rect width="168" height="214"></rect>
+        <g class="arch-node-svg arch-node-collector" transform="translate(530 142)">
+          <rect width="210" height="214"></rect>
           <text x="20" y="34">Collector</text>
           <text class="arch-node-small" x="20" y="58">single deployable service</text>
           <text class="arch-route" x="20" y="98">/v1/* ingest</text>
@@ -89,47 +89,47 @@ export function renderArchitecture(): string {
           <text class="arch-route" x="20" y="188">/health</text>
         </g>
 
-        <g class="arch-node-svg arch-node-storage" transform="translate(500 414)">
-          <rect width="168" height="82"></rect>
+        <g class="arch-node-svg arch-node-storage" transform="translate(530 414)">
+          <rect width="210" height="82"></rect>
           <text x="18" y="31">Owned storage</text>
           <text class="arch-node-small" x="18" y="57">D1/R2 or PG/S3</text>
         </g>
 
         <g class="arch-observe">
-          <rect class="arch-observe-shell" x="718" y="90" width="170" height="374"></rect>
-          <text class="arch-zone-label" x="738" y="122">what you observe</text>
-          <g class="arch-pill" transform="translate(738 150)">
-            <rect width="130" height="38"></rect>
+          <rect class="arch-observe-shell" x="800" y="90" width="180" height="374"></rect>
+          <text class="arch-zone-label" x="820" y="122">what you observe</text>
+          <g class="arch-pill" transform="translate(820 150)">
+            <rect width="140" height="38"></rect>
             <text x="14" y="25">Traces</text>
           </g>
-          <g class="arch-pill" transform="translate(738 202)">
-            <rect width="130" height="38"></rect>
+          <g class="arch-pill" transform="translate(820 202)">
+            <rect width="140" height="38"></rect>
             <text x="14" y="25">Logs</text>
           </g>
-          <g class="arch-pill" transform="translate(738 254)">
-            <rect width="130" height="38"></rect>
+          <g class="arch-pill" transform="translate(820 254)">
+            <rect width="140" height="38"></rect>
             <text x="14" y="25">AI calls</text>
           </g>
-          <g class="arch-pill" transform="translate(738 306)">
-            <rect width="130" height="38"></rect>
+          <g class="arch-pill" transform="translate(820 306)">
+            <rect width="140" height="38"></rect>
             <text x="14" y="25">Errors</text>
           </g>
-          <g class="arch-pill" transform="translate(738 358)">
-            <rect width="130" height="38"></rect>
+          <g class="arch-pill" transform="translate(820 358)">
+            <rect width="140" height="38"></rect>
             <text x="14" y="25">Replay</text>
           </g>
         </g>
 
-        <path class="arch-edge arch-edge-ingest" d="M 206 145 H 270" marker-end="url(#arrow-ingest)"></path>
-        <path class="arch-edge arch-edge-ingest" d="M 420 145 H 500" marker-end="url(#arrow-ingest)"></path>
-        <path class="arch-edge arch-edge-ingest" d="M 206 265 H 270" marker-end="url(#arrow-ingest)"></path>
-        <path class="arch-edge arch-edge-ingest" d="M 420 265 H 500" marker-end="url(#arrow-ingest)"></path>
-        <path class="arch-edge arch-edge-store" d="M 584 356 V 414" marker-end="url(#arrow-store)"></path>
-        <path class="arch-edge arch-edge-read" d="M 206 415 H 270" marker-end="url(#arrow-read)"></path>
-        <path class="arch-edge arch-edge-read" d="M 420 415 C 462 415 474 326 500 326" marker-end="url(#arrow-read)"></path>
-        <path class="arch-edge arch-edge-read" d="M 668 249 H 718" marker-end="url(#arrow-read)"></path>
+        <path class="arch-edge arch-edge-ingest" d="M 236 145 H 285" marker-end="url(#arrow-ingest)"></path>
+        <path class="arch-edge arch-edge-ingest" d="M 465 145 H 530" marker-end="url(#arrow-ingest)"></path>
+        <path class="arch-edge arch-edge-ingest" d="M 236 265 H 285" marker-end="url(#arrow-ingest)"></path>
+        <path class="arch-edge arch-edge-ingest" d="M 465 265 H 530" marker-end="url(#arrow-ingest)"></path>
+        <path class="arch-edge arch-edge-store" d="M 635 356 V 414" marker-end="url(#arrow-store)"></path>
+        <path class="arch-edge arch-edge-read" d="M 236 415 H 285" marker-end="url(#arrow-read)"></path>
+        <path class="arch-edge arch-edge-read" d="M 465 415 C 504 415 508 326 530 326" marker-end="url(#arrow-read)"></path>
+        <path class="arch-edge arch-edge-read" d="M 740 249 H 800" marker-end="url(#arrow-read)"></path>
 
-        <text class="arch-edge-label arch-label-store" x="600" y="391">persist</text>
+        <text class="arch-edge-label arch-label-store" x="654" y="391">persist</text>
       </svg>
       <div class="arch-flow-stack" aria-hidden="true">
         <div class="arch-step arch-step-ingest">
