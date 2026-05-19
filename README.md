@@ -78,7 +78,7 @@ presence/
 
 | Repo | What it is |
 |---|---|
-| [`obs-unified`](https://github.com/obs-unified/obs-unified) | The product (collector + SDKs + dashboard). Private while pre-1.0; design at [docs.obsunified.com](https://docs.obsunified.com). |
+| [`obs-unified`](https://github.com/obs-unified/obs-unified) | The product (collector + SDKs + dashboard). Design and usage at [docs.obsunified.com](https://docs.obsunified.com). |
 | [`obs-unified-docs`](https://github.com/obs-unified/obs-unified-docs) | Docs site. Live at [docs.obsunified.com](https://docs.obsunified.com). |
 | [`ci`](https://github.com/obs-unified/ci) | Self-hosted runners + Cloudflare deploy automation. |
 

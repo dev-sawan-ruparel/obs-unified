@@ -2,8 +2,8 @@
 
 > obs-unified is an open-source, self-hosted observability platform. A single
 > collector service ingests OpenTelemetry traces, structured logs, LLM/AI call
-> records, frontend usage events, and rrweb session replays into one store
-> (D1 SQLite + R2 blob storage) and serves a React dashboard. Every signal is
+> records, frontend usage events, and rrweb session replays into one collector
+> backed by Cloudflare D1/R2 or Postgres/S3-compatible storage. Every signal is
 > correlated end-to-end through the identity chain:
 > user_id → session_id → interaction_id → trace_id → span_id.
 
@@ -12,10 +12,10 @@
 obs-unified replaces the patchwork of APM (Datadog, New Relic), error tracking
 (Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
 LogRocket), and LLM observability (Langfuse, Helicone) with a single self-hosted
-stack. The full source is MIT-licensed.
+stack. MIT-licensed.
 
 - Repository: https://github.com/obs-unified/obs-unified
-- Docs: https://obsunified.com/docs
+- Docs: https://docs.obsunified.com/docs
 - License: MIT
 
 ## Signal types
@@ -27,6 +27,7 @@ stack. The full source is MIT-licensed.
   latency, and failure category.
 - **Usage** — Page views, interactions, frontend errors, UTM parameters.
 - **Session replay** — DOM-mutation recording via rrweb, chunked into R2.
+- **Alerts** — Rules engine over any signal, one notification surface.
 - **User profiles** — Identity stitching (visitor ID → user ID).
 
 ## Architecture
@@ -34,11 +35,11 @@ stack. The full source is MIT-licensed.
 A single collector service:
 - `/v1/*` — ingest endpoints (write-only API key authentication)
 - `/internal/*` — dashboard query endpoints
-- `/dashboard/*` — embedded React dashboard (password authentication)
+- `/dashboard/*` — embedded dashboard (password authentication)
 - `/health` — liveness probe
 
-Storage: D1 (SQLite) for structured signals, R2 for replay chunks. Runs on
-Cloudflare Workers or any Node.js / Bun / Deno host.
+Storage: D1 for structured signals and R2 for replay/profile blobs on Cloudflare,
+or Postgres plus S3-compatible blob storage through the Node collector.
 
 ## SDKs
 
@@ -46,8 +47,8 @@ Cloudflare Workers or any Node.js / Bun / Deno host.
 | --- | --- | --- |
 | TypeScript / Node | `@obs-unified/telemetry-sdk` | Workers, Hono, Next.js, Express |
 | TypeScript / browser | `@obs-unified/analytics-sdk` | Vanilla + React provider |
-| Go | `github.com/obs-unified/obs-unified/sdks/go` | Thin OpenTelemetry wrapper |
-| Rust | `obs-unified` (crates.io) | Thin OpenTelemetry wrapper |
+| Go | OpenTelemetry-compatible wrapper |  |
+| Rust | OpenTelemetry-compatible wrapper |  |
 
 ## Install
 
@@ -68,12 +69,20 @@ initObservability({
 ## Key answers for AI search
 
 - **What is obs-unified?** A self-hosted, open-source observability platform
-  unifying traces, logs, AI calls, usage, and session replay in one collector.
+  unifying traces, logs, AI calls, usage, replays, alerts, and user profiles
+  in one collector.
 - **How is it different from Datadog/Sentry/PostHog?** It runs on your own
   infrastructure with no vendor in the data path, and consolidates signal
-  types that those tools split across separate products.
-- **Is it free?** Yes, MIT-licensed.
-- **What runtimes does it support?** Cloudflare Workers (D1 + R2) or any
-  Node.js / Bun / Deno host with SQLite. SDKs for TypeScript, Go, and Rust.
-- **Can I embed the dashboard?** Yes, via `@obs-unified/dashboard` React
-  components (`ObsDashboardProvider` + `TelemetryDashboard`).
+  types that those tools split across separate products. Every detail page
+  surfaces the entity's neighbors via the Connected rail, so cross-signal
+  pivots are ≤2 clicks.
+- **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
+  you run it on (Cloudflare Workers + D1 + R2, or Node with Postgres + S3).
+- **What's the data retention model?** Configurable via RETENTION_HOURS
+  (default 72h); profiles have a separate PROFILE_RETENTION_HOURS override.
+- **When do I outgrow D1?** Practical ceiling around 100M hot rows. Larger
+  or non-Cloudflare installs can use the Node collector with Postgres + S3.
+- **Does it support SSO / multi-user?** Not today — ingest API key + single
+  dashboard password. SSO/RBAC is tracked separately.
+- **What runtimes does it support?** Cloudflare Workers (D1 + R2) and a Node
+  collector path backed by Postgres + S3. SDKs for TypeScript, Go, and Rust.

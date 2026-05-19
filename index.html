@@ -3,8 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b0d10" />
+    <meta name="theme-color" content="#006B18" />
+
+    <!-- Brand assets — managed by @obs-unified/brand in the obs-unified
+         monorepo. Do not edit by hand; re-run
+         `node packages/brand/scripts/sync-to-projects.mjs`. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="canonical" href="https://obsunified.com/" />
 
     <title>obs-unified — self-hosted observability for traces, logs, AI calls, and session replay</title>
@@ -28,9 +35,6 @@
     <meta name="twitter:description" content="One collector. Traces, logs, AI calls, usage, and session replay — correlated end-to-end." />
     <meta name="twitter:image" content="https://obsunified.com/og.jpg" />
 
-    <link rel="preconnect" href="https://github.com" crossorigin />
-    <link rel="dns-prefetch" href="https://github.com" />
-
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -42,10 +46,8 @@
             "alternateName": "obs",
             "applicationCategory": "DeveloperApplication",
             "operatingSystem": "Cross-platform (Cloudflare Workers, Node.js, Bun, Deno)",
-            "description": "Self-hosted observability platform that ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays into a single collector backed by D1 (SQLite) and R2.",
+            "description": "Self-hosted observability platform that ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays into a single collector backed by Cloudflare D1/R2 or Postgres/S3-compatible storage.",
             "url": "https://obsunified.com/",
-            "downloadUrl": "https://github.com/obs-unified/obs-unified",
-            "codeRepository": "https://github.com/obs-unified/obs-unified",
             "programmingLanguage": ["TypeScript", "Go", "Rust"],
             "license": "https://opensource.org/license/mit",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -53,10 +55,10 @@
               "Distributed tracing (OTLP)",
               "Structured logging with trace correlation",
               "LLM/AI call tracking (tokens, cost, latency)",
-              "Frontend usage analytics",
               "Session replay via rrweb",
-              "Service map and issues",
+              "Frontend usage analytics",
               "Alert rules and notifications",
+              "User profiles and identity stitching",
               "Self-hosted on your own infrastructure"
             ]
           },
@@ -64,8 +66,7 @@
             "@type": "Organization",
             "@id": "https://obsunified.com/#org",
             "name": "obs-unified",
-            "url": "https://obsunified.com/",
-            "sameAs": ["https://github.com/obs-unified/obs-unified"]
+            "url": "https://obsunified.com/"
           },
           {
             "@type": "WebSite",
@@ -83,39 +84,71 @@
                 "name": "What is obs-unified?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "obs-unified is an open-source, self-hosted observability platform. A single collector service ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays, stores them in D1 (SQLite) and R2, and serves a React dashboard for querying and correlating them."
+                  "text": "obs-unified is an open-source, self-hosted observability platform. A single collector service ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays, stores them in Cloudflare D1/R2 or Postgres/S3-compatible storage, and serves a dashboard for querying and correlating them."
                 }
               },
               {
                 "@type": "Question",
-                "name": "How is obs-unified different from Datadog, Sentry, or PostHog?",
+                "name": "How is it different from Datadog, Sentry, or PostHog?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "obs-unified runs on your own infrastructure with no external telemetry vendor. It unifies the signal types that those tools split across separate products — APM traces, logs, error tracking, product analytics, session replay, and LLM observability — into one collector and one dashboard, correlated through a single identity chain (user → session → interaction → trace → span)."
+                  "text": "It runs on your own infrastructure with no external telemetry vendor. It unifies signal types that those tools split across separate products — APM traces, logs, product analytics, session replay, AI observability, and alerting — into one collector and one dashboard, correlated through a single identity chain (user → session → interaction → trace → span)."
                 }
               },
               {
                 "@type": "Question",
-                "name": "What runtimes does obs-unified support?",
+                "name": "What is the data retention model?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "The collector runs on Cloudflare Workers (D1 + R2) or any Node.js / Bun / Deno host with SQLite. SDKs ship for Node.js / TypeScript (Workers, Hono, Next.js, Express), Go, and Rust. Frontend instrumentation is a vanilla browser SDK with a React wrapper."
+                  "text": "Retention is controlled by RETENTION_HOURS on the collector and defaults to 72 hours. Profile blobs have a separate PROFILE_RETENTION_HOURS override. Because data lives in your storage account, you set the policy and pay the storage directly — no per-event retention tier to negotiate."
                 }
               },
               {
                 "@type": "Question",
-                "name": "Is obs-unified free and open source?",
+                "name": "When do I outgrow D1, and what is the upgrade path?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. obs-unified is MIT-licensed and the full source code lives at github.com/obs-unified/obs-unified, including the collector, SDKs, dashboard, and OpenTelemetry Astronomy Shop demo wiring."
+                  "text": "D1's row-store is comfortable up to roughly 100M hot rows; the binding constraints are metric cardinality and profile sample metadata. Profile blobs are kept in R2 with only small metadata rows in D1 to push the ceiling further. For larger or non-Cloudflare installs, the Node collector uses Postgres plus S3-compatible blob storage."
                 }
               },
               {
                 "@type": "Question",
-                "name": "How do I install obs-unified?",
+                "name": "How does it handle PII and GDPR?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Install the SDKs with npm install @obs-unified/telemetry-sdk @obs-unified/analytics-sdk, deploy the @obs-unified/collector package to Cloudflare Workers or any Node host, set INGEST_KEY and DASHBOARD_PASSWORD, and call initObservability() in your backend. The dashboard is served by the collector at /dashboard."
+                  "text": "Self-hosting is the headline answer: data never leaves your infrastructure. On top of that, the usage pipeline default-redacts fields named like email, token, password, authorization, or cookie before storage. Session replays use rrweb, which masks input fields by default and supports per-element block/mask attributes."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it support SSO or multi-user dashboards?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Not today. Two auth boundaries ship: a write-only ingest API key for SDKs and a single password for the dashboard. Multi-user, RBAC, and SSO are out of scope and tracked separately. Most teams put the dashboard behind their existing identity proxy in the meantime."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I migrate from Datadog, Sentry, or PostHog?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sentry and PostHog have step-by-step migration guides covering concept mapping, SDK swap, and identity backfill via /v1/identify. For Datadog, OTLP-native ingest accepts the standard OpenTelemetry SDK over OTLP HTTP, so traces and logs are a config change; a dedicated walkthrough is coming."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work with my existing OpenTelemetry SDK?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The collector accepts OTLP over HTTP (JSON and protobuf, with gzip). gRPC is intentionally not supported — Cloudflare Workers can't host it, and OTLP HTTP covers every official SDK. The first-party SDKs are thin wrappers that configure the standard OpenTelemetry SDK to point at the collector and add OpenInference helpers for LLM spans."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it free and open source?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes — MIT-licensed. You pay only for the infrastructure you run it on: Cloudflare Workers + D1 + R2, or the Node collector with Postgres + S3-compatible storage."
                 }
               }
             ]
