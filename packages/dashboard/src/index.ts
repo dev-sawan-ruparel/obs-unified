@@ -1,4 +1,15 @@
 export { AuthGate } from "./AuthGate";
+export {
+	ActionGraphRenderer,
+	type ActionGraphRendererProps,
+	type ActionRef,
+	type AgentRunRef,
+	type ArtifactRef,
+	type EntityManifestExtended,
+	type EvalResultRef,
+	type RetrievalEventRef,
+	type ToolCallRef,
+} from "./components/ActionGraphRenderer";
 export { AskBox } from "./components/AskBox";
 export type { ButtonSize, ButtonVariant } from "./components/Button";
 export { Button } from "./components/Button";

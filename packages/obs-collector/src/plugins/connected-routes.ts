@@ -17,17 +17,18 @@
 
 import type { CollectorPlugin } from "../framework/collector";
 import {
-	type AICallRef,
-	IdentityIndex,
-	type LogRef,
-	type SpanRef,
-	type UsageEventRef,
 	type ActionRef,
 	type AgentRunRef,
-	type ToolCallRef,
-	type RetrievalEventRef,
-	type EvalResultRef,
+	type AICallRef,
 	type ArtifactRef,
+	type EntityManifestExtended,
+	type EvalResultRef,
+	IdentityIndex,
+	type LogRef,
+	type RetrievalEventRef,
+	type SpanRef,
+	type ToolCallRef,
+	type UsageEventRef,
 } from "../lib/identity-index";
 import { type SqlDb, sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
@@ -78,6 +79,7 @@ export interface ConnectedManifest {
 	across: ConnectedSection[];
 	down: ConnectedSection[];
 	related: ConnectedSection[];
+	rawManifest?: EntityManifestExtended;
 }
 
 const MAX_LINKS_INLINE = 5;
@@ -688,14 +690,16 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						manifest.up.push({
 							label: "Up",
 							links: [],
-							emptyReason: "No parent context: this action is the root of its execution tree.",
+							emptyReason:
+								"No parent context: this action is the root of its execution tree.",
 						});
 					}
 
 					manifest.across = [
 						linksFromActions(
 							actionManifest.actions.filter(
-								(a) => a.id !== id && a.causedByActionId === action.causedByActionId,
+								(a) =>
+									a.id !== id && a.causedByActionId === action.causedByActionId,
 							),
 							"Sibling Actions",
 						),
@@ -734,6 +738,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							},
 						];
 					}
+					manifest.rawManifest = actionManifest;
 				}
 			} else if (kind === "agent_run") {
 				const runManifest = await index.byAgentRun(projectId, id);
@@ -772,16 +777,22 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							},
 						];
 					}
+					manifest.rawManifest = runManifest;
 				}
 			} else if (kind === "tool_call") {
 				const db = sqlDbFor(c.env);
 				const toolCallRow = await db
-					.prepare(`SELECT action_id, tool_name FROM tool_calls WHERE project_id = ? AND id = ? LIMIT 1`)
+					.prepare(
+						`SELECT action_id, tool_name FROM tool_calls WHERE project_id = ? AND id = ? LIMIT 1`,
+					)
 					.bind(projectId, id)
 					.first<{ action_id: string; tool_name: string }>();
 
 				if (toolCallRow) {
-					const actionManifest = await index.byAction(projectId, toolCallRow.action_id);
+					const actionManifest = await index.byAction(
+						projectId,
+						toolCallRow.action_id,
+					);
 					const toolCall = actionManifest.toolCalls.find((t) => t.id === id);
 					if (toolCall) {
 						manifest.up = [

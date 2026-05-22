@@ -27,7 +27,10 @@ export type ConnectedEntityKind =
 	| "replay"
 	| "alert"
 	| "analysis"
-	| "user";
+	| "user"
+	| "action"
+	| "agent_run"
+	| "tool_call";
 
 interface ConnectedLink {
 	label: string;

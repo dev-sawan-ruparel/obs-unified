@@ -9,6 +9,10 @@ import type {
 	JsonValue,
 } from "@obs-unified/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+	ActionGraphRenderer,
+	type EntityManifestExtended,
+} from "../components/ActionGraphRenderer";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { MessageView } from "../components/MessageView";
 import {
@@ -632,7 +636,12 @@ function SpanRow({
 
 // ── Detail pane (tabbed) ───────────────────────────────────────────────────
 
-type DetailTab = "messages" | "attributes" | "waterfall" | "evaluations";
+type DetailTab =
+	| "messages"
+	| "attributes"
+	| "waterfall"
+	| "evaluations"
+	| "actionGraph";
 
 function SpanDetailPane({
 	span,
@@ -648,6 +657,7 @@ function SpanDetailPane({
 	onJumpTo: (span: AISpanRecord) => void;
 }) {
 	const [tab, setTab] = useState<DetailTab>("messages");
+	const api = useApi();
 
 	const evalsForSpan = useMemo(
 		() => (evaluations ?? []).filter((e) => e.spanId === span.spanId),
@@ -663,6 +673,51 @@ function SpanDetailPane({
 	const cost = attrNumber(span.attributes, "llm.cost.total_usd");
 	const computed = attrString(span.attributes, "llm.cost.computed");
 	const isError = span.statusCode === 2;
+
+	const actionId = attrString(span.attributes, "obs.action.id");
+	const [graphData, setGraphData] = useState<EntityManifestExtended | null>(
+		null,
+	);
+	const [graphLoading, setGraphLoading] = useState(false);
+	const [graphError, setGraphError] = useState<string | null>(null);
+
+	useEffect(() => {
+		setGraphData(null);
+		setGraphLoading(false);
+		setGraphError(null);
+	}, [actionId]);
+
+	useEffect(() => {
+		if (tab !== "actionGraph" || !actionId) {
+			return;
+		}
+		let cancelled = false;
+		setGraphLoading(true);
+		setGraphError(null);
+		(async () => {
+			try {
+				const res = await api<{ rawManifest?: EntityManifestExtended }>(
+					`/connected/action/${actionId}`,
+				);
+				if (cancelled) return;
+				if (res.rawManifest) {
+					setGraphData(res.rawManifest);
+				} else {
+					setGraphError("No action graph manifest returned from the server.");
+				}
+			} catch (err) {
+				if (cancelled) return;
+				setGraphError(err instanceof Error ? err.message : String(err));
+			} finally {
+				if (!cancelled) {
+					setGraphLoading(false);
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [actionId, tab, api]);
 
 	return (
 		<Card className="min-h-0 overflow-hidden flex flex-col">
@@ -746,6 +801,14 @@ function SpanDetailPane({
 						<span className="opacity-50 ml-1">({evalsForSpan.length})</span>
 					)}
 				</DetailTabBtn>
+				{actionId && (
+					<DetailTabBtn
+						active={tab === "actionGraph"}
+						onClick={() => setTab("actionGraph")}
+					>
+						🌳 Action Graph
+					</DetailTabBtn>
+				)}
 				<DetailTabBtn
 					active={tab === "attributes"}
 					onClick={() => setTab("attributes")}
@@ -755,42 +818,65 @@ function SpanDetailPane({
 			</div>
 
 			{/* Body */}
-			<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-				{tab === "messages" && (
-					<div className="flex flex-col gap-3">
-						<MessageView
-							raw={span.inputJson}
-							label="Input"
-							defaultRole="user"
+			{tab === "actionGraph" ? (
+				<div className="flex-1 min-h-0 relative">
+					{graphLoading && (
+						<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
+							Loading action graph...
+						</div>
+					)}
+					{graphError && (
+						<div className="p-6 text-center text-[0.75rem] text-sys-error font-mono">
+							Failed to load action graph: {graphError}
+						</div>
+					)}
+					{!graphLoading && !graphError && graphData && (
+						<ActionGraphRenderer actionId={actionId!} rawManifest={graphData} />
+					)}
+					{!graphLoading && !graphError && !graphData && (
+						<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
+							No action graph data found.
+						</div>
+					)}
+				</div>
+			) : (
+				<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+					{tab === "messages" && (
+						<div className="flex flex-col gap-3">
+							<MessageView
+								raw={span.inputJson}
+								label="Input"
+								defaultRole="user"
+							/>
+							<MessageView
+								raw={span.outputJson}
+								label="Output"
+								defaultRole="assistant"
+								accent={isError ? "error" : undefined}
+							/>
+						</div>
+					)}
+
+					{tab === "waterfall" && (
+						<TraceWaterfall
+							focusSpanId={span.spanId}
+							spans={traceSpans}
+							onJumpTo={onJumpTo}
 						/>
-						<MessageView
-							raw={span.outputJson}
-							label="Output"
-							defaultRole="assistant"
-							accent={isError ? "error" : undefined}
+					)}
+
+					{tab === "evaluations" && (
+						<EvaluationsList evaluations={evalsForSpan} />
+					)}
+
+					{tab === "attributes" && (
+						<JsonBlock
+							label="attributes"
+							value={JSON.stringify(span.attributes, null, 2)}
 						/>
-					</div>
-				)}
-
-				{tab === "waterfall" && (
-					<TraceWaterfall
-						focusSpanId={span.spanId}
-						spans={traceSpans}
-						onJumpTo={onJumpTo}
-					/>
-				)}
-
-				{tab === "evaluations" && (
-					<EvaluationsList evaluations={evalsForSpan} />
-				)}
-
-				{tab === "attributes" && (
-					<JsonBlock
-						label="attributes"
-						value={JSON.stringify(span.attributes, null, 2)}
-					/>
-				)}
-			</div>
+					)}
+				</div>
+			)}
 		</Card>
 	);
 }
