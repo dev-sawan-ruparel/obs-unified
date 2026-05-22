@@ -30,7 +30,7 @@ const SHAPE_CACHE_TTL_MS = 5 * 60 * 1000;
 const shapeCache: Map<string, CachedShape> = new Map();
 
 const slug = (value: string): string =>
-	value.replace(/[\/:\s]+/g, "_").replace(/[^A-Za-z0-9_.\-]/g, "_");
+	value.replace(/[/:\s]+/g, "_").replace(/[^A-Za-z0-9_.-]/g, "_");
 
 const sqlEscape = (value: string): string => value.replace(/'/g, "''");
 
@@ -65,7 +65,9 @@ const fetchShape = async (
 
 	const services = servicesRes.results
 		.map((row) => row.service_name)
-		.filter((name): name is string => typeof name === "string" && name.length > 0);
+		.filter(
+			(name): name is string => typeof name === "string" && name.length > 0,
+		);
 
 	// Cross-service edges: parent span's service != child span's service,
 	// within the same trace, in the last hour. We only keep distinct
@@ -106,7 +108,9 @@ const fetchShape = async (
 
 	const messagingTopics = topicsRes.results
 		.map((row) => row.topic)
-		.filter((topic): topic is string => typeof topic === "string" && topic.length > 0);
+		.filter(
+			(topic): topic is string => typeof topic === "string" && topic.length > 0,
+		);
 
 	// Are there any LLM-kind spans? OpenInference uses
 	// `openinference.span.kind` = 'LLM'. We also accept the more general

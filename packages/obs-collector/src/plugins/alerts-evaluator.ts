@@ -58,8 +58,7 @@ async function fireWebhook(
 				body: JSON.stringify(payload),
 				signal: AbortSignal.timeout(5000),
 			});
-			if (span)
-				span.setAttribute("http.response.status_code", response.status);
+			if (span) span.setAttribute("http.response.status_code", response.status);
 			return response.ok;
 		} catch (err) {
 			logger.error("[alerts-evaluator] webhook delivery failed", {
@@ -70,15 +69,11 @@ async function fireWebhook(
 		}
 	};
 	if (!tracer) return exec(null);
-	return tracer(
-		"webhook.alert",
-		async (span) => exec(span),
-		{
-			"http.method": "POST",
-			"http.url": channel.url,
-			"alert.state": payload.state,
-		},
-	);
+	return tracer("webhook.alert", async (span) => exec(span), {
+		"http.method": "POST",
+		"http.url": channel.url,
+		"alert.state": payload.state,
+	});
 }
 
 async function fireChannels(

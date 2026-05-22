@@ -6,5 +6,5 @@
 // other runtimes import from "@obs-unified/telemetry-sdk" instead.
 
 export { type WrapD1Options, wrapD1 } from "./d1";
-export { type WrapR2Options, wrapR2 } from "./r2";
 export { type WrapFetchOptions, wrapFetch } from "./fetch";
+export { type WrapR2Options, wrapR2 } from "./r2";

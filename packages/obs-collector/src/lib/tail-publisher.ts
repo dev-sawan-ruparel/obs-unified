@@ -1,6 +1,6 @@
 import type { LogRecord, StoredSpan } from "@obs-unified/types";
-import type { CollectorEnv } from "../framework/env";
 import type { TailEvent } from "../durable-objects/tail-hub";
+import type { CollectorEnv } from "../framework/env";
 
 /**
  * Fire-and-forget publish to the TailHub DO. Swallows errors — tail is a

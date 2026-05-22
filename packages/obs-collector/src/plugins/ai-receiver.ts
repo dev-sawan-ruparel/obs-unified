@@ -24,7 +24,10 @@ export const aiReceiverPlugin: CollectorPlugin = {
 				return c.json({ error: "Missing calls array" }, 400);
 			}
 			if (payload.calls.length > 500) {
-				return c.json({ error: `Too many AI calls: ${payload.calls.length} (max 500)` }, 413);
+				return c.json(
+					{ error: `Too many AI calls: ${payload.calls.length} (max 500)` },
+					413,
+				);
 			}
 			const store = new AIStore(sqlDbFor(c.env));
 

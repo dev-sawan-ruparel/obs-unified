@@ -61,7 +61,10 @@ export const usageQueryRoutesPlugin: CollectorPlugin = {
 			);
 			const limit = Math.max(
 				1,
-				Math.min(500, Number.parseInt(c.req.query("limit") || "100", 10) || 100),
+				Math.min(
+					500,
+					Number.parseInt(c.req.query("limit") || "100", 10) || 100,
+				),
 			);
 
 			const store = runtime.createUsageStore(c.env);

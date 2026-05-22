@@ -56,7 +56,9 @@ export function MessageView({
 						key={i}
 						role={m.role}
 						subtitle={m.meta}
-						accent={accent === "error" && m.role === "assistant" ? "error" : undefined}
+						accent={
+							accent === "error" && m.role === "assistant" ? "error" : undefined
+						}
 					>
 						{renderContent(m.content)}
 					</ChatBubble>

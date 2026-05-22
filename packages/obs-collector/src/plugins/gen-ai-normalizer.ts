@@ -12,13 +12,13 @@
  * `openinference.span.kind` and `ai.payload.*` are already set.
  */
 
+import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import {
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
 	OPENINFERENCE_SPAN_KIND_KEY,
 	OpenInferenceSpanKind,
 } from "@obs-unified/types/constants";
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 
@@ -119,8 +119,7 @@ export const genAiNormalizerPlugin: CollectorPlugin = {
 						(attrs["gen_ai.request.model"] as string | undefined);
 					const provider = attrs["gen_ai.system"];
 					if (kind === OpenInferenceSpanKind.LLM) {
-						if (typeof model === "string")
-							normalized["llm.model_name"] = model;
+						if (typeof model === "string") normalized["llm.model_name"] = model;
 						if (typeof provider === "string")
 							normalized["llm.provider"] = provider;
 					} else if (kind === OpenInferenceSpanKind.EMBEDDING) {

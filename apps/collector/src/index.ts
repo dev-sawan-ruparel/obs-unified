@@ -1,11 +1,11 @@
 import {
-	createAnalysesRunHandler,
-	createDefaultCollectorApp,
-	createRetentionCleanupHandler,
-	createIngestAuth,
-	createDashboardAuth,
-	evaluateAllRules,
 	type CollectorEnv,
+	createAnalysesRunHandler,
+	createDashboardAuth,
+	createDefaultCollectorApp,
+	createIngestAuth,
+	createRetentionCleanupHandler,
+	evaluateAllRules,
 } from "@obs-unified/collector";
 import {
 	createLogger,
@@ -57,7 +57,8 @@ const SELF_INSTRUMENTED_PREFIX = ["/v1/", "/internal/"];
 
 let observabilityInited = false;
 const ensureObservability = (env: CollectorEnv): boolean => {
-	if (!env.OBS_DASHBOARD_INGEST_KEY || !env.OBS_COLLECTOR_SELF_URL) return false;
+	if (!env.OBS_DASHBOARD_INGEST_KEY || !env.OBS_COLLECTOR_SELF_URL)
+		return false;
 	if (!observabilityInited) {
 		initObservability({
 			collectorUrl: env.OBS_COLLECTOR_SELF_URL,
@@ -79,7 +80,10 @@ const shouldInstrument = (request: Request): boolean => {
 	return SELF_INSTRUMENTED_PREFIX.some((p) => path.startsWith(p));
 };
 
-const exportSpan = async (env: CollectorEnv, span: RequestSpan): Promise<void> => {
+const exportSpan = async (
+	env: CollectorEnv,
+	span: RequestSpan,
+): Promise<void> => {
 	if (!env.OBS_COLLECTOR_SELF_URL || !env.OBS_DASHBOARD_INGEST_KEY) return;
 	try {
 		await fetch(`${env.OBS_COLLECTOR_SELF_URL}/v1/traces`, {

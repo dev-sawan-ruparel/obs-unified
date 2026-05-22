@@ -6,10 +6,10 @@ import type {
 	AnalysisStatus,
 } from "@obs-unified/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useApi } from "../use-api";
 import { Button } from "../components/Button";
-import { EmptyState } from "../components/states";
 import { SectionTitle, UpdatedChip } from "../components/primitives";
+import { EmptyState } from "../components/states";
+import { useApi } from "../use-api";
 import { PanelTile } from "./health/PanelTile";
 
 const REFRESH_MS = 30_000;
@@ -116,9 +116,7 @@ export function HealthDashboard() {
 		try {
 			// useApi prepends basePath ("/internal" in apps/web), so this resolves
 			// to /internal/analyses/results.
-			const res = await api<AnalysisResultsBulkResponse>(
-				"/analyses/results",
-			);
+			const res = await api<AnalysisResultsBulkResponse>("/analyses/results");
 			setData(res);
 			setLastFetchedAt(res.timestamp ?? new Date().toISOString());
 			setError(null);
@@ -241,13 +239,10 @@ export function HealthDashboard() {
 								<span className="font-mono text-sys-on-surface">
 									pnpm demo:up
 								</span>{" "}
-								to point the OpenTelemetry Astronomy Shop at the collector,
-								or{" "}
-								<span className="font-mono text-sys-on-surface">
-									pnpm seed
-								</span>{" "}
-								for synthetic data without Docker. Tier 0 panels appear
-								within about a minute of the first traffic.
+								to point the OpenTelemetry Astronomy Shop at the collector, or{" "}
+								<span className="font-mono text-sys-on-surface">pnpm seed</span>{" "}
+								for synthetic data without Docker. Tier 0 panels appear within
+								about a minute of the first traffic.
 							</>
 						}
 					/>
@@ -268,10 +263,7 @@ export function HealthDashboard() {
 			) : (
 				<div className="flex flex-col gap-3">
 					{pinnedEntries.length > 0 ? (
-						<section
-							className="flex flex-col"
-							data-test-pinned-section
-						>
+						<section className="flex flex-col" data-test-pinned-section>
 							<SectionTitle
 								title="Pinned"
 								note={`${pinnedEntries.length} ${pinnedEntries.length === 1 ? "panel" : "panels"} · auto-derived from Ask citations`}
@@ -306,9 +298,8 @@ export function HealthDashboard() {
 					))}
 					{focusMode && hiddenByFocus > 0 && (
 						<div className="text-[0.75rem] text-sys-on-surface-subtle px-1">
-							{hiddenByFocus} healthy{" "}
-							{hiddenByFocus === 1 ? "panel" : "panels"} hidden by focus
-							mode.
+							{hiddenByFocus} healthy {hiddenByFocus === 1 ? "panel" : "panels"}{" "}
+							hidden by focus mode.
 						</div>
 					)}
 				</div>

@@ -11,7 +11,9 @@ import "./index.css";
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
 		<AnalyticsProvider
-			collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL ?? "http://localhost:8790"}
+			collectorUrl={
+				import.meta.env.VITE_OBS_COLLECTOR_URL ?? "http://localhost:8790"
+			}
 			apiKey={import.meta.env.VITE_OBS_INGEST_KEY ?? ""}
 			debug={true}
 			trackPageViews={true}

@@ -1,5 +1,5 @@
-import { useDashboard } from "../provider";
 import { useProjects } from "../hooks/useProjects";
+import { useDashboard } from "../provider";
 
 export function ProjectSwitcher() {
 	const { projectId, setProjectId } = useDashboard();
@@ -17,7 +17,12 @@ export function ProjectSwitcher() {
 			<span className="pointer-events-none flex h-full items-center pl-2.5 pr-1">
 				{label}
 			</span>
-			<span aria-hidden className="pointer-events-none pr-2 text-sys-on-surface-subtle">▾</span>
+			<span
+				aria-hidden
+				className="pointer-events-none pr-2 text-sys-on-surface-subtle"
+			>
+				▾
+			</span>
 			<select
 				value={projectId}
 				onChange={(e) => {

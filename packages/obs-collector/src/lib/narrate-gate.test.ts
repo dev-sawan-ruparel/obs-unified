@@ -1,12 +1,10 @@
 import type { AnalysisResult } from "@obs-unified/types";
 import { describe, expect, it } from "vitest";
-import {
-	computeSignature,
-	evaluateGate,
-	parsePredicate,
-} from "./narrate-gate";
+import { computeSignature, evaluateGate, parsePredicate } from "./narrate-gate";
 
-const baseResult = (overrides: Partial<AnalysisResult> = {}): AnalysisResult => ({
+const baseResult = (
+	overrides: Partial<AnalysisResult> = {},
+): AnalysisResult => ({
 	analysisId: "x",
 	projectId: "default",
 	generatedAt: "2026-04-27T00:00:00Z",
@@ -44,7 +42,9 @@ describe("narrate-gate parser", () => {
 	});
 
 	it("parses && and || with DNF semantics", () => {
-		const r = parsePredicate("status_changed && delta_pct>20 || signature_changed");
+		const r = parsePredicate(
+			"status_changed && delta_pct>20 || signature_changed",
+		);
 		expect(r.kind).toBe("ok");
 		if (r.kind === "ok") {
 			expect(r.conjunctions).toHaveLength(2);
@@ -68,7 +68,9 @@ describe("evaluateGate intents", () => {
 	it("returns 'skip' when spec is undefined", () => {
 		// `evaluateGate(undefined, …)` defaults to status_changed; without
 		// previous, this always fires. To get skip we pass `never`.
-		expect(evaluateGate("never", { current: baseResult(), previous: null })).toBe("skip");
+		expect(
+			evaluateGate("never", { current: baseResult(), previous: null }),
+		).toBe("skip");
 	});
 
 	it("returns 'call' on first run when spec is present", () => {
@@ -87,9 +89,7 @@ describe("evaluateGate intents", () => {
 			narrativeSignature: sig,
 		});
 		const current = baseResult({ narrativeSignature: sig });
-		expect(evaluateGate("status_changed", { current, previous })).toBe(
-			"reuse",
-		);
+		expect(evaluateGate("status_changed", { current, previous })).toBe("reuse");
 	});
 
 	it("status_changed fires when status moves", () => {
@@ -102,9 +102,9 @@ describe("evaluateGate intents", () => {
 			status: "critical",
 			narrativeSignature: "critical|1.0|1.0|",
 		});
-		expect(evaluateGate("status_changed", { current: cur, previous: prev })).toBe(
-			"call",
-		);
+		expect(
+			evaluateGate("status_changed", { current: cur, previous: prev }),
+		).toBe("call");
 	});
 
 	it("delta_pct>N fires when |delta| exceeds threshold", () => {

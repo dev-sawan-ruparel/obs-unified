@@ -63,7 +63,13 @@ switch (subcommand) {
 			);
 			process.exit(1);
 		}
-		const code = await run("docker", ["compose", "-f", composeFile, "up", "-d"]);
+		const code = await run("docker", [
+			"compose",
+			"-f",
+			composeFile,
+			"up",
+			"-d",
+		]);
 		if (code === 0) {
 			console.log(
 				kleur.green("✓") +
@@ -229,8 +235,7 @@ async function copyTemplate(
 
 async function keysSubcommand(args: string[]) {
 	const [action] = args;
-	const collectorUrl =
-		process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
+	const collectorUrl = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
 	const adminToken = process.env.OBS_ADMIN_TOKEN;
 	if (!adminToken) {
 		console.error(
@@ -264,7 +269,11 @@ async function keysSubcommand(args: string[]) {
 				process.exit(1);
 			}
 			const body = (await r.json()) as {
-				keys: Array<{ id: string; created_at: string; last_used: string | null }>;
+				keys: Array<{
+					id: string;
+					created_at: string;
+					last_used: string | null;
+				}>;
 			};
 			for (const k of body.keys) {
 				console.log(
@@ -281,9 +290,7 @@ async function keysSubcommand(args: string[]) {
 
 async function runDoctor(args: string[]) {
 	const url =
-		args[0] ??
-		process.env.OBS_COLLECTOR_URL ??
-		"http://localhost:8790";
+		args[0] ?? process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
 	console.log(`Checking ${url}…\n`);
 	const checks: Array<[string, () => Promise<string>]> = [
 		[

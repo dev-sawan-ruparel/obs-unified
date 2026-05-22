@@ -4,8 +4,8 @@ import type { CollectorPlugin } from "../framework/collector";
 import { MetricsStore } from "../lib/metrics-store";
 import { sqlDbFor } from "../lib/sql-db";
 import {
-	OtlpDecodeError,
 	decodeMetricsRequest,
+	OtlpDecodeError,
 	readOtlpBody,
 } from "../otlp/decode";
 import { metricsResponse, otlpRetryableError } from "../otlp/response";
@@ -55,7 +55,10 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 			const store = new MetricsStore(sqlDbFor(c.env));
 			try {
 				await runtime.withChildSpan("metrics.ingest", async (span) => {
-					span.setAttribute("metrics.points_received", points.length + rejected);
+					span.setAttribute(
+						"metrics.points_received",
+						points.length + rejected,
+					);
 					span.setAttribute("metrics.points_rejected", rejected);
 					span.setAttribute("metrics.points_inserted", points.length);
 					span.setAttribute("project.id", projectId);
@@ -71,11 +74,7 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 					project_id: projectId,
 					error: err instanceof Error ? err.message : String(err),
 				});
-				return otlpRetryableError(
-					c,
-					503,
-					"Storage temporarily unavailable",
-				);
+				return otlpRetryableError(c, 503, "Storage temporarily unavailable");
 			}
 
 			if (rejected > 0) {

@@ -7,12 +7,11 @@
 // The collector's request middleware traces the receiving side (already
 // in place), and the two are linked via the W3C traceparent header.
 
+import { init } from "@obs-unified/sdk";
 import { registerInstrumentations } from "@opentelemetry/instrumentation";
 import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
-import { init } from "@obs-unified/sdk";
 
-const COLLECTOR =
-	process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
+const COLLECTOR = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
 const INGEST_KEY = process.env.OBS_DASHBOARD_INGEST_KEY ?? "";
 
 if (!INGEST_KEY) {

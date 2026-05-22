@@ -77,8 +77,7 @@ describe("AlertsStore.evaluateRule with analysisId binding", () => {
 	it("reads analysis_results.primary_value when analysisId is set", async () => {
 		const db = new MemSqlDb({
 			first: (sql) => {
-				if (sql.includes("FROM analysis_results"))
-					return { primary_value: 42 };
+				if (sql.includes("FROM analysis_results")) return { primary_value: 42 };
 				return null;
 			},
 		});
@@ -123,7 +122,10 @@ describe("AlertsStore.getAnalysisNarrative", () => {
 			}),
 		});
 		const store = new AlertsStore(db);
-		const out = await store.getAnalysisNarrative("default", "latency_p95_overall");
+		const out = await store.getAnalysisNarrative(
+			"default",
+			"latency_p95_overall",
+		);
 		expect(out).toEqual({
 			narrative: "p95 jumped to 320ms (was 90ms) starting 8m ago",
 			status: "warn",

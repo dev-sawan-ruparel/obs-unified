@@ -18,7 +18,11 @@ function formatWindow(mins: number): string {
 	return `${Math.round(mins / 1440)}d`;
 }
 
-const PALETTE_DESTINATIONS: Array<{ tab: string; label: string; group: string }> = [
+const PALETTE_DESTINATIONS: Array<{
+	tab: string;
+	label: string;
+	group: string;
+}> = [
 	{ tab: "timeline", label: "Timeline", group: "Observe" },
 	{ tab: "service-map", label: "Service map", group: "Observe" },
 	{ tab: "logs", label: "Logs", group: "Observe" },
@@ -90,7 +94,9 @@ export function GlobalSearch() {
 				title="Open command palette (⌘K)"
 				className="flex h-8 min-w-[180px] items-center gap-2 bg-sys-surface-low px-2.5 text-left text-[0.8125rem] text-sys-on-surface-subtle hover:bg-sys-surface-high"
 			>
-				<span aria-hidden className="text-[0.875rem]">⌕</span>
+				<span aria-hidden className="text-[0.875rem]">
+					⌕
+				</span>
 				<span className="flex-1">Jump to…</span>
 				<kbd className="font-mono text-[0.6875rem] text-sys-on-surface-subtle">
 					⌘K
@@ -155,9 +161,15 @@ export function GlobalSearch() {
 							))}
 						</div>
 						<div className="flex items-center gap-3 border-t border-sys-outline-soft px-4 py-2 text-[0.6875rem] text-sys-on-surface-subtle">
-							<span><kbd className="font-mono">↑↓</kbd> navigate</span>
-							<span><kbd className="font-mono">↵</kbd> open</span>
-							<span><kbd className="font-mono">esc</kbd> close</span>
+							<span>
+								<kbd className="font-mono">↑↓</kbd> navigate
+							</span>
+							<span>
+								<kbd className="font-mono">↵</kbd> open
+							</span>
+							<span>
+								<kbd className="font-mono">esc</kbd> close
+							</span>
 						</div>
 					</div>
 				</div>
@@ -188,9 +200,13 @@ export function TimeRangePicker() {
 				onClick={() => setOpen((v) => !v)}
 				className="flex h-8 items-center gap-1.5 bg-sys-surface-low px-2.5 text-[0.8125rem] font-medium text-sys-on-surface hover:bg-sys-surface-high"
 			>
-				<span aria-hidden className="text-sys-on-surface-subtle">◷</span>
+				<span aria-hidden className="text-sys-on-surface-subtle">
+					◷
+				</span>
 				<span className="tabular-nums">{formatWindow(timeWindowMins)}</span>
-				<span aria-hidden className="text-sys-on-surface-subtle">▾</span>
+				<span aria-hidden className="text-sys-on-surface-subtle">
+					▾
+				</span>
 			</button>
 			{open && (
 				<div className="absolute right-0 top-full z-20 mt-1 flex min-w-[120px] flex-col border border-sys-outline-soft bg-sys-surface shadow-lg">
@@ -212,7 +228,9 @@ export function TimeRangePicker() {
 							>
 								<span>Last {opt.label}</span>
 								{active && (
-									<span aria-hidden className="text-sys-primary">•</span>
+									<span aria-hidden className="text-sys-primary">
+										•
+									</span>
 								)}
 							</button>
 						);

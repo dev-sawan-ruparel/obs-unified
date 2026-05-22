@@ -1,6 +1,13 @@
 // ── Init ─────────────────────────────────────────────────────────────────────
 export { type InitConfig, init, type Shutdown } from "./init.js";
-
+// ── Interaction-id propagation (spec/interaction-id.md) ──────────────────────
+export {
+	currentInteractionId,
+	INTERACTION_ATTRIBUTE,
+	INTERACTION_HEADER,
+	isValidInteractionId,
+	stampInteractionFromRequest,
+} from "./interaction.js";
 // ── LLM + tool spans (OpenInference) ─────────────────────────────────────────
 export {
 	type LLMOptions,
@@ -10,7 +17,6 @@ export {
 	withLLMSpan,
 	withToolSpan,
 } from "./llm.js";
-
 // ── Project-id propagation ───────────────────────────────────────────────────
 export {
 	getProjectId,
@@ -18,12 +24,3 @@ export {
 	PROJECT_ID_HEADER,
 	setProjectId,
 } from "./project.js";
-
-// ── Interaction-id propagation (spec/interaction-id.md) ──────────────────────
-export {
-	currentInteractionId,
-	INTERACTION_ATTRIBUTE,
-	INTERACTION_HEADER,
-	isValidInteractionId,
-	stampInteractionFromRequest,
-} from "./interaction.js";

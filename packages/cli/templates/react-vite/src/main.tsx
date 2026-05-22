@@ -1,4 +1,7 @@
-import { AnalyticsErrorBoundary, AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
+import {
+	AnalyticsErrorBoundary,
+	AnalyticsProvider,
+} from "@obs-unified/analytics-sdk/react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 
@@ -13,7 +16,10 @@ createRoot(rootEl).render(
 		captureErrors
 		storagePrefix="__APP_NAME__"
 	>
-		<AnalyticsErrorBoundary context="App" fallback={<div>Something crashed.</div>}>
+		<AnalyticsErrorBoundary
+			context="App"
+			fallback={<div>Something crashed.</div>}
+		>
 			<App />
 		</AnalyticsErrorBoundary>
 	</AnalyticsProvider>,

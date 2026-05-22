@@ -1,9 +1,9 @@
 #!/usr/bin/env node
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 // Tiny webhook receiver for E2E alert testing.
 // Listens on PORT (default 9998), appends every POST body (JSON) as a new
 // line in LOG_PATH (default /tmp/obs-e2e/webhook.log), and responds 200 OK.
 import { createServer } from "node:http";
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 const PORT = Number(process.env.PORT || 9998);

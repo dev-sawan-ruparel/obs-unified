@@ -10,19 +10,34 @@
 // @generated from file opentelemetry/proto/logs/v1/logs.proto (package opentelemetry.proto.logs.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import type { Message } from "@bufbuild/protobuf";
+import type {
+	GenEnum,
+	GenFile,
+	GenMessage,
+} from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { AnyValue, InstrumentationScope, KeyValue } from "../../common/v1/common_pb.js";
+import type {
+	AnyValue,
+	InstrumentationScope,
+	KeyValue,
+} from "../../common/v1/common_pb.js";
 import { file_opentelemetry_proto_common_v1_common } from "../../common/v1/common_pb.js";
 import type { Resource } from "../../resource/v1/resource_pb.js";
 import { file_opentelemetry_proto_resource_v1_resource } from "../../resource/v1/resource_pb.js";
-import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file opentelemetry/proto/logs/v1/logs.proto.
  */
-export const file_opentelemetry_proto_logs_v1_logs: GenFile = /*@__PURE__*/
-  fileDesc("CiZvcGVudGVsZW1ldHJ5L3Byb3RvL2xvZ3MvdjEvbG9ncy5wcm90bxIbb3BlbnRlbGVtZXRyeS5wcm90by5sb2dzLnYxIkwKCExvZ3NEYXRhEkAKDXJlc291cmNlX2xvZ3MYASADKAsyKS5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuUmVzb3VyY2VMb2dzIqMBCgxSZXNvdXJjZUxvZ3MSOwoIcmVzb3VyY2UYASABKAsyKS5vcGVudGVsZW1ldHJ5LnByb3RvLnJlc291cmNlLnYxLlJlc291cmNlEjoKCnNjb3BlX2xvZ3MYAiADKAsyJi5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuU2NvcGVMb2dzEhIKCnNjaGVtYV91cmwYAyABKAlKBgjoBxDpByKgAQoJU2NvcGVMb2dzEkIKBXNjb3BlGAEgASgLMjMub3BlbnRlbGVtZXRyeS5wcm90by5jb21tb24udjEuSW5zdHJ1bWVudGF0aW9uU2NvcGUSOwoLbG9nX3JlY29yZHMYAiADKAsyJi5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuTG9nUmVjb3JkEhIKCnNjaGVtYV91cmwYAyABKAkigwMKCUxvZ1JlY29yZBIWCg50aW1lX3VuaXhfbmFubxgBIAEoBhIfChdvYnNlcnZlZF90aW1lX3VuaXhfbmFubxgLIAEoBhJECg9zZXZlcml0eV9udW1iZXIYAiABKA4yKy5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuU2V2ZXJpdHlOdW1iZXISFQoNc2V2ZXJpdHlfdGV4dBgDIAEoCRI1CgRib2R5GAUgASgLMicub3BlbnRlbGVtZXRyeS5wcm90by5jb21tb24udjEuQW55VmFsdWUSOwoKYXR0cmlidXRlcxgGIAMoCzInLm9wZW50ZWxlbWV0cnkucHJvdG8uY29tbW9uLnYxLktleVZhbHVlEiAKGGRyb3BwZWRfYXR0cmlidXRlc19jb3VudBgHIAEoDRINCgVmbGFncxgIIAEoBxIQCgh0cmFjZV9pZBgJIAEoDBIPCgdzcGFuX2lkGAogASgMEhIKCmV2ZW50X25hbWUYDCABKAlKBAgEEAUqwwUKDlNldmVyaXR5TnVtYmVyEh8KG1NFVkVSSVRZX05VTUJFUl9VTlNQRUNJRklFRBAAEhkKFVNFVkVSSVRZX05VTUJFUl9UUkFDRRABEhoKFlNFVkVSSVRZX05VTUJFUl9UUkFDRTIQAhIaChZTRVZFUklUWV9OVU1CRVJfVFJBQ0UzEAMSGgoWU0VWRVJJVFlfTlVNQkVSX1RSQUNFNBAEEhkKFVNFVkVSSVRZX05VTUJFUl9ERUJVRxAFEhoKFlNFVkVSSVRZX05VTUJFUl9ERUJVRzIQBhIaChZTRVZFUklUWV9OVU1CRVJfREVCVUczEAcSGgoWU0VWRVJJVFlfTlVNQkVSX0RFQlVHNBAIEhgKFFNFVkVSSVRZX05VTUJFUl9JTkZPEAkSGQoVU0VWRVJJVFlfTlVNQkVSX0lORk8yEAoSGQoVU0VWRVJJVFlfTlVNQkVSX0lORk8zEAsSGQoVU0VWRVJJVFlfTlVNQkVSX0lORk80EAwSGAoUU0VWRVJJVFlfTlVNQkVSX1dBUk4QDRIZChVTRVZFUklUWV9OVU1CRVJfV0FSTjIQDhIZChVTRVZFUklUWV9OVU1CRVJfV0FSTjMQDxIZChVTRVZFUklUWV9OVU1CRVJfV0FSTjQQEBIZChVTRVZFUklUWV9OVU1CRVJfRVJST1IQERIaChZTRVZFUklUWV9OVU1CRVJfRVJST1IyEBISGgoWU0VWRVJJVFlfTlVNQkVSX0VSUk9SMxATEhoKFlNFVkVSSVRZX05VTUJFUl9FUlJPUjQQFBIZChVTRVZFUklUWV9OVU1CRVJfRkFUQUwQFRIaChZTRVZFUklUWV9OVU1CRVJfRkFUQUwyEBYSGgoWU0VWRVJJVFlfTlVNQkVSX0ZBVEFMMxAXEhoKFlNFVkVSSVRZX05VTUJFUl9GQVRBTDQQGCpZCg5Mb2dSZWNvcmRGbGFncxIfChtMT0dfUkVDT1JEX0ZMQUdTX0RPX05PVF9VU0UQABImCiFMT0dfUkVDT1JEX0ZMQUdTX1RSQUNFX0ZMQUdTX01BU0sQ/wFCcwoeaW8ub3BlbnRlbGVtZXRyeS5wcm90by5sb2dzLnYxQglMb2dzUHJvdG9QAVomZ28ub3BlbnRlbGVtZXRyeS5pby9wcm90by9vdGxwL2xvZ3MvdjGqAhtPcGVuVGVsZW1ldHJ5LlByb3RvLkxvZ3MuVjFiBnByb3RvMw", [file_opentelemetry_proto_common_v1_common, file_opentelemetry_proto_resource_v1_resource]);
+export const file_opentelemetry_proto_logs_v1_logs: GenFile =
+	/*@__PURE__*/
+	fileDesc(
+		"CiZvcGVudGVsZW1ldHJ5L3Byb3RvL2xvZ3MvdjEvbG9ncy5wcm90bxIbb3BlbnRlbGVtZXRyeS5wcm90by5sb2dzLnYxIkwKCExvZ3NEYXRhEkAKDXJlc291cmNlX2xvZ3MYASADKAsyKS5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuUmVzb3VyY2VMb2dzIqMBCgxSZXNvdXJjZUxvZ3MSOwoIcmVzb3VyY2UYASABKAsyKS5vcGVudGVsZW1ldHJ5LnByb3RvLnJlc291cmNlLnYxLlJlc291cmNlEjoKCnNjb3BlX2xvZ3MYAiADKAsyJi5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuU2NvcGVMb2dzEhIKCnNjaGVtYV91cmwYAyABKAlKBgjoBxDpByKgAQoJU2NvcGVMb2dzEkIKBXNjb3BlGAEgASgLMjMub3BlbnRlbGVtZXRyeS5wcm90by5jb21tb24udjEuSW5zdHJ1bWVudGF0aW9uU2NvcGUSOwoLbG9nX3JlY29yZHMYAiADKAsyJi5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuTG9nUmVjb3JkEhIKCnNjaGVtYV91cmwYAyABKAkigwMKCUxvZ1JlY29yZBIWCg50aW1lX3VuaXhfbmFubxgBIAEoBhIfChdvYnNlcnZlZF90aW1lX3VuaXhfbmFubxgLIAEoBhJECg9zZXZlcml0eV9udW1iZXIYAiABKA4yKy5vcGVudGVsZW1ldHJ5LnByb3RvLmxvZ3MudjEuU2V2ZXJpdHlOdW1iZXISFQoNc2V2ZXJpdHlfdGV4dBgDIAEoCRI1CgRib2R5GAUgASgLMicub3BlbnRlbGVtZXRyeS5wcm90by5jb21tb24udjEuQW55VmFsdWUSOwoKYXR0cmlidXRlcxgGIAMoCzInLm9wZW50ZWxlbWV0cnkucHJvdG8uY29tbW9uLnYxLktleVZhbHVlEiAKGGRyb3BwZWRfYXR0cmlidXRlc19jb3VudBgHIAEoDRINCgVmbGFncxgIIAEoBxIQCgh0cmFjZV9pZBgJIAEoDBIPCgdzcGFuX2lkGAogASgMEhIKCmV2ZW50X25hbWUYDCABKAlKBAgEEAUqwwUKDlNldmVyaXR5TnVtYmVyEh8KG1NFVkVSSVRZX05VTUJFUl9VTlNQRUNJRklFRBAAEhkKFVNFVkVSSVRZX05VTUJFUl9UUkFDRRABEhoKFlNFVkVSSVRZX05VTUJFUl9UUkFDRTIQAhIaChZTRVZFUklUWV9OVU1CRVJfVFJBQ0UzEAMSGgoWU0VWRVJJVFlfTlVNQkVSX1RSQUNFNBAEEhkKFVNFVkVSSVRZX05VTUJFUl9ERUJVRxAFEhoKFlNFVkVSSVRZX05VTUJFUl9ERUJVRzIQBhIaChZTRVZFUklUWV9OVU1CRVJfREVCVUczEAcSGgoWU0VWRVJJVFlfTlVNQkVSX0RFQlVHNBAIEhgKFFNFVkVSSVRZX05VTUJFUl9JTkZPEAkSGQoVU0VWRVJJVFlfTlVNQkVSX0lORk8yEAoSGQoVU0VWRVJJVFlfTlVNQkVSX0lORk8zEAsSGQoVU0VWRVJJVFlfTlVNQkVSX0lORk80EAwSGAoUU0VWRVJJVFlfTlVNQkVSX1dBUk4QDRIZChVTRVZFUklUWV9OVU1CRVJfV0FSTjIQDhIZChVTRVZFUklUWV9OVU1CRVJfV0FSTjMQDxIZChVTRVZFUklUWV9OVU1CRVJfV0FSTjQQEBIZChVTRVZFUklUWV9OVU1CRVJfRVJST1IQERIaChZTRVZFUklUWV9OVU1CRVJfRVJST1IyEBISGgoWU0VWRVJJVFlfTlVNQkVSX0VSUk9SMxATEhoKFlNFVkVSSVRZX05VTUJFUl9FUlJPUjQQFBIZChVTRVZFUklUWV9OVU1CRVJfRkFUQUwQFRIaChZTRVZFUklUWV9OVU1CRVJfRkFUQUwyEBYSGgoWU0VWRVJJVFlfTlVNQkVSX0ZBVEFMMxAXEhoKFlNFVkVSSVRZX05VTUJFUl9GQVRBTDQQGCpZCg5Mb2dSZWNvcmRGbGFncxIfChtMT0dfUkVDT1JEX0ZMQUdTX0RPX05PVF9VU0UQABImCiFMT0dfUkVDT1JEX0ZMQUdTX1RSQUNFX0ZMQUdTX01BU0sQ/wFCcwoeaW8ub3BlbnRlbGVtZXRyeS5wcm90by5sb2dzLnYxQglMb2dzUHJvdG9QAVomZ28ub3BlbnRlbGVtZXRyeS5pby9wcm90by9vdGxwL2xvZ3MvdjGqAhtPcGVuVGVsZW1ldHJ5LlByb3RvLkxvZ3MuVjFiBnByb3RvMw",
+		[
+			file_opentelemetry_proto_common_v1_common,
+			file_opentelemetry_proto_resource_v1_resource,
+		],
+	);
 
 /**
  * LogsData represents the logs data that can be stored in persistent
@@ -32,55 +47,58 @@ export const file_opentelemetry_proto_logs_v1_logs: GenFile = /*@__PURE__*/
  * @generated from message opentelemetry.proto.logs.v1.LogsData
  */
 export type LogsData = Message<"opentelemetry.proto.logs.v1.LogsData"> & {
-  /**
-   * @generated from field: repeated opentelemetry.proto.logs.v1.ResourceLogs resource_logs = 1;
-   */
-  resourceLogs: ResourceLogs[];
+	/**
+	 * @generated from field: repeated opentelemetry.proto.logs.v1.ResourceLogs resource_logs = 1;
+	 */
+	resourceLogs: ResourceLogs[];
 };
 
 /**
  * Describes the message opentelemetry.proto.logs.v1.LogsData.
  * Use `create(LogsDataSchema)` to create a new message.
  */
-export const LogsDataSchema: GenMessage<LogsData> = /*@__PURE__*/
-  messageDesc(file_opentelemetry_proto_logs_v1_logs, 0);
+export const LogsDataSchema: GenMessage<LogsData> =
+	/*@__PURE__*/
+	messageDesc(file_opentelemetry_proto_logs_v1_logs, 0);
 
 /**
  * A collection of ScopeLogs from a Resource.
  *
  * @generated from message opentelemetry.proto.logs.v1.ResourceLogs
  */
-export type ResourceLogs = Message<"opentelemetry.proto.logs.v1.ResourceLogs"> & {
-  /**
-   * The resource for the logs in this message.
-   *
-   * @generated from field: opentelemetry.proto.resource.v1.Resource resource = 1;
-   */
-  resource?: Resource;
+export type ResourceLogs =
+	Message<"opentelemetry.proto.logs.v1.ResourceLogs"> & {
+		/**
+		 * The resource for the logs in this message.
+		 *
+		 * @generated from field: opentelemetry.proto.resource.v1.Resource resource = 1;
+		 */
+		resource?: Resource;
 
-  /**
-   * A list of ScopeLogs that originate from a resource.
-   *
-   * @generated from field: repeated opentelemetry.proto.logs.v1.ScopeLogs scope_logs = 2;
-   */
-  scopeLogs: ScopeLogs[];
+		/**
+		 * A list of ScopeLogs that originate from a resource.
+		 *
+		 * @generated from field: repeated opentelemetry.proto.logs.v1.ScopeLogs scope_logs = 2;
+		 */
+		scopeLogs: ScopeLogs[];
 
-  /**
-   * The Schema URL, if known. This is the identifier of the Schema that the
-   * resource data is recorded in. Notably, the last part of the URL path is
-   * the version number of the schema.
-   *
-   * @generated from field: string schema_url = 3;
-   */
-  schemaUrl: string;
-};
+		/**
+		 * The Schema URL, if known. This is the identifier of the Schema that the
+		 * resource data is recorded in. Notably, the last part of the URL path is
+		 * the version number of the schema.
+		 *
+		 * @generated from field: string schema_url = 3;
+		 */
+		schemaUrl: string;
+	};
 
 /**
  * Describes the message opentelemetry.proto.logs.v1.ResourceLogs.
  * Use `create(ResourceLogsSchema)` to create a new message.
  */
-export const ResourceLogsSchema: GenMessage<ResourceLogs> = /*@__PURE__*/
-  messageDesc(file_opentelemetry_proto_logs_v1_logs, 1);
+export const ResourceLogsSchema: GenMessage<ResourceLogs> =
+	/*@__PURE__*/
+	messageDesc(file_opentelemetry_proto_logs_v1_logs, 1);
 
 /**
  * A collection of Logs produced by a Scope.
@@ -88,34 +106,35 @@ export const ResourceLogsSchema: GenMessage<ResourceLogs> = /*@__PURE__*/
  * @generated from message opentelemetry.proto.logs.v1.ScopeLogs
  */
 export type ScopeLogs = Message<"opentelemetry.proto.logs.v1.ScopeLogs"> & {
-  /**
-   * The instrumentation scope information for the logs in this message.
-   *
-   * @generated from field: opentelemetry.proto.common.v1.InstrumentationScope scope = 1;
-   */
-  scope?: InstrumentationScope;
+	/**
+	 * The instrumentation scope information for the logs in this message.
+	 *
+	 * @generated from field: opentelemetry.proto.common.v1.InstrumentationScope scope = 1;
+	 */
+	scope?: InstrumentationScope;
 
-  /**
-   * A list of log records.
-   *
-   * @generated from field: repeated opentelemetry.proto.logs.v1.LogRecord log_records = 2;
-   */
-  logRecords: LogRecord[];
+	/**
+	 * A list of log records.
+	 *
+	 * @generated from field: repeated opentelemetry.proto.logs.v1.LogRecord log_records = 2;
+	 */
+	logRecords: LogRecord[];
 
-  /**
-   * The Schema URL, if known.
-   *
-   * @generated from field: string schema_url = 3;
-   */
-  schemaUrl: string;
+	/**
+	 * The Schema URL, if known.
+	 *
+	 * @generated from field: string schema_url = 3;
+	 */
+	schemaUrl: string;
 };
 
 /**
  * Describes the message opentelemetry.proto.logs.v1.ScopeLogs.
  * Use `create(ScopeLogsSchema)` to create a new message.
  */
-export const ScopeLogsSchema: GenMessage<ScopeLogs> = /*@__PURE__*/
-  messageDesc(file_opentelemetry_proto_logs_v1_logs, 2);
+export const ScopeLogsSchema: GenMessage<ScopeLogs> =
+	/*@__PURE__*/
+	messageDesc(file_opentelemetry_proto_logs_v1_logs, 2);
 
 /**
  * A log record according to OpenTelemetry Log Data Model.
@@ -123,93 +142,94 @@ export const ScopeLogsSchema: GenMessage<ScopeLogs> = /*@__PURE__*/
  * @generated from message opentelemetry.proto.logs.v1.LogRecord
  */
 export type LogRecord = Message<"opentelemetry.proto.logs.v1.LogRecord"> & {
-  /**
-   * time_unix_nano is the time when the event occurred, measured as the
-   * number of nanoseconds since Unix epoch.
-   *
-   * @generated from field: fixed64 time_unix_nano = 1;
-   */
-  timeUnixNano: bigint;
+	/**
+	 * time_unix_nano is the time when the event occurred, measured as the
+	 * number of nanoseconds since Unix epoch.
+	 *
+	 * @generated from field: fixed64 time_unix_nano = 1;
+	 */
+	timeUnixNano: bigint;
 
-  /**
-   * Time when the event was observed by the collection system.
-   *
-   * @generated from field: fixed64 observed_time_unix_nano = 11;
-   */
-  observedTimeUnixNano: bigint;
+	/**
+	 * Time when the event was observed by the collection system.
+	 *
+	 * @generated from field: fixed64 observed_time_unix_nano = 11;
+	 */
+	observedTimeUnixNano: bigint;
 
-  /**
-   * Numerical value of the severity, normalized to values described in
-   * Log Data Model.
-   *
-   * @generated from field: opentelemetry.proto.logs.v1.SeverityNumber severity_number = 2;
-   */
-  severityNumber: SeverityNumber;
+	/**
+	 * Numerical value of the severity, normalized to values described in
+	 * Log Data Model.
+	 *
+	 * @generated from field: opentelemetry.proto.logs.v1.SeverityNumber severity_number = 2;
+	 */
+	severityNumber: SeverityNumber;
 
-  /**
-   * The severity text (also known as log level).
-   *
-   * @generated from field: string severity_text = 3;
-   */
-  severityText: string;
+	/**
+	 * The severity text (also known as log level).
+	 *
+	 * @generated from field: string severity_text = 3;
+	 */
+	severityText: string;
 
-  /**
-   * A value containing the body of the log record.
-   *
-   * @generated from field: opentelemetry.proto.common.v1.AnyValue body = 5;
-   */
-  body?: AnyValue;
+	/**
+	 * A value containing the body of the log record.
+	 *
+	 * @generated from field: opentelemetry.proto.common.v1.AnyValue body = 5;
+	 */
+	body?: AnyValue;
 
-  /**
-   * Additional attributes that describe the specific event occurrence.
-   *
-   * @generated from field: repeated opentelemetry.proto.common.v1.KeyValue attributes = 6;
-   */
-  attributes: KeyValue[];
+	/**
+	 * Additional attributes that describe the specific event occurrence.
+	 *
+	 * @generated from field: repeated opentelemetry.proto.common.v1.KeyValue attributes = 6;
+	 */
+	attributes: KeyValue[];
 
-  /**
-   * @generated from field: uint32 dropped_attributes_count = 7;
-   */
-  droppedAttributesCount: number;
+	/**
+	 * @generated from field: uint32 dropped_attributes_count = 7;
+	 */
+	droppedAttributesCount: number;
 
-  /**
-   * Flags, a bit field. 8 least significant bits are the trace flags
-   * as defined in W3C Trace Context specification.
-   *
-   * @generated from field: fixed32 flags = 8;
-   */
-  flags: number;
+	/**
+	 * Flags, a bit field. 8 least significant bits are the trace flags
+	 * as defined in W3C Trace Context specification.
+	 *
+	 * @generated from field: fixed32 flags = 8;
+	 */
+	flags: number;
 
-  /**
-   * A unique identifier for a trace. All logs from the same trace
-   * share the same `trace_id`.
-   *
-   * @generated from field: bytes trace_id = 9;
-   */
-  traceId: Uint8Array;
+	/**
+	 * A unique identifier for a trace. All logs from the same trace
+	 * share the same `trace_id`.
+	 *
+	 * @generated from field: bytes trace_id = 9;
+	 */
+	traceId: Uint8Array;
 
-  /**
-   * A unique identifier for a span within a trace, assigned when the
-   * span is created.
-   *
-   * @generated from field: bytes span_id = 10;
-   */
-  spanId: Uint8Array;
+	/**
+	 * A unique identifier for a span within a trace, assigned when the
+	 * span is created.
+	 *
+	 * @generated from field: bytes span_id = 10;
+	 */
+	spanId: Uint8Array;
 
-  /**
-   * A unique identifier of event category/type.
-   *
-   * @generated from field: string event_name = 12;
-   */
-  eventName: string;
+	/**
+	 * A unique identifier of event category/type.
+	 *
+	 * @generated from field: string event_name = 12;
+	 */
+	eventName: string;
 };
 
 /**
  * Describes the message opentelemetry.proto.logs.v1.LogRecord.
  * Use `create(LogRecordSchema)` to create a new message.
  */
-export const LogRecordSchema: GenMessage<LogRecord> = /*@__PURE__*/
-  messageDesc(file_opentelemetry_proto_logs_v1_logs, 3);
+export const LogRecordSchema: GenMessage<LogRecord> =
+	/*@__PURE__*/
+	messageDesc(file_opentelemetry_proto_logs_v1_logs, 3);
 
 /**
  * Possible values for LogRecord.SeverityNumber.
@@ -217,137 +237,138 @@ export const LogRecordSchema: GenMessage<LogRecord> = /*@__PURE__*/
  * @generated from enum opentelemetry.proto.logs.v1.SeverityNumber
  */
 export enum SeverityNumber {
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_UNSPECIFIED = 0;
+	 */
+	UNSPECIFIED = 0,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_TRACE = 1;
-   */
-  TRACE = 1,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_TRACE = 1;
+	 */
+	TRACE = 1,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_TRACE2 = 2;
-   */
-  TRACE2 = 2,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_TRACE2 = 2;
+	 */
+	TRACE2 = 2,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_TRACE3 = 3;
-   */
-  TRACE3 = 3,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_TRACE3 = 3;
+	 */
+	TRACE3 = 3,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_TRACE4 = 4;
-   */
-  TRACE4 = 4,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_TRACE4 = 4;
+	 */
+	TRACE4 = 4,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_DEBUG = 5;
-   */
-  DEBUG = 5,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_DEBUG = 5;
+	 */
+	DEBUG = 5,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_DEBUG2 = 6;
-   */
-  DEBUG2 = 6,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_DEBUG2 = 6;
+	 */
+	DEBUG2 = 6,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_DEBUG3 = 7;
-   */
-  DEBUG3 = 7,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_DEBUG3 = 7;
+	 */
+	DEBUG3 = 7,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_DEBUG4 = 8;
-   */
-  DEBUG4 = 8,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_DEBUG4 = 8;
+	 */
+	DEBUG4 = 8,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_INFO = 9;
-   */
-  INFO = 9,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_INFO = 9;
+	 */
+	INFO = 9,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_INFO2 = 10;
-   */
-  INFO2 = 10,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_INFO2 = 10;
+	 */
+	INFO2 = 10,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_INFO3 = 11;
-   */
-  INFO3 = 11,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_INFO3 = 11;
+	 */
+	INFO3 = 11,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_INFO4 = 12;
-   */
-  INFO4 = 12,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_INFO4 = 12;
+	 */
+	INFO4 = 12,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_WARN = 13;
-   */
-  WARN = 13,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_WARN = 13;
+	 */
+	WARN = 13,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_WARN2 = 14;
-   */
-  WARN2 = 14,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_WARN2 = 14;
+	 */
+	WARN2 = 14,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_WARN3 = 15;
-   */
-  WARN3 = 15,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_WARN3 = 15;
+	 */
+	WARN3 = 15,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_WARN4 = 16;
-   */
-  WARN4 = 16,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_WARN4 = 16;
+	 */
+	WARN4 = 16,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_ERROR = 17;
-   */
-  ERROR = 17,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_ERROR = 17;
+	 */
+	ERROR = 17,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_ERROR2 = 18;
-   */
-  ERROR2 = 18,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_ERROR2 = 18;
+	 */
+	ERROR2 = 18,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_ERROR3 = 19;
-   */
-  ERROR3 = 19,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_ERROR3 = 19;
+	 */
+	ERROR3 = 19,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_ERROR4 = 20;
-   */
-  ERROR4 = 20,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_ERROR4 = 20;
+	 */
+	ERROR4 = 20,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_FATAL = 21;
-   */
-  FATAL = 21,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_FATAL = 21;
+	 */
+	FATAL = 21,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_FATAL2 = 22;
-   */
-  FATAL2 = 22,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_FATAL2 = 22;
+	 */
+	FATAL2 = 22,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_FATAL3 = 23;
-   */
-  FATAL3 = 23,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_FATAL3 = 23;
+	 */
+	FATAL3 = 23,
 
-  /**
-   * @generated from enum value: SEVERITY_NUMBER_FATAL4 = 24;
-   */
-  FATAL4 = 24,
+	/**
+	 * @generated from enum value: SEVERITY_NUMBER_FATAL4 = 24;
+	 */
+	FATAL4 = 24,
 }
 
 /**
  * Describes the enum opentelemetry.proto.logs.v1.SeverityNumber.
  */
-export const SeverityNumberSchema: GenEnum<SeverityNumber> = /*@__PURE__*/
-  enumDesc(file_opentelemetry_proto_logs_v1_logs, 0);
+export const SeverityNumberSchema: GenEnum<SeverityNumber> =
+	/*@__PURE__*/
+	enumDesc(file_opentelemetry_proto_logs_v1_logs, 0);
 
 /**
  * LogRecordFlags represents constants used to interpret the
@@ -357,20 +378,20 @@ export const SeverityNumberSchema: GenEnum<SeverityNumber> = /*@__PURE__*/
  * @generated from enum opentelemetry.proto.logs.v1.LogRecordFlags
  */
 export enum LogRecordFlags {
-  /**
-   * @generated from enum value: LOG_RECORD_FLAGS_DO_NOT_USE = 0;
-   */
-  DO_NOT_USE = 0,
+	/**
+	 * @generated from enum value: LOG_RECORD_FLAGS_DO_NOT_USE = 0;
+	 */
+	DO_NOT_USE = 0,
 
-  /**
-   * @generated from enum value: LOG_RECORD_FLAGS_TRACE_FLAGS_MASK = 255;
-   */
-  TRACE_FLAGS_MASK = 255,
+	/**
+	 * @generated from enum value: LOG_RECORD_FLAGS_TRACE_FLAGS_MASK = 255;
+	 */
+	TRACE_FLAGS_MASK = 255,
 }
 
 /**
  * Describes the enum opentelemetry.proto.logs.v1.LogRecordFlags.
  */
-export const LogRecordFlagsSchema: GenEnum<LogRecordFlags> = /*@__PURE__*/
-  enumDesc(file_opentelemetry_proto_logs_v1_logs, 1);
-
+export const LogRecordFlagsSchema: GenEnum<LogRecordFlags> =
+	/*@__PURE__*/
+	enumDesc(file_opentelemetry_proto_logs_v1_logs, 1);

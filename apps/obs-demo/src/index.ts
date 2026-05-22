@@ -30,11 +30,7 @@ import {
 } from "@obs-unified/telemetry-sdk";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import {
-	ask,
-	availableProviders,
-	type Message,
-} from "./providers.js";
+import { ask, availableProviders, type Message } from "./providers.js";
 
 interface Env {
 	OBS_COLLECTOR_URL: string;
@@ -110,12 +106,16 @@ app.use("*", async (c, next) => {
 	}
 });
 
-async function exportSpan(env: Env, span: ReturnType<typeof createRequestSpan>) {
+async function exportSpan(
+	env: Env,
+	span: ReturnType<typeof createRequestSpan>,
+) {
 	if (!env.OBS_COLLECTOR_URL) return;
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 	};
-	if (env.OBS_INGEST_KEY) headers["Authorization"] = `Bearer ${env.OBS_INGEST_KEY}`;
+	if (env.OBS_INGEST_KEY)
+		headers["Authorization"] = `Bearer ${env.OBS_INGEST_KEY}`;
 	try {
 		await fetch(`${env.OBS_COLLECTOR_URL}/v1/traces`, {
 			method: "POST",
@@ -142,7 +142,8 @@ async function postEvaluation(
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 	};
-	if (env.OBS_INGEST_KEY) headers["Authorization"] = `Bearer ${env.OBS_INGEST_KEY}`;
+	if (env.OBS_INGEST_KEY)
+		headers["Authorization"] = `Bearer ${env.OBS_INGEST_KEY}`;
 	try {
 		await fetch(`${env.OBS_COLLECTOR_URL}/v1/ai/evaluations`, {
 			method: "POST",
@@ -243,7 +244,11 @@ app.get("/api/demo/chat", async (c) => {
 	for (const provider of active) {
 		try {
 			const res = await ask(c.env, provider, messages);
-			results.push({ provider: res.provider, model: res.model, text: res.text });
+			results.push({
+				provider: res.provider,
+				model: res.model,
+				text: res.text,
+			});
 			await postEvaluation(c.env, {
 				traceId: getCurrentTraceId(),
 				spanId: res.spanId,
@@ -336,7 +341,10 @@ app.get("/api/demo/tool", async (c) => {
 
 	const provider = availableProviders(c.env)[0]!;
 	const res = await ask(c.env, provider, [
-		{ role: "system", content: "Summarize weather data in one friendly sentence." },
+		{
+			role: "system",
+			content: "Summarize weather data in one friendly sentence.",
+		},
 		{
 			role: "user",
 			content: `Weather JSON: ${JSON.stringify(weather)}. Summarize.`,
@@ -371,7 +379,10 @@ app.get("/api/demo/session", async (c) => {
 
 	try {
 		const messages: Message[] = [
-			{ role: "system", content: "You are a travel concierge. Keep replies short." },
+			{
+				role: "system",
+				content: "You are a travel concierge. Keep replies short.",
+			},
 		];
 		const turns = [
 			"I'm planning a weekend in Lisbon. What should I do?",

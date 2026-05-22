@@ -48,7 +48,10 @@ export class TailHub {
 			const projectId = url.searchParams.get("projectId") ?? "default";
 			const kindsParam = url.searchParams.get("kinds") ?? "span,log";
 			const kinds = new Set(
-				kindsParam.split(",").map((s) => s.trim()).filter(Boolean),
+				kindsParam
+					.split(",")
+					.map((s) => s.trim())
+					.filter(Boolean),
 			) as Set<TailKind>;
 			return this.subscribe(projectId, kinds, req);
 		}
@@ -60,7 +63,10 @@ export class TailHub {
 		kinds: Set<TailKind>,
 		req: Request,
 	): Response {
-		const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+		const { readable, writable } = new TransformStream<
+			Uint8Array,
+			Uint8Array
+		>();
 		const writer = writable.getWriter();
 		const id = crypto.randomUUID();
 

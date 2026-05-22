@@ -81,12 +81,9 @@ const renderTemplate = (
 	const subs: Record<string, string> = {
 		title: def.title,
 		status: r.status,
-		primary:
-			r.primaryValue === null ? "n/a" : String(r.primaryValue),
-		baseline:
-			r.baselineValue === null ? "n/a" : String(r.baselineValue),
-		delta_pct:
-			r.deltaPct === null ? "n/a" : `${r.deltaPct.toFixed(1)}%`,
+		primary: r.primaryValue === null ? "n/a" : String(r.primaryValue),
+		baseline: r.baselineValue === null ? "n/a" : String(r.baselineValue),
+		delta_pct: r.deltaPct === null ? "n/a" : `${r.deltaPct.toFixed(1)}%`,
 		service: typeof scope.service === "string" ? scope.service : "",
 		trace_ids: traceIds,
 	};
@@ -250,14 +247,10 @@ async function generateNarrativeAnthropic(
 	};
 
 	if (!tracer) return callLLM(null);
-	return tracer(
-		"llm.anthropic.messages",
-		async (span) => callLLM(span),
-		{
-			"openinference.span.kind": "LLM",
-			"gen_ai.system": "anthropic",
-			"gen_ai.request.model": config.model,
-			"gen_ai.request.max_tokens": 200,
-		},
-	);
+	return tracer("llm.anthropic.messages", async (span) => callLLM(span), {
+		"openinference.span.kind": "LLM",
+		"gen_ai.system": "anthropic",
+		"gen_ai.request.model": config.model,
+		"gen_ai.request.max_tokens": 200,
+	});
 }

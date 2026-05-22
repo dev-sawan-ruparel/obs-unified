@@ -12,15 +12,15 @@
  * doesn't have to wait for the next 5-min tick.
  */
 
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type {
 	AnalysesListResponse,
 	AnalysisResultResponse,
 	AnalysisResultsBulkResponse,
 } from "@obs-unified/types";
+import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
-import { AnalysesStore } from "../lib/analyses-store";
 import { runSqlAnalysis } from "../lib/analyses-runner";
+import { AnalysesStore } from "../lib/analyses-store";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -64,10 +64,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 			const projectId = getProjectId(c);
 			const id = c.req.param("id");
 			if (!id) {
-				return c.json(
-					{ error: "Bad Request", message: "id is required" },
-					400,
-				);
+				return c.json({ error: "Bad Request", message: "id is required" }, 400);
 			}
 			const store = new AnalysesStore(sqlDbFor(c.env));
 			const definitions = await store.listDefinitions(projectId);
@@ -104,17 +101,13 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 				};
 				return c.json(response);
 			} catch (error) {
-				const message =
-					error instanceof Error ? error.message : String(error);
+				const message = error instanceof Error ? error.message : String(error);
 				runtime.logger.error("[analyses] on-demand run failed", {
 					analysis_id: id,
 					project_id: projectId,
 					error: message,
 				});
-				return c.json(
-					{ error: "Internal Server Error", message },
-					500,
-				);
+				return c.json({ error: "Internal Server Error", message }, 500);
 			}
 		});
 
@@ -122,10 +115,7 @@ export const analysesRoutesPlugin: CollectorPlugin = {
 			const projectId = getProjectId(c);
 			const id = c.req.param("id");
 			if (!id) {
-				return c.json(
-					{ error: "Bad Request", message: "id is required" },
-					400,
-				);
+				return c.json({ error: "Bad Request", message: "id is required" }, 400);
 			}
 			const store = new AnalysesStore(sqlDbFor(c.env));
 			const definitions = await store.listDefinitions(projectId);

@@ -1,7 +1,16 @@
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { StoredSpan, UsageEventRecord } from "@obs-unified/types";
+import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { AIStore } from "../lib/ai-store";
+import { runAllDueAnalyses } from "../lib/analyses-runner";
+import { AnalysesStore } from "../lib/analyses-store";
+import { LogsStore } from "../lib/logs-store";
+import { MetricsStore } from "../lib/metrics-store";
+import { aggregatePropagation } from "../lib/propagation-metric";
+import { D1Adapter, type SqlDb, sqlDbFor } from "../lib/sql-db";
+import { TelemetryStore } from "../lib/store";
+import { UsageStore } from "../lib/usage-store";
 import type { CollectorEnv, CollectorRouteContext } from "./env";
 import {
 	type ChildSpanRunner,
@@ -9,15 +18,6 @@ import {
 	type Logger,
 	passthroughChildSpan,
 } from "./logger";
-import { AIStore } from "../lib/ai-store";
-import { AnalysesStore } from "../lib/analyses-store";
-import { runAllDueAnalyses } from "../lib/analyses-runner";
-import { LogsStore } from "../lib/logs-store";
-import { MetricsStore } from "../lib/metrics-store";
-import { aggregatePropagation } from "../lib/propagation-metric";
-import { D1Adapter, sqlDbFor, type SqlDb } from "../lib/sql-db";
-import { TelemetryStore } from "../lib/store";
-import { UsageStore } from "../lib/usage-store";
 
 /**
  * Factory that materializes an `SqlDb` for the request's `env`. Per-request
@@ -181,10 +181,7 @@ export class CollectorRuntime implements CollectorPluginContext {
 					span.setAttribute("processor.input_count", inputCount);
 					span.setAttribute("processor.output_count", out.length);
 					if (out.length !== inputCount)
-						span.setAttribute(
-							"processor.delta_count",
-							out.length - inputCount,
-						);
+						span.setAttribute("processor.delta_count", out.length - inputCount);
 					return out;
 				},
 			);
@@ -210,10 +207,7 @@ export class CollectorRuntime implements CollectorPluginContext {
 					span.setAttribute("processor.input_count", inputCount);
 					span.setAttribute("processor.output_count", out.length);
 					if (out.length !== inputCount)
-						span.setAttribute(
-							"processor.delta_count",
-							out.length - inputCount,
-						);
+						span.setAttribute("processor.delta_count", out.length - inputCount);
 					return out;
 				},
 			);
@@ -244,7 +238,10 @@ export const createTelemetryCollectorApp = (
 	app.use("/v1/*", async (c, next) => {
 		const origin = c.req.header("Origin");
 		const allowedOrigins = config.allowedOrigins || c.env.ALLOWED_ORIGINS || "";
-		const allowList = allowedOrigins.split(",").map((s) => s.trim()).filter(Boolean);
+		const allowList = allowedOrigins
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
 
 		if (c.req.method === "OPTIONS") {
 			const headers: Record<string, string> = {
@@ -316,7 +313,9 @@ export const createTelemetryCollectorApp = (
  * Wire into wrangler.toml: `[triggers] crons = ["0 * * * *"]`
  * Source: AgentOwl + DecisionOps
  */
-export const createRetentionCleanupHandler = (options?: { logger?: Logger }) => {
+export const createRetentionCleanupHandler = (options?: {
+	logger?: Logger;
+}) => {
 	const logger = options?.logger ?? consoleLogger;
 	return {
 		async scheduled(

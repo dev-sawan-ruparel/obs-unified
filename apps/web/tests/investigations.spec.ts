@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 
 /*
  * E2E coverage for RFC 0002 Stage 4 — investigation pages.
@@ -44,10 +44,10 @@ const buildInvestigation = (overrides: {
 				current_top_services: {
 					title: "Top error services — last 5 minutes",
 					headers: ["service", "errors"],
-					rows: Array.from(
-						{ length: overrides.evidenceRows ?? 3 },
-						(_, i) => [`svc-${i}`, 12 - i],
-					),
+					rows: Array.from({ length: overrides.evidenceRows ?? 3 }, (_, i) => [
+						`svc-${i}`,
+						12 - i,
+					]),
 				},
 				baseline_top_services: {
 					title: "Top error services — 5–60 minutes ago",
@@ -65,10 +65,13 @@ const buildInvestigation = (overrides: {
 	},
 });
 
-async function mockInvestigations(page: Page, opts: {
-	resultEntry: ReturnType<typeof buildInvestigation>;
-	rerunEntry?: ReturnType<typeof buildInvestigation>;
-}) {
+async function mockInvestigations(
+	page: Page,
+	opts: {
+		resultEntry: ReturnType<typeof buildInvestigation>;
+		rerunEntry?: ReturnType<typeof buildInvestigation>;
+	},
+) {
 	const seenRunPosts: string[] = [];
 	await page.route(/\/auth\/check/, (route) =>
 		json(route, JSON.stringify({ authenticated: true })),
@@ -126,15 +129,21 @@ async function mockInvestigations(page: Page, opts: {
 }
 
 test.describe("Investigations", () => {
-	test("index lists page-view analyses as clickable links", async ({ page }) => {
+	test("index lists page-view analyses as clickable links", async ({
+		page,
+	}) => {
 		await mockInvestigations(page, {
 			resultEntry: buildInvestigation({}),
 		});
 		await page.goto("/#/investigate");
 		await expect(
-			page.locator('[data-test-investigation-link="investigate.error_top_offenders"]'),
+			page.locator(
+				'[data-test-investigation-link="investigate.error_top_offenders"]',
+			),
 		).toBeVisible({ timeout: 10000 });
-		await expect(page.locator("text=Error top offenders").first()).toBeVisible();
+		await expect(
+			page.locator("text=Error top offenders").first(),
+		).toBeVisible();
 	});
 
 	test("page renders narrative + evidence tables", async ({ page }) => {

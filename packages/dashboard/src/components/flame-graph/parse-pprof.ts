@@ -8,19 +8,16 @@
  *     stack-frame tree the renderer can paint.
  */
 
-import {
-	decodePprofBlob,
-	type PprofProfile,
-} from "@obs-unified/pprof-decoder";
+import { decodePprofBlob, type PprofProfile } from "@obs-unified/pprof-decoder";
 
 // Re-export the parsed-pprof types so this file remains the canonical
 // import for flame-graph consumers in the dashboard.
 export {
 	decodePprof,
 	decodePprofBlob,
+	type PprofFunction,
 	type PprofLabel,
 	type PprofLocation,
-	type PprofFunction,
 	type PprofProfile,
 	type PprofSample,
 	type PprofValueType,
@@ -37,9 +34,7 @@ export const fetchAndDecodePprof = async (
 ): Promise<PprofProfile> => {
 	const res = await fetch(gzippedUrl, init);
 	if (!res.ok) {
-		throw new Error(
-			`fetchAndDecodePprof: ${res.status} ${res.statusText}`,
-		);
+		throw new Error(`fetchAndDecodePprof: ${res.status} ${res.statusText}`);
 	}
 	const buf = await res.arrayBuffer();
 	return decodePprofBlob(buf);

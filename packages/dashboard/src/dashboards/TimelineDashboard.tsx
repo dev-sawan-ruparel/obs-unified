@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useApi } from "../use-api";
+import { Button } from "../components/Button";
+import { Input, Select } from "../components/forms";
 import {
 	Card,
 	JsonBlock,
 	SectionTitle,
 	UpdatedChip,
 } from "../components/primitives";
-import { Button } from "../components/Button";
-import { Input, Select } from "../components/forms";
 import { StateRow } from "../components/states";
+import { useApi } from "../use-api";
 
 type Kind = "span" | "log" | "usage";
 
@@ -280,7 +280,9 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 				<Button
 					size="sm"
 					onClick={() => setShowPasteId((v) => !v)}
-					title={showPasteId ? "Pick from recent sessions" : "Paste a session id"}
+					title={
+						showPasteId ? "Pick from recent sessions" : "Paste a session id"
+					}
 				>
 					{showPasteId ? "Recent" : "Paste id"}
 				</Button>
@@ -305,7 +307,10 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 						onClick={() => toggleKind(k)}
 						title={`Toggle ${KIND_LABEL[k]}`}
 					>
-						{KIND_LABEL[k]} · {data?.counts[k === "span" ? "spans" : k === "log" ? "logs" : "usage"] ?? 0}
+						{KIND_LABEL[k]} ·{" "}
+						{data?.counts[
+							k === "span" ? "spans" : k === "log" ? "logs" : "usage"
+						] ?? 0}
 					</Button>
 				))}
 				{data?.replay && (
@@ -326,10 +331,9 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 			{!sessionId && recentSessions.length === 0 && !loading && (
 				<Card className="p-3">
 					<p className="text-[0.8125rem] text-sys-on-surface-muted">
-						No sessions yet. Run{" "}
-						<code className="font-mono">pnpm seed</code> to generate sample
-						data, or visit Playground and click around to capture a real
-						session.
+						No sessions yet. Run <code className="font-mono">pnpm seed</code> to
+						generate sample data, or visit Playground and click around to
+						capture a real session.
 					</p>
 				</Card>
 			)}
@@ -411,7 +415,9 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 												</span>
 											</div>
 											{ev.subtitle && (
-												<p className="opacity-70 m-0 break-all">{ev.subtitle}</p>
+												<p className="opacity-70 m-0 break-all">
+													{ev.subtitle}
+												</p>
 											)}
 										</div>
 									</button>
@@ -429,9 +435,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 						<EventDrawer
 							event={selectedEvent}
 							sessionId={data.sessionId}
-							offsetMs={
-								new Date(selectedEvent.t).getTime() - startMs
-							}
+							offsetMs={new Date(selectedEvent.t).getTime() - startMs}
 							hasReplay={Boolean(data.replay)}
 							traceId={extractTraceId(selectedEvent)}
 							onClose={() => setSelectedEventId(null)}
@@ -459,7 +463,11 @@ function EventDrawer({
 	hasReplay: boolean;
 	traceId: string | null;
 	onClose: () => void;
-	onNavigate: (route: { tab?: string; sessionId?: string; traceId?: string }) => void;
+	onNavigate: (route: {
+		tab?: string;
+		sessionId?: string;
+		traceId?: string;
+	}) => void;
 }) {
 	return (
 		<Card className="flex w-[380px] flex-none flex-col overflow-hidden">
@@ -532,9 +540,7 @@ function EventDrawer({
 						<Button
 							variant="primary"
 							size="sm"
-							onClick={() =>
-								onNavigate({ tab: "traces", traceId })
-							}
+							onClick={() => onNavigate({ tab: "traces", traceId })}
 						>
 							View trace
 						</Button>
@@ -543,9 +549,7 @@ function EventDrawer({
 						<Button
 							variant="accent"
 							size="sm"
-							onClick={() =>
-								onNavigate({ tab: "replay", sessionId })
-							}
+							onClick={() => onNavigate({ tab: "replay", sessionId })}
 							title={`Replay starting from session start (cursor at +${(offsetMs / 1000).toFixed(1)}s not yet wired)`}
 						>
 							Open replay
@@ -608,7 +612,9 @@ function Lane({
 										: ev.severity === "warn"
 											? "var(--color-sys-warning)"
 											: KIND_COLOR[kind],
-								outline: active ? "1px solid var(--color-sys-on-surface)" : "none",
+								outline: active
+									? "1px solid var(--color-sys-on-surface)"
+									: "none",
 								outlineOffset: 1,
 							}}
 						/>

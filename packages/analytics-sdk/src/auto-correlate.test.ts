@@ -53,9 +53,7 @@ describe("injectInteractionHeader", () => {
 			{ headers: { [INTERACTION_HEADER]: "caller-set" } },
 			"sdk-set",
 		);
-		expect(new Headers(out.headers).get(INTERACTION_HEADER)).toBe(
-			"caller-set",
-		);
+		expect(new Headers(out.headers).get(INTERACTION_HEADER)).toBe("caller-set");
 	});
 
 	it("preserves other init fields (method, body)", () => {
@@ -85,7 +83,7 @@ describe("wrapFetchWithCorrelation", () => {
 
 	it("injects the header when an id is active", async () => {
 		const original = vi.fn<typeof fetch>(async () => new Response("ok"));
-		let id: string | undefined = "I1";
+		const id: string | undefined = "I1";
 		const wrapped = wrapFetchWithCorrelation(
 			original as unknown as typeof fetch,
 			() => id,

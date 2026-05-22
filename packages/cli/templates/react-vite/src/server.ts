@@ -5,8 +5,6 @@
 // child spans / logs / AI calls inherit. The dashboard's "click that
 // caused this trace" pivot works out of the box.
 
-import { Hono } from "hono";
-import { cors } from "hono/cors";
 import {
 	createLogger,
 	createRequestSpan,
@@ -16,6 +14,8 @@ import {
 	runWithSpan,
 	stampInteractionFromRequest,
 } from "@obs-unified/telemetry-sdk";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 initObservability({
 	collectorUrl: process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790",
@@ -35,7 +35,10 @@ app.use(
 );
 
 app.use("*", async (c, next) => {
-	const span = createRequestSpan("__APP_NAME__-api", `${c.req.method} ${c.req.path}`);
+	const span = createRequestSpan(
+		"__APP_NAME__-api",
+		`${c.req.method} ${c.req.path}`,
+	);
 	stampInteractionFromRequest(span, c.req.raw);
 	try {
 		await runWithSpan(span, () => next());

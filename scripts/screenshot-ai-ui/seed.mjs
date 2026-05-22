@@ -83,7 +83,9 @@ const mkSpan = ({
 	startTimeUnixNano: agoNs(startMsAgo),
 	endTimeUnixNano: agoNs(startMsAgo - durationMs),
 	attributes: Object.entries(attrs).map(([k, v]) => kv(k, v)),
-	status: statusMessage ? { code: status, message: statusMessage } : { code: status },
+	status: statusMessage
+		? { code: status, message: statusMessage }
+		: { code: status },
 });
 
 async function main() {
@@ -353,7 +355,7 @@ async function main() {
 		const rootId = hex(8);
 		const llmId = hex(8);
 		const pt = 40 + i * 20;
-		const ct = t.assistant.length / 4 | 0;
+		const ct = (t.assistant.length / 4) | 0;
 		await postSpans([
 			mkSpan({
 				traceId,
@@ -385,7 +387,10 @@ async function main() {
 					"session.id": sessionId,
 					"user.id": userId,
 					"ai.payload.input": JSON.stringify([
-						{ role: "system", content: "You are a travel concierge. Keep replies short." },
+						{
+							role: "system",
+							content: "You are a travel concierge. Keep replies short.",
+						},
 						...turns.slice(0, i).flatMap((prev) => [
 							{ role: "user", content: prev.user },
 							{ role: "assistant", content: prev.assistant },

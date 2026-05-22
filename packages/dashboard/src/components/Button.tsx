@@ -15,16 +15,12 @@ const SIZE: Record<ButtonSize, string> = {
 };
 
 const VARIANT: Record<ButtonVariant, string> = {
-	primary:
-		"bg-sys-primary text-white font-semibold hover:bg-micro-gradient",
+	primary: "bg-sys-primary text-white font-semibold hover:bg-micro-gradient",
 	ghost:
 		"bg-transparent text-sys-on-surface-muted font-medium outline outline-[1px] outline-sys-outline hover:bg-sys-surface-low hover:text-sys-on-surface",
-	danger:
-		"bg-sys-error text-white font-semibold hover:opacity-90",
-	warning:
-		"bg-sys-warning text-white font-semibold hover:opacity-90",
-	accent:
-		"bg-sys-accent text-white font-semibold hover:bg-micro-gradient",
+	danger: "bg-sys-error text-white font-semibold hover:opacity-90",
+	warning: "bg-sys-warning text-white font-semibold hover:opacity-90",
+	accent: "bg-sys-accent text-white font-semibold hover:bg-micro-gradient",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

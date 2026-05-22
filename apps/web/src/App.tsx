@@ -1,25 +1,25 @@
 import { useAnalytics } from "@obs-unified/analytics-sdk/react";
 import {
-	TelemetryDashboard,
-	TimelineDashboard,
-	UsageDashboard,
-	LogsDashboard,
 	AIDashboard,
+	AlertsDashboard,
+	AskBox,
+	FilterGroup,
+	FilterPanel,
+	GlobalSearch,
 	HealthDashboard,
-	InvestigationsDashboard,
 	InvestigationPage,
+	InvestigationsDashboard,
+	LogsDashboard,
+	ProjectSwitcher,
+	ProjectsDashboard,
 	ReplayDashboard,
 	ResourcesDashboard,
 	ServiceMapDashboard,
-	ProjectsDashboard,
-	AlertsDashboard,
-	UserDashboard,
-	ProjectSwitcher,
-	GlobalSearch,
+	TelemetryDashboard,
+	TimelineDashboard,
 	TimeRangePicker,
-	AskBox,
-	FilterPanel,
-	FilterGroup,
+	UsageDashboard,
+	UserDashboard,
 } from "@obs-unified/dashboard";
 import { useEffect, useState } from "react";
 
@@ -181,7 +181,8 @@ export function App() {
 	const route = useRoute();
 	const { trackInteraction } = useAnalytics();
 	// User's stated preference — persisted, only written by explicit toggle.
-	const [userCollapsed, setUserCollapsed] = useState<boolean>(readRailCollapsed);
+	const [userCollapsed, setUserCollapsed] =
+		useState<boolean>(readRailCollapsed);
 	// Whether the viewport is forcing a collapse independent of preference.
 	const [viewportForce, setViewportForce] = useState<boolean>(
 		typeof window !== "undefined" && window.innerWidth < 1100,
@@ -353,60 +354,61 @@ export function App() {
 					</div>
 				</header>
 				<main className="min-h-0 flex-1 overflow-y-auto">
-				{route.tab === "playground" && <Playground />}
-				{route.tab === "health" && <HealthDashboard />}
-				{route.tab === "investigate" &&
-					(route.investigationId ? (
-						<InvestigationPage
-							investigationId={route.investigationId}
+					{route.tab === "playground" && <Playground />}
+					{route.tab === "health" && <HealthDashboard />}
+					{route.tab === "investigate" &&
+						(route.investigationId ? (
+							<InvestigationPage
+								investigationId={route.investigationId}
+								onNavigate={navigate}
+							/>
+						) : (
+							<InvestigationsDashboard onNavigate={navigate} />
+						))}
+					{route.tab === "traces" && (
+						<TelemetryDashboard
+							mode="traces"
+							initialTraceId={route.traceId}
+							initialService={route.service}
 							onNavigate={navigate}
 						/>
-					) : (
-						<InvestigationsDashboard onNavigate={navigate} />
-					))}
-				{route.tab === "traces" && (
-					<TelemetryDashboard
-						mode="traces"
-						initialTraceId={route.traceId}
-						initialService={route.service}
-						onNavigate={navigate}
-					/>
-				)}
-				{route.tab === "service-map" && (
-					<ServiceMapDashboard onNavigate={navigate} />
-				)}
-				{route.tab === "issues" && (
-					<TelemetryDashboard
-						mode="issues"
-						initialIssueId={route.issueId}
-						onNavigate={navigate}
-					/>
-				)}
-				{route.tab === "logs" && <LogsDashboard />}
-				{route.tab === "ai" && <AIDashboard />}
-				{route.tab === "usage" && (
-					<UsageDashboard onNavigate={navigate} />
-				)}
-				{route.tab === "replay" && (
-					<ReplayDashboard
-						initialSessionId={route.sessionId}
-						onNavigate={navigate}
-					/>
-				)}
-				{route.tab === "timeline" && (
-					<TimelineDashboard
-						initialSessionId={route.sessionId}
-						onNavigate={navigate}
-					/>
-				)}
-				{route.tab === "alerts" && <AlertsDashboard />}
-				{route.tab === "resources" && <ResourcesDashboard />}
-				{route.tab === "projects" && <ProjectsDashboard />}
-				{route.tab === "users" && route.userId && (
-					<UserDashboard userId={route.userId} onNavigate={(href) => {
-						location.hash = href.startsWith("#") ? href.slice(1) : href;
-					}} />
-				)}
+					)}
+					{route.tab === "service-map" && (
+						<ServiceMapDashboard onNavigate={navigate} />
+					)}
+					{route.tab === "issues" && (
+						<TelemetryDashboard
+							mode="issues"
+							initialIssueId={route.issueId}
+							onNavigate={navigate}
+						/>
+					)}
+					{route.tab === "logs" && <LogsDashboard />}
+					{route.tab === "ai" && <AIDashboard />}
+					{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
+					{route.tab === "replay" && (
+						<ReplayDashboard
+							initialSessionId={route.sessionId}
+							onNavigate={navigate}
+						/>
+					)}
+					{route.tab === "timeline" && (
+						<TimelineDashboard
+							initialSessionId={route.sessionId}
+							onNavigate={navigate}
+						/>
+					)}
+					{route.tab === "alerts" && <AlertsDashboard />}
+					{route.tab === "resources" && <ResourcesDashboard />}
+					{route.tab === "projects" && <ProjectsDashboard />}
+					{route.tab === "users" && route.userId && (
+						<UserDashboard
+							userId={route.userId}
+							onNavigate={(href) => {
+								location.hash = href.startsWith("#") ? href.slice(1) : href;
+							}}
+						/>
+					)}
 				</main>
 			</div>
 		</div>
@@ -414,7 +416,12 @@ export function App() {
 }
 
 function Playground() {
-	const { trackInteraction, identify, startReplay, fetch: analyticalFetch } = useAnalytics();
+	const {
+		trackInteraction,
+		identify,
+		startReplay,
+		fetch: analyticalFetch,
+	} = useAnalytics();
 	const [response, setResponse] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
@@ -434,10 +441,21 @@ function Playground() {
 		try {
 			const r = await analyticalFetch(path, opts);
 			setResponse(JSON.stringify(await r.json(), null, 2));
-			trackInteraction(`api_${label}`, { path, method, status: r.status, durationMs: Date.now() - start });
+			trackInteraction(`api_${label}`, {
+				path,
+				method,
+				status: r.status,
+				durationMs: Date.now() - start,
+			});
 		} catch (e) {
 			setResponse(`Error: ${e instanceof Error ? e.message : e}`);
-			trackInteraction(`api_${label}`, { path, method, status: "error", error: String(e), durationMs: Date.now() - start });
+			trackInteraction(`api_${label}`, {
+				path,
+				method,
+				status: "error",
+				error: String(e),
+				durationMs: Date.now() - start,
+			});
 		} finally {
 			setLoading(false);
 		}
@@ -468,9 +486,7 @@ function Playground() {
 								<input
 									type="checkbox"
 									checked={statusFilter.has(v)}
-									onChange={() =>
-										setStatusFilter((s) => toggleSet(s, v))
-									}
+									onChange={() => setStatusFilter((s) => toggleSet(s, v))}
 									className="h-3 w-3 accent-sys-primary"
 								/>
 								<span className="">{v}</span>
@@ -488,9 +504,7 @@ function Playground() {
 								<input
 									type="checkbox"
 									checked={severityFilter.has(v)}
-									onChange={() =>
-										setSeverityFilter((s) => toggleSet(s, v))
-									}
+									onChange={() => setSeverityFilter((s) => toggleSet(s, v))}
 									className="h-3 w-3 accent-sys-primary"
 								/>
 								<span className="">{v}</span>
@@ -500,140 +514,148 @@ function Playground() {
 				</FilterGroup>
 			</FilterPanel>
 			<div className="flex-1 overflow-y-auto p-3">
-			<div className="mb-2 flex flex-wrap gap-3">
-				<Btn onClick={() => call("/api/health", "health")} disabled={loading}>
-					Health
-				</Btn>
-				<Btn onClick={() => call("/api/items", "items")} disabled={loading}>
-					Items
-				</Btn>
-				<Btn onClick={() => call("/api/items/1", "item1")} disabled={loading}>
-					Item 1
-				</Btn>
-				<Btn
-					onClick={() =>
-						call("/api/items", "create", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: '{"name":"W","price":9.99}',
-						})
-					}
-					disabled={loading}
-					c="primary"
-				>
-					Create
-				</Btn>
-				<div className="w-4" />
-				<Btn
-					onClick={() => call("/api/items/999", "404")}
-					disabled={loading}
-					c="warn"
-				>
-					404
-				</Btn>
-				<Btn
-					onClick={() => call("/api/slow", "slow")}
-					disabled={loading}
-					c="warn"
-				>
-					Slow
-				</Btn>
-				<Btn
-					onClick={() => call("/api/error", "err")}
-					disabled={loading}
-					c="err"
-				>
-					Error
-				</Btn>
-				<Btn
-					onClick={() => {
-						trackInteraction("crash_test", { reason: "User triggered hard crash via Playground UI" });
-						throw new Error("Crash");
-					}}
-					c="err"
-				>
-					Crash
-				</Btn>
-				<div className="w-4" />
-				<Btn
-					onClick={() => {
-						trackInteraction("mock_ai_chat", { promptType: "default", simulated: true });
-						call("/api/chat", "chat", { method: "POST" });
-					}}
-					disabled={loading}
-				>
-					Mock AI Chat
-				</Btn>
-				<div className="w-4" />
-				{/* Real LLM demos — each emits typed OpenInference spans that show
+				<div className="mb-2 flex flex-wrap gap-3">
+					<Btn onClick={() => call("/api/health", "health")} disabled={loading}>
+						Health
+					</Btn>
+					<Btn onClick={() => call("/api/items", "items")} disabled={loading}>
+						Items
+					</Btn>
+					<Btn onClick={() => call("/api/items/1", "item1")} disabled={loading}>
+						Item 1
+					</Btn>
+					<Btn
+						onClick={() =>
+							call("/api/items", "create", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: '{"name":"W","price":9.99}',
+							})
+						}
+						disabled={loading}
+						c="primary"
+					>
+						Create
+					</Btn>
+					<div className="w-4" />
+					<Btn
+						onClick={() => call("/api/items/999", "404")}
+						disabled={loading}
+						c="warn"
+					>
+						404
+					</Btn>
+					<Btn
+						onClick={() => call("/api/slow", "slow")}
+						disabled={loading}
+						c="warn"
+					>
+						Slow
+					</Btn>
+					<Btn
+						onClick={() => call("/api/error", "err")}
+						disabled={loading}
+						c="err"
+					>
+						Error
+					</Btn>
+					<Btn
+						onClick={() => {
+							trackInteraction("crash_test", {
+								reason: "User triggered hard crash via Playground UI",
+							});
+							throw new Error("Crash");
+						}}
+						c="err"
+					>
+						Crash
+					</Btn>
+					<div className="w-4" />
+					<Btn
+						onClick={() => {
+							trackInteraction("mock_ai_chat", {
+								promptType: "default",
+								simulated: true,
+							});
+							call("/api/chat", "chat", { method: "POST" });
+						}}
+						disabled={loading}
+					>
+						Mock AI Chat
+					</Btn>
+					<div className="w-4" />
+					{/* Real LLM demos — each emits typed OpenInference spans that show
 				    up under AI CALLS. Require provider keys in apps/obs-demo/.dev.vars. */}
-				<Btn
-					onClick={() => call("/api/demo/chat", "demo_chat")}
-					disabled={loading}
-					c="primary"
-					title="Fan out one prompt across every enabled LLM provider"
-				>
-					AI: Chat
-				</Btn>
-				<Btn
-					onClick={() => call("/api/demo/rag", "demo_rag")}
-					disabled={loading}
-					c="primary"
-					title="RETRIEVER → LLM with a fake doc store + rag_faithfulness eval"
-				>
-					AI: RAG
-				</Btn>
-				<Btn
-					onClick={() => call("/api/demo/tool", "demo_tool")}
-					disabled={loading}
-					c="primary"
-					title="TOOL → LLM weather summary + mentions_temperature eval"
-				>
-					AI: Tool
-				</Btn>
-				<Btn
-					onClick={() => call("/api/demo/session", "demo_session")}
-					disabled={loading}
-					c="primary"
-					title="Three-turn conversation, all stamped with the same session.id"
-				>
-					AI: Session
-				</Btn>
-				<Btn
-					onClick={() => call("/api/demo/run-all", "demo_all")}
-					disabled={loading}
-					c="primary"
-					title="Every scenario back-to-back — one-click end-to-end demo"
-				>
-					AI: Run all
-				</Btn>
-				<div className="w-4" />
-				<Btn
-					onClick={() => {
-						identify("test-user-123", { email: "test@example.com", plan: "pro" });
-						setResponse("Called identify() for test-user-123");
-					}}
-					disabled={loading}
-				>
-					Identify User
-				</Btn>
-				<Btn
-					onClick={() => {
-						trackInteraction("start_replay_click", { manual: true });
-						startReplay();
-						setResponse("Started rrweb session replay recording...");
-					}}
-					disabled={loading}
-					c="primary"
-				>
-					Start Replay
-				</Btn>
-			</div>
-			{response && (
-				<pre className="bg-sys-surface p-2 font-mono text-[0.875rem] leading-relaxed text-sys-on-surface max-h-[600px] overflow-auto">
-					{response}
-				</pre>
-			)}
+					<Btn
+						onClick={() => call("/api/demo/chat", "demo_chat")}
+						disabled={loading}
+						c="primary"
+						title="Fan out one prompt across every enabled LLM provider"
+					>
+						AI: Chat
+					</Btn>
+					<Btn
+						onClick={() => call("/api/demo/rag", "demo_rag")}
+						disabled={loading}
+						c="primary"
+						title="RETRIEVER → LLM with a fake doc store + rag_faithfulness eval"
+					>
+						AI: RAG
+					</Btn>
+					<Btn
+						onClick={() => call("/api/demo/tool", "demo_tool")}
+						disabled={loading}
+						c="primary"
+						title="TOOL → LLM weather summary + mentions_temperature eval"
+					>
+						AI: Tool
+					</Btn>
+					<Btn
+						onClick={() => call("/api/demo/session", "demo_session")}
+						disabled={loading}
+						c="primary"
+						title="Three-turn conversation, all stamped with the same session.id"
+					>
+						AI: Session
+					</Btn>
+					<Btn
+						onClick={() => call("/api/demo/run-all", "demo_all")}
+						disabled={loading}
+						c="primary"
+						title="Every scenario back-to-back — one-click end-to-end demo"
+					>
+						AI: Run all
+					</Btn>
+					<div className="w-4" />
+					<Btn
+						onClick={() => {
+							identify("test-user-123", {
+								email: "test@example.com",
+								plan: "pro",
+							});
+							setResponse("Called identify() for test-user-123");
+						}}
+						disabled={loading}
+					>
+						Identify User
+					</Btn>
+					<Btn
+						onClick={() => {
+							trackInteraction("start_replay_click", { manual: true });
+							startReplay();
+							setResponse("Started rrweb session replay recording...");
+						}}
+						disabled={loading}
+						c="primary"
+					>
+						Start Replay
+					</Btn>
+				</div>
+				{response && (
+					<pre className="bg-sys-surface p-2 font-mono text-[0.875rem] leading-relaxed text-sys-on-surface max-h-[600px] overflow-auto">
+						{response}
+					</pre>
+				)}
 			</div>
 		</div>
 	);

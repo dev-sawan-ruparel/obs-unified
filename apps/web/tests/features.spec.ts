@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 /*
  * End-to-end tests for the four groundcover-inspired features:
@@ -177,8 +177,7 @@ test.describe("Feature: Live Tail", () => {
 		page,
 	}) => {
 		page.on("console", (msg) => {
-			if (msg.type() === "error")
-				console.log("PAGE ERROR:", msg.text());
+			if (msg.type() === "error") console.log("PAGE ERROR:", msg.text());
 		});
 		page.on("pageerror", (err) => console.log("PAGEERR:", err.message));
 
@@ -215,9 +214,7 @@ test.describe("Feature: Live Tail", () => {
 		await page.goto("/#/logs");
 
 		const tailResponse = page.waitForResponse(
-			(r) =>
-				r.url().includes("/internal/telemetry/tail") &&
-				r.status() === 200,
+			(r) => r.url().includes("/internal/telemetry/tail") && r.status() === 200,
 		);
 		await page.getByRole("button", { name: /^LIVE$/i }).click();
 		await tailResponse;
@@ -471,7 +468,9 @@ test.describe("Feature: Sessions Explorer", () => {
 		// Confirm the seed actually landed before testing UI.
 		const apiBody = (await page.request
 			.get("/internal/usage/sessions?hours=72&filter=ended_in_error&limit=500")
-			.then((r) => r.json())) as { sessions: Array<{ sessionId: string; lastPath: string | null }> };
+			.then((r) => r.json())) as {
+			sessions: Array<{ sessionId: string; lastPath: string | null }>;
+		};
 		const found = apiBody.sessions.find((s) => s.sessionId === sid);
 		expect(
 			found,
@@ -481,9 +480,7 @@ test.describe("Feature: Sessions Explorer", () => {
 		// Set a wide viewport so the sessions panel (hidden under `lg:`) renders.
 		await page.setViewportSize({ width: 1400, height: 900 });
 
-		await page
-			.getByRole("button", { name: "Errored", exact: true })
-			.click();
+		await page.getByRole("button", { name: "Errored", exact: true }).click();
 
 		// The seeded session renders in the sessions panel — the panel-scoped
 		// span shows `lastPath`, so target that span directly.
@@ -572,7 +569,9 @@ test.describe("Feature: Unified Timeline", () => {
 		await expect(page.getByRole("button", { name: /Spans · \d+/ })).toBeVisible(
 			{ timeout: 10_000 },
 		);
-		await expect(page.getByRole("button", { name: /Logs · \d+/ })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: /Logs · \d+/ }),
+		).toBeVisible();
 		await expect(
 			page.getByRole("button", { name: /Usage · \d+/ }),
 		).toBeVisible();

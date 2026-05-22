@@ -89,7 +89,10 @@ export const queryRoutesPlugin: CollectorPlugin = {
 			);
 			const service = c.req.param("service");
 			if (!service) {
-				return c.json({ error: "Bad Request", message: "service is required" }, 400);
+				return c.json(
+					{ error: "Bad Request", message: "service is required" },
+					400,
+				);
 			}
 			const store = runtime.createStore(c.env);
 			const result = await store.getServiceOperations({
@@ -107,7 +110,10 @@ export const queryRoutesPlugin: CollectorPlugin = {
 		app.get("/internal/telemetry/traces/:traceId", async (c) => {
 			const projectId = getProjectId(c);
 			const store = runtime.createStore(c.env);
-			const detail = await store.getTraceDetail(c.req.param("traceId"), projectId);
+			const detail = await store.getTraceDetail(
+				c.req.param("traceId"),
+				projectId,
+			);
 			if (!detail)
 				return c.json({ error: "Not Found", message: "Trace not found" }, 404);
 			return c.json({ ...detail, plugins: runtime.getRegisteredPluginNames() });

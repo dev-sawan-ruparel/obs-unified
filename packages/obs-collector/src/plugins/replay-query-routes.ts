@@ -1,5 +1,5 @@
-import type { CollectorPlugin } from "../framework/collector";
 import type { SessionReplayMetadataRow } from "@obs-unified/types";
+import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -8,16 +8,20 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 	register(app) {
 		app.get("/internal/replays", async (c) => {
 			const projectId = getProjectId(c);
-			const limit = Math.max(1, Math.min(500, parseInt(c.req.query("limit") ?? "50", 10) || 50));
-			const { results } = await sqlDbFor(c.env).prepare(
-				`SELECT
+			const limit = Math.max(
+				1,
+				Math.min(500, parseInt(c.req.query("limit") ?? "50", 10) || 50),
+			);
+			const { results } = await sqlDbFor(c.env)
+				.prepare(
+					`SELECT
 					r.*,
 					(SELECT page_path FROM usage_events e WHERE e.project_id = r.project_id AND e.session_id = r.session_id AND e.event_type = 'page_view' ORDER BY e.occurred_at ASC LIMIT 1) as starting_link
 				 FROM session_replay_metadata r
 				 WHERE r.project_id = ?
 				 ORDER BY r.last_chunk_at DESC
-				 LIMIT ?`
-			)
+				 LIMIT ?`,
+				)
 				.bind(projectId, limit)
 				.all();
 
@@ -32,9 +36,10 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 				return c.json({ error: "Replay storage not configured" }, 500);
 			}
 
-			const metadata = await sqlDbFor(c.env).prepare(
-				`SELECT * FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`
-			)
+			const metadata = await sqlDbFor(c.env)
+				.prepare(
+					`SELECT * FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
+				)
 				.bind(projectId, sessionId)
 				.first<SessionReplayMetadataRow>();
 
@@ -50,12 +55,14 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			list.objects.sort((a, b) => a.key.localeCompare(b.key));
-			
+
 			const orderedChunksData: Record<string, any>[][] = [];
 			for (const obj of list.objects) {
 				const objectData = await c.env.REPLAYS_BUCKET.get(obj.key);
 				if (objectData) {
-					orderedChunksData.push(await objectData.json<Record<string, any>[]>());
+					orderedChunksData.push(
+						await objectData.json<Record<string, any>[]>(),
+					);
 				}
 			}
 
@@ -63,7 +70,7 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 
 			return c.json({
 				metadata,
-				events
+				events,
 			});
 		});
 
@@ -76,9 +83,10 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			// 1. Check if it exists
-			const metadata = await sqlDbFor(c.env).prepare(
-				`SELECT * FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
-			)
+			const metadata = await sqlDbFor(c.env)
+				.prepare(
+					`SELECT * FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
+				)
 				.bind(projectId, sessionId)
 				.first<SessionReplayMetadataRow>();
 
@@ -96,9 +104,10 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			// 3. Delete metadata from DB
-			await sqlDbFor(c.env).prepare(
-				`DELETE FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
-			)
+			await sqlDbFor(c.env)
+				.prepare(
+					`DELETE FROM session_replay_metadata WHERE project_id = ? AND session_id = ?`,
+				)
 				.bind(projectId, sessionId)
 				.run();
 

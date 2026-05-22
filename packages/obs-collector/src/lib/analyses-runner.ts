@@ -23,7 +23,11 @@
  * here from primary/baseline so individual SQL queries don't have to.
  */
 
-import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs-unified/types";
+import type {
+	AnalysisDefinition,
+	AnalysisResult,
+	AnalysisStatus,
+} from "@obs-unified/types";
 import { getAllAnalysesForProject } from "../analyses/index";
 import type { CollectorEnv } from "../framework/env";
 import {
@@ -32,13 +36,13 @@ import {
 	type Logger,
 } from "../framework/logger";
 import { AnalysesStore } from "./analyses-store";
+import { generateNarrative, LlmCallError, type LlmConfig } from "./llm";
 import {
 	computeSignature,
 	evaluateGate,
 	type NarrativeIntent,
 } from "./narrate-gate";
-import { generateNarrative, LlmCallError, type LlmConfig } from "./llm";
-import { sqlDbFor, type SqlDb } from "./sql-db";
+import { type SqlDb, sqlDbFor } from "./sql-db";
 
 export interface AnalysisRunContext {
 	db: SqlDb;
@@ -90,7 +94,9 @@ const computeDeltaPct = (
 	return ((primary - baseline) / baseline) * 100;
 };
 
-const parsePayload = (payload: string | null | undefined): Record<string, unknown> => {
+const parsePayload = (
+	payload: string | null | undefined,
+): Record<string, unknown> => {
 	if (!payload) return {};
 	try {
 		const parsed = JSON.parse(payload) as unknown;
@@ -107,7 +113,9 @@ export async function runSqlAnalysis(
 	ctx: AnalysisRunContext,
 ): Promise<AnalysisResult> {
 	if (!def.sql)
-		throw new Error(`Analysis "${def.id}" has no sql; cannot run as SQL analysis`);
+		throw new Error(
+			`Analysis "${def.id}" has no sql; cannot run as SQL analysis`,
+		);
 
 	const startedAt = Date.now();
 	// Contract with Agent 2's analysis derivation:
@@ -119,12 +127,12 @@ export async function runSqlAnalysis(
 	// internal (never user-supplied), but we still validate the shape to keep
 	// future user-defined SQL safe from token-replacement injection.
 	if (!/^[A-Za-z0-9_-]+$/.test(ctx.projectId)) {
-		throw new Error(`refusing to run analysis: unsafe project_id ${ctx.projectId}`);
+		throw new Error(
+			`refusing to run analysis: unsafe project_id ${ctx.projectId}`,
+		);
 	}
 	const sqlWithProject = def.sql.replace(/\{\{PROJECT_ID\}\}/g, ctx.projectId);
-	const row = await ctx.db
-		.prepare(sqlWithProject)
-		.first<AnalysisSqlRow>();
+	const row = await ctx.db.prepare(sqlWithProject).first<AnalysisSqlRow>();
 
 	const primaryValue =
 		row && typeof row.primary_value === "number" ? row.primary_value : null;
@@ -391,10 +399,7 @@ export async function runAllDueAnalyses(
 						// run gate logic + signature cache; isolated from query
 						// failures so a flaky LLM doesn't drop the data row.
 						if (def.narrate && runCtx.llm) {
-							const previous = await store.getLatestResult(
-								projectId,
-								def.id,
-							);
+							const previous = await store.getLatestResult(projectId, def.id);
 							await narratePass(
 								def,
 								result,

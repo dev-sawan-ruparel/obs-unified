@@ -1,5 +1,5 @@
-import type { CollectorPlugin } from "../framework/collector";
 import type { IdentifyInput } from "@obs-unified/types";
+import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -20,10 +20,16 @@ export const identityReceiverPlugin: CollectorPlugin = {
 			if (payload.userId.length > 256) {
 				return c.json({ error: "userId too long (max 256)" }, 400);
 			}
-			if (payload.email && (typeof payload.email !== "string" || payload.email.length > 320)) {
+			if (
+				payload.email &&
+				(typeof payload.email !== "string" || payload.email.length > 320)
+			) {
 				return c.json({ error: "Invalid email" }, 400);
 			}
-			if (payload.name && (typeof payload.name !== "string" || payload.name.length > 256)) {
+			if (
+				payload.name &&
+				(typeof payload.name !== "string" || payload.name.length > 256)
+			) {
 				return c.json({ error: "Invalid name" }, 400);
 			}
 			const now = new Date().toISOString();
@@ -53,8 +59,9 @@ export const identityReceiverPlugin: CollectorPlugin = {
 			// On conflict we keep the EARLIEST first_seen_at via MIN() — once
 			// observed, a user's first-seen is monotonic; an identify() call
 			// that runs at "now" must not overwrite a true historical value.
-			await sqlDbFor(c.env).prepare(
-				`INSERT INTO user_profiles (project_id, user_id, visitor_id, email, name, properties_json, first_seen_at, last_seen_at)
+			await sqlDbFor(c.env)
+				.prepare(
+					`INSERT INTO user_profiles (project_id, user_id, visitor_id, email, name, properties_json, first_seen_at, last_seen_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id) DO UPDATE SET
            visitor_id = excluded.visitor_id,
@@ -64,7 +71,7 @@ export const identityReceiverPlugin: CollectorPlugin = {
            first_seen_at = MIN(user_profiles.first_seen_at, excluded.first_seen_at),
            last_seen_at = excluded.last_seen_at
         `,
-			)
+				)
 				.bind(
 					projectId,
 					payload.userId,

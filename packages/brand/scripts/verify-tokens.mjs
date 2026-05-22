@@ -13,8 +13,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -62,7 +62,11 @@ function parseTokens(css) {
 		while (i < source.length) {
 			const open = source.indexOf("{", i);
 			if (open === -1) return;
-			const selector = source.slice(i, open).trim().replace(/^.*[;}]/s, "").trim();
+			const selector = source
+				.slice(i, open)
+				.trim()
+				.replace(/^.*[;}]/s, "")
+				.trim();
 			// Find matching close brace
 			let depth = 1;
 			let j = open + 1;
@@ -77,10 +81,7 @@ function parseTokens(css) {
 				const declRe = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
 				let d;
 				while ((d = declRe.exec(body))) {
-					out[bucket][d[1]] = d[2]
-						.trim()
-						.toLowerCase()
-						.replace(/\s+/g, " ");
+					out[bucket][d[1]] = d[2].trim().toLowerCase().replace(/\s+/g, " ");
 				}
 			}
 			// Recurse so nested rules inside @layer / @media still get walked.
@@ -127,7 +128,9 @@ async function main() {
 		return;
 	}
 
-	console.error("\n[brand] token drift detected between tokens.css and theme.css:\n");
+	console.error(
+		"\n[brand] token drift detected between tokens.css and theme.css:\n",
+	);
 	for (const m of mismatches) {
 		console.error(`  [${m.scope}] ${m.key}`);
 		console.error(`    tokens.css: ${m.tokens ?? "(missing)"}`);

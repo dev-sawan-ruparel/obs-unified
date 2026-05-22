@@ -62,7 +62,10 @@ const profileId = (): string => {
 // non-finite. parseInt happily returns NaN for "foo" and that NaN was
 // being written verbatim to D1 as "Invalid Date" / NaN before this
 // landed.
-const parseNonNegInt = (value: string | null | undefined, fallback: number): number => {
+const parseNonNegInt = (
+	value: string | null | undefined,
+	fallback: number,
+): number => {
 	if (value == null) return fallback;
 	const parsed = Number.parseInt(value, 10);
 	if (!Number.isFinite(parsed) || parsed < 0) return fallback;
@@ -90,10 +93,7 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				c.req.header("x-obs-profile-type") || "cpu"
 			).toLowerCase();
 			if (!PROFILE_TYPES.has(profileType)) {
-				return c.json(
-					{ error: `unknown profile type: ${profileType}` },
-					400,
-				);
+				return c.json({ error: `unknown profile type: ${profileType}` }, 400);
 			}
 			const serviceName = c.req.header("x-obs-service") || null;
 			// RFC 0007 acceptance #2 — ingest-time pprof parsing.
@@ -181,10 +181,7 @@ export const profileRoutesPlugin: CollectorPlugin = {
 
 			// Duration / window are optional headers; default to "now".
 			// Untrusted client input — parseNonNegInt drops NaN / negative.
-			const durationMs = parseNonNegInt(
-				c.req.header("x-obs-duration-ms"),
-				0,
-			);
+			const durationMs = parseNonNegInt(c.req.header("x-obs-duration-ms"), 0);
 			const startTs = c.req.header("x-obs-start-ts") || nowStr;
 
 			const db = sqlDbFor(c.env);
@@ -289,10 +286,7 @@ export const profileRoutesPlugin: CollectorPlugin = {
 					const raw = new Uint8Array(await obj.arrayBuffer());
 					try {
 						const profile = await decodePprofBlob(raw);
-						const filtered = await filterPprofByTraceId(
-							profile,
-							filterTraceId,
-						);
+						const filtered = await filterPprofByTraceId(profile, filterTraceId);
 						return new Response(filtered as unknown as BodyInit, {
 							headers: {
 								"Content-Type": "application/octet-stream",
@@ -333,9 +327,7 @@ export const profileRoutesPlugin: CollectorPlugin = {
 						: `SELECT trace_id FROM profile_trace_index WHERE profile_id = ? AND project_id = ? LIMIT 1000`,
 				)
 				.bind(
-					...(trace_id
-						? [meta.id, projectId, trace_id]
-						: [meta.id, projectId]),
+					...(trace_id ? [meta.id, projectId, trace_id] : [meta.id, projectId]),
 				)
 				.all<{ trace_id: string }>();
 

@@ -1,11 +1,15 @@
-import type { IngestKey, IngestKeyWithPlaintext, Project } from "@obs-unified/types";
+import type {
+	IngestKey,
+	IngestKeyWithPlaintext,
+	Project,
+} from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
-import { useApi } from "../use-api";
 import { Button } from "../components/Button";
-import { Field, TextField } from "../components/forms";
-import { Tag } from "../components/Tag";
 import { DataTable } from "../components/DataTable";
+import { Field, TextField } from "../components/forms";
 import { EmptyState } from "../components/states";
+import { Tag } from "../components/Tag";
+import { useApi } from "../use-api";
 
 interface Props {
 	project: Project;
@@ -67,9 +71,16 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 
 	const revokeKey = useCallback(
 		async (keyId: string) => {
-			if (!confirm("Revoke this key? Clients using it will start getting 401s within 60 seconds.")) return;
+			if (
+				!confirm(
+					"Revoke this key? Clients using it will start getting 401s within 60 seconds.",
+				)
+			)
+				return;
 			try {
-				await api(`/projects/${project.id}/keys/${keyId}`, { method: "DELETE" });
+				await api(`/projects/${project.id}/keys/${keyId}`, {
+					method: "DELETE",
+				});
 				await load();
 			} catch (err) {
 				setError(err instanceof Error ? err.message : String(err));
@@ -138,7 +149,11 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 
 				<div className="p-4">
 					<div className="mb-4 flex items-end gap-2">
-						<Field label="New key name" htmlFor="new-key-name" className="flex-1">
+						<Field
+							label="New key name"
+							htmlFor="new-key-name"
+							className="flex-1"
+						>
 							<TextField
 								id="new-key-name"
 								value={newKeyName}
@@ -169,9 +184,7 @@ export function ProjectKeysModal({ project, onClose }: Props) {
 								cell: (k) => (
 									<span
 										className={
-											k.revokedAt
-												? "opacity-40 line-through"
-												: "font-semibold"
+											k.revokedAt ? "opacity-40 line-through" : "font-semibold"
 										}
 									>
 										{k.name}

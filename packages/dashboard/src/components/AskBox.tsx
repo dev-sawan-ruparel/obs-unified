@@ -1,8 +1,4 @@
-import type {
-	AskEvidence,
-	AskQuery,
-	AskResponse,
-} from "@obs-unified/types";
+import type { AskEvidence, AskQuery, AskResponse } from "@obs-unified/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRawFetch } from "../use-api";
 
@@ -178,10 +174,8 @@ export function AskBox() {
 										className="text-[0.6875rem] text-sys-on-surface-muted hover:text-sys-on-surface"
 										data-test-ask-toggle-queries
 									>
-										{showQueries
-											? "Hide"
-											: "Show"}{" "}
-										the queries I ran ({response.queries.length})
+										{showQueries ? "Hide" : "Show"} the queries I ran (
+										{response.queries.length})
 									</button>
 									{showQueries ? (
 										<ul

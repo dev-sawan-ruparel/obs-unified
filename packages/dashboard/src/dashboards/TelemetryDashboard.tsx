@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useApi } from "../use-api";
-import { useDashboard, useTimeWindowHours } from "../provider";
-import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";
-import {
-	BarList,
-	Card,
-	SectionTitle,
-	Stat as NewStat,
-	TimeSeriesBars,
-	UpdatedChip,
-	binByInterval,
-} from "../components/primitives";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { FlameGraph } from "../components/flame-graph/FlameGraph";
 import { Input, Select } from "../components/forms";
+import {
+	BarList,
+	binByInterval,
+	Card,
+	Stat as NewStat,
+	SectionTitle,
+	TimeSeriesBars,
+	UpdatedChip,
+} from "../components/primitives";
 import { StateRow } from "../components/states";
+import { type TailEvent, useLiveTail } from "../hooks/useLiveTail";
+import { useDashboard, useTimeWindowHours } from "../provider";
+import { useApi } from "../use-api";
 
 interface LiveSpanRow {
 	traceId: string;
@@ -259,10 +259,7 @@ function buildSpanTree(spans: SpanDetail[]): SpanTreeNode[] {
  * leaving draft.
  */
 const isLikelyUninstrumented = (s: SpanTreeNode): boolean =>
-	!s.asyncParent &&
-	s.durationMs > 100 &&
-	s.selfRatio > 0.7 &&
-	s.childCount < 2;
+	!s.asyncParent && s.durationMs > 100 && s.selfRatio > 0.7 && s.childCount < 2;
 
 // ── Main ──
 
@@ -288,16 +285,17 @@ export function TelemetryDashboard({
 	onNavigate,
 }: Props) {
 	const { basePath, fetcher } = useDashboard();
-	const api = useCallback(async <T,>(path: string): Promise<T> => {
-		const r = await fetcher(`${basePath}${path}`);
-		if (!r.ok) throw new Error(`${r.status}`);
-		return r.json();
-	}, [basePath, fetcher]);
+	const api = useCallback(
+		async <T,>(path: string): Promise<T> => {
+			const r = await fetcher(`${basePath}${path}`);
+			if (!r.ok) throw new Error(`${r.status}`);
+			return r.json();
+		},
+		[basePath, fetcher],
+	);
 	const hours = String(useTimeWindowHours());
 	const [statusFilter, setStatusFilter] = useState("all");
-	const [serviceFilter, setServiceFilter] = useState(
-		initialService ?? "all",
-	);
+	const [serviceFilter, setServiceFilter] = useState(initialService ?? "all");
 	const [search, setSearch] = useState("");
 	const [searchInput, setSearchInput] = useState("");
 	const [overview, setOverview] = useState<Overview | null>(null);
@@ -341,9 +339,7 @@ export function TelemetryDashboard({
 				api<Overview>(
 					`/telemetry/overview?hours=${hours}&status=${statusFilter}${svc}${q}`,
 				),
-				api<IssueOverview>(
-					`/telemetry/issues?hours=${hours}${svc}${cat}`,
-				),
+				api<IssueOverview>(`/telemetry/issues?hours=${hours}${svc}${cat}`),
 			]);
 			setOverview(ov);
 			setIssueOverview(iss);
@@ -397,9 +393,7 @@ export function TelemetryDashboard({
 		onNavigate({ tab: "traces", traceId: id });
 		try {
 			setTraceDetail(
-				await api<TraceDetail>(
-					`/telemetry/traces/${encodeURIComponent(id)}`,
-				),
+				await api<TraceDetail>(`/telemetry/traces/${encodeURIComponent(id)}`),
 			);
 		} catch {}
 	};
@@ -457,12 +451,10 @@ export function TelemetryDashboard({
 				<Select
 					value={serviceFilter}
 					onChange={(e) => setServiceFilter(e.target.value)}
-					options={serviceOptions.map(
-						(s): [string, string] => [
-							s,
-							s === "all" ? "All services" : s,
-						],
-					)}
+					options={serviceOptions.map((s): [string, string] => [
+						s,
+						s === "all" ? "All services" : s,
+					])}
 				/>
 				{mode === "issues" && (
 					<Select
@@ -487,7 +479,11 @@ export function TelemetryDashboard({
 						onClick={() => setLiveMode((v) => !v)}
 						title={liveMode ? "Stop streaming" : "Stream spans in real time"}
 					>
-						{liveMode ? (liveTail.connected ? "● Live" : "○ Connecting") : "Live"}
+						{liveMode
+							? liveTail.connected
+								? "● Live"
+								: "○ Connecting"
+							: "Live"}
 					</Button>
 				)}
 				{liveMode && mode === "traces" && (
@@ -584,7 +580,8 @@ function LiveSpansView({
 									</span>
 								</div>
 								<p className="opacity-60 m-0 break-all">
-									trace {span.traceId.slice(0, 16)}… · span {span.spanId.slice(0, 8)}…
+									trace {span.traceId.slice(0, 16)}… · span{" "}
+									{span.spanId.slice(0, 8)}…
 									{span.statusMessage ? ` · ${span.statusMessage}` : ""}
 								</p>
 							</div>
@@ -725,9 +722,7 @@ function TracesView({
 			</div>
 
 			<div className="bg-sys-surface p-3">
-				<div className="mb-2 text-[0.875rem] font-semibold">
-					Traces
-				</div>
+				<div className="mb-2 text-[0.875rem] font-semibold">Traces</div>
 				<div className="flex flex-col">
 					{overview.traces.map((t) => {
 						const isExpanded = expandedTraceId === t.traceId;
@@ -807,7 +802,9 @@ function TracesView({
 						);
 					})}
 					{overview.traces.length === 0 && (
-						<p className="py-2 text-[0.875rem] opacity-60 font-semibold">No traces found.</p>
+						<p className="py-2 text-[0.875rem] opacity-60 font-semibold">
+							No traces found.
+						</p>
 					)}
 				</div>
 			</div>
@@ -874,8 +871,7 @@ function TraceDetailView({
 			{/* Summary bar */}
 			<div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[0.75rem] font-bold">
 				<span className="opacity-60">
-					TRACE{" "}
-					<span className="opacity-100">{meta.traceId.slice(0, 16)}</span>
+					TRACE <span className="opacity-100">{meta.traceId.slice(0, 16)}</span>
 				</span>
 				<span className="opacity-60">
 					SERVICE <span className="opacity-100">{meta.serviceName}</span>
@@ -891,8 +887,7 @@ function TraceDetailView({
 					className="opacity-60"
 					title="Wall-clock time spent in span bodies that isn't broken out into child spans. High self-time often means an unprofiled hot path."
 				>
-					SELF{" "}
-					<span className="opacity-100">{Math.round(totalSelfMs)}MS</span>
+					SELF <span className="opacity-100">{Math.round(totalSelfMs)}MS</span>
 				</span>
 				{uninstrumentedCount > 0 && (
 					<span
@@ -908,8 +903,7 @@ function TraceDetailView({
 						className="opacity-60"
 						title="Spans whose children's wall-clock exceeds the parent's window — fan-out work where self-time is not meaningful."
 					>
-						ASYNC{" "}
-						<span className="opacity-100">{asyncParents}</span>
+						ASYNC <span className="opacity-100">{asyncParents}</span>
 					</span>
 				)}
 				{profileMatches.map((p) => (
@@ -953,7 +947,8 @@ function TraceDetailView({
 				<div className="bg-sys-surface border border-sys-surface-low">
 					<div className="flex items-center gap-3 px-3 py-2 border-b border-sys-surface-low">
 						<span className="text-[0.75rem] font-bold opacity-70">
-							Flame graph · {openProfile.serviceName ?? "?"}/{openProfile.profileType}
+							Flame graph · {openProfile.serviceName ?? "?"}/
+							{openProfile.profileType}
 						</span>
 						<button
 							type="button"
@@ -966,7 +961,16 @@ function TraceDetailView({
 					<FlameGraph
 						profileId={openProfile.id}
 						traceIdFilter={meta.traceId}
-						profileType={openProfile.profileType as "cpu" | "heap" | "wall" | "block" | "mutex" | "goroutine" | "offcpu"}
+						profileType={
+							openProfile.profileType as
+								| "cpu"
+								| "heap"
+								| "wall"
+								| "block"
+								| "mutex"
+								| "goroutine"
+								| "offcpu"
+						}
 						title={`Profile prof-${openProfile.id.slice(0, 8)} · scoped to trace`}
 					/>
 				</div>
@@ -1142,11 +1146,15 @@ function SpanView({ span }: { span: SpanDetail }) {
 			</div>
 			<div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[0.75rem]">
 				<span className="opacity-60">
-					SPAN_ID <span className="opacity-100">{span.spanId.slice(0, 16)}</span>
+					SPAN_ID{" "}
+					<span className="opacity-100">{span.spanId.slice(0, 16)}</span>
 				</span>
 				{span.parentSpanId && (
 					<span className="opacity-60">
-						PARENT <span className="opacity-100">{span.parentSpanId.slice(0, 16)}</span>
+						PARENT{" "}
+						<span className="opacity-100">
+							{span.parentSpanId.slice(0, 16)}
+						</span>
 					</span>
 				)}
 				<span className="opacity-60">
@@ -1199,13 +1207,14 @@ function SpanView({ span }: { span: SpanDetail }) {
 								key={i}
 								className={`px-3 py-2 text-[0.75rem] ${evt.name.includes("error") || evt.name === "exception" ? "bg-sys-error/10 text-sys-error" : "bg-sys-surface"}`}
 							>
-								<span className="font-bold">
-									{evt.name}
-								</span>
+								<span className="font-bold">{evt.name}</span>
 								{evt.attributes &&
 									Object.entries(evt.attributes).map(([k, v]) => (
 										<span key={k} className="ml-4 font-mono opacity-80">
-											{k}=<span className="opacity-100 font-bold">{String(v).slice(0, 120)}</span>
+											{k}=
+											<span className="opacity-100 font-bold">
+												{String(v).slice(0, 120)}
+											</span>
 										</span>
 									))}
 							</div>
@@ -1250,7 +1259,13 @@ function IssuesView({
 							onClick={() => onSelect(issue)}
 						>
 							<div className="flex items-center gap-3">
-								<Badge cls={issue.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-sys-bg"}>
+								<Badge
+									cls={
+										issue.severity === "critical"
+											? "bg-sys-error text-white"
+											: "bg-sys-on-surface text-sys-bg"
+									}
+								>
 									{issue.severity}
 								</Badge>
 								<Badge cls="bg-sys-surface-low text-sys-on-surface outline outline-[1px] outline-sys-outline">
@@ -1270,19 +1285,29 @@ function IssuesView({
 					))}
 				</div>
 				{overview.issues.length === 0 && (
-					<p className="p-3 text-[0.875rem] font-semibold opacity-60">No issues.</p>
+					<p className="p-3 text-[0.875rem] font-semibold opacity-60">
+						No issues.
+					</p>
 				)}
 			</div>
 
 			{/* Detail */}
 			<div className="bg-sys-surface p-3 overflow-y-auto">
 				{!selected ? (
-					<p className="text-[0.875rem] font-semibold opacity-60">Select an issue to inspect.</p>
+					<p className="text-[0.875rem] font-semibold opacity-60">
+						Select an issue to inspect.
+					</p>
 				) : (
 					<div className="space-y-6">
 						<div>
 							<div className="flex items-center gap-3 mb-2">
-								<Badge cls={selected.severity === "critical" ? "bg-sys-error text-white" : "bg-sys-on-surface text-sys-bg"}>
+								<Badge
+									cls={
+										selected.severity === "critical"
+											? "bg-sys-error text-white"
+											: "bg-sys-on-surface text-sys-bg"
+									}
+								>
 									{selected.severity}
 								</Badge>
 								<Badge cls="bg-sys-surface-low text-sys-on-surface outline outline-[1px] outline-sys-outline">
@@ -1299,7 +1324,9 @@ function IssuesView({
 						<div className="grid grid-cols-2 gap-2 font-mono text-[0.75rem] border-y-[1px] border-sys-surface-low py-2">
 							<span className="opacity-60 flex flex-col gap-1">
 								Service
-								<span className="font-bold opacity-100">{selected.serviceName}</span>
+								<span className="font-bold opacity-100">
+									{selected.serviceName}
+								</span>
 							</span>
 							<span className="opacity-60 flex flex-col gap-1">
 								Traces
@@ -1335,15 +1362,26 @@ function IssuesView({
 										<table className="w-full text-left">
 											<thead>
 												<tr>
-													<th className="pb-2 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">SPAN</th>
-													<th className="pb-2 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">COUNT</th>
-													<th className="pb-2 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">AVG</th>
-													<th className="pb-2 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">MAX</th>
+													<th className="pb-2 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+														SPAN
+													</th>
+													<th className="pb-2 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+														COUNT
+													</th>
+													<th className="pb-2 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+														AVG
+													</th>
+													<th className="pb-2 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+														MAX
+													</th>
 												</tr>
 											</thead>
 											<tbody className="[&>tr:nth-child(even)]:bg-sys-surface-low font-mono text-[0.75rem]">
 												{issueDetail.culpritSpans.map((cs) => (
-													<tr key={`${cs.spanName}-${cs.dependencyTarget}`} className="hover:bg-sys-surface-high transition-none">
+													<tr
+														key={`${cs.spanName}-${cs.dependencyTarget}`}
+														className="hover:bg-sys-surface-high transition-none"
+													>
 														<td className="pr-4 py-2 font-bold truncate max-w-[200px]">
 															{cs.spanName}
 															{cs.dependencyTarget && (
@@ -1381,7 +1419,9 @@ function IssuesView({
 													<span
 														className={`block h-[8px] w-[8px] ${t.statusCode === 2 ? "bg-sys-error" : "bg-sys-primary"}`}
 													/>
-													<span className="font-bold truncate max-w-[200px]">{t.routeLabel}</span>
+													<span className="font-bold truncate max-w-[200px]">
+														{t.routeLabel}
+													</span>
 													<span className="opacity-60">{t.durationMs}ms</span>
 													<span className="opacity-60">
 														{fmtTs(t.startTime)}
@@ -1422,7 +1462,9 @@ function Stat({
 			<p className="m-0 mb-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-70">
 				{label}
 			</p>
-			<p className={`m-0 font-mono text-3xl font-light tracking-tight ${cls ?? ""}`}>
+			<p
+				className={`m-0 font-mono text-3xl font-light tracking-tight ${cls ?? ""}`}
+			>
 				{value}
 			</p>
 		</div>
@@ -1445,7 +1487,10 @@ function AttrTable({ attrs }: { attrs: [string, unknown][] }) {
 			<table className="w-full text-left">
 				<tbody>
 					{attrs.map(([k, v]) => (
-						<tr key={k} className="border-b-[1px] border-sys-surface-low last:border-b-0 hover:bg-sys-surface-low transition-none">
+						<tr
+							key={k}
+							className="border-b-[1px] border-sys-surface-low last:border-b-0 hover:bg-sys-surface-low transition-none"
+						>
 							<td className="whitespace-nowrap px-2 py-1.5 align-top font-mono text-[0.75rem] font-bold opacity-70">
 								{k}
 							</td>

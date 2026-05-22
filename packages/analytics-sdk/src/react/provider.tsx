@@ -40,7 +40,9 @@ export function AnalyticsProvider({
 		if (!trackPageViews) return;
 
 		const track = () => {
-			const path = window.location.pathname + (window.location.hash ? window.location.hash : "");
+			const path =
+				window.location.pathname +
+				(window.location.hash ? window.location.hash : "");
 			tracker.trackPageView(path, document.title);
 		};
 		track();

@@ -118,8 +118,7 @@ export const askRoutesPlugin: CollectorPlugin = {
 									db: sqlDbFor(c.env),
 								});
 								return all.filter((d) => {
-									if (filters?.group && d.group !== filters.group)
-										return false;
+									if (filters?.group && d.group !== filters.group) return false;
 									if (filters?.view && d.view !== filters.view) return false;
 									return true;
 								});
@@ -167,8 +166,7 @@ export const askRoutesPlugin: CollectorPlugin = {
 
 				return c.json(result);
 			} catch (error) {
-				const message =
-					error instanceof Error ? error.message : String(error);
+				const message = error instanceof Error ? error.message : String(error);
 				runtime.logger.error("[ask] failed", { error: message });
 				const response: AskResponse = {
 					answer: null,

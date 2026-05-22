@@ -5,13 +5,13 @@ import type {
 	AlertTestResponse,
 } from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
-import { useApi } from "../use-api";
-import { AlertRuleForm } from "./AlertRuleForm";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
-import { Tag } from "../components/Tag";
-import { DataTable, type Column } from "../components/DataTable";
+import { type Column, DataTable } from "../components/DataTable";
 import { EmptyState } from "../components/states";
+import { Tag } from "../components/Tag";
+import { useApi } from "../use-api";
+import { AlertRuleForm } from "./AlertRuleForm";
 
 export function AlertsDashboard() {
 	const api = useApi();
@@ -79,7 +79,12 @@ export function AlertsDashboard() {
 
 	const deleteRule = useCallback(
 		async (id: string) => {
-			if (!confirm("Delete this alert rule? Its evaluation history will be removed too.")) return;
+			if (
+				!confirm(
+					"Delete this alert rule? Its evaluation history will be removed too.",
+				)
+			)
+				return;
 			try {
 				await api(`/alerts/rules/${id}`, { method: "DELETE" });
 				if (selectedRuleId === id) setSelectedRuleId(null);
@@ -109,7 +114,7 @@ export function AlertsDashboard() {
 
 	const editingRule =
 		showForm && typeof showForm === "object"
-			? rules.find((r) => r.id === showForm.editId) ?? null
+			? (rules.find((r) => r.id === showForm.editId) ?? null)
 			: null;
 
 	return (
@@ -123,7 +128,11 @@ export function AlertsDashboard() {
 					Threshold rules · webhook delivery · 5-min evaluation
 				</span>
 				<div className="ml-auto flex gap-2">
-					<Button variant="primary" size="sm" onClick={() => setShowForm("new")}>
+					<Button
+						variant="primary"
+						size="sm"
+						onClick={() => setShowForm("new")}
+					>
 						+ New rule
 					</Button>
 				</div>
@@ -183,10 +192,7 @@ export function AlertsDashboard() {
 						<AlertDetail ruleId={selectedRuleId} rules={rules} />
 					</div>
 					{selectedRuleId && (
-						<ConnectedRail
-							entityKind="alert"
-							entityId={selectedRuleId}
-						/>
+						<ConnectedRail entityKind="alert" entityId={selectedRuleId} />
 					)}
 				</div>
 			</div>
@@ -259,11 +265,7 @@ function alertRuleColumns({
 			width: "auto",
 			cell: (r) => (
 				<div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-					<Button
-						variant="ghost"
-						size="xs"
-						onClick={() => toggleEnabled(r)}
-					>
+					<Button variant="ghost" size="xs" onClick={() => toggleEnabled(r)}>
 						{r.enabled ? "Disable" : "Enable"}
 					</Button>
 					<Button
@@ -392,9 +394,7 @@ function AlertDetail({
 				<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60 mb-2">
 					Evaluations (24h)
 				</div>
-				{loading && (
-					<div className="text-[0.75rem] opacity-60">Loading…</div>
-				)}
+				{loading && <div className="text-[0.75rem] opacity-60">Loading…</div>}
 				{!loading && evaluations.length === 0 && (
 					<div className="text-[0.75rem] opacity-60">No evaluations yet.</div>
 				)}

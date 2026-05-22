@@ -91,10 +91,7 @@ export const popInteraction = (): void => {
  * Throws and rejections still pop the context — the `finally` runs
  * regardless of how the body returns.
  */
-export const withInteractionContext = <T>(
-	id: string,
-	fn: () => T,
-): T => {
+export const withInteractionContext = <T>(id: string, fn: () => T): T => {
 	pushInteraction(id);
 	try {
 		return fn();

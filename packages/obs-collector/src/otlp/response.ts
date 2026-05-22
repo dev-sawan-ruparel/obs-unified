@@ -11,8 +11,9 @@
  * See: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/otlp.md#failures
  */
 
-import { type DescMessage, create, toBinary, toJson } from "@bufbuild/protobuf";
+import { create, type DescMessage, toBinary, toJson } from "@bufbuild/protobuf";
 import type { Context } from "hono";
+import type { OtlpWireFormat } from "./decode";
 import {
 	ExportLogsPartialSuccessSchema,
 	ExportLogsServiceResponseSchema,
@@ -25,7 +26,6 @@ import {
 	ExportTracePartialSuccessSchema,
 	ExportTraceServiceResponseSchema,
 } from "./gen/opentelemetry/proto/collector/trace/v1/trace_service_pb.js";
-import type { OtlpWireFormat } from "./decode";
 
 export interface PartialSuccess {
 	rejected: number;

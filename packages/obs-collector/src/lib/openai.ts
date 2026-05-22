@@ -23,9 +23,9 @@ import type {
 	AskQuery,
 	AskResponse,
 } from "@obs-unified/types";
+import type { AskRunDeps } from "./ask";
 import type { LlmConfig, NarrativeRequest } from "./llm";
 import { LlmCallError } from "./llm";
-import type { AskRunDeps } from "./ask";
 
 const DEFAULT_API_URL = "https://api.openai.com/v1";
 
@@ -154,7 +154,10 @@ const post = async <T extends { usage?: OpenAiResponse["usage"] }>(
 		const json = (await response.json()) as T;
 		if (span && json.usage) {
 			if (typeof json.usage.prompt_tokens === "number")
-				span.setAttribute("gen_ai.usage.input_tokens", json.usage.prompt_tokens);
+				span.setAttribute(
+					"gen_ai.usage.input_tokens",
+					json.usage.prompt_tokens,
+				);
 			if (typeof json.usage.completion_tokens === "number")
 				span.setAttribute(
 					"gen_ai.usage.output_tokens",
@@ -175,8 +178,7 @@ const post = async <T extends { usage?: OpenAiResponse["usage"] }>(
 	};
 	if (typeof meta.maxTokens === "number")
 		attrs["gen_ai.request.max_tokens"] = meta.maxTokens;
-	if (typeof meta.turnIndex === "number")
-		attrs["llm.turn"] = meta.turnIndex;
+	if (typeof meta.turnIndex === "number") attrs["llm.turn"] = meta.turnIndex;
 	return cfg.tracer("llm.openai.chat", async (span) => exec(span), attrs);
 };
 
@@ -360,7 +362,9 @@ export async function runAskOpenAI(
 		// Final answer.
 		if (
 			(!toolCalls || toolCalls.length === 0) &&
-			(finishReason === "stop" || finishReason === "length" || finishReason === undefined)
+			(finishReason === "stop" ||
+				finishReason === "length" ||
+				finishReason === undefined)
 		) {
 			return {
 				answer: text.length > 0 ? text : null,
@@ -403,9 +407,7 @@ export async function runAskOpenAI(
 								? parsedArgs.group
 								: undefined,
 						view:
-							typeof parsedArgs.view === "string"
-								? parsedArgs.view
-								: undefined,
+							typeof parsedArgs.view === "string" ? parsedArgs.view : undefined,
 					});
 					const out = all.slice(0, 80).map(summarizeDefinition);
 					if (span) span.setAttribute("tool.result_count", out.length);
@@ -417,8 +419,7 @@ export async function runAskOpenAI(
 					return out;
 				}
 				if (toolName === "run_analysis") {
-					const id =
-						typeof parsedArgs.id === "string" ? parsedArgs.id : "";
+					const id = typeof parsedArgs.id === "string" ? parsedArgs.id : "";
 					if (!id) {
 						if (span) span.setAttribute("tool.outcome", "missing_id");
 						queries.push({

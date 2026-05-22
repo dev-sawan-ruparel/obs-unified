@@ -19,7 +19,7 @@
  * pending spans flush before the process exits.
  */
 
-import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
+import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { Resource } from "@opentelemetry/resources";
@@ -94,9 +94,7 @@ export const init = (cfg: InitConfig): Shutdown => {
 		...(cfg.serviceVersion
 			? { [ATTR_SERVICE_VERSION]: cfg.serviceVersion }
 			: {}),
-		...(cfg.environment
-			? { "deployment.environment": cfg.environment }
-			: {}),
+		...(cfg.environment ? { "deployment.environment": cfg.environment } : {}),
 		...(cfg.projectId ? { "project.id": cfg.projectId } : {}),
 		...(cfg.resourceAttributes ?? {}),
 	};
@@ -110,7 +108,9 @@ export const init = (cfg: InitConfig): Shutdown => {
 		headers: headers(cfg),
 	});
 
-	const spanProcessors: SpanProcessor[] = [new BatchSpanProcessor(traceExporter)];
+	const spanProcessors: SpanProcessor[] = [
+		new BatchSpanProcessor(traceExporter),
+	];
 	const logRecordProcessors: LogRecordProcessor[] = [
 		new BatchLogRecordProcessor(logExporter),
 	];

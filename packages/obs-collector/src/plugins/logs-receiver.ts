@@ -4,8 +4,8 @@ import { LogsStore } from "../lib/logs-store";
 import { sqlDbFor } from "../lib/sql-db";
 import { logToTailEvent, publishTail } from "../lib/tail-publisher";
 import {
-	OtlpDecodeError,
 	decodeLogsRequest,
+	OtlpDecodeError,
 	readOtlpBody,
 } from "../otlp/decode";
 import { logsResponse, otlpRetryableError } from "../otlp/response";
@@ -103,11 +103,7 @@ export const logsReceiverPlugin: CollectorPlugin = {
 					project_id: projectId,
 					error: err instanceof Error ? err.message : String(err),
 				});
-				return otlpRetryableError(
-					c,
-					503,
-					"Storage temporarily unavailable",
-				);
+				return otlpRetryableError(c, 503, "Storage temporarily unavailable");
 			}
 
 			if (records.length > 0 && c.env.TAIL_HUB) {

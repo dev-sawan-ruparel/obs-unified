@@ -13,7 +13,9 @@ import type { AnalysisDefinition, AnalysisResult } from "@obs-unified/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAsk } from "./ask";
 
-const def = (overrides: Partial<AnalysisDefinition> = {}): AnalysisDefinition => ({
+const def = (
+	overrides: Partial<AnalysisDefinition> = {},
+): AnalysisDefinition => ({
 	id: "overall_error_rate",
 	title: "Overall error rate",
 	group: "Health",
@@ -75,8 +77,7 @@ describe("runAsk (openai)", () => {
 						finish_reason: "stop",
 						message: {
 							role: "assistant",
-							content:
-								"errors at 5% in last 5 minutes (overall_error_rate)",
+							content: "errors at 5% in last 5 minutes (overall_error_rate)",
 						},
 					},
 				],

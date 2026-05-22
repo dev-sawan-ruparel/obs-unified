@@ -12,7 +12,13 @@
  *  3. Error contract — 400 on malformed, 415 on bad content-type
  */
 
-import { create, fromBinary, fromJson, toBinary, toJson } from "@bufbuild/protobuf";
+import {
+	create,
+	fromBinary,
+	fromJson,
+	toBinary,
+	toJson,
+} from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -23,6 +29,7 @@ const gzip = async (bytes: Uint8Array): Promise<ArrayBuffer> => {
 	);
 	return new Response(stream).arrayBuffer();
 };
+
 import { ExportLogsServiceRequestSchema } from "./gen/opentelemetry/proto/collector/logs/v1/logs_service_pb.js";
 import { ExportMetricsServiceRequestSchema } from "./gen/opentelemetry/proto/collector/metrics/v1/metrics_service_pb.js";
 import {
@@ -145,8 +152,7 @@ const buildMetrics = () =>
 									case: "sum",
 									value: create(SumSchema, {
 										isMonotonic: true,
-										aggregationTemporality:
-											AggregationTemporality.CUMULATIVE,
+										aggregationTemporality: AggregationTemporality.CUMULATIVE,
 										dataPoints: [
 											create(NumberDataPointSchema, {
 												timeUnixNano: 1_700_000_000_000_000_000n,
@@ -214,7 +220,9 @@ suite("OTLP acceptance (live)", () => {
 				"Content-Type": "application/x-protobuf",
 			});
 			expect(res.status).toBe(200);
-			expect(res.headers.get("content-type")).toContain("application/x-protobuf");
+			expect(res.headers.get("content-type")).toContain(
+				"application/x-protobuf",
+			);
 			const msg = fromBinary(
 				ExportTraceServiceResponseSchema,
 				new Uint8Array(await res.arrayBuffer()),
@@ -224,9 +232,7 @@ suite("OTLP acceptance (live)", () => {
 
 		it("decompresses gzip request bodies", async () => {
 			const raw = new TextEncoder().encode(
-				JSON.stringify(
-					toJson(ExportTraceServiceRequestSchema, buildTraces(2)),
-				),
+				JSON.stringify(toJson(ExportTraceServiceRequestSchema, buildTraces(2))),
 			);
 			const res = await post("/v1/traces", await gzip(raw), {
 				"Content-Encoding": "gzip",
@@ -235,10 +241,7 @@ suite("OTLP acceptance (live)", () => {
 		});
 
 		it("returns partial_success when batch exceeds the cap", async () => {
-			const bytes = toBinary(
-				ExportTraceServiceRequestSchema,
-				buildTraces(501),
-			);
+			const bytes = toBinary(ExportTraceServiceRequestSchema, buildTraces(501));
 			const res = await post("/v1/traces", bytes, {
 				"Content-Type": "application/x-protobuf",
 			});
@@ -298,9 +301,7 @@ suite("OTLP acceptance (live)", () => {
 		it("rejects unknown content-encoding with 415", async () => {
 			const res = await post(
 				"/v1/traces",
-				JSON.stringify(
-					toJson(ExportTraceServiceRequestSchema, buildTraces(1)),
-				),
+				JSON.stringify(toJson(ExportTraceServiceRequestSchema, buildTraces(1))),
 				{ "Content-Encoding": "brotli" },
 			);
 			expect(res.status).toBe(415);

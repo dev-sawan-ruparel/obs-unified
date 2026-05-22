@@ -76,7 +76,10 @@ export function useLiveTail<T>(
 				if (matched.length === 0) return;
 				const newest = matched.reverse();
 				if (pausedRef.current) {
-					bufferRef.current = [...newest, ...bufferRef.current].slice(0, maxRows);
+					bufferRef.current = [...newest, ...bufferRef.current].slice(
+						0,
+						maxRows,
+					);
 					setBuffered(bufferRef.current.length);
 				} else {
 					setRows((prev) => [...newest, ...prev].slice(0, maxRows));

@@ -6,7 +6,12 @@ import type {
 import type { SqlDb } from "./sql-db";
 
 /** Clamp an integer to a safe range */
-const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+const clampInt = (
+	value: unknown,
+	min: number,
+	max: number,
+	fallback: number,
+): number => {
 	const n = typeof value === "number" ? value : parseInt(String(value), 10);
 	if (!Number.isFinite(n)) return fallback;
 	return Math.max(min, Math.min(max, n));

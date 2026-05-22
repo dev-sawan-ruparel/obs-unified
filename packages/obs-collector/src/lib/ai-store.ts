@@ -7,9 +7,9 @@ import type {
 	AIEvaluationsListOptions,
 	AIEvaluationsListResponse,
 	AISessionDetailResponse,
+	AISessionSummary,
 	AISessionsListOptions,
 	AISessionsListResponse,
-	AISessionSummary,
 	AISpanRecord,
 	AISpansOverviewOptions,
 	AISpansOverviewResponse,
@@ -70,7 +70,12 @@ export interface IngestEvaluation {
 }
 
 /** Clamp an integer to a safe range */
-const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+const clampInt = (
+	value: unknown,
+	min: number,
+	max: number,
+	fallback: number,
+): number => {
 	const n = typeof value === "number" ? value : parseInt(String(value), 10);
 	if (!Number.isFinite(n)) return fallback;
 	return Math.max(min, Math.min(max, n));
@@ -222,7 +227,9 @@ export class AIStore {
 			.prepare(`DELETE FROM ai_calls WHERE expires_at < datetime('now')`)
 			.run();
 		const { meta: payloadMeta } = await this.db
-			.prepare(`DELETE FROM ai_span_payloads WHERE expires_at < datetime('now')`)
+			.prepare(
+				`DELETE FROM ai_span_payloads WHERE expires_at < datetime('now')`,
+			)
 			.run();
 		const { meta: evalMeta } = await this.db
 			.prepare(
@@ -230,9 +237,7 @@ export class AIStore {
 			)
 			.run();
 		return (
-			meta.changes +
-			(payloadMeta?.changes ?? 0) +
-			(evalMeta?.changes ?? 0)
+			meta.changes + (payloadMeta?.changes ?? 0) + (evalMeta?.changes ?? 0)
 		);
 	}
 
@@ -415,7 +420,7 @@ export class AIStore {
 		const sessions: AISessionSummary[] = (results.results || []).map((r) => {
 			const promptTokens = r.prompt_tokens ?? 0;
 			const completionTokens = r.completion_tokens ?? 0;
-			let totalCostUsd = r.cost_usd ?? 0;
+			const totalCostUsd = r.cost_usd ?? 0;
 			// If no cost was reported, try computing on the fly. We don't have
 			// model here cheaply; leave as reported sum and rely on the detail
 			// endpoint to recompute per-span.
@@ -447,8 +452,10 @@ export class AIStore {
 		projectId: string,
 		sessionId: string,
 	): Promise<AISessionDetailResponse> {
-		if (!projectId) throw new Error("AIStore.getSession: projectId is required");
-		if (!sessionId) throw new Error("AIStore.getSession: sessionId is required");
+		if (!projectId)
+			throw new Error("AIStore.getSession: projectId is required");
+		if (!sessionId)
+			throw new Error("AIStore.getSession: sessionId is required");
 
 		const sql = `
       SELECT
@@ -499,7 +506,8 @@ export class AIStore {
 				attrNum(attrs, "llm.token_count.completion") ?? 0;
 			if (cost !== null) totalCostUsd += cost;
 			if (r.status_code === 2) errorCount++;
-			if (!firstSpanAt || r.start_time < firstSpanAt) firstSpanAt = r.start_time;
+			if (!firstSpanAt || r.start_time < firstSpanAt)
+				firstSpanAt = r.start_time;
 			if (!lastSpanAt || r.start_time > lastSpanAt) lastSpanAt = r.start_time;
 			return {
 				traceId: r.trace_id,

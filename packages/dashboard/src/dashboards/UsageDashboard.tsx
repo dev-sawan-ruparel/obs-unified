@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useApi } from "../use-api";
-import { useTimeWindowHours } from "../provider";
+import { Button } from "../components/Button";
+import { Input, Select } from "../components/forms";
 import {
-	BarList as NewBarList,
 	Card,
-	SectionTitle,
+	BarList as NewBarList,
 	Stat as NewStat,
+	SectionTitle,
 	TimeSeriesBars,
 	UpdatedChip,
 } from "../components/primitives";
-import { Button } from "../components/Button";
-import { Input, Select } from "../components/forms";
+import { useTimeWindowHours } from "../provider";
+import { useApi } from "../use-api";
 
 interface UsageOverview {
 	summary: {
@@ -136,7 +136,9 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const [pathFilter, setPathFilter] = useState("all");
 	const [includeAdmin, setIncludeAdmin] = useState(false);
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
-	const [filteredSessions, setFilteredSessions] = useState<FilteredSession[] | null>(null);
+	const [filteredSessions, setFilteredSessions] = useState<
+		FilteredSession[] | null
+	>(null);
 
 	const [leftWidth, setLeftWidth] = useState(60);
 
@@ -150,7 +152,9 @@ export function UsageDashboard({ onNavigate }: Props) {
 			if (pathFilter !== "all") qs.set("path", pathFilter);
 			qs.set("includeAdmin", includeAdmin ? "true" : "false");
 			try {
-				const data = await api<UsageOverview>(`/usage/overview?${qs.toString()}`);
+				const data = await api<UsageOverview>(
+					`/usage/overview?${qs.toString()}`,
+				);
 				if (cancelled) return;
 				setOverview(data);
 				setLoading(false);
@@ -227,12 +231,10 @@ export function UsageDashboard({ onNavigate }: Props) {
 				<Select
 					value={pathFilter}
 					onChange={(e) => setPathFilter(e.target.value)}
-					options={pathOptions.map(
-						(p): [string, string] => [
-							p,
-							p === "all" ? "All paths" : p,
-						],
-					)}
+					options={pathOptions.map((p): [string, string] => [
+						p,
+						p === "all" ? "All paths" : p,
+					])}
 				/>
 				<label className="flex items-center gap-3 text-[0.75rem] font-semibold text-sys-on-surface cursor-pointer">
 					<input
@@ -276,10 +278,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 					value={s.frontendErrors.toLocaleString()}
 					accent={s.frontendErrors > 0 ? "error" : "default"}
 				/>
-				<NewStat
-					label="Interactions"
-					value={s.interactions.toLocaleString()}
-				/>
+				<NewStat label="Interactions" value={s.interactions.toLocaleString()} />
 				<NewStat
 					label="Bots"
 					value={overview.botsFiltered.toLocaleString()}
@@ -288,7 +287,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 			</div>
 
 			<div className="flex-1 flex flex-col lg:flex-row gap-2 overflow-hidden">
-                {/* Left Primary Area */}
+				{/* Left Primary Area */}
 				<div className="flex-[2.5] flex flex-col gap-2 overflow-y-auto pr-2 pb-10 min-h-0">
 					{/* Page views over time */}
 					<Card className="p-3">
@@ -376,17 +375,25 @@ export function UsageDashboard({ onNavigate }: Props) {
 
 					{/* Top Pages */}
 					<div className="bg-sys-surface p-3">
-						<div className="mb-2 text-[0.875rem] font-semibold">
-							Top Pages
-						</div>
+						<div className="mb-2 text-[0.875rem] font-semibold">Top Pages</div>
 						<table className="w-full text-left text-[0.875rem]">
 							<thead>
 								<tr>
-									<th className="pb-3 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Path</th>
-									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Views</th>
-									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Sessions</th>
-									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Load</th>
-									<th className="pb-3 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Errs</th>
+									<th className="pb-3 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Path
+									</th>
+									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Views
+									</th>
+									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Sessions
+									</th>
+									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Load
+									</th>
+									<th className="pb-3 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Errs
+									</th>
 								</tr>
 							</thead>
 							<tbody className="[&>tr:nth-child(even)]:bg-sys-surface-low">
@@ -407,10 +414,18 @@ export function UsageDashboard({ onNavigate }: Props) {
 												)}
 											</div>
 										</td>
-										<td className="px-2 py-1.5 text-right font-mono">{p.views}</td>
-										<td className="px-2 py-1.5 text-right font-mono">{p.uniqueSessions}</td>
-										<td className="px-2 py-1.5 text-right font-mono opacity-80">{p.averageLoadTimeMs}ms</td>
-										<td className={`pl-4 py-1.5 text-right font-mono ${p.errorCount > 0 ? "text-sys-error font-bold" : "opacity-80"}`}>
+										<td className="px-2 py-1.5 text-right font-mono">
+											{p.views}
+										</td>
+										<td className="px-2 py-1.5 text-right font-mono">
+											{p.uniqueSessions}
+										</td>
+										<td className="px-2 py-1.5 text-right font-mono opacity-80">
+											{p.averageLoadTimeMs}ms
+										</td>
+										<td
+											className={`pl-4 py-1.5 text-right font-mono ${p.errorCount > 0 ? "text-sys-error font-bold" : "opacity-80"}`}
+										>
 											{p.errorCount}
 										</td>
 									</tr>
@@ -421,16 +436,22 @@ export function UsageDashboard({ onNavigate }: Props) {
 
 					{/* Event Mix */}
 					<div className="bg-sys-surface p-3">
-						<div className="mb-2 text-[0.875rem] font-semibold">
-							Event Mix
-						</div>
+						<div className="mb-2 text-[0.875rem] font-semibold">Event Mix</div>
 						<table className="w-full text-left text-[0.875rem]">
 							<thead>
 								<tr>
-									<th className="pb-3 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Event</th>
-									<th className="pb-3 px-2 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Type</th>
-									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Total</th>
-									<th className="pb-3 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">Sessions</th>
+									<th className="pb-3 pr-4 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Event
+									</th>
+									<th className="pb-3 px-2 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Type
+									</th>
+									<th className="pb-3 px-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Total
+									</th>
+									<th className="pb-3 pl-4 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+										Sessions
+									</th>
 								</tr>
 							</thead>
 							<tbody className="[&>tr:nth-child(even)]:bg-sys-surface-low">
@@ -439,10 +460,16 @@ export function UsageDashboard({ onNavigate }: Props) {
 										key={`${ev.eventType}-${ev.eventName}`}
 										className="group transition-none hover:bg-sys-surface-high"
 									>
-										<td className="pr-4 py-1.5 font-mono text-[0.75rem] font-bold">{ev.eventName}</td>
+										<td className="pr-4 py-1.5 font-mono text-[0.75rem] font-bold">
+											{ev.eventName}
+										</td>
 										<td className="px-2 py-1.5 opacity-80">{ev.eventType}</td>
-										<td className="px-2 py-1.5 text-right font-mono">{ev.totalEvents}</td>
-										<td className="pl-4 py-1.5 text-right font-mono">{ev.uniqueSessions}</td>
+										<td className="px-2 py-1.5 text-right font-mono">
+											{ev.totalEvents}
+										</td>
+										<td className="pl-4 py-1.5 text-right font-mono">
+											{ev.uniqueSessions}
+										</td>
 									</tr>
 								))}
 							</tbody>
@@ -456,7 +483,9 @@ export function UsageDashboard({ onNavigate }: Props) {
 						</div>
 						<div className="flex flex-col">
 							{overview.frontendErrors.length === 0 ? (
-								<p className="py-2 text-[0.875rem] opacity-60">NO system halts detected.</p>
+								<p className="py-2 text-[0.875rem] opacity-60">
+									NO system halts detected.
+								</p>
 							) : (
 								overview.frontendErrors.map((err) => (
 									<div
@@ -467,10 +496,14 @@ export function UsageDashboard({ onNavigate }: Props) {
 										<span className="min-w-0 flex-1 truncate font-mono text-[0.875rem] font-bold text-sys-error">
 											{err.errorMessage || err.errorName || "System_error"}
 										</span>
-										<span className="flex-none font-mono text-[0.75rem] opacity-80">{err.pagePath}</span>
+										<span className="flex-none font-mono text-[0.75rem] opacity-80">
+											{err.pagePath}
+										</span>
 										<button
 											className="flex-none font-mono text-[0.75rem] text-sys-on-surface underline hover:bg-sys-primary hover:text-white px-2 py-1"
-											onClick={() => onNavigate({ tab: 'replay', sessionId: err.sessionId })}
+											onClick={() =>
+												onNavigate({ tab: "replay", sessionId: err.sessionId })
+											}
 										>
 											{err.sessionId.slice(0, 8)}
 										</button>
@@ -484,17 +517,19 @@ export function UsageDashboard({ onNavigate }: Props) {
 					</div>
 				</div>
 
-                {/* Right Area (Sessions Explorer) */}
-                <div className="hidden lg:flex flex-1 min-w-[280px] max-w-[400px] flex-col bg-sys-surface min-h-0 h-full">
+				{/* Right Area (Sessions Explorer) */}
+				<div className="hidden lg:flex flex-1 min-w-[280px] max-w-[400px] flex-col bg-sys-surface min-h-0 h-full">
 					<div className="sticky top-0 bg-sys-surface px-3 py-2 flex flex-col gap-1">
 						<div className="text-[0.875rem] font-semibold">Sessions</div>
 						<div className="flex flex-wrap gap-1">
-							{([
-								["all", "All"],
-								["ended_in_error", "Errored"],
-								["dropoff", "Drop-off"],
-								["slow", "Slow"],
-							] as Array<[SessionFilter, string]>).map(([key, label]) => (
+							{(
+								[
+									["all", "All"],
+									["ended_in_error", "Errored"],
+									["dropoff", "Drop-off"],
+									["slow", "Slow"],
+								] as Array<[SessionFilter, string]>
+							).map(([key, label]) => (
 								<button
 									key={key}
 									type="button"
@@ -513,48 +548,71 @@ export function UsageDashboard({ onNavigate }: Props) {
 					<div className="flex flex-col overflow-y-auto [&>button:nth-child(even)]:bg-sys-surface-low">
 						{(sessionFilter === "all"
 							? overview.recentSessions.map((s) => ({
-								...s,
-								interactionCount: 0,
-								maxLoadTimeMs: null as number | null,
-							}))
-							: filteredSessions ?? []
+									...s,
+									interactionCount: 0,
+									maxLoadTimeMs: null as number | null,
+								}))
+							: (filteredSessions ?? [])
 						).map((sess) => {
 							const badges: Array<{ label: string; className: string }> = [
-								{ label: `${sess.eventCount} EV`, className: "bg-sys-surface-high" },
-								{ label: `${sess.pageViewCount} PV`, className: "bg-sys-surface-high" },
+								{
+									label: `${sess.eventCount} EV`,
+									className: "bg-sys-surface-high",
+								},
+								{
+									label: `${sess.pageViewCount} PV`,
+									className: "bg-sys-surface-high",
+								},
 							];
 							if (sess.errorCount > 0)
-								badges.push({ label: `${sess.errorCount} ERR`, className: "bg-sys-error text-white" });
+								badges.push({
+									label: `${sess.errorCount} ERR`,
+									className: "bg-sys-error text-white",
+								});
 							if (sessionFilter === "dropoff" && sess.interactionCount === 0)
-								badges.push({ label: "NO interaction", className: "bg-sys-warning text-white" });
+								badges.push({
+									label: "NO interaction",
+									className: "bg-sys-warning text-white",
+								});
 							if (sessionFilter === "slow" && sess.maxLoadTimeMs != null)
-								badges.push({ label: `${Math.round(sess.maxLoadTimeMs)}MS LOAD`, className: "bg-sys-warning text-white" });
+								badges.push({
+									label: `${Math.round(sess.maxLoadTimeMs)}MS LOAD`,
+									className: "bg-sys-warning text-white",
+								});
 							return (
 								<button
 									key={sess.sessionId}
-									onClick={() => onNavigate({ tab: "replay", sessionId: sess.sessionId })}
+									onClick={() =>
+										onNavigate({ tab: "replay", sessionId: sess.sessionId })
+									}
 									className="w-full text-left p-3 transition-none hover:bg-sys-surface-high group flex flex-col gap-3 relative"
 								>
 									<div className="absolute left-0 top-0 bottom-0 w-[4px] bg-sys-primary hidden group-hover:block" />
 									<div className="flex items-center justify-between">
-										<span className="font-mono font-bold text-[0.875rem] truncate max-w-[200px]">{sess.lastPath || "Direct"}</span>
+										<span className="font-mono font-bold text-[0.875rem] truncate max-w-[200px]">
+											{sess.lastPath || "Direct"}
+										</span>
 										<span className="text-[0.75rem] font-mono opacity-60 group-hover:bg-sys-primary group-hover:text-white group-hover:opacity-100 px-1">
 											{sess.sessionId.slice(0, 8)} ➔
 										</span>
 									</div>
 									<div className="flex gap-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] flex-wrap">
 										{badges.map((b, i) => (
-											<span key={i} className={`${b.className} px-2 py-1`}>{b.label}</span>
+											<span key={i} className={`${b.className} px-2 py-1`}>
+												{b.label}
+											</span>
 										))}
 									</div>
 								</button>
 							);
 						})}
-						{sessionFilter !== "all" && filteredSessions !== null && filteredSessions.length === 0 && (
-							<p className="p-3 text-[0.75rem] opacity-60 font-semibold">
-								No sessions match this filter.
-							</p>
-						)}
+						{sessionFilter !== "all" &&
+							filteredSessions !== null &&
+							filteredSessions.length === 0 && (
+								<p className="p-3 text-[0.75rem] opacity-60 font-semibold">
+									No sessions match this filter.
+								</p>
+							)}
 					</div>
 				</div>
 			</div>

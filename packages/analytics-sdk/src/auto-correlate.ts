@@ -111,7 +111,9 @@ export const installClickListeners = (
 	return {
 		cleanup: () => {
 			for (const evt of TRIGGER_EVENTS) {
-				target.removeEventListener(evt, handler, { capture: true } as EventListenerOptions);
+				target.removeEventListener(evt, handler, {
+					capture: true,
+				} as EventListenerOptions);
 			}
 		},
 	};
@@ -193,7 +195,8 @@ export const installAutoCorrelate = (
 	opts: InstallAutoCorrelateOptions = {},
 ): (() => void) => {
 	if (installed) return () => {};
-	const target = opts.target ?? (typeof document !== "undefined" ? document : undefined);
+	const target =
+		opts.target ?? (typeof document !== "undefined" ? document : undefined);
 	if (!target) return () => {};
 
 	installed = true;
@@ -203,7 +206,10 @@ export const installAutoCorrelate = (
 	let fetchCleanup = () => {};
 	if (typeof globalThis.fetch === "function") {
 		const originalFetch = globalThis.fetch;
-		const wrapped = wrapFetchWithCorrelation(originalFetch, currentInteractionId);
+		const wrapped = wrapFetchWithCorrelation(
+			originalFetch,
+			currentInteractionId,
+		);
 		globalThis.fetch = wrapped;
 		fetchCleanup = () => {
 			if (globalThis.fetch === wrapped) globalThis.fetch = originalFetch;

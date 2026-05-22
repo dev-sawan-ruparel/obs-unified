@@ -182,9 +182,7 @@ export class AnalysesStore {
 		for (const row of result.results ?? []) {
 			const refreshSeconds = row.refresh_seconds;
 			if (refreshSeconds === null || refreshSeconds === undefined) continue;
-			const lastRunMs = row.last_run_at
-				? Date.parse(row.last_run_at)
-				: 0;
+			const lastRunMs = row.last_run_at ? Date.parse(row.last_run_at) : 0;
 			if (lastRunMs + refreshSeconds * 1000 < now) {
 				due.push(rowToDefinition(row));
 			}
@@ -311,10 +309,7 @@ export class AnalysesStore {
 		return latest;
 	}
 
-	async insertResult(
-		result: AnalysisResult,
-		expiresAt: number,
-	): Promise<void> {
+	async insertResult(result: AnalysisResult, expiresAt: number): Promise<void> {
 		if (!result.projectId)
 			throw new Error("AnalysesStore.insertResult: projectId is required");
 		if (!result.analysisId)

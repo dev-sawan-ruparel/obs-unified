@@ -1,13 +1,17 @@
-import type { IngestKey, IngestKeyWithPlaintext, Project } from "@obs-unified/types";
+import type {
+	IngestKey,
+	IngestKeyWithPlaintext,
+	Project,
+} from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
-import { useApi } from "../use-api";
-import { useDashboard } from "../provider";
-import { ProjectKeysModal } from "./ProjectKeysModal";
 import { Button } from "../components/Button";
-import { Field, TextField } from "../components/forms";
-import { Tag } from "../components/Tag";
 import { DataTable } from "../components/DataTable";
+import { Field, TextField } from "../components/forms";
 import { EmptyState } from "../components/states";
+import { Tag } from "../components/Tag";
+import { useDashboard } from "../provider";
+import { useApi } from "../use-api";
+import { ProjectKeysModal } from "./ProjectKeysModal";
 
 export function ProjectsDashboard() {
 	const api = useApi();

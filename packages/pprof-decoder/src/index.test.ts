@@ -14,8 +14,8 @@ import {
 	decodePprofBlob,
 	encodePprof,
 	gzipBytes,
-	Reader,
 	type PprofProfile,
+	Reader,
 } from "./index";
 
 const emptyProfile = (): PprofProfile => ({

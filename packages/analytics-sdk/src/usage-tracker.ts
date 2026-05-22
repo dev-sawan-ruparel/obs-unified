@@ -12,6 +12,40 @@ import { currentInteractionId } from "./interaction";
 
 // ── Public config ──
 
+/**
+ * Privacy-related rrweb replay options exposed to SDK consumers.
+ *
+ * The SDK ships safe defaults: all inputs masked, password/email/tel
+ * masked specifically, text input values asterisk-padded. Override these
+ * to tighten or loosen recording for your app — for example,
+ * `maskInputOptions: { text: true }` to also mask plain text inputs, or
+ * `blockSelector: ".secret"` to exclude marked subtrees entirely.
+ *
+ * Fields are forwarded to rrweb's `record()` and merged with the SDK's
+ * defaults. Defining a self-contained shape (rather than re-exporting
+ * rrweb's `recordOptions`) keeps the SDK's public surface stable across
+ * rrweb upgrades.
+ */
+export interface ReplayPrivacyOptions {
+	/** Mask the value of all <input> elements. Default: true. */
+	maskAllInputs?: boolean;
+	/**
+	 * Per-input-type masking. Shallow-merged with SDK defaults
+	 * (`{ password: true, email: true, tel: true, text: false }`).
+	 */
+	maskInputOptions?: Record<string, boolean>;
+	/** Function used to mask input values. Default: asterisk-pads up to 20 chars. */
+	maskInputFn?: (text: string, element?: HTMLElement | null) => string;
+	/** CSS selector matching elements whose text content should be masked. */
+	maskTextSelector?: string;
+	/** Function used to mask text content. */
+	maskTextFn?: (text: string, element?: HTMLElement | null) => string;
+	/** CSS selector matching elements to entirely block from recording. */
+	blockSelector?: string;
+	/** CSS selector matching elements to ignore (rendered but not recorded). */
+	ignoreSelector?: string;
+}
+
 export interface UsageTrackerConfig {
 	/** URL of your collector (e.g. "https://obs.my-app.com"). When set, the SDK sends directly to the collector. */
 	collectorUrl?: string;
@@ -37,6 +71,13 @@ export interface UsageTrackerConfig {
 	}) => boolean;
 	/** Max string length for metadata values (default: 160) */
 	maxMetadataLength?: number;
+	/**
+	 * Privacy-related rrweb replay options. Merged with the SDK's safe
+	 * defaults — consumers can tighten masking (e.g. mask text inputs too)
+	 * or add `blockSelector` / `ignoreSelector` rules without forking the
+	 * SDK. See {@link ReplayPrivacyOptions}.
+	 */
+	replayPrivacyOptions?: ReplayPrivacyOptions;
 }
 
 // ── Internal types ──
@@ -79,7 +120,11 @@ const createId = (): string => {
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 };
 
-const safeStorage = (storage: Storage, key: string, value?: string): string | null => {
+const safeStorage = (
+	storage: Storage,
+	key: string,
+	value?: string,
+): string | null => {
 	try {
 		if (value !== undefined) {
 			storage.setItem(key, value);
@@ -156,10 +201,10 @@ export class UsageTracker {
 		Pick<UsageTrackerConfig, "errorEndpoint" | "credentials" | "errorFilter">;
 	private lastPagePath: string | null = null;
 	private readonly onceKeys = new Set<string>();
-	
+
 	// Time synchronization
 	private timeOffsetMs = 0;
-	
+
 	// Replay state
 	private replayStopFn: (() => void) | null = null;
 	private replayEvents: Record<string, unknown>[] = [];
@@ -172,6 +217,9 @@ export class UsageTracker {
 	/** API key for direct-to-collector mode */
 	private readonly apiKey?: string;
 
+	/** Consumer-supplied rrweb privacy overrides, merged with SDK defaults in startReplay(). */
+	private readonly replayPrivacyOptions: ReplayPrivacyOptions;
+
 	/** Whether we've already logged a clock-sync failure. Avoid log spam from
 	 *  a misconfigured collector URL by only warning once per session. */
 	private hasWarnedClockSync = false;
@@ -180,7 +228,7 @@ export class UsageTracker {
 		// Resolve endpoint: collectorUrl+apiKey (new) or endpoint (legacy)
 		const resolvedEndpoint = config.collectorUrl
 			? `${config.collectorUrl.replace(/\/$/, "")}/v1/usage`
-			: config.endpoint ?? "";
+			: (config.endpoint ?? "");
 		this.apiKey = config.apiKey;
 
 		this.config = {
@@ -192,6 +240,7 @@ export class UsageTracker {
 			errorFilter: config.errorFilter,
 			maxMetadataLength: config.maxMetadataLength ?? 160,
 		};
+		this.replayPrivacyOptions = config.replayPrivacyOptions ?? {};
 		// Kick off time synchronization immediately without blocking
 		this.syncTime().catch(() => {});
 	}
@@ -233,9 +282,14 @@ export class UsageTracker {
 			const dateStr = res.headers.get("Date");
 			if (dateStr) {
 				const serverTime = new Date(dateStr).getTime();
-				const localAssumeAtServerResp = Date.now() - (rtt / 2);
+				const localAssumeAtServerResp = Date.now() - rtt / 2;
 				this.timeOffsetMs = serverTime - localAssumeAtServerResp;
-				if (this.config.debug) console.log("[analytics-sdk] clock synced, offset:", this.timeOffsetMs, "ms");
+				if (this.config.debug)
+					console.log(
+						"[analytics-sdk] clock synced, offset:",
+						this.timeOffsetMs,
+						"ms",
+					);
 			}
 		} catch (e) {
 			this.warnClockSyncOnce("clock sync failed", healthUrl, e);
@@ -262,13 +316,18 @@ export class UsageTracker {
 		const sessionKey = `${this.config.storagePrefix}_session_id`;
 
 		const now = Date.now();
-		const lastAct = parseInt(safeStorage(sessionStorage, activityKey) || "0", 10);
+		const lastAct = parseInt(
+			safeStorage(sessionStorage, activityKey) || "0",
+			10,
+		);
 		const startTs = parseInt(safeStorage(sessionStorage, startKey) || "0", 10);
 
 		let rotated = false;
 		// 30 min idle timeout OR 60 min hard cap
-		if ((lastAct > 0 && now - lastAct > 30 * 60 * 1000) ||
-			(startTs > 0 && now - startTs > 60 * 60 * 1000)) {
+		if (
+			(lastAct > 0 && now - lastAct > 30 * 60 * 1000) ||
+			(startTs > 0 && now - startTs > 60 * 60 * 1000)
+		) {
 			safeStorage(sessionStorage, sessionKey, "");
 			safeStorage(sessionStorage, startKey, "");
 			safeStorage(sessionStorage, activityKey, "");
@@ -284,7 +343,11 @@ export class UsageTracker {
 
 	private bumpActivity(): void {
 		if (typeof sessionStorage !== "undefined") {
-			safeStorage(sessionStorage, `${this.config.storagePrefix}_last_act`, Date.now().toString());
+			safeStorage(
+				sessionStorage,
+				`${this.config.storagePrefix}_last_act`,
+				Date.now().toString(),
+			);
 		}
 	}
 
@@ -297,11 +360,12 @@ export class UsageTracker {
 
 		if (rotated && this.isRecording && typeof window !== "undefined") {
 			// Restart rrweb so the new session gets a FullSnapshot naturally
-			if (this.config.debug) console.log("[analytics-sdk] session rotated, restarting recorder");
+			if (this.config.debug)
+				console.log("[analytics-sdk] session rotated, restarting recorder");
 			this.stopReplay();
 			this.startReplay();
 		}
-		
+
 		return id;
 	}
 
@@ -316,7 +380,9 @@ export class UsageTracker {
 		if (events.length === 0) return;
 		this.bumpActivity();
 		try {
-			const headers: Record<string, string> = { "Content-Type": "application/json" };
+			const headers: Record<string, string> = {
+				"Content-Type": "application/json",
+			};
 			if (this.apiKey) {
 				headers["Authorization"] = `Bearer ${this.apiKey}`;
 			}
@@ -379,7 +445,8 @@ export class UsageTracker {
 				init.credentials = this.config.credentials;
 			}
 			fetch(identifyUrl, init).catch((e) => {
-				if (this.config.debug) console.warn("[analytics-sdk] identify failed", e);
+				if (this.config.debug)
+					console.warn("[analytics-sdk] identify failed", e);
 			});
 		} catch (e) {
 			if (this.config.debug) console.warn("[analytics-sdk] identify error", e);
@@ -396,8 +463,15 @@ export class UsageTracker {
 		// Ensure session is rotated if stale before we begin
 		this.checkAndRotateSession();
 
-		this.replayStopFn = record({
-			emit: (event) => {
+		// Privacy: mask all user input to avoid capturing PII. SDK defaults are
+		// safe out of the box; consumers can override via `replayPrivacyOptions`
+		// (e.g. mask plain text inputs too, add blockSelector for marked
+		// subtrees). Consumer values win on scalar/function fields; per-input
+		// type masking is shallow-merged so opt-in additions don't lose the
+		// SDK's PII protections.
+		const overrides = this.replayPrivacyOptions;
+		const recordOptions: Record<string, unknown> = {
+			emit: (event: unknown) => {
 				const ev = event as Record<string, unknown>;
 				// Adjust rrweb's raw timestamp by adding server delta
 				if (typeof ev.timestamp === "number" && this.timeOffsetMs) {
@@ -418,17 +492,33 @@ export class UsageTracker {
 					this.replayEvents = this.replayEvents.slice(-50);
 				}
 			},
-			// Privacy: mask all user input to avoid capturing PII
-			maskAllInputs: true,
+			maskAllInputs: overrides.maskAllInputs ?? true,
 			maskInputOptions: {
 				password: true,
 				email: true,
 				tel: true,
 				text: false,
+				...(overrides.maskInputOptions ?? {}),
 			},
-			// Mask text in these selectors (forms, sensitive areas)
-			maskInputFn: (text: string) => "*".repeat(Math.min(text.length, 20)),
-		}) as (() => void);
+			maskInputFn:
+				overrides.maskInputFn ??
+				((text: string) => "*".repeat(Math.min(text.length, 20))),
+		};
+		if (overrides.maskTextSelector !== undefined) {
+			recordOptions.maskTextSelector = overrides.maskTextSelector;
+		}
+		if (overrides.maskTextFn !== undefined) {
+			recordOptions.maskTextFn = overrides.maskTextFn;
+		}
+		if (overrides.blockSelector !== undefined) {
+			recordOptions.blockSelector = overrides.blockSelector;
+		}
+		if (overrides.ignoreSelector !== undefined) {
+			recordOptions.ignoreSelector = overrides.ignoreSelector;
+		}
+		this.replayStopFn = record(
+			recordOptions as Parameters<typeof record>[0],
+		) as () => void;
 
 		this.replayInterval = setInterval(() => this.flushReplays(), 10000);
 	}
@@ -472,10 +562,12 @@ export class UsageTracker {
 				init.credentials = this.config.credentials;
 			}
 			fetch(replayUrl, init).catch((e) => {
-				if (this.config.debug) console.warn("[analytics-sdk] replay flush failed", e);
+				if (this.config.debug)
+					console.warn("[analytics-sdk] replay flush failed", e);
 			});
 		} catch (e) {
-			if (this.config.debug) console.warn("[analytics-sdk] replay flush error", e);
+			if (this.config.debug)
+				console.warn("[analytics-sdk] replay flush error", e);
 		}
 	}
 
@@ -546,12 +638,16 @@ export class UsageTracker {
 		const key = `${name}:${onceKey}`;
 		if (this.onceKeys.has(key)) return;
 		const storageKey = `${this.config.storagePrefix}_once_${key}`;
-		if (typeof sessionStorage !== "undefined" && safeStorage(sessionStorage, storageKey)) {
+		if (
+			typeof sessionStorage !== "undefined" &&
+			safeStorage(sessionStorage, storageKey)
+		) {
 			this.onceKeys.add(key);
 			return;
 		}
 		this.onceKeys.add(key);
-		if (typeof sessionStorage !== "undefined") safeStorage(sessionStorage, storageKey, "1");
+		if (typeof sessionStorage !== "undefined")
+			safeStorage(sessionStorage, storageKey, "1");
 		this.trackInteraction(name, properties);
 	}
 

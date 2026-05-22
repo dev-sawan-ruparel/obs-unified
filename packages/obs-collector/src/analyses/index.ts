@@ -42,11 +42,9 @@ export const getAllAnalysesForProject = async (
 	}
 
 	if (pinnedIds.size === 0) return all;
-	return all.map((d) =>
-		pinnedIds.has(d.id) ? { ...d, pinned: true } : d,
-	);
+	return all.map((d) => (pinnedIds.has(d.id) ? { ...d, pinned: true } : d));
 };
 
-export { TIER0_ANALYSES } from "./tier0";
-export { INVESTIGATION_ANALYSES } from "./investigations";
 export { deriveAnalysesForProject } from "./derive";
+export { INVESTIGATION_ANALYSES } from "./investigations";
+export { TIER0_ANALYSES } from "./tier0";

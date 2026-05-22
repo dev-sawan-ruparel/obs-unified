@@ -1,18 +1,10 @@
-import type {
-	AnalysisDefinition,
-	AnalysisResult,
-} from "@obs-unified/types";
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	vi,
-} from "vitest";
+import type { AnalysisDefinition, AnalysisResult } from "@obs-unified/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAsk } from "./ask";
 
-const def = (overrides: Partial<AnalysisDefinition> = {}): AnalysisDefinition => ({
+const def = (
+	overrides: Partial<AnalysisDefinition> = {},
+): AnalysisDefinition => ({
 	id: "overall_error_rate",
 	title: "Overall error rate",
 	group: "Health",
@@ -46,13 +38,14 @@ const llm = {
 
 const mockFetchSequence = (responses: Array<Record<string, unknown>>) => {
 	let i = 0;
-	return vi.fn(async () =>
-		// biome-ignore lint/suspicious/noExplicitAny: minimal Response-shape stub
-		({
-			ok: true,
-			json: async () => responses[i++] ?? responses[responses.length - 1],
-			text: async () => "",
-		}) as unknown as Response,
+	return vi.fn(
+		async () =>
+			// biome-ignore lint/suspicious/noExplicitAny: minimal Response-shape stub
+			({
+				ok: true,
+				json: async () => responses[i++] ?? responses[responses.length - 1],
+				text: async () => "",
+			}) as unknown as Response,
 	);
 };
 

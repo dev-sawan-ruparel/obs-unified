@@ -2,10 +2,7 @@
 // non-React surface. The auto-correlator hooks click / submit / keydown
 // listeners at capture phase and patches window.fetch.
 
-import {
-	installAutoCorrelate,
-	UsageTracker,
-} from "@obs-unified/analytics-sdk";
+import { installAutoCorrelate, UsageTracker } from "@obs-unified/analytics-sdk";
 
 const tracker = new UsageTracker({
 	collectorUrl: import.meta.env.VITE_OBS_COLLECTOR_URL,

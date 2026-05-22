@@ -21,7 +21,7 @@
  */
 
 import process from "node:process";
-import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 
 // Get a tracer scoped to the seeder. The actual provider was set up in
 // `instrumentation.mjs` (loaded via --import). When run without that
@@ -411,8 +411,7 @@ const seedTraces = async (sessionWindows = []) => {
 		if (inSession) {
 			const winMs = inSession.endMs - inSession.startMs;
 			const offsetIntoWindow = Math.floor(Math.random() * winMs);
-			startMs =
-				Date.now() - inSession.startMs - offsetIntoWindow;
+			startMs = Date.now() - inSession.startMs - offsetIntoWindow;
 			sessionStamped++;
 		} else {
 			startMs = Math.floor(Math.random() * 60 * 1000 * 60 * 4); // last 4h
@@ -453,7 +452,10 @@ const seedTraces = async (sessionWindows = []) => {
 				kind: 2, // SERVER
 				startTimeUnixNano: agoNs(startMs + dur),
 				endTimeUnixNano: agoNs(startMs),
-				status: { code: isError ? 2 : 1, message: isError ? "internal error" : "" },
+				status: {
+					code: isError ? 2 : 1,
+					message: isError ? "internal error" : "",
+				},
 				attributes: baseAttrs,
 			},
 		});
@@ -489,8 +491,7 @@ const seedTraces = async (sessionWindows = []) => {
 		// Outbound dependency for service-map edges:
 		// CLIENT span in `svc` paired with a SERVER span in `downstream`,
 		// linked by parent_span_id so the cross-service self-join sees an edge.
-		const downstream =
-			services[(services.indexOf(svc) + 1) % services.length];
+		const downstream = services[(services.indexOf(svc) + 1) % services.length];
 		const clientSpanId = hex(8);
 		const downstreamStart = startMs + Math.floor(dur / 2);
 		const downstreamEnd = startMs + Math.floor(dur / 4);
@@ -613,7 +614,11 @@ const seedLogs = async (sessionWindows = []) => {
 					timeUnixNano: agoNs(offsetMs),
 					severityText: sample.severity,
 					severityNumber:
-						sample.severity === "ERROR" ? 17 : sample.severity === "WARN" ? 13 : 9,
+						sample.severity === "ERROR"
+							? 17
+							: sample.severity === "WARN"
+								? 13
+								: 9,
 					body: { stringValue: sample.body },
 					attributes: attrs,
 					traceId: hex(16),
@@ -642,9 +647,24 @@ const seedLogs = async (sessionWindows = []) => {
 
 const seedAi = async (sessionWindows = []) => {
 	const models = [
-		{ provider: "openai", model: "gpt-4o-mini", inputCost: 0.00015, outputCost: 0.0006 },
-		{ provider: "anthropic", model: "claude-3-5-haiku", inputCost: 0.001, outputCost: 0.005 },
-		{ provider: "google", model: "gemini-1.5-flash", inputCost: 0.000075, outputCost: 0.0003 },
+		{
+			provider: "openai",
+			model: "gpt-4o-mini",
+			inputCost: 0.00015,
+			outputCost: 0.0006,
+		},
+		{
+			provider: "anthropic",
+			model: "claude-3-5-haiku",
+			inputCost: 0.001,
+			outputCost: 0.005,
+		},
+		{
+			provider: "google",
+			model: "gemini-1.5-flash",
+			inputCost: 0.000075,
+			outputCost: 0.0003,
+		},
 	];
 	const prompts = [
 		"Summarize this transaction history",
@@ -662,7 +682,9 @@ const seedAi = async (sessionWindows = []) => {
 	// the cost-by-user view show one user dominating, and the rail's
 	// user → latest session → trace pivot resolve to populated data.
 	const heavySpenderSession =
-		sessionWindows.length > 0 ? sessionWindows[sessionWindows.length - 1] : null;
+		sessionWindows.length > 0
+			? sessionWindows[sessionWindows.length - 1]
+			: null;
 
 	for (let i = 0; i < totalCalls; i++) {
 		const m = models[i % models.length];
@@ -673,11 +695,12 @@ const seedAi = async (sessionWindows = []) => {
 		// timeline tab shows them lined up with the user's clicks); other
 		// calls scatter over the last 3 hours.
 		const offsetMs = isHeavy
-			? Date.now() - (heavySpenderSession.startMs +
-				Math.floor(
-					(heavySpenderSession.endMs - heavySpenderSession.startMs) *
-						(i / totalCalls),
-				))
+			? Date.now() -
+				(heavySpenderSession.startMs +
+					Math.floor(
+						(heavySpenderSession.endMs - heavySpenderSession.startMs) *
+							(i / totalCalls),
+					))
 			: Math.floor(Math.random() * 3 * 60 * 60 * 1000);
 
 		const dur = 200 + Math.floor(Math.random() * 1500);
@@ -730,9 +753,9 @@ const seedAi = async (sessionWindows = []) => {
 		];
 		if (session) {
 			// OTel semantics: user.id is the authenticated identity, not the
-// anonymous visitor. Use the user_profiles PK so the dashboard's
-// `👤 {userId}` chip can link straight to the user detail page.
-attrs.push(kv("user.id", `user-${session.visitorId}`));
+			// anonymous visitor. Use the user_profiles PK so the dashboard's
+			// `👤 {userId}` chip can link straight to the user detail page.
+			attrs.push(kv("user.id", `user-${session.visitorId}`));
 		}
 		if (interactionId) {
 			attrs.push(kv("obs.interaction.id", interactionId));
@@ -840,9 +863,7 @@ const seedUserProfiles = async (sessionWindows) => {
 		await ingestPost("/v1/identify", {
 			userId,
 			visitorId: w.visitorId,
-			email: isHeavy
-				? "heavy-spender@seed.local"
-				: `seed-user-${i}@seed.local`,
+			email: isHeavy ? "heavy-spender@seed.local" : `seed-user-${i}@seed.local`,
 			name: isHeavy ? "Heavy Spender (seed)" : `Seed User ${i}`,
 			properties: {
 				seed: true,
@@ -912,7 +933,9 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 });
 
 console.log();
-console.log(`  ${ok("done.")} open http://localhost:5173 to see populated tabs`);
+console.log(
+	`  ${ok("done.")} open http://localhost:5173 to see populated tabs`,
+);
 console.log(
 	`  ${warn("note:")} for the Replays tab, visit /playground in the browser`,
 );

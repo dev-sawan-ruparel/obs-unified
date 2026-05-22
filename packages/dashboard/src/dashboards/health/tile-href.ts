@@ -18,8 +18,7 @@ import type { AnalysisDefinition } from "@obs-unified/types";
 export function tileHref(def: AnalysisDefinition): string {
 	const scope = (def.scope ?? {}) as Record<string, unknown>;
 	const service = typeof scope.service === "string" ? scope.service : null;
-	if (service)
-		return `#/traces?service=${encodeURIComponent(service)}`;
+	if (service) return `#/traces?service=${encodeURIComponent(service)}`;
 
 	const source = typeof scope.source === "string" ? scope.source : null;
 	const target = typeof scope.target === "string" ? scope.target : null;

@@ -161,7 +161,11 @@ export interface LLMSpan extends AISpan {
 }
 
 export function startLLMSpan(opts: LLMSpanOptions): LLMSpan {
-	const built = createBaseSpan(opts.name ?? "llm", OpenInferenceSpanKind.LLM, opts.input);
+	const built = createBaseSpan(
+		opts.name ?? "llm",
+		OpenInferenceSpanKind.LLM,
+		opts.input,
+	);
 	if (!built) {
 		return { ...NOOP_SPAN, setTokens() {}, setCost() {} };
 	}
@@ -171,11 +175,13 @@ export function startLLMSpan(opts: LLMSpanOptions): LLMSpan {
 	return {
 		...span,
 		setTokens({ prompt, completion, total }) {
-			if (prompt !== undefined) child.setAttribute("llm.token_count.prompt", prompt);
+			if (prompt !== undefined)
+				child.setAttribute("llm.token_count.prompt", prompt);
 			if (completion !== undefined) {
 				child.setAttribute("llm.token_count.completion", completion);
 			}
-			if (total !== undefined) child.setAttribute("llm.token_count.total", total);
+			if (total !== undefined)
+				child.setAttribute("llm.token_count.total", total);
 		},
 		setCost(usd) {
 			child.setAttribute("llm.cost.total_usd", usd);
@@ -193,11 +199,16 @@ export interface ToolSpanOptions {
 }
 
 export function startToolSpan(opts: ToolSpanOptions): AISpan {
-	const built = createBaseSpan(opts.name, OpenInferenceSpanKind.TOOL, opts.parameters);
+	const built = createBaseSpan(
+		opts.name,
+		OpenInferenceSpanKind.TOOL,
+		opts.parameters,
+	);
 	if (!built) return NOOP_SPAN;
 	const { span, child } = built;
 	child.setAttribute("tool.name", opts.name);
-	if (opts.description) child.setAttribute("tool.description", opts.description);
+	if (opts.description)
+		child.setAttribute("tool.description", opts.description);
 	return span;
 }
 
@@ -237,7 +248,10 @@ export function startRetrieverSpan(opts: RetrieverSpanOptions): RetrieverSpan {
 					child.setAttribute(`retrieval.documents.${i}.document.id`, doc.id);
 				}
 				if (doc.score !== undefined) {
-					child.setAttribute(`retrieval.documents.${i}.document.score`, doc.score);
+					child.setAttribute(
+						`retrieval.documents.${i}.document.score`,
+						doc.score,
+					);
 				}
 				if (doc.content !== undefined) {
 					child.setAttribute(
@@ -288,11 +302,19 @@ export interface ChainSpanOptions {
 }
 
 export function startChainSpan(opts: ChainSpanOptions): AISpan {
-	const built = createBaseSpan(opts.name, OpenInferenceSpanKind.CHAIN, opts.input);
+	const built = createBaseSpan(
+		opts.name,
+		OpenInferenceSpanKind.CHAIN,
+		opts.input,
+	);
 	return built ? built.span : NOOP_SPAN;
 }
 
 export function startAgentSpan(opts: ChainSpanOptions): AISpan {
-	const built = createBaseSpan(opts.name, OpenInferenceSpanKind.AGENT, opts.input);
+	const built = createBaseSpan(
+		opts.name,
+		OpenInferenceSpanKind.AGENT,
+		opts.input,
+	);
 	return built ? built.span : NOOP_SPAN;
 }

@@ -154,7 +154,10 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 			if (!el || n === 0) return;
 			const rect = el.getBoundingClientRect();
 			const x = e.clientX - rect.left;
-			const idx = Math.min(n - 1, Math.max(0, Math.round((x / rect.width) * (n - 1))));
+			const idx = Math.min(
+				n - 1,
+				Math.max(0, Math.round((x / rect.width) * (n - 1))),
+			);
 			setHover(idx);
 		},
 		[n],
@@ -174,7 +177,15 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 	if (n === 1) {
 		svgBody = (
 			<>
-				<line x1={0} x2={W} y1={H - 1} y2={H - 1} stroke={color} strokeOpacity="0.2" strokeWidth="1" />
+				<line
+					x1={0}
+					x2={W}
+					y1={H - 1}
+					y2={H - 1}
+					stroke={color}
+					strokeOpacity="0.2"
+					strokeWidth="1"
+				/>
 				<circle cx={W / 2} cy={H / 2} r="2" fill={color} />
 			</>
 		);
@@ -220,7 +231,11 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 			onMouseMove={onMove}
 			onMouseLeave={onLeave}
 		>
-			<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={svgStyle}>
+			<svg
+				viewBox={`0 0 ${W} ${H}`}
+				preserveAspectRatio="none"
+				style={svgStyle}
+			>
 				{svgBody}
 			</svg>
 			{hover !== null && hoverPct !== null && (
@@ -361,16 +376,17 @@ export function TimeSeriesBars({
 						</div>
 						<div className="text-[0.5rem] opacity-70 mt-0.5">
 							{fmtTime(data[hover].t)}
-							{bucketMs > 0 && (
-								<> · {formatDuration(bucketMs)} bucket</>
-							)}
+							{bucketMs > 0 && <> · {formatDuration(bucketMs)} bucket</>}
 						</div>
 					</div>
 				)}
 			</div>
 
 			{/* X-axis tick labels */}
-			<div className="relative text-[0.5rem] font-mono uppercase opacity-50 select-none" style={{ height: 12 }}>
+			<div
+				className="relative text-[0.5rem] font-mono uppercase opacity-50 select-none"
+				style={{ height: 12 }}
+			>
 				{tickIdx.map((idx, i) => {
 					const d = data[idx];
 					if (!d) return null;
@@ -445,8 +461,11 @@ export function BarList({
 							className={`${rowGap} block w-full text-left ${interactive ? "cursor-pointer hover:bg-sys-surface-low px-1 -mx-1" : ""} ${isSelected ? "bg-sys-surface-high px-1 -mx-1" : ""}`}
 						>
 							<div className="flex items-baseline justify-between gap-3 mb-1">
-								<span className={`min-w-0 flex-1 truncate text-[0.75rem] ${isSelected ? "font-bold" : "font-bold"}`}>
-									{isSelected ? "\u25cf " : ""}{label}
+								<span
+									className={`min-w-0 flex-1 truncate text-[0.75rem] ${isSelected ? "font-bold" : "font-bold"}`}
+								>
+									{isSelected ? "\u25cf " : ""}
+									{label}
 								</span>
 								<span className="flex-none font-mono text-[0.75rem] opacity-70 tabular-nums">
 									{value.toLocaleString()}
@@ -474,9 +493,7 @@ export function BarList({
 
 export function UpdatedChip({ at }: { at: string | null }) {
 	const text = at ? freshness(at) : "—";
-	const fresh = at
-		? Date.now() - new Date(at).getTime() < 30_000
-		: false;
+	const fresh = at ? Date.now() - new Date(at).getTime() < 30_000 : false;
 	return (
 		<div className="flex items-center gap-2 bg-sys-surface-low px-2 py-1">
 			<span
@@ -675,7 +692,9 @@ export function JsonBlock({
 					onClick={() => setExpanded((v) => !v)}
 					className="mt-1 text-[0.5rem] font-bold uppercase tracking-[0.05em] opacity-60 hover:opacity-100 cursor-pointer self-start"
 				>
-					{expanded ? "▴ collapse" : `▾ expand (${raw.length.toLocaleString()} chars)`}
+					{expanded
+						? "▴ collapse"
+						: `▾ expand (${raw.length.toLocaleString()} chars)`}
 				</button>
 			)}
 		</div>
@@ -799,7 +818,11 @@ export function ChatBubble({
 	accent?: "primary" | "accent" | "warning" | "error";
 }) {
 	const align =
-		role === "user" ? "self-start" : role === "assistant" ? "self-end" : "self-center";
+		role === "user"
+			? "self-start"
+			: role === "assistant"
+				? "self-end"
+				: "self-center";
 	const bg =
 		role === "user"
 			? "bg-sys-surface"
@@ -810,7 +833,8 @@ export function ChatBubble({
 				: role === "tool"
 					? "bg-sys-surface-low border border-sys-accent"
 					: "bg-sys-surface-low";
-	const maxWidth = role === "system" || role === "tool" ? "max-w-[96%]" : "max-w-[78%]";
+	const maxWidth =
+		role === "system" || role === "tool" ? "max-w-[96%]" : "max-w-[78%]";
 
 	return (
 		<div className={`flex flex-col ${align} ${maxWidth}`}>
@@ -823,7 +847,9 @@ export function ChatBubble({
 					</span>
 				)}
 			</div>
-			<div className={`px-3 py-2 text-[0.75rem] font-mono leading-relaxed ${bg}`}>
+			<div
+				className={`px-3 py-2 text-[0.75rem] font-mono leading-relaxed ${bg}`}
+			>
 				{children}
 			</div>
 		</div>

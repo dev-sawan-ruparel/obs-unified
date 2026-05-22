@@ -1,5 +1,5 @@
-import type { CollectorEnv } from "../framework/env";
 import type { MiddlewareHandler } from "hono";
+import type { CollectorEnv } from "../framework/env";
 import { sha256Hex } from "../lib/hash";
 import { ProjectsStore } from "../lib/projects-store";
 import { sqlDbFor } from "../lib/sql-db";

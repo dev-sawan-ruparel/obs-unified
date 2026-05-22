@@ -17,13 +17,19 @@
 
 import type { CollectorPlugin } from "../framework/collector";
 import {
-	IdentityIndex,
 	type AICallRef,
+	IdentityIndex,
 	type LogRef,
 	type SpanRef,
 	type UsageEventRef,
+	type ActionRef,
+	type AgentRunRef,
+	type ToolCallRef,
+	type RetrievalEventRef,
+	type EvalResultRef,
+	type ArtifactRef,
 } from "../lib/identity-index";
-import { sqlDbFor, type SqlDb } from "../lib/sql-db";
+import { type SqlDb, sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export type ConnectedEntityKind =
@@ -34,7 +40,10 @@ export type ConnectedEntityKind =
 	| "replay"
 	| "alert"
 	| "analysis"
-	| "user";
+	| "user"
+	| "action"
+	| "agent_run"
+	| "tool_call";
 
 const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"span",
@@ -45,6 +54,9 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"alert",
 	"analysis",
 	"user",
+	"action",
+	"agent_run",
+	"tool_call",
 ]);
 
 export interface ConnectedLink {
@@ -91,10 +103,7 @@ const linkToSession = (sessionId: string): ConnectedLink => ({
 	sample: sessionId,
 });
 
-const linksFromSpans = (
-	spans: SpanRef[],
-	prefix: string,
-): ConnectedSection => {
+const linksFromSpans = (spans: SpanRef[], prefix: string): ConnectedSection => {
 	if (spans.length === 0) {
 		return {
 			label: prefix,
@@ -110,7 +119,9 @@ const linksFromSpans = (
 					label: `${spans.length} spans`,
 					href: `#/traces?q=${encodeURIComponent(spans[0].traceId)}`,
 					count: spans.length,
-					sample: truncate(`${spans[0].serviceName ?? "?"} · ${spans[0].spanName}`),
+					sample: truncate(
+						`${spans[0].serviceName ?? "?"} · ${spans[0].spanName}`,
+					),
 				},
 			],
 		};
@@ -279,6 +290,144 @@ const linksFromAi = (calls: AICallRef[], prefix: string): ConnectedSection => {
 	};
 };
 
+const linkToAction = (actionId: string, label?: string): ConnectedLink => ({
+	label: label ?? `action ${actionId.slice(0, 12)}`,
+	href: `#/actions/${actionId}`,
+});
+
+const linkToAgentRun = (runId: string, label?: string): ConnectedLink => ({
+	label: label ?? `agent run ${runId.slice(0, 12)}`,
+	href: `#/agent-runs/${runId}`,
+});
+
+const linksFromActions = (
+	actions: ActionRef[],
+	prefix: string,
+): ConnectedSection => {
+	if (actions.length === 0) {
+		return {
+			label: prefix,
+			links: [],
+			emptyReason: "No actions matched.",
+		};
+	}
+	if (actions.length > MAX_LINKS_INLINE) {
+		return {
+			label: prefix,
+			links: [
+				{
+					label: `${actions.length} actions`,
+					href: `#/actions`,
+					count: actions.length,
+					sample: truncate(
+						`${actions[0].actionKind} · ${actions[0].name ?? "unnamed"}`,
+					),
+				},
+			],
+		};
+	}
+	return {
+		label: prefix,
+		links: actions.map((a) => ({
+			label: `[${a.actionKind}] ${truncate(a.name ?? "unnamed", 40)}`,
+			href: `#/actions/${a.id}`,
+		})),
+	};
+};
+
+const linksFromToolCalls = (
+	calls: ToolCallRef[],
+	prefix: string,
+): ConnectedSection => {
+	if (calls.length === 0) {
+		return {
+			label: prefix,
+			links: [],
+			emptyReason: "No tool calls matched.",
+		};
+	}
+	if (calls.length > MAX_LINKS_INLINE) {
+		return {
+			label: prefix,
+			links: [
+				{
+					label: `${calls.length} tool calls`,
+					href: `#/tools`,
+					count: calls.length,
+					sample: truncate(calls[0].toolName),
+				},
+			],
+		};
+	}
+	return {
+		label: prefix,
+		links: calls.map((t) => ({
+			label: `tool: ${t.toolName}`,
+			href: `#/tool-calls/${t.id}`,
+		})),
+	};
+};
+
+const linksFromRetrievalEvents = (
+	events: RetrievalEventRef[],
+	prefix: string,
+): ConnectedSection => {
+	if (events.length === 0) {
+		return {
+			label: prefix,
+			links: [],
+			emptyReason: "No retrievals matched.",
+		};
+	}
+	return {
+		label: prefix,
+		links: events.map((r) => ({
+			label: `retrieve: ${r.retrieverName} (${r.totalResults} docs)`,
+			href: `#/retrieval-events/${r.id}`,
+		})),
+	};
+};
+
+const linksFromEvalResults = (
+	results: EvalResultRef[],
+	prefix: string,
+): ConnectedSection => {
+	if (results.length === 0) {
+		return {
+			label: prefix,
+			links: [],
+			emptyReason: "No evaluations matched.",
+		};
+	}
+	return {
+		label: prefix,
+		links: results.map((e) => ({
+			label: `eval: ${e.evaluatorName} (${e.passed ? "passed" : "failed"})`,
+			href: `#/evals/${e.id}`,
+		})),
+	};
+};
+
+const linksFromArtifacts = (
+	arts: ArtifactRef[],
+	prefix: string,
+): ConnectedSection => {
+	if (arts.length === 0) {
+		return {
+			label: prefix,
+			links: [],
+			emptyReason: "No artifacts matched.",
+		};
+	}
+	return {
+		label: prefix,
+		links: arts.map((a) => ({
+			label: `artifact: ${a.artifactName} (${a.artifactType})`,
+			href: `#/artifacts/${a.id}`,
+		})),
+	};
+};
+
 export const connectedRoutesPlugin: CollectorPlugin = {
 	name: "connected-routes",
 	register(app) {
@@ -306,7 +455,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 
 			// Each entity kind starts with a different lookup key. The
 			// helpers above shape ref arrays into ConnectedSection.
-			let manifest: ConnectedManifest = {
+			const manifest: ConnectedManifest = {
 				entity: { kind, id, projectId },
 				up: [],
 				across: [],
@@ -317,10 +466,17 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 			if (kind === "span") {
 				// Span: load by trace_id (its parent chain) + by interaction_id
 				// (the click that caused it). Then bucket.
-				const traceManifest = await index.byTrace(projectId, id.split(":")[0] ?? id);
-				const span = traceManifest.spans.find((s) => `${s.traceId}:${s.spanId}` === id);
+				const traceManifest = await index.byTrace(
+					projectId,
+					id.split(":")[0] ?? id,
+				);
+				const span = traceManifest.spans.find(
+					(s) => `${s.traceId}:${s.spanId}` === id,
+				);
 				if (span) {
-					const otherSpans = traceManifest.spans.filter((s) => s.spanId !== span.spanId);
+					const otherSpans = traceManifest.spans.filter(
+						(s) => s.spanId !== span.spanId,
+					);
 					manifest.up = [
 						{
 							label: "Trace",
@@ -421,14 +577,14 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 				manifest.related = [
 					sessionManifest.replay
 						? {
-							label: "Replay",
-							links: [linkToSession(sessionId)],
-						}
+								label: "Replay",
+								links: [linkToSession(sessionId)],
+							}
 						: {
-							label: "Replay",
-							links: [],
-							emptyReason: "No rrweb replay recorded for this session.",
-						},
+								label: "Replay",
+								links: [],
+								emptyReason: "No rrweb replay recorded for this session.",
+							},
 				];
 			} else if (kind === "ai_call") {
 				const traceId = c.req.query("trace_id");
@@ -475,8 +631,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					{
 						label: "User",
 						links: [],
-						emptyReason:
-							"User is the root identity — no parent context above.",
+						emptyReason: "User is the root identity — no parent context above.",
 					},
 				];
 				if (recentSessions.length > 0) {
@@ -511,6 +666,146 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [linkToSession(userManifest.replay.sessionId)],
 						},
 					];
+				}
+			} else if (kind === "action") {
+				const actionManifest = await index.byAction(projectId, id);
+				const action = actionManifest.actions.find((a) => a.id === id);
+				if (action) {
+					manifest.up = [];
+					if (action.causedByActionId) {
+						manifest.up.push({
+							label: "Parent Action",
+							links: [linkToAction(action.causedByActionId)],
+						});
+					}
+					if (action.agentRunId) {
+						manifest.up.push({
+							label: "Agent Run",
+							links: [linkToAgentRun(action.agentRunId)],
+						});
+					}
+					if (manifest.up.length === 0) {
+						manifest.up.push({
+							label: "Up",
+							links: [],
+							emptyReason: "No parent context: this action is the root of its execution tree.",
+						});
+					}
+
+					manifest.across = [
+						linksFromActions(
+							actionManifest.actions.filter(
+								(a) => a.id !== id && a.causedByActionId === action.causedByActionId,
+							),
+							"Sibling Actions",
+						),
+						linksFromLogs(actionManifest.logs, "Logs in this action context"),
+						linksFromAi(actionManifest.aiCalls, "AI Calls in this action"),
+					];
+
+					manifest.down = [
+						linksFromActions(
+							actionManifest.actions.filter((a) => a.causedByActionId === id),
+							"Sub-actions",
+						),
+						linksFromToolCalls(
+							actionManifest.toolCalls.filter((t) => t.actionId === id),
+							"Tool Calls",
+						),
+						linksFromRetrievalEvents(
+							actionManifest.retrievalEvents.filter((r) => r.actionId === id),
+							"Retrievals",
+						),
+						linksFromEvalResults(
+							actionManifest.evalResults.filter((e) => e.actionId === id),
+							"Evaluations",
+						),
+						linksFromArtifacts(
+							actionManifest.artifacts.filter((a) => a.actionId === id),
+							"Artifacts",
+						),
+					];
+
+					if (action.traceId) {
+						manifest.related = [
+							{
+								label: "OTel Trace",
+								links: [linkToTrace(action.traceId)],
+							},
+						];
+					}
+				}
+			} else if (kind === "agent_run") {
+				const runManifest = await index.byAgentRun(projectId, id);
+				const run = runManifest.agentRuns.find((r) => r.id === id);
+				if (run) {
+					manifest.up = [
+						{
+							label: "Agent",
+							links: [
+								{
+									label: `${run.agentName} (v${run.agentVersion})`,
+									href: `#/agents/${run.agentId}`,
+								},
+							],
+						},
+					];
+
+					manifest.across = [
+						linksFromSpans(runManifest.spans, "Traces triggered by this run"),
+						linksFromAi(runManifest.aiCalls, "AI Calls in this run"),
+					];
+
+					manifest.down = [
+						linksFromActions(
+							runManifest.actions.filter((a) => a.rootActionId === id),
+							"Actions (Decision Spine)",
+						),
+						linksFromToolCalls(runManifest.toolCalls, "Tool Calls Executed"),
+					];
+
+					if (runManifest.replay) {
+						manifest.related = [
+							{
+								label: "User Session",
+								links: [linkToSession(runManifest.replay.sessionId)],
+							},
+						];
+					}
+				}
+			} else if (kind === "tool_call") {
+				const db = sqlDbFor(c.env);
+				const toolCallRow = await db
+					.prepare(`SELECT action_id, tool_name FROM tool_calls WHERE project_id = ? AND id = ? LIMIT 1`)
+					.bind(projectId, id)
+					.first<{ action_id: string; tool_name: string }>();
+
+				if (toolCallRow) {
+					const actionManifest = await index.byAction(projectId, toolCallRow.action_id);
+					const toolCall = actionManifest.toolCalls.find((t) => t.id === id);
+					if (toolCall) {
+						manifest.up = [
+							{
+								label: "Causal Action",
+								links: [linkToAction(toolCall.actionId)],
+							},
+						];
+
+						manifest.across = [
+							linksFromToolCalls(
+								actionManifest.toolCalls.filter((t) => t.id !== id),
+								"Other tool calls in this action",
+							),
+						];
+
+						manifest.down = [
+							{
+								label: "Tool Details",
+								links: [],
+								emptyReason: `Tool: ${toolCall.toolName} (hash: ${toolCall.argsHash.slice(0, 8)})`,
+							},
+						];
+					}
 				}
 			} else if (kind === "alert" || kind === "analysis") {
 				// Alerts and Analyses are topic-related, not identity-related.
@@ -554,7 +849,8 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					{
 						label: "Down",
 						links: [],
-						emptyReason: "No child entities yet (profiles + kernel events arrive with later RFCs).",
+						emptyReason:
+							"No child entities yet (profiles + kernel events arrive with later RFCs).",
 					},
 				];
 			}

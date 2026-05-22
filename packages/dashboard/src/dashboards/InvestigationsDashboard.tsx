@@ -1,10 +1,10 @@
 import type {
-	AnalysisDefinition,
 	AnalysesListResponse,
+	AnalysisDefinition,
 } from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
-import { EmptyState } from "../components/states";
 import { SectionTitle } from "../components/primitives";
+import { EmptyState } from "../components/states";
 import { useApi } from "../use-api";
 
 /**
@@ -18,10 +18,7 @@ import { useApi } from "../use-api";
 export function InvestigationsDashboard({
 	onNavigate,
 }: {
-	onNavigate: (route: {
-		tab?: string;
-		investigationId?: string;
-	}) => void;
+	onNavigate: (route: { tab?: string; investigationId?: string }) => void;
 }) {
 	const api = useApi();
 	const [definitions, setDefinitions] = useState<AnalysisDefinition[] | null>(
@@ -32,9 +29,7 @@ export function InvestigationsDashboard({
 	const load = useCallback(async () => {
 		try {
 			const res = await api<AnalysesListResponse>("/analyses");
-			setDefinitions(
-				res.analyses.filter((d) => d.view === "page"),
-			);
+			setDefinitions(res.analyses.filter((d) => d.view === "page"));
 			setError(null);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
@@ -72,8 +67,8 @@ export function InvestigationsDashboard({
 					title="No investigations yet"
 					description={
 						<>
-							Send some telemetry. Stage 4 ships three universal
-							investigations that derive from your traces and logs.
+							Send some telemetry. Stage 4 ships three universal investigations
+							that derive from your traces and logs.
 						</>
 					}
 				/>

@@ -16,7 +16,7 @@ export interface AILoggerConfig {
 const MAX_BUFFER_SIZE = 200;
 
 let aiConfig: AILoggerConfig | null = null;
-let aiBuffer: AICallInput[] = [];
+const aiBuffer: AICallInput[] = [];
 let flushInProgress = false;
 
 export function initAI(config: AILoggerConfig) {

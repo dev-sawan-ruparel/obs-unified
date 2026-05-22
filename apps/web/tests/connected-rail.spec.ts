@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 /**
  * RFC 0003 / 0006 Phase 6.6 — any-to-any matrix coverage.
@@ -47,7 +47,10 @@ test.describe("Connected rail — any-to-any matrix", () => {
 	// know real fixture trace ids to assert against. Run this with
 	// E2E_LIVE_STACK=1 against a `make run-with-demo` stack.
 	test("Trace → Span (≤1 click via waterfall row)", async ({ page }) => {
-		test.skip(!LIVE_STACK, "set E2E_LIVE_STACK=1 with `make run-with-demo` running");
+		test.skip(
+			!LIVE_STACK,
+			"set E2E_LIVE_STACK=1 with `make run-with-demo` running",
+		);
 		await page.goto("/dashboard?tab=telemetry");
 		// First trace in the seed should expose its waterfall via inline expand.
 		const firstTraceRow = page.locator('[data-testid="trace-row"]').first();
@@ -61,7 +64,6 @@ test.describe("Connected rail — any-to-any matrix", () => {
 		// Rail must render the four canonical sections after navigation.
 		await expect(page.getByText("CONNECTED — SPAN")).toBeVisible();
 	});
-
 
 	test.skip("Trace → Log (≤1 click via rail 'Logs in this trace')", async () => {});
 	test.skip("Trace → Replay (≤1 click via rail when interaction_id present)", async () => {});

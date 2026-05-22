@@ -49,9 +49,7 @@ const isEvidenceTable = (v: unknown): v is EvidenceTable => {
 	return Array.isArray(o.headers) && Array.isArray(o.rows);
 };
 
-const renderCell = (
-	cell: string | number | boolean | null,
-): string => {
+const renderCell = (cell: string | number | boolean | null): string => {
 	if (cell === null || cell === undefined) return "—";
 	if (typeof cell === "boolean") return cell ? "yes" : "no";
 	return String(cell);
@@ -139,10 +137,7 @@ export function InvestigationPage({
 	onNavigate,
 }: {
 	investigationId: string;
-	onNavigate: (route: {
-		tab?: string;
-		investigationId?: string;
-	}) => void;
+	onNavigate: (route: { tab?: string; investigationId?: string }) => void;
 }) {
 	const api = useApi();
 	const rawFetch = useRawFetch();
@@ -214,7 +209,9 @@ export function InvestigationPage({
 			<div className="p-3">
 				<button
 					type="button"
-					onClick={() => onNavigate({ tab: "investigate", investigationId: undefined })}
+					onClick={() =>
+						onNavigate({ tab: "investigate", investigationId: undefined })
+					}
 					className="text-[0.75rem] text-sys-on-surface-muted hover:text-sys-on-surface mb-3"
 				>
 					← Back
@@ -278,16 +275,16 @@ export function InvestigationPage({
 					data-test-narrative
 				>
 					No narrative yet — the cron tick hasn't produced one for this run.
-					Re-run to refresh data; narratives generate on the next scheduled
-					tick when the gate predicate fires.
+					Re-run to refresh data; narratives generate on the next scheduled tick
+					when the gate predicate fires.
 				</div>
 			)}
 
 			{/* Evidence */}
 			{evidence.length === 0 ? (
 				<div className="bg-sys-surface border border-sys-outline-soft p-3 text-[0.75rem] text-sys-on-surface-muted">
-					No evidence rows produced. The query may have returned an empty
-					window — try widening the time range or re-running.
+					No evidence rows produced. The query may have returned an empty window
+					— try widening the time range or re-running.
 				</div>
 			) : (
 				<div className="flex flex-col gap-2">
@@ -309,10 +306,7 @@ export function InvestigationPage({
 			    not identity-related; the rail surfaces alerts bound to this
 			    analysis and recent narratives via the manifest endpoint. */}
 			<div className="mt-3">
-				<ConnectedRail
-					entityKind="analysis"
-					entityId={definition.id}
-				/>
+				<ConnectedRail entityKind="analysis" entityId={definition.id} />
 			</div>
 		</div>
 	);

@@ -1,7 +1,7 @@
-import type { CollectorEnv } from "../framework/env";
 import type { MiddlewareHandler } from "hono";
+import type { CollectorEnv } from "../framework/env";
 import { ProjectsStore } from "../lib/projects-store";
-import { sqlDbFor, type SqlDb } from "../lib/sql-db";
+import { type SqlDb, sqlDbFor } from "../lib/sql-db";
 
 const SESSION_COOKIE = "obs_session";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds

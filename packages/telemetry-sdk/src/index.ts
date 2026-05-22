@@ -1,7 +1,7 @@
 // ── Unified init ──
 
+import { type AILoggerConfig, initAI } from "./ai";
 import { initLogger, type LoggerConfig } from "./logger";
-import { initAI, type AILoggerConfig } from "./ai";
 
 export interface ObservabilityConfig {
 	/** URL of your collector (e.g. "https://obs.my-app.com") */
@@ -65,15 +65,14 @@ export { type AILoggerConfig, flushAICalls, initAI, trackAICall } from "./ai";
 export {
 	type AISpan,
 	type ChainSpanOptions,
+	clearAISessionContext,
 	type EmbeddingSpanOptions,
+	getAISessionContext,
 	type LLMSpan,
 	type LLMSpanOptions,
 	type RetrievedDocument,
 	type RetrieverSpan,
 	type RetrieverSpanOptions,
-	type ToolSpanOptions,
-	clearAISessionContext,
-	getAISessionContext,
 	setAISessionContext,
 	startAgentSpan,
 	startChainSpan,
@@ -81,8 +80,12 @@ export {
 	startLLMSpan,
 	startRetrieverSpan,
 	startToolSpan,
+	type ToolSpanOptions,
 } from "./ai-spans";
-
+// ── Cloudflare binding wrappers ──
+export { type WrapD1Options, wrapD1 } from "./d1";
+// ── HTTP client wrapper ──
+export { type WrapFetchOptions, wrapFetch } from "./fetch";
 // ── Logger ──
 export {
 	createLogger,
@@ -93,21 +96,34 @@ export {
 	type LoggerConfig,
 	type LogSeverity,
 } from "./logger";
-
 // ── OTEL config ──
 export { annotateErrorSpan, createResolveConfig } from "./otel-config";
-
 // ── High-level plugin ──
 export { telemetryPlugin } from "./plugin";
-
+// ── Process metrics (RFC 0005) ──
+export {
+	type EnableProcessMetricsOptions,
+	enableProcessMetrics,
+} from "./process-metrics";
+// ── pprof profile push (RFC 0007) ──
+export {
+	type ProfileCapture,
+	type ProfilerHandle,
+	type PushProfileOptions,
+	type PushProfileResult,
+	pushProfile,
+	type StartProfilerOptions,
+	startProfiler,
+} from "./profile";
+export { type WrapR2Options, wrapR2 } from "./r2";
 // ── Span system ──
 export {
 	type ChildSpan,
 	createRequestSpan,
 	getActiveSpan,
-	type IncomingTraceContext,
 	INTERACTION_ATTRIBUTE_KEY,
 	INTERACTION_HEADER_NAME,
+	type IncomingTraceContext,
 	parseInteractionHeader,
 	parseTraceparent,
 	type RequestSpan,
@@ -116,27 +132,24 @@ export {
 	withChildSpan,
 } from "./span";
 
-// ── Cloudflare binding wrappers ──
-export { type WrapD1Options, wrapD1 } from "./d1";
-export { type WrapR2Options, wrapR2 } from "./r2";
-
-// ── HTTP client wrapper ──
-export { type WrapFetchOptions, wrapFetch } from "./fetch";
-
-// ── Process metrics (RFC 0005) ──
+// ── Agentic Causal Graph (RFC 0010) ──
 export {
-	enableProcessMetrics,
-	type EnableProcessMetricsOptions,
-} from "./process-metrics";
-
-// ── pprof profile push (RFC 0007) ──
-export {
-	pushProfile,
-	type PushProfileOptions,
-	type PushProfileResult,
-	startProfiler,
-	type StartProfilerOptions,
-	type ProfilerHandle,
-	type ProfileCapture,
-} from "./profile";
-
+	type AgentRun,
+	type AgentRunOptions,
+	type AgentStep,
+	type ArtifactOptions,
+	type EvalOptions,
+	type RetrievalDocument,
+	type RetrievalOptions,
+	type Retriever,
+	type StepOptions,
+	type ToolCall,
+	type ToolOptions,
+	getActiveAgentContext,
+	recordArtifact,
+	recordEvaluation,
+	recordRetrieval,
+	startAgentRun,
+	step,
+	tool,
+} from "./agent";

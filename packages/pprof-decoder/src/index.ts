@@ -150,7 +150,8 @@ const decodeLabel = (r: Reader, len: number): PprofLabel => {
 		const fieldNum = tag >>> 3;
 		const wire = tag & 7;
 		if (fieldNum === 1 && wire === WIRE_VARINT) label.keyIdx = r.readVarint();
-		else if (fieldNum === 2 && wire === WIRE_VARINT) label.strIdx = r.readVarint();
+		else if (fieldNum === 2 && wire === WIRE_VARINT)
+			label.strIdx = r.readVarint();
 		else if (fieldNum === 3 && wire === WIRE_VARINT) label.num = r.readVarint();
 		else r.skipField(wire);
 	}
@@ -229,7 +230,8 @@ const decodeFunction = (r: Reader, len: number): PprofFunction => {
 		const fieldNum = tag >>> 3;
 		const wire = tag & 7;
 		if (fieldNum === 1 && wire === WIRE_VARINT) fn.id = r.readVarint();
-		else if (fieldNum === 2 && wire === WIRE_VARINT) fn.nameIdx = r.readVarint();
+		else if (fieldNum === 2 && wire === WIRE_VARINT)
+			fn.nameIdx = r.readVarint();
 		else if (fieldNum === 4 && wire === WIRE_VARINT)
 			fn.filenameIdx = r.readVarint();
 		else r.skipField(wire);
@@ -245,7 +247,8 @@ const decodeValueType = (r: Reader, len: number): PprofValueType => {
 		const fieldNum = tag >>> 3;
 		const wire = tag & 7;
 		if (fieldNum === 1 && wire === WIRE_VARINT) vt.typeIdx = r.readVarint();
-		else if (fieldNum === 2 && wire === WIRE_VARINT) vt.unitIdx = r.readVarint();
+		else if (fieldNum === 2 && wire === WIRE_VARINT)
+			vt.unitIdx = r.readVarint();
 		else r.skipField(wire);
 	}
 	return vt;

@@ -13,9 +13,9 @@
  * Re-run any time the SVG sources change. The script is idempotent.
  */
 
-import { copyFile, mkdir, readFile, writeFile, stat } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BRAND = resolve(__dirname, "..");
@@ -113,7 +113,9 @@ async function exists(p) {
 
 async function copyOne(src, dst) {
 	if (!(await exists(src))) {
-		console.warn(`  skip (missing source): ${src.replace(`${REPO_ROOT}/`, "")}`);
+		console.warn(
+			`  skip (missing source): ${src.replace(`${REPO_ROOT}/`, "")}`,
+		);
 		return;
 	}
 	await mkdir(dirname(dst), { recursive: true });

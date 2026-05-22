@@ -19,10 +19,9 @@
  *   E2E_LIVE_STACK=1 pnpm --filter @obs-demo/web test:e2e:all -- scenario-b
  */
 
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { type APIRequestContext, expect, test } from "@playwright/test";
 
-const COLLECTOR_URL =
-	process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
+const COLLECTOR_URL = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD ?? "e2e-test-pass";
 const LIVE_STACK = !!process.env.E2E_LIVE_STACK;
 
@@ -54,7 +53,8 @@ const loginCookie = async (request: APIRequestContext): Promise<string> => {
 	expect(res.status(), "dashboard login").toBeLessThan(400);
 	const setCookie = res.headers()["set-cookie"] ?? "";
 	const match = setCookie.match(/obs_session=[^;]+/);
-	if (!match) throw new Error("no obs_session cookie returned from /auth/login");
+	if (!match)
+		throw new Error("no obs_session cookie returned from /auth/login");
 	return match[0];
 };
 
@@ -127,9 +127,7 @@ test.describe("Scenario B — AI cost spike → user → session → trace", () 
 				(byCost.get(c.sessionId) ?? 0) + (c.totalCostUsd ?? 0),
 			);
 		}
-		const ranked = Array.from(byCost.entries()).sort(
-			(a, b) => b[1] - a[1],
-		);
+		const ranked = Array.from(byCost.entries()).sort((a, b) => b[1] - a[1]);
 		expect(ranked.length, "at least one session has AI cost").toBeGreaterThan(
 			0,
 		);
@@ -167,8 +165,7 @@ test.describe("Scenario B — AI cost spike → user → session → trace", () 
 		// Extract a trace_id from the session's spans link. The link's
 		// href format is `#/traces?q=<traceId>` (count-link collapse) or
 		// `#/traces/<traceId>#span=...` for inline links — handle both.
-		const sampleHref =
-			sessionSpansSection!.links[0].href;
+		const sampleHref = sessionSpansSection!.links[0].href;
 		const traceIdMatch = sampleHref.match(/(?:traces\/|q=)([0-9a-f]{16,32})/i);
 		expect(traceIdMatch, `extract trace_id from ${sampleHref}`).not.toBeNull();
 		const traceId = traceIdMatch![1];

@@ -29,13 +29,21 @@ interface S3SdkConstructors {
 	// @aws-sdk/client-s3. The runtime contract is just "construct with an
 	// object literal of S3 params."
 	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	PutObjectCommand: new (input: any) => unknown;
+	PutObjectCommand: new (
+		input: any,
+	) => unknown;
 	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	GetObjectCommand: new (input: any) => unknown;
+	GetObjectCommand: new (
+		input: any,
+	) => unknown;
 	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	DeleteObjectCommand: new (input: any) => unknown;
+	DeleteObjectCommand: new (
+		input: any,
+	) => unknown;
 	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	ListObjectsV2Command: new (input: any) => unknown;
+	ListObjectsV2Command: new (
+		input: any,
+	) => unknown;
 }
 
 export interface S3BlobStoreOptions {
@@ -114,7 +122,10 @@ export class S3BlobStore implements BlobStore {
 		await this.opts.client.send(cmd);
 	}
 
-	async list(prefix: string, options?: BlobListOptions): Promise<BlobListResult> {
+	async list(
+		prefix: string,
+		options?: BlobListOptions,
+	): Promise<BlobListResult> {
 		const cmd = new this.opts.commands.ListObjectsV2Command({
 			Bucket: this.opts.bucket,
 			Prefix: prefix,

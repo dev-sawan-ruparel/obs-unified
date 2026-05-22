@@ -19,7 +19,7 @@ const PRICING: Record<string, ModelPricing> = {
 	"gpt-4-turbo": { inputPer1M: 10, outputPer1M: 30 },
 	"gpt-4": { inputPer1M: 30, outputPer1M: 60 },
 	"gpt-3.5-turbo": { inputPer1M: 0.5, outputPer1M: 1.5 },
-	"o1": { inputPer1M: 15, outputPer1M: 60 },
+	o1: { inputPer1M: 15, outputPer1M: 60 },
 	"o1-mini": { inputPer1M: 3, outputPer1M: 12 },
 
 	// Anthropic
@@ -42,7 +42,9 @@ const PRICING: Record<string, ModelPricing> = {
 // `claude-3-5-sonnet`, etc.
 const lookupCache = new Map<string, ModelPricing | null>();
 
-export function getModelPricing(model: string | null | undefined): ModelPricing | null {
+export function getModelPricing(
+	model: string | null | undefined,
+): ModelPricing | null {
 	if (!model) return null;
 	const normalized = model.toLowerCase();
 	const cached = lookupCache.get(normalized);
@@ -71,7 +73,7 @@ export function computeCost(
 ): number | null {
 	const pricing = getModelPricing(model);
 	if (!pricing) return null;
-	const input = (promptTokens ?? 0) * pricing.inputPer1M / 1_000_000;
-	const output = (completionTokens ?? 0) * pricing.outputPer1M / 1_000_000;
+	const input = ((promptTokens ?? 0) * pricing.inputPer1M) / 1_000_000;
+	const output = ((completionTokens ?? 0) * pricing.outputPer1M) / 1_000_000;
 	return input + output;
 }

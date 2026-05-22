@@ -5,8 +5,8 @@ import type { CollectorPlugin } from "../framework/collector";
 import { toStoredSpans } from "../lib/otlp";
 import { publishTail, spanToTailEvent } from "../lib/tail-publisher";
 import {
-	OtlpDecodeError,
 	decodeTraceRequest,
+	OtlpDecodeError,
 	readOtlpBody,
 } from "../otlp/decode";
 import { otlpRetryableError, traceResponse } from "../otlp/response";
@@ -91,11 +91,7 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 					project_id: projectId,
 					error: err instanceof Error ? err.message : String(err),
 				});
-				return otlpRetryableError(
-					c,
-					503,
-					"Storage temporarily unavailable",
-				);
+				return otlpRetryableError(c, 503, "Storage temporarily unavailable");
 			}
 
 			if (spans.length > 0 && c.env.TAIL_HUB) {

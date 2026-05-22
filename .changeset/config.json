@@ -7,9 +7,5 @@
 	"access": "public",
 	"baseBranch": "main",
 	"updateInternalDependencies": "patch",
-	"ignore": [
-		"@obs-demo/collector",
-		"@obs-demo/app",
-		"@obs-demo/web"
-	]
+	"ignore": ["@obs-demo/collector", "@obs-demo/app", "@obs-demo/web"]
 }

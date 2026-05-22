@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useApi } from "../use-api";
+import { Button } from "../components/Button";
 import {
 	BarList,
 	Card,
@@ -7,8 +7,8 @@ import {
 	Stat,
 	UpdatedChip,
 } from "../components/primitives";
-import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
+import { useApi } from "../use-api";
 
 interface ResourcesData {
 	d1: {
@@ -59,13 +59,15 @@ export function ResourcesDashboard() {
 		setError(null);
 		try {
 			const [res, hostsRes] = await Promise.all([
-				api<{ success: boolean; resources: ResourcesData }>("/platform/resources"),
+				api<{ success: boolean; resources: ResourcesData }>(
+					"/platform/resources",
+				),
 				// Linux hosts mode — fail-soft so older collectors and
 				// installs without OTel hostmetrics still render the
 				// Cloudflare panels.
-				api<{ success: boolean; hosts: HostMetrics[] }>("/platform/hosts").catch(
-					() => ({ success: true, hosts: [] as HostMetrics[] }),
-				),
+				api<{ success: boolean; hosts: HostMetrics[] }>(
+					"/platform/hosts",
+				).catch(() => ({ success: true, hosts: [] as HostMetrics[] })),
 			]);
 			if (!res.success || !res.resources) {
 				throw new Error("collector returned an unexpected shape");
@@ -96,12 +98,7 @@ export function ResourcesDashboard() {
 					Scale & integrity · project-scoped
 				</span>
 				<div className="ml-auto flex items-center gap-2">
-					<Button
-						variant="primary"
-						size="sm"
-						onClick={load}
-						disabled={loading}
-					>
+					<Button variant="primary" size="sm" onClick={load} disabled={loading}>
 						{loading ? "Loading…" : "Refresh"}
 					</Button>
 					<UpdatedChip at={lastUpdated} />
@@ -152,12 +149,22 @@ export function ResourcesDashboard() {
 							label="Worker CPU"
 							value={data.worker.cpuMs ? `${data.worker.cpuMs}ms` : "—"}
 							accent="warning"
-							footer={data.worker.requestsCount ? `${data.worker.requestsCount} reqs` : "pending auth"}
+							footer={
+								data.worker.requestsCount
+									? `${data.worker.requestsCount} reqs`
+									: "pending auth"
+							}
 						/>
 						<Stat
 							label="Worker mem"
-							value={data.worker.memoryBytes ? fmtBytes(data.worker.memoryBytes) : "—"}
-							footer={data.worker.status.includes("Needs") ? "no token" : "live"}
+							value={
+								data.worker.memoryBytes
+									? fmtBytes(data.worker.memoryBytes)
+									: "—"
+							}
+							footer={
+								data.worker.status.includes("Needs") ? "no token" : "live"
+							}
 						/>
 					</div>
 
@@ -211,7 +218,9 @@ export function ResourcesDashboard() {
 							<div className="flex items-center justify-between">
 								<SectionTitle title="Compute (Worker)" />
 								<Tag tone="warning">
-									{data.worker.status.includes("Needs") ? "Pending auth" : "Live"}
+									{data.worker.status.includes("Needs")
+										? "Pending auth"
+										: "Live"}
 								</Tag>
 							</div>
 							<div className="font-mono text-[1.125rem] font-bold leading-tight tracking-tight text-sys-warning">
@@ -247,7 +256,11 @@ export function ResourcesDashboard() {
 											<div className="grid grid-cols-3 gap-2">
 												<Stat
 													label="CPU"
-													value={cpuUtil !== null ? `${(cpuUtil * 100).toFixed(0)}%` : "—"}
+													value={
+														cpuUtil !== null
+															? `${(cpuUtil * 100).toFixed(0)}%`
+															: "—"
+													}
 													accent="primary"
 												/>
 												<Stat

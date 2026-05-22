@@ -1,33 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
 	AIEvaluationRecord,
 	AIEvaluationsListResponse,
 	AISessionDetailResponse,
-	AISessionsListResponse,
 	AISessionSummary,
+	AISessionsListResponse,
 	AISpanRecord,
 	AISpansOverviewResponse,
 	JsonValue,
 } from "@obs-unified/types";
-import { useApi } from "../use-api";
-import { useTimeWindowHours } from "../provider";
-import { MessageView } from "../components/MessageView";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectedRail } from "../components/ConnectedRail";
+import { MessageView } from "../components/MessageView";
 import {
 	BarList,
+	binByInterval,
 	Card,
 	ChatBubble,
 	Chip,
 	JsonBlock,
+	percentile,
 	SectionTitle,
 	Stat,
 	TimeSeriesBars,
 	UpdatedChip,
 	Waterfall,
 	type WaterfallSpan,
-	binByInterval,
-	percentile,
 } from "../components/primitives";
+import { useTimeWindowHours } from "../provider";
+import { useApi } from "../use-api";
 
 // ── Shared ─────────────────────────────────────────────────────────────────
 
@@ -70,11 +70,17 @@ function KindBadge({ kind }: { kind: string }) {
 	);
 }
 
-function attrString(attrs: Record<string, JsonValue>, key: string): string | undefined {
+function attrString(
+	attrs: Record<string, JsonValue>,
+	key: string,
+): string | undefined {
 	const v = attrs[key];
 	return typeof v === "string" ? v : undefined;
 }
-function attrNumber(attrs: Record<string, JsonValue>, key: string): number | undefined {
+function attrNumber(
+	attrs: Record<string, JsonValue>,
+	key: string,
+): number | undefined {
 	const v = attrs[key];
 	return typeof v === "number" ? v : undefined;
 }
@@ -128,7 +134,10 @@ function Toolbar({
 				<ViewTab active={view === "spans"} onClick={() => setView("spans")}>
 					Spans
 				</ViewTab>
-				<ViewTab active={view === "sessions"} onClick={() => setView("sessions")}>
+				<ViewTab
+					active={view === "sessions"}
+					onClick={() => setView("sessions")}
+				>
 					Sessions
 				</ViewTab>
 			</div>
@@ -174,7 +183,9 @@ interface SpansViewProps {
 
 function SpansView({ hours, view, setView }: SpansViewProps) {
 	const api = useApi();
-	const [overview, setOverview] = useState<AISpansOverviewResponse | null>(null);
+	const [overview, setOverview] = useState<AISpansOverviewResponse | null>(
+		null,
+	);
 	const [kind, setKind] = useState<string>("");
 	const [service, setService] = useState<string>("");
 	const [model, setModel] = useState<string>("");
@@ -261,7 +272,12 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 	const spans = filteredSpans;
 	const bucketCount = 24;
 	const allBuckets = useMemo(
-		() => binByInterval(spans.map((s) => s.startTime), Number(hours) * 60, bucketCount),
+		() =>
+			binByInterval(
+				spans.map((s) => s.startTime),
+				Number(hours) * 60,
+				bucketCount,
+			),
 		[spans, hours],
 	);
 	const errorBuckets = useMemo(
@@ -273,7 +289,10 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 			),
 		[spans, hours],
 	);
-	const llmSpans = useMemo(() => spans.filter((s) => s.spanKind === "LLM"), [spans]);
+	const llmSpans = useMemo(
+		() => spans.filter((s) => s.spanKind === "LLM"),
+		[spans],
+	);
 	const costTotal = useMemo(
 		() =>
 			llmSpans.reduce(
@@ -285,7 +304,8 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 	const tokensPrompt = useMemo(
 		() =>
 			llmSpans.reduce(
-				(acc, s) => acc + (attrNumber(s.attributes, "llm.token_count.prompt") ?? 0),
+				(acc, s) =>
+					acc + (attrNumber(s.attributes, "llm.token_count.prompt") ?? 0),
 				0,
 			),
 		[llmSpans],
@@ -293,17 +313,26 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 	const tokensCompletion = useMemo(
 		() =>
 			llmSpans.reduce(
-				(acc, s) => acc + (attrNumber(s.attributes, "llm.token_count.completion") ?? 0),
+				(acc, s) =>
+					acc + (attrNumber(s.attributes, "llm.token_count.completion") ?? 0),
 				0,
 			),
 		[llmSpans],
 	);
 	const p50 = useMemo(
-		() => percentile(llmSpans.map((s) => s.durationMs), 0.5),
+		() =>
+			percentile(
+				llmSpans.map((s) => s.durationMs),
+				0.5,
+			),
 		[llmSpans],
 	);
 	const p95 = useMemo(
-		() => percentile(llmSpans.map((s) => s.durationMs), 0.95),
+		() =>
+			percentile(
+				llmSpans.map((s) => s.durationMs),
+				0.95,
+			),
 		[llmSpans],
 	);
 
@@ -334,7 +363,9 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 
 	const errorRate =
 		spans.length > 0
-			? ((overview?.summary.errorSpans ?? 0) / Math.max(1, overview?.summary.totalSpans ?? 1)) * 100
+			? ((overview?.summary.errorSpans ?? 0) /
+					Math.max(1, overview?.summary.totalSpans ?? 1)) *
+				100
 			: 0;
 
 	return (
@@ -378,9 +409,7 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 						{provider && (
 							<Chip onClear={() => setProvider("")}>provider:{provider}</Chip>
 						)}
-						{model && (
-							<Chip onClear={() => setModel("")}>model:{model}</Chip>
-						)}
+						{model && <Chip onClear={() => setModel("")}>model:{model}</Chip>}
 					</div>
 				)}
 			</Toolbar>
@@ -433,7 +462,14 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 			</div>
 
 			{/* Master / detail body */}
-			<div className="flex-1 min-h-0 grid gap-2 px-2 pb-2" style={{ gridTemplateColumns: selected ? "minmax(0,1fr) minmax(0,1fr)" : "minmax(0,1fr)" }}>
+			<div
+				className="flex-1 min-h-0 grid gap-2 px-2 pb-2"
+				style={{
+					gridTemplateColumns: selected
+						? "minmax(0,1fr) minmax(0,1fr)"
+						: "minmax(0,1fr)",
+				}}
+			>
 				<Card className="min-h-0 overflow-hidden flex flex-col">
 					<SectionTitle
 						title="AI Spans"
@@ -565,7 +601,10 @@ function SpanRow({
 					</span>
 				)}
 				{cost !== undefined && cost > 0 && (
-					<span className="opacity-70 tabular-nums" title={computed ? "computed from token counts" : "reported"}>
+					<span
+						className="opacity-70 tabular-nums"
+						title={computed ? "computed from token counts" : "reported"}
+					>
 						{formatCost(cost)}
 						{computed && <span className="opacity-50 ml-0.5">≈</span>}
 					</span>
@@ -581,7 +620,7 @@ function SpanRow({
 			{/* Inline mini bar — relative duration within the row */}
 			<div className="mt-1 h-[3px] w-full bg-sys-surface-low">
 				<div
-					className={`h-full ${isError ? "bg-sys-error" : KIND_BG[span.spanKind] ?? "bg-sys-primary"}`}
+					className={`h-full ${isError ? "bg-sys-error" : (KIND_BG[span.spanKind] ?? "bg-sys-primary")}`}
 					style={{
 						width: `${Math.min(100, Math.max(2, (span.durationMs / 3000) * 100))}%`,
 					}}
@@ -647,12 +686,13 @@ function SpanDetailPane({
 						<span>dur:{formatDuration(span.durationMs)}</span>
 						{pt !== undefined && ct !== undefined && (
 							<span>
-								tok:{pt}↑/{ct}↓
-								{tt !== undefined && ` (${tt})`}
+								tok:{pt}↑/{ct}↓{tt !== undefined && ` (${tt})`}
 							</span>
 						)}
 						{cost !== undefined && cost > 0 && (
-							<span title={computed ? "computed from token counts" : "reported"}>
+							<span
+								title={computed ? "computed from token counts" : "reported"}
+							>
 								{formatCost(cost)} {computed ? "≈" : ""}
 							</span>
 						)}
@@ -682,11 +722,20 @@ function SpanDetailPane({
 
 			{/* Tabs */}
 			<div className="flex-none flex items-center border-b border-sys-outline/30">
-				<DetailTabBtn active={tab === "messages"} onClick={() => setTab("messages")}>
+				<DetailTabBtn
+					active={tab === "messages"}
+					onClick={() => setTab("messages")}
+				>
 					Messages
 				</DetailTabBtn>
-				<DetailTabBtn active={tab === "waterfall"} onClick={() => setTab("waterfall")}>
-					Waterfall {traceSpans && <span className="opacity-50 ml-1">({traceSpans.length})</span>}
+				<DetailTabBtn
+					active={tab === "waterfall"}
+					onClick={() => setTab("waterfall")}
+				>
+					Waterfall{" "}
+					{traceSpans && (
+						<span className="opacity-50 ml-1">({traceSpans.length})</span>
+					)}
 				</DetailTabBtn>
 				<DetailTabBtn
 					active={tab === "evaluations"}
@@ -788,7 +837,9 @@ function TraceWaterfall({
 	}
 	if (spans.length === 0) {
 		return (
-			<div className="text-[0.75rem] opacity-60 font-mono">No spans in trace.</div>
+			<div className="text-[0.75rem] opacity-60 font-mono">
+				No spans in trace.
+			</div>
 		);
 	}
 
@@ -860,7 +911,11 @@ function orderSpansForGantt(spans: AISpanRecord[]): AISpanRecord[] {
 
 // ── Evaluations list ───────────────────────────────────────────────────────
 
-function EvaluationsList({ evaluations }: { evaluations: AIEvaluationRecord[] }) {
+function EvaluationsList({
+	evaluations,
+}: {
+	evaluations: AIEvaluationRecord[];
+}) {
 	if (evaluations.length === 0) {
 		return (
 			<div className="text-[0.75rem] opacity-60 font-mono">
@@ -978,7 +1033,10 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 				}}
 			>
 				<Card className="min-h-0 overflow-hidden flex flex-col">
-					<SectionTitle title="Sessions" note={`${sessions.length} in window`} />
+					<SectionTitle
+						title="Sessions"
+						note={`${sessions.length} in window`}
+					/>
 					<div className="flex-1 overflow-y-auto">
 						{sessions.map((s) => (
 							<SessionRow
@@ -994,9 +1052,13 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 							<div className="p-6 text-center text-[0.75rem] opacity-60 leading-relaxed">
 								No sessions yet.
 								<br />
-								Stamp a <code className="bg-sys-surface-low px-1">session.id</code>{" "}
-								on your AI spans with{" "}
-								<code className="bg-sys-surface-low px-1">setAISessionContext()</code>.
+								Stamp a{" "}
+								<code className="bg-sys-surface-low px-1">session.id</code> on
+								your AI spans with{" "}
+								<code className="bg-sys-surface-low px-1">
+									setAISessionContext()
+								</code>
+								.
 							</div>
 						)}
 					</div>
@@ -1004,7 +1066,10 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 
 				{selected && (
 					<Card className="min-h-0 overflow-hidden flex flex-col">
-						<ConversationPane detail={detail} onClose={() => setSelected(null)} />
+						<ConversationPane
+							detail={detail}
+							onClose={() => setSelected(null)}
+						/>
 					</Card>
 				)}
 			</div>
@@ -1049,7 +1114,9 @@ function SessionRow({
 					<span>${session.totalCostUsd.toFixed(4)}</span>
 				)}
 				{session.errorCount > 0 && (
-					<span className="text-sys-error font-bold">{session.errorCount} err</span>
+					<span className="text-sys-error font-bold">
+						{session.errorCount} err
+					</span>
 				)}
 				<span className="ml-auto opacity-60">
 					{new Date(session.lastSpanAt).toLocaleTimeString()}
@@ -1076,7 +1143,9 @@ function ConversationPane({
 }) {
 	if (!detail) {
 		return (
-			<div className="p-3 text-[0.75rem] opacity-60 font-mono">Loading session…</div>
+			<div className="p-3 text-[0.75rem] opacity-60 font-mono">
+				Loading session…
+			</div>
 		);
 	}
 
@@ -1193,7 +1262,8 @@ function extractAssistantText(outputJson: string | null): string | null {
 		const parsed = JSON.parse(outputJson);
 		if (typeof parsed === "string") return parsed;
 		if (parsed && typeof parsed === "object") {
-			if ("content" in parsed) return coerceStringContent((parsed as any).content);
+			if ("content" in parsed)
+				return coerceStringContent((parsed as any).content);
 			// Anthropic: { content: [{type:"text", text}] }
 			if (Array.isArray((parsed as any).content)) {
 				return coerceStringContent((parsed as any).content);
@@ -1276,7 +1346,9 @@ function ConversationTurn({
 			<span className="font-bold">{label}</span>
 			<div className="flex-1 h-px bg-sys-outline/40" />
 			<span className="opacity-60">{formatDuration(span.durationMs)}</span>
-			<span className="opacity-40">{new Date(span.startTime).toLocaleTimeString()}</span>
+			<span className="opacity-40">
+				{new Date(span.startTime).toLocaleTimeString()}
+			</span>
 		</div>
 	);
 }

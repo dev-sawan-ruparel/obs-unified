@@ -101,7 +101,9 @@ export function ObsDashboardProvider({
 	children: ReactNode;
 }) {
 	const [projectId, setProjectIdState] = useState<string>(readInitialProjectId);
-	const [timeWindowMins, setTimeWindowMinsState] = useState<number>(readInitialTimeWindow);
+	const [timeWindowMins, setTimeWindowMinsState] = useState<number>(
+		readInitialTimeWindow,
+	);
 
 	useEffect(() => {
 		writeProjectId(projectId);
@@ -139,7 +141,14 @@ export function ObsDashboardProvider({
 			timeWindowMins,
 			setTimeWindowMins,
 		};
-	}, [basePath, fetcher, projectId, setProjectId, timeWindowMins, setTimeWindowMins]);
+	}, [
+		basePath,
+		fetcher,
+		projectId,
+		setProjectId,
+		timeWindowMins,
+		setTimeWindowMins,
+	]);
 
 	return (
 		<DashboardContext.Provider value={config}>

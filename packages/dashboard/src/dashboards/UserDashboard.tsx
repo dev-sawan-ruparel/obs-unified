@@ -12,8 +12,8 @@
  * the UI surface that makes the chain navigable in the browser.
  */
 
-import { useEffect, useState } from "react";
 import type { UserProfileDetail } from "@obs-unified/types";
+import { useEffect, useState } from "react";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Card, SectionTitle } from "../components/primitives";
 import { StateRow } from "../components/states";
@@ -43,10 +43,7 @@ const formatDate = (iso: string): string => {
 function CopyCell({ value }: { value: string }) {
 	const [copied, setCopied] = useState(false);
 	return (
-		<dd
-			className="group flex min-w-0 items-center gap-1.5"
-			title={value}
-		>
+		<dd className="group flex min-w-0 items-center gap-1.5" title={value}>
 			<span className="truncate">{value}</span>
 			<button
 				type="button"

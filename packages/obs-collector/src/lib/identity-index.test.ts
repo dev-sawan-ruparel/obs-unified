@@ -85,8 +85,7 @@ describe("IdentityIndex.bySession", () => {
 		// just session_id since replay is global.
 		const allCalls = db.calls.filter((c) => c.op !== "first" || c.binds.length);
 		const sessionQueries = allCalls.filter(
-			(c) =>
-				c.sql.includes("session_id") && c.binds.includes("proj-1"),
+			(c) => c.sql.includes("session_id") && c.binds.includes("proj-1"),
 		);
 		expect(sessionQueries.length).toBeGreaterThanOrEqual(4);
 	});
@@ -261,3 +260,304 @@ describe("IdentityIndex.byUser", () => {
 		expect(limit).toBeLessThanOrEqual(20);
 	});
 });
+
+describe("IdentityIndex.byAction", () => {
+	it("materializes the entire causal decision tree and related signals", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("actions") && sql.includes("id = ?")) {
+					return {
+						id: "action-1",
+						project_id: "proj-1",
+						root_action_id: "root-1",
+						caused_by_action_id: null,
+						actor_type: "agent",
+						actor_id: "agent-1",
+						action_kind: "agent.run",
+						name: "test-action",
+						status: "ok",
+						started_at: "2026-05-01T00:00:00Z",
+						ended_at: "2026-05-01T00:00:10Z",
+						duration_ms: 10000,
+						trace_id: "t1",
+						span_id: "s1",
+						session_id: "sess-1",
+						interaction_id: null,
+						user_id: "user-1",
+						agent_run_id: "root-1",
+						step_id: null,
+						tool_call_id: null,
+						prompt_version: null,
+						model_name: null,
+						provider: null,
+						total_cost_usd: 0.05,
+						attrs_json: "{}",
+					};
+				}
+				if (sql.includes("session_replay_metadata")) {
+					return {
+						session_id: "sess-1",
+						first_chunk_at: "2026-05-01T00:00:00Z",
+						last_chunk_at: "2026-05-01T00:00:30Z",
+						chunk_count: 2,
+						events_count: 20,
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("actions") && sql.includes("root_action_id = ?")) {
+					return [
+						{
+							id: "action-1",
+							project_id: "proj-1",
+							root_action_id: "root-1",
+							caused_by_action_id: null,
+							actor_type: "agent",
+							actor_id: "agent-1",
+							action_kind: "agent.run",
+							name: "test-action",
+							status: "ok",
+							started_at: "2026-05-01T00:00:00Z",
+							ended_at: "2026-05-01T00:00:10Z",
+							duration_ms: 10000,
+							trace_id: "t1",
+							span_id: "s1",
+							session_id: "sess-1",
+							interaction_id: null,
+							user_id: "user-1",
+							agent_run_id: "root-1",
+							step_id: null,
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: 0.05,
+							attrs_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("agent_runs")) {
+					return [
+						{
+							id: "root-1",
+							project_id: "proj-1",
+							agent_id: "agent-1",
+							agent_name: "test-agent",
+							agent_version: "1.0.0",
+							goal: "test goal",
+							outcome: "test success",
+							autonomy_level: "autonomous_write",
+							status: "success",
+							error_message: null,
+							total_cost_usd: 0.05,
+							total_duration_ms: 10000,
+							metadata_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("tool_calls")) {
+					return [
+						{
+							id: "tool-1",
+							action_id: "action-1",
+							project_id: "proj-1",
+							tool_name: "test_tool",
+							args_hash: "hash1",
+							result_hash: "hash2",
+							error_type: null,
+							side_effect: 0,
+							approval_state: "suggested",
+							args_redacted: "{}",
+							result_redacted: "{}",
+						},
+					];
+				}
+				if (sql.includes("retrieval_events")) return [];
+				if (sql.includes("eval_results")) return [];
+				if (sql.includes("artifacts")) return [];
+				if (sql.includes("telemetry_spans")) {
+					return [
+						{
+							trace_id: "t1",
+							span_id: "s1",
+							parent_span_id: null,
+							service_name: "agent-service",
+							span_name: "agent-run-span",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-01T00:00:00Z",
+							duration_ms: 10000,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("logs")) return [];
+				if (sql.includes("ai_calls")) return [];
+				return [];
+			},
+		});
+
+		const index = new IdentityIndex(db);
+		const manifest = await index.byAction("proj-1", "action-1");
+
+		expect(manifest.actions).toHaveLength(1);
+		expect(manifest.actions[0].id).toBe("action-1");
+		expect(manifest.actions[0].projectId).toBe("proj-1");
+		expect(manifest.agentRuns).toHaveLength(1);
+		expect(manifest.agentRuns[0].agentId).toBe("agent-1");
+		expect(manifest.toolCalls).toHaveLength(1);
+		expect(manifest.toolCalls[0].toolName).toBe("test_tool");
+		expect(manifest.spans).toHaveLength(1);
+		expect(manifest.spans[0].traceId).toBe("t1");
+		expect(manifest.replay).not.toBeNull();
+		expect(manifest.replay?.sessionId).toBe("sess-1");
+	});
+
+	it("returns empty structure when action does not exist", async () => {
+		const db = new MemSqlDb({ first: noFirst, all: noRows });
+		const index = new IdentityIndex(db);
+		const manifest = await index.byAction("proj-1", "action-none");
+		expect(manifest.actions).toEqual([]);
+		expect(manifest.agentRuns).toEqual([]);
+		expect(manifest.toolCalls).toEqual([]);
+		expect(manifest.spans).toEqual([]);
+	});
+});
+
+describe("IdentityIndex.byAgentRun", () => {
+	it("resolves all child elements for a specific agent run", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("agent_runs")) {
+					return {
+						id: "run-123",
+						project_id: "proj-1",
+						agent_id: "my-agent",
+						agent_name: "Agent 007",
+						agent_version: "1.2.3",
+						goal: "save the world",
+						outcome: "world saved",
+						autonomy_level: "autonomous_write",
+						status: "success",
+						error_message: null,
+						total_cost_usd: 0.1,
+						total_duration_ms: 5000,
+						metadata_json: "{}",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("actions") && (sql.includes("root_action_id") || sql.includes("agent_run_id"))) {
+					return [
+						{
+							id: "action-root",
+							project_id: "proj-1",
+							root_action_id: "run-123",
+							caused_by_action_id: null,
+							actor_type: "agent",
+							actor_id: "my-agent",
+							action_kind: "agent.run",
+							name: "root-run",
+							status: "ok",
+							started_at: "2026-05-01T12:00:00Z",
+							ended_at: "2026-05-01T12:00:05Z",
+							duration_ms: 5000,
+							trace_id: "tx-123",
+							span_id: "sp-123",
+							session_id: "sess-123",
+							interaction_id: null,
+							user_id: null,
+							agent_run_id: "run-123",
+							step_id: null,
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: 0.1,
+							attrs_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("agent_runs")) {
+					return [
+						{
+							id: "run-123",
+							project_id: "proj-1",
+							agent_id: "my-agent",
+							agent_name: "Agent 007",
+							agent_version: "1.2.3",
+							goal: "save the world",
+							outcome: "world saved",
+							autonomy_level: "autonomous_write",
+							status: "success",
+							error_message: null,
+							total_cost_usd: 0.1,
+							total_duration_ms: 5000,
+							metadata_json: "{}",
+						},
+					];
+				}
+				return [];
+			},
+		});
+
+		const index = new IdentityIndex(db);
+		const manifest = await index.byAgentRun("proj-1", "run-123");
+
+		expect(manifest.agentRuns).toHaveLength(1);
+		expect(manifest.agentRuns[0].agentId).toBe("my-agent");
+		expect(manifest.actions).toHaveLength(1);
+		expect(manifest.actions[0].id).toBe("action-root");
+	});
+});
+
+describe("IdentityIndex.byActor", () => {
+	it("retrieves recent actions and sub-elements for a specific actor", async () => {
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("actions") && sql.includes("actor_type")) {
+					return [
+						{
+							id: "action-actor",
+							project_id: "proj-1",
+							root_action_id: "run-abc",
+							caused_by_action_id: null,
+							actor_type: "user",
+							actor_id: "actor-123",
+							action_kind: "user.command",
+							name: "execute command",
+							status: "ok",
+							started_at: "2026-05-01T15:00:00Z",
+							ended_at: "2026-05-01T15:00:01Z",
+							duration_ms: 1000,
+							trace_id: null,
+							span_id: null,
+							session_id: null,
+							interaction_id: null,
+							user_id: null,
+							agent_run_id: null,
+							step_id: null,
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: null,
+							attrs_json: "{}",
+						},
+					];
+				}
+				return [];
+			},
+		});
+
+		const index = new IdentityIndex(db);
+		const manifest = await index.byActor("proj-1", "user", "actor-123");
+
+		expect(manifest.actions).toHaveLength(1);
+		expect(manifest.actions[0].actorId).toBe("actor-123");
+		expect(manifest.actions[0].actorType).toBe("user");
+	});
+});
+

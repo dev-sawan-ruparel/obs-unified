@@ -44,10 +44,7 @@ export class ProjectsStore {
 		return row ? rowToProject(row) : null;
 	}
 
-	async createProject(input: {
-		name: string;
-		slug: string;
-	}): Promise<Project> {
+	async createProject(input: { name: string; slug: string }): Promise<Project> {
 		const name = input.name.trim();
 		const slug = input.slug.trim().toLowerCase();
 		if (!name) throw new Error("Project name is required");

@@ -10,9 +10,5 @@ export default defineConfig({
 	clean: true,
 	sourcemap: true,
 	target: "es2022",
-	external: [
-		"hono",
-		"@obs-unified/types",
-		"@obs-unified/pprof-decoder",
-	],
+	external: ["hono", "@obs-unified/types", "@obs-unified/pprof-decoder"],
 });

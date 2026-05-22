@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 
 /*
  * E2E coverage for RFC 0002 Stage 1 — the Health dashboard.
@@ -20,7 +20,14 @@ type Entry = {
 	definition: {
 		id: string;
 		title: string;
-		group: "Health" | "Services" | "Dependencies" | "Async" | "AI" | "Frontend" | "Custom";
+		group:
+			| "Health"
+			| "Services"
+			| "Dependencies"
+			| "Async"
+			| "AI"
+			| "Frontend"
+			| "Custom";
 		source: "tier0" | "tier1" | "user" | "llm-suggested";
 		view: "tile" | "page" | "alert";
 		refreshSeconds?: number;
@@ -59,24 +66,26 @@ function entry(
 			view: "tile",
 			refreshSeconds: 60,
 		},
-		result: status === "unknown" && primary === null
-			? null
-			: {
-					analysisId: id,
-					projectId: "default",
-					generatedAt: NOW,
-					paramsHash: null,
-					status,
-					primaryValue: primary,
-					baselineValue: baseline,
-					deltaPct: primary !== null && baseline !== null && baseline !== 0
-						? ((primary - baseline) / baseline) * 100
-						: null,
-					payload: {},
-					narrative: null,
-					narrativeSignature: null,
-					durationMs: 12,
-				},
+		result:
+			status === "unknown" && primary === null
+				? null
+				: {
+						analysisId: id,
+						projectId: "default",
+						generatedAt: NOW,
+						paramsHash: null,
+						status,
+						primaryValue: primary,
+						baselineValue: baseline,
+						deltaPct:
+							primary !== null && baseline !== null && baseline !== 0
+								? ((primary - baseline) / baseline) * 100
+								: null,
+						payload: {},
+						narrative: null,
+						narrativeSignature: null,
+						durationMs: 12,
+					},
 	};
 }
 
@@ -110,7 +119,14 @@ test.describe("Health Dashboard", () => {
 		// All-warn so focus mode (which auto-enables on critical) doesn't hide
 		// ok panels — every group should render.
 		const results: Entry[] = [
-			entry("overall_error_rate", "Overall error rate", "Health", "warn", 0.05, 0.02),
+			entry(
+				"overall_error_rate",
+				"Overall error rate",
+				"Health",
+				"warn",
+				0.05,
+				0.02,
+			),
 			entry(
 				"service_error_rate::checkout",
 				"checkout · errors",
@@ -170,7 +186,9 @@ test.describe("Health Dashboard", () => {
 		expect(body).toMatch(/3\s*ok/i);
 	});
 
-	test("empty state shows when no analyses are registered", async ({ page }) => {
+	test("empty state shows when no analyses are registered", async ({
+		page,
+	}) => {
 		await mockAnalyses(page, []);
 		await page.goto("/#/health");
 
@@ -228,7 +246,9 @@ test.describe("Health Dashboard", () => {
 		await expect(page).toHaveURL(/\/#\/traces\?service=checkout/);
 	});
 
-	test("Tier-0 tile lands on /traces with no scope filter", async ({ page }) => {
+	test("Tier-0 tile lands on /traces with no scope filter", async ({
+		page,
+	}) => {
 		const results: Entry[] = [
 			{
 				definition: {
@@ -315,14 +335,7 @@ test.describe("Health Dashboard", () => {
 		page,
 	}) => {
 		const results: Entry[] = [
-			entry(
-				"throughput_slope",
-				"Throughput slope",
-				"Health",
-				"ok",
-				5734,
-				5500,
-			),
+			entry("throughput_slope", "Throughput slope", "Health", "ok", 5734, 5500),
 		];
 		await mockAnalyses(page, results);
 		await page.goto("/#/health");
@@ -366,7 +379,14 @@ test.describe("Health Dashboard", () => {
 				durationMs: 4,
 			},
 		};
-		const native = entry("overall_error_rate", "Overall error rate", "Health", "warn", 0.05, 0.02);
+		const native = entry(
+			"overall_error_rate",
+			"Overall error rate",
+			"Health",
+			"warn",
+			0.05,
+			0.02,
+		);
 		await mockAnalyses(page, [pinned, native]);
 		await page.goto("/#/health");
 

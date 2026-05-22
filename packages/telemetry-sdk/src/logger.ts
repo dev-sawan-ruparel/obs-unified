@@ -50,7 +50,7 @@ interface BufferedLog {
 const MAX_BUFFER_SIZE = 500;
 
 let logConfig: LoggerConfig | null = null;
-let logBuffer: BufferedLog[] = [];
+const logBuffer: BufferedLog[] = [];
 let flushInProgress = false;
 
 export function initLogger(config: LoggerConfig) {
@@ -143,9 +143,7 @@ function toOtlpAnyValue(v: JsonValue): Record<string, unknown> {
 	if (typeof v === "string") return { stringValue: v };
 	if (typeof v === "boolean") return { boolValue: v };
 	if (typeof v === "number") {
-		return Number.isInteger(v)
-			? { intValue: String(v) }
-			: { doubleValue: v };
+		return Number.isInteger(v) ? { intValue: String(v) } : { doubleValue: v };
 	}
 	if (Array.isArray(v)) {
 		return { arrayValue: { values: v.map((x) => toOtlpAnyValue(x)) } };

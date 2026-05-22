@@ -12,10 +12,22 @@
 		{ "value": "01HZQ5W3K8M4P2X7N9B0CDEFG", "reason": "too short (25 chars)" },
 		{ "value": "01HZQ5W3K8M4P2X7N9B0CDEFGHX", "reason": "too long (27 chars)" },
 		{ "value": "01hzq5w3k8m4p2x7n9b0cdefgh", "reason": "lowercase rejected" },
-		{ "value": "I1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'I'" },
-		{ "value": "L1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'L'" },
-		{ "value": "O1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'O'" },
-		{ "value": "U1HZQ5W3K8M4P2X7N9B0CDEFGH", "reason": "contains forbidden 'U'" },
+		{
+			"value": "I1HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"reason": "contains forbidden 'I'"
+		},
+		{
+			"value": "L1HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"reason": "contains forbidden 'L'"
+		},
+		{
+			"value": "O1HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"reason": "contains forbidden 'O'"
+		},
+		{
+			"value": "U1HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"reason": "contains forbidden 'U'"
+		},
 		{ "value": "01HZQ5W3K8M4P2X7N9B0!DEFGH", "reason": "contains punctuation" }
 	],
 	"header": {

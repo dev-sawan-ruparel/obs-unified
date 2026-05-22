@@ -1,5 +1,5 @@
-import type { CollectorPlugin } from "../framework/collector";
 import type { ReplayChunkInput } from "@obs-unified/types";
+import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -28,8 +28,9 @@ export const replayReceiverPlugin: CollectorPlugin = {
 				httpMetadata: { contentType: "application/json" },
 			});
 
-			await sqlDbFor(c.env).prepare(
-				`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
+			await sqlDbFor(c.env)
+				.prepare(
+					`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(session_id) DO UPDATE SET
            last_chunk_at = excluded.last_chunk_at,
@@ -37,7 +38,7 @@ export const replayReceiverPlugin: CollectorPlugin = {
            events_count = session_replay_metadata.events_count + excluded.events_count,
            storage_bytes = session_replay_metadata.storage_bytes + excluded.storage_bytes
         `,
-			)
+				)
 				.bind(
 					projectId,
 					payload.sessionId,

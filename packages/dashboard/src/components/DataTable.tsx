@@ -69,7 +69,9 @@ export function DataTable<Row>({
 	const fontClass = (f?: ColumnFont) => (f === "mono" ? "font-mono" : "");
 
 	return (
-		<div className={`flex flex-col bg-sys-surface border border-sys-outline-soft ${className}`}>
+		<div
+			className={`flex flex-col bg-sys-surface border border-sys-outline-soft ${className}`}
+		>
 			<div
 				className="grid gap-2 px-3 py-2 sticky top-0 bg-sys-surface border-b border-sys-outline-soft"
 				style={gridStyle}

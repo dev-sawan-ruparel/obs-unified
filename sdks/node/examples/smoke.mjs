@@ -5,7 +5,12 @@
 // key in OBS_INGEST_KEY. After the script exits, inspect D1 for spans
 // matching service.name = "smoke-node-sdk".
 
-import { init, setProjectId, withLLMSpan, withToolSpan } from "../dist/index.js";
+import {
+	init,
+	setProjectId,
+	withLLMSpan,
+	withToolSpan,
+} from "../dist/index.js";
 
 const shutdown = init({
 	collectorUrl: process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790",
@@ -28,7 +33,9 @@ const main = async () => {
 			// Pretend HTTP call. In real apps the wrapped fetch via
 			// @opentelemetry/instrumentation-http creates a child HTTP span.
 			const fakeResponse = {
-				choices: [{ message: { content: "It is sunny." }, finish_reason: "stop" }],
+				choices: [
+					{ message: { content: "It is sunny." }, finish_reason: "stop" },
+				],
 				usage: { prompt_tokens: 42, completion_tokens: 5, total_tokens: 47 },
 			};
 			span.setUsage({

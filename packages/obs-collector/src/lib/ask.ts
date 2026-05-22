@@ -106,9 +106,7 @@ export interface AskRunDeps {
 		group?: string;
 		view?: string;
 	}) => Promise<AnalysisDefinition[]>;
-	getLatestResult: (
-		id: string,
-	) => Promise<{
+	getLatestResult: (id: string) => Promise<{
 		definition: AnalysisDefinition;
 		result: AnalysisResult | null;
 	} | null>;
@@ -338,9 +336,7 @@ async function callAnthropic(
 		if (span) span.setAttribute("http.response.status_code", response.status);
 		if (!response.ok) {
 			const text = await response.text().catch(() => "");
-			throw new Error(
-				`anthropic ${response.status}: ${text.slice(0, 200)}`,
-			);
+			throw new Error(`anthropic ${response.status}: ${text.slice(0, 200)}`);
 		}
 		const json = (await response.json()) as AnthropicResponse & {
 			usage?: { input_tokens?: number; output_tokens?: number };

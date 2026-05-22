@@ -51,7 +51,12 @@ export function OnboardingDashboard() {
 		<div style={{ padding: 24, maxWidth: 880 }}>
 			<header style={{ marginBottom: 24 }}>
 				<h1 style={{ margin: 0, fontSize: 22 }}>Onboarding</h1>
-				<p style={{ color: "var(--color-sys-on-surface-muted)", margin: "4px 0 0" }}>
+				<p
+					style={{
+						color: "var(--color-sys-on-surface-muted)",
+						margin: "4px 0 0",
+					}}
+				>
 					{allDone
 						? "All signal types are flowing. You can hide this tab from the left rail in settings."
 						: `${completeCount} of ${steps.length} steps complete.`}
@@ -92,7 +97,9 @@ export function OnboardingDashboard() {
 									background: step.complete
 										? "var(--color-sys-primary)"
 										: "transparent",
-									color: step.complete ? "var(--color-sys-on-primary)" : "inherit",
+									color: step.complete
+										? "var(--color-sys-on-primary)"
+										: "inherit",
 									border: step.complete
 										? "none"
 										: "1px solid var(--color-sys-outline-variant)",
@@ -149,7 +156,8 @@ await flushLogs();`}
 			body: (
 				<>
 					<p>
-						<strong>Browser:</strong> wrap your app in <code>AnalyticsProvider</code>.
+						<strong>Browser:</strong> wrap your app in{" "}
+						<code>AnalyticsProvider</code>.
 					</p>
 					<Snippet
 						lang="tsx"
@@ -160,7 +168,8 @@ await flushLogs();`}
 </AnalyticsProvider>`}
 					/>
 					<p style={{ marginTop: 12 }}>
-						<strong>Server:</strong> call <code>stampInteractionFromRequest</code> on the root span.
+						<strong>Server:</strong> call{" "}
+						<code>stampInteractionFromRequest</code> on the root span.
 					</p>
 					<Snippet
 						lang="ts"
@@ -232,8 +241,7 @@ await startLLMSpan({
 					rrweb chunks are captured client-side by{" "}
 					<code>@obs-unified/analytics-sdk</code> when{" "}
 					<code>captureReplay</code> is set on the provider. Visit the
-					Playground tab and click <strong>Start replay</strong> to
-					seed one.
+					Playground tab and click <strong>Start replay</strong> to seed one.
 				</p>
 			),
 		},

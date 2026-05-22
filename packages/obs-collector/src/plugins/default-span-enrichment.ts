@@ -1,5 +1,8 @@
 import type { JsonValue, StoredSpan } from "@obs-unified/types";
-import { INTERACTION_ID_KEY, SESSION_ID_KEY } from "@obs-unified/types/constants";
+import {
+	INTERACTION_ID_KEY,
+	SESSION_ID_KEY,
+} from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 

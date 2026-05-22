@@ -45,9 +45,7 @@ export const wrapR2 = <T extends R2Bucket>(
 		operation: string,
 		key: string | undefined,
 		extra: Record<string, unknown>,
-		exec: (span: {
-			setAttribute(k: string, v: unknown): void;
-		}) => Promise<R>,
+		exec: (span: { setAttribute(k: string, v: unknown): void }) => Promise<R>,
 	): Promise<R> =>
 		withChildSpan(`${prefix}.${operation}`, async (span) => {
 			span.setAttribute("r2.operation", operation);
@@ -68,33 +66,27 @@ export const wrapR2 = <T extends R2Bucket>(
 			if (prop === "get") {
 				return async (key: string, options?: unknown) =>
 					trace("get", key, {}, async (span) => {
-						const result = await (target.get as (
-							k: string,
-							o?: unknown,
-						) => Promise<R2ObjectBody | null>)(key, options);
+						const result = await (
+							target.get as (
+								k: string,
+								o?: unknown,
+							) => Promise<R2ObjectBody | null>
+						)(key, options);
 						if (result && typeof result.size === "number")
 							span.setAttribute("r2.size_bytes", result.size);
 						return result;
 					});
 			}
 			if (prop === "put") {
-				return async (
-					key: string,
-					value: unknown,
-					options?: unknown,
-				) =>
-					trace(
-						"put",
-						key,
-						{ "r2.size_bytes": sizeOf(value) },
-						async () =>
-							(
-								target.put as (
-									k: string,
-									v: unknown,
-									o?: unknown,
-								) => Promise<R2Object>
-							)(key, value, options),
+				return async (key: string, value: unknown, options?: unknown) =>
+					trace("put", key, { "r2.size_bytes": sizeOf(value) }, async () =>
+						(
+							target.put as (
+								k: string,
+								v: unknown,
+								o?: unknown,
+							) => Promise<R2Object>
+						)(key, value, options),
 					);
 			}
 			if (prop === "head") {
@@ -108,17 +100,15 @@ export const wrapR2 = <T extends R2Bucket>(
 						Array.isArray(key) ? `[${key.length} keys]` : key,
 						{ "r2.batch_size": Array.isArray(key) ? key.length : 1 },
 						async () =>
-							(
-								target.delete as (k: string | string[]) => Promise<void>
-							)(key),
+							(target.delete as (k: string | string[]) => Promise<void>)(key),
 					);
 			}
 			if (prop === "list") {
 				return async (options?: unknown) =>
 					trace("list", undefined, {}, async (span) => {
-						const result = await (target.list as (
-							o?: unknown,
-						) => Promise<R2Objects>)(options);
+						const result = await (
+							target.list as (o?: unknown) => Promise<R2Objects>
+						)(options);
 						if (result && Array.isArray(result.objects))
 							span.setAttribute("r2.result_count", result.objects.length);
 						return result;

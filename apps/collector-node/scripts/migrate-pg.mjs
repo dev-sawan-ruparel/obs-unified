@@ -7,7 +7,7 @@
 //
 // Re-running is safe — applied migrations are skipped.
 
-import { readFile, readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -52,10 +52,9 @@ for (const file of files) {
 	try {
 		await client.query("BEGIN");
 		await client.query(sql);
-		await client.query(
-			"INSERT INTO schema_migrations (name) VALUES ($1)",
-			[file],
-		);
+		await client.query("INSERT INTO schema_migrations (name) VALUES ($1)", [
+			file,
+		]);
 		await client.query("COMMIT");
 		console.log(`[migrate] applied ${file}`);
 		appliedCount += 1;

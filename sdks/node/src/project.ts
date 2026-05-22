@@ -29,9 +29,11 @@ export const getProjectId = (): string | undefined => {
 	const span = trace.getActiveSpan();
 	if (!span) return undefined;
 	// SpanAttributes is internal; use a structural cast.
-	const attrs = (span as unknown as {
-		attributes?: Record<string, unknown>;
-	}).attributes;
+	const attrs = (
+		span as unknown as {
+			attributes?: Record<string, unknown>;
+		}
+	).attributes;
 	const v = attrs?.[PROJECT_ID_ATTRIBUTE];
 	return typeof v === "string" ? v : undefined;
 };

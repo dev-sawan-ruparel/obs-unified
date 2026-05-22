@@ -10,11 +10,7 @@ import type {
 } from "@obs-unified/types";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button";
-import {
-	Field,
-	SelectField,
-	TextField,
-} from "../components/forms";
+import { Field, SelectField, TextField } from "../components/forms";
 
 interface Props {
 	initial?: AlertRule;
@@ -31,9 +27,20 @@ const SIGNALS: Array<{ value: AlertSignal; label: string }> = [
 ];
 
 const COMPARISONS: AlertComparison[] = [">", ">=", "<", "<="];
-const LOG_SEVERITIES: LogSeverity[] = ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"];
+const LOG_SEVERITIES: LogSeverity[] = [
+	"DEBUG",
+	"INFO",
+	"WARN",
+	"ERROR",
+	"FATAL",
+];
 
-export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props) {
+export function AlertRuleForm({
+	initial,
+	onSubmit,
+	onCancel,
+	submitting,
+}: Props) {
 	const [name, setName] = useState(initial?.name ?? "");
 	const [signal, setSignal] = useState<AlertSignal>(initial?.signal ?? "spans");
 	const [threshold, setThreshold] = useState<string>(
@@ -176,7 +183,10 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 							<TextField
 								value={(query as any).serviceName ?? ""}
 								onChange={(e) =>
-									setQuery({ ...query, serviceName: e.target.value || undefined })
+									setQuery({
+										...query,
+										serviceName: e.target.value || undefined,
+									})
 								}
 								className="w-full"
 							/>
@@ -215,7 +225,10 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 							<TextField
 								value={(query as any).serviceName ?? ""}
 								onChange={(e) =>
-									setQuery({ ...query, serviceName: e.target.value || undefined })
+									setQuery({
+										...query,
+										serviceName: e.target.value || undefined,
+									})
 								}
 								className="w-full"
 							/>
@@ -232,9 +245,7 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 								className="w-full"
 								options={[
 									["", "Any"],
-									...LOG_SEVERITIES.map(
-										(s): [string, string] => [s, s],
-									),
+									...LOG_SEVERITIES.map((s): [string, string] => [s, s]),
 								]}
 							/>
 						</Field>
@@ -256,7 +267,10 @@ export function AlertRuleForm({ initial, onSubmit, onCancel, submitting }: Props
 							<TextField
 								value={(query as any).pathPattern ?? ""}
 								onChange={(e) =>
-									setQuery({ ...query, pathPattern: e.target.value || undefined })
+									setQuery({
+										...query,
+										pathPattern: e.target.value || undefined,
+									})
 								}
 								placeholder="/checkout%"
 								mono

@@ -117,12 +117,18 @@ export function parsePredicate(predicate: string): ParseResult {
 
 const compare = (op: Comparator, a: number, b: number): boolean => {
 	switch (op) {
-		case ">": return a > b;
-		case ">=": return a >= b;
-		case "<": return a < b;
-		case "<=": return a <= b;
-		case "==": return a === b;
-		case "!=": return a !== b;
+		case ">":
+			return a > b;
+		case ">=":
+			return a >= b;
+		case "<":
+			return a < b;
+		case "<=":
+			return a <= b;
+		case "==":
+			return a === b;
+		case "!=":
+			return a !== b;
 	}
 };
 

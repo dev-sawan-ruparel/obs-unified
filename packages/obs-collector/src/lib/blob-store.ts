@@ -80,7 +80,10 @@ export class R2BlobStore implements BlobStore {
 		await this.bucket.delete(key);
 	}
 
-	async list(prefix: string, options?: BlobListOptions): Promise<BlobListResult> {
+	async list(
+		prefix: string,
+		options?: BlobListOptions,
+	): Promise<BlobListResult> {
 		const r = await this.bucket.list({
 			prefix,
 			limit: options?.limit,

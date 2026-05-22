@@ -9,16 +9,16 @@
  * as strings to avoid precision loss.
  */
 
-import { type JsonValue, fromBinary, fromJson } from "@bufbuild/protobuf";
-import type { Context } from "hono";
+import { fromBinary, fromJson, type JsonValue } from "@bufbuild/protobuf";
 import type {
-	JsonValue as ObsJsonValue,
 	LogSeverity,
+	JsonValue as ObsJsonValue,
 	OtlpAnyValue,
 	OtlpKeyValue,
 	OtlpResourceSpans,
 	OtlpTraceExportRequest,
 } from "@obs-unified/types";
+import type { Context } from "hono";
 import {
 	type ExportLogsServiceRequest,
 	ExportLogsServiceRequestSchema,
@@ -78,10 +78,7 @@ export const readOtlpBody = async (c: Context): Promise<ReadBodyResult> => {
 	if (encoding === "gzip") {
 		body = await gunzip(body);
 	} else if (encoding && encoding !== "identity") {
-		throw new OtlpDecodeError(
-			`Unsupported content-encoding: ${encoding}`,
-			415,
-		);
+		throw new OtlpDecodeError(`Unsupported content-encoding: ${encoding}`, 415);
 	}
 
 	return { bytes: new Uint8Array(body), wireFormat };
@@ -116,10 +113,7 @@ export const decodeTraceRequest = (
 		msg =
 			body.wireFormat === "protobuf"
 				? fromBinary(ExportTraceServiceRequestSchema, body.bytes)
-				: fromJson(
-						ExportTraceServiceRequestSchema,
-						decodeJsonBody(body.bytes),
-					);
+				: fromJson(ExportTraceServiceRequestSchema, decodeJsonBody(body.bytes));
 	} catch (err) {
 		throw new OtlpDecodeError(
 			`Malformed OTLP body: ${(err as Error).message}`,
@@ -216,18 +210,13 @@ export interface DecodedLogRecord {
  * storage. Resource `service.name` and scope name are denormalized onto each
  * record so downstream code doesn't need to traverse the hierarchy.
  */
-export const decodeLogsRequest = (
-	body: ReadBodyResult,
-): DecodedLogRecord[] => {
+export const decodeLogsRequest = (body: ReadBodyResult): DecodedLogRecord[] => {
 	let msg: ExportLogsServiceRequest;
 	try {
 		msg =
 			body.wireFormat === "protobuf"
 				? fromBinary(ExportLogsServiceRequestSchema, body.bytes)
-				: fromJson(
-						ExportLogsServiceRequestSchema,
-						decodeJsonBody(body.bytes),
-					);
+				: fromJson(ExportLogsServiceRequestSchema, decodeJsonBody(body.bytes));
 	} catch (err) {
 		throw new OtlpDecodeError(
 			`Malformed OTLP body: ${(err as Error).message}`,
@@ -275,9 +264,7 @@ const adaptLogRecord = (
 	};
 };
 
-const extractServiceName = (
-	attrs: KeyValue[] | undefined,
-): string | null => {
+const extractServiceName = (attrs: KeyValue[] | undefined): string | null => {
 	if (!attrs) return null;
 	const match = attrs.find((a) => a.key === "service.name");
 	if (!match?.value) return null;
@@ -286,10 +273,7 @@ const extractServiceName = (
 		: null;
 };
 
-const severityFromNumber = (
-	n: number,
-	text: string,
-): LogSeverity => {
+const severityFromNumber = (n: number, text: string): LogSeverity => {
 	if (n >= 21) return "FATAL";
 	if (n >= 17) return "ERROR";
 	if (n >= 13) return "WARN";
@@ -298,8 +282,14 @@ const severityFromNumber = (
 	if (n >= 1) return "DEBUG"; // TRACE collapsed to DEBUG
 	// severityNumber unset — fall back to text, then INFO default.
 	const upper = text.toUpperCase();
-	if (upper === "FATAL" || upper === "ERROR" || upper === "WARN"
-		|| upper === "INFO" || upper === "DEBUG") return upper;
+	if (
+		upper === "FATAL" ||
+		upper === "ERROR" ||
+		upper === "WARN" ||
+		upper === "INFO" ||
+		upper === "DEBUG"
+	)
+		return upper;
 	return "INFO";
 };
 
@@ -324,9 +314,7 @@ const anyValueToString = (v: AnyValue | undefined): string => {
 	}
 };
 
-const keyValuesToRecord = (
-	kvs: KeyValue[],
-): Record<string, ObsJsonValue> => {
+const keyValuesToRecord = (kvs: KeyValue[]): Record<string, ObsJsonValue> => {
 	const out: Record<string, ObsJsonValue> = {};
 	for (const kv of kvs) {
 		out[kv.key] = anyValueToJson(kv.value);
@@ -460,13 +448,7 @@ const addMetrics = (
 			case "sum":
 				for (const p of metric.data.value.dataPoints) {
 					out.push({
-						...numberPoint(
-							metric,
-							p,
-							"sum",
-							common,
-							resourceIdentityFragment,
-						),
+						...numberPoint(metric, p, "sum", common, resourceIdentityFragment),
 						isMonotonic: metric.data.value.isMonotonic,
 						temporality: metric.data.value.aggregationTemporality,
 					});
@@ -475,12 +457,7 @@ const addMetrics = (
 			case "histogram":
 				for (const p of metric.data.value.dataPoints) {
 					out.push({
-						...histogramPoint(
-							metric,
-							p,
-							common,
-							resourceIdentityFragment,
-						),
+						...histogramPoint(metric, p, common, resourceIdentityFragment),
 						temporality: metric.data.value.aggregationTemporality,
 					});
 				}
@@ -488,21 +465,14 @@ const addMetrics = (
 			case "exponentialHistogram":
 				for (const p of metric.data.value.dataPoints) {
 					out.push({
-						...expHistogramPoint(
-							metric,
-							p,
-							common,
-							resourceIdentityFragment,
-						),
+						...expHistogramPoint(metric, p, common, resourceIdentityFragment),
 						temporality: metric.data.value.aggregationTemporality,
 					});
 				}
 				break;
 			case "summary":
 				for (const p of metric.data.value.dataPoints) {
-					out.push(
-						summaryPoint(metric, p, common, resourceIdentityFragment),
-					);
+					out.push(summaryPoint(metric, p, common, resourceIdentityFragment));
 				}
 				break;
 			default:
@@ -550,9 +520,7 @@ const numberPoint = (
 			p.attributes,
 		),
 		tsNs: p.timeUnixNano.toString(),
-		startTsNs: p.startTimeUnixNano > 0n
-			? p.startTimeUnixNano.toString()
-			: null,
+		startTsNs: p.startTimeUnixNano > 0n ? p.startTimeUnixNano.toString() : null,
 		value,
 		count: null,
 		sum: null,
@@ -587,9 +555,7 @@ const histogramPoint = (
 			p.attributes,
 		),
 		tsNs: p.timeUnixNano.toString(),
-		startTsNs: p.startTimeUnixNano > 0n
-			? p.startTimeUnixNano.toString()
-			: null,
+		startTsNs: p.startTimeUnixNano > 0n ? p.startTimeUnixNano.toString() : null,
 		value: null,
 		count: Number(p.count),
 		sum: p.sum ?? null,
@@ -645,9 +611,7 @@ const expHistogramPoint = (
 			p.attributes,
 		),
 		tsNs: p.timeUnixNano.toString(),
-		startTsNs: p.startTimeUnixNano > 0n
-			? p.startTimeUnixNano.toString()
-			: null,
+		startTsNs: p.startTimeUnixNano > 0n ? p.startTimeUnixNano.toString() : null,
 		value: null,
 		count: Number(p.count),
 		sum: p.sum ?? null,
@@ -688,9 +652,7 @@ const summaryPoint = (
 			p.attributes,
 		),
 		tsNs: p.timeUnixNano.toString(),
-		startTsNs: p.startTimeUnixNano > 0n
-			? p.startTimeUnixNano.toString()
-			: null,
+		startTsNs: p.startTimeUnixNano > 0n ? p.startTimeUnixNano.toString() : null,
 		value: null,
 		count: Number(p.count),
 		sum: p.sum,
@@ -862,6 +824,7 @@ const bigintToString = (n: bigint): string => n.toString();
 
 const bytesToBase64 = (bytes: Uint8Array): string => {
 	let binary = "";
-	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i] ?? 0);
+	for (let i = 0; i < bytes.length; i++)
+		binary += String.fromCharCode(bytes[i] ?? 0);
 	return btoa(binary);
 };

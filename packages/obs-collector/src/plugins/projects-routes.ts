@@ -29,7 +29,10 @@ export const projectsRoutesPlugin: CollectorPlugin = {
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				// UNIQUE constraint failures from D1 surface as "D1_ERROR" with a cause.
-				if (message.includes("UNIQUE") || message.toLowerCase().includes("slug")) {
+				if (
+					message.includes("UNIQUE") ||
+					message.toLowerCase().includes("slug")
+				) {
 					return c.json({ error: "Slug already in use or invalid" }, 409);
 				}
 				return c.json({ error: message }, 400);
@@ -75,7 +78,8 @@ export const projectsRoutesPlugin: CollectorPlugin = {
 			const keyId = c.req.param("keyId");
 			const store = new ProjectsStore(sqlDbFor(c.env));
 			const revoked = await store.revokeKey(keyId);
-			if (!revoked) return c.json({ error: "Key not found or already revoked" }, 404);
+			if (!revoked)
+				return c.json({ error: "Key not found or already revoked" }, 404);
 			return c.json({ success: true });
 		});
 	},

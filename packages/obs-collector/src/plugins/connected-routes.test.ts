@@ -13,13 +13,13 @@
 
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import {
-	connectedRoutesPlugin,
-	type ConnectedManifest,
-} from "./connected-routes";
 import { CollectorRuntime } from "../framework/collector";
 import type { CollectorEnv } from "../framework/env";
 import { MemSqlDb } from "../lib/test-utils/mem-sql-db";
+import {
+	type ConnectedManifest,
+	connectedRoutesPlugin,
+} from "./connected-routes";
 
 // ── Test harness ─────────────────────────────────────────────────────
 
@@ -47,8 +47,7 @@ const setupRaw = (db: MemSqlDb) => {
 		// biome-ignore lint/suspicious/noExplicitAny: synthetic env for tests
 		DB: db as any,
 	};
-	return (path: string) =>
-		app.request(path, { method: "GET" }, env);
+	return (path: string) => app.request(path, { method: "GET" }, env);
 };
 
 describe("ConnectedRail manifest — informative absence", () => {
@@ -386,3 +385,400 @@ describe("ConnectedRail manifest — user entity (RFC 0006 Scenario B)", () => {
 		expect(sessionsSection!.emptyReason).toContain("visitor_id");
 	});
 });
+
+describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", () => {
+	it("action entity returns causal parent/run, siblings, and downstream sub-actions/tools/evals", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM actions") && sql.includes("id = ?")) {
+					return {
+						id: "act-456",
+						project_id: "p1",
+						root_action_id: "run-123",
+						caused_by_action_id: "act-parent",
+						actor_type: "agent",
+						actor_id: "my-agent",
+						action_kind: "agent.step",
+						name: "Perform Task",
+						status: "ok",
+						started_at: "2026-05-04T12:00:00Z",
+						ended_at: "2026-05-04T12:00:05Z",
+						duration_ms: 5000,
+						trace_id: "tx-789",
+						span_id: "sp-789",
+						session_id: "sess-1",
+						interaction_id: null,
+						user_id: "user-1",
+						agent_run_id: "run-123",
+						step_id: "act-456",
+						tool_call_id: null,
+						prompt_version: null,
+						model_name: null,
+						provider: null,
+						total_cost_usd: 0,
+						attrs_json: "{}",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("FROM actions") && sql.includes("root_action_id = ?")) {
+					return [
+						{
+							id: "act-456",
+							project_id: "p1",
+							root_action_id: "run-123",
+							caused_by_action_id: "act-parent",
+							actor_type: "agent",
+							actor_id: "my-agent",
+							action_kind: "agent.step",
+							name: "Perform Task",
+							status: "ok",
+							started_at: "2026-05-04T12:00:00Z",
+							ended_at: "2026-05-04T12:00:05Z",
+							duration_ms: 5000,
+							trace_id: "tx-789",
+							span_id: "sp-789",
+							session_id: "sess-1",
+							interaction_id: null,
+							user_id: "user-1",
+							agent_run_id: "run-123",
+							step_id: "act-456",
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: 0,
+							attrs_json: "{}",
+						},
+						{
+							id: "act-sibling",
+							project_id: "p1",
+							root_action_id: "run-123",
+							caused_by_action_id: "act-parent",
+							actor_type: "agent",
+							actor_id: "my-agent",
+							action_kind: "agent.step",
+							name: "Perform Other Task",
+							status: "ok",
+							started_at: "2026-05-04T12:00:06Z",
+							ended_at: "2026-05-04T12:00:10Z",
+							duration_ms: 4000,
+							trace_id: "tx-789",
+							span_id: "sp-790",
+							session_id: "sess-1",
+							interaction_id: null,
+							user_id: "user-1",
+							agent_run_id: "run-123",
+							step_id: "act-sibling",
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: 0,
+							attrs_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("FROM agent_runs")) {
+					return [
+						{
+							id: "run-123",
+							project_id: "p1",
+							agent_id: "my-agent",
+							agent_name: "My Agent",
+							agent_version: "1.0.0",
+							goal: "solve",
+							outcome: "solved",
+							autonomy_level: "autonomous_write",
+							status: "success",
+							error_message: null,
+							total_cost_usd: 0.1,
+							total_duration_ms: 9000,
+							metadata_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					return [
+						{
+							id: "tool-call-1",
+							action_id: "act-456",
+							project_id: "p1",
+							tool_name: "use_tool",
+							args_hash: "args",
+							result_hash: "res",
+							error_type: null,
+							side_effect: 1,
+							approval_state: "bypassed",
+							args_redacted: "{}",
+							result_redacted: "{}",
+						},
+					];
+				}
+				return [];
+			},
+		});
+
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/action/act-456?project_id=p1");
+
+		// Up section should have Parent Action and Agent Run
+		const parentAction = m.up.find((s) => s.label === "Parent Action");
+		expect(parentAction).toBeDefined();
+		expect(parentAction!.links[0].href).toBe("#/actions/act-parent");
+
+		const agentRun = m.up.find((s) => s.label === "Agent Run");
+		expect(agentRun).toBeDefined();
+		expect(agentRun!.links[0].href).toBe("#/agent-runs/run-123");
+
+		// Sibling actions in across
+		const siblings = m.across.find((s) => s.label === "Sibling Actions");
+		expect(siblings).toBeDefined();
+		expect(siblings!.links[0].href).toBe("#/actions/act-sibling");
+
+		// Tool calls in down
+		const toolCalls = m.down.find((s) => s.label === "Tool Calls");
+		expect(toolCalls).toBeDefined();
+		expect(toolCalls!.links[0].label).toContain("use_tool");
+
+		// OTel Trace in related
+		const relatedTrace = m.related.find((s) => s.label === "OTel Trace");
+		expect(relatedTrace).toBeDefined();
+		expect(relatedTrace!.links[0].href).toBe("#/traces/tx-789");
+	});
+
+	it("agent_run entity returns Agent, Traces, Decision Spine, and Tool Calls", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM agent_runs")) {
+					return {
+						id: "run-123",
+						project_id: "p1",
+						agent_id: "my-agent",
+						agent_name: "My Agent",
+						agent_version: "1.0.0",
+						goal: "solve",
+						outcome: "solved",
+						autonomy_level: "autonomous_write",
+						status: "success",
+						error_message: null,
+						total_cost_usd: 0.1,
+						total_duration_ms: 9000,
+						metadata_json: "{}",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("FROM actions")) {
+					return [
+						{
+							id: "act-456",
+							project_id: "p1",
+							root_action_id: "run-123",
+							caused_by_action_id: null,
+							actor_type: "agent",
+							actor_id: "my-agent",
+							action_kind: "agent.step",
+							name: "Perform Task",
+							status: "ok",
+							started_at: "2026-05-04T12:00:00Z",
+							ended_at: "2026-05-04T12:00:05Z",
+							duration_ms: 5000,
+							trace_id: "tx-789",
+							span_id: "sp-789",
+							session_id: "sess-1",
+							interaction_id: null,
+							user_id: "user-1",
+							agent_run_id: "run-123",
+							step_id: "act-456",
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: 0,
+							attrs_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("FROM agent_runs")) {
+					return [
+						{
+							id: "run-123",
+							project_id: "p1",
+							agent_id: "my-agent",
+							agent_name: "My Agent",
+							agent_version: "1.0.0",
+							goal: "solve",
+							outcome: "solved",
+							autonomy_level: "autonomous_write",
+							status: "success",
+							error_message: null,
+							total_cost_usd: 0.1,
+							total_duration_ms: 9000,
+							metadata_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					return [
+						{
+							id: "tool-call-1",
+							action_id: "act-456",
+							project_id: "p1",
+							tool_name: "use_tool",
+							args_hash: "args",
+							result_hash: "res",
+							error_type: null,
+							side_effect: 1,
+							approval_state: "bypassed",
+							args_redacted: "{}",
+							result_redacted: "{}",
+						},
+					];
+				}
+				return [];
+			},
+		});
+
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/agent_run/run-123?project_id=p1");
+
+		// Up has Agent
+		const agentSec = m.up.find((s) => s.label === "Agent");
+		expect(agentSec).toBeDefined();
+		expect(agentSec!.links[0].href).toBe("#/agents/my-agent");
+
+		// Down has Actions (Decision Spine)
+		const decisionSpine = m.down.find((s) => s.label === "Actions (Decision Spine)");
+		expect(decisionSpine).toBeDefined();
+		expect(decisionSpine!.links[0].href).toBe("#/actions/act-456");
+
+		// Down has Tool Calls Executed
+		const toolCalls = m.down.find((s) => s.label === "Tool Calls Executed");
+		expect(toolCalls).toBeDefined();
+		expect(toolCalls!.links[0].label).toContain("use_tool");
+	});
+
+	it("tool_call entity returns Causal Action and other sibling tool calls", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM tool_calls") && sql.includes("id = ?")) {
+					return {
+						action_id: "act-456",
+						tool_name: "use_tool",
+					};
+				}
+				if (sql.includes("FROM actions") && sql.includes("id = ?")) {
+					return {
+						id: "act-456",
+						project_id: "p1",
+						root_action_id: "run-123",
+						caused_by_action_id: null,
+						actor_type: "agent",
+						actor_id: "my-agent",
+						action_kind: "agent.step",
+						name: "Perform Task",
+						status: "ok",
+						started_at: "2026-05-04T12:00:00Z",
+						ended_at: "2026-05-04T12:00:05Z",
+						duration_ms: 5000,
+						trace_id: "tx-789",
+						span_id: "sp-789",
+						session_id: "sess-1",
+						interaction_id: null,
+						user_id: "user-1",
+						agent_run_id: "run-123",
+						step_id: "act-456",
+						tool_call_id: null,
+						prompt_version: null,
+						model_name: null,
+						provider: null,
+						total_cost_usd: 0,
+						attrs_json: "{}",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("FROM actions")) {
+					return [
+						{
+							id: "act-456",
+							project_id: "p1",
+							root_action_id: "run-123",
+							caused_by_action_id: null,
+							actor_type: "agent",
+							actor_id: "my-agent",
+							action_kind: "agent.step",
+							name: "Perform Task",
+							status: "ok",
+							started_at: "2026-05-04T12:00:00Z",
+							ended_at: "2026-05-04T12:00:05Z",
+							duration_ms: 5000,
+							trace_id: "tx-789",
+							span_id: "sp-789",
+							session_id: "sess-1",
+							interaction_id: null,
+							user_id: "user-1",
+							agent_run_id: "run-123",
+							step_id: "act-456",
+							tool_call_id: null,
+							prompt_version: null,
+							model_name: null,
+							provider: null,
+							total_cost_usd: 0,
+							attrs_json: "{}",
+						},
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					return [
+						{
+							id: "tool-call-1",
+							action_id: "act-456",
+							project_id: "p1",
+							tool_name: "use_tool",
+							args_hash: "args",
+							result_hash: "res",
+							error_type: null,
+							side_effect: 1,
+							approval_state: "bypassed",
+							args_redacted: "{}",
+							result_redacted: "{}",
+						},
+						{
+							id: "tool-call-2",
+							action_id: "act-456",
+							project_id: "p1",
+							tool_name: "other_tool",
+							args_hash: "args2",
+							result_hash: "res2",
+							error_type: null,
+							side_effect: 0,
+							approval_state: "suggested",
+							args_redacted: "{}",
+							result_redacted: "{}",
+						},
+					];
+				}
+				return [];
+			},
+		});
+
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/tool_call/tool-call-1?project_id=p1");
+
+		// Up has Causal Action
+		const causalAction = m.up.find((s) => s.label === "Causal Action");
+		expect(causalAction).toBeDefined();
+		expect(causalAction!.links[0].href).toBe("#/actions/act-456");
+
+		// Across has Other tool calls in this action
+		const otherTools = m.across.find((s) => s.label === "Other tool calls in this action");
+		expect(otherTools).toBeDefined();
+		expect(otherTools!.links[0].label).toContain("other_tool");
+	});
+});
+

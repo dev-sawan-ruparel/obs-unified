@@ -194,9 +194,7 @@ export function startProfiler(opts: StartProfilerOptions): ProfilerHandle {
 	};
 }
 
-const toUint8 = (
-	blob: Uint8Array | ArrayBuffer | Buffer,
-): Uint8Array =>
+const toUint8 = (blob: Uint8Array | ArrayBuffer | Buffer): Uint8Array =>
 	blob instanceof Uint8Array
 		? blob
 		: blob instanceof ArrayBuffer

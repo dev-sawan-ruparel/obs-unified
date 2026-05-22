@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ServiceMapResponse } from "@obs-unified/types";
 import {
 	Background,
 	Controls,
+	type Edge,
 	Handle,
 	MarkerType,
-	Position,
-	ReactFlow,
-	type Edge,
 	type Node,
 	type NodeProps,
+	Position,
+	ReactFlow,
 } from "@xyflow/react";
 import dagre from "dagre";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
-import { useApi } from "../use-api";
-import { useTimeWindowHours } from "../provider";
-import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
 import { Button } from "../components/Button";
+import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
 import { StateRow } from "../components/states";
+import { useTimeWindowHours } from "../provider";
+import { useApi } from "../use-api";
 
 interface ServiceOperationsResponse {
 	service: string;
@@ -97,11 +97,17 @@ function ServiceNode({ data, selected }: NodeProps<Node<ServiceNodeData>>) {
 	return (
 		<div
 			className={`flex flex-col gap-1 border-[2px] bg-sys-surface px-3 py-2 font-mono text-[0.75rem] cursor-pointer transition-none ${accent} ${
-				selected ? "outline outline-[2px] outline-sys-primary outline-offset-2" : ""
+				selected
+					? "outline outline-[2px] outline-sys-primary outline-offset-2"
+					: ""
 			}`}
 			style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
 		>
-			<Handle type="target" position={Position.Left} style={{ background: "var(--color-sys-outline)" }} />
+			<Handle
+				type="target"
+				position={Position.Left}
+				style={{ background: "var(--color-sys-outline)" }}
+			/>
 			<div className="truncate text-[0.875rem] font-semibold">
 				{data.service}
 			</div>
@@ -115,7 +121,11 @@ function ServiceNode({ data, selected }: NodeProps<Node<ServiceNodeData>>) {
 					{data.errorCount > 0 ? `${data.errorCount} fail` : "healthy"}
 				</span>
 			</div>
-			<Handle type="source" position={Position.Right} style={{ background: "var(--color-sys-outline)" }} />
+			<Handle
+				type="source"
+				position={Position.Right}
+				style={{ background: "var(--color-sys-outline)" }}
+			/>
 		</div>
 	);
 }
@@ -128,7 +138,9 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 	const [data, setData] = useState<ServiceMapResponse | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [selectedService, setSelectedService] = useState<string | null>(null);
-	const [opsData, setOpsData] = useState<ServiceOperationsResponse | null>(null);
+	const [opsData, setOpsData] = useState<ServiceOperationsResponse | null>(
+		null,
+	);
 	const [opsLoading, setOpsLoading] = useState(false);
 	// RFC 0009 — span source filter. Defaults to "all"; the user can
 	// toggle to isolate Beyla-derived edges or hide them.
@@ -175,7 +187,8 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 	}, [selectedService, loadOps]);
 
 	const { nodes, edges } = useMemo(() => {
-		if (!data) return { nodes: [] as Node<ServiceNodeData>[], edges: [] as Edge[] };
+		if (!data)
+			return { nodes: [] as Node<ServiceNodeData>[], edges: [] as Edge[] };
 		const rawNodes: Node<ServiceNodeData>[] = data.nodes.map((n) => ({
 			id: n.service,
 			type: "service",
@@ -222,9 +235,7 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
-				<span className="text-[0.875rem] font-semibold">
-					Service map
-				</span>
+				<span className="text-[0.875rem] font-semibold">Service map</span>
 				<Button variant="primary" onClick={load}>
 					Refresh
 				</Button>
@@ -290,9 +301,7 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 								}))}
 								edges={edges}
 								nodeTypes={nodeTypes}
-								onNodeClick={(_, node) =>
-									setSelectedService(node.id)
-								}
+								onNodeClick={(_, node) => setSelectedService(node.id)}
 								onPaneClick={() => setSelectedService(null)}
 								fitView
 								fitViewOptions={{ padding: 0.2 }}
@@ -305,8 +314,12 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 							</ReactFlow>
 							{data && data.nodes.length > 0 && data.edges.length === 0 && (
 								<div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 max-w-md bg-sys-surface-low px-3 py-2 text-[0.75rem] text-sys-on-surface-muted shadow-[inset_0_0_0_1px_var(--color-sys-outline-soft)]">
-									<span className="font-semibold text-sys-on-surface">No service-to-service edges in this window.</span>{" "}
-									Edges are derived from cross-service parent→child spans and span links. Confirm your SDKs propagate trace context across HTTP/queue calls.
+									<span className="font-semibold text-sys-on-surface">
+										No service-to-service edges in this window.
+									</span>{" "}
+									Edges are derived from cross-service parent→child spans and
+									span links. Confirm your SDKs propagate trace context across
+									HTTP/queue calls.
 								</div>
 							)}
 						</div>
@@ -316,7 +329,9 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 				{selectedService && (
 					<ServiceDetailPanel
 						service={selectedService}
-						node={data?.nodes.find((n) => n.service === selectedService) ?? null}
+						node={
+							data?.nodes.find((n) => n.service === selectedService) ?? null
+						}
 						ops={opsData}
 						loading={opsLoading}
 						onClose={() => setSelectedService(null)}
@@ -372,7 +387,6 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 	);
 }
 
-
 // ── Service detail panel ───────────────────────────────────────────────
 
 function ServiceDetailPanel({
@@ -384,7 +398,12 @@ function ServiceDetailPanel({
 	onNavigate,
 }: {
 	service: string;
-	node: { spanCount: number; traceCount: number; errorCount: number; errorRate: number } | null;
+	node: {
+		spanCount: number;
+		traceCount: number;
+		errorCount: number;
+		errorRate: number;
+	} | null;
 	ops: ServiceOperationsResponse | null;
 	loading: boolean;
 	onClose: () => void;
@@ -429,7 +448,13 @@ function ServiceDetailPanel({
 								<div className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
 									Err rate
 								</div>
-								<div className={node.errorRate >= 0.01 ? "tabular-nums text-sys-error" : "tabular-nums"}>
+								<div
+									className={
+										node.errorRate >= 0.01
+											? "tabular-nums text-sys-error"
+											: "tabular-nums"
+									}
+								>
 									{errorPct}%
 								</div>
 							</div>
@@ -471,9 +496,12 @@ function ServiceDetailPanel({
 									</div>
 									<div className="flex items-baseline justify-between gap-2 font-mono text-[0.625rem] text-sys-on-surface-muted">
 										<span>
-											p50 {Math.round(op.p50DurationMs)}ms · p95 {Math.round(op.p95DurationMs)}ms
+											p50 {Math.round(op.p50DurationMs)}ms · p95{" "}
+											{Math.round(op.p95DurationMs)}ms
 										</span>
-										<span className={op.errorRate >= 0.01 ? "text-sys-error" : ""}>
+										<span
+											className={op.errorRate >= 0.01 ? "text-sys-error" : ""}
+										>
 											{(op.errorRate * 100).toFixed(1)}% err
 										</span>
 									</div>
@@ -493,7 +521,9 @@ function ServiceDetailPanel({
 								<button
 									key={`${err.traceId}-${err.spanId}`}
 									type="button"
-									onClick={() => onNavigate?.({ tab: "traces", traceId: err.traceId })}
+									onClick={() =>
+										onNavigate?.({ tab: "traces", traceId: err.traceId })
+									}
 									className="border-b border-sys-outline-soft py-1.5 last:border-b-0 text-left cursor-pointer hover:bg-sys-surface-low"
 									title="View trace"
 								>

@@ -82,7 +82,10 @@ const severityFromLog = (
 	return "info";
 };
 
-const severityFromUsage = (type: string, severity: string | null): "info" | "warn" | "error" => {
+const severityFromUsage = (
+	type: string,
+	severity: string | null,
+): "info" | "warn" | "error" => {
 	if (type === "frontend_error" || severity === "error") return "error";
 	if (severity === "warning") return "warn";
 	return "info";
@@ -154,7 +157,8 @@ export const timelineRoutesPlugin: CollectorPlugin = {
 					kind: "log",
 					id: l.logId,
 					title: l.message.slice(0, 160),
-					subtitle: `${l.serviceName ?? ""}${l.loggerName ? ` · ${l.loggerName}` : ""}`.trim(),
+					subtitle:
+						`${l.serviceName ?? ""}${l.loggerName ? ` · ${l.loggerName}` : ""}`.trim(),
 					severity: severityFromLog(l.severity),
 					interactionId: l.interactionId ?? undefined,
 					payload: {
@@ -223,11 +227,11 @@ export const timelineRoutesPlugin: CollectorPlugin = {
 				},
 				replay: manifest.replay
 					? {
-						firstChunkAt: manifest.replay.firstChunkAt,
-						lastChunkAt: manifest.replay.lastChunkAt,
-						chunkCount: manifest.replay.chunkCount,
-						eventsCount: manifest.replay.eventsCount,
-					}
+							firstChunkAt: manifest.replay.firstChunkAt,
+							lastChunkAt: manifest.replay.lastChunkAt,
+							chunkCount: manifest.replay.chunkCount,
+							eventsCount: manifest.replay.eventsCount,
+						}
 					: null,
 				events,
 				groups,

@@ -146,8 +146,6 @@ const getSeverity = (
 	return "low";
 };
 
-
-
 const buildIssueTitle = (
 	category: TelemetryIssueCategory,
 	routeLabel: string,
@@ -812,7 +810,8 @@ export class TelemetryStore {
 			throw new Error("TelemetryStore.getExportRows: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const now = new Date().toISOString();
-		let whereClause = "WHERE project_id = ? AND received_at > ? AND expires_at > ?";
+		let whereClause =
+			"WHERE project_id = ? AND received_at > ? AND expires_at > ?";
 		const params: unknown[] = [options.projectId, cutoff, now];
 
 		if (options.service) {
@@ -913,12 +912,14 @@ export class TelemetryStore {
 		const sourceClause =
 			source === "ebpf"
 				? ` AND telemetry_sdk_name IN (${Array.from(EBPF_SDK_NAMES)
-					.map(() => "?")
-					.join(",")})`
-				: source === "sdk"
-					? ` AND (telemetry_sdk_name IS NULL OR telemetry_sdk_name NOT IN (${Array.from(EBPF_SDK_NAMES)
 						.map(() => "?")
-						.join(",")}))`
+						.join(",")})`
+				: source === "sdk"
+					? ` AND (telemetry_sdk_name IS NULL OR telemetry_sdk_name NOT IN (${Array.from(
+							EBPF_SDK_NAMES,
+						)
+							.map(() => "?")
+							.join(",")}))`
 					: "";
 		const sourceBinds: unknown[] =
 			source === "all" ? [] : Array.from(EBPF_SDK_NAMES);
@@ -961,22 +962,26 @@ export class TelemetryStore {
 		const childSourceClause =
 			source === "ebpf"
 				? ` AND c.telemetry_sdk_name IN (${Array.from(EBPF_SDK_NAMES)
-					.map(() => "?")
-					.join(",")})`
-				: source === "sdk"
-					? ` AND (c.telemetry_sdk_name IS NULL OR c.telemetry_sdk_name NOT IN (${Array.from(EBPF_SDK_NAMES)
 						.map(() => "?")
-						.join(",")}))`
+						.join(",")})`
+				: source === "sdk"
+					? ` AND (c.telemetry_sdk_name IS NULL OR c.telemetry_sdk_name NOT IN (${Array.from(
+							EBPF_SDK_NAMES,
+						)
+							.map(() => "?")
+							.join(",")}))`
 					: "";
 		const consumerSourceClause =
 			source === "ebpf"
 				? ` AND telemetry_sdk_name IN (${Array.from(EBPF_SDK_NAMES)
-					.map(() => "?")
-					.join(",")})`
-				: source === "sdk"
-					? ` AND (telemetry_sdk_name IS NULL OR telemetry_sdk_name NOT IN (${Array.from(EBPF_SDK_NAMES)
 						.map(() => "?")
-						.join(",")}))`
+						.join(",")})`
+				: source === "sdk"
+					? ` AND (telemetry_sdk_name IS NULL OR telemetry_sdk_name NOT IN (${Array.from(
+							EBPF_SDK_NAMES,
+						)
+							.map(() => "?")
+							.join(",")}))`
 					: "";
 
 		const edgeRowsResult = await this.db
@@ -1139,7 +1144,9 @@ export class TelemetryStore {
 		}>;
 	}> {
 		if (!options.projectId)
-			throw new Error("TelemetryStore.getServiceOperations: projectId is required");
+			throw new Error(
+				"TelemetryStore.getServiceOperations: projectId is required",
+			);
 		const cutoff = cutoffIso(options.hours);
 
 		// Top operations — group by span_name, accumulate durations in JS.

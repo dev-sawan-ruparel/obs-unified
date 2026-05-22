@@ -11,12 +11,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useApi } from "../../use-api";
 import { useDashboard } from "../../provider";
+import { useApi } from "../../use-api";
 import {
 	aggregateFlameTree,
-	fetchAndDecodePprof,
 	type FlameNode,
+	fetchAndDecodePprof,
 	type PprofProfile,
 } from "./parse-pprof";
 
@@ -92,7 +92,11 @@ const NEUTRAL_PALETTE = [
 ];
 
 const paletteFor = (profileType: string | undefined): string[] => {
-	if (profileType === "offcpu" || profileType === "block" || profileType === "mutex")
+	if (
+		profileType === "offcpu" ||
+		profileType === "block" ||
+		profileType === "mutex"
+	)
 		return OFF_CPU_PALETTE;
 	if (profileType === "heap") return HEAP_PALETTE;
 	if (profileType === "cpu" || profileType === "wall") return CPU_PALETTE;
@@ -204,9 +208,7 @@ export function FlameGraph({
 
 	if (loading) {
 		return (
-			<div className="p-4 text-[0.875rem] opacity-60">
-				Loading profile…
-			</div>
+			<div className="p-4 text-[0.875rem] opacity-60">Loading profile…</div>
 		);
 	}
 
@@ -278,15 +280,19 @@ export function FlameGraph({
 					{renderFrames.map((frame, i) => {
 						if (frame.name === "__root__") return null;
 						const widthPct = (frame.value / renderTotal) * 100;
-						const xPct = ((frame.offset - (renderRoot!.children.size > 0 ? 0 : 0)) / renderTotal) * 100 - 0;
+						const xPct =
+							((frame.offset - (renderRoot!.children.size > 0 ? 0 : 0)) /
+								renderTotal) *
+								100 -
+							0;
 						// Recompute x relative to the rendered root's children.
 						// flattenWithCoords gives offsets relative to the synthetic
 						// root we passed in (renderRoot) so xPct is correct.
-						const realXPct = ((frame.offset) / renderTotal) * 100;
+						const realXPct = (frame.offset / renderTotal) * 100;
 						if (widthPct < (MIN_FRAME_PX / 1000) * 100) return null;
-						const color =
-							palette[stableHash(frame.name) % palette.length];
-						const isHover = hovered?.name === frame.name && hovered?.depth === frame.depth;
+						const color = palette[stableHash(frame.name) % palette.length];
+						const isHover =
+							hovered?.name === frame.name && hovered?.depth === frame.depth;
 						return (
 							<g key={`${frame.depth}-${frame.offset}-${i}`}>
 								<rect

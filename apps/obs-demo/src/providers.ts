@@ -164,7 +164,9 @@ export async function askGemini(
 		name: "gemini.generateContent",
 	});
 	try {
-		const systemInstruction = messages.find((m) => m.role === "system")?.content;
+		const systemInstruction = messages.find(
+			(m) => m.role === "system",
+		)?.content;
 		const contents = messages
 			.filter((m) => m.role !== "system")
 			.map((m) => ({

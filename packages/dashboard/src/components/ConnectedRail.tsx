@@ -145,9 +145,7 @@ const shouldSuppressGroupLabel = (
 // "Recent sessions" both render the same single session link, only show
 // the first. Pattern emerges on users with one session in the window;
 // keeping both is visual noise that suggests two distinct things exist.
-const dedupeAdjacent = (
-	sections: ConnectedSection[],
-): ConnectedSection[] => {
+const dedupeAdjacent = (sections: ConnectedSection[]): ConnectedSection[] => {
 	const out: ConnectedSection[] = [];
 	for (const section of sections) {
 		const prev = out[out.length - 1];

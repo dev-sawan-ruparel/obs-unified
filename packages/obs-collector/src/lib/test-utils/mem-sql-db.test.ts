@@ -23,9 +23,7 @@ describe("MemSqlDb", () => {
 	it("records prepare / bind / first calls with the bound args", async () => {
 		const db = new MemSqlDb({
 			first: (sql, binds) =>
-				sql.startsWith("SELECT count") && binds[0] === "p1"
-					? { c: 7 }
-					: null,
+				sql.startsWith("SELECT count") && binds[0] === "p1" ? { c: 7 } : null,
 		});
 
 		const row = await db

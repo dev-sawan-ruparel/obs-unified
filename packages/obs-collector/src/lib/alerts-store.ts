@@ -214,7 +214,10 @@ export class AlertsStore {
 			.bind(id, projectId)
 			.run();
 		// Also clean up state and evaluations for this rule.
-		await this.db.prepare(`DELETE FROM alert_state WHERE rule_id = ?`).bind(id).run();
+		await this.db
+			.prepare(`DELETE FROM alert_state WHERE rule_id = ?`)
+			.bind(id)
+			.run();
 		await this.db
 			.prepare(`DELETE FROM alert_evaluations WHERE rule_id = ?`)
 			.bind(id)

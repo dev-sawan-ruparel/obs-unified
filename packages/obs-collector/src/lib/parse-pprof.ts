@@ -16,9 +16,9 @@ import {
 	decodePprofBlob,
 	encodePprof,
 	gzipBytes,
+	type PprofFunction,
 	type PprofLabel,
 	type PprofLocation,
-	type PprofFunction,
 	type PprofProfile,
 	type PprofSample,
 	type PprofValueType,
@@ -30,9 +30,9 @@ export {
 	decodePprof,
 	decodePprofBlob,
 	encodePprof,
+	type PprofFunction,
 	type PprofLabel,
 	type PprofLocation,
-	type PprofFunction,
 	type PprofProfile,
 	type PprofSample,
 	type PprofValueType,
@@ -47,9 +47,7 @@ const TRACE_ID_RE = /^[0-9a-f]{16,32}$/i;
  * against malformed labels — silently ignores anything that doesn't
  * match the hex pattern (a malformed agent shouldn't pollute the index).
  */
-export const extractTraceIdsFromProfile = (
-	profile: PprofProfile,
-): string[] => {
+export const extractTraceIdsFromProfile = (profile: PprofProfile): string[] => {
 	const traceIdKeyIxs = new Set<number>();
 	for (let i = 0; i < profile.stringTable.length; i++) {
 		if (TRACE_ID_LABEL_KEYS.includes(profile.stringTable[i])) {

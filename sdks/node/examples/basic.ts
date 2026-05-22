@@ -10,12 +10,7 @@
  * pass `getNodeAutoInstrumentations()` via `instrumentations` in init.
  */
 
-import {
-	init,
-	setProjectId,
-	withLLMSpan,
-	withToolSpan,
-} from "../src/index.js";
+import { init, setProjectId, withLLMSpan, withToolSpan } from "../src/index.js";
 
 const shutdown = init({
 	collectorUrl: process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790",

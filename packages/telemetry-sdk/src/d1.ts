@@ -45,8 +45,7 @@ const stampMeta = (
 		span.setAttribute("db.rows_written", m.rows_written);
 	if (typeof m.duration === "number")
 		span.setAttribute("db.duration_ms", m.duration);
-	if (typeof m.changes === "number")
-		span.setAttribute("db.changes", m.changes);
+	if (typeof m.changes === "number") span.setAttribute("db.changes", m.changes);
 };
 
 export interface WrapD1Options {
@@ -69,7 +68,10 @@ const EXEC_METHODS = new Set(["run", "all", "first", "raw"]);
  * // ↳ child span "d1.select" with db.statement / db.rows_read
  * ```
  */
-export const wrapD1 = <T extends D1Database>(db: T, opts?: WrapD1Options): T => {
+export const wrapD1 = <T extends D1Database>(
+	db: T,
+	opts?: WrapD1Options,
+): T => {
 	const prefix = opts?.spanNamePrefix ?? "d1";
 	const maxChars = opts?.maxStatementChars ?? 1024;
 
@@ -81,9 +83,9 @@ export const wrapD1 = <T extends D1Database>(db: T, opts?: WrapD1Options): T => 
 			get(target, prop, receiver) {
 				if (prop === "bind") {
 					return (...args: unknown[]) => {
-						const bound = (target.bind as (...a: unknown[]) => D1PreparedStatement)(
-							...args,
-						);
+						const bound = (
+							target.bind as (...a: unknown[]) => D1PreparedStatement
+						)(...args);
 						return wrapStatement(bound, sql);
 					};
 				}

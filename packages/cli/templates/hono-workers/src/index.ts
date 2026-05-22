@@ -1,5 +1,3 @@
-import { Hono } from "hono";
-import { cors } from "hono/cors";
 import {
 	createLogger,
 	createRequestSpan,
@@ -9,6 +7,8 @@ import {
 	runWithSpan,
 	stampInteractionFromRequest,
 } from "@obs-unified/telemetry-sdk";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 interface Env {
 	OBS_COLLECTOR_URL: string;

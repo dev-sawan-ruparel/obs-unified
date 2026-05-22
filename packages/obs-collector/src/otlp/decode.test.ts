@@ -1,10 +1,10 @@
 import { create, toBinary, toJson } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import {
-	OtlpDecodeError,
 	decodeLogsRequest,
 	decodeMetricsRequest,
 	decodeTraceRequest,
+	OtlpDecodeError,
 	readOtlpBody,
 } from "./decode";
 import { ExportLogsServiceRequestSchema } from "./gen/opentelemetry/proto/collector/logs/v1/logs_service_pb.js";
@@ -33,10 +33,10 @@ import {
 	NumberDataPointSchema,
 	ResourceMetricsSchema,
 	ScopeMetricsSchema,
-	SumSchema,
 	SummaryDataPoint_ValueAtQuantileSchema,
 	SummaryDataPointSchema,
 	SummarySchema,
+	SumSchema,
 } from "./gen/opentelemetry/proto/metrics/v1/metrics_pb.js";
 import { ResourceSchema } from "./gen/opentelemetry/proto/resource/v1/resource_pb.js";
 import {
@@ -445,8 +445,7 @@ const buildMetricsMessage = () =>
 									case: "sum",
 									value: create(SumSchema, {
 										isMonotonic: true,
-										aggregationTemporality:
-											AggregationTemporality.CUMULATIVE,
+										aggregationTemporality: AggregationTemporality.CUMULATIVE,
 										dataPoints: [
 											create(NumberDataPointSchema, {
 												timeUnixNano: 1_700_000_000_000_000_000n,
@@ -516,13 +515,9 @@ describe("decodeMetricsRequest", () => {
 		expect(sum?.isMonotonic).toBe(true);
 		expect(sum?.temporality).toBe(AggregationTemporality.CUMULATIVE);
 		expect(sum?.startTsNs).toBe("1699999000000000000");
-		const exemplars = sum?.exemplarsJson
-			? JSON.parse(sum.exemplarsJson)
-			: [];
+		const exemplars = sum?.exemplarsJson ? JSON.parse(sum.exemplarsJson) : [];
 		expect(exemplars[0].value).toBe(1);
-		expect(exemplars[0].traceId).toBe(
-			"01010101010101010101010101010101",
-		);
+		expect(exemplars[0].traceId).toBe("01010101010101010101010101010101");
 		expect(exemplars[0].spanId).toBe("0202020202020202");
 
 		const hist = points.find((p) => p.type === "histogram");
@@ -549,17 +544,11 @@ describe("decodeMetricsRequest", () => {
 
 	it("produces deterministic identity across identical payloads", () => {
 		const a = decodeMetricsRequest({
-			bytes: toBinary(
-				ExportMetricsServiceRequestSchema,
-				buildMetricsMessage(),
-			),
+			bytes: toBinary(ExportMetricsServiceRequestSchema, buildMetricsMessage()),
 			wireFormat: "protobuf",
 		});
 		const b = decodeMetricsRequest({
-			bytes: toBinary(
-				ExportMetricsServiceRequestSchema,
-				buildMetricsMessage(),
-			),
+			bytes: toBinary(ExportMetricsServiceRequestSchema, buildMetricsMessage()),
 			wireFormat: "protobuf",
 		});
 		expect(a.map((p) => p.identity)).toEqual(b.map((p) => p.identity));
@@ -647,8 +636,7 @@ describe("decodeMetricsRequest", () => {
 									data: {
 										case: "exponentialHistogram",
 										value: create(ExponentialHistogramSchema, {
-											aggregationTemporality:
-												AggregationTemporality.CUMULATIVE,
+											aggregationTemporality: AggregationTemporality.CUMULATIVE,
 											dataPoints: [
 												create(ExponentialHistogramDataPointSchema, {
 													timeUnixNano: 2_000_000_000_000_000_000n,
@@ -718,18 +706,18 @@ describe("decodeMetricsRequest", () => {
 													count: 1000n,
 													sum: 45678,
 													quantileValues: [
-														create(
-															SummaryDataPoint_ValueAtQuantileSchema,
-															{ quantile: 0.5, value: 40 },
-														),
-														create(
-															SummaryDataPoint_ValueAtQuantileSchema,
-															{ quantile: 0.95, value: 120 },
-														),
-														create(
-															SummaryDataPoint_ValueAtQuantileSchema,
-															{ quantile: 0.99, value: 250 },
-														),
+														create(SummaryDataPoint_ValueAtQuantileSchema, {
+															quantile: 0.5,
+															value: 40,
+														}),
+														create(SummaryDataPoint_ValueAtQuantileSchema, {
+															quantile: 0.95,
+															value: 120,
+														}),
+														create(SummaryDataPoint_ValueAtQuantileSchema, {
+															quantile: 0.99,
+															value: 250,
+														}),
 													],
 												}),
 											],

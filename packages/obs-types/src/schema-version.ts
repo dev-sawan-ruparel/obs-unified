@@ -26,7 +26,9 @@ export const SCHEMA_VERSION_HEADER = "obs-schema-version" as const;
  * Returns true when the collector should accept `version`. Used by
  * receivers on intake.
  */
-export const isCompatibleSchemaVersion = (version: string | undefined | null): boolean => {
+export const isCompatibleSchemaVersion = (
+	version: string | undefined | null,
+): boolean => {
 	if (!version) return true; // absent = legacy SDK, accept (deprecate in 2.0)
 	const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
 	if (!m) return false;

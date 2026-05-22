@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 
 /*
  * E2E coverage for RFC 0002 Stage 5 — Ask box.
@@ -15,8 +15,7 @@ const json = (route: Route, body: string, status = 200) =>
 const NOW = new Date("2026-04-28T00:00:00Z").toISOString();
 
 const STUB_ANSWER = {
-	answer:
-		"errors at 5% in the last 5 minutes, up from 1% (overall_error_rate)",
+	answer: "errors at 5% in the last 5 minutes, up from 1% (overall_error_rate)",
 	evidence: [
 		{
 			analysisId: "overall_error_rate",
@@ -52,7 +51,11 @@ const STUB_ANSWER = {
 	timestamp: NOW,
 };
 
-async function mockAsk(page: Page, response: object | null = STUB_ANSWER, status = 200) {
+async function mockAsk(
+	page: Page,
+	response: object | null = STUB_ANSWER,
+	status = 200,
+) {
 	const seen: { url: string; body: string }[] = [];
 	await page.route(/\/auth\/check/, (route) =>
 		json(route, JSON.stringify({ authenticated: true })),
@@ -65,11 +68,7 @@ async function mockAsk(page: Page, response: object | null = STUB_ANSWER, status
 				url,
 				body: route.request().postData() ?? "",
 			});
-			return json(
-				route,
-				JSON.stringify(response ?? {}),
-				status,
-			);
+			return json(route, JSON.stringify(response ?? {}), status);
 		}
 		// Default empty analyses payload so the rest of the page doesn't error.
 		if (url.includes("/analyses/results")) {

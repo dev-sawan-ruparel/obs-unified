@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LogRecord, LogsOverviewResponse } from "@obs-unified/types";
-import { useApi } from "../use-api";
-import { useTimeWindowHours } from "../provider";
-import { useLiveTail, type TailEvent } from "../hooks/useLiveTail";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "../components/Button";
+import { ConnectedRail } from "../components/ConnectedRail";
+import { Input, Select } from "../components/forms";
 import {
 	BarList,
+	binByInterval,
 	Card,
 	SectionTitle,
 	Stat,
 	TimeSeriesBars,
 	UpdatedChip,
-	binByInterval,
 } from "../components/primitives";
-import { Button } from "../components/Button";
-import { ConnectedRail } from "../components/ConnectedRail";
-import { Input, Select } from "../components/forms";
 import { StateRow } from "../components/states";
+import { type TailEvent, useLiveTail } from "../hooks/useLiveTail";
+import { useTimeWindowHours } from "../provider";
+import { useApi } from "../use-api";
 
 interface LiveLogRow {
 	logId: string;
@@ -28,9 +28,12 @@ interface LiveLogRow {
 	occurredAt: string;
 }
 
-type SelectedLog = (LogRecord | LiveLogRow) & { attributesJson?: string | null };
+type SelectedLog = (LogRecord | LiveLogRow) & {
+	attributesJson?: string | null;
+};
 
-const isLogEvent = (e: TailEvent): e is TailEvent<LiveLogRow> => e.kind === "log";
+const isLogEvent = (e: TailEvent): e is TailEvent<LiveLogRow> =>
+	e.kind === "log";
 
 const SEVERITY_BADGE_BG: Record<string, string> = {
 	ERROR: "bg-sys-error text-white",
@@ -54,10 +57,16 @@ export function LogsDashboard() {
 	const [overview, setOverview] = useState<LogsOverviewResponse | null>(null);
 	const hours = String(useTimeWindowHours());
 	const [loading, setLoading] = useState(false);
-	const [severityFilter, setSeverityFilter] = useState<"all" | "ERROR" | "WARN" | "INFO">("all");
+	const [severityFilter, setSeverityFilter] = useState<
+		"all" | "ERROR" | "WARN" | "INFO"
+	>("all");
 	const [liveMode, setLiveMode] = useState(false);
-	const [selectedServices, setSelectedServices] = useState<ReadonlySet<string>>(new Set());
-	const [selectedLoggers, setSelectedLoggers] = useState<ReadonlySet<string>>(new Set());
+	const [selectedServices, setSelectedServices] = useState<ReadonlySet<string>>(
+		new Set(),
+	);
+	const [selectedLoggers, setSelectedLoggers] = useState<ReadonlySet<string>>(
+		new Set(),
+	);
 	const [selectedLog, setSelectedLog] = useState<SelectedLog | null>(null);
 
 	const liveTail = useLiveTail<LiveLogRow>(isLogEvent, {
@@ -69,7 +78,9 @@ export function LogsDashboard() {
 	const loadAll = useCallback(async () => {
 		setLoading(true);
 		try {
-			const data = await api<LogsOverviewResponse>(`/logs/overview?hours=${hours}`);
+			const data = await api<LogsOverviewResponse>(
+				`/logs/overview?hours=${hours}`,
+			);
 			setOverview(data);
 		} catch (err) {
 			console.error(err);
@@ -84,7 +95,12 @@ export function LogsDashboard() {
 
 	const bucketCount = 24;
 	const allBuckets = useMemo(
-		() => binByInterval(overview?.logs.map((l) => l.receivedAt) ?? [], Number(hours) * 60, bucketCount),
+		() =>
+			binByInterval(
+				overview?.logs.map((l) => l.receivedAt) ?? [],
+				Number(hours) * 60,
+				bucketCount,
+			),
 		[overview, hours],
 	);
 	const errorBuckets = useMemo(
@@ -101,7 +117,9 @@ export function LogsDashboard() {
 	const warnBuckets = useMemo(
 		() =>
 			binByInterval(
-				overview?.logs.filter((l) => l.severity === "WARN").map((l) => l.receivedAt) ?? [],
+				overview?.logs
+					.filter((l) => l.severity === "WARN")
+					.map((l) => l.receivedAt) ?? [],
 				Number(hours) * 60,
 				bucketCount,
 			),
@@ -138,12 +156,28 @@ export function LogsDashboard() {
 	}));
 
 	const matchesFilters = useCallback(
-		(l: { severity: string; serviceName: string | null; loggerName: string | null }) => {
-			if (severityFilter === "ERROR" && !(l.severity === "ERROR" || l.severity === "FATAL")) return false;
+		(l: {
+			severity: string;
+			serviceName: string | null;
+			loggerName: string | null;
+		}) => {
+			if (
+				severityFilter === "ERROR" &&
+				!(l.severity === "ERROR" || l.severity === "FATAL")
+			)
+				return false;
 			if (severityFilter === "WARN" && l.severity !== "WARN") return false;
 			if (severityFilter === "INFO" && l.severity !== "INFO") return false;
-			if (selectedServices.size > 0 && !selectedServices.has(l.serviceName || "unknown")) return false;
-			if (selectedLoggers.size > 0 && !selectedLoggers.has(l.loggerName || "unknown")) return false;
+			if (
+				selectedServices.size > 0 &&
+				!selectedServices.has(l.serviceName || "unknown")
+			)
+				return false;
+			if (
+				selectedLoggers.size > 0 &&
+				!selectedLoggers.has(l.loggerName || "unknown")
+			)
+				return false;
 			return true;
 		},
 		[severityFilter, selectedServices, selectedLoggers],
@@ -184,7 +218,8 @@ export function LogsDashboard() {
 	}, []);
 
 	const activeChips = useMemo(() => {
-		const chips: Array<{ key: string; label: string; onClear: () => void }> = [];
+		const chips: Array<{ key: string; label: string; onClear: () => void }> =
+			[];
 		if (severityFilter !== "all") {
 			chips.push({
 				key: `sev:${severityFilter}`,
@@ -207,7 +242,13 @@ export function LogsDashboard() {
 			});
 		}
 		return chips;
-	}, [severityFilter, selectedServices, selectedLoggers, toggleService, toggleLogger]);
+	}, [
+		severityFilter,
+		selectedServices,
+		selectedLoggers,
+		toggleService,
+		toggleLogger,
+	]);
 
 	const visibleLogs = liveMode ? liveFilteredLogs : filteredLogs;
 
@@ -321,7 +362,8 @@ export function LogsDashboard() {
 									: `${((overview.summary.errorLogs / overview.summary.totalLogs) * 100).toFixed(1)}%`
 							}
 							accent={
-								overview.summary.totalLogs > 0 && overview.summary.errorLogs / overview.summary.totalLogs >= 0.05
+								overview.summary.totalLogs > 0 &&
+								overview.summary.errorLogs / overview.summary.totalLogs >= 0.05
 									? "error"
 									: "default"
 							}
@@ -329,7 +371,10 @@ export function LogsDashboard() {
 					</div>
 
 					<Card className="mb-2 p-3">
-						<SectionTitle title="Logs over time" note={`${bucketCount} buckets · ${hours}h`} />
+						<SectionTitle
+							title="Logs over time"
+							note={`${bucketCount} buckets · ${hours}h`}
+						/>
 						<TimeSeriesBars data={timeSeries} height={56} />
 					</Card>
 				</>
@@ -338,10 +383,16 @@ export function LogsDashboard() {
 			<div className="flex min-h-0 flex-1 gap-2">
 				<Card className="min-h-0 flex-1 overflow-y-auto p-3">
 					<SectionTitle
-						title={liveMode ? `Live logs${severityFilter !== "all" ? ` · ${severityFilter}` : ""}` : `Logs${severityFilter !== "all" ? ` · ${severityFilter}` : ""}`}
-						note={liveMode
-							? `${visibleLogs.length.toLocaleString()} streamed${liveTail.paused ? " · paused" : ""}`
-							: `${visibleLogs.length.toLocaleString()} in window`}
+						title={
+							liveMode
+								? `Live logs${severityFilter !== "all" ? ` · ${severityFilter}` : ""}`
+								: `Logs${severityFilter !== "all" ? ` · ${severityFilter}` : ""}`
+						}
+						note={
+							liveMode
+								? `${visibleLogs.length.toLocaleString()} streamed${liveTail.paused ? " · paused" : ""}`
+								: `${visibleLogs.length.toLocaleString()} in window`
+						}
 					/>
 					<div className="flex flex-col mt-1">
 						{visibleLogs.map((log) => {
@@ -374,7 +425,9 @@ export function LogsDashboard() {
 					{visibleLogs.length === 0 && (
 						<p className="py-2 text-[0.875rem] opacity-60 font-semibold">
 							{liveMode
-								? liveTail.connected ? "Waiting for logs…" : liveTail.error || "Connecting…"
+								? liveTail.connected
+									? "Waiting for logs…"
+									: liveTail.error || "Connecting…"
 								: `No logs${severityFilter !== "all" ? ` at ${severityFilter}` : ""} in window.`}
 						</p>
 					)}
@@ -383,7 +436,10 @@ export function LogsDashboard() {
 				<aside className="flex w-[320px] flex-none flex-col gap-2 overflow-y-auto">
 					{selectedLog ? (
 						<>
-							<LogDetailDrawer log={selectedLog} onClose={() => setSelectedLog(null)} />
+							<LogDetailDrawer
+								log={selectedLog}
+								onClose={() => setSelectedLog(null)}
+							/>
 							{/* RFC 0006 — connected rail next to the log detail drawer */}
 							<ConnectedRail
 								entityKind="log"
@@ -462,7 +518,9 @@ function LogDetailDrawer({
 
 			<dl className="mb-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.6875rem] font-mono">
 				<dt className="opacity-50 uppercase tracking-[0.05em]">Time</dt>
-				<dd className="break-all">{new Date(log.occurredAt).toLocaleString()}</dd>
+				<dd className="break-all">
+					{new Date(log.occurredAt).toLocaleString()}
+				</dd>
 				{log.serviceName && (
 					<>
 						<dt className="opacity-50 uppercase tracking-[0.05em]">Service</dt>

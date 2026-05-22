@@ -105,9 +105,11 @@ export const stampInteractionFromRequest = (
 export const currentInteractionId = (): string | undefined => {
 	const span = trace.getActiveSpan();
 	if (!span) return undefined;
-	const attrs = (span as unknown as {
-		attributes?: Record<string, unknown>;
-	}).attributes;
+	const attrs = (
+		span as unknown as {
+			attributes?: Record<string, unknown>;
+		}
+	).attributes;
 	const v = attrs?.[INTERACTION_ATTRIBUTE];
 	return typeof v === "string" ? v : undefined;
 };

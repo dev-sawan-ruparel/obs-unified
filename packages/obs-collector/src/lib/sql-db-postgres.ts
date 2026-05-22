@@ -44,7 +44,11 @@ export class PostgresAdapter implements SqlDb {
 	}
 
 	prepare(sql: string): SqlStatement {
-		return new PostgresStatement(this.pool, rewriteQuestionMarks(sql), this.statementTimeoutMs);
+		return new PostgresStatement(
+			this.pool,
+			rewriteQuestionMarks(sql),
+			this.statementTimeoutMs,
+		);
 	}
 
 	async batch(
@@ -106,7 +110,10 @@ class PostgresStatement implements SqlStatement {
 	// Internal — used by batch() to run inside an already-checked-out
 	// client (so the BEGIN/COMMIT span the whole batch).
 	async runOnClient(client: {
-		query: (text: string, values?: unknown[]) => Promise<{ rowCount: number | null }>;
+		query: (
+			text: string,
+			values?: unknown[],
+		) => Promise<{ rowCount: number | null }>;
 	}): Promise<{ meta: { changes: number } }> {
 		const r = await client.query(this.sql, this.bound);
 		return { meta: { changes: r.rowCount ?? 0 } };
@@ -118,7 +125,9 @@ class PostgresStatement implements SqlStatement {
 	}> {
 		const client = await this.pool.connect();
 		try {
-			await client.query(`SET LOCAL statement_timeout = ${this.statementTimeoutMs}`);
+			await client.query(
+				`SET LOCAL statement_timeout = ${this.statementTimeoutMs}`,
+			);
 			const r = await client.query<T>(this.sql, this.bound);
 			return { rows: r.rows, rowCount: r.rowCount };
 		} finally {

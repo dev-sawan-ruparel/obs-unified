@@ -11,9 +11,9 @@
  * Requires: sharp (devDependency of this package).
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -31,7 +31,10 @@ try {
 async function svgToPng(svgPath, outPath, width, height = width) {
 	const svg = await readFile(svgPath);
 	const buf = await sharp(svg, { density: 384 })
-		.resize(width, height, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+		.resize(width, height, {
+			fit: "contain",
+			background: { r: 0, g: 0, b: 0, alpha: 0 },
+		})
 		.png({ compressionLevel: 9 })
 		.toBuffer();
 	await writeFile(outPath, buf);
@@ -91,7 +94,11 @@ async function main() {
 	await svgToPng(appleSrc, resolve(ROOT, "favicons/apple-touch-icon.png"), 180);
 	await svgToPng(appleSrc, resolve(ROOT, "favicons/icon-192.png"), 192);
 	await svgToPng(appleSrc, resolve(ROOT, "favicons/icon-512.png"), 512);
-	await svgToPng(maskableSrc, resolve(ROOT, "favicons/icon-maskable-512.png"), 512);
+	await svgToPng(
+		maskableSrc,
+		resolve(ROOT, "favicons/icon-maskable-512.png"),
+		512,
+	);
 	await pngBufferToIco(favicon, resolve(ROOT, "favicons/favicon.ico"), 32);
 
 	console.log("\n[brand] rendering OG cards…");

@@ -1,5 +1,5 @@
+import type { UserProfileDetail, UserProfileRow } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
-import type { UserProfileRow, UserProfileDetail } from "@obs-unified/types";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -8,10 +8,14 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 	register(app) {
 		app.get("/internal/users", async (c) => {
 			const projectId = getProjectId(c);
-			const limit = Math.max(1, Math.min(1000, parseInt(c.req.query("limit") ?? "50", 10) || 50));
-			const { results } = await sqlDbFor(c.env).prepare(
-				`SELECT * FROM user_profiles WHERE project_id = ? ORDER BY last_seen_at DESC LIMIT ?`,
-			)
+			const limit = Math.max(
+				1,
+				Math.min(1000, parseInt(c.req.query("limit") ?? "50", 10) || 50),
+			);
+			const { results } = await sqlDbFor(c.env)
+				.prepare(
+					`SELECT * FROM user_profiles WHERE project_id = ? ORDER BY last_seen_at DESC LIMIT ?`,
+				)
 				.bind(projectId, limit)
 				.all<UserProfileRow>();
 
@@ -31,9 +35,10 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 		app.get("/internal/users/:userId", async (c) => {
 			const projectId = getProjectId(c);
 			const userId = c.req.param("userId");
-			const user = await sqlDbFor(c.env).prepare(
-				`SELECT * FROM user_profiles WHERE project_id = ? AND user_id = ?`,
-			)
+			const user = await sqlDbFor(c.env)
+				.prepare(
+					`SELECT * FROM user_profiles WHERE project_id = ? AND user_id = ?`,
+				)
 				.bind(projectId, userId)
 				.first<UserProfileRow>();
 
@@ -46,7 +51,9 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 				visitorId: user.visitor_id,
 				email: user.email,
 				name: user.name,
-				properties: user.properties_json ? JSON.parse(user.properties_json) : {},
+				properties: user.properties_json
+					? JSON.parse(user.properties_json)
+					: {},
 				firstSeenAt: user.first_seen_at,
 				lastSeenAt: user.last_seen_at,
 			};

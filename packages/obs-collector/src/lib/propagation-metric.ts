@@ -20,8 +20,8 @@
  * each run rather than creating new ones.
  */
 
-import type { DecodedMetricPoint } from "../otlp/decode";
 import type { Logger } from "../framework/logger";
+import type { DecodedMetricPoint } from "../otlp/decode";
 import { MetricsStore } from "./metrics-store";
 import type { SqlDb } from "./sql-db";
 
@@ -147,9 +147,7 @@ export const aggregatePropagationForProject = async (
 		points,
 		receivedAt: now.toISOString(),
 		// Keep propagation metrics on the same retention as everything else.
-		expiresAt: new Date(
-			now.getTime() + 72 * 60 * 60 * 1000,
-		).toISOString(),
+		expiresAt: new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString(),
 	});
 
 	return { pointsWritten: points.length };

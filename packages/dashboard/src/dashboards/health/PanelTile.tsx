@@ -1,4 +1,8 @@
-import type { AnalysisDefinition, AnalysisResult, AnalysisStatus } from "@obs-unified/types";
+import type {
+	AnalysisDefinition,
+	AnalysisResult,
+	AnalysisStatus,
+} from "@obs-unified/types";
 import { Tag, type TagTone } from "../../components/Tag";
 import { tileHref } from "./tile-href";
 
@@ -55,10 +59,7 @@ function formatFreshness(iso: string): string {
  * analyses where larger means worse (error rate, latency) get a red arrow;
  * for ok-status panels we treat any movement as neutral so we don't shout.
  */
-function deltaColor(
-	status: AnalysisStatus,
-	deltaPct: number,
-): string {
+function deltaColor(status: AnalysisStatus, deltaPct: number): string {
 	if (status === "ok") return "text-sys-on-surface-muted";
 	if (status === "critical") return "text-sys-error";
 	if (status === "warn") return "text-sys-warning";

@@ -109,7 +109,11 @@ interface AISpan {
 
 interface AISpansResponse {
 	spans: AISpan[];
-	summary: { totalSpans: number; byKind: Record<string, number>; errorSpans: number };
+	summary: {
+		totalSpans: number;
+		byKind: Record<string, number>;
+		errorSpans: number;
+	};
 }
 
 describe.skipIf(!BASE)("AI observability parity", () => {
@@ -204,7 +208,9 @@ describe.skipIf(!BASE)("AI observability parity", () => {
 		await postTrace(payload);
 		await new Promise((r) => setTimeout(r, 300));
 
-		const q = await fetch(`${BASE}/internal/ai/spans?traceId=${traceId}&hours=1`);
+		const q = await fetch(
+			`${BASE}/internal/ai/spans?traceId=${traceId}&hours=1`,
+		);
 		const body = (await q.json()) as AISpansResponse;
 		const retriever = body.spans.find((s) => s.spanId === spanId);
 
@@ -243,7 +249,9 @@ describe.skipIf(!BASE)("AI observability parity", () => {
 		);
 		await new Promise((r) => setTimeout(r, 300));
 
-		const q = await fetch(`${BASE}/internal/ai/spans?traceId=${traceId}&hours=1`);
+		const q = await fetch(
+			`${BASE}/internal/ai/spans?traceId=${traceId}&hours=1`,
+		);
 		const body = (await q.json()) as AISpansResponse;
 		const tool = body.spans.find((s) => s.spanId === spanId);
 
@@ -283,7 +291,9 @@ describe.skipIf(!BASE)("AI observability parity", () => {
 		);
 		await new Promise((r) => setTimeout(r, 300));
 
-		const q = await fetch(`${BASE}/internal/ai/spans?traceId=${traceId}&hours=1`);
+		const q = await fetch(
+			`${BASE}/internal/ai/spans?traceId=${traceId}&hours=1`,
+		);
 		const body = (await q.json()) as AISpansResponse;
 		const span = body.spans.find((s) => s.spanId === spanId);
 
@@ -409,7 +419,11 @@ describe.skipIf(!BASE)("AI observability parity", () => {
 		const body = (await detail.json()) as {
 			sessionId: string;
 			userId: string | null;
-			spans: Array<{ spanId: string; spanKind: string; inputJson: string | null }>;
+			spans: Array<{
+				spanId: string;
+				spanKind: string;
+				inputJson: string | null;
+			}>;
 			summary: { spanCount: number; totalPromptTokens: number };
 		};
 

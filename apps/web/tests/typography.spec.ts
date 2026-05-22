@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 
 /*
  * Typography audit: walks the new shell and reports computed font-family,
@@ -81,14 +81,38 @@ test.describe("Typography audit", () => {
 
 		const probes: Array<[string, () => ReturnType<Page["locator"]>]> = [
 			["rail.brand", () => page.locator("aside").getByText("obs-unified")],
-			["rail.group-label", () => page.locator("aside").getByText("Observe", { exact: true })],
-			["rail.nav-active", () => page.locator("aside button").filter({ hasText: "Timeline" })],
-			["rail.nav-inactive", () => page.locator("aside button").filter({ hasText: "Service Map" })],
-			["rail.pinned", () => page.locator("aside button").filter({ hasText: "Projects" })],
-			["rail.collapse", () => page.locator("aside button").filter({ hasText: "Collapse" })],
-			["topbar.search-input", () => page.locator('header input[placeholder*="Search"]')],
-			["topbar.time-picker", () => page.locator("header button").filter({ hasText: /\d+[hm]|d/ })],
-			["topbar.project-label", () => page.locator("header").getByText("Project", { exact: true })],
+			[
+				"rail.group-label",
+				() => page.locator("aside").getByText("Observe", { exact: true }),
+			],
+			[
+				"rail.nav-active",
+				() => page.locator("aside button").filter({ hasText: "Timeline" }),
+			],
+			[
+				"rail.nav-inactive",
+				() => page.locator("aside button").filter({ hasText: "Service Map" }),
+			],
+			[
+				"rail.pinned",
+				() => page.locator("aside button").filter({ hasText: "Projects" }),
+			],
+			[
+				"rail.collapse",
+				() => page.locator("aside button").filter({ hasText: "Collapse" }),
+			],
+			[
+				"topbar.search-input",
+				() => page.locator('header input[placeholder*="Search"]'),
+			],
+			[
+				"topbar.time-picker",
+				() => page.locator("header button").filter({ hasText: /\d+[hm]|d/ }),
+			],
+			[
+				"topbar.project-label",
+				() => page.locator("header").getByText("Project", { exact: true }),
+			],
 			["topbar.project-select", () => page.locator("header select")],
 		];
 

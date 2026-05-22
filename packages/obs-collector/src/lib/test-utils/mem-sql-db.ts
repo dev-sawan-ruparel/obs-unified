@@ -15,10 +15,7 @@ import type { SqlDb, SqlStatement } from "../sql-db";
 
 export interface MemSqlDbOptions {
 	/** Return value for `first()`. Receives the SQL + binds at call time. */
-	first?: (
-		sql: string,
-		binds: unknown[],
-	) => Record<string, unknown> | null;
+	first?: (sql: string, binds: unknown[]) => Record<string, unknown> | null;
 	/** Rows returned for `all()`. The double wraps in `{ results }`. */
 	all?: (sql: string, binds: unknown[]) => Record<string, unknown>[];
 	/** Changes count for `run()`. Defaults to `1`. */
@@ -69,9 +66,7 @@ class MemSqlStatement implements SqlStatement {
 
 	async first<T = Record<string, unknown>>(): Promise<T | null> {
 		this.calls.push({ sql: this.sql, binds: this.binds, op: "first" });
-		const row = this.opts.first
-			? this.opts.first(this.sql, this.binds)
-			: null;
+		const row = this.opts.first ? this.opts.first(this.sql, this.binds) : null;
 		return (row ?? null) as T | null;
 	}
 

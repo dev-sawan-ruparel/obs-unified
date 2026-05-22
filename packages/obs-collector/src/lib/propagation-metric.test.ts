@@ -44,8 +44,7 @@ class FakeDb {
 				if (sql.includes("FROM telemetry_spans"))
 					return counts.telemetry_spans as T;
 				if (sql.includes("FROM logs")) return counts.logs as T;
-				if (sql.includes("FROM usage_events"))
-					return counts.usage_events as T;
+				if (sql.includes("FROM usage_events")) return counts.usage_events as T;
 				if (sql.includes("FROM ai_calls")) return counts.ai_calls as T;
 				return null;
 			},
@@ -110,7 +109,11 @@ describe("aggregatePropagationForProject", () => {
 			ai_calls: { propagated: 2, missing: 1 },
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: structural fake
-		const result = await aggregatePropagationForProject(db as any, "p1", new Date());
+		const result = await aggregatePropagationForProject(
+			db as any,
+			"p1",
+			new Date(),
+		);
 		expect(result.pointsWritten).toBe(8);
 	});
 
@@ -122,19 +125,30 @@ describe("aggregatePropagationForProject", () => {
 			ai_calls: { propagated: 0, missing: 0 },
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: structural fake
-		const result = await aggregatePropagationForProject(db as any, "p1", new Date());
+		const result = await aggregatePropagationForProject(
+			db as any,
+			"p1",
+			new Date(),
+		);
 		expect(result.pointsWritten).toBe(8);
 	});
 
 	it("treats null SUM as 0 (empty signal table edge case)", async () => {
 		const db = new FakeDb({
-			telemetry_spans: { propagated: null, missing: null } as unknown as FakeRow,
+			telemetry_spans: {
+				propagated: null,
+				missing: null,
+			} as unknown as FakeRow,
 			logs: { propagated: null, missing: null } as unknown as FakeRow,
 			usage_events: { propagated: null, missing: null } as unknown as FakeRow,
 			ai_calls: { propagated: null, missing: null } as unknown as FakeRow,
 		});
 		// biome-ignore lint/suspicious/noExplicitAny: structural fake
-		const result = await aggregatePropagationForProject(db as any, "p1", new Date());
+		const result = await aggregatePropagationForProject(
+			db as any,
+			"p1",
+			new Date(),
+		);
 		expect(result.pointsWritten).toBe(8);
 	});
 
@@ -162,9 +176,19 @@ describe("aggregatePropagationForProject", () => {
 			}
 			return originalPrepare(sql);
 		};
-		const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() };
+		const logger = {
+			error: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn(),
+		};
 		// biome-ignore lint/suspicious/noExplicitAny: structural fake
-		const result = await aggregatePropagationForProject(baseDb as any, "p1", new Date(), logger as any);
+		const result = await aggregatePropagationForProject(
+			baseDb as any,
+			"p1",
+			new Date(),
+			logger as any,
+		);
 		// Three signals succeed (×2 points each) — logs throws, so 6 points.
 		expect(result.pointsWritten).toBe(6);
 		expect(logger.error).toHaveBeenCalledWith(

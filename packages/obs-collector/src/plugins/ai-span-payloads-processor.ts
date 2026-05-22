@@ -11,16 +11,16 @@
  * for AI calls.
  */
 
+import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import {
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
 	INTERACTION_ID_KEY,
+	isOpenInferenceSpanKind,
 	OPENINFERENCE_SPAN_KIND_KEY,
 	SESSION_ID_KEY,
 	USER_ID_KEY,
-	isOpenInferenceSpanKind,
 } from "@obs-unified/types/constants";
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 import { sqlDbFor } from "../lib/sql-db";
@@ -35,6 +35,7 @@ interface PayloadRow {
 	sessionId: string | null;
 	userId: string | null;
 	interactionId: string | null;
+	actionId: string | null;
 	receivedAt: string;
 	expiresAt: string;
 }
@@ -82,6 +83,7 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 						sessionId: asString(attrs[SESSION_ID_KEY]),
 						userId: asString(attrs[USER_ID_KEY]),
 						interactionId: asString(attrs[INTERACTION_ID_KEY]),
+						actionId: asString(attrs["obs.action.id"]),
 						receivedAt: span.receivedAt,
 						expiresAt: span.expiresAt,
 					});
@@ -102,8 +104,8 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 							`INSERT OR REPLACE INTO ai_span_payloads (
 								project_id, trace_id, span_id, span_kind,
 								input_json, output_json, session_id, user_id,
-								received_at, expires_at, interaction_id
-							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+								received_at, expires_at, interaction_id, action_id
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 						);
 						await db.batch(
 							rows.map((r) =>
@@ -119,18 +121,16 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 									r.receivedAt,
 									r.expiresAt,
 									r.interactionId,
+									r.actionId,
 								),
 							),
 						);
 					} catch (err) {
 						// Don't fail the whole ingest on payload side-table issues —
 						// the spans themselves are still useful.
-						context.logger.error(
-							"[ai-span-payloads-processor] write failed",
-							{
-								error: err instanceof Error ? err.message : String(err),
-							},
-						);
+						context.logger.error("[ai-span-payloads-processor] write failed", {
+							error: err instanceof Error ? err.message : String(err),
+						});
 					}
 				}
 
