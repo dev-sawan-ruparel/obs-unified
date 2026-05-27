@@ -22,6 +22,15 @@ Their Postgres siblings live in
 | 008 | session_replay_storage_bytes | ✅ | ✅ | `ADD COLUMN IF NOT EXISTS` |
 | 009 | projects_and_keys | ✅ | ✅ | `BYTEA` for key_hash — pairs with `ingest-auth.ts` constant-time compare |
 | 010 | signal_project_id | ✅ | ✅ | `ADD COLUMN IF NOT EXISTS` × 6 |
+| 011–030 | _(various)_ | ✅ | ⏳ | **Not yet translated.** Land with the first hosted-Postgres deploy (see README). Includes 019 `ai_span_payloads`, which 031 depends on. |
+| 031 | agent_action_graph | ✅ | ⚠️ | Action graph spine + leaf tables (RFC 0010). Landed ahead of 011–030. The `ai_span_payloads.action_id` column + index (a dependency on the still-untranslated 019) are **guarded behind `to_regclass('ai_span_payloads')`**, so on a fresh DB without 019 that extension is a no-op instead of aborting the run. Once 019 is translated it sorts first and the guard lets the extension apply. |
+
+> **Out-of-order note:** 031 was translated before 011–030. That is allowed
+> only because its one cross-table dependency (the `ai_span_payloads`
+> extension) is guarded. Any future migration that hard-references a table
+> from the 011–030 range must either wait for that range to be translated or
+> apply the same `to_regclass(...)` / `IF EXISTS` guard pattern, or it will
+> break the CI integration job.
 
 ## Translation rules
 

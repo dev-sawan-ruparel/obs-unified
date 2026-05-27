@@ -166,8 +166,25 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_action
 
 
 -- 7. Extend Existing AI Span Payloads Table
-ALTER TABLE ai_span_payloads ADD COLUMN action_id TEXT;
+--
+-- NOTE: `ai_span_payloads` is created by migration 019, which has not yet been
+-- translated to Postgres (migrations 011-030 land alongside the first hosted-
+-- Postgres deployment; see migrations-postgres/README.md). Until 019 exists in
+-- this directory, a bare `ALTER TABLE ai_span_payloads` would abort the whole
+-- run with `relation "ai_span_payloads" does not exist`.
+--
+-- We guard the extension on the table actually existing. On a fresh DB without
+-- 019 the block is a no-op; once 019 is translated it sorts before 031, so the
+-- column + index are added as intended. Both inner statements are idempotent
+-- (`IF NOT EXISTS`), so re-running after 019 lands is safe.
+DO $$
+BEGIN
+  IF to_regclass('ai_span_payloads') IS NOT NULL THEN
+    ALTER TABLE ai_span_payloads ADD COLUMN IF NOT EXISTS action_id TEXT;
 
-CREATE INDEX IF NOT EXISTS idx_ai_payloads_action
-  ON ai_span_payloads (project_id, action_id)
-  WHERE action_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_ai_payloads_action
+      ON ai_span_payloads (project_id, action_id)
+      WHERE action_id IS NOT NULL;
+  END IF;
+END
+$$;
