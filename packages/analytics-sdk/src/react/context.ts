@@ -1,9 +1,7 @@
 import { createContext } from "react";
 import type { UsageTracker } from "../usage-tracker";
 
-type AnyHandler<Args extends unknown[] = unknown[], Return = unknown> = (
-	...args: Args
-) => Return;
+type AnyHandler = (...args: never[]) => unknown;
 
 export interface AnalyticsContextValue {
 	tracker: UsageTracker;

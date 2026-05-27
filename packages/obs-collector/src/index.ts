@@ -71,6 +71,7 @@ export {
 	type BlobObject,
 	type BlobPutOptions,
 	type BlobStore,
+	BlobStoreToR2Adapter,
 	R2BlobStore,
 } from "./lib/blob-store";
 export { S3BlobStore, type S3BlobStoreOptions } from "./lib/blob-store-s3";

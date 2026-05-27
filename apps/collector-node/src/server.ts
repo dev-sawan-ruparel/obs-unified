@@ -19,6 +19,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { serve } from "@hono/node-server";
 import {
+	BlobStoreToR2Adapter,
+	type CollectorEnv,
 	createDashboardAuth,
 	createDefaultCollectorApp,
 	createIngestAuth,
@@ -86,15 +88,30 @@ const app = createDefaultCollectorApp({
 	// factory just returns it.
 	sqlDb: () => sqlDb,
 });
-void blob;
+const wrappedS3 = new BlobStoreToR2Adapter(blob);
+
+const requestEnv: CollectorEnv = {
+	DB: sqlDb as unknown as D1Database,
+	REPLAYS_BUCKET: wrappedS3,
+	PROFILES_BUCKET: wrappedS3,
+	INGEST_KEY: env.INGEST_KEY,
+	DASHBOARD_PASSWORD: env.DASHBOARD_PASSWORD,
+	ALLOWED_ORIGINS: env.ALLOWED_ORIGINS.join(","),
+};
 
 const port = env.PORT;
-serve({ fetch: app.fetch, port }, ({ port }) => {
-	console.log(
-		`[obs-unified] collector listening on http://0.0.0.0:${port}` +
-			` (postgres + ${env.S3_ENDPOINT ?? "s3"}/${env.S3_BUCKET})`,
-	);
-});
+serve(
+	{
+		fetch: (request) => app.fetch(request, requestEnv),
+		port,
+	},
+	({ port }) => {
+		console.log(
+			`[obs-unified] collector listening on http://0.0.0.0:${port}` +
+				` (postgres + ${env.S3_ENDPOINT ?? "s3"}/${env.S3_BUCKET})`,
+		);
+	},
+);
 
 const shutdown = async (signal: string) => {
 	console.log(`[obs-unified] received ${signal}, draining…`);

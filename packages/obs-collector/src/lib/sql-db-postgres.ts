@@ -46,7 +46,7 @@ export class PostgresAdapter implements SqlDb {
 	prepare(sql: string): SqlStatement {
 		return new PostgresStatement(
 			this.pool,
-			rewriteQuestionMarks(sql),
+			translateD1Sql(rewriteQuestionMarks(sql)),
 			this.statementTimeoutMs,
 		);
 	}
@@ -158,5 +158,60 @@ const rewriteQuestionMarks = (sql: string): string => {
 		}
 		out += ch;
 	}
+	return out;
+};
+
+const translateD1Sql = (sql: string): string => {
+	let out = sql;
+	const hadInsertOrIgnore = /\bINSERT\s+OR\s+IGNORE\s+INTO\b/i.test(out);
+
+	out = out.replace(/\bINSERT\s+OR\s+IGNORE\s+INTO\b/gi, "INSERT INTO");
+
+	out = out.replace(
+		/datetime\('now',\s*'-'\s*\|\|\s*(\$\d+)\s*\|\|\s*'\s*hours'\)/gi,
+		"(CURRENT_TIMESTAMP - ($1::text || ' hours')::interval)",
+	);
+	out = out.replace(
+		/datetime\('now',\s*'-'\s*\|\|\s*(\$\d+)\s*\|\|\s*'\s*minutes'\)/gi,
+		"(CURRENT_TIMESTAMP - ($1::text || ' minutes')::interval)",
+	);
+	out = out.replace(
+		/datetime\('now',\s*'-(\d+)\s+(hour|hours|minute|minutes|day|days)'\)/gi,
+		"CURRENT_TIMESTAMP - INTERVAL '$1 $2'",
+	);
+	out = out.replace(/datetime\('now'\)/gi, "CURRENT_TIMESTAMP");
+
+	out = out.replace(
+		/json_extract\(([^,()]+),\s*'\$\.(?:"([^"]+)"|([A-Za-z0-9_\\.\\\\]+))'\)/gi,
+		(
+			_match,
+			expr: string,
+			quotedKey: string | undefined,
+			bareKey: string | undefined,
+		) => {
+			const key = (quotedKey ?? bareKey ?? "").replace(
+				/\\\\u002E|\\u002E/g,
+				".",
+			);
+			return `(${expr.trim()}::jsonb ->> '${key.replace(/'/g, "''")}')`;
+		},
+	);
+
+	out = out.replace(
+		/strftime\('%Y-%m-%dT%H:%M:00Z',\s*([^)]+)\)/gi,
+		"to_char(date_trunc('minute', $1::timestamp), 'YYYY-MM-DD\"T\"HH24:MI:00\"Z\"')",
+	);
+	out = out.replace(
+		/strftime\('%Y-%m-%dT%H:00:00Z',\s*([^)]+)\)/gi,
+		"to_char(date_trunc('hour', $1::timestamp), 'YYYY-MM-DD\"T\"HH24:00:00\"Z\"')",
+	);
+	out = out.replace(
+		/strftime\('%s',\s*([^)]+)\)/gi,
+		"EXTRACT(EPOCH FROM $1::timestamp)",
+	);
+	if (hadInsertOrIgnore && /\bON\s+CONFLICT\b/i.test(out) === false) {
+		out = out.replace(/(;?\s*)$/, " ON CONFLICT DO NOTHING$1");
+	}
+
 	return out;
 };

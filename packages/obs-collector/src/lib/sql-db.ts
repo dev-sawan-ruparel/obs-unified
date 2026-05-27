@@ -80,8 +80,22 @@ export class D1Adapter implements SqlDb {
  * prefer `runtime.getSqlDb(env)` so a host-supplied `sqlDb` factory in
  * `CollectorConfig` takes effect.
  */
-export const sqlDbFor = (env: { DB: D1Database }): SqlDb =>
-	new D1Adapter(env.DB);
+export const sqlDbFor = (env: { DB: D1Database | SqlDb }): SqlDb =>
+	isSqlDb(env.DB) ? env.DB : new D1Adapter(env.DB);
+
+const isSqlDb = (db: unknown): db is SqlDb => {
+	if (!db || typeof db !== "object") return false;
+	const candidate = db as {
+		prepare?: unknown;
+		batch?: unknown;
+		exec?: unknown;
+	};
+	return (
+		typeof candidate.prepare === "function" &&
+		typeof candidate.batch === "function" &&
+		typeof candidate.exec !== "function"
+	);
+};
 
 class D1StatementAdapter implements SqlStatement {
 	constructor(private readonly stmt: D1PreparedStatement) {}

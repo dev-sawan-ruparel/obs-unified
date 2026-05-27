@@ -131,9 +131,7 @@ export const withInteractionContextAsync = async <T>(
 // Falls through cleanly when no interaction is active — the wrapped
 // handler runs as-is and never touches the stack.
 
-type AnyHandler<Args extends unknown[] = unknown[], Return = unknown> = (
-	...args: Args
-) => Return;
+type AnyHandler = (...args: never[]) => unknown;
 
 const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 	value !== null &&
