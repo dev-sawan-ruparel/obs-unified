@@ -24,6 +24,7 @@
 		"demo:up": "docker compose -f demo/upstream/docker-compose.yml up --no-attach load-generator -d",
 		"demo:down": "docker compose -f demo/upstream/docker-compose.yml down",
 		"demo:logs": "docker compose -f demo/upstream/docker-compose.yml logs -f load-generator",
+		"smoke:collector-node": "pnpm --filter @obs-demo/collector-node run smoke:docker",
 		"seed": "node scripts/seed-everything/run.mjs",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",

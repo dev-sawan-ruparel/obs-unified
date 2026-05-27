@@ -7,17 +7,23 @@
 //
 // Re-running is safe — applied migrations are skipped.
 
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationsDir = path.resolve(
+const sourceMigrationsDir = path.resolve(
 	here,
 	"../../../packages/obs-collector/src/migrations-postgres",
 );
+const imageMigrationsDir = path.resolve(here, "../migrations-postgres");
+const migrationsDir =
+	process.env.MIGRATIONS_DIR ??
+	((await pathExists(sourceMigrationsDir))
+		? sourceMigrationsDir
+		: imageMigrationsDir);
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -67,3 +73,13 @@ for (const file of files) {
 
 await client.end();
 console.log(`[migrate] done (${appliedCount} new of ${files.length} total)`);
+
+async function pathExists(candidate) {
+	try {
+		await stat(candidate);
+		return true;
+	} catch (err) {
+		if (err && err.code === "ENOENT") return false;
+		throw err;
+	}
+}

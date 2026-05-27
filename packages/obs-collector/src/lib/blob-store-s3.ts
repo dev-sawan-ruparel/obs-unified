@@ -82,12 +82,14 @@ export class S3BlobStore implements BlobStore {
 		try {
 			const r = (await this.opts.client.send(cmd)) as {
 				Body: ReadableStream<Uint8Array>;
+				ContentLength?: number;
 				ContentType?: string;
 				ContentEncoding?: string;
 				Metadata?: Record<string, string>;
 			};
 			return {
 				body: r.Body,
+				size: r.ContentLength,
 				bytes: async () => {
 					const reader = r.Body.getReader();
 					const chunks: Uint8Array[] = [];

@@ -36,6 +36,11 @@ export interface BlobListOptions {
 export interface BlobObject {
 	body: ReadableStream<Uint8Array>;
 	bytes(): Promise<Uint8Array>;
+	/**
+	 * Object size in bytes when the store knows it cheaply (S3 `ContentLength`,
+	 * R2 `size`). Undefined when it can't be determined without reading the body.
+	 */
+	size?: number;
 	httpMetadata?: { contentType?: string; contentEncoding?: string };
 	customMetadata?: Record<string, string>;
 }
@@ -118,6 +123,7 @@ export class R2BlobStore implements BlobStore {
 		return {
 			body: obj.body,
 			bytes: () => obj.arrayBuffer().then((b) => new Uint8Array(b)),
+			size: obj.size,
 			httpMetadata: obj.httpMetadata,
 			customMetadata: obj.customMetadata,
 		};
@@ -214,11 +220,17 @@ export class BlobStoreToR2Adapter implements R2Bucket {
 		const obj = await this.store.get(key);
 		if (!obj) return null;
 
-		const [body, bytesBody] = obj.body.tee();
+		// One underlying stream backs both `body` and the buffered accessors.
+		// Callers consume exactly one of them — the profile download streams
+		// `body` via `new Response(obj.body)`, while replay/profile-filter read
+		// `json()`/`arrayBuffer()`. Teeing would force the unread branch to
+		// buffer the entire blob in memory (defeating the streaming download for
+		// large pprof profiles), so we share a single stream instead. This also
+		// keeps `bodyUsed` honest: the buffered accessors lock `body` directly.
+		const body = obj.body;
 		let bytesPromise: Promise<Uint8Array> | null = null;
 		const bytes = async (): Promise<Uint8Array> => {
-			if (bytesPromise) return bytesPromise;
-			bytesPromise = streamToBytes(bytesBody);
+			if (!bytesPromise) bytesPromise = streamToBytes(body);
 			return bytesPromise;
 		};
 		const httpMetadata = obj.httpMetadata;
@@ -226,7 +238,7 @@ export class BlobStoreToR2Adapter implements R2Bucket {
 		return {
 			key,
 			version: "",
-			size: 0,
+			size: obj.size ?? 0,
 			etag: "",
 			httpEtag: "",
 			checksums: emptyChecksums,
@@ -302,10 +314,13 @@ export class BlobStoreToR2Adapter implements R2Bucket {
 	async head(key: string): Promise<R2Object | null> {
 		const obj = await this.store.get(key);
 		if (!obj) return null;
+		// BlobStore has no metadata-only HEAD, so this issues a GET under the
+		// hood. Release the response body immediately so S3 can reuse the socket.
+		await obj.body.cancel().catch(() => {});
 		return {
 			key,
 			version: "",
-			size: 0,
+			size: obj.size ?? 0,
 			etag: "",
 			httpEtag: "",
 			checksums: emptyChecksums,
