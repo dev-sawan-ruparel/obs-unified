@@ -293,35 +293,39 @@ export function FlameGraph({
 							hovered?.name === frame.name && hovered?.depth === frame.depth;
 						return (
 							<g key={`${frame.name}-${frame.depth}-${frame.offset}`}>
-								{/* biome-ignore lint/a11y/useSemanticElements: SVG has no native button element, but flame frames must remain keyboard-zoomable. */}
-								<rect
-									role="button"
-									tabIndex={0}
-									x={`${realXPct}%`}
-									y={frame.depth * ROW_HEIGHT}
-									width={`${widthPct}%`}
-									height={ROW_HEIGHT - 1}
-									fill={color}
-									stroke={isHover ? "var(--color-sys-on-surface)" : "white"}
-									strokeWidth={isHover ? 1 : 0.3}
-									style={{ cursor: "pointer" }}
+								<a
+									href={`#${encodeURIComponent(frame.name)}`}
 									onMouseEnter={() => setHovered(frame)}
 									onMouseLeave={() => setHovered(null)}
-									onClick={() => setZoomedNode(frame)}
+									onClick={(event) => {
+										event.preventDefault();
+										setZoomedNode(frame);
+									}}
 									onKeyDown={(event) => {
-										if (event.key === "Enter" || event.key === " ") {
+										if (event.key === " ") {
 											event.preventDefault();
 											setZoomedNode(frame);
 										}
 									}}
 								>
-									<title>
-										{frame.name}
-										{"\n"}
-										{frame.value} samples (
-										{((frame.value / total) * 100).toFixed(1)}% of total)
-									</title>
-								</rect>
+									<rect
+										x={`${realXPct}%`}
+										y={frame.depth * ROW_HEIGHT}
+										width={`${widthPct}%`}
+										height={ROW_HEIGHT - 1}
+										fill={color}
+										stroke={isHover ? "var(--color-sys-on-surface)" : "white"}
+										strokeWidth={isHover ? 1 : 0.3}
+										style={{ cursor: "pointer" }}
+									>
+										<title>
+											{frame.name}
+											{"\n"}
+											{frame.value} samples (
+											{((frame.value / total) * 100).toFixed(1)}% of total)
+										</title>
+									</rect>
+								</a>
 								{widthPct > 4 && (
 									<text
 										x={`${realXPct}%`}

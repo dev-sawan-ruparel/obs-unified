@@ -108,23 +108,15 @@ export function DataTable<Row>({
 						} ${active ? "bg-sys-surface-low" : ""}`;
 						if (onRowClick) {
 							return (
-								// biome-ignore lint/a11y/useSemanticElements: Rows can contain nested action buttons, so a semantic button would create invalid markup.
-								<div
+								<button
+									type="button"
 									key={rowKey(row, i)}
-									role="button"
-									tabIndex={0}
 									onClick={() => onRowClick(row, i)}
-									onKeyDown={(event) => {
-										if (event.key === "Enter" || event.key === " ") {
-											event.preventDefault();
-											onRowClick(row, i);
-										}
-									}}
-									className={className}
+									className={`${className} text-left`}
 									style={gridStyle}
 								>
 									{rowContent}
-								</div>
+								</button>
 							);
 						}
 						return (

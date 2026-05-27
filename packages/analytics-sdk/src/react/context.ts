@@ -1,8 +1,9 @@
 import { createContext } from "react";
 import type { UsageTracker } from "../usage-tracker";
 
-// biome-ignore lint/suspicious/noExplicitAny: HOFs over arbitrary handlers
-type AnyHandler = (...args: any[]) => any;
+type AnyHandler<Args extends unknown[] = unknown[], Return = unknown> = (
+	...args: Args
+) => Return;
 
 export interface AnalyticsContextValue {
 	tracker: UsageTracker;

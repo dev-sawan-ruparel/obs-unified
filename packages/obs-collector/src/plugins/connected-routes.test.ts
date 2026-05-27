@@ -28,8 +28,7 @@ const setup = (db: MemSqlDb) => {
 	const runtime = new CollectorRuntime();
 	connectedRoutesPlugin.register(app, runtime);
 	const env: CollectorEnv = {
-		// biome-ignore lint/suspicious/noExplicitAny: synthetic env for tests
-		DB: db as any,
+		DB: db as unknown as D1Database,
 	};
 	return async (path: string): Promise<ConnectedManifest> => {
 		const res = await app.request(path, { method: "GET" }, env);
@@ -44,8 +43,7 @@ const setupRaw = (db: MemSqlDb) => {
 	const runtime = new CollectorRuntime();
 	connectedRoutesPlugin.register(app, runtime);
 	const env: CollectorEnv = {
-		// biome-ignore lint/suspicious/noExplicitAny: synthetic env for tests
-		DB: db as any,
+		DB: db as unknown as D1Database,
 	};
 	return (path: string) => app.request(path, { method: "GET" }, env);
 };

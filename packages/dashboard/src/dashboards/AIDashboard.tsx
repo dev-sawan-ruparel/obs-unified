@@ -567,26 +567,21 @@ function SpanRow({
 			action();
 		}
 	};
-	const handleRowKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-		if (event.key === "Enter" || event.key === " ") {
-			event.preventDefault();
-			onClick();
-		}
-	};
-
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: The row contains filter buttons, so making the entire row a native button would nest controls.
 		<div
-			role="button"
-			tabIndex={0}
-			onClick={onClick}
-			onKeyDown={handleRowKey}
-			className={`w-full text-left px-2 py-2 border-b border-sys-outline/30 hover:bg-sys-surface-low cursor-pointer transition-none ${
+			className={`w-full text-left px-2 py-2 border-b border-sys-outline/30 hover:bg-sys-surface-low transition-none ${
 				selected ? "bg-sys-surface-low border-l-[3px] border-l-sys-primary" : ""
 			}`}
 		>
 			<div className="flex items-center gap-2 text-[0.6875rem] font-mono">
-				<KindBadge kind={span.spanKind} />
+				<button
+					type="button"
+					className="text-left"
+					aria-label={`Open span ${span.spanName}`}
+					onClick={onClick}
+				>
+					<KindBadge kind={span.spanKind} />
+				</button>
 				{/* Click the model/tool name to filter by model. */}
 				<button
 					type="button"

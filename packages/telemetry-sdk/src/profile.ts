@@ -202,6 +202,12 @@ const toUint8 = (blob: Uint8Array | ArrayBuffer | Buffer): Uint8Array =>
 				// is structural-only when @types/node isn't in scope.
 				new Uint8Array(blob as unknown as ArrayBuffer);
 
+const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer => {
+	const copy = new Uint8Array(bytes.byteLength);
+	copy.set(bytes);
+	return copy.buffer;
+};
+
 /**
  * Push a single pprof blob to the collector. Returns the assigned
  * profile id. Throws on HTTP error so callers can decide whether to
@@ -233,8 +239,7 @@ export async function pushProfile(
 	const res = await fetch(url, {
 		method: "POST",
 		headers,
-		// biome-ignore lint/suspicious/noExplicitAny: Uint8Array is a valid BodyInit at runtime
-		body: body as any,
+		body: toArrayBuffer(body),
 	});
 	if (!res.ok) {
 		const text = await res.text().catch(() => "");

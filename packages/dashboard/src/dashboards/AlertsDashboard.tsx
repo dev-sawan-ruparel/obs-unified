@@ -172,7 +172,6 @@ export function AlertsDashboard() {
 					rows={rules}
 					rowKey={(r) => r.id}
 					loading={loading}
-					onRowClick={(r) => setSelectedRuleId(r.id)}
 					isRowActive={(r) => selectedRuleId === r.id}
 					emptyState={
 						<EmptyState
@@ -181,6 +180,7 @@ export function AlertsDashboard() {
 						/>
 					}
 					columns={alertRuleColumns({
+						selectRule: setSelectedRuleId,
 						toggleEnabled,
 						edit: (id) => setShowForm({ editId: id }),
 						deleteRule,
@@ -201,10 +201,12 @@ export function AlertsDashboard() {
 }
 
 function alertRuleColumns({
+	selectRule,
 	toggleEnabled,
 	edit,
 	deleteRule,
 }: {
+	selectRule: (id: string) => void;
 	toggleEnabled: (rule: AlertRule) => void;
 	edit: (id: string) => void;
 	deleteRule: (id: string) => void;
@@ -229,7 +231,15 @@ function alertRuleColumns({
 			key: "name",
 			header: "Name",
 			width: "1fr",
-			cell: (r) => <span className="font-semibold truncate">{r.name}</span>,
+			cell: (r) => (
+				<button
+					type="button"
+					className="font-semibold truncate text-left hover:text-sys-primary"
+					onClick={() => selectRule(r.id)}
+				>
+					{r.name}
+				</button>
+			),
 		},
 		{
 			key: "signal",

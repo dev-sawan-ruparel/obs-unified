@@ -133,14 +133,19 @@ const installXhrPatch = (
 	const originalOpen = XHRClass.prototype.open;
 	const originalSend = XHRClass.prototype.send;
 
-	function patchedOpen(this: XMLHttpRequest, ...args: unknown[]) {
+	function patchedOpen(
+		this: XMLHttpRequest,
+		...args: Parameters<XMLHttpRequest["open"]>
+	) {
 		const id = getId();
 		if (id !== undefined) XHR_INTERACTION.set(this, id);
-		// biome-ignore lint/suspicious/noExplicitAny: variadic XHR.open shape
-		return (originalOpen as any).apply(this, args);
+		return originalOpen.apply(this, args);
 	}
 
-	function patchedSend(this: XMLHttpRequest, ...args: unknown[]) {
+	function patchedSend(
+		this: XMLHttpRequest,
+		...args: Parameters<XMLHttpRequest["send"]>
+	) {
 		const id = XHR_INTERACTION.get(this);
 		if (id !== undefined) {
 			try {
@@ -151,8 +156,7 @@ const installXhrPatch = (
 				// dropping the header beats throwing through their callsite.
 			}
 		}
-		// biome-ignore lint/suspicious/noExplicitAny: variadic XHR.send shape
-		return (originalSend as any).apply(this, args);
+		return originalSend.apply(this, args);
 	}
 
 	XHRClass.prototype.open = patchedOpen as XMLHttpRequest["open"];

@@ -88,8 +88,7 @@ describe("aggregatePropagationForProject", () => {
 			ai_calls: { propagated: 2, missing: 1 },
 		});
 		const now = new Date("2026-05-04T12:30:00.000Z");
-		// biome-ignore lint/suspicious/noExplicitAny: structural fake
-		await aggregatePropagationForProject(db as any, "p1", now);
+		await aggregatePropagationForProject(db as unknown as SqlDb, "p1", now);
 
 		const expectedCutoff = "2026-05-04T11:30:00.000Z";
 

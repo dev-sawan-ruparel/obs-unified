@@ -131,8 +131,9 @@ export const withInteractionContextAsync = async <T>(
 // Falls through cleanly when no interaction is active — the wrapped
 // handler runs as-is and never touches the stack.
 
-// biome-ignore lint/suspicious/noExplicitAny: HOFs over arbitrary functions
-type AnyHandler = (...args: any[]) => any;
+type AnyHandler<Args extends unknown[] = unknown[], Return = unknown> = (
+	...args: Args
+) => Return;
 
 const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 	value !== null &&
