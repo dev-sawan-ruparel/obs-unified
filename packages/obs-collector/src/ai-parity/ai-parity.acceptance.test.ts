@@ -160,24 +160,24 @@ describe.skipIf(!BASE)("AI observability parity", () => {
 
 		const llm = body.spans.find((s) => s.spanId === spanId);
 		expect(llm, "LLM span not found in /ai/spans response").toBeTruthy();
-		expect(llm!.spanKind).toBe("LLM");
-		expect(llm!.attributes["llm.model_name"]).toBe("gpt-4o-mini");
-		expect(llm!.attributes["llm.provider"]).toBe("openai");
-		expect(llm!.attributes["llm.token_count.prompt"]).toBe(18);
-		expect(llm!.attributes["llm.token_count.completion"]).toBe(2);
+		expect(llm?.spanKind).toBe("LLM");
+		expect(llm?.attributes["llm.model_name"]).toBe("gpt-4o-mini");
+		expect(llm?.attributes["llm.provider"]).toBe("openai");
+		expect(llm?.attributes["llm.token_count.prompt"]).toBe(18);
+		expect(llm?.attributes["llm.token_count.completion"]).toBe(2);
 
 		// Payload blobs MUST be stripped from attributes and routed to the
 		// side table — Phoenix parity requires input/output be rehydratable
 		// for replay.
-		expect(llm!.attributes).not.toHaveProperty("ai.payload.input");
-		expect(llm!.attributes).not.toHaveProperty("ai.payload.output");
-		expect(llm!.inputJson).toBe(JSON.stringify(messages));
-		expect(llm!.outputJson).toBe(JSON.stringify(output));
+		expect(llm?.attributes).not.toHaveProperty("ai.payload.input");
+		expect(llm?.attributes).not.toHaveProperty("ai.payload.output");
+		expect(llm?.inputJson).toBe(JSON.stringify(messages));
+		expect(llm?.outputJson).toBe(JSON.stringify(output));
 
 		// Cost must be auto-computed from the vendor pricing table since we
 		// didn't report it directly. gpt-4o-mini is in our table.
-		expect(llm!.attributes["llm.cost.total_usd"]).toBeGreaterThan(0);
-		expect(llm!.attributes["llm.cost.computed"]).toBe(true);
+		expect(llm?.attributes["llm.cost.total_usd"]).toBeGreaterThan(0);
+		expect(llm?.attributes["llm.cost.computed"]).toBe(true);
 	});
 
 	it("2. RETRIEVER span preserves document attributes for RAG debugging", async () => {
@@ -298,19 +298,19 @@ describe.skipIf(!BASE)("AI observability parity", () => {
 		const span = body.spans.find((s) => s.spanId === spanId);
 
 		expect(span, "gen_ai.* span not normalized to OpenInference").toBeTruthy();
-		expect(span!.spanKind).toBe("LLM");
+		expect(span?.spanKind).toBe("LLM");
 		// Normalization: gen_ai.response.model wins (actual served model) over
 		// gen_ai.request.model, and maps to llm.model_name.
-		expect(span!.attributes["llm.model_name"]).toBe("gpt-4o-2024-11-20");
-		expect(span!.attributes["llm.provider"]).toBe("openai");
-		expect(span!.attributes["llm.token_count.prompt"]).toBe(42);
-		expect(span!.attributes["llm.token_count.completion"]).toBe(120);
+		expect(span?.attributes["llm.model_name"]).toBe("gpt-4o-2024-11-20");
+		expect(span?.attributes["llm.provider"]).toBe("openai");
+		expect(span?.attributes["llm.token_count.prompt"]).toBe(42);
+		expect(span?.attributes["llm.token_count.completion"]).toBe(120);
 		// Indexed prompt/completion arrays get reassembled into input/output
 		// payloads and routed to the side table, same as native SDK spans.
-		expect(span!.inputJson).toBeTruthy();
-		expect(span!.outputJson).toBeTruthy();
-		expect(span!.inputJson).toContain("hello");
-		expect(span!.outputJson).toContain("hi there");
+		expect(span?.inputJson).toBeTruthy();
+		expect(span?.outputJson).toBeTruthy();
+		expect(span?.inputJson).toContain("hello");
+		expect(span?.outputJson).toContain("hi there");
 	});
 
 	it("5. Evaluation attaches to a span and returns via /ai/evaluations", async () => {

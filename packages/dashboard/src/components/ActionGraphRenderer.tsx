@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Card, Chip, JsonBlock, SectionTitle } from "./primitives";
+import { Card, JsonBlock, SectionTitle } from "./primitives";
 
 export interface ActionRef {
 	id: string;
@@ -163,7 +163,7 @@ function buildActionTree(actions: ActionRef[]): TreeNode[] {
 	for (const node of nodeMap.values()) {
 		const parentId = node.action.causedByActionId;
 		if (parentId && nodeMap.has(parentId)) {
-			nodeMap.get(parentId)!.children.push(node);
+			nodeMap.get(parentId)?.children.push(node);
 		} else {
 			roots.push(node);
 		}
@@ -739,10 +739,14 @@ export function ActionGraphRenderer({
 
 							<div className="flex flex-col gap-3">
 								<div className="flex flex-col gap-1">
-									<label className="text-[0.625rem] font-bold uppercase opacity-75">
+									<label
+										htmlFor="action-diff-left"
+										className="text-[0.625rem] font-bold uppercase opacity-75"
+									>
 										Baseline Version A:
 									</label>
 									<select
+										id="action-diff-left"
 										value={diffLeftId}
 										onChange={(e) => setDiffLeftId(e.target.value)}
 										className="w-full p-2 text-[0.7rem] font-mono bg-sys-surface border border-sys-outline focus:outline-none rounded focus:border-sys-primary"
@@ -760,10 +764,14 @@ export function ActionGraphRenderer({
 								</div>
 
 								<div className="flex flex-col gap-1">
-									<label className="text-[0.625rem] font-bold uppercase opacity-75">
+									<label
+										htmlFor="action-diff-right"
+										className="text-[0.625rem] font-bold uppercase opacity-75"
+									>
 										Target Version B:
 									</label>
 									<select
+										id="action-diff-right"
 										value={diffRightId}
 										onChange={(e) => setDiffRightId(e.target.value)}
 										className="w-full p-2 text-[0.7rem] font-mono bg-sys-surface border border-sys-outline focus:outline-none rounded focus:border-sys-primary"
@@ -916,8 +924,8 @@ export function ActionGraphRenderer({
 										// Return standard prompt, input text or full system instruction
 										return (
 											parsed["llm.prompt"] ||
-											parsed["input"] ||
-											parsed["prompt"] ||
+											parsed.input ||
+											parsed.prompt ||
 											a.attrsJson
 										);
 									} catch {
@@ -947,10 +955,11 @@ export function ActionGraphRenderer({
 										{/* Diff Content Scroll Area */}
 										<div className="flex-1 overflow-y-auto p-3 font-mono text-[0.6875rem] leading-relaxed flex flex-col bg-sys-bg select-text">
 											{diffSegments.map((segment, index) => {
+												const segmentKey = `${segment.type}-${segment.value}-${index}`;
 												if (segment.type === "added") {
 													return (
 														<div
-															key={index}
+															key={segmentKey}
 															className="bg-sys-primary/15 text-sys-primary border-l-[3px] border-sys-primary/80 pl-2 pr-1 py-0.5"
 														>
 															+ {segment.value}
@@ -960,7 +969,7 @@ export function ActionGraphRenderer({
 												if (segment.type === "removed") {
 													return (
 														<div
-															key={index}
+															key={segmentKey}
 															className="bg-sys-error/15 text-sys-error border-l-[3px] border-sys-error/80 pl-2 pr-1 py-0.5 line-through"
 														>
 															- {segment.value}
@@ -969,7 +978,7 @@ export function ActionGraphRenderer({
 												}
 												return (
 													<div
-														key={index}
+														key={segmentKey}
 														className="pl-3 pr-1 py-0.5 opacity-85"
 													>
 														&nbsp; {segment.value}
@@ -1156,9 +1165,10 @@ function TreeNodeComponent({
 				</div>
 
 				{/* Main Action Block Card */}
-				<div
+				<button
+					type="button"
 					onClick={() => onSelect(node)}
-					className={`flex-1 flex flex-col p-2.5 border rounded-lg cursor-pointer transition-all duration-150 hover:shadow-md ${
+					className={`flex-1 flex flex-col text-left p-2.5 border rounded-lg cursor-pointer transition-all duration-150 hover:shadow-md ${
 						isSelected
 							? "shadow-md border-sys-primary bg-sys-primary/5 ring-[1px] ring-sys-primary"
 							: `${kindColor} hover:border-sys-primary/40`
@@ -1255,7 +1265,7 @@ function TreeNodeComponent({
 							))}
 						</div>
 					)}
-				</div>
+				</button>
 			</div>
 
 			{/* Child nodes */}

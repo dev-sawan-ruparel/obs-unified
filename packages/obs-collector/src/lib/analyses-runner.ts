@@ -186,7 +186,7 @@ async function narratePass(
 	current: AnalysisResult,
 	previous: AnalysisResult | null,
 	ctx: AnalysisRunContext,
-	store: AnalysesStore,
+	_store: AnalysesStore,
 	budgetState: { remaining: number },
 ): Promise<void> {
 	if (!def.narrate) return;

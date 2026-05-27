@@ -81,6 +81,90 @@ const clampInt = (
 	return Math.max(min, Math.min(max, n));
 };
 
+interface AICallRow {
+	project_id?: string;
+	call_id: string;
+	trace_id: string | null;
+	span_id: string | null;
+	service_name: string | null;
+	model_name: string;
+	provider: string;
+	call_type: AICallRecord["callType"];
+	request_json: string | null;
+	response_json: string | null;
+	prompt_tokens: number | null;
+	completion_tokens: number | null;
+	total_cost_usd: number | null;
+	latency_ms: number | null;
+	is_error: number;
+	error_message: string | null;
+	occurred_at: string;
+	received_at: string;
+	expires_at: string;
+	session_id: string | null;
+	interaction_id: string | null;
+}
+
+interface AICallSummaryRow {
+	totalCalls?: number;
+	totalCostUsd?: number;
+	totalPromptTokens?: number;
+	totalCompletionTokens?: number;
+	errorCalls?: number;
+}
+
+interface AISpanRow {
+	trace_id: string;
+	span_id: string;
+	parent_span_id: string | null;
+	service_name: string | null;
+	span_name: string;
+	span_kind: string;
+	status_code: number | null;
+	status_message: string | null;
+	start_time: string;
+	end_time: string | null;
+	duration_ms: number | null;
+	attributes_json: string | null;
+	input_json: string | null;
+	output_json: string | null;
+	user_id?: string | null;
+}
+
+interface AISessionRow {
+	session_id: string;
+	user_id: string | null;
+	span_count: number | null;
+	llm_span_count: number | null;
+	error_count: number | null;
+	prompt_tokens: number | null;
+	completion_tokens: number | null;
+	cost_usd: number | null;
+	first_span_at: string;
+	last_span_at: string;
+	trace_count: number | null;
+}
+
+interface AISessionPreviewRow {
+	session_id: string;
+	input_json: string | null;
+}
+
+interface AIEvaluationRow {
+	evaluation_id: string;
+	project_id: string;
+	trace_id: string;
+	span_id: string;
+	name: string;
+	score: number | null;
+	label: string | null;
+	explanation: string | null;
+	source: AIEvaluationSource;
+	metadata_json: string | null;
+	created_at: string;
+	expires_at: string;
+}
+
 export class AIStore {
 	constructor(private readonly db: SqlDb) {}
 
@@ -161,7 +245,7 @@ export class AIStore {
 		const results = await this.db
 			.prepare(sql)
 			.bind(...params)
-			.all<any>();
+			.all<AICallRow>();
 
 		const summarySql = `
       SELECT
@@ -179,7 +263,7 @@ export class AIStore {
 			(await this.db
 				.prepare(summarySql)
 				.bind(...summaryParams)
-				.first<any>()) || {};
+				.first<AICallSummaryRow>()) || {};
 
 		const calls: AICallRecord[] = (results.results || []).map((r) => ({
 			projectId: r.project_id ?? "default",
@@ -297,7 +381,7 @@ export class AIStore {
 		const results = await this.db
 			.prepare(sql)
 			.bind(...params)
-			.all<any>();
+			.all<AISpanRow>();
 
 		const spans: AISpanRecord[] = (results.results || []).map((r) => {
 			const attrs = parseJsonRecord(r.attributes_json) as Record<
@@ -315,7 +399,7 @@ export class AIStore {
 				statusCode: r.status_code ?? 0,
 				statusMessage: r.status_message,
 				startTime: r.start_time,
-				endTime: r.end_time,
+				endTime: r.end_time ?? r.start_time,
 				durationMs: r.duration_ms ?? 0,
 				attributes: attrs,
 				inputJson: r.input_json,
@@ -388,7 +472,7 @@ export class AIStore {
 		const results = await this.db
 			.prepare(sql)
 			.bind(...params)
-			.all<any>();
+			.all<AISessionRow>();
 
 		// Second query: most recent input per session, for list preview.
 		const previewSql = `
@@ -405,7 +489,7 @@ export class AIStore {
 		const previewRows = await this.db
 			.prepare(previewSql)
 			.bind(options.projectId, hours)
-			.all<any>();
+			.all<AISessionPreviewRow>();
 		const previewBySession = new Map<string, string>();
 		for (const row of previewRows.results || []) {
 			if (!previewBySession.has(row.session_id)) {
@@ -484,7 +568,7 @@ export class AIStore {
 		const results = await this.db
 			.prepare(sql)
 			.bind(projectId, sessionId)
-			.all<any>();
+			.all<AISpanRow>();
 
 		let userId: string | null = null;
 		let totalPromptTokens = 0;
@@ -519,7 +603,7 @@ export class AIStore {
 				statusCode: r.status_code ?? 0,
 				statusMessage: r.status_message,
 				startTime: r.start_time,
-				endTime: r.end_time,
+				endTime: r.end_time ?? r.start_time,
 				durationMs: r.duration_ms ?? 0,
 				attributes: attrs,
 				inputJson: r.input_json,
@@ -544,7 +628,7 @@ export class AIStore {
 			const evalResults = await this.db
 				.prepare(evalSql)
 				.bind(...bindings)
-				.all<any>();
+				.all<AIEvaluationRow>();
 			evaluations = (evalResults.results || []).map((r) => ({
 				evaluationId: r.evaluation_id,
 				projectId: r.project_id,
@@ -639,7 +723,7 @@ export class AIStore {
 		const results = await this.db
 			.prepare(sql)
 			.bind(...params)
-			.all<any>();
+			.all<AIEvaluationRow>();
 
 		const evaluations: AIEvaluationRecord[] = (results.results || []).map(
 			(r) => ({

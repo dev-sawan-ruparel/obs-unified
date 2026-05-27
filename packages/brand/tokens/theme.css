@@ -32,16 +32,17 @@
 	--color-sys-outline: #bdcbb6;
 	--color-sys-outline-soft: #e5e7e3;
 
-	--font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui,
-		sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-		"Segoe UI Symbol", "Noto Color Emoji";
-	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-		"Liberation Mono", "Courier New", monospace;
+	--font-sans:
+		"Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif,
+		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	--font-mono:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+		"Courier New", monospace;
 }
 
 @layer base {
 	* {
-		border-radius: 0px !important;
+		border-radius: 0px;
 	}
 
 	body {
@@ -79,5 +80,5 @@
 		135deg,
 		var(--color-sys-primary) 0%,
 		var(--color-sys-primary-container) 100%
-	) !important;
+	);
 }

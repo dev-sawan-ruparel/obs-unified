@@ -1,5 +1,3 @@
-import type { Context } from "hono";
-
 /**
  * Extract the project id set by ingest-auth or dashboard-auth middleware.
  * Returns 'default' when no middleware has attached one (e.g. unauth dev).
@@ -8,6 +6,10 @@ import type { Context } from "hono";
  * on every route registration. The underlying value is always a string set by
  * the auth middlewares.
  */
-export function getProjectId(c: Context<any, any, any>): string {
+interface ProjectContext {
+	get(key: "projectId"): string | undefined;
+}
+
+export function getProjectId(c: ProjectContext): string {
 	return (c.get("projectId") as string | undefined) || "default";
 }

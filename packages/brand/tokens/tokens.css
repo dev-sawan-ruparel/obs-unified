@@ -91,7 +91,7 @@ html[data-theme="dark"] {
 /* Zero-radius enforcement — matches the @layer base reset in theme.css.
  * The Radius is Zero. If you need a circle, use an SVG. */
 * {
-	border-radius: 0 !important;
+	border-radius: 0;
 }
 
 /* Brand mark utility — the chrome-level logotype treatment. */

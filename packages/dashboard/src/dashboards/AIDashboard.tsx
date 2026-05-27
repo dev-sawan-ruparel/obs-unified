@@ -8,7 +8,13 @@ import type {
 	AISpansOverviewResponse,
 	JsonValue,
 } from "@obs-unified/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type KeyboardEvent as ReactKeyboardEvent,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	ActionGraphRenderer,
 	type EntityManifestExtended,
@@ -347,7 +353,7 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 			.sort((a, b) => b[1] - a[1])
 			.map(([k, v]) => [k, v] as [string, number]);
 	}, [spans]);
-	const byModel = useMemo(() => {
+	const _byModel = useMemo(() => {
 		const map = new Map<string, number>();
 		for (const s of llmSpans) {
 			const m = attrString(s.attributes, "llm.model_name") ?? "unknown";
@@ -551,11 +557,30 @@ function SpanRow({
 	const computed = attrString(span.attributes, "llm.cost.computed");
 	const isError = span.statusCode === 2;
 	const displayName = model ?? toolName ?? span.spanName;
+	const handleInlineKey = (
+		event: ReactKeyboardEvent<HTMLElement>,
+		action: () => void,
+	) => {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			event.stopPropagation();
+			action();
+		}
+	};
+	const handleRowKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			onClick();
+		}
+	};
 
 	return (
-		<button
-			type="button"
+		// biome-ignore lint/a11y/useSemanticElements: The row contains filter buttons, so making the entire row a native button would nest controls.
+		<div
+			role="button"
+			tabIndex={0}
 			onClick={onClick}
+			onKeyDown={handleRowKey}
 			className={`w-full text-left px-2 py-2 border-b border-sys-outline/30 hover:bg-sys-surface-low cursor-pointer transition-none ${
 				selected ? "bg-sys-surface-low border-l-[3px] border-l-sys-primary" : ""
 			}`}
@@ -563,7 +588,9 @@ function SpanRow({
 			<div className="flex items-center gap-2 text-[0.6875rem] font-mono">
 				<KindBadge kind={span.spanKind} />
 				{/* Click the model/tool name to filter by model. */}
-				<span
+				<button
+					type="button"
+					disabled={!model}
 					className="font-bold truncate max-w-[32ch] hover:text-sys-primary cursor-pointer"
 					title={model ? `filter model:${model}` : undefined}
 					onClick={(e) => {
@@ -571,32 +598,47 @@ function SpanRow({
 						e.stopPropagation();
 						onSelectModel(displayName);
 					}}
+					onKeyDown={(e) => {
+						if (!model) return;
+						handleInlineKey(e, () => onSelectModel(displayName));
+					}}
 				>
 					{displayName}
-				</span>
+				</button>
 				{/* Click the provider to filter by provider. */}
 				{provider && (
-					<span
+					<button
+						type="button"
 						className="opacity-50 hover:opacity-100 hover:text-sys-primary cursor-pointer"
 						title={`filter provider:${provider}`}
 						onClick={(e) => {
 							e.stopPropagation();
 							onSelectProvider(provider);
 						}}
+						onKeyDown={(e) =>
+							handleInlineKey(e, () => onSelectProvider(provider))
+						}
 					>
 						{provider}
-					</span>
+					</button>
 				)}
 				{span.serviceName && (
-					<span
+					<button
+						type="button"
 						className="opacity-40 hover:opacity-100 cursor-pointer"
 						onClick={(e) => {
 							e.stopPropagation();
-							onSelectService(span.serviceName!);
+							if (span.serviceName) onSelectService(span.serviceName);
+						}}
+						onKeyDown={(e) => {
+							const serviceName = span.serviceName;
+							if (serviceName) {
+								handleInlineKey(e, () => onSelectService(serviceName));
+							}
 						}}
 					>
 						· {span.serviceName}
-					</span>
+					</button>
 				)}
 				<div className="flex-1" />
 				{pt !== undefined && ct !== undefined && (
@@ -630,7 +672,7 @@ function SpanRow({
 					}}
 				/>
 			</div>
-		</button>
+		</div>
 	);
 }
 
@@ -685,7 +727,7 @@ function SpanDetailPane({
 		setGraphData(null);
 		setGraphLoading(false);
 		setGraphError(null);
-	}, [actionId]);
+	}, []);
 
 	useEffect(() => {
 		if (tab !== "actionGraph" || !actionId) {
@@ -830,8 +872,8 @@ function SpanDetailPane({
 							Failed to load action graph: {graphError}
 						</div>
 					)}
-					{!graphLoading && !graphError && graphData && (
-						<ActionGraphRenderer actionId={actionId!} rawManifest={graphData} />
+					{!graphLoading && !graphError && graphData && actionId && (
+						<ActionGraphRenderer actionId={actionId} rawManifest={graphData} />
 					)}
 					{!graphLoading && !graphError && !graphData && (
 						<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
@@ -916,6 +958,12 @@ function TraceWaterfall({
 	spans: AISpanRecord[] | null;
 	onJumpTo: (span: AISpanRecord) => void;
 }) {
+	// Order for gantt: by start time, depth-first within parent groups.
+	const ordered = useMemo(
+		() => (spans ? orderSpansForGantt(spans) : []),
+		[spans],
+	);
+
 	if (!spans) {
 		return (
 			<div className="text-[0.75rem] opacity-60 font-mono">Loading trace…</div>
@@ -928,9 +976,6 @@ function TraceWaterfall({
 			</div>
 		);
 	}
-
-	// Order for gantt: by start time, depth-first within parent groups.
-	const ordered = useMemo(() => orderSpansForGantt(spans), [spans]);
 
 	const items: WaterfallSpan[] = ordered.map((s) => {
 		const model = attrString(s.attributes, "llm.model_name");
@@ -963,7 +1008,7 @@ function orderSpansForGantt(spans: AISpanRecord[]): AISpanRecord[] {
 	for (const s of spans) {
 		const key = s.parentSpanId ?? null;
 		if (!children.has(key)) children.set(key, []);
-		children.get(key)!.push(s);
+		children.get(key)?.push(s);
 	}
 	for (const list of children.values()) {
 		list.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -1227,6 +1272,15 @@ function ConversationPane({
 	detail: AISessionDetailResponse | null;
 	onClose: () => void;
 }) {
+	const evalsBySpan = useMemo(() => {
+		const map = new Map<string, AIEvaluationRecord[]>();
+		for (const e of detail?.evaluations ?? []) {
+			if (!map.has(e.spanId)) map.set(e.spanId, []);
+			map.get(e.spanId)?.push(e);
+		}
+		return map;
+	}, [detail]);
+
 	if (!detail) {
 		return (
 			<div className="p-3 text-[0.75rem] opacity-60 font-mono">
@@ -1234,15 +1288,6 @@ function ConversationPane({
 			</div>
 		);
 	}
-
-	const evalsBySpan = useMemo(() => {
-		const map = new Map<string, AIEvaluationRecord[]>();
-		for (const e of detail.evaluations) {
-			if (!map.has(e.spanId)) map.set(e.spanId, []);
-			map.get(e.spanId)!.push(e);
-		}
-		return map;
-	}, [detail]);
 
 	return (
 		<>
@@ -1313,9 +1358,10 @@ function extractLastUserMessage(inputJson: string | null): string | null {
 		for (let i = parsed.length - 1; i >= 0; i--) {
 			const m = parsed[i];
 			if (m && typeof m === "object" && "role" in m && "content" in m) {
-				const role = String((m as any).role).toLowerCase();
+				const message = m as Record<string, unknown>;
+				const role = String(message.role).toLowerCase();
 				if (role === "user" || role === "human") {
-					return coerceStringContent((m as any).content);
+					return coerceStringContent(message.content);
 				}
 			}
 		}
@@ -1328,8 +1374,10 @@ function extractLastUserMessage(inputJson: string | null): string | null {
 			/"role"\s*:\s*"(?:user|human)"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*)/gi;
 		let m: RegExpExecArray | null;
 		let last: string | null = null;
-		while ((m = re.exec(inputJson)) !== null) {
+		m = re.exec(inputJson);
+		while (m !== null) {
 			last = m[1] ?? null;
+			m = re.exec(inputJson);
 		}
 		if (last) {
 			try {
@@ -1348,11 +1396,11 @@ function extractAssistantText(outputJson: string | null): string | null {
 		const parsed = JSON.parse(outputJson);
 		if (typeof parsed === "string") return parsed;
 		if (parsed && typeof parsed === "object") {
-			if ("content" in parsed)
-				return coerceStringContent((parsed as any).content);
+			const output = parsed as Record<string, unknown>;
+			if ("content" in output) return coerceStringContent(output.content);
 			// Anthropic: { content: [{type:"text", text}] }
-			if (Array.isArray((parsed as any).content)) {
-				return coerceStringContent((parsed as any).content);
+			if (Array.isArray(output.content)) {
+				return coerceStringContent(output.content);
 			}
 		}
 	} catch {
@@ -1369,7 +1417,7 @@ function coerceStringContent(content: unknown): string {
 				typeof p === "string"
 					? p
 					: p && typeof p === "object" && "text" in p
-						? String((p as any).text ?? "")
+						? String((p as Record<string, unknown>).text ?? "")
 						: "",
 			)
 			.filter(Boolean)
@@ -1398,12 +1446,12 @@ function ConversationTurn({
 		return (
 			<div className="flex flex-col gap-2">
 				{userText && (
-					<ChatBubble role="user" timestamp={span.startTime}>
+					<ChatBubble speaker="user" timestamp={span.startTime}>
 						<span className="whitespace-pre-wrap break-words">{userText}</span>
 					</ChatBubble>
 				)}
 				<ChatBubble
-					role="assistant"
+					speaker="assistant"
 					subtitle={model}
 					accent={isError ? "error" : undefined}
 				>

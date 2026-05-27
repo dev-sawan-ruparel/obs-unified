@@ -693,7 +693,9 @@ export class TelemetryStore {
 				dependency: 0,
 			};
 			entry.issueCount += 1;
-			issue.traces.forEach((trace) => entry.affectedTraces.add(trace.traceId));
+			for (const trace of issue.traces) {
+				entry.affectedTraces.add(trace.traceId);
+			}
 			entry[issue.category] += 1;
 			services.set(issue.serviceName, entry);
 		}
@@ -1180,7 +1182,7 @@ export class TelemetryStore {
 		const opMap = new Map<string, OpAcc>();
 		let totalSpans = 0;
 		let totalErrors = 0;
-		const traceIds = new Set<string>();
+		const _traceIds = new Set<string>();
 		for (const row of opsResult.results ?? []) {
 			totalSpans += 1;
 			if (row.errors > 0) totalErrors += 1;

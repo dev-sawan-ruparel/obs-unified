@@ -35,8 +35,6 @@ export class TailHub {
 	private readonly subscribers = new Map<string, Subscriber>();
 	private readonly encoder = new TextEncoder();
 
-	constructor(_state: DurableObjectState, _env: unknown) {}
-
 	async fetch(req: Request): Promise<Response> {
 		const url = new URL(req.url);
 		if (req.method === "POST" && url.pathname === "/publish") {

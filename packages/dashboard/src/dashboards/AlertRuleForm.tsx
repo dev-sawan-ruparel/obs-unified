@@ -2,6 +2,10 @@ import type {
 	AlertChannel,
 	AlertComparison,
 	AlertQuery,
+	AlertQueryAI,
+	AlertQueryLogs,
+	AlertQuerySpans,
+	AlertQueryUsage,
 	AlertRule,
 	AlertRuleInput,
 	AlertSignal,
@@ -111,6 +115,10 @@ export function AlertRuleForm({
 			setErr(e instanceof Error ? e.message : String(e));
 		}
 	};
+	const spansQuery = query as AlertQuerySpans;
+	const logsQuery = query as AlertQueryLogs;
+	const usageQuery = query as AlertQueryUsage;
+	const aiQuery = query as AlertQueryAI;
 
 	return (
 		<div className="bg-sys-surface p-4 border-[1px] border-sys-outline flex flex-col gap-3">
@@ -181,7 +189,7 @@ export function AlertRuleForm({
 					<div className="grid grid-cols-3 gap-2">
 						<Field label="Service (optional)">
 							<TextField
-								value={(query as any).serviceName ?? ""}
+								value={spansQuery.serviceName ?? ""}
 								onChange={(e) =>
 									setQuery({
 										...query,
@@ -193,7 +201,7 @@ export function AlertRuleForm({
 						</Field>
 						<Field label="Span name (optional)">
 							<TextField
-								value={(query as any).spanName ?? ""}
+								value={spansQuery.spanName ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, spanName: e.target.value || undefined })
 								}
@@ -202,7 +210,7 @@ export function AlertRuleForm({
 						</Field>
 						<Field label="Status">
 							<SelectField
-								value={(query as any).statusCode ?? ""}
+								value={spansQuery.statusCode ?? ""}
 								onChange={(e) =>
 									setQuery({
 										...query,
@@ -223,7 +231,7 @@ export function AlertRuleForm({
 					<div className="grid grid-cols-2 gap-2">
 						<Field label="Service (optional)">
 							<TextField
-								value={(query as any).serviceName ?? ""}
+								value={logsQuery.serviceName ?? ""}
 								onChange={(e) =>
 									setQuery({
 										...query,
@@ -235,7 +243,7 @@ export function AlertRuleForm({
 						</Field>
 						<Field label="Severity">
 							<SelectField
-								value={(query as any).severity ?? ""}
+								value={logsQuery.severity ?? ""}
 								onChange={(e) =>
 									setQuery({
 										...query,
@@ -255,7 +263,7 @@ export function AlertRuleForm({
 					<div className="grid grid-cols-2 gap-2">
 						<Field label="Event name (optional)">
 							<TextField
-								value={(query as any).eventName ?? ""}
+								value={usageQuery.eventName ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, eventName: e.target.value || undefined })
 								}
@@ -265,7 +273,7 @@ export function AlertRuleForm({
 						</Field>
 						<Field label="Path pattern (SQL LIKE)">
 							<TextField
-								value={(query as any).pathPattern ?? ""}
+								value={usageQuery.pathPattern ?? ""}
 								onChange={(e) =>
 									setQuery({
 										...query,
@@ -283,7 +291,7 @@ export function AlertRuleForm({
 					<div className="grid grid-cols-3 gap-2">
 						<Field label="Provider (optional)">
 							<TextField
-								value={(query as any).provider ?? ""}
+								value={aiQuery.provider ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, provider: e.target.value || undefined })
 								}
@@ -292,7 +300,7 @@ export function AlertRuleForm({
 						</Field>
 						<Field label="Model (optional)">
 							<TextField
-								value={(query as any).model ?? ""}
+								value={aiQuery.model ?? ""}
 								onChange={(e) =>
 									setQuery({ ...query, model: e.target.value || undefined })
 								}
@@ -301,7 +309,7 @@ export function AlertRuleForm({
 						</Field>
 						<Field label="Errors only">
 							<SelectField
-								value={(query as any).isError ? "true" : ""}
+								value={aiQuery.isError ? "true" : ""}
 								onChange={(e) =>
 									setQuery({
 										...query,
@@ -336,7 +344,10 @@ export function AlertRuleForm({
 				</div>
 				<div className="flex flex-col gap-2">
 					{channels.map((ch, idx) => (
-						<div key={idx} className="flex gap-2 items-center">
+						<div
+							key={`${ch.type}-${(ch as AlertWebhookChannel).url}`}
+							className="flex gap-2 items-center"
+						>
 							<TextField
 								value={(ch as AlertWebhookChannel).url}
 								onChange={(e) => {

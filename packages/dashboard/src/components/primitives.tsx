@@ -1,4 +1,5 @@
 import {
+	type KeyboardEvent as ReactKeyboardEvent,
 	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	useCallback,
@@ -227,11 +228,15 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 	return (
 		<div
 			ref={containerRef}
+			role="img"
+			aria-label="Sparkline"
 			className="relative h-full w-full"
 			onMouseMove={onMove}
 			onMouseLeave={onLeave}
 		>
 			<svg
+				aria-label="Sparkline path"
+				role="img"
 				viewBox={`0 0 ${W} ${H}`}
 				preserveAspectRatio="none"
 				style={svgStyle}
@@ -254,10 +259,12 @@ function MicroSpark({ data, color }: { data: number[]; color: string }) {
 
 export function TimeSeriesBars({
 	data,
+	title = "Timeseries",
 	height = 96,
 	color = "var(--color-sys-primary)",
 }: {
 	data: Array<{ t: string; v: number }>;
+	title?: string;
 	height?: number;
 	color?: string;
 }) {
@@ -322,6 +329,8 @@ export function TimeSeriesBars({
 
 			{/* Chart body */}
 			<div
+				role="img"
+				aria-label={`${title} bar chart`}
 				className="relative flex items-end gap-[1px] bg-[linear-gradient(to_top,rgba(0,0,0,0.04)_1px,transparent_1px)] bg-[length:100%_25%]"
 				style={{ height }}
 				onMouseLeave={() => setHover(null)}
@@ -330,10 +339,13 @@ export function TimeSeriesBars({
 					const h = (d.v / max) * (height - 2);
 					const isHover = hover === i;
 					return (
-						<div
-							key={`${d.t}-${i}`}
-							className="relative flex-1 min-w-[2px] h-full flex items-end"
+						<button
+							type="button"
+							key={d.t}
+							aria-label={`${title} at ${fmtTime(d.t)}: ${d.v.toLocaleString()}`}
+							className="relative flex-1 min-w-[2px] h-full flex items-end p-0 border-0 bg-transparent"
 							onMouseEnter={() => setHover(i)}
+							onFocus={() => setHover(i)}
 						>
 							{d.v > 0 ? (
 								<div
@@ -357,7 +369,7 @@ export function TimeSeriesBars({
 									style={{ backgroundColor: color, opacity: 0.4 }}
 								/>
 							)}
-						</div>
+						</button>
 					);
 				})}
 
@@ -551,9 +563,9 @@ export function percentile(values: number[], p: number): number {
 	const idx = (sorted.length - 1) * p;
 	const lo = Math.floor(idx);
 	const hi = Math.ceil(idx);
-	if (lo === hi) return sorted[lo]!;
+	if (lo === hi) return sorted[lo] ?? 0;
 	const w = idx - lo;
-	return sorted[lo]! * (1 - w) + sorted[hi]! * w;
+	return (sorted[lo] ?? 0) * (1 - w) + (sorted[hi] ?? 0) * w;
 }
 
 // ── Chip (clickable filter token) ──
@@ -583,12 +595,23 @@ export function Chip({
 						: active
 							? "bg-sys-surface-low text-sys-on-surface border border-sys-primary"
 							: "bg-sys-surface-low text-sys-on-surface border border-sys-outline";
+	const handleKeyDown = onClick
+		? (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+				if (event.key === "Enter" || event.key === " ") {
+					event.preventDefault();
+					onClick();
+				}
+			}
+		: undefined;
+	const Wrapper = onClick ? "button" : "span";
 	return (
-		<span
+		<Wrapper
+			type={onClick ? "button" : undefined}
 			className={`inline-flex items-center gap-1 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${toneClass} ${
 				onClick ? "cursor-pointer hover:opacity-80" : ""
 			}`}
 			onClick={onClick}
+			onKeyDown={handleKeyDown}
 		>
 			{children}
 			{onClear && (
@@ -604,7 +627,7 @@ export function Chip({
 					×
 				</button>
 			)}
-		</span>
+		</Wrapper>
 	);
 }
 
@@ -625,6 +648,8 @@ export function JsonBlock({
 }) {
 	const [expanded, setExpanded] = useState(false);
 	const [copied, setCopied] = useState(false);
+	const pretty = useMemo(() => (value ? tryPrettyJson(value) : null), [value]);
+	const raw = pretty ?? value ?? "";
 
 	if (!value) {
 		return (
@@ -644,8 +669,6 @@ export function JsonBlock({
 				? "border-sys-accent text-sys-on-surface"
 				: "border-sys-primary text-sys-on-surface";
 
-	const pretty = useMemo(() => tryPrettyJson(value), [value]);
-	const raw = pretty ?? value;
 	const isLong = raw.length > PREVIEW_CHARS;
 	const visible = expanded || !isLong ? raw : `${raw.slice(0, PREVIEW_CHARS)}…`;
 
@@ -805,41 +828,41 @@ export function Waterfall({
 // ── Chat bubble: for conversation-style session thread ──
 
 export function ChatBubble({
-	role,
+	speaker,
 	children,
 	timestamp,
 	subtitle,
 	accent,
 }: {
-	role: "user" | "assistant" | "system" | "tool";
+	speaker: "user" | "assistant" | "system" | "tool";
 	children: ReactNode;
 	timestamp?: string;
 	subtitle?: string;
 	accent?: "primary" | "accent" | "warning" | "error";
 }) {
 	const align =
-		role === "user"
+		speaker === "user"
 			? "self-start"
-			: role === "assistant"
+			: speaker === "assistant"
 				? "self-end"
 				: "self-center";
 	const bg =
-		role === "user"
+		speaker === "user"
 			? "bg-sys-surface"
-			: role === "assistant"
+			: speaker === "assistant"
 				? accent === "error"
 					? "bg-sys-error/10 border border-sys-error"
 					: "bg-sys-primary/10 border border-sys-primary"
-				: role === "tool"
+				: speaker === "tool"
 					? "bg-sys-surface-low border border-sys-accent"
 					: "bg-sys-surface-low";
 	const maxWidth =
-		role === "system" || role === "tool" ? "max-w-[96%]" : "max-w-[78%]";
+		speaker === "system" || speaker === "tool" ? "max-w-[96%]" : "max-w-[78%]";
 
 	return (
 		<div className={`flex flex-col ${align} ${maxWidth}`}>
 			<div className="mb-1 flex items-baseline gap-2 text-[0.5rem] font-bold uppercase tracking-[0.1em] opacity-60">
-				<span>{role}</span>
+				<span>{speaker}</span>
 				{subtitle && <span className="opacity-70">{subtitle}</span>}
 				{timestamp && (
 					<span className="opacity-50 font-mono">

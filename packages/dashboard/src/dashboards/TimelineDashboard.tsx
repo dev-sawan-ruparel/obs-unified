@@ -198,7 +198,7 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 		return opts;
 	}, [recentSessions, sessionId]);
 
-	const { startMs, endMs, durationMs } = useMemo(() => {
+	const { startMs, durationMs } = useMemo(() => {
 		if (!data?.firstSeen || !data?.lastSeen) {
 			return { startMs: 0, endMs: 0, durationMs: 0 };
 		}
@@ -364,8 +364,8 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 						))}
 					</div>
 					<div className="mt-3 flex justify-between font-mono text-[0.6875rem] text-sys-on-surface-muted">
-						<span>{fmtTs(data.firstSeen!)}</span>
-						<span>{fmtTs(data.lastSeen!)}</span>
+						<span>{data.firstSeen ? fmtTs(data.firstSeen) : "—"}</span>
+						<span>{data.lastSeen ? fmtTs(data.lastSeen) : "—"}</span>
 					</div>
 				</Card>
 			)}

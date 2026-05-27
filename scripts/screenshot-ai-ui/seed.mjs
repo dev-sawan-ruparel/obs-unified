@@ -18,7 +18,7 @@ const hex = (bytes) =>
 		b.toString(16).padStart(2, "0"),
 	).join("");
 
-const nowNs = () => String(BigInt(Date.now()) * 1_000_000n);
+const _nowNs = () => String(BigInt(Date.now()) * 1_000_000n);
 const agoNs = (ms) => String(BigInt(Date.now() - ms) * 1_000_000n);
 
 const kv = (k, v) => {

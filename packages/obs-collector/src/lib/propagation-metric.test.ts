@@ -10,7 +10,9 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import type { Logger } from "../framework/logger";
 import { aggregatePropagationForProject } from "./propagation-metric";
+import type { SqlDb } from "./sql-db";
 
 interface FakeRow {
 	propagated: number;
@@ -108,9 +110,8 @@ describe("aggregatePropagationForProject", () => {
 			usage_events: { propagated: 5, missing: 7 },
 			ai_calls: { propagated: 2, missing: 1 },
 		});
-		// biome-ignore lint/suspicious/noExplicitAny: structural fake
 		const result = await aggregatePropagationForProject(
-			db as any,
+			db as unknown as SqlDb,
 			"p1",
 			new Date(),
 		);
@@ -124,9 +125,8 @@ describe("aggregatePropagationForProject", () => {
 			usage_events: { propagated: 0, missing: 0 },
 			ai_calls: { propagated: 0, missing: 0 },
 		});
-		// biome-ignore lint/suspicious/noExplicitAny: structural fake
 		const result = await aggregatePropagationForProject(
-			db as any,
+			db as unknown as SqlDb,
 			"p1",
 			new Date(),
 		);
@@ -143,9 +143,8 @@ describe("aggregatePropagationForProject", () => {
 			usage_events: { propagated: null, missing: null } as unknown as FakeRow,
 			ai_calls: { propagated: null, missing: null } as unknown as FakeRow,
 		});
-		// biome-ignore lint/suspicious/noExplicitAny: structural fake
 		const result = await aggregatePropagationForProject(
-			db as any,
+			db as unknown as SqlDb,
 			"p1",
 			new Date(),
 		);
@@ -182,12 +181,11 @@ describe("aggregatePropagationForProject", () => {
 			warn: vi.fn(),
 			debug: vi.fn(),
 		};
-		// biome-ignore lint/suspicious/noExplicitAny: structural fake
 		const result = await aggregatePropagationForProject(
-			baseDb as any,
+			baseDb as unknown as SqlDb,
 			"p1",
 			new Date(),
-			logger as any,
+			logger as Logger,
 		);
 		// Three signals succeed (×2 points each) — logs throws, so 6 points.
 		expect(result.pointsWritten).toBe(6);

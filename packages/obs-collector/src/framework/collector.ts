@@ -361,7 +361,7 @@ export const createRetentionCleanupHandler = (options?: {
 				if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
 					await Promise.allSettled(
 						expiredProfiles.results.map((p) =>
-							env.PROFILES_BUCKET!.delete(p.blob_url),
+							env.PROFILES_BUCKET?.delete(p.blob_url),
 						),
 					);
 				}

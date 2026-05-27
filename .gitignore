@@ -48,3 +48,7 @@ lerna-debug.log*
 
 # Claude Code: user-specific permissions, not for sharing
 .claude/settings.local.json
+.claude/skills/
+
+# Local scratch probes
+apps/collector-node/src/test-hono.js

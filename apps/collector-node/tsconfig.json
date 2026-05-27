@@ -1,12 +1,19 @@
 {
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
-		"rootDir": "src",
+		"rootDir": "../..",
 		"outDir": "dist",
 		"target": "ES2022",
 		"module": "ES2022",
 		"moduleResolution": "bundler",
-		"types": ["node"]
+		"types": ["@cloudflare/workers-types", "node"],
+		"baseUrl": "../..",
+		"paths": {
+			"@obs-unified/collector": ["packages/obs-collector/src/index.ts"],
+			"@obs-unified/telemetry-sdk": ["packages/telemetry-sdk/src/index.ts"],
+			"@obs-unified/types": ["packages/obs-types/src/index.ts"],
+			"@obs-unified/types/constants": ["packages/obs-types/src/constants.ts"]
+		}
 	},
 	"include": ["src"]
 }

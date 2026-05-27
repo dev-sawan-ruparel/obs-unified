@@ -232,6 +232,7 @@ export function App() {
 		if (collapsed) {
 			return (
 				<button
+					type="button"
 					key={key}
 					onClick={() => switchTab(key)}
 					title={label}
@@ -247,6 +248,7 @@ export function App() {
 		}
 		return (
 			<button
+				type="button"
 				key={key}
 				onClick={() => switchTab(key)}
 				className={`relative flex h-8 items-center pl-4 pr-3 text-left text-[0.8125rem] transition-none ${
@@ -684,6 +686,7 @@ function Btn({
 					: "bg-transparent text-sys-on-surface-muted shadow-[inset_0_0_0_1px_var(--color-sys-outline)] hover:bg-sys-surface-low hover:text-sys-on-surface";
 	return (
 		<button
+			type="button"
 			onClick={onClick}
 			disabled={disabled}
 			title={title}

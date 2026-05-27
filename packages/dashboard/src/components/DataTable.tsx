@@ -95,23 +95,41 @@ export function DataTable<Row>({
 				{!loading &&
 					rows.map((row, i) => {
 						const active = isRowActive?.(row, i) ?? false;
-						return (
+						const rowContent = columns.map((c) => (
 							<div
-								key={rowKey(row, i)}
-								onClick={onRowClick ? () => onRowClick(row, i) : undefined}
-								className={`grid gap-2 px-3 py-2 border-b border-sys-outline-soft last:border-b-0 items-center text-[0.8125rem] ${
-									onRowClick ? "cursor-pointer hover:bg-sys-surface-low" : ""
-								} ${active ? "bg-sys-surface-low" : ""}`}
-								style={gridStyle}
+								key={c.key}
+								className={`min-w-0 truncate ${alignClass(c.align)} ${fontClass(c.font)} ${c.className ?? ""}`}
 							>
-								{columns.map((c) => (
-									<div
-										key={c.key}
-										className={`min-w-0 truncate ${alignClass(c.align)} ${fontClass(c.font)} ${c.className ?? ""}`}
-									>
-										{c.cell(row, i)}
-									</div>
-								))}
+								{c.cell(row, i)}
+							</div>
+						));
+						const className = `grid gap-2 px-3 py-2 border-b border-sys-outline-soft last:border-b-0 items-center text-[0.8125rem] ${
+							onRowClick ? "cursor-pointer hover:bg-sys-surface-low" : ""
+						} ${active ? "bg-sys-surface-low" : ""}`;
+						if (onRowClick) {
+							return (
+								// biome-ignore lint/a11y/useSemanticElements: Rows can contain nested action buttons, so a semantic button would create invalid markup.
+								<div
+									key={rowKey(row, i)}
+									role="button"
+									tabIndex={0}
+									onClick={() => onRowClick(row, i)}
+									onKeyDown={(event) => {
+										if (event.key === "Enter" || event.key === " ") {
+											event.preventDefault();
+											onRowClick(row, i);
+										}
+									}}
+									className={className}
+									style={gridStyle}
+								>
+									{rowContent}
+								</div>
+							);
+						}
+						return (
+							<div key={rowKey(row, i)} className={className} style={gridStyle}>
+								{rowContent}
 							</div>
 						);
 					})}

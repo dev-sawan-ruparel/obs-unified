@@ -33,7 +33,6 @@ import {
 export const INTERACTION_HEADER = "x-obs-interaction";
 
 const TRIGGER_EVENTS = ["click", "submit", "keydown"] as const;
-type TriggerEvent = (typeof TRIGGER_EVENTS)[number];
 
 // ── Pure helpers ────────────────────────────────────────────────────
 

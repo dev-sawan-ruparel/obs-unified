@@ -1,8 +1,8 @@
 import type { StoredSpan } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
-import { parseJsonRecord } from "../lib/json";
-import { sqlDbFor } from "../lib/sql-db";
 import { sha256Hex } from "../lib/hash";
+import { parseJsonRecord } from "../lib/json";
+import { type SqlStatement, sqlDbFor } from "../lib/sql-db";
 
 export interface RedactionContext {
 	projectId: string;
@@ -34,32 +34,32 @@ export function clearRedactionPlugins() {
 export interface ActionEnricherPlugin {
 	name: string;
 	enrichActionRecord?(
-		record: any,
+		record: Record<string, unknown>,
 		span: StoredSpan,
 		attributes: Record<string, unknown>,
 	): void | Promise<void>;
 	enrichAgentRunRecord?(
-		record: any,
+		record: Record<string, unknown>,
 		span: StoredSpan,
 		attributes: Record<string, unknown>,
 	): void | Promise<void>;
 	enrichToolCallRecord?(
-		record: any,
+		record: Record<string, unknown>,
 		span: StoredSpan,
 		attributes: Record<string, unknown>,
 	): void | Promise<void>;
 	enrichRetrievalRecord?(
-		record: any,
+		record: Record<string, unknown>,
 		span: StoredSpan,
 		attributes: Record<string, unknown>,
 	): void | Promise<void>;
 	enrichEvalRecord?(
-		record: any,
+		record: Record<string, unknown>,
 		span: StoredSpan,
 		attributes: Record<string, unknown>,
 	): void | Promise<void>;
 	enrichArtifactRecord?(
-		record: any,
+		record: Record<string, unknown>,
 		span: StoredSpan,
 		attributes: Record<string, unknown>,
 	): void | Promise<void>;
@@ -141,12 +141,12 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 			async process(spans, context) {
 				const db = sqlDbFor(context.env);
 
-				const actionsToInsert: any[] = [];
-				const agentRunsToInsert: any[] = [];
-				const toolCallsToInsert: any[] = [];
-				const retrievalsToInsert: any[] = [];
-				const evalsToInsert: any[] = [];
-				const artifactsToInsert: any[] = [];
+				const actionsToInsert: Record<string, unknown>[] = [];
+				const agentRunsToInsert: Record<string, unknown>[] = [];
+				const toolCallsToInsert: Record<string, unknown>[] = [];
+				const retrievalsToInsert: Record<string, unknown>[] = [];
+				const evalsToInsert: Record<string, unknown>[] = [];
+				const artifactsToInsert: Record<string, unknown>[] = [];
 
 				const transformed = await Promise.all(
 					spans.map(async (span): Promise<StoredSpan> => {
@@ -171,7 +171,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							(attrs["obs.action.caused_by_id"] as string) ??
 							span.parentSpanId ??
 							null;
-						const actorType = (attrs["obs.action.actor_type"] as string) ?? "agent";
+						const actorType =
+							(attrs["obs.action.actor_type"] as string) ?? "agent";
 						const actorId =
 							(attrs["obs.action.actor_id"] as string) ??
 							(genAiAgentId as string) ??
@@ -205,7 +206,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								: null);
 
 						const stepId = (attrs["obs.action.step_id"] as string) ?? null;
-						const toolCallId = (attrs["obs.action.tool_call_id"] as string) ?? null;
+						const toolCallId =
+							(attrs["obs.action.tool_call_id"] as string) ?? null;
 						const promptVersion =
 							(attrs["obs.action.prompt_version"] as string) ?? null;
 						const modelName =
@@ -258,7 +260,10 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								try {
 									await plugin.enrichActionRecord(actionRecord, span, attrs);
 								} catch (err) {
-									console.error(`[action-enricher-plugin:${plugin.name}] enrichActionRecord failed`, err);
+									console.error(
+										`[action-enricher-plugin:${plugin.name}] enrichActionRecord failed`,
+										err,
+									);
 								}
 							}
 						}
@@ -278,7 +283,9 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 									(attrs["obs.agent_run.agent_id"] as string) ??
 									(genAiAgentId as string) ??
 									"default-agent",
-								agentName: (attrs["obs.agent_run.agent_name"] as string) ?? span.spanName,
+								agentName:
+									(attrs["obs.agent_run.agent_name"] as string) ??
+									span.spanName,
 								agentVersion:
 									(attrs["obs.agent_run.agent_version"] as string) ?? "1.0.0",
 								goal:
@@ -302,9 +309,16 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							for (const plugin of enricherPlugins) {
 								if (plugin.enrichAgentRunRecord) {
 									try {
-										await plugin.enrichAgentRunRecord(agentRunRecord, span, attrs);
+										await plugin.enrichAgentRunRecord(
+											agentRunRecord,
+											span,
+											attrs,
+										);
 									} catch (err) {
-										console.error(`[action-enricher-plugin:${plugin.name}] enrichAgentRunRecord failed`, err);
+										console.error(
+											`[action-enricher-plugin:${plugin.name}] enrichAgentRunRecord failed`,
+											err,
+										);
 									}
 								}
 							}
@@ -351,7 +365,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								id: span.spanId,
 								actionId,
 								projectId: span.projectId,
-								toolName: (attrs["obs.tool_call.tool_name"] as string) ?? span.spanName,
+								toolName:
+									(attrs["obs.tool_call.tool_name"] as string) ?? span.spanName,
 								argsHash,
 								resultHash,
 								errorType:
@@ -360,7 +375,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 									null,
 								sideEffect: attrs["obs.tool_call.side_effect"] ? 1 : 0,
 								approvalState:
-									(attrs["obs.tool_call.approval_state"] as string) ?? "suggested",
+									(attrs["obs.tool_call.approval_state"] as string) ??
+									"suggested",
 								argsRedacted:
 									typeof redactedArgs === "string"
 										? redactedArgs
@@ -374,9 +390,16 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							for (const plugin of enricherPlugins) {
 								if (plugin.enrichToolCallRecord) {
 									try {
-										await plugin.enrichToolCallRecord(toolCallRecord, span, attrs);
+										await plugin.enrichToolCallRecord(
+											toolCallRecord,
+											span,
+											attrs,
+										);
 									} catch (err) {
-										console.error(`[action-enricher-plugin:${plugin.name}] enrichToolCallRecord failed`, err);
+										console.error(
+											`[action-enricher-plugin:${plugin.name}] enrichToolCallRecord failed`,
+											err,
+										);
 									}
 								}
 							}
@@ -400,7 +423,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								"[]";
 
 							const queryHash = await sha256Hex(rawQuery);
-							const redactedQuery = await runRedaction(rawQuery, {
+							const _redactedQuery = await runRedaction(rawQuery, {
 								projectId: span.projectId,
 								actionId,
 								traceId: span.traceId,
@@ -422,7 +445,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								actionId,
 								projectId: span.projectId,
 								retrieverName:
-									(attrs["obs.retrieval.retriever_name"] as string) ?? span.spanName,
+									(attrs["obs.retrieval.retriever_name"] as string) ??
+									span.spanName,
 								queryHash,
 								documentsJson:
 									typeof redactedDocs === "string"
@@ -442,9 +466,16 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							for (const plugin of enricherPlugins) {
 								if (plugin.enrichRetrievalRecord) {
 									try {
-										await plugin.enrichRetrievalRecord(retrievalRecord, span, attrs);
+										await plugin.enrichRetrievalRecord(
+											retrievalRecord,
+											span,
+											attrs,
+										);
 									} catch (err) {
-										console.error(`[action-enricher-plugin:${plugin.name}] enrichRetrievalRecord failed`, err);
+										console.error(
+											`[action-enricher-plugin:${plugin.name}] enrichRetrievalRecord failed`,
+											err,
+										);
 									}
 								}
 							}
@@ -462,7 +493,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								id: span.spanId,
 								actionId,
 								projectId: span.projectId,
-								evaluatorName: (attrs["obs.eval.evaluator_name"] as string) ?? span.spanName,
+								evaluatorName:
+									(attrs["obs.eval.evaluator_name"] as string) ?? span.spanName,
 								evaluatorVersion:
 									(attrs["obs.eval.evaluator_version"] as string) ?? "1.0.0",
 								score:
@@ -484,7 +516,10 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 									try {
 										await plugin.enrichEvalRecord(evalRecord, span, attrs);
 									} catch (err) {
-										console.error(`[action-enricher-plugin:${plugin.name}] enrichEvalRecord failed`, err);
+										console.error(
+											`[action-enricher-plugin:${plugin.name}] enrichEvalRecord failed`,
+											err,
+										);
 									}
 								}
 							}
@@ -511,7 +546,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								projectId: span.projectId,
 								artifactName: attrs["obs.artifact.name"] as string,
 								artifactType: (attrs["obs.artifact.type"] as string) ?? "text",
-								storageRef: (attrs["obs.artifact.storage_ref"] as string) ?? null,
+								storageRef:
+									(attrs["obs.artifact.storage_ref"] as string) ?? null,
 								sizeBytes:
 									attrs["obs.artifact.size_bytes"] !== undefined
 										? Number(attrs["obs.artifact.size_bytes"])
@@ -528,9 +564,16 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							for (const plugin of enricherPlugins) {
 								if (plugin.enrichArtifactRecord) {
 									try {
-										await plugin.enrichArtifactRecord(artifactRecord, span, attrs);
+										await plugin.enrichArtifactRecord(
+											artifactRecord,
+											span,
+											attrs,
+										);
 									} catch (err) {
-										console.error(`[action-enricher-plugin:${plugin.name}] enrichArtifactRecord failed`, err);
+										console.error(
+											`[action-enricher-plugin:${plugin.name}] enrichArtifactRecord failed`,
+											err,
+										);
 									}
 								}
 							}
@@ -547,7 +590,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 					}),
 				);
 
-				const statements: any[] = [];
+				const statements: SqlStatement[] = [];
 
 				if (actionsToInsert.length > 0) {
 					const stmt = db.prepare(`

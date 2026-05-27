@@ -31,7 +31,7 @@ export const usageNormalizationPlugin: CollectorPlugin = {
 					const nextContext: Record<string, JsonValue> = {
 						...context,
 						"collector.is_admin_path": Boolean(
-							normalizedPath && normalizedPath.startsWith("/admin"),
+							normalizedPath?.startsWith("/admin"),
 						),
 					};
 					return {

@@ -91,7 +91,7 @@ export const stampInteractionFromRequest = (
 	span: Span | undefined,
 	request: HeaderSource,
 ): void => {
-	if (!span || !span.isRecording()) return;
+	if (!span?.isRecording()) return;
 	const raw = readHeader(request, INTERACTION_HEADER);
 	if (!raw) return;
 	if (!INTERACTION_ID_REGEX.test(raw)) return;

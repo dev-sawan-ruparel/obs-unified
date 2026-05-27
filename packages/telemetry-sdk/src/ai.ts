@@ -70,7 +70,7 @@ export async function flushAICalls() {
 			...(aiConfig.extraHeaders ?? {}),
 		};
 		if (aiConfig.authToken) {
-			headers["Authorization"] = `Bearer ${aiConfig.authToken}`;
+			headers.Authorization = `Bearer ${aiConfig.authToken}`;
 		}
 
 		await fetch(`${aiConfig.collectorUrl}/v1/ai`, {

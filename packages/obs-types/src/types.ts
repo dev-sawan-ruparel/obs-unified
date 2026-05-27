@@ -940,7 +940,7 @@ export interface ReplayChunkInput {
 	sessionId: string;
 	visitorId: string;
 	sequenceNumber: number;
-	events: Record<string, any>[]; // rrweb event objects
+	events: Record<string, unknown>[]; // rrweb event objects
 }
 
 export interface SessionReplayMetadataRow {

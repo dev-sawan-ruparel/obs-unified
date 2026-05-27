@@ -264,15 +264,25 @@ function alertRuleColumns({
 			header: "Actions",
 			width: "auto",
 			cell: (r) => (
-				<div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-					<Button variant="ghost" size="xs" onClick={() => toggleEnabled(r)}>
+				<div className="flex gap-1">
+					<Button
+						variant="ghost"
+						size="xs"
+						onClick={(event) => {
+							event.stopPropagation();
+							toggleEnabled(r);
+						}}
+					>
 						{r.enabled ? "Disable" : "Enable"}
 					</Button>
 					<Button
 						variant="ghost"
 						size="xs"
 						className="text-sys-primary outline-sys-primary"
-						onClick={() => edit(r.id)}
+						onClick={(event) => {
+							event.stopPropagation();
+							edit(r.id);
+						}}
 					>
 						Edit
 					</Button>

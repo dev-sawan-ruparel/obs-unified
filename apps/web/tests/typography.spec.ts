@@ -149,7 +149,9 @@ test.describe("Typography audit", () => {
 		// Assertion: every probed element should resolve to Inter Variable.
 		const families = new Set(reports.map((r) => r.fontFamily));
 		console.log(`\nUnique font-family values: ${families.size}`);
-		families.forEach((f) => console.log(`  - ${f}`));
+		for (const f of families) {
+			console.log(`  - ${f}`);
+		}
 
 		// Hard assertion: every visible piece of chrome inherits Inter.
 		for (const r of reports) {

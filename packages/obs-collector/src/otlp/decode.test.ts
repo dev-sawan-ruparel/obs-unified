@@ -137,7 +137,7 @@ describe("readOtlpBody", () => {
 	it("decompresses gzip bodies", async () => {
 		const raw = new TextEncoder().encode(JSON.stringify({ resourceSpans: [] }));
 		const gz = await new Response(
-			new Response(raw).body!.pipeThrough(new CompressionStream("gzip")),
+			new Response(raw).body?.pipeThrough(new CompressionStream("gzip")),
 		).arrayBuffer();
 		const c = mockContext({
 			bytes: gz,

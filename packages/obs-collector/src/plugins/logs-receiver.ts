@@ -4,8 +4,10 @@ import { LogsStore } from "../lib/logs-store";
 import { sqlDbFor } from "../lib/sql-db";
 import { logToTailEvent, publishTail } from "../lib/tail-publisher";
 import {
+	type DecodedLogRecord,
 	decodeLogsRequest,
 	OtlpDecodeError,
+	type ReadBodyResult,
 	readOtlpBody,
 } from "../otlp/decode";
 import { logsResponse, otlpRetryableError } from "../otlp/response";
@@ -19,7 +21,7 @@ export const logsReceiverPlugin: CollectorPlugin = {
 		app.post("/v1/logs", async (c) => {
 			const projectId = getProjectId(c);
 
-			let body;
+			let body: ReadBodyResult;
 			try {
 				body = await readOtlpBody(c);
 			} catch (err) {
@@ -29,7 +31,7 @@ export const logsReceiverPlugin: CollectorPlugin = {
 				throw err;
 			}
 
-			let decoded;
+			let decoded: DecodedLogRecord[];
 			try {
 				decoded = decodeLogsRequest(body);
 			} catch (err) {

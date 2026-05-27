@@ -51,10 +51,10 @@ export function MessageView({
 				</div>
 			)}
 			<div className="flex flex-col gap-2">
-				{messages.map((m, i) => (
+				{messages.map((m) => (
 					<ChatBubble
-						key={i}
-						role={m.role}
+						key={`${m.role}-${m.meta ?? ""}-${m.content.slice(0, 48)}`}
+						speaker={m.role}
 						subtitle={m.meta}
 						accent={
 							accent === "error" && m.role === "assistant" ? "error" : undefined

@@ -449,7 +449,10 @@ describe("IdentityIndex.byAgentRun", () => {
 				return null;
 			},
 			all: (sql) => {
-				if (sql.includes("actions") && (sql.includes("root_action_id") || sql.includes("agent_run_id"))) {
+				if (
+					sql.includes("actions") &&
+					(sql.includes("root_action_id") || sql.includes("agent_run_id"))
+				) {
 					return [
 						{
 							id: "action-root",
@@ -560,4 +563,3 @@ describe("IdentityIndex.byActor", () => {
 		expect(manifest.actions[0].actorType).toBe("user");
 	});
 });
-

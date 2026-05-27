@@ -182,8 +182,10 @@ export function AskBox() {
 											className="mt-1 flex flex-col gap-0.5 font-mono text-[0.6875rem] text-sys-on-surface-muted"
 											data-test-ask-queries
 										>
-											{response.queries.map((q, i) => (
-												<li key={i}>
+											{response.queries.map((q) => (
+												<li
+													key={`${q.tool}-${q.durationMs}-${JSON.stringify(q.args)}`}
+												>
 													<QueryLine query={q} />
 												</li>
 											))}

@@ -10,7 +10,12 @@ export interface AgentRunOptions {
 	agentName: string;
 	agentVersion?: string;
 	goal?: string;
-	autonomyLevel?: "read_only" | "suggested_action" | "human_approved_write" | "autonomous_write" | "blocked_by_policy";
+	autonomyLevel?:
+		| "read_only"
+		| "suggested_action"
+		| "human_approved_write"
+		| "autonomous_write"
+		| "blocked_by_policy";
 	actorType?: string;
 	actorId?: string;
 }
@@ -126,12 +131,18 @@ export async function startAgentRun<T>(
 		// Leaf attributes
 		child.setAttribute("obs.agent_run.agent_id", opts.agentId);
 		child.setAttribute("obs.agent_run.agent_name", opts.agentName);
-		child.setAttribute("obs.agent_run.agent_version", opts.agentVersion ?? "1.0.0");
+		child.setAttribute(
+			"obs.agent_run.agent_version",
+			opts.agentVersion ?? "1.0.0",
+		);
 		if (opts.goal) {
 			child.setAttribute("obs.agent_run.goal", opts.goal);
 			child.setAttribute("ai.payload.input", opts.goal);
 		}
-		child.setAttribute("obs.agent_run.autonomy_level", opts.autonomyLevel ?? "autonomous_write");
+		child.setAttribute(
+			"obs.agent_run.autonomy_level",
+			opts.autonomyLevel ?? "autonomous_write",
+		);
 
 		const run: AgentRun = {
 			runId: agentRunId,
@@ -222,7 +233,10 @@ export async function tool<T>(
 		actorId: parentContext?.actorId ?? null,
 	};
 
-	const rawArgs = typeof opts.arguments === "string" ? opts.arguments : JSON.stringify(opts.arguments);
+	const rawArgs =
+		typeof opts.arguments === "string"
+			? opts.arguments
+			: JSON.stringify(opts.arguments);
 
 	return withChildSpan(opts.name, async (child) => {
 		child.setAttribute("obs.action.id", actionId);
@@ -248,7 +262,10 @@ export async function tool<T>(
 		child.setAttribute("obs.tool_call.tool_name", opts.name);
 		child.setAttribute("obs.tool_call.args", rawArgs);
 		child.setAttribute("obs.tool_call.side_effect", opts.sideEffect ? 1 : 0);
-		child.setAttribute("obs.tool_call.approval_state", opts.approvalState ?? "suggested");
+		child.setAttribute(
+			"obs.tool_call.approval_state",
+			opts.approvalState ?? "suggested",
+		);
 
 		// Stored payloads link compatibility
 		child.setAttribute("ai.payload.input", rawArgs);
@@ -256,7 +273,8 @@ export async function tool<T>(
 		const toolCallObj: ToolCall = {
 			toolCallId: actionId,
 			setResult(result: unknown) {
-				const rawResult = typeof result === "string" ? result : JSON.stringify(result);
+				const rawResult =
+					typeof result === "string" ? result : JSON.stringify(result);
 				child.setAttribute("obs.tool_call.result", rawResult);
 				child.setAttribute("ai.payload.output", rawResult);
 			},
@@ -359,7 +377,10 @@ export async function recordEvaluation(opts: EvalOptions): Promise<void> {
 		}
 
 		child.setAttribute("obs.eval.evaluator_name", opts.evaluatorName);
-		child.setAttribute("obs.eval.evaluator_version", opts.evaluatorVersion ?? "1.0.0");
+		child.setAttribute(
+			"obs.eval.evaluator_version",
+			opts.evaluatorVersion ?? "1.0.0",
+		);
 		if (opts.score !== undefined) {
 			child.setAttribute("obs.eval.score", opts.score);
 		}
@@ -368,7 +389,10 @@ export async function recordEvaluation(opts: EvalOptions): Promise<void> {
 			child.setAttribute("obs.eval.reasoning", opts.reasoning);
 		}
 		if (opts.rubric !== undefined) {
-			const rubricStr = typeof opts.rubric === "string" ? opts.rubric : JSON.stringify(opts.rubric);
+			const rubricStr =
+				typeof opts.rubric === "string"
+					? opts.rubric
+					: JSON.stringify(opts.rubric);
 			child.setAttribute("obs.eval.rubric", rubricStr);
 		}
 	});

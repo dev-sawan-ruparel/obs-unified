@@ -82,6 +82,8 @@ function MiniSpark({ data, color }: { data: number[]; color: string }) {
 	if (data.length === 1) {
 		return (
 			<svg
+				aria-label="Metric sparkline"
+				role="img"
 				viewBox={`0 0 ${W} ${H}`}
 				preserveAspectRatio="none"
 				style={{ display: "block", width: "100%", height: "100%" }}
@@ -113,6 +115,8 @@ function MiniSpark({ data, color }: { data: number[]; color: string }) {
 	const areaPoints = `0,${H} ${points} ${W},${H}`;
 	return (
 		<svg
+			aria-label="Metric sparkline"
+			role="img"
 			viewBox={`0 0 ${W} ${H}`}
 			preserveAspectRatio="none"
 			style={{ display: "block", width: "100%", height: "100%" }}

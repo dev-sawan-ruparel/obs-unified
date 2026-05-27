@@ -88,11 +88,11 @@ const step = async (label, fn) => {
 	});
 };
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── helpers ─────────────────────────────────────────────────────────
 
-const callDemo = async (path) => {
+const _callDemo = async (path) => {
 	const res = await fetch(`${DEMO}${path}`);
 	if (!res.ok && res.status !== 404 && res.status !== 500) {
 		throw new Error(`${path} → ${res.status}`);
@@ -345,7 +345,7 @@ const hex = (bytes) =>
 		b.toString(16).padStart(2, "0"),
 	).join("");
 
-const nowNs = () => String(BigInt(Date.now()) * 1_000_000n);
+const _nowNs = () => String(BigInt(Date.now()) * 1_000_000n);
 const agoNs = (ms) => String(BigInt(Date.now() - ms) * 1_000_000n);
 
 const kv = (k, v) => {

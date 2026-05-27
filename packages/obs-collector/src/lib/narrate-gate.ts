@@ -181,8 +181,7 @@ export function evaluateGate(
 	// without LLM call. Even with `always` we don't pay twice for the same
 	// state of the world.
 	if (
-		previous &&
-		previous.narrative &&
+		previous?.narrative &&
 		current.narrativeSignature !== null &&
 		current.narrativeSignature === previous.narrativeSignature
 	) {

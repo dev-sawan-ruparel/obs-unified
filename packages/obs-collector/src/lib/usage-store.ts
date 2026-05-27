@@ -8,7 +8,6 @@
  */
 
 import type {
-	JsonValue,
 	UsageBrowserSummary,
 	UsageCountrySummary,
 	UsageDeviceSummary,
@@ -246,7 +245,7 @@ export class UsageStore {
 
 			if (row.event_type === "page_view") {
 				pageViews += 1;
-				const hour = row.occurred_at.slice(0, 13) + ":00:00.000Z";
+				const hour = `${row.occurred_at.slice(0, 13)}:00:00.000Z`;
 				hourlyPageViews.set(hour, (hourlyPageViews.get(hour) ?? 0) + 1);
 
 				if (row.page_path) {

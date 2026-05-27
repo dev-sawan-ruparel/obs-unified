@@ -75,7 +75,7 @@ describe("ConnectedRail manifest — informative absence", () => {
 		for (const section of allSections) {
 			if (section.links.length === 0) {
 				expect(section.emptyReason).toBeDefined();
-				expect(section.emptyReason!.length).toBeGreaterThan(0);
+				expect(section.emptyReason?.length).toBeGreaterThan(0);
 			}
 		}
 	});
@@ -128,9 +128,9 @@ describe("ConnectedRail manifest — count-link pattern", () => {
 			s.label.toLowerCase().includes("span"),
 		);
 		expect(spansSection).toBeDefined();
-		expect(spansSection!.links).toHaveLength(1);
-		expect(spansSection!.links[0].count).toBe(100);
-		expect(spansSection!.links[0].sample).toBeDefined();
+		expect(spansSection?.links).toHaveLength(1);
+		expect(spansSection?.links[0].count).toBe(100);
+		expect(spansSection?.links[0].sample).toBeDefined();
 	});
 
 	it("usage event with 3 logs renders them inline, not as a count link", async () => {
@@ -186,9 +186,9 @@ describe("ConnectedRail manifest — count-link pattern", () => {
 			s.label.toLowerCase().includes("log"),
 		);
 		expect(logsSection).toBeDefined();
-		expect(logsSection!.links).toHaveLength(3);
+		expect(logsSection?.links).toHaveLength(3);
 		// No count-link consolidation under the threshold.
-		expect(logsSection!.links[0].count).toBeUndefined();
+		expect(logsSection?.links[0].count).toBeUndefined();
 	});
 });
 
@@ -243,7 +243,7 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 		);
 		expect(cpuSection).toBeDefined();
 		expect(offCpuSection).toBeDefined();
-		expect(cpuSection!.links[0].href).toContain("trace_id=tr-A");
+		expect(cpuSection?.links[0].href).toContain("trace_id=tr-A");
 	});
 
 	it("renders informative-absence under Down when no profile covers the trace", async () => {
@@ -276,8 +276,8 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 			s.label.toLowerCase().includes("profile"),
 		);
 		expect(profilesSection).toBeDefined();
-		expect(profilesSection!.links).toEqual([]);
-		expect(profilesSection!.emptyReason).toContain("startProfiler");
+		expect(profilesSection?.links).toEqual([]);
+		expect(profilesSection?.emptyReason).toContain("startProfiler");
 	});
 });
 
@@ -357,13 +357,13 @@ describe("ConnectedRail manifest — user entity (RFC 0006 Scenario B)", () => {
 			s.label.toLowerCase().includes("latest session"),
 		);
 		expect(latestSection).toBeDefined();
-		expect(latestSection!.links[0].href).toContain("sess-latest");
+		expect(latestSection?.links[0].href).toContain("sess-latest");
 
 		const aiSection = m.across.find((s) =>
 			s.label.toLowerCase().includes("ai call"),
 		);
 		expect(aiSection).toBeDefined();
-		expect(aiSection!.links.length).toBeGreaterThan(0);
+		expect(aiSection?.links.length).toBeGreaterThan(0);
 
 		// Up section is informative-absence (user is root).
 		expect(m.up[0].emptyReason).toBeDefined();
@@ -381,8 +381,8 @@ describe("ConnectedRail manifest — user entity (RFC 0006 Scenario B)", () => {
 			s.label.toLowerCase().includes("session"),
 		);
 		expect(sessionsSection).toBeDefined();
-		expect(sessionsSection!.links).toEqual([]);
-		expect(sessionsSection!.emptyReason).toContain("visitor_id");
+		expect(sessionsSection?.links).toEqual([]);
+		expect(sessionsSection?.emptyReason).toContain("visitor_id");
 	});
 });
 
@@ -422,7 +422,10 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 				return null;
 			},
 			all: (sql) => {
-				if (sql.includes("FROM actions") && sql.includes("root_action_id = ?")) {
+				if (
+					sql.includes("FROM actions") &&
+					sql.includes("root_action_id = ?")
+				) {
 					return [
 						{
 							id: "act-456",
@@ -526,26 +529,26 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		// Up section should have Parent Action and Agent Run
 		const parentAction = m.up.find((s) => s.label === "Parent Action");
 		expect(parentAction).toBeDefined();
-		expect(parentAction!.links[0].href).toBe("#/actions/act-parent");
+		expect(parentAction?.links[0].href).toBe("#/actions/act-parent");
 
 		const agentRun = m.up.find((s) => s.label === "Agent Run");
 		expect(agentRun).toBeDefined();
-		expect(agentRun!.links[0].href).toBe("#/agent-runs/run-123");
+		expect(agentRun?.links[0].href).toBe("#/agent-runs/run-123");
 
 		// Sibling actions in across
 		const siblings = m.across.find((s) => s.label === "Sibling Actions");
 		expect(siblings).toBeDefined();
-		expect(siblings!.links[0].href).toBe("#/actions/act-sibling");
+		expect(siblings?.links[0].href).toBe("#/actions/act-sibling");
 
 		// Tool calls in down
 		const toolCalls = m.down.find((s) => s.label === "Tool Calls");
 		expect(toolCalls).toBeDefined();
-		expect(toolCalls!.links[0].label).toContain("use_tool");
+		expect(toolCalls?.links[0].label).toContain("use_tool");
 
 		// OTel Trace in related
 		const relatedTrace = m.related.find((s) => s.label === "OTel Trace");
 		expect(relatedTrace).toBeDefined();
-		expect(relatedTrace!.links[0].href).toBe("#/traces/tx-789");
+		expect(relatedTrace?.links[0].href).toBe("#/traces/tx-789");
 	});
 
 	it("agent_run entity returns Agent, Traces, Decision Spine, and Tool Calls", async () => {
@@ -643,22 +646,26 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		});
 
 		const fetch = setup(db);
-		const m = await fetch("/internal/connected/agent_run/run-123?project_id=p1");
+		const m = await fetch(
+			"/internal/connected/agent_run/run-123?project_id=p1",
+		);
 
 		// Up has Agent
 		const agentSec = m.up.find((s) => s.label === "Agent");
 		expect(agentSec).toBeDefined();
-		expect(agentSec!.links[0].href).toBe("#/agents/my-agent");
+		expect(agentSec?.links[0].href).toBe("#/agents/my-agent");
 
 		// Down has Actions (Decision Spine)
-		const decisionSpine = m.down.find((s) => s.label === "Actions (Decision Spine)");
+		const decisionSpine = m.down.find(
+			(s) => s.label === "Actions (Decision Spine)",
+		);
 		expect(decisionSpine).toBeDefined();
-		expect(decisionSpine!.links[0].href).toBe("#/actions/act-456");
+		expect(decisionSpine?.links[0].href).toBe("#/actions/act-456");
 
 		// Down has Tool Calls Executed
 		const toolCalls = m.down.find((s) => s.label === "Tool Calls Executed");
 		expect(toolCalls).toBeDefined();
-		expect(toolCalls!.links[0].label).toContain("use_tool");
+		expect(toolCalls?.links[0].label).toContain("use_tool");
 	});
 
 	it("tool_call entity returns Causal Action and other sibling tool calls", async () => {
@@ -768,17 +775,20 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		});
 
 		const fetch = setup(db);
-		const m = await fetch("/internal/connected/tool_call/tool-call-1?project_id=p1");
+		const m = await fetch(
+			"/internal/connected/tool_call/tool-call-1?project_id=p1",
+		);
 
 		// Up has Causal Action
 		const causalAction = m.up.find((s) => s.label === "Causal Action");
 		expect(causalAction).toBeDefined();
-		expect(causalAction!.links[0].href).toBe("#/actions/act-456");
+		expect(causalAction?.links[0].href).toBe("#/actions/act-456");
 
 		// Across has Other tool calls in this action
-		const otherTools = m.across.find((s) => s.label === "Other tool calls in this action");
+		const otherTools = m.across.find(
+			(s) => s.label === "Other tool calls in this action",
+		);
 		expect(otherTools).toBeDefined();
-		expect(otherTools!.links[0].label).toContain("other_tool");
+		expect(otherTools?.links[0].label).toContain("other_tool");
 	});
 });
-

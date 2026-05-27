@@ -230,16 +230,24 @@ export function createRequestSpan(
 			const agentCtx = agentContextStorage.getStore();
 			if (agentCtx) {
 				child.attributes.push(toKv("obs.action.id", agentCtx.actionId));
-				child.attributes.push(toKv("obs.action.root_id", agentCtx.rootActionId));
+				child.attributes.push(
+					toKv("obs.action.root_id", agentCtx.rootActionId),
+				);
 				if (agentCtx.causedByActionId) {
-					child.attributes.push(toKv("obs.action.caused_by_id", agentCtx.causedByActionId));
+					child.attributes.push(
+						toKv("obs.action.caused_by_id", agentCtx.causedByActionId),
+					);
 				}
-				child.attributes.push(toKv("obs.action.actor_type", agentCtx.actorType));
+				child.attributes.push(
+					toKv("obs.action.actor_type", agentCtx.actorType),
+				);
 				if (agentCtx.actorId) {
 					child.attributes.push(toKv("obs.action.actor_id", agentCtx.actorId));
 				}
 				if (agentCtx.agentRunId) {
-					child.attributes.push(toKv("obs.action.agent_run_id", agentCtx.agentRunId));
+					child.attributes.push(
+						toKv("obs.action.agent_run_id", agentCtx.agentRunId),
+					);
 				}
 			}
 

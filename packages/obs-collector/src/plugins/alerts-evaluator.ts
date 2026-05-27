@@ -1,6 +1,5 @@
 import type {
 	AlertChannel,
-	AlertRule,
 	AlertState,
 	AlertWebhookChannel,
 } from "@obs-unified/types";
@@ -207,7 +206,7 @@ export async function evaluateAllRules(
 export function createAlertEvaluatorHandler() {
 	return {
 		async scheduled(
-			event: { cron: string },
+			_event: { cron: string },
 			env: CollectorEnv,
 			ctx: {
 				waitUntil(promise: Promise<unknown>): void;

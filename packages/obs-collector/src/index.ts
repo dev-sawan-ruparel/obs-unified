@@ -1,9 +1,8 @@
-import { createDashboardAuth } from "./auth/dashboard-auth";
-import { createIngestAuth } from "./auth/ingest-auth";
 import {
 	type CollectorConfig,
 	createTelemetryCollectorApp,
 } from "./framework/collector";
+import { actionGraphProcessorPlugin } from "./plugins/action-graph-processor";
 import { aiReceiverPlugin } from "./plugins/ai-receiver";
 import { aiSpanPayloadsProcessorPlugin } from "./plugins/ai-span-payloads-processor";
 import {
@@ -17,7 +16,6 @@ import { botFilterPlugin } from "./plugins/bot-filter";
 import { connectedRoutesPlugin } from "./plugins/connected-routes";
 import { defaultSpanEnrichmentPlugin } from "./plugins/default-span-enrichment";
 import { genAiNormalizerPlugin } from "./plugins/gen-ai-normalizer";
-import { actionGraphProcessorPlugin } from "./plugins/action-graph-processor";
 import { identityReceiverPlugin } from "./plugins/identity-receiver";
 import { issueEnrichmentPlugin } from "./plugins/issue-enrichment";
 import { issueInsightsPlugin } from "./plugins/issue-insights";

@@ -18,6 +18,7 @@ import type {
 } from "./blob-store";
 
 type S3Body = Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>;
+type S3CommandBody = Exclude<S3Body, ArrayBuffer>;
 
 interface S3ClientShape {
 	send(command: unknown): Promise<unknown>;
@@ -28,22 +29,22 @@ interface S3SdkConstructors {
 	// without the BlobStore adapter dragging in a hard dep on
 	// @aws-sdk/client-s3. The runtime contract is just "construct with an
 	// object literal of S3 params."
-	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	PutObjectCommand: new (
-		input: any,
-	) => unknown;
-	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	GetObjectCommand: new (
-		input: any,
-	) => unknown;
-	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	DeleteObjectCommand: new (
-		input: any,
-	) => unknown;
-	// biome-ignore lint/suspicious/noExplicitAny: <see comment above>
-	ListObjectsV2Command: new (
-		input: any,
-	) => unknown;
+	PutObjectCommand: new (input: {
+		Bucket: string;
+		Key: string;
+		Body?: S3CommandBody;
+		ContentType?: string;
+		ContentEncoding?: string;
+		Metadata?: Record<string, string>;
+	}) => unknown;
+	GetObjectCommand: new (input: { Bucket: string; Key: string }) => unknown;
+	DeleteObjectCommand: new (input: { Bucket: string; Key: string }) => unknown;
+	ListObjectsV2Command: new (input: {
+		Bucket: string;
+		Prefix: string;
+		MaxKeys?: number;
+		ContinuationToken?: string;
+	}) => unknown;
 }
 
 export interface S3BlobStoreOptions {
@@ -60,10 +61,12 @@ export class S3BlobStore implements BlobStore {
 		body: S3Body,
 		options?: BlobPutOptions,
 	): Promise<void> {
+		const commandBody: S3CommandBody =
+			body instanceof ArrayBuffer ? new Uint8Array(body) : body;
 		const cmd = new this.opts.commands.PutObjectCommand({
 			Bucket: this.opts.bucket,
 			Key: key,
-			Body: body,
+			Body: commandBody,
 			ContentType: options?.httpMetadata?.contentType,
 			ContentEncoding: options?.httpMetadata?.contentEncoding,
 			Metadata: options?.customMetadata,

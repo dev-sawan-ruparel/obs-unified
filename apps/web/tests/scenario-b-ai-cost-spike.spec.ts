@@ -158,17 +158,17 @@ test.describe("Scenario B — AI cost spike → user → session → trace", () 
 			"session rail must surface spans across",
 		).toBeDefined();
 		expect(
-			sessionSpansSection!.links.length,
+			sessionSpansSection?.links.length,
 			"session has at least one trace",
 		).toBeGreaterThan(0);
 
 		// Extract a trace_id from the session's spans link. The link's
 		// href format is `#/traces?q=<traceId>` (count-link collapse) or
 		// `#/traces/<traceId>#span=...` for inline links — handle both.
-		const sampleHref = sessionSpansSection!.links[0].href;
+		const sampleHref = sessionSpansSection?.links[0].href;
 		const traceIdMatch = sampleHref.match(/(?:traces\/|q=)([0-9a-f]{16,32})/i);
 		expect(traceIdMatch, `extract trace_id from ${sampleHref}`).not.toBeNull();
-		const traceId = traceIdMatch![1];
+		const traceId = traceIdMatch?.[1];
 
 		// Step 3 — confirm the trace's rail surfaces the "Click that
 		// caused this trace" RELATED link. This is the RFC 0004 headline.
@@ -203,7 +203,7 @@ test.describe("Scenario B — AI cost spike → user → session → trace", () 
 		const spanRail = await fetchManifest(
 			request,
 			cookie,
-			`/internal/connected/span/${traceId}:${spanWithInteraction!.spanId}`,
+			`/internal/connected/span/${traceId}:${spanWithInteraction?.spanId}`,
 		);
 		const originatingClick = spanRail.related.find((s) =>
 			s.label.toLowerCase().includes("click"),
@@ -213,7 +213,7 @@ test.describe("Scenario B — AI cost spike → user → session → trace", () 
 			"span rail must offer 'Click that caused this trace'",
 		).toBeDefined();
 		expect(
-			originatingClick!.links.length,
+			originatingClick?.links.length,
 			"originating-click link should be populated, not informative-absence",
 		).toBeGreaterThan(0);
 	});

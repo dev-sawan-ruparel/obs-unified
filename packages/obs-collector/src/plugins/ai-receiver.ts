@@ -11,7 +11,7 @@ import { getProjectId } from "./_context";
 
 export const aiReceiverPlugin: CollectorPlugin = {
 	name: "ai-receiver",
-	register(app, runtime) {
+	register(app, _runtime) {
 		app.post("/v1/ai", async (c) => {
 			const projectId = getProjectId(c);
 			let payload: AICallPayload;

@@ -51,7 +51,6 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
 					placeholder="Password"
-					autoFocus
 					className="h-10 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
 				/>
 

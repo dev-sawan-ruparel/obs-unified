@@ -39,7 +39,7 @@ const server = createServer((req, res) => {
 				}
 			})(),
 		});
-		appendFileSync(LOG_PATH, record + "\n");
+		appendFileSync(LOG_PATH, `${record}\n`);
 		console.log(`[webhook] ${req.method} ${req.url} → 200 (logged)`);
 		res.writeHead(200, { "Content-Type": "application/json" });
 		res.end('{"ok":true}');

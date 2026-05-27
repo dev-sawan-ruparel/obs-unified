@@ -6,6 +6,7 @@ import { sqlDbFor } from "../lib/sql-db";
 import {
 	decodeMetricsRequest,
 	OtlpDecodeError,
+	type ReadBodyResult,
 	readOtlpBody,
 } from "../otlp/decode";
 import { metricsResponse, otlpRetryableError } from "../otlp/response";
@@ -19,7 +20,7 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 		app.post("/v1/metrics", async (c) => {
 			const projectId = getProjectId(c);
 
-			let body;
+			let body: ReadBodyResult;
 			try {
 				body = await readOtlpBody(c);
 			} catch (err) {
@@ -29,7 +30,7 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 				throw err;
 			}
 
-			let points;
+			let points: ReturnType<typeof decodeMetricsRequest>;
 			try {
 				points = decodeMetricsRequest(body);
 			} catch (err) {

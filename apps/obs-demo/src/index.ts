@@ -28,6 +28,7 @@ import {
 	startToolSpan,
 	withChildSpan,
 } from "@obs-unified/telemetry-sdk";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { ask, availableProviders, type Message } from "./providers.js";
@@ -45,6 +46,8 @@ interface Env {
 
 const app = new Hono<{ Bindings: Env }>();
 const logger = createLogger("obs-demo");
+type AppContext = Context<{ Bindings: Env }>;
+type Provider = ReturnType<typeof availableProviders>[number];
 
 // CORS for local dashboard. allowHeaders explicitly enumerates the obs
 // session + interaction headers so the browser doesn't strip them via
@@ -115,7 +118,7 @@ async function exportSpan(
 		"Content-Type": "application/json",
 	};
 	if (env.OBS_INGEST_KEY)
-		headers["Authorization"] = `Bearer ${env.OBS_INGEST_KEY}`;
+		headers.Authorization = `Bearer ${env.OBS_INGEST_KEY}`;
 	try {
 		await fetch(`${env.OBS_COLLECTOR_URL}/v1/traces`, {
 			method: "POST",
@@ -143,7 +146,7 @@ async function postEvaluation(
 		"Content-Type": "application/json",
 	};
 	if (env.OBS_INGEST_KEY)
-		headers["Authorization"] = `Bearer ${env.OBS_INGEST_KEY}`;
+		headers.Authorization = `Bearer ${env.OBS_INGEST_KEY}`;
 	try {
 		await fetch(`${env.OBS_COLLECTOR_URL}/v1/ai/evaluations`, {
 			method: "POST",
@@ -212,7 +215,7 @@ app.get("/api/error", (c) => {
 
 // ── AI demo routes ─────────────────────────────────────────────────────────
 
-function requireProviders(c: any) {
+function requireProviders(c: AppContext) {
 	const providers = availableProviders(c.env);
 	if (providers.length === 0) {
 		return c.json(
@@ -224,6 +227,12 @@ function requireProviders(c: any) {
 		);
 	}
 	return null;
+}
+
+function firstProvider(providers: Provider[]): Provider {
+	const provider = providers[0];
+	if (!provider) throw new Error("No LLM providers configured");
+	return provider;
 }
 
 /**
@@ -301,7 +310,7 @@ app.get("/api/demo/rag", async (c) => {
 		},
 		{ role: "user", content: question },
 	];
-	const provider = availableProviders(c.env)[0]!;
+	const provider = firstProvider(availableProviders(c.env));
 	const res = await ask(c.env, provider, messages);
 
 	const passed = /paris/i.test(res.text);
@@ -339,7 +348,7 @@ app.get("/api/demo/tool", async (c) => {
 	tool.setOutput(weather);
 	tool.end();
 
-	const provider = availableProviders(c.env)[0]!;
+	const provider = firstProvider(availableProviders(c.env));
 	const res = await ask(c.env, provider, [
 		{
 			role: "system",
@@ -390,7 +399,7 @@ app.get("/api/demo/session", async (c) => {
 			"Budget-friendly dinner near the rainy-day option?",
 		];
 
-		const provider = availableProviders(c.env)[0]!;
+		const provider = firstProvider(availableProviders(c.env));
 		const replies: string[] = [];
 		for (const turn of turns) {
 			messages.push({ role: "user", content: turn });
@@ -422,6 +431,7 @@ app.get("/api/demo/run-all", async (c) => {
 	if (err) return err;
 
 	const providers = availableProviders(c.env);
+	const provider = firstProvider(providers);
 	const summary: Record<string, unknown> = { providers };
 
 	// Chat fan-out
@@ -449,7 +459,7 @@ app.get("/api/demo/run-all", async (c) => {
 			{ id: "d1", score: 0.9, content: "Paris is the capital of France." },
 		]);
 		retriever.end();
-		const rag = await ask(c.env, providers[0]!, [
+		const rag = await ask(c.env, provider, [
 			{
 				role: "system",
 				content: "Use context: Paris is the capital of France.",
@@ -469,7 +479,7 @@ app.get("/api/demo/run-all", async (c) => {
 		});
 		tool.setOutput({ city: "Tokyo", tempC: 18 });
 		tool.end();
-		const weather = await ask(c.env, providers[0]!, [
+		const weather = await ask(c.env, provider, [
 			{ role: "user", content: "Weather: Tokyo 18C. One line." },
 		]);
 		summary.tool = weather.text;
@@ -490,7 +500,7 @@ app.get("/api/demo/run-all", async (c) => {
 			"One famous landmark there?",
 		]) {
 			msgs.push({ role: "user", content: q });
-			const r = await ask(c.env, providers[0]!, msgs);
+			const r = await ask(c.env, provider, msgs);
 			msgs.push({ role: "assistant", content: r.text });
 		}
 		reset();

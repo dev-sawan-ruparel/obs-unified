@@ -1,19 +1,24 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import type { StoredSpan } from "@obs-unified/types";
-import {
-	actionGraphProcessorPlugin,
-	registerActionEnricherPlugin,
-	clearActionEnricherPlugins,
-	registerRedactionPlugin,
-	clearRedactionPlugins,
-	type ActionEnricherPlugin,
-	type PayloadRedactorPlugin,
-} from "./action-graph-processor";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type {
+	CollectorRuntime,
+	SpanProcessorPlugin,
+} from "../framework/collector";
+import type { CollectorRouteContext } from "../framework/env";
 import { MemSqlDb } from "../lib/test-utils/mem-sql-db";
+import {
+	type ActionEnricherPlugin,
+	actionGraphProcessorPlugin,
+	clearActionEnricherPlugins,
+	clearRedactionPlugins,
+	type PayloadRedactorPlugin,
+	registerActionEnricherPlugin,
+	registerRedactionPlugin,
+} from "./action-graph-processor";
 
 describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 	let db: MemSqlDb;
-	let context: any;
+	let context: CollectorRouteContext;
 
 	beforeEach(() => {
 		db = new MemSqlDb();
@@ -23,7 +28,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			},
 			now: new Date(),
 			logger: console,
-		};
+		} as unknown as CollectorRouteContext;
 		clearActionEnricherPlugins();
 		clearRedactionPlugins();
 	});
@@ -38,27 +43,27 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 
 		const mockEnricher: ActionEnricherPlugin = {
 			name: "test-enricher",
-			enrichActionRecord(record, span, attrs) {
+			enrichActionRecord(record, _span, _attrs) {
 				enricherCalls.push("enrichActionRecord");
 				record.name = "enriched-action-name";
 			},
-			enrichAgentRunRecord(record, span, attrs) {
+			enrichAgentRunRecord(record, _span, _attrs) {
 				enricherCalls.push("enrichAgentRunRecord");
 				record.goal = "enriched-goal";
 			},
-			enrichToolCallRecord(record, span, attrs) {
+			enrichToolCallRecord(record, _span, _attrs) {
 				enricherCalls.push("enrichToolCallRecord");
 				record.toolName = "enriched-tool";
 			},
-			enrichRetrievalRecord(record, span, attrs) {
+			enrichRetrievalRecord(record, _span, _attrs) {
 				enricherCalls.push("enrichRetrievalRecord");
 				record.retrieverName = "enriched-retriever";
 			},
-			enrichEvalRecord(record, span, attrs) {
+			enrichEvalRecord(record, _span, _attrs) {
 				enricherCalls.push("enrichEvalRecord");
 				record.evaluatorName = "enriched-evaluator";
 			},
-			enrichArtifactRecord(record, span, attrs) {
+			enrichArtifactRecord(record, _span, _attrs) {
 				enricherCalls.push("enrichArtifactRecord");
 				record.artifactName = "enriched-artifact";
 			},
@@ -72,7 +77,12 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			spanId: "span-1",
 			parentSpanId: null,
 			traceId: "trace-1",
+			traceState: null,
+			serviceName: "test-service",
+			scopeName: null,
+			scopeVersion: null,
 			spanName: "original-name",
+			spanKind: 1,
 			statusCode: 1,
 			statusMessage: null,
 			startTime: "2026-05-22T00:00:00.000Z",
@@ -96,21 +106,33 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 				"obs.artifact.name": "original-artifact",
 				"obs.artifact.content": "original-content",
 			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:05.000Z",
+			expiresAt: "2026-05-23T00:00:05.000Z",
 			sessionId: null,
 			interactionId: null,
-			userId: null,
 		};
 
 		// Get the processor from the plugin registration
-		let processFn: any = null;
-		const app: any = {};
-		const runtime: any = {
-			addSpanProcessor(p: any) {
-				processFn = p.process;
+		const processors: SpanProcessorPlugin[] = [];
+		const app = {};
+		const runtime = {
+			addSpanProcessor(p: SpanProcessorPlugin) {
+				processors.push(p);
 			},
 		};
 
-		actionGraphProcessorPlugin.register(app, runtime);
+		actionGraphProcessorPlugin.register(
+			app as Parameters<typeof actionGraphProcessorPlugin.register>[0],
+			runtime as unknown as CollectorRuntime,
+		);
+		const processFn = processors[0]?.process;
+		if (!processFn) throw new Error("span processor was not registered");
 		expect(processFn).toBeDefined();
 
 		// Run processing
@@ -155,7 +177,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 	it("plugs in custom payload redactor plugins and sanitizes fields before DB write", async () => {
 		const mockRedactor: PayloadRedactorPlugin = {
 			name: "test-redactor",
-			redact(value, ctx) {
+			redact(_value, ctx) {
 				if (ctx.kind === "tool_call" && ctx.fieldName === "args") {
 					return { redactedSecret: "yes-redacted" };
 				}
@@ -173,7 +195,12 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			spanId: "span-1",
 			parentSpanId: null,
 			traceId: "trace-1",
+			traceState: null,
+			serviceName: "test-service",
+			scopeName: null,
+			scopeVersion: null,
 			spanName: "my-tool-span",
+			spanKind: 1,
 			statusCode: 1,
 			statusMessage: null,
 			startTime: "2026-05-22T00:00:00.000Z",
@@ -183,31 +210,49 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 				"obs.action.id": "action-1",
 				"obs.action.kind": "tool.call",
 				"obs.tool_call.tool_name": "some-tool",
-				"obs.tool_call.args": JSON.stringify({ secretKey: "supersecretPassword123" }),
+				"obs.tool_call.args": JSON.stringify({
+					secretKey: "supersecretPassword123",
+				}),
 				"obs.retrieval.retriever_name": "some-retriever",
 				"obs.retrieval.query": "find secret documents",
 			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:05.000Z",
+			expiresAt: "2026-05-23T00:00:05.000Z",
 			sessionId: null,
 			interactionId: null,
-			userId: null,
 		};
 
-		let processFn: any = null;
-		const app: any = {};
-		const runtime: any = {
-			addSpanProcessor(p: any) {
-				processFn = p.process;
+		const processors: SpanProcessorPlugin[] = [];
+		const app = {};
+		const runtime = {
+			addSpanProcessor(p: SpanProcessorPlugin) {
+				processors.push(p);
 			},
 		};
 
-		actionGraphProcessorPlugin.register(app, runtime);
+		actionGraphProcessorPlugin.register(
+			app as Parameters<typeof actionGraphProcessorPlugin.register>[0],
+			runtime as unknown as CollectorRuntime,
+		);
+		const processFn = processors[0]?.process;
+		if (!processFn) throw new Error("span processor was not registered");
 		await processFn([span], context);
 
 		const toolInserts = db.callsMatching("INSERT INTO tool_calls");
 		expect(toolInserts).toHaveLength(1);
 		// The redacted args column should carry our redacted structure
-		const argsBindVal = toolInserts[0].binds.find((b) => typeof b === "string" && b.includes("redactedSecret"));
-		expect(argsBindVal).toBe(JSON.stringify({ redactedSecret: "yes-redacted" }));
+		const argsBindVal = toolInserts[0].binds.find(
+			(b) => typeof b === "string" && b.includes("redactedSecret"),
+		);
+		expect(argsBindVal).toBe(
+			JSON.stringify({ redactedSecret: "yes-redacted" }),
+		);
 
 		const retrievalInserts = db.callsMatching("INSERT INTO retrieval_events");
 		expect(retrievalInserts).toHaveLength(1);

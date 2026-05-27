@@ -1,9 +1,23 @@
 import type {
 	LogRecord,
+	LogSeverity,
 	LogsOverviewOptions,
 	LogsOverviewResponse,
 } from "@obs-unified/types";
 import type { SqlDb } from "./sql-db";
+
+const LOG_SEVERITIES = new Set<LogSeverity>([
+	"DEBUG",
+	"INFO",
+	"WARN",
+	"ERROR",
+	"FATAL",
+]);
+
+const toLogSeverity = (severity: string): LogSeverity =>
+	LOG_SEVERITIES.has(severity as LogSeverity)
+		? (severity as LogSeverity)
+		: "INFO";
 
 /** Clamp an integer to a safe range */
 const clampInt = (
@@ -16,6 +30,30 @@ const clampInt = (
 	if (!Number.isFinite(n)) return fallback;
 	return Math.max(min, Math.min(max, n));
 };
+
+interface LogRow {
+	project_id?: string;
+	log_id: string;
+	trace_id: string | null;
+	span_id: string | null;
+	service_name: string | null;
+	severity: string;
+	severity_number: number;
+	logger_name: string | null;
+	message: string;
+	attributes_json: string | null;
+	flags: number | null;
+	dropped_attributes_count: number | null;
+	occurred_at: string;
+	received_at: string;
+	expires_at: string;
+}
+
+interface LogsSummaryRow {
+	totalLogs?: number;
+	errorLogs?: number;
+	warnLogs?: number;
+}
 
 export class LogsStore {
 	constructor(private readonly db: SqlDb) {}
@@ -90,7 +128,7 @@ export class LogsStore {
 		const results = await this.db
 			.prepare(sql)
 			.bind(...params)
-			.all<any>();
+			.all<LogRow>();
 
 		// Simple summary stats
 		const summarySql = `
@@ -107,7 +145,7 @@ export class LogsStore {
 			(await this.db
 				.prepare(summarySql)
 				.bind(...summaryParams)
-				.first<any>()) || {};
+				.first<LogsSummaryRow>()) || {};
 
 		const logs: LogRecord[] = (results.results || []).map((r) => ({
 			projectId: r.project_id ?? "default",
@@ -115,7 +153,7 @@ export class LogsStore {
 			traceId: r.trace_id,
 			spanId: r.span_id,
 			serviceName: r.service_name,
-			severity: r.severity,
+			severity: toLogSeverity(r.severity),
 			severityNumber: r.severity_number,
 			loggerName: r.logger_name,
 			message: r.message,

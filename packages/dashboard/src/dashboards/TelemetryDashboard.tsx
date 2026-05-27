@@ -10,7 +10,6 @@ import {
 	Stat as NewStat,
 	SectionTitle,
 	TimeSeriesBars,
-	UpdatedChip,
 } from "../components/primitives";
 import { StateRow } from "../components/states";
 import { type TailEvent, useLiveTail } from "../hooks/useLiveTail";
@@ -155,13 +154,13 @@ const fmtTs = (iso: string) => {
 const copy = (text: string) => {
 	void navigator.clipboard.writeText(text);
 };
-const sevCls: Record<string, string> = {
+const _sevCls: Record<string, string> = {
 	critical: "border-red-500 bg-red-500/10 text-red-700",
 	high: "border-orange-500 bg-orange-500/10 text-orange-700",
 	medium: "border-yellow-500 bg-yellow-500/10 text-yellow-700",
 	low: "border-blue-500 bg-blue-500/10 text-blue-700",
 };
-const catCls: Record<string, string> = {
+const _catCls: Record<string, string> = {
 	error: "border-red-500 bg-red-500/10 text-red-700",
 	latency: "border-yellow-500 bg-yellow-500/10 text-yellow-700",
 	dependency: "border-purple-500 bg-purple-500/10 text-purple-700",
@@ -200,12 +199,12 @@ type SpanTreeNode = SpanDetail & {
 };
 
 function buildSpanTree(spans: SpanDetail[]): SpanTreeNode[] {
-	const byId = new Map(spans.map((s) => [s.spanId, s]));
+	const _byId = new Map(spans.map((s) => [s.spanId, s]));
 	const children = new Map<string | null, SpanDetail[]>();
 	for (const s of spans) {
 		const parentKey = s.parentSpanId ?? null;
 		if (!children.has(parentKey)) children.set(parentKey, []);
-		children.get(parentKey)!.push(s);
+		children.get(parentKey)?.push(s);
 	}
 
 	const result: SpanTreeNode[] = [];
@@ -347,7 +346,7 @@ export function TelemetryDashboard({
 		} finally {
 			setLoading(false);
 		}
-	}, [hours, statusFilter, serviceFilter, search, category]);
+	}, [hours, statusFilter, serviceFilter, search, category, api]);
 
 	useEffect(() => {
 		loadAll();
@@ -362,7 +361,7 @@ export function TelemetryDashboard({
 				.then(setTraceDetail)
 				.catch(() => {});
 		}
-	}, [initialTraceId]);
+	}, [initialTraceId, api, traceDetail]);
 
 	// Re-sync the service filter when the URL's ?service= param changes —
 	// e.g. when the Health tab opens /#/traces?service=checkout and the user
@@ -379,7 +378,7 @@ export function TelemetryDashboard({
 				.then(setIssueDetail)
 				.catch(() => {});
 		}
-	}, [initialIssueId]);
+	}, [initialIssueId, hours, issueDetail, api]);
 
 	const expandTrace = async (id: string) => {
 		if (expandedTraceId === id) {
@@ -736,8 +735,9 @@ function TracesView({
 								className="border-b-[1px] border-sys-surface-low last:border-b-0"
 							>
 								{/* Log-line row */}
-								<div
-									className={`flex cursor-pointer items-start gap-2 py-1.5 hover:bg-sys-surface-low transition-none ${isExpanded ? "bg-sys-surface-low" : ""} ${t.statusCode === 2 ? "bg-sys-error/10" : ""}`}
+								<button
+									type="button"
+									className={`flex w-full cursor-pointer items-start gap-2 py-1.5 text-left hover:bg-sys-surface-low transition-none ${isExpanded ? "bg-sys-surface-low" : ""} ${t.statusCode === 2 ? "bg-sys-error/10" : ""}`}
 									onClick={() => onExpandTrace(t.traceId)}
 								>
 									{t.statusCode === 2 && (
@@ -772,6 +772,7 @@ function TracesView({
 										)}
 									</span>
 									<button
+										type="button"
 										className="flex-none cursor-pointer font-mono text-[0.75rem] underline hover:bg-sys-primary hover:text-white px-2 py-0.5"
 										onClick={(e) => {
 											e.stopPropagation();
@@ -781,7 +782,7 @@ function TracesView({
 									>
 										{t.traceId.slice(0, 16)}
 									</button>
-								</div>
+								</button>
 
 								{/* Expanded: waterfall + spans */}
 								{isExpanded && detail && (
@@ -931,6 +932,7 @@ function TraceDetailView({
 					START <span className="opacity-100">{fmtTs(meta.startTime)}</span>
 				</span>
 				<button
+					type="button"
 					className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 transition-none"
 					onClick={() => copy(JSON.stringify(trace, null, 2))}
 				>
@@ -1003,7 +1005,7 @@ function TraceDetailView({
 					const uninstrumented = isLikelyUninstrumented(s);
 					return (
 						<div key={s.spanId}>
-							{/* Waterfall row is a real <button> so keyboard users can
+							{/* Waterfall row is a real <button type="button"> so keyboard users can
 							    Tab/Space into it and screen readers announce it. The
 							    data-testid is the selector the Playwright matrix uses
 							    to drive Span → X navigations (see
@@ -1138,6 +1140,7 @@ function SpanView({ span }: { span: SpanDetail }) {
 					</span>
 				)}
 				<button
+					type="button"
 					className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 text-[0.75rem] font-mono transition-none"
 					onClick={() => copy(JSON.stringify(span, null, 2))}
 				>
@@ -1202,9 +1205,9 @@ function SpanView({ span }: { span: SpanDetail }) {
 						EVENTS ({events.length})
 					</p>
 					<div className="flex flex-col gap-[1px] bg-sys-surface-low">
-						{events.map((evt, i) => (
+						{events.map((evt) => (
 							<div
-								key={i}
+								key={`${evt.name}-${JSON.stringify(evt.attributes ?? {})}`}
 								className={`px-3 py-2 text-[0.75rem] ${evt.name.includes("error") || evt.name === "exception" ? "bg-sys-error/10 text-sys-error" : "bg-sys-surface"}`}
 							>
 								<span className="font-bold">{evt.name}</span>
@@ -1253,9 +1256,10 @@ function IssuesView({
 				</div>
 				<div className="flex flex-col">
 					{overview.issues.map((issue) => (
-						<div
+						<button
+							type="button"
 							key={issue.issueId}
-							className={`cursor-pointer border-b-[1px] border-sys-surface-low px-3 py-2 transition-none hover:bg-sys-surface-low ${selectedIssueId === issue.issueId ? "bg-sys-surface-low border-l-[4px] border-l-sys-primary" : "border-l-[4px] border-l-transparent"}`}
+							className={`w-full text-left cursor-pointer border-b-[1px] border-sys-surface-low px-3 py-2 transition-none hover:bg-sys-surface-low ${selectedIssueId === issue.issueId ? "bg-sys-surface-low border-l-[4px] border-l-sys-primary" : "border-l-[4px] border-l-transparent"}`}
 							onClick={() => onSelect(issue)}
 						>
 							<div className="flex items-center gap-3">
@@ -1281,7 +1285,7 @@ function IssuesView({
 							<p className="m-0 mt-3 truncate font-mono text-[0.75rem] opacity-60">
 								{issue.serviceName} &middot; {fmtTs(issue.lastSeen)}
 							</p>
-						</div>
+						</button>
 					))}
 				</div>
 				{overview.issues.length === 0 && (
@@ -1427,6 +1431,7 @@ function IssuesView({
 														{fmtTs(t.startTime)}
 													</span>
 													<button
+														type="button"
 														className="ml-auto underline cursor-pointer hover:bg-sys-primary hover:text-white px-2 py-0.5 text-sys-on-surface transition-none"
 														onClick={() => copy(t.traceId)}
 													>
@@ -1448,7 +1453,7 @@ function IssuesView({
 
 // ── Shared ──
 
-function Stat({
+function _Stat({
 	label,
 	value,
 	cls,

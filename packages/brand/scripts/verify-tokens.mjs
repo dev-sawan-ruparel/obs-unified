@@ -79,9 +79,10 @@ function parseTokens(css) {
 			const bucket = classify(selector);
 			if (bucket) {
 				const declRe = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
-				let d;
-				while ((d = declRe.exec(body))) {
+				let d = declRe.exec(body);
+				while (d) {
 					out[bucket][d[1]] = d[2].trim().toLowerCase().replace(/\s+/g, " ");
+					d = declRe.exec(body);
 				}
 			}
 			// Recurse so nested rules inside @layer / @media still get walked.

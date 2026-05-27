@@ -18,7 +18,6 @@
 import type { CollectorPlugin } from "../framework/collector";
 import {
 	type ActionRef,
-	type AgentRunRef,
 	type AICallRef,
 	type ArtifactRef,
 	type EntityManifestExtended,
@@ -85,7 +84,7 @@ export interface ConnectedManifest {
 const MAX_LINKS_INLINE = 5;
 
 const truncate = (s: string, n = 80): string =>
-	s.length > n ? s.slice(0, n - 1) + "…" : s;
+	s.length > n ? `${s.slice(0, n - 1)}…` : s;
 
 const linkToTrace = (traceId: string, label?: string): ConnectedLink => ({
 	label: label ?? `trace ${traceId.slice(0, 12)}`,

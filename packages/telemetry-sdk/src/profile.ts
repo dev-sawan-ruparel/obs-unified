@@ -144,7 +144,6 @@ export function startProfiler(opts: StartProfilerOptions): ProfilerHandle {
 		((err: unknown) => {
 			// Default surface — a profiling failure shouldn't bubble into
 			// the host service's error path.
-			// biome-ignore lint/suspicious/noConsole: best-effort fallback
 			console.warn("[obs/telemetry-sdk] startProfiler push failed", err);
 		});
 

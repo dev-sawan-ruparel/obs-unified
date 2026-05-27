@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { Input, Select } from "../components/forms";
 import {
@@ -66,28 +66,6 @@ interface UsageOverview {
 	botsFiltered: number;
 	timestamp: string;
 }
-interface SessionDetail {
-	session: {
-		sessionId: string;
-		visitorId: string;
-		firstSeen: string;
-		lastSeen: string;
-		eventCount: number;
-		pageViewCount: number;
-		errorCount: number;
-	};
-	events: Array<{
-		eventId: string;
-		eventType: string;
-		eventName: string;
-		pagePath: string | null;
-		severity: string;
-		occurredAt: string;
-		properties: Record<string, unknown>;
-		context: Record<string, unknown>;
-	}>;
-}
-
 const fmtTs = (iso: string) => {
 	try {
 		const d = new Date(iso);
@@ -96,10 +74,6 @@ const fmtTs = (iso: string) => {
 		return iso;
 	}
 };
-const copy = (t: string) => {
-	void navigator.clipboard.writeText(t);
-};
-
 interface Props {
 	onNavigate: (route: { tab?: string; sessionId?: string }) => void;
 }
@@ -140,7 +114,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 		FilteredSession[] | null
 	>(null);
 
-	const [leftWidth, setLeftWidth] = useState(60);
+	const [_leftWidth, _setLeftWidth] = useState(60);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -500,6 +474,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 											{err.pagePath}
 										</span>
 										<button
+											type="button"
 											className="flex-none font-mono text-[0.75rem] text-sys-on-surface underline hover:bg-sys-primary hover:text-white px-2 py-1"
 											onClick={() =>
 												onNavigate({ tab: "replay", sessionId: err.sessionId })
@@ -581,6 +556,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 								});
 							return (
 								<button
+									type="button"
 									key={sess.sessionId}
 									onClick={() =>
 										onNavigate({ tab: "replay", sessionId: sess.sessionId })
@@ -597,8 +573,11 @@ export function UsageDashboard({ onNavigate }: Props) {
 										</span>
 									</div>
 									<div className="flex gap-2 text-[0.625rem] font-bold uppercase tracking-[0.05em] flex-wrap">
-										{badges.map((b, i) => (
-											<span key={i} className={`${b.className} px-2 py-1`}>
+										{badges.map((b) => (
+											<span
+												key={b.label}
+												className={`${b.className} px-2 py-1`}
+											>
 												{b.label}
 											</span>
 										))}

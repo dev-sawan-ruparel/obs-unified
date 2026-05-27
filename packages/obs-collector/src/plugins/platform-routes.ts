@@ -125,7 +125,8 @@ export const platformRoutesPlugin: CollectorPlugin = {
 						updatedAt: row.received_at,
 					});
 				}
-				const entry = byHost.get(host)!;
+				const entry = byHost.get(host);
+				if (!entry) continue;
 				if (row.value !== null) entry.metrics[row.metric_name] = row.value;
 				if (row.received_at > entry.updatedAt)
 					entry.updatedAt = row.received_at;

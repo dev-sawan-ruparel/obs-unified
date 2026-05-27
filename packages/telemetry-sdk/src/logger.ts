@@ -70,7 +70,7 @@ export async function flushLogs() {
 			...(logConfig.extraHeaders ?? {}),
 		};
 		if (logConfig.authToken) {
-			headers["Authorization"] = `Bearer ${logConfig.authToken}`;
+			headers.Authorization = `Bearer ${logConfig.authToken}`;
 		}
 
 		await fetch(`${logConfig.collectorUrl}/v1/logs`, {

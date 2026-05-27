@@ -310,7 +310,7 @@ export const decodePprofBlob = async (
 	if (buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b) {
 		// Cast: Uint8Array is a valid BodyInit at runtime in both Workers
 		// and browsers; lib.dom types disagree.
-		const stream = new Response(buf as unknown as BodyInit).body!.pipeThrough(
+		const stream = new Response(buf as unknown as BodyInit).body?.pipeThrough(
 			new DecompressionStream("gzip"),
 		);
 		raw = new Uint8Array(await new Response(stream).arrayBuffer());
@@ -457,7 +457,7 @@ export const encodePprof = (profile: PprofProfile): Uint8Array => {
 
 /** Convenience: gzip a Uint8Array using CompressionStream. */
 export const gzipBytes = async (bytes: Uint8Array): Promise<Uint8Array> => {
-	const stream = new Response(bytes as unknown as BodyInit).body!.pipeThrough(
+	const stream = new Response(bytes as unknown as BodyInit).body?.pipeThrough(
 		new CompressionStream("gzip"),
 	);
 	return new Uint8Array(await new Response(stream).arrayBuffer());

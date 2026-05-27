@@ -56,12 +56,12 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 
 			list.objects.sort((a, b) => a.key.localeCompare(b.key));
 
-			const orderedChunksData: Record<string, any>[][] = [];
+			const orderedChunksData: Record<string, unknown>[][] = [];
 			for (const obj of list.objects) {
 				const objectData = await c.env.REPLAYS_BUCKET.get(obj.key);
 				if (objectData) {
 					orderedChunksData.push(
-						await objectData.json<Record<string, any>[]>(),
+						await objectData.json<Record<string, unknown>[]>(),
 					);
 				}
 			}
@@ -95,7 +95,10 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			// 2. Delete all chunks from bucket
-			const bucket = c.env.REPLAYS_BUCKET!;
+			const bucket = c.env.REPLAYS_BUCKET;
+			if (!bucket) {
+				return c.json({ error: "Replay storage not configured" }, 500);
+			}
 			const prefix = `replays/${projectId}/${sessionId}/`;
 			const list = await bucket.list({ prefix });
 

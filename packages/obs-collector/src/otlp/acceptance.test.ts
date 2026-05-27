@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
 declare const process: { env: Record<string, string | undefined> };
 
 const gzip = async (bytes: Uint8Array): Promise<ArrayBuffer> => {
-	const stream = new Response(bytes as BodyInit).body!.pipeThrough(
+	const stream = new Response(bytes as BodyInit).body?.pipeThrough(
 		new CompressionStream("gzip"),
 	);
 	return new Response(stream).arrayBuffer();
@@ -259,9 +259,11 @@ suite("OTLP acceptance (live)", () => {
 			// The Go reference receiver accepts the 99 and reports 1 rejected
 			// via partial_success.
 			const msg = buildTraces(99);
-			const bad = msg.resourceSpans[0]!.scopeSpans[0]!.spans[0]!;
+			const bad = msg.resourceSpans[0]?.scopeSpans[0]?.spans[0];
+			expect(bad).toBeDefined();
+			if (!bad) return;
 			const badClone = { ...bad, traceId: new Uint8Array([1, 2, 3]) };
-			msg.resourceSpans[0]!.scopeSpans[0]!.spans.push(badClone);
+			msg.resourceSpans[0]?.scopeSpans[0]?.spans.push(badClone);
 
 			// protobuf refuses to encode invalid trace_id bytes, so send JSON.
 			const json = toJson(ExportTraceServiceRequestSchema, msg) as {
@@ -271,8 +273,11 @@ suite("OTLP acceptance (live)", () => {
 			};
 			// Corrupt the last span's traceId after JSON encoding so it reaches
 			// the receiver but fails `normalizeHex` length validation.
-			const spans = json.resourceSpans[0]!.scopeSpans[0]!.spans;
-			spans[spans.length - 1]!.traceId = "010203"; // too short for hex or base64
+			const spans = json.resourceSpans[0]?.scopeSpans[0]?.spans;
+			const lastSpan = spans?.[spans.length - 1];
+			expect(lastSpan).toBeDefined();
+			if (!lastSpan) return;
+			lastSpan.traceId = "010203"; // too short for hex or base64
 
 			const res = await post("/v1/traces", JSON.stringify(json));
 			expect(res.status).toBe(200);

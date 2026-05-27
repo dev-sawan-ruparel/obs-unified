@@ -58,9 +58,29 @@ export function initObservability(config: ObservabilityConfig): void {
 	initAI(aiConfig);
 }
 
+// ── Agentic Causal Graph (RFC 0010) ──
+export {
+	type AgentRun,
+	type AgentRunOptions,
+	type AgentStep,
+	type ArtifactOptions,
+	type EvalOptions,
+	getActiveAgentContext,
+	type RetrievalDocument,
+	type RetrievalOptions,
+	type Retriever,
+	recordArtifact,
+	recordEvaluation,
+	recordRetrieval,
+	type StepOptions,
+	startAgentRun,
+	step,
+	type ToolCall,
+	type ToolOptions,
+	tool,
+} from "./agent";
 // ── AI tracking ──
 export { type AILoggerConfig, flushAICalls, initAI, trackAICall } from "./ai";
-
 // ── AI span helpers (OpenInference) ──
 export {
 	type AISpan,
@@ -131,25 +151,3 @@ export {
 	stampInteractionFromRequest,
 	withChildSpan,
 } from "./span";
-
-// ── Agentic Causal Graph (RFC 0010) ──
-export {
-	type AgentRun,
-	type AgentRunOptions,
-	type AgentStep,
-	type ArtifactOptions,
-	type EvalOptions,
-	type RetrievalDocument,
-	type RetrievalOptions,
-	type Retriever,
-	type StepOptions,
-	type ToolCall,
-	type ToolOptions,
-	getActiveAgentContext,
-	recordArtifact,
-	recordEvaluation,
-	recordRetrieval,
-	startAgentRun,
-	step,
-	tool,
-} from "./agent";

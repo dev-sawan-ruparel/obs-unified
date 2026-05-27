@@ -384,7 +384,7 @@ export class UsageTracker {
 				"Content-Type": "application/json",
 			};
 			if (this.apiKey) {
-				headers["Authorization"] = `Bearer ${this.apiKey}`;
+				headers.Authorization = `Bearer ${this.apiKey}`;
 			}
 			const init: RequestInit = {
 				method: "POST",
@@ -598,8 +598,8 @@ export class UsageTracker {
 				severity: "info",
 				properties: {
 					...getUtmParams(),
-					...(Number.isFinite(loadTime)
-						? { loadTimeMs: Math.round(loadTime!) }
+					...(typeof loadTime === "number" && Number.isFinite(loadTime)
+						? { loadTimeMs: Math.round(loadTime) }
 						: {}),
 				},
 				context: getViewportContext(),

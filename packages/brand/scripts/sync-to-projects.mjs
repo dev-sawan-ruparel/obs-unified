@@ -13,7 +13,7 @@
  * Re-run any time the SVG sources change. The script is idempotent.
  */
 
-import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 

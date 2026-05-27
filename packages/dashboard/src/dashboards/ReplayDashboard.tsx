@@ -1,10 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type PointerEvent,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Input } from "../components/forms";
 import { useDashboard } from "../provider";
+
+type RrwebEvent = ConstructorParameters<
+	typeof rrwebPlayer
+>[0]["props"]["events"][number];
 
 const fmtTs = (iso: string) => {
 	try {
@@ -50,7 +61,7 @@ const fmtBytes = (bytes: number) => {
 	const k = 1024;
 	const sizes = ["B", "KB", "MB", "GB", "TB"];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return parseFloat((bytes / k ** i).toFixed(1)) + " " + sizes[i];
+	return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 };
 
 interface SessionDetail {
@@ -75,6 +86,23 @@ interface SessionDetail {
 	}>;
 }
 
+type RrwebUiUpdateEvent = {
+	payload?: unknown;
+	detail?: unknown;
+};
+
+interface TraceEvent {
+	eventId?: string;
+	traceId: string;
+	spanName: string;
+	serviceName: string | null;
+	statusMessage?: string | null;
+	durationMs: number;
+	statusCode: number;
+	startTime: string;
+	spanCount: number;
+}
+
 function ReplayPlayer({
 	sessionId,
 	onTimeUpdate,
@@ -83,7 +111,7 @@ function ReplayPlayer({
 	onTimeUpdate?: (timeValue: number) => void;
 }) {
 	const { basePath, fetcher } = useDashboard();
-	const [events, setEvents] = useState<any[] | null>(null);
+	const [events, setEvents] = useState<RrwebEvent[] | null>(null);
 	const [loading, setLoading] = useState(true);
 	// Tri-state: "" (no message yet), { kind: "absence" } (expected — no
 	// rrweb chunks were ever recorded for this session), or { kind: "error" }
@@ -117,7 +145,7 @@ function ReplayPlayer({
 					});
 					return null;
 				}
-				return (await r.json()) as { events?: any[] };
+				return (await r.json()) as { events?: RrwebEvent[] };
 			})
 			.then((data) => {
 				if (!data) return;
@@ -138,7 +166,7 @@ function ReplayPlayer({
 				}),
 			)
 			.finally(() => setLoading(false));
-	}, [sessionId]);
+	}, [sessionId, fetcher, basePath]);
 
 	useEffect(() => {
 		if (events && playerRef.current) {
@@ -152,8 +180,9 @@ function ReplayPlayer({
 				},
 			});
 			if (onTimeUpdate) {
-				player.addEventListener("ui-update-current-time", (e: any) => {
-					const offset = e?.payload ?? e?.detail;
+				player.addEventListener("ui-update-current-time", (e: unknown) => {
+					const update = e as RrwebUiUpdateEvent;
+					const offset = update.payload ?? update.detail;
 					if (typeof offset === "number" && events[0]?.timestamp) {
 						onTimeUpdate(events[0].timestamp + offset);
 					}
@@ -165,7 +194,7 @@ function ReplayPlayer({
 				} catch {}
 			};
 		}
-	}, [events]);
+	}, [events, onTimeUpdate]);
 
 	if (loading)
 		return (
@@ -233,7 +262,7 @@ export function ReplayDashboard({
 	const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(
 		null,
 	);
-	const [traceEvents, setTraceEvents] = useState<any[]>([]);
+	const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
 	const [playbackTime, setPlaybackTime] = useState<number | null>(null);
 	const [loading, setLoading] = useState(false);
 	// RFC 0004 — interaction groups derived from /internal/timeline. Empty
@@ -258,41 +287,44 @@ export function ReplayDashboard({
 			.finally(() => setLoadingList(false));
 	}, [basePath, fetcher]);
 
-	const openSession = async (id: string) => {
-		setLoading(true);
-		setSelectedSessionId(id);
-		setTraceEvents([]);
-		setPlaybackTime(null);
-		setInteractionGroups({});
-		onNavigate({ tab: "replay", sessionId: id });
-		try {
-			const [detail, tracesObj, timeline] = await Promise.all([
-				fetcher(`${basePath}/usage/sessions/${encodeURIComponent(id)}`).then(
-					(r) => r.json(),
-				) as Promise<SessionDetail>,
-				fetcher(
-					`${basePath}/telemetry/overview?hours=72&q=${encodeURIComponent(id)}`,
-				)
-					.then((r) => r.json())
-					.catch(() => ({ traces: [] })) as Promise<{ traces: any[] }>,
-				// RFC 0004 — fetch the timeline so we can render the
-				// "interactions in this session" panel with click→trace
-				// links. Tolerate failure: older collectors don't ship the
-				// groups field, so we render the informative-absence state.
-				fetcher(`${basePath}/timeline/${encodeURIComponent(id)}`)
-					.then((r) => r.json())
-					.catch(() => ({ groups: {} })) as Promise<{
-					groups?: Record<string, TimelineGroup>;
-				}>,
-			]);
-			setSessionDetail(detail);
-			setTraceEvents(tracesObj.traces || []);
-			setInteractionGroups(timeline.groups ?? {});
-		} catch {
-		} finally {
-			setLoading(false);
-		}
-	};
+	const openSession = useCallback(
+		async (id: string) => {
+			setLoading(true);
+			setSelectedSessionId(id);
+			setTraceEvents([]);
+			setPlaybackTime(null);
+			setInteractionGroups({});
+			onNavigate({ tab: "replay", sessionId: id });
+			try {
+				const [detail, tracesObj, timeline] = await Promise.all([
+					fetcher(`${basePath}/usage/sessions/${encodeURIComponent(id)}`).then(
+						(r) => r.json(),
+					) as Promise<SessionDetail>,
+					fetcher(
+						`${basePath}/telemetry/overview?hours=72&q=${encodeURIComponent(id)}`,
+					)
+						.then((r) => r.json())
+						.catch(() => ({ traces: [] })) as Promise<{ traces: TraceEvent[] }>,
+					// RFC 0004 — fetch the timeline so we can render the
+					// "interactions in this session" panel with click→trace
+					// links. Tolerate failure: older collectors don't ship the
+					// groups field, so we render the informative-absence state.
+					fetcher(`${basePath}/timeline/${encodeURIComponent(id)}`)
+						.then((r) => r.json())
+						.catch(() => ({ groups: {} })) as Promise<{
+						groups?: Record<string, TimelineGroup>;
+					}>,
+				]);
+				setSessionDetail(detail);
+				setTraceEvents(tracesObj.traces || []);
+				setInteractionGroups(timeline.groups ?? {});
+			} catch {
+			} finally {
+				setLoading(false);
+			}
+		},
+		[basePath, fetcher, onNavigate],
+	);
 
 	useEffect(() => {
 		if (
@@ -302,7 +334,13 @@ export function ReplayDashboard({
 		) {
 			openSession(initialSessionId);
 		}
-	}, [initialSessionId]);
+	}, [
+		initialSessionId,
+		selectedSessionId,
+		sessionDetail,
+		openSession,
+		loading,
+	]);
 
 	const selected =
 		sessionDetail?.session.sessionId === selectedSessionId
@@ -374,7 +412,7 @@ export function ReplayDashboard({
 	};
 
 	const handleMouseMove = useCallback(
-		(e: React.MouseEvent) => {
+		(e: PointerEvent) => {
 			if (!isDragging) return;
 			e.preventDefault();
 			const w = Math.max(
@@ -391,12 +429,7 @@ export function ReplayDashboard({
 	}, [isDragging]);
 
 	return (
-		<div
-			className="flex h-full flex-col overflow-hidden bg-sys-bg p-2 font-sans text-sys-on-surface"
-			onMouseMove={handleMouseMove}
-			onMouseUp={handleMouseUp}
-			onMouseLeave={handleMouseUp}
-		>
+		<div className="flex h-full flex-col overflow-hidden bg-sys-bg p-2 font-sans text-sys-on-surface">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">
 				<Input
 					type="text"
@@ -423,7 +456,12 @@ export function ReplayDashboard({
 				)}
 			</div>
 
-			<div className="flex-1 flex overflow-hidden w-full gap-2 relative">
+			<div
+				className="flex-1 flex overflow-hidden w-full gap-2 relative"
+				onPointerMove={handleMouseMove}
+				onPointerUp={handleMouseUp}
+				onPointerLeave={handleMouseUp}
+			>
 				{/* Left Sidebar Menu */}
 				<div
 					style={{ width: sidebarWidth }}
@@ -451,10 +489,11 @@ export function ReplayDashboard({
 						{replaysList.map((r) => {
 							const active = r.session_id === selectedSessionId;
 							return (
-								<div
+								<button
+									type="button"
 									key={r.session_id}
 									onClick={() => openSession(r.session_id)}
-									className={`p-3 border-b-[1px] border-sys-outline transition-none cursor-pointer group hover:bg-sys-surface-low block ${active ? "bg-sys-surface-high border-l-[4px] border-l-sys-primary" : "border-l-[4px] border-l-transparent"}`}
+									className={`w-full text-left p-3 border-b-[1px] border-sys-outline transition-none cursor-pointer group hover:bg-sys-surface-low block ${active ? "bg-sys-surface-high border-l-[4px] border-l-sys-primary" : "border-l-[4px] border-l-transparent"}`}
 								>
 									<div className="flex items-center justify-between mb-1.5">
 										<span
@@ -483,16 +522,29 @@ export function ReplayDashboard({
 											{fmtTs(r.first_chunk_at)}
 										</span>
 									</div>
-								</div>
+								</button>
 							);
 						})}
 					</div>
 				</div>
 
 				{/* Divider / Resizer */}
-				<div
+				<hr
+					aria-orientation="vertical"
+					aria-valuemin={260}
+					aria-valuemax={640}
+					aria-valuenow={sidebarWidth}
+					tabIndex={0}
 					className={`w-2 -mx-[4px] z-10 cursor-col-resize flex-none hover:bg-sys-primary/20 ${isDragging ? "bg-sys-primary/40" : "bg-transparent"} transition-colors`}
 					onMouseDown={() => setIsDragging(true)}
+					onKeyDown={(event) => {
+						if (event.key === "ArrowLeft") {
+							setSidebarWidth((width) => Math.max(260, width - 20));
+						}
+						if (event.key === "ArrowRight") {
+							setSidebarWidth((width) => Math.min(640, width + 20));
+						}
+					}}
 				/>
 
 				{/* Main Output / Diagram Area */}
@@ -612,6 +664,7 @@ export function ReplayDashboard({
 													<div className="flex flex-wrap gap-2 ml-2">
 														{group.causedTraces.map((trace) => (
 															<button
+																type="button"
 																key={trace.traceId}
 																onClick={() =>
 																	onNavigate({
@@ -654,6 +707,7 @@ export function ReplayDashboard({
 										Full event stream ({combinedTimeline.length} entries)
 									</span>
 									<button
+										type="button"
 										className="text-[0.75rem] font-semibold hover:text-sys-primary cursor-pointer transition-none underline"
 										onClick={() => copy(JSON.stringify(selected, null, 2))}
 									>

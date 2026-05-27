@@ -72,11 +72,11 @@ switch (subcommand) {
 		]);
 		if (code === 0) {
 			console.log(
-				kleur.green("✓") +
-					" stack up — dashboard at http://localhost:5173, collector at http://localhost:8790",
+				`${kleur.green("✓")} stack up — dashboard at http://localhost:5173, collector at http://localhost:8790`,
 			);
 		}
 		process.exit(code);
+		break;
 	}
 
 	case "down": {
@@ -86,6 +86,7 @@ switch (subcommand) {
 			process.exit(1);
 		}
 		process.exit(await run("docker", ["compose", "-f", composeFile, "down"]));
+		break;
 	}
 
 	case "create": {
@@ -114,6 +115,7 @@ switch (subcommand) {
 	case "-h":
 		usage();
 		process.exit(0);
+		break;
 
 	default:
 		console.error(kleur.red(`unknown command: ${subcommand}`));
@@ -204,7 +206,7 @@ async function scaffoldApp(name: string) {
 		);
 	}
 
-	console.log(kleur.green("✓") + ` created ${name}/`);
+	console.log(`${kleur.green("✓")} created ${name}/`);
 	console.log(`\nNext steps:\n  cd ${name}\n  pnpm install\n  pnpm dev`);
 }
 
@@ -256,7 +258,7 @@ async function keysSubcommand(args: string[]) {
 				process.exit(1);
 			}
 			const body = (await r.json()) as { key: string };
-			console.log(kleur.green("✓") + " minted:");
+			console.log(`${kleur.green("✓")} minted:`);
 			console.log(body.key);
 			break;
 		}

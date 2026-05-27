@@ -7,6 +7,7 @@ import { publishTail, spanToTailEvent } from "../lib/tail-publisher";
 import {
 	decodeTraceRequest,
 	OtlpDecodeError,
+	type ReadBodyResult,
 	readOtlpBody,
 } from "../otlp/decode";
 import { otlpRetryableError, traceResponse } from "../otlp/response";
@@ -21,7 +22,7 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 			const projectId = getProjectId(c);
 			const routeContext = runtime.createRouteContext(c.env, c);
 
-			let body;
+			let body: ReadBodyResult;
 			try {
 				body = await readOtlpBody(c);
 			} catch (err) {
@@ -31,7 +32,7 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 				throw err;
 			}
 
-			let payload;
+			let payload: ReturnType<typeof decodeTraceRequest>;
 			try {
 				payload = decodeTraceRequest(body);
 			} catch (err) {

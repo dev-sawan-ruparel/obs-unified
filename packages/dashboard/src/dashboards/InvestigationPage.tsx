@@ -99,13 +99,16 @@ function EvidenceTableView({
 								</td>
 							</tr>
 						) : (
-							table.rows.map((row, i) => (
+							table.rows.map((row) => (
 								<tr
-									key={i}
+									key={row.map((cell) => String(cell)).join("|")}
 									className="border-b border-sys-outline-soft/40 last:border-b-0"
 								>
 									{row.map((cell, j) => (
-										<td key={j} className="px-3 py-1 align-top">
+										<td
+											key={table.headers[j] ?? String(cell)}
+											className="px-3 py-1 align-top"
+										>
 											{renderCell(cell)}
 										</td>
 									))}

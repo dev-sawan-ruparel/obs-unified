@@ -257,6 +257,7 @@ export function FlameGraph({
 				)}
 				{zoomedNode && (
 					<button
+						type="button"
 						className="ml-auto underline cursor-pointer hover:text-sys-primary"
 						onClick={() => setZoomedNode(null)}
 					>
@@ -267,6 +268,8 @@ export function FlameGraph({
 
 			<div className="relative">
 				<svg
+					aria-label={title ?? "Flame graph"}
+					role="img"
 					width="100%"
 					height={heightPx}
 					viewBox={`0 0 100 ${heightPx}`}
@@ -277,14 +280,9 @@ export function FlameGraph({
 						minHeight: heightPx,
 					}}
 				>
-					{renderFrames.map((frame, i) => {
+					{renderFrames.map((frame, _i) => {
 						if (frame.name === "__root__") return null;
 						const widthPct = (frame.value / renderTotal) * 100;
-						const xPct =
-							((frame.offset - (renderRoot!.children.size > 0 ? 0 : 0)) /
-								renderTotal) *
-								100 -
-							0;
 						// Recompute x relative to the rendered root's children.
 						// flattenWithCoords gives offsets relative to the synthetic
 						// root we passed in (renderRoot) so xPct is correct.
@@ -294,8 +292,11 @@ export function FlameGraph({
 						const isHover =
 							hovered?.name === frame.name && hovered?.depth === frame.depth;
 						return (
-							<g key={`${frame.depth}-${frame.offset}-${i}`}>
+							<g key={`${frame.name}-${frame.depth}-${frame.offset}`}>
+								{/* biome-ignore lint/a11y/useSemanticElements: SVG has no native button element, but flame frames must remain keyboard-zoomable. */}
 								<rect
+									role="button"
+									tabIndex={0}
 									x={`${realXPct}%`}
 									y={frame.depth * ROW_HEIGHT}
 									width={`${widthPct}%`}
@@ -307,6 +308,12 @@ export function FlameGraph({
 									onMouseEnter={() => setHovered(frame)}
 									onMouseLeave={() => setHovered(null)}
 									onClick={() => setZoomedNode(frame)}
+									onKeyDown={(event) => {
+										if (event.key === "Enter" || event.key === " ") {
+											event.preventDefault();
+											setZoomedNode(frame);
+										}
+									}}
 								>
 									<title>
 										{frame.name}
@@ -326,7 +333,7 @@ export function FlameGraph({
 										dx={2}
 									>
 										{frame.name.length > 60
-											? frame.name.slice(0, 57) + "…"
+											? `${frame.name.slice(0, 57)}…`
 											: frame.name}
 									</text>
 								)}

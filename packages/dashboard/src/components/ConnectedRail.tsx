@@ -111,9 +111,10 @@ const SectionGroup = ({
 				{section.label}
 			</div>
 			<div className="flex flex-col gap-1">
-				{section.links.map((link, i) => (
+				{section.links.map((link) => (
 					<button
-						key={`${link.href}-${i}`}
+						type="button"
+						key={`${link.href}-${link.label}-${link.sample ?? ""}`}
 						onClick={() => onNavigate?.(link.href)}
 						className="text-left text-[0.75rem] font-mono px-2 py-1 border-[1px] border-sys-outline hover:bg-sys-surface-high cursor-pointer transition-none truncate"
 						title={link.sample ?? link.label}
@@ -213,9 +214,9 @@ export function ConnectedRail({
 
 	const renderGroup = (sections: ConnectedSection[], parentHeader: string) => {
 		const deduped = dedupeAdjacent(sections);
-		return deduped.map((s, i) => (
+		return deduped.map((s) => (
 			<SectionGroup
-				key={`${s.label}-${i}`}
+				key={`${parentHeader}-${s.label}-${s.links.map((link) => link.href).join("|")}`}
 				section={s}
 				suppressLabel={shouldSuppressGroupLabel(s, parentHeader)}
 				onNavigate={onNavigate}

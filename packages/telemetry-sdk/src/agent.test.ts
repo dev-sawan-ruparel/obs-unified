@@ -1,12 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
+	getActiveAgentContext,
+	recordArtifact,
+	recordEvaluation,
+	recordRetrieval,
 	startAgentRun,
 	step,
 	tool,
-	recordRetrieval,
-	recordEvaluation,
-	recordArtifact,
-	getActiveAgentContext,
 } from "./agent";
 import { createRequestSpan, runWithSpan } from "./span";
 
@@ -31,14 +31,17 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 					expect(ctx?.actorId).toBe("test-agent-123");
 
 					// Let's call step inside
-					const stepResult = await step({ name: "plan-next-action" }, async (stepObj) => {
-						const stepCtx = getActiveAgentContext();
-						expect(stepCtx).toBeDefined();
-						expect(stepCtx?.causedByActionId).toBe(ctx?.actionId);
-						expect(stepCtx?.rootActionId).toBe(ctx?.rootActionId);
-						expect(stepCtx?.agentRunId).toBe(ctx?.agentRunId);
-						return "step-done";
-					});
+					const stepResult = await step(
+						{ name: "plan-next-action" },
+						async (_stepObj) => {
+							const stepCtx = getActiveAgentContext();
+							expect(stepCtx).toBeDefined();
+							expect(stepCtx?.causedByActionId).toBe(ctx?.actionId);
+							expect(stepCtx?.rootActionId).toBe(ctx?.rootActionId);
+							expect(stepCtx?.agentRunId).toBe(ctx?.agentRunId);
+							return "step-done";
+						},
+					);
 
 					expect(stepResult).toBe("step-done");
 
@@ -99,69 +102,134 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 		const exportReq = requestSpan.toOtlpExportRequest();
 		const spans = exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans;
 		expect(spans).toBeDefined();
-		expect(spans!.length).toBeGreaterThan(1);
+		expect(spans?.length).toBeGreaterThan(1);
+		const spanList = spans ?? [];
+		const hasStringAttr = (
+			span: (typeof spanList)[number],
+			key: string,
+			value: string,
+		) =>
+			span.attributes?.some(
+				(attr) => attr.key === key && attr.value?.stringValue === value,
+			) ?? false;
+		const attrValue = (span: (typeof spanList)[number], key: string) => {
+			const value = span.attributes?.find((attr) => attr.key === key)?.value;
+			expect(value).toBeDefined();
+			if (!value) {
+				throw new Error(`Missing span attribute: ${key}`);
+			}
+			return value;
+		};
 
 		// Find the agent run span
-		const runSpan = spans!.find((s) =>
-			s.attributes.some((attr) => attr.key === "obs.action.kind" && attr.value.stringValue === "agent.run"),
+		const runSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "agent.run"),
 		);
 		expect(runSpan).toBeDefined();
-		
-		const runAttrs = runSpan!.attributes;
-		expect(runAttrs.find((a) => a.key === "obs.agent_run.agent_id")?.value.stringValue).toBe("test-agent-123");
-		expect(runAttrs.find((a) => a.key === "obs.agent_run.agent_name")?.value.stringValue).toBe("Agent Alpha");
-		expect(runAttrs.find((a) => a.key === "obs.agent_run.goal")?.value.stringValue).toBe("Solve coding puzzle");
-		expect(runAttrs.find((a) => a.key === "obs.agent_run.autonomy_level")?.value.stringValue).toBe("autonomous_write");
-		expect(runAttrs.find((a) => a.key === "obs.agent_run.outcome")?.value.stringValue).toBe("Successfully solved the puzzle");
+		if (!runSpan) {
+			throw new Error("Missing agent run span");
+		}
+
+		expect(attrValue(runSpan, "obs.agent_run.agent_id").stringValue).toBe(
+			"test-agent-123",
+		);
+		expect(attrValue(runSpan, "obs.agent_run.agent_name").stringValue).toBe(
+			"Agent Alpha",
+		);
+		expect(attrValue(runSpan, "obs.agent_run.goal").stringValue).toBe(
+			"Solve coding puzzle",
+		);
+		expect(attrValue(runSpan, "obs.agent_run.autonomy_level").stringValue).toBe(
+			"autonomous_write",
+		);
+		expect(attrValue(runSpan, "obs.agent_run.outcome").stringValue).toBe(
+			"Successfully solved the puzzle",
+		);
 
 		// Find step span
-		const stepSpan = spans!.find((s) =>
-			s.attributes.some((attr) => attr.key === "obs.action.kind" && attr.value.stringValue === "agent.step"),
+		const stepSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "agent.step"),
 		);
 		expect(stepSpan).toBeDefined();
-		expect(stepSpan!.parentSpanId).toBe(runSpan!.spanId);
+		expect(stepSpan?.parentSpanId).toBe(runSpan?.spanId);
 
 		// Find tool span
-		const toolSpan = spans!.find((s) =>
-			s.attributes.some((attr) => attr.key === "obs.action.kind" && attr.value.stringValue === "tool.call"),
+		const toolSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "tool.call"),
 		);
 		expect(toolSpan).toBeDefined();
-		expect(toolSpan!.parentSpanId).toBe(runSpan!.spanId);
-		expect(toolSpan!.attributes.find((a) => a.key === "openinference.span.kind")?.value.stringValue).toBe("TOOL");
-		expect(toolSpan!.attributes.find((a) => a.key === "obs.tool_call.tool_name")?.value.stringValue).toBe("execute-cmd");
-		expect(toolSpan!.attributes.find((a) => a.key === "obs.tool_call.side_effect")?.value.intValue).toBe(1);
-		expect(toolSpan!.attributes.find((a) => a.key === "obs.tool_call.approval_state")?.value.stringValue).toBe("human_approved");
-		expect(toolSpan!.attributes.find((a) => a.key === "obs.tool_call.result")?.value.stringValue).toContain("ok");
+		if (!toolSpan) {
+			throw new Error("Missing tool span");
+		}
+		expect(toolSpan?.parentSpanId).toBe(runSpan?.spanId);
+		expect(attrValue(toolSpan, "openinference.span.kind").stringValue).toBe(
+			"TOOL",
+		);
+		expect(attrValue(toolSpan, "obs.tool_call.tool_name").stringValue).toBe(
+			"execute-cmd",
+		);
+		expect(attrValue(toolSpan, "obs.tool_call.side_effect").intValue).toBe(1);
+		expect(
+			attrValue(toolSpan, "obs.tool_call.approval_state").stringValue,
+		).toBe("human_approved");
+		expect(attrValue(toolSpan, "obs.tool_call.result").stringValue).toContain(
+			"ok",
+		);
 
 		// Find retrieval span
-		const retrievalSpan = spans!.find((s) =>
-			s.attributes.some((attr) => attr.key === "obs.action.kind" && attr.value.stringValue === "retrieval"),
+		const retrievalSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "retrieval"),
 		);
 		expect(retrievalSpan).toBeDefined();
-		expect(retrievalSpan!.parentSpanId).toBe(runSpan!.spanId);
-		expect(retrievalSpan!.attributes.find((a) => a.key === "openinference.span.kind")?.value.stringValue).toBe("RETRIEVER");
-		expect(retrievalSpan!.attributes.find((a) => a.key === "obs.retrieval.retriever_name")?.value.stringValue).toBe("vector-db");
-		expect(retrievalSpan!.attributes.find((a) => a.key === "obs.retrieval.query")?.value.stringValue).toBe("agent concepts");
-		expect(retrievalSpan!.attributes.find((a) => a.key === "obs.retrieval.total_results")?.value.intValue).toBe(1);
+		if (!retrievalSpan) {
+			throw new Error("Missing retrieval span");
+		}
+		expect(retrievalSpan?.parentSpanId).toBe(runSpan?.spanId);
+		expect(
+			attrValue(retrievalSpan, "openinference.span.kind").stringValue,
+		).toBe("RETRIEVER");
+		expect(
+			attrValue(retrievalSpan, "obs.retrieval.retriever_name").stringValue,
+		).toBe("vector-db");
+		expect(attrValue(retrievalSpan, "obs.retrieval.query").stringValue).toBe(
+			"agent concepts",
+		);
+		expect(
+			attrValue(retrievalSpan, "obs.retrieval.total_results").intValue,
+		).toBe(1);
 
 		// Find eval span
-		const evalSpan = spans!.find((s) =>
-			s.attributes.some((attr) => attr.key === "obs.action.kind" && attr.value.stringValue === "eval"),
+		const evalSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "eval"),
 		);
 		expect(evalSpan).toBeDefined();
-		expect(evalSpan!.parentSpanId).toBe(runSpan!.spanId);
-		expect(evalSpan!.attributes.find((a) => a.key === "obs.eval.evaluator_name")?.value.stringValue).toBe("correctness-grader");
-		expect(evalSpan!.attributes.find((a) => a.key === "obs.eval.passed")?.value.intValue).toBe(1);
-		expect(evalSpan!.attributes.find((a) => a.key === "obs.eval.score")?.value.intValue).toBe(1);
+		if (!evalSpan) {
+			throw new Error("Missing eval span");
+		}
+		expect(evalSpan?.parentSpanId).toBe(runSpan?.spanId);
+		expect(attrValue(evalSpan, "obs.eval.evaluator_name").stringValue).toBe(
+			"correctness-grader",
+		);
+		expect(attrValue(evalSpan, "obs.eval.passed").intValue).toBe(1);
+		expect(attrValue(evalSpan, "obs.eval.score").intValue).toBe(1);
 
 		// Find artifact span
-		const artifactSpan = spans!.find((s) =>
-			s.attributes.some((attr) => attr.key === "obs.action.kind" && attr.value.stringValue === "artifact"),
+		const artifactSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "artifact"),
 		);
 		expect(artifactSpan).toBeDefined();
-		expect(artifactSpan!.parentSpanId).toBe(runSpan!.spanId);
-		expect(artifactSpan!.attributes.find((a) => a.key === "obs.artifact.name")?.value.stringValue).toBe("patch.diff");
-		expect(artifactSpan!.attributes.find((a) => a.key === "obs.artifact.type")?.value.stringValue).toBe("patch");
-		expect(artifactSpan!.attributes.find((a) => a.key === "obs.artifact.size_bytes")?.value.intValue).toBe(120);
+		if (!artifactSpan) {
+			throw new Error("Missing artifact span");
+		}
+		expect(artifactSpan?.parentSpanId).toBe(runSpan?.spanId);
+		expect(attrValue(artifactSpan, "obs.artifact.name").stringValue).toBe(
+			"patch.diff",
+		);
+		expect(attrValue(artifactSpan, "obs.artifact.type").stringValue).toBe(
+			"patch",
+		);
+		expect(attrValue(artifactSpan, "obs.artifact.size_bytes").intValue).toBe(
+			120,
+		);
 	});
 });

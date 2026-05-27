@@ -40,7 +40,6 @@ const mockFetchSequence = (responses: Array<Record<string, unknown>>) => {
 	let i = 0;
 	return vi.fn(
 		async () =>
-			// biome-ignore lint/suspicious/noExplicitAny: minimal Response-shape stub
 			({
 				ok: true,
 				json: async () => responses[i++] ?? responses[responses.length - 1],

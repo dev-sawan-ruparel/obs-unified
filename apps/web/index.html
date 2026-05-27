@@ -25,10 +25,11 @@
     <script>
       // Apply persisted theme before first paint to avoid a flash.
       (() => {
+        var t;
         try {
-          var t = localStorage.getItem("obs.theme");
+          t = localStorage.getItem("obs.theme");
           if (t === "dark") document.documentElement.dataset.theme = "dark";
-        } catch (e) {}
+        } catch {}
       })();
     </script>
   </head>
