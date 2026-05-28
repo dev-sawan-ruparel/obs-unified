@@ -11,12 +11,12 @@ CREATE TABLE IF NOT EXISTS profile_blobs (
   profile_type TEXT NOT NULL,
   start_ts TEXT NOT NULL,
   end_ts TEXT NOT NULL,
-  duration_ms INTEGER NOT NULL,
-  blob_size_bytes INTEGER NOT NULL,
+  duration_ms BIGINT NOT NULL,
+  blob_size_bytes BIGINT NOT NULL,
   blob_url TEXT NOT NULL,
-  sample_count INTEGER,
+  sample_count BIGINT,
   agent TEXT,
-  resource_attrs_json TEXT,
+  resource_attrs_json JSONB,
   received_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
@@ -26,6 +26,12 @@ CREATE INDEX IF NOT EXISTS idx_profile_blobs_service_ts
 
 CREATE INDEX IF NOT EXISTS idx_profile_blobs_expires
   ON profile_blobs (expires_at);
+
+-- Postgres-only GIN index so the dashboard read paths can query against
+-- resource attributes (service.version, deployment.environment, etc.).
+-- Matches the JSONB+GIN pattern from 001 and 031.
+CREATE INDEX IF NOT EXISTS idx_profile_blobs_resource_attrs_gin
+  ON profile_blobs USING GIN (resource_attrs_json);
 
 CREATE TABLE IF NOT EXISTS profile_trace_index (
   profile_id TEXT NOT NULL,
