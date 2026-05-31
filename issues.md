@@ -153,6 +153,79 @@ These lower-priority items were present in the deleted source trackers but were 
   * **Risk:** Rapid filter changes can still allow stale responses or swallowed errors in user-facing dashboards.
   * **Next Action:** Standardize abortable dashboard loaders and visible error/empty states.
 
+## ── P2: GOD OBJECTS & READABILITY REFACTOR BACKLOG ──
+
+These files are the current large-code "god object" candidates found by a line-count audit, excluding generated `.wrangler/tmp` files. They should be split only along existing runtime boundaries, with focused tests after each extraction.
+
+- [ ] **AI Dashboard combines API orchestration, filtering, charts, details, and evaluation UI**
+  * **Location:** `packages/dashboard/src/dashboards/AIDashboard.tsx` (~1494 lines).
+  * **Risk:** Medium. Feature work in one AI view can accidentally regress unrelated cards, tables, and detail panes.
+  * **Next Action:** Extract API loading hooks, table/detail components, and AI evaluation panels into `dashboards/ai/*`.
+
+- [ ] **Identity Index owns indexing, scoring, merge logic, and persistence**
+  * **Location:** `packages/obs-collector/src/lib/identity-index.ts` (~1427 lines).
+  * **Risk:** Medium. Identity correctness is hard to review because matching rules, DB access, and result shaping live together.
+  * **Next Action:** Split into repository/query helpers, scoring/ranking, merge-policy logic, and public orchestration.
+
+- [ ] **Action Graph Renderer mixes layout, rendering, interaction, and tooltip state**
+  * **Location:** `packages/dashboard/src/components/ActionGraphRenderer.tsx` (~1293 lines).
+  * **Risk:** Medium. UI changes to graph controls can alter layout behavior and canvas/SVG rendering unintentionally.
+  * **Next Action:** Extract graph layout/model calculation, renderer layers, controls, and tooltip/selection hooks.
+
+- [ ] **Shared types file is a cross-domain catch-all**
+  * **Location:** `packages/obs-types/src/types.ts` (~1292 lines).
+  * **Risk:** Low. Type ownership is unclear and domain-specific changes create broad review surfaces.
+  * **Next Action:** Split into domain modules such as traces, logs, metrics, replay, AI, profiles, and alerts, then re-export from the package barrel.
+
+- [ ] **Collector store is a monolithic repository**
+  * **Location:** `packages/obs-collector/src/lib/store.ts` (~1269 lines).
+  * **Risk:** Medium. Trace overview, issue, log, metric, and replay query behavior is coupled in one file.
+  * **Next Action:** Extract focused stores/repositories for trace overview, issues, logs, metrics, and replay reads while preserving the public `Store` facade.
+
+- [ ] **Connected routes plugin owns graph traversal, enrichment, and HTTP responses**
+  * **Location:** `packages/obs-collector/src/plugins/connected-routes.ts` (~880 lines).
+  * **Risk:** Low. Route handlers are difficult to scan because query construction and graph shaping are inline.
+  * **Next Action:** Move graph query/build helpers into `lib/connected-graph/*` and keep route handlers thin.
+
+- [ ] **Dashboard primitives file is an oversized component kitchen sink**
+  * **Location:** `packages/dashboard/src/components/primitives.tsx` (~880 lines).
+  * **Risk:** Low. Reusable components have unclear ownership and unrelated primitive changes collide.
+  * **Next Action:** Split by primitive family: cards/stats, charts, lists, grids, and time-series helpers.
+
+- [ ] **OTLP decoder mixes protobuf traversal and domain normalization**
+  * **Location:** `packages/obs-collector/src/otlp/decode.ts` (~855 lines).
+  * **Risk:** Medium. Protocol decoding bugs are hard to isolate from app-specific normalization behavior.
+  * **Next Action:** Separate raw OTLP extraction helpers from app-domain mapping for spans, logs, metrics, resources, and attributes.
+
+- [ ] **Action graph processor mixes ingestion, graph derivation, and persistence updates**
+  * **Location:** `packages/obs-collector/src/plugins/action-graph-processor.ts` (~853 lines).
+  * **Risk:** Medium. Background processing changes are hard to reason about because derivation and writes are interleaved.
+  * **Next Action:** Extract graph derivation functions and persistence adapter calls behind small interfaces.
+
+- [ ] **Replay Dashboard owns filters, timelines, tables, detail panes, and fetch state**
+  * **Location:** `packages/dashboard/src/dashboards/ReplayDashboard.tsx` (~814 lines).
+  * **Risk:** Low. UI changes remain local, but the file is difficult to navigate.
+  * **Next Action:** Extract replay timeline, event detail, filters, and data-loading hooks into `dashboards/replay/*`.
+
+- [ ] **Web app root handles routing, shell state, and dashboard composition**
+  * **Location:** `apps/web/src/App.tsx` (~789 lines).
+  * **Risk:** Low. Route-level changes can conflict with shell/navigation state.
+  * **Next Action:** Split route parsing/navigation helpers and shell layout from dashboard route composition.
+
+- [ ] **AI store combines AI session, trace, evaluation, and analytics queries**
+  * **Location:** `packages/obs-collector/src/lib/ai-store.ts` (~764 lines).
+  * **Risk:** Medium. AI query correctness is hard to review because several data products share one repository.
+  * **Next Action:** Split AI sessions, spans/traces, evaluations, and derived analytics into focused query modules.
+
+- [ ] **Analytics usage tracker owns event capture, batching, replay lifecycle, and session state**
+  * **Location:** `packages/analytics-sdk/src/usage-tracker.ts` (~754 lines).
+  * **Risk:** Medium. Browser lifecycle, session rotation, and transport changes can regress each other.
+  * **Next Action:** Extract session state, transport queue, replay recorder lifecycle, and event normalization into separate modules.
+
+- [x] **Telemetry Dashboard trace detail and waterfall were embedded in the top-level dashboard**
+  * **Location:** `packages/dashboard/src/dashboards/TelemetryDashboard.tsx`.
+  * **Resolution:** Extracted trace detail UI, span tree/self-time derivation, shared telemetry types, and table/badge helpers into `packages/dashboard/src/dashboards/telemetry/*`, reducing the top-level dashboard from ~1517 to ~807 lines.
+
 ---
 
 ## ── ADDITIONAL VERIFIED COMPLETIONS FROM SOURCE TRACKERS ──
