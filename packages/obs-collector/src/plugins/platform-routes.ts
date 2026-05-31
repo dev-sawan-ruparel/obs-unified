@@ -1,5 +1,5 @@
 import type { CollectorPlugin } from "../framework/collector";
-import { sqlDbFor } from "../lib/sql-db";
+import { dialectFor, sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const platformRoutesPlugin: CollectorPlugin = {
@@ -68,6 +68,7 @@ export const platformRoutesPlugin: CollectorPlugin = {
 		app.get("/internal/platform/hosts", async (c) => {
 			const projectId = getProjectId(c);
 			const db = sqlDbFor(c.env);
+			const dialect = dialectFor(db);
 
 			const rows = await db
 				.prepare(
@@ -75,7 +76,7 @@ export const platformRoutesPlugin: CollectorPlugin = {
 						SELECT
 							s.id AS series_id,
 							s.name AS metric_name,
-							json_extract(s.resource_attrs_json, '$.host\\u002Ename') AS host_name,
+							${dialect.jsonText("s.resource_attrs_json", "$.host\\u002Ename")} AS host_name,
 							s.attributes_json
 						FROM metric_series s
 						WHERE s.project_id = ?
@@ -89,7 +90,7 @@ export const platformRoutesPlugin: CollectorPlugin = {
 							ROW_NUMBER() OVER (PARTITION BY p.series_id ORDER BY p.received_at DESC) AS rn
 						FROM metric_point p
 						WHERE p.project_id = ?
-							AND p.received_at >= datetime('now', '-15 minutes')
+							AND p.received_at >= ${dialect.sinceMinutes("15")}
 							AND p.series_id IN (SELECT series_id FROM host_series)
 					)
 					SELECT

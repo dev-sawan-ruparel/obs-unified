@@ -26,7 +26,7 @@ import type {
 } from "@obs-unified/types";
 
 import { parseJsonArray, parseJsonRecord } from "./json";
-import type { SqlDb } from "./sql-db";
+import { dialectFor, type SqlDb } from "./sql-db";
 
 /** Map D1 snake_case row to camelCase StoredSpan */
 const rowToSpan = (row: Record<string, unknown>): StoredSpan => ({
@@ -940,6 +940,7 @@ export class TelemetryStore {
 		if (!options.projectId)
 			throw new Error("TelemetryStore.getServiceMap: projectId is required");
 		const cutoff = cutoffIso(options.hours);
+		const dialect = dialectFor(this.db);
 		const source = options.source ?? "all";
 
 		// RFC 0009 — eBPF-derived agents identify themselves via
@@ -1020,29 +1021,35 @@ export class TelemetryStore {
 							.map(() => "?")
 							.join(",")}))`
 					: "";
-
-		const edgeRowsResult = await this.db
-			.prepare(
-				`WITH parent_child_edges AS (
+		const linkEdgesSql =
+			dialect.name === "postgres"
+				? `link_edges AS (
 					SELECT
-						p.service_name AS source,
-						c.service_name AS target,
-						c.status_code AS status_code,
-						c.duration_ms AS duration_ms,
-						c.received_at AS received_at
-					FROM telemetry_spans p
-					JOIN telemetry_spans c
-						ON c.parent_span_id = p.span_id
-						AND c.trace_id = p.trace_id
-						AND c.project_id = p.project_id
-					WHERE p.project_id = ?
-						AND p.received_at >= ?
-						AND c.received_at >= ?
-						AND p.service_name IS NOT NULL
-						AND c.service_name IS NOT NULL
-						AND p.service_name != c.service_name${childSourceClause}
-				),
-				link_edges AS (
+						producer.service_name AS source,
+						consumer.service_name AS target,
+						consumer.status_code AS status_code,
+						consumer.duration_ms AS duration_ms,
+						consumer.received_at AS received_at
+					FROM (
+						SELECT trace_id, span_id, project_id, service_name,
+							status_code, duration_ms, received_at, links_json
+						FROM telemetry_spans
+						WHERE project_id = ?
+							AND received_at >= ?
+							AND links_json IS NOT NULL
+							AND links_json != '[]'${consumerSourceClause}
+					) consumer
+					CROSS JOIN LATERAL jsonb_array_elements(consumer.links_json::jsonb) link(value)
+					JOIN telemetry_spans producer
+						ON producer.trace_id = link.value ->> 'traceId'
+						AND producer.span_id = link.value ->> 'spanId'
+						AND producer.project_id = consumer.project_id
+					WHERE producer.received_at >= ?
+						AND consumer.service_name IS NOT NULL
+						AND producer.service_name IS NOT NULL
+						AND producer.service_name != consumer.service_name
+				)`
+				: `link_edges AS (
 					SELECT
 						producer.service_name AS source,
 						consumer.service_name AS target,
@@ -1076,7 +1083,30 @@ export class TelemetryStore {
 						AND consumer.service_name IS NOT NULL
 						AND producer.service_name IS NOT NULL
 						AND producer.service_name != consumer.service_name
-				)
+				)`;
+
+		const edgeRowsResult = await this.db
+			.prepare(
+				`WITH parent_child_edges AS (
+					SELECT
+						p.service_name AS source,
+						c.service_name AS target,
+						c.status_code AS status_code,
+						c.duration_ms AS duration_ms,
+						c.received_at AS received_at
+					FROM telemetry_spans p
+					JOIN telemetry_spans c
+						ON c.parent_span_id = p.span_id
+						AND c.trace_id = p.trace_id
+						AND c.project_id = p.project_id
+					WHERE p.project_id = ?
+						AND p.received_at >= ?
+						AND c.received_at >= ?
+						AND p.service_name IS NOT NULL
+						AND c.service_name IS NOT NULL
+						AND p.service_name != c.service_name${childSourceClause}
+				),
+				${linkEdgesSql}
 				SELECT * FROM parent_child_edges
 				UNION ALL
 				SELECT * FROM link_edges

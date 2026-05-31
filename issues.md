@@ -36,13 +36,9 @@ This document is the single, unified source of truth for all codebase issues, co
 ## ── P1: FUNCTIONAL CORRECTNESS & DATA INTEGRITY ──
 
 ### Open Issues
-- [ ] **Postgres Adapter Rewrites SQLite Queries dynamically via Regular Expressions**
-  * **Location:** [`packages/obs-collector/src/lib/sql-db-postgres.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/sql-db-postgres.ts)
-  * **Description:** SQLite query syntax is translated on-the-fly to Postgres syntax by executing string regex replacements (translating `json_extract`, `strftime`, `datetime('now', ...)`).
-  * **Risk:** High. Highly brittle. Query formatting changes or complex sub-queries can break the translations at runtime, and prevents writing native optimized SQL for Postgres.
-  * **Next Action:** Refactor SQL compilation to use dedicated dialect files or a lightweight query builder. Maintain regex rewrites only as a secondary backward-compatibility layer.
-
 ### Resolved Functional Issues
+- [x] **Postgres Adapter Rewrites SQLite Queries dynamically via Regular Expressions**
+  * *Resolution:* Added an explicit `SqlDialect` layer with SQLite and Postgres renderers for current-time windows and JSON text extraction, attached dialect metadata to D1/Postgres adapters, and moved production store/plugin/framework queries off dynamic adapter rewrites for `datetime('now', ...)` and `json_extract(...)`. The old Postgres translator remains as a compatibility fallback for analysis SQL while runtime store paths now render native Postgres expressions directly. Added dialect rendering tests.
 - [x] **Trace Summary Reconstructs Traces in JavaScript from Capped Spans**
   * *Resolution:* `TelemetryStore` now selects candidate trace IDs with SQL `GROUP BY trace_id` and status HAVING filters, then fetches all spans for those selected trace IDs before building trace summaries and issue groupings. This removes the raw `traceLimit * 50` / `issueLimit * 100` span caps that could truncate large boundary traces, and adds a regression test verifying a one-trace overview still counts all fetched child spans.
 - [x] **Telemetry SDK in-Memory Spans Omit Exporter/Flush Mechanism**

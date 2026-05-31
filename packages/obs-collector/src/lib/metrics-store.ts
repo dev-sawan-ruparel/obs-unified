@@ -8,7 +8,7 @@
  */
 
 import type { DecodedMetricPoint } from "../otlp/decode";
-import type { SqlDb, SqlStatement } from "./sql-db";
+import { dialectFor, type SqlDb, type SqlStatement } from "./sql-db";
 
 interface SeriesRow {
 	id: string;
@@ -19,8 +19,9 @@ export class MetricsStore {
 	constructor(private readonly db: SqlDb) {}
 
 	async purgeExpired(): Promise<number> {
+		const dialect = dialectFor(this.db);
 		const result = await this.db
-			.prepare(`DELETE FROM metric_point WHERE expires_at < datetime('now')`)
+			.prepare(`DELETE FROM metric_point WHERE expires_at < ${dialect.now()}`)
 			.run();
 		return result.meta.changes ?? 0;
 	}

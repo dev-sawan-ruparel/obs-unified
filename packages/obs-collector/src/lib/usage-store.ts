@@ -27,7 +27,7 @@ import type {
 } from "@obs-unified/types";
 
 import { parseJsonRecord } from "./json";
-import type { SqlDb } from "./sql-db";
+import { dialectFor, type SqlDb } from "./sql-db";
 
 const cutoffIso = (hours: number): string =>
 	new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -480,8 +480,15 @@ export class UsageStore {
 		if (!options.projectId)
 			throw new Error("UsageStore.listSessions: projectId is required");
 		const cutoff = cutoffIso(options.hours);
+		const dialect = dialectFor(this.db);
 		const slowMs = options.slowMs ?? 3000;
 		const limit = Math.max(1, Math.min(1000, options.limit ?? 200));
+		const loadMsExpr = dialect.jsonText("properties_json", "$.loadTimeMs");
+		const loadTimeMsExpr = dialect.jsonText(
+			"properties_json",
+			"$.load_time_ms",
+		);
+		const durationMsExpr = dialect.jsonText("properties_json", "$.durationMs");
 
 		const result = await this.db
 			.prepare(
@@ -494,7 +501,7 @@ export class UsageStore {
 					SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) AS page_view_count,
 					SUM(CASE WHEN event_type = 'interaction' THEN 1 ELSE 0 END) AS interaction_count,
 					SUM(CASE WHEN event_type = 'frontend_error' OR severity = 'error' THEN 1 ELSE 0 END) AS error_count,
-					MAX(CASE WHEN event_type = 'page_view' THEN CAST(COALESCE(json_extract(properties_json, '$.loadTimeMs'), json_extract(properties_json, '$.load_time_ms'), json_extract(properties_json, '$.durationMs')) AS REAL) ELSE NULL END) AS max_load_ms,
+					MAX(CASE WHEN event_type = 'page_view' THEN CAST(COALESCE(${loadMsExpr}, ${loadTimeMsExpr}, ${durationMsExpr}) AS REAL) ELSE NULL END) AS max_load_ms,
 					(SELECT referrer FROM usage_events ref WHERE ref.project_id = ue.project_id AND ref.session_id = ue.session_id ORDER BY occurred_at ASC LIMIT 1) AS referrer,
 					(SELECT page_path FROM usage_events lp WHERE lp.project_id = ue.project_id AND lp.session_id = ue.session_id ORDER BY occurred_at DESC LIMIT 1) AS last_path
 				FROM usage_events ue

@@ -13,6 +13,7 @@
  */
 
 export interface SqlDb {
+	readonly dialect?: SqlDialect;
 	prepare(sql: string): SqlStatement;
 	/**
 	 * Run multiple prepared statements as a batch. On D1 this maps to a
@@ -26,6 +27,16 @@ export interface SqlDb {
 	batch(
 		statements: SqlStatement[],
 	): Promise<Array<{ meta: { changes: number } }>>;
+}
+
+export type SqlDialectName = "sqlite" | "postgres";
+
+export interface SqlDialect {
+	readonly name: SqlDialectName;
+	now(): string;
+	sinceHours(param: string): string;
+	sinceMinutes(param: string): string;
+	jsonText(expr: string, path: string): string;
 }
 
 export interface SqlStatement {
@@ -46,6 +57,8 @@ export interface SqlStatement {
  * interface honest.
  */
 export class D1Adapter implements SqlDb {
+	readonly dialect = sqliteDialect;
+
 	constructor(private readonly d1: D1Database) {}
 
 	prepare(sql: string): SqlStatement {
@@ -82,6 +95,33 @@ export class D1Adapter implements SqlDb {
  */
 export const sqlDbFor = (env: { DB: D1Database | SqlDb }): SqlDb =>
 	isSqlDb(env.DB) ? env.DB : new D1Adapter(env.DB);
+
+export const sqliteDialect: SqlDialect = {
+	name: "sqlite",
+	now: () => "datetime('now')",
+	sinceHours: (param) => `datetime('now', '-' || ${param} || ' hours')`,
+	sinceMinutes: (param) => `datetime('now', '-' || ${param} || ' minutes')`,
+	jsonText: (expr, path) => `json_extract(${expr}, '${path}')`,
+};
+
+export const postgresDialect: SqlDialect = {
+	name: "postgres",
+	now: () => "CURRENT_TIMESTAMP",
+	sinceHours: (param) =>
+		`(CURRENT_TIMESTAMP - (${param}::text || ' hours')::interval)`,
+	sinceMinutes: (param) =>
+		`(CURRENT_TIMESTAMP - (${param}::text || ' minutes')::interval)`,
+	jsonText: (expr, path) => {
+		const key = path
+			.replace(/^\$\./, "")
+			.replace(/^"|"$/g, "")
+			.replace(/\\u002E/g, ".");
+		return `(${expr}::jsonb ->> '${key.replace(/'/g, "''")}')`;
+	},
+};
+
+export const dialectFor = (db: SqlDb): SqlDialect =>
+	db.dialect ?? sqliteDialect;
 
 const isSqlDb = (db: unknown): db is SqlDb => {
 	if (!db || typeof db !== "object") return false;

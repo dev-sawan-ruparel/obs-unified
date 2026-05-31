@@ -4,7 +4,7 @@ import type {
 	LogsOverviewOptions,
 	LogsOverviewResponse,
 } from "@obs-unified/types";
-import type { SqlDb } from "./sql-db";
+import { dialectFor, type SqlDb } from "./sql-db";
 
 const LOG_SEVERITIES = new Set<LogSeverity>([
 	"DEBUG",
@@ -99,10 +99,11 @@ export class LogsStore {
 	async getLogs(options: LogsOverviewOptions): Promise<LogsOverviewResponse> {
 		if (!options.projectId)
 			throw new Error("LogsStore.getLogs: projectId is required");
+		const dialect = dialectFor(this.db);
 		const hours = clampInt(options.hours, 1, 720, 24);
 		const limit = clampInt(options.limit, 1, 1000, 100);
 
-		let sql = `SELECT * FROM logs WHERE project_id = ? AND received_at >= datetime('now', '-' || ? || ' hours')`;
+		let sql = `SELECT * FROM logs WHERE project_id = ? AND received_at >= ${dialect.sinceHours("?")}`;
 		const params: unknown[] = [options.projectId, hours];
 
 		if (options.service) {
@@ -136,7 +137,7 @@ export class LogsStore {
         COUNT(*) as totalLogs,
         SUM(CASE WHEN severity = 'ERROR' OR severity = 'FATAL' THEN 1 ELSE 0 END) as errorLogs,
         SUM(CASE WHEN severity = 'WARN' THEN 1 ELSE 0 END) as warnLogs
-      FROM logs WHERE project_id = ? AND received_at >= datetime('now', '-' || ? || ' hours')
+      FROM logs WHERE project_id = ? AND received_at >= ${dialect.sinceHours("?")}
       ${options.service ? "AND service_name = ?" : ""}
     `;
 		const summaryParams: unknown[] = [options.projectId, hours];
@@ -178,8 +179,9 @@ export class LogsStore {
 	}
 
 	async purgeExpired(): Promise<number> {
+		const dialect = dialectFor(this.db);
 		const { meta } = await this.db
-			.prepare(`DELETE FROM logs WHERE expires_at < datetime('now')`)
+			.prepare(`DELETE FROM logs WHERE expires_at < ${dialect.now()}`)
 			.run();
 		return meta.changes;
 	}

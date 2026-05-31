@@ -23,7 +23,7 @@
  */
 
 import type { Pool, QueryResultRow } from "pg";
-import type { SqlDb, SqlStatement } from "./sql-db";
+import { postgresDialect, type SqlDb, type SqlStatement } from "./sql-db";
 
 export interface PostgresAdapterOptions {
 	/**
@@ -35,6 +35,7 @@ export interface PostgresAdapterOptions {
 }
 
 export class PostgresAdapter implements SqlDb {
+	readonly dialect = postgresDialect;
 	private readonly statementTimeoutMs: number;
 
 	constructor(

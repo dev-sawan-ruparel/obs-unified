@@ -17,7 +17,7 @@ import type {
 } from "@obs-unified/types";
 import { computeCost } from "./ai-pricing";
 import { parseJsonRecord } from "./json";
-import type { SqlDb } from "./sql-db";
+import { dialectFor, type SqlDb } from "./sql-db";
 
 const attrNum = (
 	attrs: Record<string, JsonValue>,
@@ -216,10 +216,11 @@ export class AIStore {
 	): Promise<AICallsOverviewResponse> {
 		if (!options.projectId)
 			throw new Error("AIStore.getAICalls: projectId is required");
+		const dialect = dialectFor(this.db);
 		const hours = clampInt(options.hours, 1, 720, 24);
 		const limit = clampInt(options.limit, 1, 1000, 100);
 
-		let sql = `SELECT * FROM ai_calls WHERE project_id = ? AND received_at >= datetime('now', '-' || ? || ' hours')`;
+		let sql = `SELECT * FROM ai_calls WHERE project_id = ? AND received_at >= ${dialect.sinceHours("?")}`;
 		const params: unknown[] = [options.projectId, hours];
 
 		if (options.service) {
@@ -254,7 +255,7 @@ export class AIStore {
         SUM(prompt_tokens) as totalPromptTokens,
         SUM(completion_tokens) as totalCompletionTokens,
         SUM(is_error) as errorCalls
-      FROM ai_calls WHERE project_id = ? AND received_at >= datetime('now', '-' || ? || ' hours')
+      FROM ai_calls WHERE project_id = ? AND received_at >= ${dialect.sinceHours("?")}
       ${options.service ? "AND service_name = ?" : ""}
     `;
 		const summaryParams: unknown[] = [options.projectId, hours];
@@ -307,17 +308,18 @@ export class AIStore {
 	}
 
 	async purgeExpired(): Promise<number> {
+		const dialect = dialectFor(this.db);
 		const { meta } = await this.db
-			.prepare(`DELETE FROM ai_calls WHERE expires_at < datetime('now')`)
+			.prepare(`DELETE FROM ai_calls WHERE expires_at < ${dialect.now()}`)
 			.run();
 		const { meta: payloadMeta } = await this.db
 			.prepare(
-				`DELETE FROM ai_span_payloads WHERE expires_at < datetime('now')`,
+				`DELETE FROM ai_span_payloads WHERE expires_at < ${dialect.now()}`,
 			)
 			.run();
 		const { meta: evalMeta } = await this.db
 			.prepare(
-				`DELETE FROM ai_span_evaluations WHERE expires_at < datetime('now')`,
+				`DELETE FROM ai_span_evaluations WHERE expires_at < ${dialect.now()}`,
 			)
 			.run();
 		return (
@@ -335,6 +337,7 @@ export class AIStore {
 	): Promise<AISpansOverviewResponse> {
 		if (!options.projectId)
 			throw new Error("AIStore.getAISpans: projectId is required");
+		const dialect = dialectFor(this.db);
 		const hours = clampInt(options.hours, 1, 720, 24);
 		const limit = clampInt(options.limit, 1, 1000, 100);
 
@@ -358,7 +361,7 @@ export class AIStore {
       INNER JOIN telemetry_spans s
         ON s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ?
-        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+        AND p.received_at >= ${dialect.sinceHours("?")}
     `;
 		const params: unknown[] = [options.projectId, hours];
 
@@ -438,6 +441,7 @@ export class AIStore {
 	): Promise<AISessionsListResponse> {
 		if (!options.projectId)
 			throw new Error("AIStore.listSessions: projectId is required");
+		const dialect = dialectFor(this.db);
 		const hours = clampInt(options.hours, 1, 720, 24);
 		const limit = clampInt(options.limit, 1, 1000, 100);
 
@@ -448,9 +452,9 @@ export class AIStore {
         COUNT(*)              AS span_count,
         SUM(CASE WHEN p.span_kind = 'LLM' THEN 1 ELSE 0 END) AS llm_span_count,
         SUM(CASE WHEN s.status_code = 2 THEN 1 ELSE 0 END)   AS error_count,
-        SUM(CAST(json_extract(s.attributes_json, '$."llm.token_count.prompt"') AS REAL))     AS prompt_tokens,
-        SUM(CAST(json_extract(s.attributes_json, '$."llm.token_count.completion"') AS REAL)) AS completion_tokens,
-        SUM(CAST(json_extract(s.attributes_json, '$."llm.cost.total_usd"') AS REAL))         AS cost_usd,
+        SUM(CAST(${dialect.jsonText("s.attributes_json", '$."llm.token_count.prompt"')} AS REAL))     AS prompt_tokens,
+        SUM(CAST(${dialect.jsonText("s.attributes_json", '$."llm.token_count.completion"')} AS REAL)) AS completion_tokens,
+        SUM(CAST(${dialect.jsonText("s.attributes_json", '$."llm.cost.total_usd"')} AS REAL))         AS cost_usd,
         MIN(s.start_time)     AS first_span_at,
         MAX(s.start_time)     AS last_span_at,
         COUNT(DISTINCT s.trace_id) AS trace_count
@@ -459,7 +463,7 @@ export class AIStore {
         ON s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ?
         AND p.session_id IS NOT NULL
-        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+        AND p.received_at >= ${dialect.sinceHours("?")}
     `;
 		const params: unknown[] = [options.projectId, hours];
 		if (options.userId) {
@@ -491,7 +495,7 @@ export class AIStore {
       WHERE p.project_id = ?
         AND p.session_id IS NOT NULL
         AND p.session_id IN (${sessionIds.map(() => "?").join(", ")})
-	        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+	        AND p.received_at >= ${dialect.sinceHours("?")}
 	        AND p.input_json IS NOT NULL
 	      ORDER BY s.start_time DESC
 	      LIMIT ?

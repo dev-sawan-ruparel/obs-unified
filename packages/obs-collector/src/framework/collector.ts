@@ -8,7 +8,7 @@ import { AnalysesStore } from "../lib/analyses-store";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
 import { aggregatePropagation } from "../lib/propagation-metric";
-import { D1Adapter, type SqlDb, sqlDbFor } from "../lib/sql-db";
+import { D1Adapter, dialectFor, type SqlDb, sqlDbFor } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
 import type { CollectorEnv, CollectorRouteContext } from "./env";
@@ -360,9 +360,10 @@ export const createRetentionCleanupHandler = (options?: {
 			// best-effort by reading the URLs first.
 			let profilesPurged = 0;
 			try {
+				const dialect = dialectFor(db);
 				const expiredProfiles = await db
 					.prepare(
-						`SELECT id, blob_url FROM profile_blobs WHERE expires_at < datetime('now') LIMIT 500`,
+						`SELECT id, blob_url FROM profile_blobs WHERE expires_at < ${dialect.now()} LIMIT 500`,
 					)
 					.all<{ id: string; blob_url: string }>();
 				if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
@@ -374,7 +375,7 @@ export const createRetentionCleanupHandler = (options?: {
 				}
 				const deleted = await db
 					.prepare(
-						`DELETE FROM profile_blobs WHERE expires_at < datetime('now')`,
+						`DELETE FROM profile_blobs WHERE expires_at < ${dialect.now()}`,
 					)
 					.run();
 				profilesPurged = deleted.meta.changes;
