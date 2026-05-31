@@ -233,11 +233,15 @@ These were present in the old trackers but were either omitted from the first ag
 - [ ] **6.4 - Run and Verify UX Scenario A (Alert to Root Cause) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:102-113`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L102-L113)
   * **Description:** Exercise the full click-to-CPU path: click around the demo shop, trigger an alert on the health page, open the trace, drill into the `PROFILES` badge, expand the span, and trace back to the click session via the Connected rail.
+  * **Local verification added:** `packages/obs-collector/src/plugins/connected-routes.test.ts` now has a deterministic Scenario A contract test for `session -> hot span -> CPU profile -> originating click`, and `apps/web/tests/connected-rail.spec.ts` now gates the live matrix at the describe level so non-live Playwright runs skip cleanly before login/setup.
+  * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, and `pnpm run lint`.
   * **Why it's pending:** 6.1 through 6.3 are now automated by `pnpm demo:setup`, but `pnpm demo:preflight` fails in the current local Docker runtime because it reports ~2 GB RAM while the Astronomy Shop stack needs roughly 6 GB. Needs a higher-memory Docker environment to boot the full compose workload and verify the dashboard path.
 
 - [ ] **6.5 - Run and Verify UX Scenario B (LLM Cost Spike) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:114-117`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L114-L117)
   * **Description:** Wire `@obs-unified/telemetry-sdk`'s `trackAICall` helper into the Astronomy Shop's Recommendation Service (or AI agent helper) to verify LLM cost aggregates and parent-child span associations.
+  * **Local verification added:** `packages/obs-collector/src/plugins/connected-routes.test.ts` now has a deterministic Scenario B contract test for `heavy-spender user -> latest session -> AI trace -> originating click`, covering the same identity-graph pivots the live dashboard flow depends on.
+  * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, and `pnpm run lint`.
   * **Why it's pending:** `pnpm demo:preflight` finds no LLM provider keys in the current environment, and the full demo stack cannot be run under the available Docker memory cap. Needs provider key mapping plus the higher-memory compose environment used for Scenario A.
 
 ---

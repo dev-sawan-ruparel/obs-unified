@@ -384,6 +384,299 @@ describe("ConnectedRail manifest — user entity (RFC 0006 Scenario B)", () => {
 	});
 });
 
+describe("ConnectedRail scenario acceptance contracts", () => {
+	it("Scenario A walks session → hot span → CPU profile → originating click", async () => {
+		const db = new MemSqlDb({
+			all: (sql, binds) => {
+				if (
+					sql.includes("FROM telemetry_spans") &&
+					sql.includes("session_id = ?") &&
+					binds.includes("sess-root-cause")
+				) {
+					return [
+						{
+							trace_id: "trace-a",
+							span_id: "span-hot",
+							parent_span_id: null,
+							service_name: "payment",
+							span_name: "payment.charge",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:00Z",
+							duration_ms: 950,
+							interaction_id: "ix-checkout",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM telemetry_spans") &&
+					sql.includes("trace_id = ?") &&
+					binds.includes("trace-a")
+				) {
+					return [
+						{
+							trace_id: "trace-a",
+							span_id: "span-hot",
+							parent_span_id: null,
+							service_name: "payment",
+							span_name: "payment.charge",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:00Z",
+							duration_ms: 950,
+							interaction_id: "ix-checkout",
+						},
+						{
+							trace_id: "trace-a",
+							span_id: "span-child",
+							parent_span_id: "span-hot",
+							service_name: "payment",
+							span_name: "stripe.authorize",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:01Z",
+							duration_ms: 120,
+							interaction_id: "ix-checkout",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM profile_trace_index") &&
+					binds.includes("trace-a")
+				) {
+					return [
+						{
+							id: "prof-cpu",
+							service_name: "payment",
+							profile_type: "cpu",
+							duration_ms: 60_000,
+						},
+					];
+				}
+				if (
+					sql.includes("FROM usage_events") &&
+					sql.includes("interaction_id = ?") &&
+					binds.includes("ix-checkout")
+				) {
+					return [
+						{
+							event_id: "evt-checkout",
+							event_type: "interaction",
+							event_name: "click_checkout",
+							page_path: "/checkout",
+							severity: null,
+							occurred_at: "2026-05-04T11:59:59Z",
+							interaction_id: "ix-checkout",
+							session_id: "sess-root-cause",
+						},
+					];
+				}
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+
+		const sessionManifest = await fetch(
+			"/internal/connected/usage/evt-checkout?session_id=sess-root-cause",
+		);
+		const sessionSpans = sessionManifest.across.find((s) =>
+			s.label.toLowerCase().includes("span"),
+		);
+		expect(sessionSpans?.links[0].href).toBe("#/traces/trace-a#span=span-hot");
+
+		const spanManifest = await fetch(
+			"/internal/connected/span/trace-a:span-hot",
+		);
+		const profileSection = spanManifest.down.find((s) =>
+			s.label.toLowerCase().includes("cpu profile"),
+		);
+		expect(profileSection?.links[0].href).toBe(
+			"#/profiles/prof-cpu?trace_id=trace-a",
+		);
+
+		const clickSection = spanManifest.related.find((s) =>
+			s.label.toLowerCase().includes("click"),
+		);
+		expect(clickSection?.links[0].href).toBe("#/usage?id=evt-checkout");
+	});
+
+	it("Scenario B walks heavy-spender user → latest session → AI trace → originating click", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM user_profiles")) {
+					return { visitor_id: "vis-heavy" };
+				}
+				return null;
+			},
+			all: (sql, binds) => {
+				if (sql.includes("DISTINCT session_id")) {
+					return [
+						{ session_id: "sess-heavy", last_at: "2026-05-04T12:00:00Z" },
+						{ session_id: "sess-light", last_at: "2026-05-04T11:00:00Z" },
+					];
+				}
+				if (
+					sql.includes("FROM usage_events") &&
+					sql.includes("session_id IN")
+				) {
+					return [
+						{
+							event_id: "evt-ai-click",
+							event_type: "interaction",
+							event_name: "click_recommend",
+							page_path: "/product/sku-1",
+							severity: null,
+							occurred_at: "2026-05-04T12:00:00Z",
+							interaction_id: "ix-ai",
+							session_id: "sess-heavy",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM telemetry_spans") &&
+					sql.includes("session_id IN")
+				) {
+					return [
+						{
+							trace_id: "trace-ai-heavy",
+							span_id: "span-llm",
+							parent_span_id: null,
+							service_name: "recommendation",
+							span_name: "anthropic.chat",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:01Z",
+							duration_ms: 800,
+							interaction_id: "ix-ai",
+						},
+					];
+				}
+				if (sql.includes("FROM ai_calls") && sql.includes("session_id IN")) {
+					return [
+						{
+							call_id: "ai-heavy-1",
+							trace_id: "trace-ai-heavy",
+							model_name: "claude-3-5-haiku",
+							provider: "anthropic",
+							total_cost_usd: 0.25,
+							occurred_at: "2026-05-04T12:00:01Z",
+							interaction_id: "ix-ai",
+							session_id: "sess-heavy",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM telemetry_spans") &&
+					sql.includes("session_id = ?") &&
+					binds.includes("sess-heavy")
+				) {
+					return [
+						{
+							trace_id: "trace-ai-heavy",
+							span_id: "span-llm",
+							parent_span_id: null,
+							service_name: "recommendation",
+							span_name: "anthropic.chat",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:01Z",
+							duration_ms: 800,
+							interaction_id: "ix-ai",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM ai_calls") &&
+					sql.includes("session_id = ?") &&
+					binds.includes("sess-heavy")
+				) {
+					return [
+						{
+							call_id: "ai-heavy-1",
+							trace_id: "trace-ai-heavy",
+							model_name: "claude-3-5-haiku",
+							provider: "anthropic",
+							total_cost_usd: 0.25,
+							occurred_at: "2026-05-04T12:00:01Z",
+							interaction_id: "ix-ai",
+							session_id: "sess-heavy",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM telemetry_spans") &&
+					sql.includes("trace_id = ?") &&
+					binds.includes("trace-ai-heavy")
+				) {
+					return [
+						{
+							trace_id: "trace-ai-heavy",
+							span_id: "span-llm",
+							parent_span_id: null,
+							service_name: "recommendation",
+							span_name: "anthropic.chat",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T12:00:01Z",
+							duration_ms: 800,
+							interaction_id: "ix-ai",
+						},
+					];
+				}
+				if (
+					sql.includes("FROM usage_events") &&
+					sql.includes("interaction_id = ?") &&
+					binds.includes("ix-ai")
+				) {
+					return [
+						{
+							event_id: "evt-ai-click",
+							event_type: "interaction",
+							event_name: "click_recommend",
+							page_path: "/product/sku-1",
+							severity: null,
+							occurred_at: "2026-05-04T12:00:00Z",
+							interaction_id: "ix-ai",
+							session_id: "sess-heavy",
+						},
+					];
+				}
+				return [];
+			},
+		});
+		const fetch = setup(db);
+
+		const userManifest = await fetch("/internal/connected/user/user-heavy");
+		const latestSession = userManifest.across.find((s) =>
+			s.label.toLowerCase().includes("latest session"),
+		);
+		expect(latestSession?.links[0].sample).toBe("sess-heavy");
+		const aiSection = userManifest.across.find((s) =>
+			s.label.toLowerCase().includes("ai call"),
+		);
+		expect(aiSection?.links[0].href).toBe("#/ai?id=ai-heavy-1");
+
+		const sessionManifest = await fetch(
+			"/internal/connected/usage/sess-heavy?session_id=sess-heavy",
+		);
+		const sessionSpans = sessionManifest.across.find((s) =>
+			s.label.toLowerCase().includes("span"),
+		);
+		expect(sessionSpans?.links[0].href).toBe(
+			"#/traces/trace-ai-heavy#span=span-llm",
+		);
+
+		const spanManifest = await fetch(
+			"/internal/connected/span/trace-ai-heavy:span-llm",
+		);
+		const clickSection = spanManifest.related.find((s) =>
+			s.label.toLowerCase().includes("click"),
+		);
+		expect(clickSection?.links[0].href).toBe("#/usage?id=evt-ai-click");
+	});
+});
+
 describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", () => {
 	it("action entity returns causal parent/run, siblings, and downstream sub-actions/tools/evals", async () => {
 		const db = new MemSqlDb({

@@ -33,6 +33,11 @@ const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD ?? "e2e-test-pass";
 const LIVE_STACK = !!process.env.E2E_LIVE_STACK;
 
 test.describe("Connected rail — any-to-any matrix", () => {
+	test.skip(
+		!LIVE_STACK,
+		"set E2E_LIVE_STACK=1 with `make run-with-demo` running",
+	);
+
 	test.beforeEach(async ({ page }) => {
 		await page.goto("/");
 		await page.locator('input[type="password"]').fill(DASHBOARD_PASSWORD);
@@ -47,10 +52,6 @@ test.describe("Connected rail — any-to-any matrix", () => {
 	// know real fixture trace ids to assert against. Run this with
 	// E2E_LIVE_STACK=1 against a `make run-with-demo` stack.
 	test("Trace → Span (≤1 click via waterfall row)", async ({ page }) => {
-		test.skip(
-			!LIVE_STACK,
-			"set E2E_LIVE_STACK=1 with `make run-with-demo` running",
-		);
 		await page.goto("/dashboard?tab=telemetry");
 		// First trace in the seed should expose its waterfall via inline expand.
 		const firstTraceRow = page.locator('[data-testid="trace-row"]').first();
