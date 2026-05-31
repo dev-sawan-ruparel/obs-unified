@@ -6,8 +6,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import rrwebPlayer from "rrweb-player";
-import "rrweb-player/dist/style.css";
 import { Button } from "../components/Button";
 import {
 	ConnectedRail,
@@ -15,270 +13,17 @@ import {
 } from "../components/ConnectedRail";
 import { Input } from "../components/forms";
 import { useDashboard } from "../provider";
-
-type RrwebEvent = ConstructorParameters<
-	typeof rrwebPlayer
->[0]["props"]["events"][number];
-
-const fmtTs = (iso: string) => {
-	try {
-		const d = new Date(iso);
-		return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
-	} catch {
-		return iso;
-	}
-};
-
-const fmtDur = (start: string, end: string) => {
-	try {
-		const ms = new Date(end).getTime() - new Date(start).getTime();
-		if (ms < 1000) return `${ms}ms`;
-		const s = Math.floor(ms / 1000);
-		if (s < 60) return `${s}s`;
-		const m = Math.floor(s / 60);
-		return `${m}m ${s % 60}s`;
-	} catch {
-		return "—";
-	}
-};
-
-const copy = (t: string) => {
-	void navigator.clipboard.writeText(t);
-};
-
-interface ReplayChunkPage {
-	events?: RrwebEvent[];
-	chunks?: {
-		nextChunkOffset: number | null;
-	};
-}
-
-// api helper is now provided via useDashboard context
-
-interface ReplayRow {
-	session_id: string;
-	visitor_id: string;
-	first_chunk_at: string;
-	last_chunk_at: string;
-	chunk_count: number;
-	events_count: number;
-	starting_link?: string;
-	storage_bytes?: number;
-}
-
-const fmtBytes = (bytes: number) => {
-	if (!bytes) return "0 B";
-	const k = 1024;
-	const sizes = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
-};
-
-interface SessionDetail {
-	session: {
-		sessionId: string;
-		visitorId: string;
-		firstSeen: string;
-		lastSeen: string;
-		eventCount: number;
-		pageViewCount: number;
-		errorCount: number;
-	};
-	events: Array<{
-		eventId: string;
-		eventType: string;
-		eventName: string;
-		pagePath: string | null;
-		severity: string;
-		occurredAt: string;
-		properties: Record<string, unknown>;
-		context: Record<string, unknown>;
-	}>;
-}
-
-type RrwebUiUpdateEvent = {
-	payload?: unknown;
-	detail?: unknown;
-};
-
-interface TraceEvent {
-	eventId?: string;
-	traceId: string;
-	spanName: string;
-	serviceName: string | null;
-	statusMessage?: string | null;
-	durationMs: number;
-	statusCode: number;
-	startTime: string;
-	spanCount: number;
-}
-
-function ReplayPlayer({
-	sessionId,
-	onTimeUpdate,
-}: {
-	sessionId: string;
-	onTimeUpdate?: (timeValue: number) => void;
-}) {
-	const { basePath, fetcher } = useDashboard();
-	const [events, setEvents] = useState<RrwebEvent[] | null>(null);
-	const [loading, setLoading] = useState(true);
-	// Tri-state: "" (no message yet), { kind: "absence" } (expected — no
-	// rrweb chunks were ever recorded for this session), or { kind: "error" }
-	// (something actually went wrong — network, 5xx, parse). Absence renders
-	// as informative-absence per RFC 0006; error keeps the red treatment.
-	const [issue, setIssue] = useState<{
-		kind: "absence" | "error";
-		message: string;
-	} | null>(null);
-	const playerRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		let cancelled = false;
-		setLoading(true);
-		setIssue(null);
-		setEvents(null);
-
-		const loadReplay = async () => {
-			const allEvents: RrwebEvent[] = [];
-			let chunkOffset: number | null = 0;
-			while (!cancelled && chunkOffset !== null) {
-				const r = await fetcher(
-					`${basePath}/replays/${encodeURIComponent(sessionId)}?chunkOffset=${chunkOffset}&chunkLimit=100`,
-				);
-				if (cancelled) return;
-				if (r.status === 404) {
-					setIssue({
-						kind: "absence",
-						message:
-							'No rrweb replay was recorded for this session. Visit /playground and click "Start replay" to capture one in a real browser.',
-					});
-					return;
-				}
-				if (!r.ok) {
-					setIssue({
-						kind: "error",
-						message: `Replay fetch failed: ${r.status} ${r.statusText}`,
-					});
-					return;
-				}
-				const data = (await r.json()) as ReplayChunkPage;
-				allEvents.push(...(data.events ?? []));
-				chunkOffset = data.chunks?.nextChunkOffset ?? null;
-			}
-			if (cancelled) return;
-			if (allEvents.length > 2) {
-				setEvents(allEvents);
-			} else {
-				setIssue({
-					kind: "absence",
-					message:
-						"Session exists but has too few rrweb events to render. Replays under ~3 frames are skipped.",
-				});
-			}
-		};
-
-		loadReplay()
-			.catch((e) => {
-				if (!cancelled) {
-					setIssue({
-						kind: "error",
-						message: e instanceof Error ? e.message : String(e),
-					});
-				}
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [sessionId, fetcher, basePath]);
-
-	useEffect(() => {
-		if (events && playerRef.current) {
-			playerRef.current.innerHTML = "";
-			const player = new rrwebPlayer({
-				target: playerRef.current,
-				props: {
-					events,
-					autoPlay: true,
-					width: playerRef.current.clientWidth,
-				},
-			});
-			const handleTimeUpdate = (e: unknown) => {
-				const update = e as RrwebUiUpdateEvent;
-				const offset = update.payload ?? update.detail;
-				if (typeof offset === "number" && events[0]?.timestamp) {
-					onTimeUpdate?.(events[0].timestamp + offset);
-				}
-			};
-			if (onTimeUpdate) {
-				player.addEventListener("ui-update-current-time", handleTimeUpdate);
-			}
-			return () => {
-				try {
-					if (onTimeUpdate) {
-						(
-							player as unknown as {
-								removeEventListener?: typeof player.addEventListener;
-							}
-						).removeEventListener?.("ui-update-current-time", handleTimeUpdate);
-					}
-					player.pause();
-					(player as unknown as { destroy?: () => void }).destroy?.();
-				} catch {}
-			};
-		}
-	}, [events, onTimeUpdate]);
-
-	if (loading)
-		return (
-			<div className="text-[0.8125rem] text-sys-on-surface-muted p-3 text-center">
-				Loading replay visual buffer…
-			</div>
-		);
-	if (issue?.kind === "absence")
-		return (
-			<div
-				className="text-[0.8125rem] text-sys-on-surface-muted p-3 italic border-[1px] border-sys-outline-soft"
-				title={issue.message}
-			>
-				— {issue.message}
-			</div>
-		);
-	if (issue?.kind === "error")
-		return (
-			<div className="text-[0.8125rem] font-medium text-sys-error p-3 text-center border-[2px] border-sys-error bg-sys-error/10">
-				{issue.message}
-			</div>
-		);
-
-	return (
-		<div className="bg-sys-bg border-[2px] border-sys-outline">
-			<div ref={playerRef} className="w-full bg-sys-bg" />
-		</div>
-	);
-}
-
-interface TimelineGroup {
-	interactionId: string;
-	clickEvent: {
-		t: string;
-		title: string;
-		subtitle?: string;
-		payload: Record<string, unknown>;
-	} | null;
-	causedTraces: Array<{
-		traceId: string;
-		rootSpanId: string;
-		rootSpanName: string;
-		serviceName: string | null;
-		durationMs: number;
-		status: "ok" | "error";
-	}>;
-	relatedEvents: Array<{ kind: string; id: string }>;
-}
+import { ReplayList } from "./replay/ReplayList";
+import { ReplayPlayer } from "./replay/ReplayPlayer";
+import { ReplayTimeline } from "./replay/ReplayTimeline";
+import type {
+	ReplayRow,
+	ReplayTimelineEntry,
+	SessionDetail,
+	TimelineGroup,
+	TraceEvent,
+} from "./replay/types";
+import { fmtTs } from "./replay/utils";
 
 export function ReplayDashboard({
 	initialSessionId,
@@ -397,7 +142,7 @@ export function ReplayDashboard({
 			? sessionDetail
 			: null;
 
-	const combinedTimeline = useMemo(() => {
+	const combinedTimeline = useMemo<ReplayTimelineEntry[]>(() => {
 		if (!selected) return [];
 		const traces = traceEvents.map((t, index) => ({
 			eventId: Object.hasOwn(t, "eventId") ? t.eventId : t.traceId,
@@ -540,71 +285,13 @@ export function ReplayDashboard({
 				onPointerUp={handleMouseUp}
 				onPointerLeave={handleMouseUp}
 			>
-				{/* Left Sidebar Menu */}
-				<div
-					style={{ width: sidebarWidth }}
-					className="flex-none bg-sys-surface flex flex-col h-full overflow-hidden border-[1px] border-sys-outline select-none"
-				>
-					<div className="flex-none p-3 border-b-[2px] border-sys-outline flex justify-between items-center">
-						<span className="text-[0.875rem] font-semibold">
-							Latest replays
-						</span>
-						<span className="text-[0.625rem] font-mono opacity-60 font-bold bg-sys-bg px-2 py-0.5">
-							{replaysList.length} SESSIONS
-						</span>
-					</div>
-					<div className="flex-1 overflow-y-auto cursor-default">
-						{loadingList && (
-							<div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">
-								Loading replays...
-							</div>
-						)}
-						{!loadingList && replaysList.length === 0 && (
-							<div className="p-4 text-[0.75rem] font-semibold opacity-60 text-center">
-								No replays found.
-							</div>
-						)}
-						{replaysList.map((r) => {
-							const active = r.session_id === selectedSessionId;
-							return (
-								<button
-									type="button"
-									key={r.session_id}
-									onClick={() => openSession(r.session_id)}
-									className={`w-full text-left p-3 border-b-[1px] border-sys-outline transition-none cursor-pointer group hover:bg-sys-surface-low block ${active ? "bg-sys-surface-high border-l-[4px] border-l-sys-primary" : "border-l-[4px] border-l-transparent"}`}
-								>
-									<div className="flex items-center justify-between mb-1.5">
-										<span
-											className={`text-[0.75rem] font-bold font-mono truncate mr-2 ${active ? "text-sys-primary" : ""}`}
-										>
-											{r.visitor_id.substring(0, 16)}
-										</span>
-										<span className="text-[0.625rem] font-bold opacity-60 whitespace-nowrap">
-											{fmtDur(r.first_chunk_at, r.last_chunk_at)}
-										</span>
-									</div>
-									<div className="text-[0.875rem] font-bold truncate opacity-90 mb-1 leading-snug">
-										{r.starting_link || "Unknown Path"}
-									</div>
-									<div className="flex items-center justify-between">
-										<span className="text-[0.625rem] bg-sys-bg px-1.5 py-0.5 border border-sys-outline opacity-80">
-											{r.events_count} EVENTS
-										</span>
-										<span className="text-[0.625rem] bg-sys-bg px-1.5 py-0.5 border border-sys-outline opacity-80">
-											{fmtBytes(
-												r.storage_bytes ||
-													(r.events_count ? r.events_count * 65 : 0),
-											)}
-										</span>
-										<span className="text-[0.625rem] opacity-50 font-mono tracking-tighter truncate">
-											{fmtTs(r.first_chunk_at)}
-										</span>
-									</div>
-								</button>
-							);
-						})}
-					</div>
-				</div>
+				<ReplayList
+					width={sidebarWidth}
+					replays={replaysList}
+					loading={loadingList}
+					selectedSessionId={selectedSessionId}
+					onOpenSession={openSession}
+				/>
 
 				{/* Divider / Resizer */}
 				<hr
@@ -704,78 +391,11 @@ export function ReplayDashboard({
 									}}
 								/>
 
-								<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
-									<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
-										<span className="text-[0.875rem] font-semibold">
-											Full event stream ({combinedTimeline.length} entries)
-										</span>
-										<button
-											type="button"
-											className="text-[0.75rem] font-semibold hover:text-sys-primary cursor-pointer transition-none underline"
-											onClick={() => copy(JSON.stringify(selected, null, 2))}
-										>
-											Copy JSON
-										</button>
-									</div>
-									<div className="flex-1 overflow-y-auto pb-4">
-										{combinedTimeline.map((ev) => {
-											const isActive = ev.timelineKey === activeEvent;
-											return (
-												<div
-													key={ev.timelineKey}
-													className={`flex items-start gap-2 py-1.5 px-3 border-b-[1px] border-sys-surface-low font-mono text-[0.75rem] transition-none ${
-														isActive
-															? "bg-sys-surface-high border-l-[4px] border-l-sys-primary"
-															: ev.isTrace
-																? "hover:bg-sys-surface-high border-l-[4px] border-l-transparent"
-																: "hover:bg-sys-surface-low border-l-[4px] border-l-transparent"
-													} ${!isActive && ev.severity === "error" ? "bg-sys-error/10 text-sys-error" : ""}`}
-												>
-													<span
-														className={`w-32 flex-none font-bold py-1 ${
-															isActive
-																? "text-sys-primary"
-																: ev.isTrace
-																	? "text-sys-on-surface opacity-80"
-																	: "opacity-60"
-														}`}
-													>
-														{ev.eventType.toUpperCase()}
-													</span>
-													<span className="min-w-0 flex-1">
-														<div className="font-bold text-[0.875rem] mb-1">
-															{ev.eventName}
-														</div>
-														{ev.properties &&
-															Object.keys(ev.properties).length > 0 && (
-																<div className="flex flex-wrap gap-2 opacity-80 mt-2">
-																	{Object.entries(ev.properties).map(
-																		([k, v]) => (
-																			<span
-																				key={k}
-																				className="bg-sys-bg px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em]"
-																			>
-																				{k}:{" "}
-																				{typeof v === "string"
-																					? v
-																					: JSON.stringify(v)}
-																			</span>
-																		),
-																	)}
-																</div>
-															)}
-													</span>
-													<span className="flex-none max-w-[200px] truncate text-right py-1 opacity-60">
-														{ev.pagePath || "—"}
-													</span>
-													<span className="flex-none whitespace-nowrap w-[140px] text-right py-1 opacity-80">
-														{fmtTs(ev.occurredAt)}
-													</span>
-												</div>
-											);
-										})}
-									</div>
-								</div>
+								<ReplayTimeline
+									entries={combinedTimeline}
+									activeEvent={activeEvent}
+									copyValue={selected}
+								/>
 							</div>
 						</div>
 					) : null}

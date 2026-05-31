@@ -15,155 +15,21 @@ import type {
 	AISpansOverviewResponse,
 	JsonValue,
 } from "@obs-unified/types";
-import { computeCost } from "./ai-pricing";
+import { attrNum, enrichCost } from "./ai-store/helpers";
+import type {
+	AICallRow,
+	AICallSummaryRow,
+	AIEvaluationRow,
+	AISessionPreviewRow,
+	AISessionRow,
+	AISpanRow,
+	IngestEvaluation,
+} from "./ai-store/types";
+import { clampInt } from "./ai-store/types";
 import { parseJsonRecord } from "./json";
 import { dialectFor, type SqlDb } from "./sql-db";
 
-const attrNum = (
-	attrs: Record<string, JsonValue>,
-	key: string,
-): number | null => {
-	const v = attrs[key];
-	return typeof v === "number" && Number.isFinite(v) ? v : null;
-};
-
-const attrStr = (
-	attrs: Record<string, JsonValue>,
-	key: string,
-): string | null => {
-	const v = attrs[key];
-	return typeof v === "string" && v.length > 0 ? v : null;
-};
-
-/**
- * Enrich a span's attributes with a computed `llm.cost.total_usd` when the
- * span has token counts but no reported cost. Mutates the passed attrs
- * object and returns the final cost (or null).
- */
-const enrichCost = (attrs: Record<string, JsonValue>): number | null => {
-	const existing = attrNum(attrs, "llm.cost.total_usd");
-	if (existing !== null) return existing;
-	const model = attrStr(attrs, "llm.model_name");
-	const prompt = attrNum(attrs, "llm.token_count.prompt");
-	const completion = attrNum(attrs, "llm.token_count.completion");
-	if (prompt === null && completion === null) return null;
-	const cost = computeCost(model, prompt, completion);
-	if (cost === null) return null;
-	attrs["llm.cost.total_usd"] = cost;
-	attrs["llm.cost.computed"] = true;
-	return cost;
-};
-
-export interface IngestEvaluation {
-	projectId: string;
-	evaluationId: string;
-	traceId: string;
-	spanId: string;
-	name: string;
-	score: number | null;
-	label: string | null;
-	explanation: string | null;
-	source: AIEvaluationSource;
-	metadataJson: string | null;
-	createdAt: string;
-	expiresAt: string;
-}
-
-/** Clamp an integer to a safe range */
-const clampInt = (
-	value: unknown,
-	min: number,
-	max: number,
-	fallback: number,
-): number => {
-	const n = typeof value === "number" ? value : parseInt(String(value), 10);
-	if (!Number.isFinite(n)) return fallback;
-	return Math.max(min, Math.min(max, n));
-};
-
-interface AICallRow {
-	project_id?: string;
-	call_id: string;
-	trace_id: string | null;
-	span_id: string | null;
-	service_name: string | null;
-	model_name: string;
-	provider: string;
-	call_type: AICallRecord["callType"];
-	request_json: string | null;
-	response_json: string | null;
-	prompt_tokens: number | null;
-	completion_tokens: number | null;
-	total_cost_usd: number | null;
-	latency_ms: number | null;
-	is_error: number;
-	error_message: string | null;
-	occurred_at: string;
-	received_at: string;
-	expires_at: string;
-	session_id: string | null;
-	interaction_id: string | null;
-}
-
-interface AICallSummaryRow {
-	totalCalls?: number;
-	totalCostUsd?: number;
-	totalPromptTokens?: number;
-	totalCompletionTokens?: number;
-	errorCalls?: number;
-}
-
-interface AISpanRow {
-	trace_id: string;
-	span_id: string;
-	parent_span_id: string | null;
-	service_name: string | null;
-	span_name: string;
-	span_kind: string;
-	status_code: number | null;
-	status_message: string | null;
-	start_time: string;
-	end_time: string | null;
-	duration_ms: number | null;
-	attributes_json: string | null;
-	input_json: string | null;
-	output_json: string | null;
-	user_id?: string | null;
-}
-
-interface AISessionRow {
-	session_id: string;
-	user_id: string | null;
-	span_count: number | null;
-	llm_span_count: number | null;
-	error_count: number | null;
-	prompt_tokens: number | null;
-	completion_tokens: number | null;
-	cost_usd: number | null;
-	first_span_at: string;
-	last_span_at: string;
-	trace_count: number | null;
-}
-
-interface AISessionPreviewRow {
-	session_id: string;
-	input_json: string | null;
-}
-
-interface AIEvaluationRow {
-	evaluation_id: string;
-	project_id: string;
-	trace_id: string;
-	span_id: string;
-	name: string;
-	score: number | null;
-	label: string | null;
-	explanation: string | null;
-	source: AIEvaluationSource;
-	metadata_json: string | null;
-	created_at: string;
-	expires_at: string;
-}
+export type { IngestEvaluation } from "./ai-store/types";
 
 export class AIStore {
 	constructor(private readonly db: SqlDb) {}

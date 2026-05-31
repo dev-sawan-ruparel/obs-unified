@@ -108,10 +108,9 @@ This document is the single, unified source of truth for all codebase issues, co
 
 These files are the current large-code "god object" candidates found by a line-count audit, excluding generated `.wrangler/tmp` files. They should be split only along existing runtime boundaries, with focused tests after each extraction.
 
-- [ ] **AI Dashboard combines API orchestration, filtering, charts, details, and evaluation UI**
-  * **Location:** `packages/dashboard/src/dashboards/AIDashboard.tsx` (~1308 lines after extracting shared AI helpers and conversation rendering).
-  * **Risk:** Medium. Feature work in one AI view can accidentally regress unrelated cards, tables, and detail panes.
-  * **Next Action:** Extract API loading hooks, table/detail components, and AI evaluation panels into `dashboards/ai/*`.
+- [x] **AI Dashboard combines API orchestration, filtering, charts, details, and evaluation UI**
+  * **Location:** `packages/dashboard/src/dashboards/AIDashboard.tsx`.
+  * **Resolution:** Split the dashboard into a 22-line tab coordinator plus `dashboards/ai/Toolbar.tsx`, `SpansView.tsx`, `SessionsView.tsx`, `ConversationPane.tsx`, and shared AI presentation helpers.
 
 - [ ] **Identity Index owns indexing, scoring, merge logic, and persistence**
   * **Location:** `packages/obs-collector/src/lib/identity-index.ts` (~1027 lines after extracting reference types and row mappers).
@@ -150,17 +149,16 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Location:** `packages/obs-collector/src/plugins/action-graph-processor.ts`.
   * **Resolution:** Extracted redaction plugin registry/default redactor into `plugins/action-graph-processor/redaction.ts` and action enricher registry into `plugins/action-graph-processor/enrichers.ts`, leaving the processor focused on span transformation and persistence.
 
-- [ ] **Replay Dashboard owns filters, timelines, tables, detail panes, and fetch state**
-  * **Location:** `packages/dashboard/src/dashboards/ReplayDashboard.tsx` (~814 lines).
-  * **Risk:** Low. UI changes remain local, but the file is difficult to navigate.
-  * **Next Action:** Extract replay timeline, event detail, filters, and data-loading hooks into `dashboards/replay/*`.
+- [x] **Replay Dashboard owns filters, timelines, tables, detail panes, and fetch state**
+  * **Location:** `packages/dashboard/src/dashboards/ReplayDashboard.tsx`.
+  * **Resolution:** Extracted replay-specific types/utilities, the rrweb player, replay list, and event timeline into `packages/dashboard/src/dashboards/replay/*`, reducing the dashboard to session orchestration and top-level layout.
 
 - [x] **Web app root handles routing, shell state, and dashboard composition**
   * **Location:** `apps/web/src/App.tsx`.
   * **Resolution:** Split hash routing, navigation config, persisted UI preferences, lazy dashboard module registry, and Playground into `apps/web/src/app/*`, reducing `App.tsx` to the shell and route rendering.
 
 - [ ] **AI store combines AI session, trace, evaluation, and analytics queries**
-  * **Location:** `packages/obs-collector/src/lib/ai-store.ts` (~764 lines).
+  * **Location:** `packages/obs-collector/src/lib/ai-store.ts` (~634 lines after extracting row types and shared cost/attribute helpers).
   * **Risk:** Medium. AI query correctness is hard to review because several data products share one repository.
   * **Next Action:** Split AI sessions, spans/traces, evaluations, and derived analytics into focused query modules.
 
