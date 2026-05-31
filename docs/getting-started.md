@@ -290,6 +290,8 @@ Access the interface at `http://localhost:5173`.
 ## Next Steps
 
 - **Browse Examples:** [`docs/examples.md`](./examples.md)
+- **SDK API Reference:** [`docs/sdk-reference.md`](./sdk-reference.md)
+- **Production Operations Guide:** [`docs/ops/production.md`](./ops/production.md)
 - **Configure Package Registry:**
   [`docs/github-packages.md`](./github-packages.md)
 - **Plan Database Migrations:** [`docs/migrate/README.md`](./migrate/README.md)

@@ -66,9 +66,7 @@ graph TD
 
 ## Quick Start
 
-If this is your first run, start with
-[docs/getting-started.md](docs/getting-started.md). It covers the fastest local
-path, the realistic Docker demo path, and how to instrument your own app.
+If this is your first run, start with the **[Getting Started Guide](docs/getting-started.md)**. For production scaling setups, see the **[Production Operations Guide](docs/ops/production.md)**. For standard integration codes across languages, see the **[SDK API Reference Cheat Sheet](docs/sdk-reference.md)**.
 
 ### Instrument an existing app
 

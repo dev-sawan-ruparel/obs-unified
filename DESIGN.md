@@ -58,6 +58,33 @@ solely through background shifts. A `surface-container-low` section sitting on a
 `surface` background provides all the separation required. If you feel the urge
 to draw a line, increase the padding or shift the background tone instead.
 
+#### Tonal Islanding Pattern Comparison
+
+```mermaid
+graph TD
+    subgraph Incorrect ["Incorrect Pattern: Box-Within-Box (Rounded & Outlined)"]
+        MonolithBox["Outer Container<br/>border: 1px solid #ccc<br/>border-radius: 8px"]
+        InnerBox["Inner Nested Card<br/>border: 1px solid #ddd<br/>border-radius: 4px"]
+        MonolithBox --> InnerBox
+    end
+
+    subgraph Correct ["Correct Pattern: Tonal Islanding (Flat & Zero Radius)"]
+        BaseCanvas["Base Canvas Background<br/>HEX: #F9F9F9<br/>border-radius: 0px"]
+        LowestSheet["Panel Surface Sheet<br/>HEX: #FFFFFF<br/>border-radius: 0px"]
+        LowSection["Sub-Section Element<br/>HEX: #F3F3F3<br/>border-radius: 0px"]
+        BaseCanvas --> LowestSheet --> LowSection
+    end
+
+    style Incorrect fill:#ffeef0,stroke:#B7102A,stroke-width:1px
+    style MonolithBox fill:#ffffff,stroke:#cccccc
+    style InnerBox fill:#ffffff,stroke:#dddddd
+    
+    style Correct fill:#eef9f0,stroke:#006B18,stroke-width:1px
+    style BaseCanvas fill:#F9F9F9,stroke:none
+    style LowestSheet fill:#FFFFFF,stroke:none
+    style LowSection fill:#F3F3F3,stroke:none
+```
+
 ### Surface Hierarchy & Nesting
 
 Treat the UI as a series of physical sheets of high-grade paper stacked atop one
@@ -116,6 +143,25 @@ represent light; we use tonal shifts to represent **logical priority**.
 
 - To lift a card, do not add a shadow. Change its background from `surface` to
   `surface-container-lowest`.
+
+#### Visual Tonal Hierarchy Matrix
+
+```mermaid
+graph TD
+    Level0["Level 0: Base Canvas<br/>HEX: #F9F9F9<br/>Role: Core background layer"]
+    Level1["Level 1: Panels / Worksheets<br/>HEX: #FFFFFF<br/>Role: Active cards, lists, and view canvases"]
+    Level2["Level 2: Elements / Active Components<br/>HEX: #F3F3F3<br/>Role: Nested blocks, code panes, filters, and fields"]
+    Level3["Level 3: Overlay surfaces / Pop-overs<br/>HEX: #E8E8E8<br/>Role: Tooltips, dropdown lists, context drawers"]
+
+    Level0 -->|Lifts visually by background shift| Level1
+    Level1 -->|Inlays visually| Level2
+    Level2 -->|Focus elevations| Level3
+
+    style Level0 fill:#F9F9F9,stroke:#e0e0e0,stroke-width:1px
+    style Level1 fill:#FFFFFF,stroke:#e0e0e0,stroke-width:1px
+    style Level2 fill:#F3F3F3,stroke:#e0e0e0,stroke-width:1px
+    style Level3 fill:#E8E8E8,stroke:#e0e0e0,stroke-width:1px
+```
 
 ### The "Ghost Border" Fallback
 
