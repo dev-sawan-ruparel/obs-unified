@@ -51,12 +51,6 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Highly brittle. Query formatting changes or complex sub-queries can break the translations at runtime, and prevents writing native optimized SQL for Postgres.
   * **Next Action:** Refactor SQL compilation to use dedicated dialect files or a lightweight query builder. Maintain regex rewrites only as a secondary backward-compatibility layer.
 
-- [ ] **Onboarding & SPA Fallback Dashboard Plugins are Unregistered**
-  * **Location:** [`packages/obs-collector/src/plugins/onboarding-routes.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/onboarding-routes.ts) & [`dashboard-routes.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/dashboard-routes.ts)
-  * **Description:** Both plugins are implemented and exported, but omitted from `allPlugins` in `index.ts`.
-  * **Risk:** High. Onboarding count queries (`/internal/onboarding/counts`) return 404, and refreshing the browser on any nested SPA route under `/dashboard/*` returns 404.
-  * **Next Action:** Add the plugins to `allPlugins` in `index.ts` and modify the dashboard routes fallback to serve the SPA index file directly without a hard 302 redirect.
-
 - [ ] **Telemetry SDK in-Memory Spans Omit Exporter/Flush Mechanism**
   * **Location:** [`packages/telemetry-sdk/src/span.ts:278`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/span.ts#L278)
   * **Description:** Spans accumulate in memory, but when `end()` is called, no export operation or flush is wired.
@@ -69,19 +63,13 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Sub-threshold traces, logs, and events are permanently lost when a process exits, a container redeploys, or a short-lived script terminates.
   * **Next Action:** Add periodic flush intervals (e.g., 5 seconds) and listen to `process.on('beforeExit' / 'SIGTERM')` and browser `pagehide` events to drain queues.
 
-- [ ] **Narrative LLM Fallback Hardcodes Non-Existent Anthropic Model ID**
-  * **Location:** [`packages/obs-collector/src/lib/analyses-runner.ts:337`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/analyses-runner.ts#L337)
-  * **Description:** The Anthropic model config defaults to `"claude-haiku-4-5"`. This model does not exist in the Anthropic API.
-  * **Risk:** High. Causes all Anthropic-backed narrative runs to crash with 404 HTTP errors.
-  * **Next Action:** Update the default Anthropic fallback model ID to a valid model (such as `"claude-3-5-haiku-latest"` or `"claude-3-haiku-20240307"`).
-
-- [ ] **Google API Key Leaked in URL Query Strings**
-  * **Location:** [`apps/obs-demo/src/providers.ts:177`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo/src/providers.ts#L177)
-  * **Description:** The Google API Key is passed directly in the URL query string, leading to leaks in system logs and telemetry spans.
-  * **Risk:** High. Exposed credentials.
-  * **Next Action:** Refactor to pass the Google API Key via the standard `x-goog-api-key` HTTP header.
-
 ### Resolved Functional Issues
+- [x] **Onboarding & SPA Fallback Dashboard Plugins are Unregistered**
+  * *Resolution:* Registered `onboardingRoutesPlugin` and `dashboardRoutesPlugin` in `allPlugins` within `packages/obs-collector/src/index.ts`, and updated the `/dashboard/*` wildcard route fallback to serve the client-side SPA index.html directly via `c.env.ASSETS` when available.
+- [x] **Narrative LLM Fallback Hardcodes Non-Existent Anthropic Model ID**
+  * *Resolution:* Replaced the non-existent `"claude-haiku-4-5"` fallback Anthropic model identifier in `packages/obs-collector/src/lib/analyses-runner.ts` with `"claude-3-5-haiku-latest"`.
+- [x] **Google API Key Leaked in URL Query Strings**
+  * *Resolution:* Refactored `apps/obs-demo/src/providers.ts` to transmit the Gemini/Google API key via the secure, standard `x-goog-api-key` HTTP header rather than a cleartext URL query parameter.
 - [x] **Off-by-One Floor Math in Percentile CTE Calculations**
   * *Resolution:* Verified `tier0.ts` and `derive.ts` now use nearest-rank ceil formulas such as `(95 * n + 99) / 100` and `(99 * n + 99) / 100`; no floor-style p95/p99 casts remain in analysis SQL.
 - [x] **Dashboard Replay Timeline utilizes Non-Unique React keys**

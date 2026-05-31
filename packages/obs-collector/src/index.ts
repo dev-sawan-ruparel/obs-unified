@@ -14,6 +14,7 @@ import { analysesRoutesPlugin } from "./plugins/analyses-routes";
 import { askRoutesPlugin } from "./plugins/ask-routes";
 import { botFilterPlugin } from "./plugins/bot-filter";
 import { connectedRoutesPlugin } from "./plugins/connected-routes";
+import { dashboardRoutesPlugin } from "./plugins/dashboard-routes";
 import { defaultSpanEnrichmentPlugin } from "./plugins/default-span-enrichment";
 import { genAiNormalizerPlugin } from "./plugins/gen-ai-normalizer";
 import { identityReceiverPlugin } from "./plugins/identity-receiver";
@@ -21,6 +22,7 @@ import { issueEnrichmentPlugin } from "./plugins/issue-enrichment";
 import { issueInsightsPlugin } from "./plugins/issue-insights";
 import { logsReceiverPlugin } from "./plugins/logs-receiver";
 import { metricsReceiverPlugin } from "./plugins/metrics-receiver";
+import { onboardingRoutesPlugin } from "./plugins/onboarding-routes";
 import { otlpReceiverPlugin } from "./plugins/otlp-receiver";
 import { platformRoutesPlugin } from "./plugins/platform-routes";
 import { profileRoutesPlugin } from "./plugins/profile-routes";
@@ -91,6 +93,7 @@ export {
 	botFilterPlugin,
 	connectedRoutesPlugin,
 	createAlertEvaluatorHandler,
+	dashboardRoutesPlugin,
 	defaultSpanEnrichmentPlugin,
 	evaluateAllRules,
 	genAiNormalizerPlugin,
@@ -99,6 +102,7 @@ export {
 	issueInsightsPlugin,
 	logsReceiverPlugin,
 	metricsReceiverPlugin,
+	onboardingRoutesPlugin,
 	otlpReceiverPlugin,
 	platformRoutesPlugin,
 	profileRoutesPlugin,
@@ -142,6 +146,7 @@ export const allPlugins = [
 	identityReceiverPlugin,
 	replayReceiverPlugin,
 	issueInsightsPlugin,
+	onboardingRoutesPlugin,
 	projectsRoutesPlugin,
 	queryRoutesPlugin,
 	usageQueryRoutesPlugin,
@@ -154,6 +159,7 @@ export const allPlugins = [
 	timelineRoutesPlugin,
 	connectedRoutesPlugin,
 	profileRoutesPlugin,
+	dashboardRoutesPlugin,
 ];
 
 export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>

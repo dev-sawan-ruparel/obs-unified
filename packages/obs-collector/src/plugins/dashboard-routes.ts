@@ -17,10 +17,19 @@ export const dashboardRoutesPlugin: CollectorPlugin = {
 	register(app) {
 		// SPA fallback: any /dashboard/* route that doesn't match a static file
 		// should serve the dashboard index.html
-		app.get("/dashboard/*", (c) => {
+		app.get("/dashboard/*", async (c) => {
 			// In CF Workers with [assets], the runtime serves static files before
-			// hitting this route. If we get here, the file doesn't exist, so we
-			// return a redirect to /dashboard/ which will serve index.html.
+			// hitting this route. If we get here under Workers with ASSETS, we can
+			// fetch and return `/dashboard/` (which serves the index.html SPA entrypoint)
+			// directly, preserving the client-side URL in the browser address bar.
+			const env = c.env as unknown as Record<string, unknown>;
+			const assets = env?.ASSETS as { fetch: typeof fetch } | undefined;
+			if (assets && typeof assets.fetch === "function") {
+				const url = new URL(c.req.url);
+				url.pathname = "/dashboard/";
+				return assets.fetch(new Request(url.toString(), c.req.raw));
+			}
+			// Fallback: redirects to SPA root
 			return c.redirect("/dashboard/");
 		});
 

@@ -176,10 +176,13 @@ export async function askGemini(
 				parts: [{ text: m.content }],
 			}));
 
-		const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GOOGLE_API_KEY}`;
+		const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 		const res = await fetch(url, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				"x-goog-api-key": env.GOOGLE_API_KEY ?? "",
+			},
 			body: JSON.stringify({
 				systemInstruction: systemInstruction
 					? { role: "system", parts: [{ text: systemInstruction }] }

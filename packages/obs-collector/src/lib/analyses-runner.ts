@@ -336,7 +336,7 @@ export async function runAllDueAnalyses(
 			? {
 					provider: "anthropic",
 					apiKey: ctx.env.ANTHROPIC_API_KEY,
-					model: narrativeModel ?? "claude-haiku-4-5",
+					model: narrativeModel ?? "claude-3-5-haiku-latest",
 					tracer: ctx.tracer,
 				}
 			: undefined;
