@@ -1,27 +1,88 @@
 import { useAnalytics } from "@obs-unified/analytics-sdk/react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { AskBox } from "../../../packages/dashboard/src/components/AskBox";
 import {
-	AIDashboard,
-	AlertsDashboard,
-	AskBox,
 	FilterGroup,
 	FilterPanel,
+} from "../../../packages/dashboard/src/components/FilterPanel";
+import { ProjectSwitcher } from "../../../packages/dashboard/src/components/ProjectSwitcher";
+import {
 	GlobalSearch,
-	HealthDashboard,
-	InvestigationPage,
-	InvestigationsDashboard,
-	LogsDashboard,
-	ProjectSwitcher,
-	ProjectsDashboard,
-	ReplayDashboard,
-	ResourcesDashboard,
-	ServiceMapDashboard,
-	TelemetryDashboard,
-	TimelineDashboard,
 	TimeRangePicker,
-	UsageDashboard,
-	UserDashboard,
-} from "@obs-unified/dashboard";
-import { useEffect, useState } from "react";
+} from "../../../packages/dashboard/src/components/TopBar";
+
+const AIDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/AIDashboard").then(
+		(m) => ({
+			default: m.AIDashboard,
+		}),
+	),
+);
+const AlertsDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/AlertsDashboard").then(
+		(m) => ({ default: m.AlertsDashboard }),
+	),
+);
+const HealthDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/HealthDashboard").then(
+		(m) => ({ default: m.HealthDashboard }),
+	),
+);
+const InvestigationPage = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/InvestigationPage").then(
+		(m) => ({ default: m.InvestigationPage }),
+	),
+);
+const InvestigationsDashboard = lazy(() =>
+	import(
+		"../../../packages/dashboard/src/dashboards/InvestigationsDashboard"
+	).then((m) => ({ default: m.InvestigationsDashboard })),
+);
+const LogsDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/LogsDashboard").then(
+		(m) => ({ default: m.LogsDashboard }),
+	),
+);
+const ProjectsDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/ProjectsDashboard").then(
+		(m) => ({ default: m.ProjectsDashboard }),
+	),
+);
+const ReplayDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/ReplayDashboard").then(
+		(m) => ({ default: m.ReplayDashboard }),
+	),
+);
+const ResourcesDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/ResourcesDashboard").then(
+		(m) => ({ default: m.ResourcesDashboard }),
+	),
+);
+const ServiceMapDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/ServiceMapDashboard").then(
+		(m) => ({ default: m.ServiceMapDashboard }),
+	),
+);
+const TelemetryDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/TelemetryDashboard").then(
+		(m) => ({ default: m.TelemetryDashboard }),
+	),
+);
+const TimelineDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/TimelineDashboard").then(
+		(m) => ({ default: m.TimelineDashboard }),
+	),
+);
+const UsageDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/UsageDashboard").then(
+		(m) => ({ default: m.UsageDashboard }),
+	),
+);
+const UserDashboard = lazy(() =>
+	import("../../../packages/dashboard/src/dashboards/UserDashboard").then(
+		(m) => ({ default: m.UserDashboard }),
+	),
+);
 
 // ── Hash Router ──
 
@@ -356,63 +417,73 @@ export function App() {
 					</div>
 				</header>
 				<main className="min-h-0 flex-1 overflow-y-auto">
-					{route.tab === "playground" && <Playground />}
-					{route.tab === "health" && <HealthDashboard />}
-					{route.tab === "investigate" &&
-						(route.investigationId ? (
-							<InvestigationPage
-								investigationId={route.investigationId}
+					<Suspense fallback={<DashboardLoading />}>
+						{route.tab === "playground" && <Playground />}
+						{route.tab === "health" && <HealthDashboard />}
+						{route.tab === "investigate" &&
+							(route.investigationId ? (
+								<InvestigationPage
+									investigationId={route.investigationId}
+									onNavigate={navigate}
+								/>
+							) : (
+								<InvestigationsDashboard onNavigate={navigate} />
+							))}
+						{route.tab === "traces" && (
+							<TelemetryDashboard
+								mode="traces"
+								initialTraceId={route.traceId}
+								initialService={route.service}
 								onNavigate={navigate}
 							/>
-						) : (
-							<InvestigationsDashboard onNavigate={navigate} />
-						))}
-					{route.tab === "traces" && (
-						<TelemetryDashboard
-							mode="traces"
-							initialTraceId={route.traceId}
-							initialService={route.service}
-							onNavigate={navigate}
-						/>
-					)}
-					{route.tab === "service-map" && (
-						<ServiceMapDashboard onNavigate={navigate} />
-					)}
-					{route.tab === "issues" && (
-						<TelemetryDashboard
-							mode="issues"
-							initialIssueId={route.issueId}
-							onNavigate={navigate}
-						/>
-					)}
-					{route.tab === "logs" && <LogsDashboard />}
-					{route.tab === "ai" && <AIDashboard />}
-					{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
-					{route.tab === "replay" && (
-						<ReplayDashboard
-							initialSessionId={route.sessionId}
-							onNavigate={navigate}
-						/>
-					)}
-					{route.tab === "timeline" && (
-						<TimelineDashboard
-							initialSessionId={route.sessionId}
-							onNavigate={navigate}
-						/>
-					)}
-					{route.tab === "alerts" && <AlertsDashboard />}
-					{route.tab === "resources" && <ResourcesDashboard />}
-					{route.tab === "projects" && <ProjectsDashboard />}
-					{route.tab === "users" && route.userId && (
-						<UserDashboard
-							userId={route.userId}
-							onNavigate={(href) => {
-								location.hash = href.startsWith("#") ? href.slice(1) : href;
-							}}
-						/>
-					)}
+						)}
+						{route.tab === "service-map" && (
+							<ServiceMapDashboard onNavigate={navigate} />
+						)}
+						{route.tab === "issues" && (
+							<TelemetryDashboard
+								mode="issues"
+								initialIssueId={route.issueId}
+								onNavigate={navigate}
+							/>
+						)}
+						{route.tab === "logs" && <LogsDashboard />}
+						{route.tab === "ai" && <AIDashboard />}
+						{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
+						{route.tab === "replay" && (
+							<ReplayDashboard
+								initialSessionId={route.sessionId}
+								onNavigate={navigate}
+							/>
+						)}
+						{route.tab === "timeline" && (
+							<TimelineDashboard
+								initialSessionId={route.sessionId}
+								onNavigate={navigate}
+							/>
+						)}
+						{route.tab === "alerts" && <AlertsDashboard />}
+						{route.tab === "resources" && <ResourcesDashboard />}
+						{route.tab === "projects" && <ProjectsDashboard />}
+						{route.tab === "users" && route.userId && (
+							<UserDashboard
+								userId={route.userId}
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
+					</Suspense>
 				</main>
 			</div>
+		</div>
+	);
+}
+
+function DashboardLoading() {
+	return (
+		<div className="flex h-full items-center justify-center text-[0.8125rem] text-sys-on-surface-muted">
+			Loading dashboard…
 		</div>
 	);
 }

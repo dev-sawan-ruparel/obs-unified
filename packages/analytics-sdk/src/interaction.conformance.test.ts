@@ -3,9 +3,8 @@
 // Fixture data is duplicated inline (rather than `readFileSync`'d) so the
 // browser-SDK tsconfig doesn't need to pull in node types. The polyglot
 // SDKs and the server-side telemetry SDK load the JSON file directly —
-// any drift between the two copies is caught by a checked-in invariant
-// in `tests/conformance/interaction-id/parity.test.ts` (not yet present
-// — TODO: add as a one-time CI check that hashes both representations).
+// any drift between the two copies is caught by
+// `packages/telemetry-sdk/src/interaction-fixture-parity.test.ts`.
 
 import { describe, expect, test } from "vitest";
 import {

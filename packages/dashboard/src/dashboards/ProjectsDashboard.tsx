@@ -1,8 +1,4 @@
-import type {
-	IngestKey,
-	IngestKeyWithPlaintext,
-	Project,
-} from "@obs-unified/types";
+import type { Project } from "@obs-unified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button";
 import { DataTable } from "../components/DataTable";
@@ -209,4 +205,4 @@ export function ProjectsDashboard() {
 }
 
 // Re-export for convenience.
-export type { IngestKey, IngestKeyWithPlaintext };
+export type { IngestKey, IngestKeyWithPlaintext } from "@obs-unified/types";
