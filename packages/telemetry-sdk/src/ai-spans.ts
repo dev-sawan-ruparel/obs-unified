@@ -26,7 +26,7 @@ import type { ChildSpan } from "./span";
 import { getActiveSpan } from "./span";
 
 // ── Session context ────────────────────────────────────────────────────────
-// Module-level session/user context — stamped on every AI span created
+// Async-local session/user context — stamped on every AI span created
 // within the context window. Per-span overrides still win via setAttribute.
 
 interface AISessionContext {
@@ -34,11 +34,9 @@ interface AISessionContext {
 	userId?: string;
 }
 
-let currentContext: AISessionContext = {};
 const contextStorage = new AsyncLocalStorage<AISessionContext>();
 
-const activeContext = (): AISessionContext =>
-	contextStorage.getStore() ?? currentContext;
+const activeContext = (): AISessionContext => contextStorage.getStore() ?? {};
 
 /**
  * Set the session / user that subsequent AI spans should be grouped under.
@@ -51,18 +49,15 @@ const activeContext = (): AISessionContext =>
  */
 export function setAISessionContext(ctx: AISessionContext): () => void {
 	const previous = activeContext();
-	currentContext = { ...ctx };
-	contextStorage.enterWith(currentContext);
+	contextStorage.enterWith({ ...ctx });
 	return () => {
-		currentContext = previous;
-		contextStorage.enterWith(previous);
+		contextStorage.enterWith({ ...previous });
 	};
 }
 
 /** Clear the session context. */
 export function clearAISessionContext(): void {
-	currentContext = {};
-	contextStorage.enterWith(currentContext);
+	contextStorage.enterWith({});
 }
 
 /** Read the current session context (mostly for testing). */

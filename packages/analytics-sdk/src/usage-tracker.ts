@@ -263,27 +263,43 @@ export class UsageTracker {
 		}
 
 		try {
-			const start = performance.now();
-			// Note: do NOT send `Cache-Control` here — adding it to the request
-			// would force a CORS preflight that needs the collector to allow
-			// it, and we already pass `cache: "no-store"` so the browser will
-			// bypass HTTP cache without the header.
-			const res = await fetch(healthUrl, {
-				method: "GET",
-				cache: "no-store",
-			});
-			if (!res.ok) {
-				this.warnClockSyncOnce(`clock sync HTTP ${res.status}`, healthUrl);
-				return;
+			let best: { rtt: number; offsetMs: number } | null = null;
+			for (let i = 0; i < 3; i += 1) {
+				const startPerf = performance.now();
+				const startWall = Date.now();
+				// Note: do NOT send `Cache-Control` here — adding it to the request
+				// would force a CORS preflight that needs the collector to allow
+				// it, and we already pass `cache: "no-store"` so the browser will
+				// bypass HTTP cache without the header.
+				const res = await fetch(healthUrl, {
+					method: "GET",
+					cache: "no-store",
+				});
+				if (!res.ok) {
+					this.warnClockSyncOnce(`clock sync HTTP ${res.status}`, healthUrl);
+					return;
+				}
+				const rtt = performance.now() - startPerf;
+				const localAssumeAtServerResp = startWall + rtt / 2;
+				const body = (await res.json().catch(() => null)) as {
+					serverTimeMs?: unknown;
+				} | null;
+				const bodyServerTime =
+					typeof body?.serverTimeMs === "number" &&
+					Number.isFinite(body.serverTimeMs)
+						? body.serverTimeMs
+						: null;
+				const dateStr = res.headers.get("Date");
+				const headerServerTime = dateStr ? new Date(dateStr).getTime() : NaN;
+				const serverTime =
+					bodyServerTime ??
+					(Number.isFinite(headerServerTime) ? headerServerTime : null);
+				if (serverTime === null) continue;
+				const sample = { rtt, offsetMs: serverTime - localAssumeAtServerResp };
+				if (!best || sample.rtt < best.rtt) best = sample;
 			}
-			const rtt = performance.now() - start;
-
-			// Try to find a Date header which all normal servers append automatically
-			const dateStr = res.headers.get("Date");
-			if (dateStr) {
-				const serverTime = new Date(dateStr).getTime();
-				const localAssumeAtServerResp = Date.now() - rtt / 2;
-				this.timeOffsetMs = serverTime - localAssumeAtServerResp;
+			if (best) {
+				this.timeOffsetMs = best.offsetMs;
 				if (this.config.debug)
 					console.log(
 						"[analytics-sdk] clock synced, offset:",
@@ -354,13 +370,25 @@ export class UsageTracker {
 	}
 
 	public get sessionId(): string {
+		return getStorageValue(
+			sessionStorage,
+			`${this.config.storagePrefix}_session_id`,
+		);
+	}
+
+	private ensureSessionCurrent(restartRecorder = true): string {
 		const rotated = this.checkAndRotateSession();
 		const id = getStorageValue(
 			sessionStorage,
 			`${this.config.storagePrefix}_session_id`,
 		);
 
-		if (rotated && this.isRecording && typeof window !== "undefined") {
+		if (
+			restartRecorder &&
+			rotated &&
+			this.isRecording &&
+			typeof window !== "undefined"
+		) {
 			// Restart rrweb so the new session gets a FullSnapshot naturally
 			if (this.config.debug)
 				console.log("[analytics-sdk] session rotated, restarting recorder");
@@ -462,9 +490,9 @@ export class UsageTracker {
 		if (typeof window === "undefined" || this.replayStopFn) return;
 		if (this.replayInterval) return; // guard against double-start
 
-		this.isRecording = true;
 		// Ensure session is rotated if stale before we begin
-		this.checkAndRotateSession();
+		this.ensureSessionCurrent(false);
+		this.isRecording = true;
 
 		// Privacy: mask all user input to avoid capturing PII. SDK defaults are
 		// safe out of the box; consumers can override via `replayPrivacyOptions`
@@ -546,6 +574,7 @@ export class UsageTracker {
 		if (this.replayEvents.length === 0) return;
 		const events = [...this.replayEvents];
 		this.replayEvents = [];
+		const sessionId = this.ensureSessionCurrent();
 
 		try {
 			const baseUrl = this.collectorBaseUrl();
@@ -555,7 +584,7 @@ export class UsageTracker {
 				method: "POST",
 				headers,
 				body: JSON.stringify({
-					sessionId: this.sessionId,
+					sessionId,
 					visitorId: this.visitorId,
 					sequenceNumber: this.replaySequence++,
 					events,
@@ -611,11 +640,12 @@ export class UsageTracker {
 					)?.duration
 				: undefined;
 
+		const sessionId = this.ensureSessionCurrent();
 		this.dispatch([
 			{
 				type: "page_view",
 				name: "page_view",
-				sessionId: this.sessionId,
+				sessionId,
 				visitorId: this.visitorId,
 				path,
 				title,
@@ -635,11 +665,12 @@ export class UsageTracker {
 	}
 
 	trackInteraction(name: string, properties?: Record<string, unknown>): void {
+		const sessionId = this.ensureSessionCurrent();
 		this.dispatch([
 			{
 				type: "interaction",
 				name,
-				sessionId: this.sessionId,
+				sessionId,
 				visitorId: this.visitorId,
 				path: window.location.pathname,
 				title: document.title,
@@ -686,12 +717,13 @@ export class UsageTracker {
 	}): void {
 		// Error filter (from A)
 		if (this.config.errorFilter && !this.config.errorFilter(error)) return;
+		const sessionId = this.ensureSessionCurrent();
 
 		this.dispatch([
 			{
 				type: "frontend_error",
 				name: "frontend_error",
-				sessionId: this.sessionId,
+				sessionId,
 				visitorId: this.visitorId,
 				path: window.location.pathname,
 				title: document.title,

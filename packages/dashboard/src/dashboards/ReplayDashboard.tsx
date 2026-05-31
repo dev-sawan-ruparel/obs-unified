@@ -381,8 +381,9 @@ export function ReplayDashboard({
 
 	const combinedTimeline = useMemo(() => {
 		if (!selected) return [];
-		const traces = traceEvents.map((t) => ({
+		const traces = traceEvents.map((t, index) => ({
 			eventId: Object.hasOwn(t, "eventId") ? t.eventId : t.traceId,
+			timelineKey: `trace:${t.traceId}:${t.startTime}:${index}`,
 			eventType: "backend_trace",
 			eventName: `${t.spanName} (${t.serviceName})`,
 			pagePath: t.statusMessage || `${t.durationMs}ms`,
@@ -392,8 +393,9 @@ export function ReplayDashboard({
 			isTrace: true,
 			originalTrace: t,
 		}));
-		const evs = selected.events.map((e) => ({
+		const evs = selected.events.map((e, index) => ({
 			...e,
+			timelineKey: `event:${e.eventId ?? "missing"}:${e.occurredAt}:${index}`,
 			isTrace: false,
 			originalTrace: null,
 		}));
@@ -407,7 +409,7 @@ export function ReplayDashboard({
 		if (playbackTime === null) return null;
 		for (let i = combinedTimeline.length - 1; i >= 0; i--) {
 			if (new Date(combinedTimeline[i].occurredAt).getTime() <= playbackTime) {
-				return combinedTimeline[i].eventId;
+				return combinedTimeline[i].timelineKey;
 			}
 		}
 		return null;
@@ -748,10 +750,10 @@ export function ReplayDashboard({
 								</div>
 								<div className="flex-1 overflow-y-auto pb-4">
 									{combinedTimeline.map((ev) => {
-										const isActive = ev.eventId === activeEvent;
+										const isActive = ev.timelineKey === activeEvent;
 										return (
 											<div
-												key={ev.eventId}
+												key={ev.timelineKey}
 												className={`flex items-start gap-2 py-1.5 px-3 border-b-[1px] border-sys-surface-low font-mono text-[0.75rem] transition-none ${
 													isActive
 														? "bg-sys-surface-high border-l-[4px] border-l-sys-primary"

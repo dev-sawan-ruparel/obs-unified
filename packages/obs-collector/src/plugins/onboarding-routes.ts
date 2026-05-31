@@ -23,7 +23,7 @@ export const onboardingRoutesPlugin: CollectorPlugin = {
 				safeCount(db, "SELECT COUNT(*) AS n FROM session_replay_metadata"),
 				safeCount(
 					db,
-					"SELECT COUNT(*) AS n FROM telemetry_spans WHERE attributes_json LIKE '%obs.interaction.id%'",
+					"SELECT COUNT(*) AS n FROM telemetry_spans WHERE interaction_id IS NOT NULL",
 				),
 			]);
 

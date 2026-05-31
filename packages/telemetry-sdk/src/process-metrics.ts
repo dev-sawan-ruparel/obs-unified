@@ -120,6 +120,11 @@ interface ProcessMetricsHandle {
 	stop: () => void;
 }
 
+let activeProcessMetrics: {
+	id: symbol;
+	stop: () => void;
+} | null = null;
+
 /**
  * Start sampling `process.cpu.time`, `process.cpu.utilization`, and
  * `process.memory.usage`, pushing them to the collector at `intervalMs`
@@ -147,6 +152,7 @@ export function enableProcessMetrics(
 		// Not Node — nothing to do.
 		return { stop: () => {} };
 	}
+	activeProcessMetrics?.stop();
 
 	const intervalMs = opts.intervalMs ?? 30_000;
 	const startTimeNano = nowNano();
@@ -238,7 +244,16 @@ export function enableProcessMetrics(
 	// dev process that finishes work shouldn't hang waiting on it.
 	if (typeof timer.unref === "function") timer.unref();
 
+	const id = Symbol("process-metrics");
+	const stop = () => {
+		clearInterval(timer);
+		if (activeProcessMetrics?.id === id) {
+			activeProcessMetrics = null;
+		}
+	};
+	activeProcessMetrics = { id, stop };
+
 	return {
-		stop: () => clearInterval(timer),
+		stop,
 	};
 }

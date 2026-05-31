@@ -235,8 +235,9 @@ export const createTelemetryCollectorApp = (
 		config.sqlDb,
 	);
 
-	// Health endpoint — no auth required
-	app.get("/health", (c) => c.json({ status: "ok" }));
+	// Health endpoint — no auth required. Includes millisecond server time so
+	// browser SDKs can estimate clock offset without relying on coarse Date.
+	app.get("/health", (c) => c.json({ status: "ok", serverTimeMs: Date.now() }));
 
 	// CORS for ingest endpoints (browser SDK sends directly)
 	app.use("/v1/*", async (c, next) => {

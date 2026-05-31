@@ -45,13 +45,6 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Boundary traces that exceed the arbitrary span limit lose spans, causing wrong root span identification, wrong span/error counts, and broken p95 latency aggregations.
   * **Next Action:** Re-architect trace listing to aggregate traces at the database layer (via trace headers or SQL group by), then paginate traces rather than raw spans.
 
-- [ ] **Off-by-One Floor Math in Percentile CTE Calculations**
-  * **Location:** [`packages/obs-collector/src/analyses/tier0.ts:283`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/analyses/tier0.ts#L283) (also check related analysis definitions)
-  * **Description:** Some SQLite CTE percentile calculations still select ranks with floor-style integer casts, including `CAST(0.99 * n AS INTEGER)` in `throughputSlope`.
-  * **Verification:** Partially fixed in some analysis paths, but not fully closed in current code.
-  * **Risk:** High. Floor division understates p95/p99 latency metrics on small-to-medium datasets, which suppresses warning and critical alerts.
-  * **Next Action:** Standardize all SQL analyses on nearest-rank ceil formulas (e.g. `(99 * n + 99) / 100`) and add small-window test coverage.
-
 - [ ] **Postgres Adapter Rewrites SQLite Queries dynamically via Regular Expressions**
   * **Location:** [`packages/obs-collector/src/lib/sql-db-postgres.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/sql-db-postgres.ts)
   * **Description:** SQLite query syntax is translated on-the-fly to Postgres syntax by executing string regex replacements (translating `json_extract`, `strftime`, `datetime('now', ...)`).
@@ -88,13 +81,11 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Exposed credentials.
   * **Next Action:** Refactor to pass the Google API Key via the standard `x-goog-api-key` HTTP header.
 
-- [ ] **Dashboard Replay Timeline utilizes Non-Unique React keys**
-  * **Location:** [`packages/dashboard/src/dashboards/ReplayDashboard.tsx:350`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/ReplayDashboard.tsx#L350)
-  * **Description:** The merged timeline key defaults to the optional `eventId`.
-  * **Risk:** Medium. React key conflicts lead to misaligned DOM rendering and state attachments in the player list.
-  * **Next Action:** Map timeline rows using guaranteed unique keys (e.g. index-composite or generated IDs).
-
 ### Resolved Functional Issues
+- [x] **Off-by-One Floor Math in Percentile CTE Calculations**
+  * *Resolution:* Verified `tier0.ts` and `derive.ts` now use nearest-rank ceil formulas such as `(95 * n + 99) / 100` and `(99 * n + 99) / 100`; no floor-style p95/p99 casts remain in analysis SQL.
+- [x] **Dashboard Replay Timeline utilizes Non-Unique React keys**
+  * *Resolution:* Added stable composite `timelineKey` values for replay events and backend trace rows; active-row matching and React keys now use the unique timeline key instead of optional `eventId`.
 - [x] **Postgres Session Timeout Statement runs in Autocommit Mode**
   * *Resolution:* Verified `PostgresAdapter` now configures session-level `SET statement_timeout` once on pool `connect`, and uses `SET LOCAL` only inside explicit `BEGIN`/`COMMIT` batch transactions.
 - [x] **Active Trace Navigation Guard blocks Deep Linking in Telemetry Dashboard**
@@ -121,19 +112,11 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Evaluating hundreds of rules across tenant projects will exceed the execution bounds of cron handlers. A single hung query blocks the entire alert pipeline.
   * **Next Action:** Process rule evaluation concurrently with safe concurrency limits, and attach per-rule database statement timeouts and `AbortController` guards.
 
-- [ ] **Telemetry SDK setInterval Memory Leak**
-  * **Location:** [`packages/telemetry-sdk/src/process-metrics.ts:132`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/process-metrics.ts#L132)
-  * **Description:** `enableProcessMetrics()` triggers new metric intervals without clearing existing ones during re-initialization or HMR runs.
-  * **Risk:** Medium. Double-emitted metrics and cumulative node timer leaks.
-  * **Next Action:** Track active intervals in a module-global reference and clear them on re-initialization.
-
-- [ ] **Standalone Collector SIGTERM abrupt Process termination**
-  * **Location:** [`apps/collector-node/src/server.ts:103`](file:///Users/sawan/projects/obs-unified/apps/collector-node/src/server.ts#L103)
-  * **Description:** On SIGTERM, the standalone node server closes the Postgres connection pool and terminates via `process.exit(0)` without closing the HTTP server handle.
-  * **Risk:** Medium. Aborts active, in-flight requests during rolling deployments.
-  * **Next Action:** Capture the HTTP server handle and trigger `server.close()` to drain active requests gracefully with a deadline before database connection teardowns.
-
 ### Resolved Reliability Issues
+- [x] **Telemetry SDK setInterval Memory Leak**
+  * *Resolution:* `enableProcessMetrics()` now tracks the active sampler, stops any previous interval on re-initialization, and makes returned `stop()` handles idempotent.
+- [x] **Standalone Collector SIGTERM abrupt Process termination**
+  * *Resolution:* The standalone collector now keeps the HTTP server handle, calls `server.close()` with a 10s deadline on SIGTERM/SIGINT, then closes the Postgres pool.
 - [x] **Analytics SDK rrweb Recorder Lifespan and Cleanup Memory Leaks**
   * *Resolution:* Verified `AnalyticsProvider` now calls `tracker.stopReplay()` on unmount, and `stopReplay()` clears the rrweb stop function, interval, sequence, and buffered events.
 - [x] **Analytics SDK Global installed flag monkey-patch leaks**
@@ -148,29 +131,15 @@ This document is the single, unified source of truth for all codebase issues, co
 ## ── P2: PERFORMANCE & SCALE ASSUMPTIONS ──
 
 ### Open Issues
-- [ ] **Dashboard Onboarding counts execute expensive Full Table Substring Scan**
-  * **Location:** [`packages/obs-collector/src/plugins/onboarding-routes.ts:24-27`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/onboarding-routes.ts#L24-L27)
-  * **Description:** Counting interaction-tagged spans is calculated by running a `LIKE '%obs.interaction.id%'` query against the high-volume `telemetry_spans` table.
-  * **Risk:** Medium/High. On production databases, this full table scan will lock database sockets and time out.
-  * **Next Action:** Refactor interaction tracking to store flags in pre-indexed columns, or query only within a very short, indexed time window (e.g. last 1 hour).
-
-- [ ] **Coarse Date-Header Time Sync in Client-Side SDK**
-  * **Location:** [`packages/analytics-sdk/src/usage-tracker.ts:248-297`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/analytics-sdk/src/usage-tracker.ts#L248-L297)
-  * **Description:** Time sync calculates the client-server offset by requesting `/health` and reading the HTTP `Date` header.
-  * **Risk:** Medium. HTTP `Date` headers have a coarse 1-second resolution, which is too loose for millisecond-level telemetry timestamp correlation.
-  * **Next Action:** Expose a precise millisecond timestamp in the `/health` endpoint response body, and run multiple RTT samples to calculate stable network latency.
-
-- [ ] **Analytics SDK Session rotate has Observable Side Effects**
-  * **Location:** [`packages/analytics-sdk/src/usage-tracker.ts:356-372`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/analytics-sdk/src/usage-tracker.ts#L356-L372)
-  * **Description:** The `get sessionId` getter rotates the session and restarts the recorder on invocation.
-  * **Risk:** Medium. Violates getter idempotency; consecutive reads can stamp a single batch of events with multiple, inconsistent session IDs.
-  * **Next Action:** Separate state mutation from reads. Perform session rotation checks on explicit user activity ticks, and cache the session ID once per batch dispatch.
-
-- [ ] **CPU Sparkline averages services, contradicting headline metric**
-  * **Location:** [`packages/obs-collector/src/analyses/tier0.ts:516`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/analyses/tier0.ts#L516)
-  * **Description:** The CPU sparkline averages fleet-wide service CPU data while the main tile headline metrics report the single busiest service.
-  * **Risk:** Low/Medium. Dashboard visualization displays contradictory information.
-  * **Next Action:** Align both queries to calculate averages or track peak utilization consistently.
+### Resolved Performance & Scale Issues
+- [x] **Dashboard Onboarding counts execute expensive Full Table Substring Scan**
+  * *Resolution:* Onboarding now counts interaction-tagged spans through the denormalized indexed `interaction_id` column instead of scanning `attributes_json` with `LIKE '%obs.interaction.id%'`.
+- [x] **Coarse Date-Header Time Sync in Client-Side SDK**
+  * *Resolution:* `/health` now returns `serverTimeMs`; the analytics SDK samples the health endpoint three times, uses the lowest-RTT sample, and falls back to the HTTP `Date` header only when the precise body timestamp is unavailable.
+- [x] **Analytics SDK Session rotate has Observable Side Effects**
+  * *Resolution:* `sessionId` is now a pure getter. Session rotation and rrweb restart happen through explicit `ensureSessionCurrent()` calls at activity/flush boundaries, with a single session snapshot used per event batch.
+- [x] **CPU Sparkline averages services, contradicting headline metric**
+  * *Resolution:* Verified the CPU sparkline is already scoped to the current top service selected by `top_service`, matching the headline max-service metric.
 
 ---
 
@@ -183,18 +152,6 @@ These lower-priority items were present in the deleted source trackers but were 
   * **Source:** `FUNCTIONAL_CODE_SMELLS.md` HIGH Dashboard races.
   * **Risk:** Rapid filter changes can still allow stale responses or swallowed errors in user-facing dashboards.
   * **Next Action:** Standardize abortable dashboard loaders and visible error/empty states.
-
-- [ ] **AI session context has a module-global fallback**
-  * **Location:** `packages/telemetry-sdk/src/ai-spans.ts`
-  * **Source:** `FUNCTIONAL_CODE_SMELLS.md` MEDIUM Telemetry / analytics SDK.
-  * **Risk:** Hosts that use the global `setAISessionContext` path instead of `AsyncLocalStorage` can stamp concurrent AI spans with the wrong session/user.
-  * **Next Action:** Prefer AsyncLocalStorage-only request scoping in Node and make global context opt-in/test-only.
-
-- [ ] **Standalone collector S3 defaults need production validation**
-  * **Location:** `apps/collector-node/src/server.ts`
-  * **Source:** `FUNCTIONAL_CODE_SMELLS.md` MEDIUM Apps / CLI.
-  * **Risk:** Path-style and region defaults are convenient for local MinIO but easy to deploy accidentally in production.
-  * **Next Action:** Validate S3 configuration at startup and make local-development defaults explicit.
 
 ---
 
@@ -238,6 +195,10 @@ These were present in the old trackers but were either omitted from the first ag
   * *Resolution:* Verified AI evaluations only post when a trace ID exists and labels fail when answers are empty.
 - [x] **Non-functional parser/build/type-safety fixes**
   * *Resolution:* Verified the previous non-functional tracker's completed parser allocation, `ByteBuilder`, pool error handler, and unsafe Hono cast fixes were already merged before consolidation.
+- [x] **AI session context has a module-global fallback**
+  * *Resolution:* AI span context now uses `AsyncLocalStorage` without a module-global ambient fallback, preventing cross-request context bleed while preserving `setAISessionContext()` reset semantics.
+- [x] **Standalone collector S3 defaults need production validation**
+  * *Resolution:* Verified the standalone collector requires an explicit non-default `S3_REGION`, defaults `S3_FORCE_PATH_STYLE` to `false`, and fails startup when required S3 credentials/bucket config are missing.
 
 ---
 

@@ -101,7 +101,7 @@ const requestEnv: CollectorEnv = {
 };
 
 const port = env.PORT;
-serve(
+const server = serve(
 	{
 		fetch: (request) => app.fetch(request, requestEnv),
 		port,
@@ -116,11 +116,23 @@ serve(
 
 const shutdown = async (signal: string) => {
 	console.log(`[obs-unified] received ${signal}, draining…`);
+	await closeServerWithDeadline(10_000);
 	await pool.end().catch(() => {});
 	process.exit(0);
 };
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+function closeServerWithDeadline(timeoutMs: number): Promise<void> {
+	return new Promise((resolve) => {
+		const timeout = setTimeout(() => resolve(), timeoutMs);
+		if (typeof timeout.unref === "function") timeout.unref();
+		server.close(() => {
+			clearTimeout(timeout);
+			resolve();
+		});
+	});
+}
 
 function readEnv() {
 	const required = (k: string): string => {
