@@ -3,7 +3,7 @@ export type QA = { q: string; a: string };
 export const FAQS: QA[] = [
   {
     q: "What is obs-unified?",
-    a: "obs-unified is an open-source unified observability platform. A single collector ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, and analyses, then connects them through one identity chain and one dashboard. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+    a: "obs-unified is an open-source unified observability platform built for agentic debugging. A single collector ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, and analyses, then connects them through one identity chain and one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",

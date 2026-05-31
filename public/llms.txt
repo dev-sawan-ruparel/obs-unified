@@ -94,8 +94,9 @@ initObservability({
 - **How is it different from Datadog/Sentry/PostHog?** Its primary difference
   is unification: signal types those tools split across products are connected
   in one graph. It also runs on your own infrastructure with no vendor in the
-  data path. Every detail page surfaces the entity's neighbors via the Connected
-  rail, so cross-signal pivots are ≤2 clicks.
+  data path. It is built for agentic debugging: one telemetry graph agents can
+  traverse from user action to backend trace, logs, replay, AI cost, and CPU
+  profile.
 - **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
   you run it on (Cloudflare Workers + D1 + R2, or Node with Postgres + S3).
 - **What's the data retention model?** Configurable via RETENTION_HOURS

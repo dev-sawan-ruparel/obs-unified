@@ -11,7 +11,7 @@ const graph = {
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Cross-platform (Cloudflare Workers, Node.js, Bun, Deno)",
       description:
-        "Unified observability platform that connects OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, and analyses through one collector, one identity chain, and one dashboard. The local first-run image includes Postgres, collector, dashboard, blob storage, and seed data.",
+        "Built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile. The local first-run image includes Postgres, collector, dashboard, blob storage, and seed data.",
       url: "https://obsunified.com/",
       programmingLanguage: ["TypeScript", "Go", "Rust"],
       license: "https://opensource.org/license/mit",
@@ -26,6 +26,7 @@ const graph = {
         "User profiles and identity stitching",
         "Self-hosted on your own infrastructure",
         "Unified collector, identity chain, and dashboard",
+        "Agentic debugging graph from user action to CPU profile",
       ],
     },
     {

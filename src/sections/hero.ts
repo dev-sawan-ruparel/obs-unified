@@ -11,13 +11,13 @@ export function renderHero(): string {
         <span class="accent">for every signal.</span>
       </h1>
       <p class="hero-lead">
-        <strong>obs-unified</strong> puts traces, logs, AI calls, usage events,
-        replays, alerts, profiles, and analyses into <strong>one collector</strong>,
-        <strong>one identity chain</strong>, and <strong>one dashboard</strong>.
-        The <strong>Connected rail</strong> on every detail page exposes the
-        neighboring signals, so investigations move across the whole system in
-        <strong>≤2 clicks</strong>. Start locally with one Docker image, then run
-        on Cloudflare Workers + D1 + R2 or Node + Postgres + S3.
+        <strong>Built for agentic debugging:</strong> one telemetry graph agents
+        can traverse from user action to backend trace, logs, replay, AI cost,
+        and CPU profile. <strong>obs-unified</strong> puts every signal into
+        <strong>one collector</strong>, <strong>one identity chain</strong>, and
+        <strong>one dashboard</strong>, so humans and agents discover root cause
+        faster. Start locally with one Docker image, then run on Cloudflare
+        Workers + D1 + R2 or Node + Postgres + S3.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">

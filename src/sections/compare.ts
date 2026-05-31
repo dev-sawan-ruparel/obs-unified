@@ -127,7 +127,7 @@ const ROWS: Row[] = [
   },
   {
     label: "Cross-signal pivots",
-    obs:       { v: "≤2 clicks across all",      tone: "yes" },
+    obs:       { v: "One traversable graph",     tone: "yes" },
     datadog:   { v: "Within platform",           tone: "partial", ref: "dd-correlation" },
     sentry:    { v: "Within platform · trace-id", tone: "partial", ref: "se-correlation" },
     posthog:   { v: "Within event store",        tone: "partial", ref: "ph-correlation" },
@@ -205,7 +205,7 @@ export function renderCompare(): string {
       <h2 id="compare-title">One stack instead of three (or nine)</h2>
       <p class="section-lead">
         Most teams glue an APM, a product-analytics tool, an error/session tool, and now an LLM-observability tool together.
-        obs-unified unifies those workflows under one identity chain and one dashboard, so you can pivot between every signal type in ≤2 clicks while keeping the data plane in your infrastructure.
+        obs-unified unifies those workflows under one identity chain and one dashboard, so humans and agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile while keeping the data plane in your infrastructure.
       </p>
     </header>
     <div class="cmp-scroll" role="region" aria-label="Comparison table" tabindex="0">
