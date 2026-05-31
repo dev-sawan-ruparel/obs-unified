@@ -25,6 +25,7 @@
 - **`packages/obs-collector/src/lib/store.ts:457`** — `getOverview` caps spans at `traceLimit*50` then reconstructs traces in JS; boundary traces lose spans/root, corrupting `spanCount`/`errorRate`/`p95`. Same shape in `getIssueOverview`.
 - **`packages/obs-collector/src/lib/usage-store.ts:496`** — "slow sessions" filter reads only `$.loadTimeMs` while ingest accepts `load_time_ms`/`durationMs` too → slow sessions silently excluded.
 - **`packages/obs-collector/src/analyses/tier0.ts:283`** (and `derive.ts`, `investigations.ts`) — percentile CTE uses `CAST(0.95·n AS INT)` (floor) instead of nearest-rank ceil → **p95/p99 understated**, causing missed warn/critical alerts. On windows under 20 spans the "tail" degenerates to a single row.
+- **`packages/obs-collector/src/lib/analyses-runner.ts:337`** — Narrative LLM fallback hardcodes the default Anthropic model ID as `"claude-haiku-4-5"`. This model does not exist in Anthropic's API, causing all downstream narrative generation attempts to fail with a 404 error unless explicitly overridden by the `NARRATIVE_MODEL` environment variable.
 
 ### Postgres correctness
 - **`packages/obs-collector/src/lib/sql-db-postgres.ts:122`** — `SET LOCAL statement_timeout` runs with no surrounding transaction (autocommit), so it's a **no-op** — the 30s query timeout never applies on Postgres. The value is also string-interpolated, not validated.
