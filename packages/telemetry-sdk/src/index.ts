@@ -2,6 +2,7 @@
 
 import { type AILoggerConfig, initAI } from "./ai";
 import { initLogger, type LoggerConfig } from "./logger";
+import { initSpanExporter, type SpanExporterConfig } from "./span";
 
 export interface ObservabilityConfig {
 	/** URL of your collector (e.g. "https://obs.my-app.com") */
@@ -58,6 +59,13 @@ export function initObservability(config: ObservabilityConfig): void {
 		extraHeaders: config.extraHeaders,
 		flushIntervalMs: config.flushIntervalMs,
 	};
+	const spanConfig: SpanExporterConfig = {
+		collectorUrl: config.collectorUrl,
+		authToken: config.apiKey,
+		extraHeaders: config.extraHeaders,
+		flushIntervalMs: config.flushIntervalMs,
+	};
+	initSpanExporter(spanConfig);
 	initLogger(loggerConfig);
 	initAI(aiConfig);
 }
@@ -151,14 +159,18 @@ export { type WrapR2Options, wrapR2 } from "./r2";
 export {
 	type ChildSpan,
 	createRequestSpan,
+	flushSpans,
 	getActiveSpan,
 	INTERACTION_ATTRIBUTE_KEY,
 	INTERACTION_HEADER_NAME,
 	type IncomingTraceContext,
+	initSpanExporter,
 	parseInteractionHeader,
 	parseTraceparent,
 	type RequestSpan,
 	runWithSpan,
+	type SpanExporterConfig,
+	shutdownSpanExporter,
 	stampInteractionFromRequest,
 	withChildSpan,
 } from "./span";

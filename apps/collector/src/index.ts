@@ -12,9 +12,9 @@ import {
 	createRequestSpan,
 	flushAICalls,
 	flushLogs,
+	flushSpans,
 	initObservability,
 	parseTraceparent,
-	type RequestSpan,
 	runWithSpan,
 	stampInteractionFromRequest,
 	withChildSpan,
@@ -78,30 +78,6 @@ const shouldInstrument = (request: Request): boolean => {
 	if (request.headers.get(SELF_HEADER) === SELF_HEADER_VALUE) return false;
 	const path = new URL(request.url).pathname;
 	return SELF_INSTRUMENTED_PREFIX.some((p) => path.startsWith(p));
-};
-
-const exportSpan = async (
-	env: CollectorEnv,
-	span: RequestSpan,
-): Promise<void> => {
-	if (!env.OBS_COLLECTOR_SELF_URL || !env.OBS_DASHBOARD_INGEST_KEY) return;
-	try {
-		await fetch(`${env.OBS_COLLECTOR_SELF_URL}/v1/traces`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${env.OBS_DASHBOARD_INGEST_KEY}`,
-				// Loop guard — the very next worker invocation that sees this
-				// header will skip self-instrumentation. Do not remove.
-				[SELF_HEADER]: SELF_HEADER_VALUE,
-			},
-			body: JSON.stringify(span.toOtlpExportRequest()),
-			signal: AbortSignal.timeout(5_000),
-		});
-	} catch {
-		// Swallowed by design — a failed self-export must not raise into the
-		// real request path. The buffered logger already retries via flushLogs.
-	}
 };
 
 // ── App setup ───────────────────────────────────────────────────────────────
@@ -200,7 +176,7 @@ const runCronWithTelemetry = async (
 	} finally {
 		span.end();
 		ctx.waitUntil(
-			Promise.all([exportSpan(env, span), flushLogs(), flushAICalls()]).catch(
+			Promise.all([flushSpans(), flushLogs(), flushAICalls()]).catch(
 				() => undefined,
 			),
 		);
@@ -308,7 +284,7 @@ export default {
 		} finally {
 			span.end();
 			const drain = Promise.all([
-				exportSpan(env, span),
+				flushSpans(),
 				flushLogs(),
 				flushAICalls(),
 			]).catch(() => undefined);

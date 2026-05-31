@@ -19,6 +19,7 @@ import {
 	createRequestSpan,
 	flushAICalls,
 	flushLogs,
+	flushSpans,
 	getActiveSpan,
 	initObservability,
 	runWithSpan,
@@ -114,33 +115,12 @@ app.use("*", async (c, next) => {
 	} finally {
 		span.end();
 		c.executionCtx.waitUntil(
-			Promise.all([exportSpan(c.env, span), flushLogs(), flushAICalls()])
+			Promise.all([flushSpans(), flushLogs(), flushAICalls()])
 				.then(() => undefined)
 				.catch(() => undefined),
 		);
 	}
 });
-
-async function exportSpan(
-	env: Env,
-	span: ReturnType<typeof createRequestSpan>,
-) {
-	if (!env.OBS_COLLECTOR_URL) return;
-	const headers: Record<string, string> = {
-		"Content-Type": "application/json",
-	};
-	if (env.OBS_INGEST_KEY)
-		headers.Authorization = `Bearer ${env.OBS_INGEST_KEY}`;
-	try {
-		await fetch(`${env.OBS_COLLECTOR_URL}/v1/traces`, {
-			method: "POST",
-			headers,
-			body: JSON.stringify(span.toOtlpExportRequest()),
-		});
-	} catch (err) {
-		console.warn("[obs-demo] failed to export span:", err);
-	}
-}
 
 async function postEvaluation(
 	env: Env,

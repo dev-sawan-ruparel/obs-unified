@@ -10,10 +10,99 @@ import type {
 	OtlpKeyValue,
 	OtlpTraceExportRequest,
 } from "@obs-unified/types";
+import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 
 const generateId = (bytes: number): string =>
 	randomBytes(bytes).toString("hex");
 const nowNano = (): string => (BigInt(Date.now()) * 1_000_000n).toString();
+const MAX_SPAN_BUFFER_SIZE = 200;
+const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
+
+export interface SpanExporterConfig {
+	collectorUrl: string;
+	authToken?: string;
+	extraHeaders?: Record<string, string>;
+	/** Periodic flush interval in milliseconds. Set to 0 to disable. */
+	flushIntervalMs?: number;
+}
+
+let spanExporterConfig: SpanExporterConfig | null = null;
+const spanBuffer: OtlpTraceExportRequest[] = [];
+let spanFlushInProgress = false;
+let spanFlushLifecycle: FlushLifecycle | null = null;
+
+export function initSpanExporter(config: SpanExporterConfig): void {
+	spanExporterConfig = config;
+	spanFlushLifecycle?.stop();
+	spanFlushLifecycle = installFlushLifecycle({
+		name: "span telemetry",
+		flush: flushSpans,
+		intervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+	});
+}
+
+export async function shutdownSpanExporter(): Promise<void> {
+	spanFlushLifecycle?.stop();
+	spanFlushLifecycle = null;
+	await flushSpans();
+	spanExporterConfig = null;
+}
+
+export async function flushSpans(): Promise<void> {
+	if (!spanExporterConfig || spanBuffer.length === 0 || spanFlushInProgress) {
+		return;
+	}
+
+	spanFlushInProgress = true;
+	const batch = spanBuffer.splice(0, spanBuffer.length);
+	const payload = mergeTraceExportRequests(batch);
+
+	try {
+		const headers: Record<string, string> = {
+			"Content-Type": "application/json",
+			...(spanExporterConfig.extraHeaders ?? {}),
+		};
+		if (spanExporterConfig.authToken) {
+			headers.Authorization = `Bearer ${spanExporterConfig.authToken}`;
+		}
+
+		await fetch(`${spanExporterConfig.collectorUrl}/v1/traces`, {
+			method: "POST",
+			headers,
+			body: JSON.stringify(payload),
+			signal: AbortSignal.timeout(10_000),
+		});
+	} catch (err) {
+		console.error("Failed to flush spans:", err);
+		requeueSpans(batch);
+	} finally {
+		spanFlushInProgress = false;
+	}
+}
+
+function enqueueSpanExport(request: OtlpTraceExportRequest): void {
+	if (!spanExporterConfig) return;
+	if (spanBuffer.length >= MAX_SPAN_BUFFER_SIZE) {
+		spanBuffer.splice(0, spanBuffer.length - MAX_SPAN_BUFFER_SIZE + 1);
+	}
+	spanBuffer.push(request);
+}
+
+function requeueSpans(batch: OtlpTraceExportRequest[]): void {
+	if (batch.length === 0) return;
+	spanBuffer.unshift(...batch);
+	if (spanBuffer.length > MAX_SPAN_BUFFER_SIZE) {
+		spanBuffer.splice(0, spanBuffer.length - MAX_SPAN_BUFFER_SIZE);
+	}
+}
+
+function mergeTraceExportRequests(
+	batch: OtlpTraceExportRequest[],
+): OtlpTraceExportRequest {
+	return {
+		resourceSpans: batch.flatMap((request) => request.resourceSpans ?? []),
+	};
+}
 
 const toKv = (key: string, value: unknown): OtlpKeyValue => {
 	if (typeof value === "string") return { key, value: { stringValue: value } };
@@ -189,6 +278,7 @@ export function createRequestSpan(
 	let statusCode = 0;
 	let statusMessage: string | undefined;
 	const childSpans: ChildSpanRecord[] = [];
+	let exported = false;
 
 	return {
 		traceId,
@@ -276,7 +366,10 @@ export function createRequestSpan(
 			};
 		},
 		end() {
+			if (exported) return;
 			endTimeUnixNano = nowNano();
+			exported = true;
+			enqueueSpanExport(this.toOtlpExportRequest());
 		},
 		toOtlpExportRequest(): OtlpTraceExportRequest {
 			return {

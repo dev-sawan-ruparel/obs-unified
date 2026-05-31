@@ -3,6 +3,7 @@ import {
 	createRequestSpan,
 	flushAICalls,
 	flushLogs,
+	flushSpans,
 	initObservability,
 	runWithSpan,
 	stampInteractionFromRequest,
@@ -50,7 +51,9 @@ app.use("*", async (c, next) => {
 		span.setStatus(c.res.status >= 400 ? 2 : 1);
 	} finally {
 		span.end();
-		await Promise.all([flushLogs(), flushAICalls()]).catch(() => {});
+		await Promise.all([flushSpans(), flushLogs(), flushAICalls()]).catch(
+			() => {},
+		);
 	}
 });
 

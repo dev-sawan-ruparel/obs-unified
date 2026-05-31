@@ -48,13 +48,9 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Highly brittle. Query formatting changes or complex sub-queries can break the translations at runtime, and prevents writing native optimized SQL for Postgres.
   * **Next Action:** Refactor SQL compilation to use dedicated dialect files or a lightweight query builder. Maintain regex rewrites only as a secondary backward-compatibility layer.
 
-- [ ] **Telemetry SDK in-Memory Spans Omit Exporter/Flush Mechanism**
-  * **Location:** [`packages/telemetry-sdk/src/span.ts:278`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/span.ts#L278)
-  * **Description:** Spans accumulate in memory, but when `end()` is called, no export operation or flush is wired.
-  * **Risk:** High. Captured telemetry is silently lost by default.
-  * **Next Action:** Implement a background export queue, configure standard HTTP/OTLP span exporters, and verify span transmission via tests.
-
 ### Resolved Functional Issues
+- [x] **Telemetry SDK in-Memory Spans Omit Exporter/Flush Mechanism**
+  * *Resolution:* Added an OTLP trace export queue to `packages/telemetry-sdk/src/span.ts`. `initObservability()` now configures span export alongside logs and AI calls, ended request spans enqueue automatically, `flushSpans()` drains to `/v1/traces`, and `shutdownSpanExporter()` drains/stops lifecycle hooks. Updated demo, collector self-instrumentation, and generated templates to flush the SDK span queue instead of manually posting `toOtlpExportRequest()`, with regression tests for queued export and single-send behavior.
 - [x] **Telemetry SDK Lacks Flush Timers and Exit Hooks**
   * *Resolution:* Added a shared flush lifecycle helper for AI calls and logs with a default 5s periodic drain, browser `pagehide` drain, Node `beforeExit` drain, cooperative SIGTERM/SIGINT drain when the host already owns signal handling, and explicit `shutdownAI()` / `shutdownLogger()` drain helpers. Added interval regression tests for sub-threshold AI and log buffers.
 - [x] **Onboarding & SPA Fallback Dashboard Plugins are Unregistered**
