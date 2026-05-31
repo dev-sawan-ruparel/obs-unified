@@ -26,8 +26,10 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1090
-set -o allexport; source "$ENV_FILE"; set +o allexport
+set -o allexport
+# shellcheck source=/dev/null
+source "$ENV_FILE"
+set +o allexport
 
 fail=0
 check() {

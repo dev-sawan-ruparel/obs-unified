@@ -53,7 +53,7 @@ mkdir -p "$DEST"
 curl -fL --progress-bar -o "$CI_ROOT/$ASSET" "$URL"
 
 echo "Extracting to $DEST/..."
-rm -rf "$DEST"/{bin,externals,*.sh,*.cmd,*.runner,*.credentials,_diag,_work} 2>/dev/null || true
+rm -rf "${DEST:?}"/{bin,externals,*.sh,*.cmd,*.runner,*.credentials,_diag,_work} 2>/dev/null || true
 mkdir -p "$DEST"
 tar xzf "$CI_ROOT/$ASSET" -C "$DEST"
 rm -f "$CI_ROOT/$ASSET"

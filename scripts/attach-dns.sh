@@ -26,7 +26,7 @@ CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Auto-source .env.deploy if present so the user doesn't have to export manually.
 if [[ -f "$CI_ROOT/.env.deploy" ]]; then
   set -o allexport
-  # shellcheck disable=SC1090
+  # shellcheck source=/dev/null
   source "$CI_ROOT/.env.deploy"
   set +o allexport
 fi
