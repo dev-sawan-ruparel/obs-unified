@@ -27,6 +27,12 @@ user_id → session_id → interaction_id → trace_id → span_id
 
 That identity skeleton is the unifying layer. The SDKs propagate it, the collector stores it, and the dashboard uses it to connect product behavior, backend execution, AI cost, logs, replay, alerts, profiles, and analyses. Read the [SDKs](/docs/sdks) page for which ID is minted where, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
 
+The click-to-CPU path is deliberately precise: the browser mints `interaction_id`, the backend stamps it onto spans/logs/AI calls, and profiles join through the `trace_id` those spans belong to. In shorthand:
+
+```text
+frontend action → interaction_id → trace_id → profile_trace_index → CPU/off-CPU profile
+```
+
 <Callout type="info">
 This documentation describes the platform as it ships on `main` today. For the fastest first run, use the all-in-one Docker image from [Getting started](/docs/getting-started).
 </Callout>

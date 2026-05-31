@@ -58,6 +58,12 @@ The browser SDK owns the left half (user / session / interaction). The server SD
 
 Once a signal carries `interaction_id`, the dashboard's [Connected rail](/docs/what-to-expect) can pivot from any entity to "the click that caused this trace" in one click.
 
+For CPU and off-CPU work, `interaction_id` is the entry key, not the profiler's storage key. Profiles are indexed by `trace_id`; when a profiled service labels samples with trace IDs, the path becomes:
+
+```text
+interaction_id → trace_id → profile_trace_index → CPU/off-CPU profile
+```
+
 ## @obs-unified/analytics-sdk
 
 ### Install

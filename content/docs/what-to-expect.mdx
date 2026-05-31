@@ -55,6 +55,18 @@ The headline product test. From a paged alert:
 
 Six clicks across the entire platform. The platform's claim is that every neighbor at every step is on the rail.
 
+## Interaction ID to CPU
+
+The browser SDK mints a single `interaction_id` for a frontend action and injects it as `x-obs-interaction` on outbound requests. Backend SDKs copy that value onto the active span as `obs.interaction.id`, and correlated logs or AI calls inherit it from the span context.
+
+CPU and off-CPU profiles are joined through traces rather than storing `interaction_id` directly on every sample. If profiling is enabled and samples are labeled with trace IDs, the dashboard can follow:
+
+```text
+frontend click → interaction_id → backend trace_id → profile_trace_index → CPU/off-CPU profile
+```
+
+That is the accurate version of "one ID from frontend to CPU": one interaction ID anchors the user action, and the trace it caused carries the investigation into profiling data.
+
 ## Scenario B — AI cost spike → user → session → trace
 
 A different entry point exercising the same identity skeleton:
