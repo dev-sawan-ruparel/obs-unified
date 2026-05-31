@@ -8,9 +8,7 @@ use std::collections::HashMap;
 use std::future::Future;
 
 use opentelemetry::global;
-use opentelemetry::trace::{
-    Span as _, SpanKind, Status, Tracer as _, TracerProvider as _,
-};
+use opentelemetry::trace::{Span as _, SpanKind, Status, Tracer as _, TracerProvider as _};
 use opentelemetry::KeyValue;
 
 const TRACER_NAME: &str = "obs-unified";
@@ -100,10 +98,7 @@ impl<T> LlmResult<T> {
 ///     },
 /// ).await?;
 /// ```
-pub async fn with_llm_span<T, E, F, Fut>(
-    opts: LlmOptions<'_>,
-    f: F,
-) -> Result<T, E>
+pub async fn with_llm_span<T, E, F, Fut>(opts: LlmOptions<'_>, f: F) -> Result<T, E>
 where
     F: FnOnce() -> Fut,
     Fut: Future<Output = Result<LlmResult<T>, E>>,
@@ -123,10 +118,7 @@ where
         span.set_attribute(KeyValue::new("gen_ai.request.max_tokens", mt));
     }
     if let Some(sm) = opts.system_message {
-        span.set_attribute(KeyValue::new(
-            "gen_ai.system_message",
-            truncate(sm, 1024),
-        ));
+        span.set_attribute(KeyValue::new("gen_ai.system_message", truncate(sm, 1024)));
     }
     if let Some(t) = opts.turn_index {
         span.set_attribute(KeyValue::new("llm.turn", t));
@@ -150,16 +142,10 @@ where
                 }
             }
             if let Some(fr) = r.finish_reason.as_ref() {
-                span.set_attribute(KeyValue::new(
-                    "gen_ai.response.finish_reason",
-                    fr.clone(),
-                ));
+                span.set_attribute(KeyValue::new("gen_ai.response.finish_reason", fr.clone()));
             }
             if let Some(rm) = r.response_model.as_ref() {
-                span.set_attribute(KeyValue::new(
-                    "gen_ai.response.model",
-                    rm.clone(),
-                ));
+                span.set_attribute(KeyValue::new("gen_ai.response.model", rm.clone()));
             }
             span.set_status(Status::Ok);
         }
@@ -212,10 +198,7 @@ impl<T> ToolResult<T> {
 }
 
 /// Wrap `fn` in a TOOL-shaped span.
-pub async fn with_tool_span<T, E, F, Fut>(
-    opts: ToolOptions<'_>,
-    f: F,
-) -> Result<T, E>
+pub async fn with_tool_span<T, E, F, Fut>(opts: ToolOptions<'_>, f: F) -> Result<T, E>
 where
     F: FnOnce() -> Fut,
     Fut: Future<Output = Result<ToolResult<T>, E>>,

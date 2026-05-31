@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type conformanceCases struct {
@@ -40,7 +40,7 @@ func loadFixture(t *testing.T) conformanceCases {
 	return c
 }
 
-func newRecordingTracer() (otel.TracerProvider, *tracetest.SpanRecorder) {
+func newRecordingTracer() (trace.TracerProvider, *tracetest.SpanRecorder) {
 	r := tracetest.NewSpanRecorder()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(r))
 	return tp, r

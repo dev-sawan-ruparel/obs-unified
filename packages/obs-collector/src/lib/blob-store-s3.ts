@@ -19,6 +19,12 @@ import type {
 
 type S3Body = Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>;
 type S3CommandBody = Exclude<S3Body, ArrayBuffer>;
+type S3ResponseBody =
+	| ReadableStream<Uint8Array>
+	| AsyncIterable<Uint8Array | ArrayBuffer | ArrayBufferView | string>
+	| {
+			transformToWebStream(): ReadableStream<Uint8Array>;
+	  };
 
 interface S3ClientShape {
 	send(command: unknown): Promise<unknown>;
@@ -81,32 +87,17 @@ export class S3BlobStore implements BlobStore {
 		});
 		try {
 			const r = (await this.opts.client.send(cmd)) as {
-				Body: ReadableStream<Uint8Array>;
+				Body: S3ResponseBody;
 				ContentLength?: number;
 				ContentType?: string;
 				ContentEncoding?: string;
 				Metadata?: Record<string, string>;
 			};
+			const body = toWebReadableStream(r.Body);
 			return {
-				body: r.Body,
+				body,
 				size: r.ContentLength,
-				bytes: async () => {
-					const reader = r.Body.getReader();
-					const chunks: Uint8Array[] = [];
-					while (true) {
-						const { value, done } = await reader.read();
-						if (done) break;
-						if (value) chunks.push(value);
-					}
-					const total = chunks.reduce((n, c) => n + c.byteLength, 0);
-					const out = new Uint8Array(total);
-					let offset = 0;
-					for (const c of chunks) {
-						out.set(c, offset);
-						offset += c.byteLength;
-					}
-					return out;
-				},
+				bytes: () => streamToBytes(body),
 				httpMetadata: {
 					contentType: r.ContentType,
 					contentEncoding: r.ContentEncoding,
@@ -162,4 +153,61 @@ const isNotFound = (err: unknown): boolean => {
 	if (!err || typeof err !== "object") return false;
 	const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
 	return e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404;
+};
+
+const toWebReadableStream = (
+	body: S3ResponseBody,
+): ReadableStream<Uint8Array> => {
+	if (body instanceof ReadableStream) return body;
+	if ("transformToWebStream" in body) return body.transformToWebStream();
+	if (Symbol.asyncIterator in body) return asyncIterableToStream(body);
+	throw new Error("Unsupported S3 response body type");
+};
+
+const asyncIterableToStream = (
+	iterable: AsyncIterable<Uint8Array | ArrayBuffer | ArrayBufferView | string>,
+): ReadableStream<Uint8Array> => {
+	const iterator = iterable[Symbol.asyncIterator]();
+	return new ReadableStream<Uint8Array>({
+		async pull(controller) {
+			const { value, done } = await iterator.next();
+			if (done) {
+				controller.close();
+				return;
+			}
+			controller.enqueue(toUint8Array(value));
+		},
+		async cancel(reason) {
+			await iterator.return?.(reason);
+		},
+	});
+};
+
+const toUint8Array = (
+	value: Uint8Array | ArrayBuffer | ArrayBufferView | string,
+): Uint8Array => {
+	if (typeof value === "string") return new TextEncoder().encode(value);
+	if (value instanceof Uint8Array) return value;
+	if (value instanceof ArrayBuffer) return new Uint8Array(value);
+	return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+};
+
+const streamToBytes = async (
+	stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> => {
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		if (value) chunks.push(value);
+	}
+	const total = chunks.reduce((n, c) => n + c.byteLength, 0);
+	const out = new Uint8Array(total);
+	let offset = 0;
+	for (const c of chunks) {
+		out.set(c, offset);
+		offset += c.byteLength;
+	}
+	return out;
 };

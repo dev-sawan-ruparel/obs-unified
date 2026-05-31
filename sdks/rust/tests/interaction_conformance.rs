@@ -70,7 +70,10 @@ fn case_2_3_4_stamp_no_panic_path() {
     // rather than panic — the function takes Context::current() in
     // real callers; here we pass a bare context.
     let ctx = opentelemetry::Context::new();
-    stamp_interaction(&ctx, [("x-obs-interaction", "01HZQ5W3K8M4P2X7N9B0CDEFGH")].as_slice());
+    stamp_interaction(
+        &ctx,
+        [("x-obs-interaction", "01HZQ5W3K8M4P2X7N9B0CDEFGH")].as_slice(),
+    );
     // No assertion — the test is that this didn't panic.
     let _ = INTERACTION_ATTRIBUTE;
 }

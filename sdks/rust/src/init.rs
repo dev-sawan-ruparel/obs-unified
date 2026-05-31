@@ -92,7 +92,10 @@ pub fn init(cfg: Config) -> Result<ObsGuard, Error> {
     let endpoint = cfg.collector_url.trim_end_matches('/').to_string();
     let mut headers = HashMap::new();
     if !cfg.ingest_key.is_empty() {
-        headers.insert("Authorization".to_string(), format!("Bearer {}", cfg.ingest_key));
+        headers.insert(
+            "Authorization".to_string(),
+            format!("Bearer {}", cfg.ingest_key),
+        );
     }
     if cfg.self_telemetry {
         headers.insert("X-Telemetry-Self".to_string(), "1".to_string());
@@ -153,7 +156,10 @@ fn build_resource(cfg: &Config) -> Resource {
         attrs.push(KeyValue::new("deployment.environment", env.clone()));
     }
     if let Some(pid) = cfg.project_id.as_ref() {
-        attrs.push(KeyValue::new(crate::project::PROJECT_ID_ATTRIBUTE, pid.clone()));
+        attrs.push(KeyValue::new(
+            crate::project::PROJECT_ID_ATTRIBUTE,
+            pid.clone(),
+        ));
     }
     for (k, v) in &cfg.resource_attributes {
         attrs.push(KeyValue::new(k.clone(), v.clone()));

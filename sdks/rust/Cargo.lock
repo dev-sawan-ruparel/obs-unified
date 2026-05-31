@@ -608,10 +608,12 @@ dependencies = [
 name = "obs-unified"
 version = "0.1.0"
 dependencies = [
+ "http",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
+ "serde",
  "serde_json",
  "thiserror",
  "tokio",

@@ -3,6 +3,7 @@
 
 FROM node:22-alpine AS deps
 WORKDIR /repo
+ENV CI=true
 RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/collector-node/package.json apps/collector-node/
@@ -14,6 +15,7 @@ RUN pnpm fetch
 
 FROM node:22-alpine AS build
 WORKDIR /repo
+ENV CI=true
 RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY --from=deps /repo .
 COPY . .
@@ -22,14 +24,11 @@ RUN pnpm -r --filter "./packages/*" run build
 RUN pnpm --filter @obs-demo/collector-node run build
 
 FROM node:22-alpine AS runtime
-WORKDIR /app
+WORKDIR /repo/apps/collector-node
 ENV NODE_ENV=production
 ENV PORT=8790
 RUN apk add --no-cache tini
-COPY --from=build /repo/apps/collector-node/dist ./dist
-COPY --from=build /repo/apps/collector-node/scripts ./scripts
-COPY --from=build /repo/packages/obs-collector/src/migrations-postgres ./migrations-postgres
-COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build /repo /repo
 EXPOSE 8790
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 	CMD wget -q -O- http://127.0.0.1:8790/health || exit 1
