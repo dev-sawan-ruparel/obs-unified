@@ -3,6 +3,54 @@ import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
+const DEFAULT_CHUNK_LIMIT = 100;
+const MAX_CHUNK_LIMIT = 500;
+const REPLAY_CHUNK_FETCH_CONCURRENCY = 8;
+
+interface ReplayChunkObject {
+	key: string;
+}
+
+interface ReplayChunkBody {
+	json<T>(): Promise<T>;
+}
+
+interface ReplayChunkBucket {
+	get(key: string): Promise<ReplayChunkBody | null>;
+}
+
+async function mapWithConcurrency<T, R>(
+	items: T[],
+	concurrency: number,
+	mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let nextIndex = 0;
+	const workerCount = Math.min(Math.max(1, concurrency), items.length);
+	await Promise.all(
+		Array.from({ length: workerCount }, async () => {
+			while (nextIndex < items.length) {
+				const current = nextIndex++;
+				results[current] = await mapper(items[current]);
+			}
+		}),
+	);
+	return results;
+}
+
+export async function fetchReplayChunks(
+	bucket: ReplayChunkBucket,
+	objects: ReplayChunkObject[],
+	concurrency = REPLAY_CHUNK_FETCH_CONCURRENCY,
+): Promise<Record<string, unknown>[]> {
+	const chunks = await mapWithConcurrency(objects, concurrency, async (obj) => {
+		const objectData = await bucket.get(obj.key);
+		if (!objectData) return [];
+		return objectData.json<Record<string, unknown>[]>();
+	});
+	return chunks.flat();
+}
+
 export const replayQueryRoutesPlugin: CollectorPlugin = {
 	name: "replay-query-routes",
 	register(app) {
@@ -62,21 +110,43 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 
 			objects.sort((a, b) => a.key.localeCompare(b.key));
 
-			const orderedChunksData: Record<string, unknown>[][] = [];
-			for (const obj of objects) {
-				const objectData = await c.env.REPLAYS_BUCKET.get(obj.key);
-				if (objectData) {
-					orderedChunksData.push(
-						await objectData.json<Record<string, unknown>[]>(),
-					);
-				}
-			}
-
-			const events = orderedChunksData.flat();
+			const chunkOffset = Math.max(
+				0,
+				parseInt(c.req.query("chunkOffset") ?? "0", 10) || 0,
+			);
+			const chunkLimit = Math.max(
+				1,
+				Math.min(
+					MAX_CHUNK_LIMIT,
+					parseInt(
+						c.req.query("chunkLimit") ?? String(DEFAULT_CHUNK_LIMIT),
+						10,
+					) || DEFAULT_CHUNK_LIMIT,
+				),
+			);
+			const selectedObjects = objects.slice(
+				chunkOffset,
+				chunkOffset + chunkLimit,
+			);
+			const events = await fetchReplayChunks(
+				c.env.REPLAYS_BUCKET,
+				selectedObjects,
+			);
+			const nextChunkOffset =
+				chunkOffset + chunkLimit < objects.length
+					? chunkOffset + chunkLimit
+					: null;
 
 			return c.json({
 				metadata,
 				events,
+				chunks: {
+					offset: chunkOffset,
+					limit: chunkLimit,
+					returned: selectedObjects.length,
+					total: objects.length,
+					nextChunkOffset,
+				},
 			});
 		});
 

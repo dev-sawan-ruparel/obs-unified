@@ -43,6 +43,13 @@ const copy = (t: string) => {
 	void navigator.clipboard.writeText(t);
 };
 
+interface ReplayChunkPage {
+	events?: RrwebEvent[];
+	chunks?: {
+		nextChunkOffset: number | null;
+	};
+}
+
 // api helper is now provided via useDashboard context
 
 interface ReplayRow {
@@ -129,38 +136,46 @@ function ReplayPlayer({
 		setIssue(null);
 		setEvents(null);
 
-		fetcher(`${basePath}/replays/${encodeURIComponent(sessionId)}`)
-			.then(async (r) => {
-				if (cancelled) return null;
+		const loadReplay = async () => {
+			const allEvents: RrwebEvent[] = [];
+			let chunkOffset: number | null = 0;
+			while (!cancelled && chunkOffset !== null) {
+				const r = await fetcher(
+					`${basePath}/replays/${encodeURIComponent(sessionId)}?chunkOffset=${chunkOffset}&chunkLimit=100`,
+				);
+				if (cancelled) return;
 				if (r.status === 404) {
 					setIssue({
 						kind: "absence",
 						message:
 							'No rrweb replay was recorded for this session. Visit /playground and click "Start replay" to capture one in a real browser.',
 					});
-					return null;
+					return;
 				}
 				if (!r.ok) {
 					setIssue({
 						kind: "error",
 						message: `Replay fetch failed: ${r.status} ${r.statusText}`,
 					});
-					return null;
+					return;
 				}
-				return (await r.json()) as { events?: RrwebEvent[] };
-			})
-			.then((data) => {
-				if (cancelled || !data) return;
-				if (data.events && data.events.length > 2) {
-					setEvents(data.events);
-				} else {
-					setIssue({
-						kind: "absence",
-						message:
-							"Session exists but has too few rrweb events to render. Replays under ~3 frames are skipped.",
-					});
-				}
-			})
+				const data = (await r.json()) as ReplayChunkPage;
+				allEvents.push(...(data.events ?? []));
+				chunkOffset = data.chunks?.nextChunkOffset ?? null;
+			}
+			if (cancelled) return;
+			if (allEvents.length > 2) {
+				setEvents(allEvents);
+			} else {
+				setIssue({
+					kind: "absence",
+					message:
+						"Session exists but has too few rrweb events to render. Replays under ~3 frames are skipped.",
+				});
+			}
+		};
+
+		loadReplay()
 			.catch((e) => {
 				if (!cancelled) {
 					setIssue({

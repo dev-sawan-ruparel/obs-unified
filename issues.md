@@ -77,13 +77,9 @@ This document is the single, unified source of truth for all codebase issues, co
 ## ── P1: DELIVERY GUARANTEES & RUNTIME RELIABILITY ──
 
 ### Open Issues
-- [ ] **Replay Queries Serial Fetching and Memory Buffering**
-  * **Location:** [`packages/obs-collector/src/plugins/replay-query-routes.ts:60`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/replay-query-routes.ts#L60)
-  * **Description:** Replay chunks are fetched sequentially using `await` inside a synchronous loop, fully parsed, flattened, and returned as a single JSON response.
-  * **Risk:** High. Heavy network latency. Large replays consume extreme memory, triggering OOM evictions and script execution timeouts.
-  * **Next Action:** Fetch R2/S3 chunks in parallel using bounded concurrency, and implement streaming or range-pagination for large replay sessions.
-
 ### Resolved Reliability Issues
+- [x] **Replay Queries Serial Fetching and Memory Buffering**
+  * *Resolution:* Replay detail reads now page chunk objects with `chunkOffset`/`chunkLimit`, fetch selected R2 chunks through bounded concurrency, and return `chunks.nextChunkOffset` for range-pagination. The dashboard replay player follows those pages until complete instead of requiring one monolithic server response. Added a bounded-concurrency regression test.
 - [x] **Alert Evaluator processes Rules Sequentially without Timeouts**
   * *Resolution:* Refactored alert evaluation into a bounded-concurrency batch runner with a default concurrency of 5 and per-rule timeout guard. A stuck rule now logs an error and the rest of the batch continues; regression tests cover concurrency limiting and timeout continuation.
 - [x] **Telemetry SDK setInterval Memory Leak**
