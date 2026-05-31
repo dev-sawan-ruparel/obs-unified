@@ -4,44 +4,11 @@ The Astronomy Shop demo (`pnpm demo:up`) ships with native OTel SDKs. To exercis
 
 ## 6.1 — Frontend: replace OTel browser SDK with @obs-unified/analytics-sdk
 
-The frontend lives in `demo/upstream/src/frontend`. We use a small overlay so resyncing the upstream demo doesn't blow away our changes.
+The frontend lives in `demo/upstream/src/frontend`. `pnpm demo:setup` now applies a small overlay so resyncing the upstream demo doesn't blow away our changes.
 
-### Overlay file
+### What setup applies
 
-Add to `demo/overlays/frontend/src/obs-bootstrap.tsx`:
-
-```tsx
-import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
-import type { ReactNode } from "react";
-
-export function ObsBootstrap({ children }: { children: ReactNode }) {
-  return (
-    <AnalyticsProvider
-      collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL ?? "http://localhost:8790"}
-      apiKey={import.meta.env.VITE_OBS_INGEST_KEY ?? "obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504"}
-      autoCorrelate
-      trackPageViews
-      captureErrors
-    >
-      {children}
-    </AnalyticsProvider>
-  );
-}
-```
-
-### Mount in the demo's entry point
-
-Edit `demo/upstream/src/frontend/src/main.tsx` (or wrap in your overlay):
-
-```tsx
-import { ObsBootstrap } from "./obs-bootstrap";
-
-ReactDOM.createRoot(rootEl).render(
-  <ObsBootstrap>
-    <App />
-  </ObsBootstrap>,
-);
-```
+`demo/setup.sh` packs local SDK tarballs into `demo/upstream/.obs-unified`, patches the upstream frontend package manifest, copies `demo/overlays/frontend/obs-bootstrap.tsx`, disables the upstream browser `FrontendTracer()` call, and wraps the Next.js `pages/_app.tsx` tree in `ObsBootstrap`.
 
 ### What you get
 
@@ -51,53 +18,13 @@ ReactDOM.createRoot(rootEl).render(
 
 ## 6.2 — Backend: enableProcessMetrics() in select demo services
 
-The demo runs ~15 microservices. You don't need all of them instrumented — the UX scenarios star **frontend-svc** (Node) and **payment-svc** (Node). Wire the helper in those two:
-
-```ts
-import { initObservability, enableProcessMetrics } from "@obs-unified/telemetry-sdk";
-
-initObservability({
-  collectorUrl: process.env.OBS_COLLECTOR_URL!,
-  apiKey: process.env.OBS_INGEST_KEY!,
-  serviceName: "payment-svc",
-});
-
-enableProcessMetrics({
-  collectorUrl: process.env.OBS_COLLECTOR_URL!,
-  apiKey: process.env.OBS_INGEST_KEY!,
-  serviceName: "payment-svc",
-  intervalMs: 30_000,
-});
-```
-
-Set `OBS_COLLECTOR_URL=http://host.docker.internal:8790` and `OBS_INGEST_KEY=...` in the service's docker-compose env.
+The demo runs ~15 microservices. You don't need all of them instrumented — the UX scenarios star **frontend** (Node/Next.js) and **payment** (Node). `pnpm demo:setup` now copies `demo/overlays/node/obs-unified.js` into both services, requires it from their existing OTel bootstrap files, and injects `OBS_COLLECTOR_URL=http://host.docker.internal:8790` plus `OBS_INGEST_KEY=...` into `demo/upstream/compose.yaml`.
 
 After ~1 minute of demo traffic, the Health dashboard's "Service CPU utilization" tile (Phase 2.6) populates.
 
 ## 6.3 — Backend: optional pprof profiling
 
-For Scenario A's flame graph step, configure `@datadog/pprof` on payment-svc:
-
-```ts
-import { time, encode } from "@datadog/pprof";
-import { pushProfile } from "@obs-unified/telemetry-sdk";
-
-setInterval(async () => {
-  const profile = await time.profile({ durationMillis: 60_000 });
-  const buffer = await encode(profile);
-  await pushProfile({
-    collectorUrl: process.env.OBS_COLLECTOR_URL!,
-    apiKey: process.env.OBS_INGEST_KEY!,
-    serviceName: "payment-svc",
-    profileType: "cpu",
-    blob: buffer,
-    durationMs: 60_000,
-    agent: "datadog-pprof",
-  });
-}, 60_000);
-```
-
-You'll want trace_id labels too — see `docs/howto/profiling.md` § Node.js for the wrapping pattern that extracts the OTel context.
+For Scenario A's flame graph step, `pnpm demo:setup` now adds `@datadog/pprof` to `payment`, starts the SDK profiler loop from `demo/overlays/node/obs-unified.js`, and records active payment trace IDs from the gRPC handler so profile uploads can populate the trace/profile index.
 
 ## 6.4 — Run UX Scenario A
 

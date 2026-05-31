@@ -69,7 +69,7 @@ pnpm dev:collector
 pnpm demo:up
 
 # follow the demo's load-generator logs (optional)
-docker compose -f demo/upstream/docker-compose.yml logs -f load-generator
+pnpm demo:logs
 
 # tear down (containers + volumes)
 pnpm demo:down

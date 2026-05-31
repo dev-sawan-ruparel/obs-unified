@@ -218,20 +218,17 @@ These were present in the old trackers but were either omitted from the first ag
 ## ── PHASE 6: DEMO INTEGRATION & VALIDATION ──
 
 ### Open Issues (Active Reconciliation Backlog)
-- [ ] **6.1 - Replace OTel Browser SDK in Astronomy Shop Frontend**
+- [x] **6.1 - Replace OTel Browser SDK in Astronomy Shop Frontend**
   * **Location:** [`demo/upstream/src/frontend`](file:///Users/sawan/projects/obs-unified/obs-unified/demo/upstream/src/frontend) & [`docs/implementation/demo-integration.md:5-51`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L5-L51)
-  * **Description:** Mount `@obs-unified/analytics-sdk` via a client wrapper (`ObsBootstrap`) inside `demo/upstream/src/frontend/src/main.tsx` using `VITE_OBS_COLLECTOR_URL` and `VITE_OBS_INGEST_KEY` to collect page views, interactions, and replay logs.
-  * **Why it's pending:** Needs execution of the SDK overlay recipe on the running docker-compose stack.
+  * **Resolution:** `pnpm demo:setup` now packs the local SDK tarballs, patches the upstream Next.js frontend package manifest, copies `demo/overlays/frontend/obs-bootstrap.tsx`, disables the upstream browser `FrontendTracer()` call, wraps `pages/_app.tsx` in `ObsBootstrap`, and injects browser-safe `NEXT_PUBLIC_OBS_*` env vars into `compose.yaml`.
 
-- [ ] **6.2 - Add enableProcessMetrics() to Star backend services**
+- [x] **6.2 - Add enableProcessMetrics() to Star backend services**
   * **Location:** [`apps/obs-demo`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo) & [`docs/implementation/demo-integration.md:52-76`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L52-L76)
-  * **Description:** Wire the process metrics collector inside `frontend-svc` and `payment-svc` Node applications with `intervalMs: 30000` to feed the health dashboard's CPU sparklines.
-  * **Why it's pending:** Needs compose-env container restarts with `OBS_COLLECTOR_URL=http://host.docker.internal:8790`.
+  * **Resolution:** `pnpm demo:setup` now copies `demo/overlays/node/obs-unified.js` into the upstream `frontend` and `payment` services, requires it from their existing OTel bootstrap files, calls `enableProcessMetrics()` with `intervalMs: 30000`, and injects `OBS_COLLECTOR_URL=http://host.docker.internal:8790` plus the ingest key into `compose.yaml`.
 
-- [ ] **6.3 - Wire dd-pprof Profiling in payment-svc**
+- [x] **6.3 - Wire dd-pprof Profiling in payment-svc**
   * **Location:** [`apps/obs-demo`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo) & [`docs/implementation/demo-integration.md:77-101`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L77-L101)
-  * **Description:** Implement `setInterval` and `@datadog/pprof` in `payment-svc` to run time profiles, gzip pprof binaries, and invoke `pushProfile()` over 60s intervals with proper OTel trace_id labels.
-  * **Why it's pending:** Required for Scenario A's flame graph drill-down step to resolve real container bottlenecks.
+  * **Resolution:** `pnpm demo:setup` now adds `@datadog/pprof` to the upstream payment package, starts the SDK profiler loop from `demo/overlays/node/obs-unified.js`, and records active payment trace IDs from the gRPC handler so profile uploads can feed the trace/profile index.
 
 - [ ] **6.4 - Run and Verify UX Scenario A (Alert to Root Cause) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:102-113`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L102-L113)
