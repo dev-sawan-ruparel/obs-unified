@@ -34,7 +34,7 @@ First run:
 pnpm demo:preflight
 ```
 
-Scenario A needs Docker memory at or above the Astronomy Shop requirement before the compose workload can be trusted.
+Scenario A needs Docker memory at or above the Astronomy Shop requirement before the compose workload can be trusted. The preflight also audits the generated demo overlay artifacts: local SDK tarballs, Dockerfile bootstrap copies, compose telemetry env, collector CORS/profile bindings, and the extra OTel collector config.
 
 After 6.1+6.2+6.3 are wired and `pnpm demo:up` is running:
 
@@ -51,6 +51,8 @@ If steps 3-5 work, RFC 0003's "≤ 2 clicks to any neighbor" promise is verified
 LLM cost spike scenario — needs `@obs-unified/telemetry-sdk`'s `trackAICall` wired into one demo service that hits an LLM. The Astronomy Shop's recommendation service is a candidate; see its existing OTel instrumentation for the integration point.
 
 `pnpm demo:preflight` also checks for a provider key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `GEMINI_API_KEY`) so this scenario does not start with a known-empty LLM environment.
+
+For a running collector, `pnpm dlx @obs-unified/cli doctor --origin http://localhost:8080` verifies that browser ingest preflight allows the interaction/session headers used by self-instrumentation.
 
 ## 6.6 — Playwright matrix
 

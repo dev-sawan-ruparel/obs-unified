@@ -17,9 +17,10 @@ pnpm dlx @obs-unified/cli doctor     # diagnose a collector
 | `obs-unified create <name>` | scaffold a new app — picks framework + backend interactively |
 | `obs-unified keys mint` | mint a new ingest key on a running collector |
 | `obs-unified keys list` | list keys |
-| `obs-unified doctor [url]` | smoke-test a collector — health, OTLP, dashboard API |
+| `obs-unified doctor [url] [--origin <origin>]` | smoke-test a collector — health, browser ingest CORS, OTLP, dashboard API |
 
 ## Environment
 
 - `OBS_COLLECTOR_URL` — default for `keys` and `doctor` (otherwise `http://localhost:8790`).
+- `OBS_DOCTOR_ORIGINS` — comma-separated origins to test during `doctor` CORS checks (defaults to `http://localhost:5173,http://localhost:8080`).
 - `OBS_ADMIN_TOKEN` — required for `keys` subcommands.

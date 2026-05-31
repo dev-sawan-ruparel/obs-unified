@@ -40,7 +40,7 @@ Commands:
   ${kleur.cyan("create")} <app-name>     Scaffold a new React + Hono app pre-wired with the SDKs
   ${kleur.cyan("keys mint")}             Mint a new ingest key
   ${kleur.cyan("keys list")}             List existing ingest keys
-  ${kleur.cyan("doctor")}                Diagnose a running collector
+  ${kleur.cyan("doctor")} [url]          Diagnose a running collector
   ${kleur.cyan("help")}                  Show this message
 `);
 };
@@ -306,9 +306,9 @@ async function keysSubcommand(args: string[]) {
 }
 
 async function runDoctor(args: string[]) {
-	const url =
-		args[0] ?? process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
-	console.log(`Checking ${url}…\n`);
+	const { url, origins } = parseDoctorArgs(args);
+	console.log(`Checking ${url}…`);
+	console.log(`CORS origins: ${origins.join(", ")}\n`);
 	const checks: Array<[string, () => Promise<string>]> = [
 		[
 			"health endpoint",
@@ -321,9 +321,27 @@ async function runDoctor(args: string[]) {
 		[
 			"OTLP traces endpoint",
 			async () => {
-				const r = await fetch(`${url}/v1/traces`, { method: "OPTIONS" });
+				const r = await fetch(`${url}/v1/traces`, {
+					method: "OPTIONS",
+					headers: {
+						Origin: origins[0],
+						"Access-Control-Request-Method": "POST",
+						"Access-Control-Request-Headers":
+							"content-type,authorization,x-project-id,x-obs-interaction,x-obs-session-id",
+					},
+				});
 				if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
 				return "reachable";
+			},
+		],
+		[
+			"browser ingest CORS",
+			async () => {
+				for (const origin of origins) {
+					const result = await checkCorsPreflight(url, origin, "/v1/usage");
+					if (result !== "ok") return result;
+				}
+				return "interaction/session headers allowed";
 			},
 		],
 		[
@@ -354,4 +372,85 @@ async function runDoctor(args: string[]) {
 		process.exit(1);
 	}
 	console.log(kleur.green("all clear"));
+}
+
+function parseDoctorArgs(args: string[]) {
+	let url = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
+	const origins = new Set(
+		(
+			process.env.OBS_DOCTOR_ORIGINS ??
+			"http://localhost:5173,http://localhost:8080"
+		)
+			.split(",")
+			.map((origin) => origin.trim())
+			.filter(Boolean),
+	);
+
+	for (let i = 0; i < args.length; i += 1) {
+		const arg = args[i];
+		if (arg === "--origin") {
+			const origin = args[i + 1];
+			if (!origin) {
+				console.error(
+					kleur.red("usage: obs-unified doctor [url] [--origin <origin>]"),
+				);
+				process.exit(1);
+			}
+			origins.add(origin);
+			i += 1;
+			continue;
+		}
+		if (arg.startsWith("--origin=")) {
+			origins.add(arg.slice("--origin=".length));
+			continue;
+		}
+		if (arg.startsWith("-")) {
+			console.error(kleur.red(`unknown doctor option: ${arg}`));
+			process.exit(1);
+		}
+		url = arg;
+	}
+
+	return { url, origins: [...origins] };
+}
+
+async function checkCorsPreflight(url: string, origin: string, path: string) {
+	const requestedHeaders = [
+		"content-type",
+		"authorization",
+		"x-project-id",
+		"x-obs-interaction",
+		"x-obs-session-id",
+	];
+	const r = await fetch(`${url}${path}`, {
+		method: "OPTIONS",
+		headers: {
+			Origin: origin,
+			"Access-Control-Request-Method": "POST",
+			"Access-Control-Request-Headers": requestedHeaders.join(","),
+		},
+	});
+	if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+	const allowOrigin = r.headers.get("access-control-allow-origin");
+	if (allowOrigin !== origin) {
+		throw new Error(
+			`expected Access-Control-Allow-Origin ${origin}, got ${allowOrigin ?? "none"}`,
+		);
+	}
+
+	const allowedHeaders = new Set(
+		(r.headers.get("access-control-allow-headers") ?? "")
+			.split(",")
+			.map((header) => header.trim().toLowerCase())
+			.filter(Boolean),
+	);
+	const missing = requestedHeaders.filter(
+		(header) => !allowedHeaders.has(header),
+	);
+	if (missing.length > 0) {
+		throw new Error(`missing allowed header(s): ${missing.join(", ")}`);
+	}
+
+	return "ok";
 }
