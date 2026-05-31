@@ -172,7 +172,7 @@ function ViewTab({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`px-3 h-7 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer${
+			className={`px-3 h-7 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer ${
 				active
 					? "bg-sys-primary text-white"
 					: "bg-transparent text-sys-on-surface hover:bg-sys-surface-low"
@@ -373,8 +373,8 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 
 	const errorRate =
 		spans.length > 0
-			? ((overview?.summary.errorSpans ?? 0) /
-					Math.max(1, overview?.summary.totalSpans ?? 1)) *
+			? (spans.filter((span) => span.statusCode === 2).length /
+					Math.max(1, spans.length)) *
 				100
 			: 0;
 
@@ -931,7 +931,7 @@ function DetailTabBtn({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`px-3 py-2 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer border-b-2${
+			className={`px-3 py-2 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer border-b-2 ${
 				active
 					? "border-sys-primary text-sys-on-surface"
 					: "border-transparent text-sys-on-surface/60 hover:text-sys-on-surface hover:bg-sys-surface-low"

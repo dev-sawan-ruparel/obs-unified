@@ -1,5 +1,5 @@
 const BOT_PATTERN =
-	/\b(bot|crawler|spider|slurp|facebookexternalhit|headless|monitoring|uptime|curl|wget|python-requests|go-http-client)\b/i;
+	/(?:^|[^\p{L}\p{N}])(?:bot|crawler|spider|slurp|facebookexternalhit|headless|monitoring|uptime|curl|wget|python-requests|go-http-client)(?:$|[^\p{L}\p{N}])/iu;
 
 export interface ParsedUserAgent {
 	browser: string | null;

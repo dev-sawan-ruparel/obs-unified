@@ -338,8 +338,13 @@ export async function runAllDueAnalyses(
 					tracer: ctx.tracer,
 				}
 			: undefined;
-	const narrativeBudgetPerHour =
-		Number.parseInt(ctx.env.NARRATIVE_BUDGET_PER_HOUR ?? "", 10) || 50;
+	const parsedNarrativeBudget = Number.parseInt(
+		ctx.env.NARRATIVE_BUDGET_PER_HOUR ?? "",
+		10,
+	);
+	const narrativeBudgetPerHour = Number.isFinite(parsedNarrativeBudget)
+		? parsedNarrativeBudget
+		: 50;
 	const narrativesUsed = llm
 		? await store.countNarrativesInWindow(projectId, 60)
 		: 0;

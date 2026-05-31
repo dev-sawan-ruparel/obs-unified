@@ -52,7 +52,8 @@ export function getModelPricing(
 
 	let best: { key: string; pricing: ModelPricing } | null = null;
 	for (const [key, pricing] of Object.entries(PRICING)) {
-		if (normalized.startsWith(key) && (!best || key.length > best.key.length)) {
+		const matchesModel = normalized === key || normalized.startsWith(`${key}-`);
+		if (matchesModel && (!best || key.length > best.key.length)) {
 			best = { key, pricing };
 		}
 	}

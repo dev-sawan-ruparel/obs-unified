@@ -131,9 +131,9 @@ function readEnv() {
 		return v;
 	};
 	return {
-		PORT: Number(process.env.PORT ?? 8790),
+		PORT: readNumberEnv("PORT", 8790),
 		DATABASE_URL: required("DATABASE_URL"),
-		PG_POOL_MAX: Number(process.env.PG_POOL_MAX ?? 10),
+		PG_POOL_MAX: readNumberEnv("PG_POOL_MAX", 10),
 		S3_ENDPOINT: process.env.S3_ENDPOINT,
 		S3_REGION: process.env.S3_REGION ?? "us-east-1",
 		S3_BUCKET: required("S3_BUCKET"),
@@ -145,4 +145,11 @@ function readEnv() {
 		ALLOWED_ORIGINS:
 			process.env.ALLOWED_ORIGINS?.split(",").map((s) => s.trim()) ?? [],
 	};
+}
+
+function readNumberEnv(name: string, fallback: number): number {
+	const raw = process.env[name];
+	if (raw === undefined || raw === "") return fallback;
+	const parsed = Number(raw);
+	return Number.isFinite(parsed) ? parsed : fallback;
 }

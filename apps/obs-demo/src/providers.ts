@@ -129,7 +129,7 @@ export async function askAnthropic(
 		}
 		const body = (await res.json()) as {
 			content: Array<{ type: string; text?: string }>;
-			usage: { input_tokens: number; output_tokens: number };
+			usage?: { input_tokens?: number; output_tokens?: number };
 			stop_reason?: string;
 		};
 		const text = body.content
@@ -137,10 +137,12 @@ export async function askAnthropic(
 			.map((b) => b.text ?? "")
 			.join("");
 		span.setOutput(body);
+		const inputTokens = body.usage?.input_tokens ?? 0;
+		const outputTokens = body.usage?.output_tokens ?? 0;
 		span.setTokens({
-			prompt: body.usage.input_tokens,
-			completion: body.usage.output_tokens,
-			total: body.usage.input_tokens + body.usage.output_tokens,
+			prompt: inputTokens,
+			completion: outputTokens,
+			total: inputTokens + outputTokens,
 		});
 		span.end();
 		return { text, spanId: span.spanId, provider: "anthropic", model };

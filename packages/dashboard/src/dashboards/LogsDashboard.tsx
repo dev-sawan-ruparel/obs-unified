@@ -538,7 +538,7 @@ function LogDetailDrawer({
 						<dt className="opacity-50 uppercase tracking-[0.05em]">Trace</dt>
 						<dd className="break-all">
 							<a
-								href={`#/traces?traceId=${encodeURIComponent(log.traceId)}`}
+								href={`#/traces?trace=${encodeURIComponent(log.traceId)}`}
 								className="text-sys-primary underline"
 							>
 								{log.traceId}

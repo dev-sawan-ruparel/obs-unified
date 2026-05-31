@@ -34,6 +34,7 @@ export const INTERACTION_ATTRIBUTE = "obs.interaction.id";
 
 // Per spec: 26 chars, Crockford base32, case-sensitive uppercase + digits.
 const INTERACTION_ID_REGEX = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+const interactionIdsBySpan = new WeakMap<Span, string>();
 
 type HeaderSource =
 	| { headers: { get(name: string): string | null } } // Fetch API Request
@@ -96,6 +97,7 @@ export const stampInteractionFromRequest = (
 	if (!raw) return;
 	if (!INTERACTION_ID_REGEX.test(raw)) return;
 	span.setAttribute(INTERACTION_ATTRIBUTE, raw);
+	interactionIdsBySpan.set(span, raw);
 };
 
 /**
@@ -105,6 +107,8 @@ export const stampInteractionFromRequest = (
 export const currentInteractionId = (): string | undefined => {
 	const span = trace.getActiveSpan();
 	if (!span) return undefined;
+	const stamped = interactionIdsBySpan.get(span);
+	if (stamped) return stamped;
 	const attrs = (
 		span as unknown as {
 			attributes?: Record<string, unknown>;

@@ -66,13 +66,22 @@ app.use(
 	}),
 );
 
-// Init observability once per request
+let observabilityInitialized = false;
 app.use("*", async (c, next) => {
+	if (observabilityInitialized) {
+		await next();
+		return;
+	}
+	if (!c.env.OBS_COLLECTOR_URL || !c.env.OBS_INGEST_KEY) {
+		await next();
+		return;
+	}
 	initObservability({
 		collectorUrl: c.env.OBS_COLLECTOR_URL,
 		apiKey: c.env.OBS_INGEST_KEY,
 		serviceName: "obs-demo",
 	});
+	observabilityInitialized = true;
 	await next();
 });
 
@@ -104,8 +113,11 @@ app.use("*", async (c, next) => {
 		throw err;
 	} finally {
 		span.end();
-		await exportSpan(c.env, span);
-		await Promise.all([flushLogs(), flushAICalls()]).catch(() => {});
+		c.executionCtx.waitUntil(
+			Promise.all([exportSpan(c.env, span), flushLogs(), flushAICalls()])
+				.then(() => undefined)
+				.catch(() => undefined),
+		);
 	}
 });
 
@@ -187,7 +199,7 @@ app.get("/api/items", async (c) => {
 
 app.get("/api/items/:id", async (c) => {
 	const id = Number(c.req.param("id"));
-	if (id > 3) {
+	if (!Number.isInteger(id) || id < 1 || id > 3) {
 		logger.warn("Item not found", { id });
 		return c.json({ error: "Not found" }, 404);
 	}
@@ -258,14 +270,18 @@ app.get("/api/demo/chat", async (c) => {
 				model: res.model,
 				text: res.text,
 			});
-			await postEvaluation(c.env, {
-				traceId: getCurrentTraceId(),
-				spanId: res.spanId,
-				name: "answer_length_ok",
-				score: res.text.trim().length > 0 && res.text.length < 40 ? 1 : 0,
-				label: res.text.length < 40 ? "pass" : "fail",
-				source: "code",
-			});
+			const traceId = getCurrentTraceId();
+			const hasAnswer = res.text.trim().length > 0;
+			if (traceId) {
+				await postEvaluation(c.env, {
+					traceId,
+					spanId: res.spanId,
+					name: "answer_length_ok",
+					score: hasAnswer && res.text.length < 40 ? 1 : 0,
+					label: hasAnswer && res.text.length < 40 ? "pass" : "fail",
+					source: "code",
+				});
+			}
 		} catch (e) {
 			logger.error(`Provider ${provider} failed`, {
 				error: e instanceof Error ? e.message : String(e),

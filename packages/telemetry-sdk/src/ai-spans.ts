@@ -119,6 +119,7 @@ const createBaseSpan = (
 			return child.spanId;
 		},
 		setOutput(output) {
+			if (ended) return;
 			child.setAttribute(AI_PAYLOAD_OUTPUT_KEY, stringify(output));
 		},
 		setError(message) {
@@ -129,6 +130,7 @@ const createBaseSpan = (
 			}
 		},
 		setAttribute(key, value) {
+			if (ended) return;
 			child.setAttribute(key, value);
 		},
 		end() {

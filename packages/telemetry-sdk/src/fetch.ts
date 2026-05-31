@@ -65,12 +65,16 @@ export const wrapFetch = (
 				const response = await fn(input, init);
 				span.setAttribute("http.response.status_code", response.status);
 				const contentLength = response.headers.get("content-length");
-				if (contentLength)
+				const parsedContentLength = contentLength
+					? Number.parseInt(contentLength, 10)
+					: Number.NaN;
+				if (Number.isFinite(parsedContentLength)) {
 					span.setAttribute(
 						"http.response_content_length",
-						Number.parseInt(contentLength, 10),
+						parsedContentLength,
 					);
-				if (response.status >= 500) {
+				}
+				if (response.status >= 400) {
 					span.setStatus(2, `HTTP ${response.status}`);
 				}
 				return response;

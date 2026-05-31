@@ -21,7 +21,7 @@ export const parseJsonValue = (value: string): JsonValue => {
 	try {
 		return JSON.parse(value) as JsonValue;
 	} catch {
-		return {};
+		return null;
 	}
 };
 
