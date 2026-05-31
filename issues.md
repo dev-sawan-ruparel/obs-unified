@@ -36,12 +36,6 @@ This document is the single, unified source of truth for all codebase issues, co
 ## ── P1: FUNCTIONAL CORRECTNESS & DATA INTEGRITY ──
 
 ### Open Issues
-- [ ] **Trace Summary Reconstructs Traces in JavaScript from Capped Spans**
-  * **Location:** [`packages/obs-collector/src/lib/store.ts:457`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/store.ts#L457)
-  * **Description:** The `getOverview` and `getIssueOverview` queries cap spans at `traceLimit * 50` and then aggregate parent-child traces in memory.
-  * **Risk:** High. Boundary traces that exceed the arbitrary span limit lose spans, causing wrong root span identification, wrong span/error counts, and broken p95 latency aggregations.
-  * **Next Action:** Re-architect trace listing to aggregate traces at the database layer (via trace headers or SQL group by), then paginate traces rather than raw spans.
-
 - [ ] **Postgres Adapter Rewrites SQLite Queries dynamically via Regular Expressions**
   * **Location:** [`packages/obs-collector/src/lib/sql-db-postgres.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/sql-db-postgres.ts)
   * **Description:** SQLite query syntax is translated on-the-fly to Postgres syntax by executing string regex replacements (translating `json_extract`, `strftime`, `datetime('now', ...)`).
@@ -49,6 +43,8 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Next Action:** Refactor SQL compilation to use dedicated dialect files or a lightweight query builder. Maintain regex rewrites only as a secondary backward-compatibility layer.
 
 ### Resolved Functional Issues
+- [x] **Trace Summary Reconstructs Traces in JavaScript from Capped Spans**
+  * *Resolution:* `TelemetryStore` now selects candidate trace IDs with SQL `GROUP BY trace_id` and status HAVING filters, then fetches all spans for those selected trace IDs before building trace summaries and issue groupings. This removes the raw `traceLimit * 50` / `issueLimit * 100` span caps that could truncate large boundary traces, and adds a regression test verifying a one-trace overview still counts all fetched child spans.
 - [x] **Telemetry SDK in-Memory Spans Omit Exporter/Flush Mechanism**
   * *Resolution:* Added an OTLP trace export queue to `packages/telemetry-sdk/src/span.ts`. `initObservability()` now configures span export alongside logs and AI calls, ended request spans enqueue automatically, `flushSpans()` drains to `/v1/traces`, and `shutdownSpanExporter()` drains/stops lifecycle hooks. Updated demo, collector self-instrumentation, and generated templates to flush the SDK span queue instead of manually posting `toOtlpExportRequest()`, with regression tests for queued export and single-send behavior.
 - [x] **Telemetry SDK Lacks Flush Timers and Exit Hooks**

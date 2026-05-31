@@ -79,6 +79,12 @@ type ParsedSpan = StoredSpan & {
 	links: unknown[];
 };
 
+interface TraceCandidateRow {
+	trace_id: string;
+	latest_received_at: string;
+	error_span_count: number;
+}
+
 // ── Helpers ──
 
 const cutoffIso = (hours: number): string =>
@@ -109,6 +115,17 @@ const toParsedSpan = (row: StoredSpan): ParsedSpan => ({
 	events: parseJsonArray(row.eventsJson),
 	links: parseJsonArray(row.linksJson),
 });
+
+const spanSelectColumns = `
+	project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
+	scope_version, span_name, span_kind, status_code, status_message,
+	start_time, end_time, duration_ms, attributes_json,
+	resource_attributes_json, events_json, links_json,
+	received_at, expires_at
+`;
+
+const placeholders = (count: number): string =>
+	Array.from({ length: count }, () => "?").join(",");
 
 const getRouteLabel = (span: ParsedSpan): string => {
 	const collectorRoute = span.attributes["collector.route_label"];
@@ -373,6 +390,73 @@ const groupIssues = (
 export class TelemetryStore {
 	constructor(private readonly db: SqlDb) {}
 
+	private async selectTraceCandidates(options: {
+		projectId: string;
+		cutoff: string;
+		service?: string;
+		search?: string;
+		status?: "all" | "error" | "ok";
+		limit: number;
+	}): Promise<TraceCandidateRow[]> {
+		let whereClause = "WHERE project_id = ? AND received_at >= ?";
+		const binds: unknown[] = [options.projectId, options.cutoff];
+
+		if (options.service) {
+			whereClause += " AND service_name = ?";
+			binds.push(options.service);
+		}
+		if (options.search) {
+			const term = `%${options.search}%`;
+			whereClause +=
+				" AND (span_name LIKE ? OR status_message LIKE ? OR attributes_json LIKE ? OR events_json LIKE ?)";
+			binds.push(term, term, term, term);
+		}
+
+		const having =
+			options.status === "error"
+				? "HAVING SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) > 0"
+				: options.status === "ok"
+					? "HAVING SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) = 0"
+					: "";
+
+		const result = await this.db
+			.prepare(`
+				SELECT
+					trace_id,
+					MAX(received_at) AS latest_received_at,
+					SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_span_count
+				FROM telemetry_spans
+				${whereClause}
+				GROUP BY trace_id
+				${having}
+				ORDER BY latest_received_at DESC
+				LIMIT ?
+			`)
+			.bind(...binds, options.limit)
+			.all<TraceCandidateRow>();
+
+		return result.results ?? [];
+	}
+
+	private async fetchSpansForTraceIds(
+		projectId: string,
+		traceIds: string[],
+	): Promise<ParsedSpan[]> {
+		if (traceIds.length === 0) return [];
+
+		const result = await this.db
+			.prepare(`
+				SELECT ${spanSelectColumns}
+				FROM telemetry_spans
+				WHERE project_id = ? AND trace_id IN (${placeholders(traceIds.length)})
+				ORDER BY received_at DESC, start_time ASC, span_id ASC
+			`)
+			.bind(projectId, ...traceIds)
+			.all<Record<string, unknown>>();
+
+		return (result.results ?? []).map(rowToSpan).map(toParsedSpan);
+	}
+
 	async ingest(
 		spans: StoredSpan[],
 	): Promise<{ inserted: number; traceCount: number }> {
@@ -438,40 +522,22 @@ export class TelemetryStore {
 			throw new Error("TelemetryStore.getOverview: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const traceLimit = options.limit ?? 30;
-		let whereClause = "WHERE project_id = ? AND received_at >= ?";
-		const binds: unknown[] = [options.projectId, cutoff];
-
-		if (options.service) {
-			whereClause += " AND service_name = ?";
-			binds.push(options.service);
-		}
-		// Search (from D)
-		if (options.search) {
-			const term = `%${options.search}%`;
-			whereClause +=
-				" AND (span_name LIKE ? OR status_message LIKE ? OR attributes_json LIKE ? OR events_json LIKE ?)";
-			binds.push(term, term, term, term);
-		}
-
-		binds.push(traceLimit * 50);
-		const result = await this.db
-			.prepare(`
-      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
-             scope_version, span_name, span_kind, status_code, status_message,
-             start_time, end_time, duration_ms, attributes_json,
-             resource_attributes_json, events_json, links_json,
-             received_at, expires_at
-      FROM telemetry_spans
-      ${whereClause}
-      ORDER BY received_at DESC
-      LIMIT ?
-    `)
-			.bind(...binds)
-			.all<Record<string, unknown>>();
-
+		const candidates = await this.selectTraceCandidates({
+			projectId: options.projectId,
+			cutoff,
+			service: options.service,
+			search: options.search,
+			status: options.status,
+			limit: traceLimit,
+		});
+		const candidateOrder = new Map(
+			candidates.map((candidate, index) => [candidate.trace_id, index]),
+		);
 		const grouped = new Map<string, ParsedSpan[]>();
-		for (const row of result.results ?? []) {
-			const parsed = toParsedSpan(rowToSpan(row));
+		for (const parsed of await this.fetchSpansForTraceIds(
+			options.projectId,
+			candidates.map((candidate) => candidate.trace_id),
+		)) {
 			const traceSpans = grouped.get(parsed.traceId) ?? [];
 			traceSpans.push(parsed);
 			grouped.set(parsed.traceId, traceSpans);
@@ -502,15 +568,12 @@ export class TelemetryStore {
 						.length,
 				};
 			})
-			.filter(
-				(trace) =>
-					options.status === "all" ||
-					!options.status ||
-					(options.status === "error"
-						? trace.errorSpanCount > 0
-						: trace.errorSpanCount === 0),
-			)
 			.sort((left, right) => right.receivedAt.localeCompare(left.receivedAt));
+		traces.sort(
+			(left, right) =>
+				(candidateOrder.get(left.traceId) ?? Number.MAX_SAFE_INTEGER) -
+				(candidateOrder.get(right.traceId) ?? Number.MAX_SAFE_INTEGER),
+		);
 
 		const durations = traces.map((trace) => trace.durationMs);
 		const errorTraces = traces.filter((trace) => trace.errorSpanCount > 0);
@@ -639,33 +702,18 @@ export class TelemetryStore {
 			throw new Error("TelemetryStore.getIssueOverview: projectId is required");
 		const cutoff = cutoffIso(options.hours);
 		const issueLimit = options.limit ?? 50;
-		let whereClause = "WHERE project_id = ? AND received_at >= ?";
-		const binds: unknown[] = [options.projectId, cutoff];
-		if (options.service) {
-			whereClause += " AND service_name = ?";
-			binds.push(options.service);
-		}
-		binds.push(issueLimit * 100);
+		const candidates = await this.selectTraceCandidates({
+			projectId: options.projectId,
+			cutoff,
+			service: options.service,
+			limit: issueLimit * 100,
+		});
+		const spans = await this.fetchSpansForTraceIds(
+			options.projectId,
+			candidates.map((candidate) => candidate.trace_id),
+		);
 
-		const result = await this.db
-			.prepare(`
-      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
-             scope_version, span_name, span_kind, status_code, status_message,
-             start_time, end_time, duration_ms, attributes_json,
-             resource_attributes_json, events_json, links_json,
-             received_at, expires_at
-      FROM telemetry_spans
-      ${whereClause}
-      ORDER BY received_at DESC
-      LIMIT ?
-    `)
-			.bind(...binds)
-			.all<Record<string, unknown>>();
-
-		const issues = groupIssues(
-			(result.results ?? []).map(rowToSpan).map(toParsedSpan),
-			options,
-		)
+		const issues = groupIssues(spans, options)
 			.sort(
 				(left, right) =>
 					right.occurrenceCount - left.occurrenceCount ||
@@ -751,33 +799,20 @@ export class TelemetryStore {
 		if (!options.projectId)
 			throw new Error("TelemetryStore.getIssueDetail: projectId is required");
 		const cutoff = cutoffIso(options.hours);
-		let whereClause = "WHERE project_id = ? AND received_at >= ?";
-		const binds: unknown[] = [options.projectId, cutoff];
-		if (options.service) {
-			whereClause += " AND service_name = ?";
-			binds.push(options.service);
-		}
-		binds.push(5000);
+		const candidates = await this.selectTraceCandidates({
+			projectId: options.projectId,
+			cutoff,
+			service: options.service,
+			limit: 500,
+		});
+		const spans = await this.fetchSpansForTraceIds(
+			options.projectId,
+			candidates.map((candidate) => candidate.trace_id),
+		);
 
-		const result = await this.db
-			.prepare(`
-      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
-             scope_version, span_name, span_kind, status_code, status_message,
-             start_time, end_time, duration_ms, attributes_json,
-             resource_attributes_json, events_json, links_json,
-             received_at, expires_at
-      FROM telemetry_spans
-      ${whereClause}
-      ORDER BY received_at DESC
-      LIMIT ?
-    `)
-			.bind(...binds)
-			.all<Record<string, unknown>>();
-
-		const issue = groupIssues(
-			(result.results ?? []).map(rowToSpan).map(toParsedSpan),
-			options,
-		).find((candidate) => candidate.issueId === issueId);
+		const issue = groupIssues(spans, options).find(
+			(candidate) => candidate.issueId === issueId,
+		);
 
 		if (!issue) return null;
 
