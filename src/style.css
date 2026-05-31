@@ -332,6 +332,7 @@ code {
 .tag-ai { background: color-mix(in srgb, var(--color-sys-accent) 16%, transparent); color: var(--color-sys-accent); }
 .tag-int { background: color-mix(in srgb, var(--color-sys-primary) 12%, transparent); color: var(--color-sys-primary); }
 .tag-replay { background: color-mix(in srgb, var(--color-sys-accent) 14%, transparent); color: var(--color-sys-accent); }
+.tag-prof { background: color-mix(in srgb, var(--color-sys-primary) 10%, transparent); color: color-mix(in srgb, var(--color-sys-primary) 70%, var(--color-sys-accent)); }
 .tag-alert { background: color-mix(in srgb, var(--color-sys-warning) 18%, transparent); color: var(--color-sys-warning); }
 
 .window-footnote {
@@ -348,6 +349,8 @@ code {
   color: var(--color-sys-on-surface-subtle);
   font-size: 13px;
   line-height: 1.6;
+  display: grid;
+  gap: 6px;
 }
 .hero-chain code {
   background: transparent;

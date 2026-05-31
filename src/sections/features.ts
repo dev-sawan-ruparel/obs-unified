@@ -31,6 +31,11 @@ const FEATURES: Feature[] = [
     icon: `<path d="M3 20h18M6 16v-6M11 16V8M16 16v-3M21 16v-9"/>`,
   },
   {
+    title: "Interaction ID to CPU",
+    body: "A click mints one interaction_id, fetch carries x-obs-interaction, backend spans/logs/AI calls inherit it, and CPU profiles join through the resulting trace_id.",
+    icon: `<path d="M4 12h4l2-6 4 12 2-6h4"/><path d="M4 20h16M4 4h16"/>`,
+  },
+  {
     title: "Alerts",
     body: "Alert rules over any signal — latency, error rate, AI spend, custom usage events. One rules engine and one notification surface across the stack.",
     icon: `<path d="M12 2a7 7 0 0 0-7 7v4l-2 3h18l-2-3V9a7 7 0 0 0-7-7z"/><path d="M9 18a3 3 0 0 0 6 0"/>`,

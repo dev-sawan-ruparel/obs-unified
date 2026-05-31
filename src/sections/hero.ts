@@ -36,6 +36,8 @@ export function renderHero(): string {
       <p class="hero-chain">
         Identity propagated end-to-end:
         <code>user_id → session_id → interaction_id → trace_id → span_id</code>
+        <span>The interaction ID follows a frontend action into backend spans, logs,
+        and AI calls; CPU/off-CPU profiles join through the trace it caused.</span>
       </p>
     </div>
     <aside class="hero-preview" aria-hidden="true">
@@ -50,6 +52,7 @@ export function renderHero(): string {
           <div class="signal-row indent"><span class="tag tag-log">LOG</span> checkout.charge.created <span class="muted">amount=4900</span></div>
           <div class="signal-row indent"><span class="tag tag-ai">AI</span> claude-sonnet-4 · 230ms · $0.0021</div>
           <div class="signal-row indent"><span class="tag tag-replay">REPLAY</span> 00:42 → 00:51 <span class="muted">rrweb</span></div>
+          <div class="signal-row indent"><span class="tag tag-prof">CPU</span> pprof sample set <span class="muted">joined by trace</span></div>
           <div class="signal-row indent"><span class="tag tag-alert">ALERT</span> p99 latency · threshold breach</div>
         </div>
         <div class="window-footnote">↑ one trace · six neighbors · all ≤1 click away</div>
