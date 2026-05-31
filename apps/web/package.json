@@ -5,6 +5,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
+		"screenshots:marketing": "node scripts/capture-marketing-screenshots.mjs",
 		"test:e2e": "playwright test features.spec.ts",
 		"test:e2e:all": "playwright test"
 	},
