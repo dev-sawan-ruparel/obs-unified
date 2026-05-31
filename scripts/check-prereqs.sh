@@ -18,6 +18,14 @@ fail=0
 ok()    { printf "  \033[32m✓\033[0m %s\n" "$1"; }
 warn()  { printf "  \033[33m!\033[0m %s — %s\n" "$1" "$2"; }
 bad()   { printf "  \033[31m✘\033[0m %s — %s\n" "$1" "$2"; fail=1; }
+tool_version() {
+  case "$1" in
+    go) "$1" version 2>&1 | head -1 ;;
+    node) "$1" --version 2>&1 | head -1 ;;
+    pnpm) "$1" --version 2>&1 | head -1 ;;
+    *) "$1" --version 2>&1 | head -1 ;;
+  esac
+}
 
 echo "== host =="
 case "$(uname -s)" in
@@ -33,13 +41,21 @@ esac
 
 echo
 echo "== tools =="
-for tool in bash curl jq gh; do
+for tool in bash curl jq gh node pnpm go cargo rustc docker shellcheck; do
   if command -v "$tool" >/dev/null 2>&1; then
-    ok "$tool ($("$tool" --version 2>&1 | head -1))"
+    ok "$tool ($(tool_version "$tool"))"
   else
     bad "$tool" "missing — brew install $tool (or apt/dnf equivalent)"
   fi
 done
+
+if command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then
+    ok "docker daemon reachable"
+  else
+    bad "docker daemon" "not reachable - start Docker Desktop, Colima, or another Docker daemon"
+  fi
+fi
 
 echo
 echo "== gh authentication =="
@@ -68,15 +84,29 @@ else
   bad "runners.json" "missing"
 fi
 
+if [[ -f "$CI_ROOT/runners.json" ]] && command -v jq >/dev/null 2>&1; then
+  while IFS= read -r key; do
+    if [[ -f "$CI_ROOT/runners/$key/.runner" ]]; then
+      ok "runner '$key' locally registered"
+    else
+      bad "runner '$key'" "not locally registered - run scripts/register.sh $key"
+    fi
+  done < <(jq -r '.runners | keys[]' "$CI_ROOT/runners.json")
+fi
+
 echo
 echo "== Cloudflare env (.env.deploy) =="
 if [[ -f "$CI_ROOT/.env.deploy" ]]; then
   ok ".env.deploy present"
-  # shellcheck disable=SC1090
-  set -o allexport; source "$CI_ROOT/.env.deploy"; set +o allexport
-  [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] \
-    && ok "CLOUDFLARE_API_TOKEN set" \
-    || warn "CLOUDFLARE_API_TOKEN" "empty — DNS scripts will fail; run scripts/check-env.sh after filling in"
+  set -o allexport
+  # shellcheck source=/dev/null
+  source "$CI_ROOT/.env.deploy"
+  set +o allexport
+  if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    ok "CLOUDFLARE_API_TOKEN set"
+  else
+    warn "CLOUDFLARE_API_TOKEN" "empty — DNS scripts will fail; run scripts/check-env.sh after filling in"
+  fi
 else
   warn ".env.deploy" "not created — cp .env.deploy.example .env.deploy"
 fi
