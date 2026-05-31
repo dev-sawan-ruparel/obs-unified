@@ -1154,10 +1154,12 @@ export class TelemetryStore {
 		// Top operations — group by span_name, accumulate durations in JS.
 		const opsResult = await this.db
 			.prepare(
+				// One row per span; calls/errors/percentiles are aggregated per
+				// span_name in JS below. Do NOT reintroduce COUNT()/SUM() without
+				// a GROUP BY — that collapses the result to a single row in SQLite.
 				`SELECT
 					span_name,
-					COUNT(*) AS calls,
-					SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS errors,
+					status_code,
 					duration_ms
 				FROM telemetry_spans
 				WHERE project_id = ?
@@ -1169,8 +1171,7 @@ export class TelemetryStore {
 			.bind(options.projectId, options.service, cutoff)
 			.all<{
 				span_name: string;
-				calls: number;
-				errors: number;
+				status_code: number | null;
 				duration_ms: number;
 			}>();
 
@@ -1182,17 +1183,17 @@ export class TelemetryStore {
 		const opMap = new Map<string, OpAcc>();
 		let totalSpans = 0;
 		let totalErrors = 0;
-		const _traceIds = new Set<string>();
 		for (const row of opsResult.results ?? []) {
+			const isError = row.status_code === 2;
 			totalSpans += 1;
-			if (row.errors > 0) totalErrors += 1;
+			if (isError) totalErrors += 1;
 			let acc = opMap.get(row.span_name);
 			if (!acc) {
 				acc = { calls: 0, errors: 0, durations: [] };
 				opMap.set(row.span_name, acc);
 			}
 			acc.calls += 1;
-			if (row.errors > 0) acc.errors += 1;
+			if (isError) acc.errors += 1;
 			acc.durations.push(row.duration_ms ?? 0);
 		}
 		const operations = Array.from(opMap.entries())

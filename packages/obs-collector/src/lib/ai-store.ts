@@ -475,21 +475,29 @@ export class AIStore {
 			.all<AISessionRow>();
 
 		// Second query: most recent input per session, for list preview.
-		const previewSql = `
+		// Bound to the session IDs we actually display — without the IN-filter
+		// this scans every payload row in the window regardless of result size.
+		const sessionIds = (results.results ?? []).map((r) => r.session_id);
+		const previewRows =
+			sessionIds.length === 0
+				? { results: [] as AISessionPreviewRow[] }
+				: await this.db
+						.prepare(
+							`
       SELECT p.session_id, p.input_json, s.start_time
       FROM ai_span_payloads p
       INNER JOIN telemetry_spans s
         ON s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ?
         AND p.session_id IS NOT NULL
+        AND p.session_id IN (${sessionIds.map(() => "?").join(", ")})
         AND p.received_at >= datetime('now', '-' || ? || ' hours')
         AND p.input_json IS NOT NULL
       ORDER BY s.start_time DESC
-    `;
-		const previewRows = await this.db
-			.prepare(previewSql)
-			.bind(options.projectId, hours)
-			.all<AISessionPreviewRow>();
+    `,
+						)
+						.bind(options.projectId, ...sessionIds, hours)
+						.all<AISessionPreviewRow>();
 		const previewBySession = new Map<string, string>();
 		for (const row of previewRows.results || []) {
 			if (!previewBySession.has(row.session_id)) {

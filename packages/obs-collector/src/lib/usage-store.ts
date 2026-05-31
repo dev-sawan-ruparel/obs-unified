@@ -494,7 +494,7 @@ export class UsageStore {
 					SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) AS page_view_count,
 					SUM(CASE WHEN event_type = 'interaction' THEN 1 ELSE 0 END) AS interaction_count,
 					SUM(CASE WHEN event_type = 'frontend_error' OR severity = 'error' THEN 1 ELSE 0 END) AS error_count,
-					MAX(CASE WHEN event_type = 'page_view' THEN CAST(json_extract(properties_json, '$.loadTimeMs') AS REAL) ELSE NULL END) AS max_load_ms,
+					MAX(CASE WHEN event_type = 'page_view' THEN CAST(COALESCE(json_extract(properties_json, '$.loadTimeMs'), json_extract(properties_json, '$.load_time_ms'), json_extract(properties_json, '$.durationMs')) AS REAL) ELSE NULL END) AS max_load_ms,
 					(SELECT referrer FROM usage_events ref WHERE ref.project_id = ue.project_id AND ref.session_id = ue.session_id ORDER BY occurred_at ASC LIMIT 1) AS referrer,
 					(SELECT page_path FROM usage_events lp WHERE lp.project_id = ue.project_id AND lp.session_id = ue.session_id ORDER BY occurred_at DESC LIMIT 1) AS last_path
 				FROM usage_events ue

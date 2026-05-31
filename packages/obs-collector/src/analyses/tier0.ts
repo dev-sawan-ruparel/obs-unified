@@ -196,12 +196,12 @@ const latencyP95Overall: AnalysisDefinition = {
 		),
 		cur_p95 AS (
 			SELECT duration_ms FROM cur
-			WHERE rn = MAX(1, CAST(0.95 * n AS INTEGER))
+			WHERE rn = MAX(1, MAX(1, (95 * n + 99) / 100))
 			LIMIT 1
 		),
 		base_p95 AS (
 			SELECT duration_ms FROM base
-			WHERE rn = MAX(1, CAST(0.95 * n AS INTEGER))
+			WHERE rn = MAX(1, MAX(1, (95 * n + 99) / 100))
 			LIMIT 1
 		),
 		spark AS (

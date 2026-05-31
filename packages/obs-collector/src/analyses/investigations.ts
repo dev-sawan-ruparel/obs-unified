@@ -134,7 +134,7 @@ const latencyOutlierAttribution: AnalysisDefinition = {
 			-- Conservatively call "tail" the slowest 5% of the window.
 			SELECT MIN(duration_ms) AS p95
 			FROM ranked
-			WHERE rn <= MAX(1, CAST(n / 20 AS INTEGER))
+			WHERE rn <= MAX(1, (n + 19) / 20)
 		),
 		offenders AS (
 			SELECT service, span,
