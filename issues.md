@@ -242,7 +242,7 @@ These were present in the old trackers but were either omitted from the first ag
   * **Description:** Wire `@obs-unified/telemetry-sdk`'s `trackAICall` helper into the Astronomy Shop's Recommendation Service (or AI agent helper) to verify LLM cost aggregates and parent-child span associations.
   * **Local verification added:** `packages/obs-collector/src/plugins/connected-routes.test.ts` now has a deterministic Scenario B contract test for `heavy-spender user -> latest session -> AI trace -> originating click`, covering the same identity-graph pivots the live dashboard flow depends on.
   * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, and `pnpm run lint`.
-  * **Why it's pending:** `pnpm demo:preflight` finds no LLM provider keys in the current environment, and the full demo stack cannot be run under the available Docker memory cap. Needs provider key mapping plus the higher-memory compose environment used for Scenario A.
+  * **Why it's pending:** `pnpm demo:preflight` now detects the LLM provider key in `demo/upstream/.env`, but the full demo stack still cannot be run under the available Docker memory cap. Needs the higher-memory compose environment used for Scenario A.
 
 ---
 
