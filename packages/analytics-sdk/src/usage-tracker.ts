@@ -10,184 +10,23 @@
 import { record } from "rrweb";
 import { currentInteractionId } from "./interaction";
 
-// ── Public config ──
+import type {
+	ReplayPrivacyOptions,
+	UsageTrackerConfig,
+} from "./usage-tracker/config";
+import {
+	getStorageValue,
+	getUtmParams,
+	getViewportContext,
+	normalizeMetadata,
+	safeStorage,
+} from "./usage-tracker/helpers";
+import type { UsageEventPayload } from "./usage-tracker/types";
 
-/**
- * Privacy-related rrweb replay options exposed to SDK consumers.
- *
- * The SDK ships safe defaults: all inputs masked, password/email/tel
- * masked specifically, text input values asterisk-padded. Override these
- * to tighten or loosen recording for your app — for example,
- * `maskInputOptions: { text: true }` to also mask plain text inputs, or
- * `blockSelector: ".secret"` to exclude marked subtrees entirely.
- *
- * Fields are forwarded to rrweb's `record()` and merged with the SDK's
- * defaults. Defining a self-contained shape (rather than re-exporting
- * rrweb's `recordOptions`) keeps the SDK's public surface stable across
- * rrweb upgrades.
- */
-export interface ReplayPrivacyOptions {
-	/** Mask the value of all <input> elements. Default: true. */
-	maskAllInputs?: boolean;
-	/**
-	 * Per-input-type masking. Shallow-merged with SDK defaults
-	 * (`{ password: true, email: true, tel: true, text: false }`).
-	 */
-	maskInputOptions?: Record<string, boolean>;
-	/** Function used to mask input values. Default: asterisk-pads up to 20 chars. */
-	maskInputFn?: (text: string, element?: HTMLElement | null) => string;
-	/** CSS selector matching elements whose text content should be masked. */
-	maskTextSelector?: string;
-	/** Function used to mask text content. */
-	maskTextFn?: (text: string, element?: HTMLElement | null) => string;
-	/** CSS selector matching elements to entirely block from recording. */
-	blockSelector?: string;
-	/** CSS selector matching elements to ignore (rendered but not recorded). */
-	ignoreSelector?: string;
-}
-
-export interface UsageTrackerConfig {
-	/** URL of your collector (e.g. "https://obs.my-app.com"). When set, the SDK sends directly to the collector. */
-	collectorUrl?: string;
-	/** Write-only API key for the collector. Required when using collectorUrl. */
-	apiKey?: string;
-	/**
-	 * Legacy: endpoint for usage events (e.g. "/api/usage/events").
-	 * @deprecated Use collectorUrl + apiKey instead for direct-to-collector mode.
-	 */
-	endpoint?: string;
-	debug?: boolean;
-	/** Optional secondary endpoint for error reporting */
-	errorEndpoint?: string;
-	/** Storage key prefix (default: 'usage') */
-	storagePrefix?: string;
-	/** Include credentials in fetch */
-	credentials?: RequestCredentials;
-	/** Error filter: return false to skip reporting an error */
-	errorFilter?: (error: {
-		name?: string;
-		message?: string;
-		source?: string;
-	}) => boolean;
-	/** Max string length for metadata values (default: 160) */
-	maxMetadataLength?: number;
-	/**
-	 * Privacy-related rrweb replay options. Merged with the SDK's safe
-	 * defaults — consumers can tighten masking (e.g. mask text inputs too)
-	 * or add `blockSelector` / `ignoreSelector` rules without forking the
-	 * SDK. See {@link ReplayPrivacyOptions}.
-	 */
-	replayPrivacyOptions?: ReplayPrivacyOptions;
-}
-
-// ── Internal types ──
-
-type UsageEventType =
-	| "page_view"
-	| "interaction"
-	| "frontend_error"
-	| "performance";
-type UsageEventSeverity = "info" | "warn" | "error";
-
-interface UsageEventPayload {
-	type: UsageEventType;
-	name: string;
-	sessionId: string;
-	visitorId: string;
-	path?: string;
-	title?: string;
-	referrer?: string | null;
-	occurredAt?: string;
-	severity?: UsageEventSeverity;
-	properties?: Record<string, unknown>;
-	context?: Record<string, unknown>;
-	/**
-	 * RFC 0004 — click-scoped correlation key. Set when the event is
-	 * emitted while an interaction is active (Mode A captures it
-	 * automatically; Mode B requires `withInteractionContext`). Null
-	 * for events outside any user interaction (e.g. autoflushed
-	 * page_view on initial mount).
-	 */
-	interactionId?: string;
-}
-
-// ── Helpers ──
-
-const createId = (): string => {
-	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-		return crypto.randomUUID();
-	}
-	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
-};
-
-const safeStorage = (
-	storage: Storage,
-	key: string,
-	value?: string,
-): string | null => {
-	try {
-		if (value !== undefined) {
-			storage.setItem(key, value);
-			return value;
-		}
-		return storage.getItem(key);
-	} catch {
-		return null;
-	}
-};
-
-const getStorageValue = (storage: Storage, key: string): string => {
-	const existing = safeStorage(storage, key);
-	if (existing) return existing;
-	const next = createId();
-	safeStorage(storage, key, next);
-	return next;
-};
-
-/** Truncate string values to max length (from A) */
-const truncateValue = (value: unknown, maxLength: number): unknown => {
-	if (typeof value === "string" && value.length > maxLength) {
-		return value.slice(0, maxLength);
-	}
-	return value;
-};
-
-/** Normalize metadata: filter undefined, truncate strings (from A) */
-const normalizeMetadata = (
-	data: Record<string, unknown> | undefined,
-	maxLength: number,
-): Record<string, unknown> | undefined => {
-	if (!data) return undefined;
-	const entries = Object.entries(data)
-		.filter(([, v]) => v !== undefined)
-		.map(([k, v]) => [k, truncateValue(v, maxLength)]);
-	return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-};
-
-const getUtmParams = (): Record<string, string> => {
-	if (typeof window === "undefined") return {};
-	const params = new URLSearchParams(window.location.search);
-	const utm: Record<string, string> = {};
-	for (const key of [
-		"utm_source",
-		"utm_medium",
-		"utm_campaign",
-		"utm_term",
-		"utm_content",
-	]) {
-		const value = params.get(key);
-		if (value) utm[key.replace("utm_", "utm")] = value;
-	}
-	return utm;
-};
-
-const getViewportContext = (): Record<string, unknown> => {
-	if (typeof window === "undefined") return {};
-	return {
-		viewportWidth: window.innerWidth,
-		viewportHeight: window.innerHeight,
-	};
-};
+export type {
+	ReplayPrivacyOptions,
+	UsageTrackerConfig,
+} from "./usage-tracker/config";
 
 // ── Tracker ──
 
