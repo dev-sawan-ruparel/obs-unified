@@ -45,6 +45,7 @@ example:
 | --- | --- |
 | Not sure yet | [Examples index](docs/examples.md) |
 | React/Vite frontend + Hono API | [React + Hono walkthrough](docs/howto/instrument-react-hono.md) |
+| Python Flask API | [Python Flask walkthrough](docs/howto/instrument-python-flask.md) |
 | Browser-only app | [Analytics SDK README](packages/analytics-sdk/README.md) |
 | TypeScript backend | [Telemetry SDK README](packages/telemetry-sdk/README.md) |
 | Python, JVM, .NET, Go, Rust | [Language recipes](docs/recipes/README.md) |

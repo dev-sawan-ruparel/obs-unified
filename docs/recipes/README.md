@@ -17,6 +17,7 @@ links to for `interaction_id` stamping + AI-call attribute conventions.
 | Runtime | Recipe |
 | --- | --- |
 | Python | [python.md](./python.md) |
+| Python + Flask walkthrough | [../howto/instrument-python-flask.md](../howto/instrument-python-flask.md) |
 | JVM (Java / Kotlin) | [jvm.md](./jvm.md) |
 | .NET | [dotnet.md](./dotnet.md) |
 

@@ -11,6 +11,7 @@ copy into an existing app.
 | Try obs-unified with realistic traffic | [`demo/`](../demo/) | Runnable demo |
 | Scaffold a new React + Hono app | [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/) via `obs-unified create` | Runnable template |
 | Add obs-unified to an existing React + Hono app | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) | Walkthrough |
+| Add obs-unified to an existing Python Flask app | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md) | Walkthrough |
 | Add browser analytics only | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md) | Reference |
 | Add TypeScript backend telemetry | [`packages/telemetry-sdk/README.md`](../packages/telemetry-sdk/README.md) | Reference |
 | Instrument Python, JVM, or .NET | [`docs/recipes/README.md`](./recipes/README.md) | Recipes |
@@ -40,6 +41,7 @@ copy into an existing app.
 | App shape | Guide |
 | --- | --- |
 | React + Hono | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) |
+| Python + Flask | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md) |
 | Browser / React analytics | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md) |
 | TypeScript backend / Workers | [`packages/telemetry-sdk/README.md`](../packages/telemetry-sdk/README.md) |
 | Deeper backend instrumentation | [`packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md`](../packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md) |
