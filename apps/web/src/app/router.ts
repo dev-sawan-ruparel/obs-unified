@@ -1,5 +1,7 @@
 // ── Hash Router ──
 
+import { useEffect, useState } from "react";
+
 export type Route = {
 	tab: string;
 	traceId?: string;

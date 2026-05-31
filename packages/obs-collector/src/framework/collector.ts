@@ -235,26 +235,35 @@ export const createTelemetryCollectorApp = (
 		config.sqlDb,
 	);
 
-	// Health endpoint — no auth required. Includes millisecond server time so
-	// browser SDKs can estimate clock offset without relying on coarse Date.
-	app.get("/health", (c) => c.json({ status: "ok", serverTimeMs: Date.now() }));
-
-	// CORS for ingest endpoints (browser SDK sends directly)
-	app.use("/v1/*", async (c, next) => {
-		const origin = c.req.header("Origin");
-		const allowedOrigins = config.allowedOrigins || c.env.ALLOWED_ORIGINS || "";
+	const allowedCorsOrigin = (origin: string | undefined, env: CollectorEnv) => {
+		const allowedOrigins = config.allowedOrigins || env.ALLOWED_ORIGINS || "";
 		const allowList = allowedOrigins
 			.split(",")
 			.map((s) => s.trim())
 			.filter(Boolean);
-		const allowedOrigin =
-			origin && allowList.includes(origin) ? origin : undefined;
+		return origin && allowList.includes(origin) ? origin : undefined;
+	};
+
+	// Health endpoint — no auth required. Includes millisecond server time so
+	// browser SDKs can estimate clock offset without relying on coarse Date.
+	app.get("/health", (c) => {
+		const allowedOrigin = allowedCorsOrigin(c.req.header("Origin"), c.env);
+		const res = c.json({ status: "ok", serverTimeMs: Date.now() });
+		if (allowedOrigin)
+			res.headers.set("Access-Control-Allow-Origin", allowedOrigin);
+		return res;
+	});
+
+	// CORS for ingest endpoints (browser SDK sends directly)
+	app.use("/v1/*", async (c, next) => {
+		const origin = c.req.header("Origin");
+		const allowedOrigin = allowedCorsOrigin(origin, c.env);
 
 		if (c.req.method === "OPTIONS") {
 			const headers: Record<string, string> = {
 				"Access-Control-Allow-Methods": "POST, OPTIONS",
 				"Access-Control-Allow-Headers":
-					"Content-Type, Authorization, X-API-Key, X-Project-Id, Cache-Control, X-Telemetry-Self",
+					"Content-Type, Authorization, X-API-Key, X-Project-Id, Cache-Control, X-Telemetry-Self, X-Obs-Interaction, X-Obs-Session-Id",
 				"Access-Control-Max-Age": "86400",
 			};
 			if (allowedOrigin) {

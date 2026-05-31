@@ -50,8 +50,14 @@ RETENTION_HOURS = "72"
 # Auth is enforced locally; DASHBOARD_PASSWORD is in .dev.vars and ingest keys
 # are created via the dashboard. To re-enable open-mode dev, set this to "true".
 ALLOW_UNAUTHENTICATED = "false"
+ALLOWED_ORIGINS = "http://localhost:8080,http://localhost:5173"
 
 [[r2_buckets]]
 binding = "REPLAYS_BUCKET"
 bucket_name = "obs-demo-replays"
 preview_bucket_name = "obs-demo-replays"
+
+[[r2_buckets]]
+binding = "PROFILES_BUCKET"
+bucket_name = "obs-demo-profiles"
+preview_bucket_name = "obs-demo-profiles"

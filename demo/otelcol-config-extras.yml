@@ -9,9 +9,9 @@
 #   - Defining one new exporter (`otlphttp/obs-unified`) that ships traces,
 #     logs, and metrics over OTLP/HTTP to our local collector at :8790.
 #   - Re-declaring the three signal pipelines so our exporter is added
-#     alongside the demo's existing ones (Jaeger / Prometheus / OpenSearch).
-#     The demo's processors are reused via the same names — extras files
-#     can reference processors defined in the base config.
+#     alongside the base demo exporters. The non-observability compose path
+#     only declares the debug exporter plus the span_metrics connector, so
+#     keep the overlay scoped to names present in the base config.
 #
 # Auth: our collector requires a Bearer token + project header on /v1/*.
 # The PROJECT_KEY default below matches apps/web/.env.development.local —
@@ -46,21 +46,17 @@ service:
       # Note on merging: when two config files both define a service.pipelines
       # entry, the later file (extras) wins outright — arrays don't merge.
       # So we have to re-declare ALL the exporters the demo's base file uses,
-      # then add ours. Names below match exactly what the demo's
-      # otelcol-config.yml declares (otlp_grpc/jaeger not "otlp",
-      # otlp_http/prometheus not "otlphttp/prometheus").
+      # then add ours. Names below match exactly what the base
+      # otelcol-config.yml declares.
       exporters:
-        - otlp_grpc/jaeger          # demo's Jaeger
         - debug
-        - spanmetrics               # connector — keep the demo's RED metrics flow
+        - span_metrics              # connector - keep the demo's RED metrics flow
         - otlphttp/obs-unified      # ← us
     metrics:
       exporters:
-        - otlp_http/prometheus
         - debug
         - otlphttp/obs-unified      # ← us
     logs:
       exporters:
-        - opensearch
         - debug
         - otlphttp/obs-unified      # ← us

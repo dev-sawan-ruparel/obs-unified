@@ -230,19 +230,20 @@ These were present in the old trackers but were either omitted from the first ag
   * **Location:** [`apps/obs-demo`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo) & [`docs/implementation/demo-integration.md:77-101`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L77-L101)
   * **Resolution:** `pnpm demo:setup` now adds `@datadog/pprof` to the upstream payment package, starts the SDK profiler loop from `demo/overlays/node/obs-unified.js`, and records active payment trace IDs from the gRPC handler so profile uploads can feed the trace/profile index.
 
-- [ ] **6.4 - Run and Verify UX Scenario A (Alert to Root Cause) End-to-End**
+- [x] **6.4 - Run and Verify UX Scenario A (Alert to Root Cause) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:102-113`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L102-L113)
   * **Description:** Exercise the full click-to-CPU path: click around the demo shop, trigger an alert on the health page, open the trace, drill into the `PROFILES` badge, expand the span, and trace back to the click session via the Connected rail.
   * **Local verification added:** `packages/obs-collector/src/plugins/connected-routes.test.ts` now has a deterministic Scenario A contract test for `session -> hot span -> CPU profile -> originating click`, and `apps/web/tests/connected-rail.spec.ts` now gates the live matrix at the describe level so non-live Playwright runs skip cleanly before login/setup.
-  * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, and `pnpm run lint`.
-  * **Why it's pending:** 6.1 through 6.3 are now automated by `pnpm demo:setup`, but `pnpm demo:preflight` fails in the current local Docker runtime because it reports ~2 GB RAM while the Astronomy Shop stack needs roughly 6 GB. Needs a higher-memory Docker environment to boot the full compose workload and verify the dashboard path.
+  * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, `pnpm run lint`, and a live Astronomy Shop checkout against the Docker stack after starting Colima with 7 GiB memory.
+  * **Live resolution:** `pnpm demo:setup` now makes the public demo path reproducible: it injects the local ingest key, keeps the upstream collector overlay scoped to configured exporters, copies local SDK tarballs into the frontend/payment Docker build contexts, raises the LLM container cap to 150 MB, stores profiles via `PROFILES_BUCKET`, allows the local shop origin for browser ingest CORS, and adds a small frontend bridge so deferred React Query checkout calls retain the click interaction id.
+  * **Live proof:** a real browser checkout at `http://localhost:8080/` produced trace `22042ad537b4b069567727bd5b50036b`; `/internal/connected/span/22042ad537b4b069567727bd5b50036b:c381c50d53d8b492` returned both `Click that caused this trace` with `click:checkout-place-order` and `🔥 Cpu profiles` linking to the payment CPU profile.
 
-- [ ] **6.5 - Run and Verify UX Scenario B (LLM Cost Spike) End-to-End**
+- [x] **6.5 - Run and Verify UX Scenario B (LLM Cost Spike) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:114-117`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L114-L117)
   * **Description:** Wire `@obs-unified/telemetry-sdk`'s `trackAICall` helper into the Astronomy Shop's Recommendation Service (or AI agent helper) to verify LLM cost aggregates and parent-child span associations.
   * **Local verification added:** `packages/obs-collector/src/plugins/connected-routes.test.ts` now has a deterministic Scenario B contract test for `heavy-spender user -> latest session -> AI trace -> originating click`, covering the same identity-graph pivots the live dashboard flow depends on.
-  * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, and `pnpm run lint`.
-  * **Why it's pending:** `pnpm demo:preflight` now detects the LLM provider key in `demo/upstream/.env`, but the full demo stack still cannot be run under the available Docker memory cap. Needs the higher-memory compose environment used for Scenario A.
+  * **Verified:** `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`, `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`, `pnpm run lint`, and `DASHBOARD_PASSWORD=eval-password E2E_LIVE_STACK=1 pnpm --filter @obs-demo/web test:e2e:all -- scenario-b`.
+  * **Live resolution:** after Colima was restarted with enough memory for the demo stack, Scenario B passed against the live dashboard and collector. The setup path now detects the local LLM provider key from env files, keeps the LLM service from OOM-restarting, and preserves the current ingest key across generated overlays.
 
 ---
 
