@@ -1,6 +1,7 @@
 import "./style.css";
 import { renderHeader } from "./sections/header";
 import { renderHero } from "./sections/hero";
+import { renderScreenshots } from "./sections/screenshots";
 import { renderFeatures } from "./sections/features";
 import { renderPreview } from "./sections/preview";
 import { renderArchitecture } from "./sections/architecture";
@@ -19,6 +20,7 @@ if (!root.innerHTML.trim()) {
     renderHeader(),
     `<main id="main">`,
     renderHero(),
+    renderScreenshots(),
     renderFeatures(),
     renderPreview(),
     renderArchitecture(),

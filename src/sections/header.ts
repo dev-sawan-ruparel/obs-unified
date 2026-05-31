@@ -14,6 +14,7 @@ export function renderHeader(): string {
       <span class="brand-name">obs-unified</span>
     </a>
     <nav class="site-nav" aria-label="Primary">
+      <a href="#screenshots">Screenshots</a>
       <a href="#features">Features</a>
       <a href="#preview">Preview</a>
       <a href="#compare">Compare</a>
