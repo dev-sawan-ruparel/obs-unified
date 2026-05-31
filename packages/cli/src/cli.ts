@@ -6,7 +6,6 @@
  *   up        Bring up a local stack via docker compose.
  *   down      Tear down the local stack.
  *   create    Scaffold a new React + Hono app pre-wired with the SDKs.
- *   instrument Inspect an app and explain how to wire obs-unified in.
  *   keys      Mint or revoke ingest keys against a running collector.
  *   doctor    Diagnose a running collector — check storage, auth, CORS.
  *
@@ -23,7 +22,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 import prompts from "prompts";
-import { runInstrument } from "./instrument.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES = path.join(here, "..", "templates");
@@ -40,7 +38,6 @@ Commands:
   ${kleur.cyan("up")}                    Start the local stack (Postgres + MinIO + collector)
   ${kleur.cyan("down")}                  Stop the local stack
   ${kleur.cyan("create")} <app-name>     Scaffold a new React + Hono app pre-wired with the SDKs
-  ${kleur.cyan("instrument")} [path]      Inspect an app and suggest instrumentation edits
   ${kleur.cyan("keys mint")}             Mint a new ingest key
   ${kleur.cyan("keys list")}             List existing ingest keys
   ${kleur.cyan("doctor")} [url]          Diagnose a running collector
@@ -107,11 +104,6 @@ switch (subcommand) {
 			process.exit(1);
 		}
 		await scaffoldApp(appName);
-		break;
-	}
-
-	case "instrument": {
-		await runInstrument(rest);
 		break;
 	}
 

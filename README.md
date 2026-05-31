@@ -38,15 +38,20 @@ authentication details and the Go/Rust install paths.
 
 ### Instrument an existing app
 
-If you already have a TypeScript/JavaScript app, start with the CLI scanner:
+Start by choosing your language and framework, then follow the matching
+example:
 
-```bash
-pnpm dlx @obs-unified/cli instrument --collector-url http://localhost:8790 --origin http://localhost:5173
-```
+| App shape | Start here |
+| --- | --- |
+| React/Vite frontend + Hono API | [React + Hono walkthrough](docs/howto/instrument-react-hono.md) |
+| Browser-only app | [Analytics SDK README](packages/analytics-sdk/README.md) |
+| TypeScript backend | [Telemetry SDK README](packages/telemetry-sdk/README.md) |
+| Python, JVM, .NET, Go, Rust | [Language recipes](docs/recipes/README.md) |
 
-It detects common React/Vite/Next.js frontends and Hono/Express/Fastify
-backends, then prints the missing packages, env vars, CORS headers, and
-file-specific SDK wiring needed to send data to obs-unified.
+The common wiring is: run a collector, add the browser/backend SDK package,
+set `OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction`
+CORS header for browser calls, and verify the collector path with
+`obs-unified doctor`.
 
 ### 1. Deploy the Collector
 
