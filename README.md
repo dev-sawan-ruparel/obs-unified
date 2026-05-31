@@ -43,6 +43,7 @@ example:
 
 | App shape | Start here |
 | --- | --- |
+| Not sure yet | [Examples index](docs/examples.md) |
 | React/Vite frontend + Hono API | [React + Hono walkthrough](docs/howto/instrument-react-hono.md) |
 | Browser-only app | [Analytics SDK README](packages/analytics-sdk/README.md) |
 | TypeScript backend | [Telemetry SDK README](packages/telemetry-sdk/README.md) |
