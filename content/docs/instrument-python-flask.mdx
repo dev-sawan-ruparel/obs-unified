@@ -1,0 +1,101 @@
+---
+title: Python Flask instrumentation
+description: Send Flask traces and logs to obs-unified with OpenTelemetry and the interaction header.
+---
+
+Use the Python OpenTelemetry SDK when instrumenting Flask services. obs-unified accepts standard OTLP/HTTP, so Python services can send traces and logs to the same collector as the first-party TypeScript SDKs.
+
+## Install packages
+
+```bash
+python -m pip install \
+  opentelemetry-api \
+  opentelemetry-sdk \
+  opentelemetry-exporter-otlp-proto-http \
+  opentelemetry-instrumentation-flask \
+  opentelemetry-instrumentation-requests \
+  flask
+```
+
+## Configure tracing
+
+```py
+import os
+
+from flask import Flask, request
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+collector_url = os.environ.get("OBS_COLLECTOR_URL", "http://localhost:8790")
+ingest_key = os.environ["OBS_INGEST_KEY"]
+
+provider = TracerProvider(
+    resource=Resource.create({
+        "service.name": "flask-api",
+        "service.version": "1.0.0",
+    })
+)
+
+provider.add_span_processor(
+    BatchSpanProcessor(
+        OTLPSpanExporter(
+            endpoint=f"{collector_url}/v1/traces",
+            headers={"authorization": f"Bearer {ingest_key}"},
+        )
+    )
+)
+
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer("flask-api")
+
+app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
+RequestsInstrumentor().instrument()
+```
+
+## Stamp browser interaction ids
+
+When a request comes from a browser instrumented with `@obs-unified/analytics-sdk`, the request carries `x-obs-interaction`. Copy that value onto the active span as `obs.interaction.id`.
+
+```py
+@app.before_request
+def stamp_interaction_id():
+    interaction_id = request.headers.get("x-obs-interaction")
+    if not interaction_id:
+        return
+
+    span = trace.get_current_span()
+    if span and span.is_recording():
+        span.set_attribute("obs.interaction.id", interaction_id)
+```
+
+## Create child spans
+
+```py
+@app.get("/api/recommendations")
+def recommendations():
+    with tracer.start_as_current_span("recommendations.query") as span:
+        span.set_attribute("db.system", "postgresql")
+        rows = load_recommendations()
+
+    return {"items": rows}
+```
+
+## Verify
+
+Start your collector, set the environment, then call the Flask route from an instrumented browser or with a manual header:
+
+```bash
+export OBS_COLLECTOR_URL=http://localhost:8790
+export OBS_INGEST_KEY=dev-ingest-key
+flask --app app run --port 5000
+
+curl -H 'x-obs-interaction: demo_click_123' http://localhost:5000/api/recommendations
+```
+
+The trace should appear in the Traces tab with `obs.interaction.id`, allowing the Connected rail to pivot back to the originating browser interaction when one exists.

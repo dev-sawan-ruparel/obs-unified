@@ -1,0 +1,176 @@
+---
+title: SDK API reference
+description: A compact cheat sheet for browser, TypeScript, Go, and Rust SDK APIs.
+---
+
+This page is a centralized, searchable cheat sheet for the browser SDK (`@obs-unified/analytics-sdk`) and server-side SDKs (`@obs-unified/telemetry-sdk`, Go, and Rust).
+
+## SDK initialization
+
+### Browser / client-side
+
+Initialize the browser SDK to track page views, click interactions, frontend exceptions, and optional DOM session replay.
+
+```tsx
+import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
+
+function Root() {
+  return (
+    <AnalyticsProvider
+      collectorUrl="https://obs.my-app.com"
+      apiKey="your-public-ingest-key"
+      trackPageViews={true}
+      captureErrors={true}
+      sessionReplay={true}
+    >
+      <App />
+    </AnalyticsProvider>
+  );
+}
+```
+
+For non-React hosts:
+
+```ts
+import { installAutoCorrelate, UsageTracker } from "@obs-unified/analytics-sdk";
+
+const tracker = new UsageTracker({
+  collectorUrl: "https://obs.my-app.com",
+  apiKey: "your-public-ingest-key",
+});
+
+installAutoCorrelate({ tracker });
+```
+
+### Backend / server-side
+
+Initialize the standard telemetry exporter pipeline once at application startup.
+
+```ts
+import { initObservability } from "@obs-unified/telemetry-sdk";
+
+initObservability({
+  collectorUrl: "https://obs.my-app.com",
+  apiKey: process.env.OBS_INGEST_KEY!,
+  serviceName: "checkout-api",
+  serviceVersion: "1.2.0",
+  flushIntervalMs: 5000,
+});
+```
+
+## Click-to-trace context
+
+### Server-side HTTP ingress
+
+Extract `x-obs-interaction` and bind it onto the active trace context.
+
+```ts
+import {
+  createRequestSpan,
+  runWithSpan,
+  stampInteractionFromRequest,
+} from "@obs-unified/telemetry-sdk";
+
+const span = createRequestSpan("my-service", `${req.method} ${req.path}`);
+stampInteractionFromRequest(span, req);
+
+runWithSpan(span, () => {
+  // Child spans and logs created here inherit the interaction id.
+});
+```
+
+### Client-side async continuity
+
+Auto-correlation handles synchronous handlers and shallow `await` chains. For debounces, timers, and state-machine ticks, capture and restore the interaction context.
+
+```ts
+import {
+  currentInteractionId,
+  withInteractionContext,
+} from "@obs-unified/analytics-sdk";
+
+const clickId = currentInteractionId();
+
+setTimeout(() => {
+  withInteractionContext(clickId!, () => {
+    fetch("/api/long-running-task");
+  });
+}, 300);
+```
+
+## AI and LLM span tracking
+
+### High-level event tracking
+
+```ts
+import { trackAICall } from "@obs-unified/telemetry-sdk";
+
+trackAICall({
+  modelName: "claude-3-5-sonnet-20251022",
+  provider: "anthropic",
+  callType: "chat",
+  promptTokens: 250,
+  completionTokens: 180,
+  latencyMs: 1400,
+  totalCostUsd: 0.0035,
+  isError: false,
+});
+```
+
+### OpenInference-style spans
+
+```ts
+import { startLLMSpan, startToolSpan } from "@obs-unified/telemetry-sdk";
+
+const llmSpan = startLLMSpan("user-query-completion", {
+  modelName: "gpt-4o",
+  provider: "openai",
+  inputPrompt: "What is the capital of France?",
+});
+
+try {
+  const result = await myLLMApiCall();
+  llmSpan.setAttributes({
+    "openinference.span.output": result.text,
+    "openinference.usage.prompt_tokens": result.prompt_tokens,
+    "openinference.usage.completion_tokens": result.completion_tokens,
+  });
+} finally {
+  llmSpan.end();
+}
+
+const toolSpan = startToolSpan("database-search-tool", {
+  toolName: "pg-vector-search",
+  toolInput: "paris coordinates",
+});
+
+try {
+  const data = await searchDb();
+  toolSpan.setAttributes({ "openinference.span.output": JSON.stringify(data) });
+} finally {
+  toolSpan.end();
+}
+```
+
+## Cloudflare Workers wrappers
+
+Import these from `@obs-unified/telemetry-sdk/cloudflare` to avoid pulling heavy ambient type dependencies into Node.js environments.
+
+```ts
+import { wrapD1, wrapFetch, wrapR2 } from "@obs-unified/telemetry-sdk/cloudflare";
+
+const db = wrapD1(env.DATABASE);
+const bucket = wrapR2(env.STORAGE_BUCKET, { bucketName: "blobs" });
+const telemetryFetch = wrapFetch(globalThis.fetch);
+```
+
+## Cross-language mapping
+
+| Concept / action | TypeScript SDK | Go SDK | Rust SDK |
+| --- | --- | --- | --- |
+| Exporter init | `initObservability(config)` | `obs.Init(ctx, config)` | `obs_unified::init(config)` |
+| HTTP stamp | `stampInteractionFromRequest(span, req)` | `obs.StampInteraction(ctx, r)` | `obs_unified::stamp_interaction(span, req)` |
+| LLM tracking span | `startLLMSpan(name, options)` | `obs.StartLLMSpan(ctx, name, opts)` | `obs_unified::start_llm_span(name, opts)` |
+| Tool tracking span | `startToolSpan(name, options)` | `obs.StartToolSpan(ctx, name, opts)` | `obs_unified::start_tool_span(name, opts)` |
+| Project id | `extraHeaders: { "x-project-id": id }` | `obs.SetProjectID(ctx, id)` | `obs_unified::set_project_id(id)` |
+| Capture exception | `annotateErrorSpan(span, error)` | `obs.AnnotateError(ctx, span, err)` | `obs_unified::annotate_error(span, err)` |

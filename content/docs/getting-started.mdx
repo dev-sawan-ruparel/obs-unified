@@ -1,0 +1,193 @@
+---
+title: Getting started
+description: Choose a runtime, choose data, and get active telemetry into the dashboard.
+---
+
+This guide gets you from a fresh checkout to active telemetry in the dashboard.
+There are two decisions:
+
+1. **How do you want to run obs-unified?** Use the all-in-one Docker image, or install and run the repo locally.
+2. **What data do you want to look at?** Use seeded sample data, the Astronomy Shop demo, or telemetry from your own app.
+
+## Choose how to run
+
+| Runtime path | Use when | Starts |
+| --- | --- | --- |
+| **Option 1 — Docker image** | You want the quickest first run with the fewest host dependencies. | Postgres, collector, dashboard, filesystem blob store, and sample data in one container. |
+| **Option 2 — local install** | You want to edit code, run dev servers, or inspect internals while using the repo. | Local collector, demo API, and Vite dashboard from the workspace. |
+
+## Choose what to observe
+
+| Data path | Use when | Start here |
+| --- | --- | --- |
+| **Seeded sample data** | You want populated dashboards immediately. | Built into Option 1, or run `pnpm run seed` with Option 2. |
+| **Astronomy Shop demo** | You want realistic microservice traffic and service-map edges. | Run the OpenTelemetry demo against your local collector. |
+| **Your own app** | You want to validate obs-unified against a real application. | Add SDKs or OpenTelemetry exporters pointing at your collector. |
+
+## Prerequisites
+
+- **Docker**: required for the Docker image and Astronomy Shop demo.
+- **Node.js 22+ and pnpm 10+**: required for local install and repo scripts.
+
+## Option 1 — Docker image
+
+This packages the full local stack into one container. It is the lowest-friction first run.
+
+Build the image locally:
+
+```bash
+pnpm local:image
+```
+
+Start the container:
+
+```bash
+pnpm local:run
+```
+
+Or use Docker directly:
+
+```bash
+docker build -f Dockerfile.local -t obs-unified/local:dev .
+docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev
+```
+
+Access the interfaces:
+
+| Interface | URL |
+| --- | --- |
+| Dashboard | `http://localhost:5173` |
+| Collector ingest | `http://localhost:8790` |
+
+Default local credentials:
+
+| Credential | Value |
+| --- | --- |
+| Ingest write key | `dev-ingest-key` |
+| Dashboard password | `e2e-test-pass` |
+
+To persist local database and blob storage state across container restarts:
+
+```bash
+docker volume create obs-unified-local-db
+docker volume create obs-unified-local-blobs
+docker run --rm \
+  -p 5173:5173 \
+  -p 8790:8790 \
+  -v obs-unified-local-db:/var/lib/postgresql \
+  -v obs-unified-local-blobs:/data \
+  obs-unified/local:dev
+```
+
+Verify the full first-run path:
+
+```bash
+pnpm smoke:local-image
+```
+
+The smoke test builds the image, boots a fresh container, seeds data, and verifies collector health, dashboard HTML, and login from outside Docker.
+
+## Option 2 — local install
+
+Use this when you are modifying dashboard code, collector code, or SDK packages.
+
+```bash
+git clone https://github.com/obs-unified/obs-unified.git
+cd obs-unified
+pnpm install
+pnpm run setup
+pnpm run dev
+```
+
+The local dev stack exposes:
+
+| Service | URL |
+| --- | --- |
+| Dashboard | `http://localhost:5173` |
+| Demo API | `http://localhost:8787` |
+| Collector | `http://localhost:8790` |
+
+## Seeded sample data
+
+Use this when you want populated dashboards immediately.
+
+- Docker image: sample data is seeded automatically on startup.
+- Local install: run the seeder in a second terminal.
+
+```bash
+pnpm run seed
+```
+
+Expected result: Traces, Logs, AI Calls, Usage, and Issues show sample data. Replays require browser interaction, so open the dashboard's Playground tab and trigger a replay-producing interaction once.
+
+## Astronomy Shop demo
+
+Use this when you want realistic microservice traffic and service-map edges. It runs the official OpenTelemetry Astronomy Shop demo and points its exporters at your local obs-unified collector.
+
+This path assumes the collector is already running. For local development, start it with:
+
+```bash
+pnpm dev:collector
+```
+
+Prepare the upstream demo services:
+
+```bash
+pnpm demo:setup
+pnpm demo:preflight
+```
+
+Launch the microservices:
+
+```bash
+pnpm demo:up
+```
+
+Access URLs:
+
+| Interface | URL |
+| --- | --- |
+| Dashboard | `http://localhost:5173` |
+| Shop web interface | `http://localhost:8080` |
+
+The load generator takes roughly 30 seconds to begin driving traffic. Once running, Traces, Service Maps, Issues, Logs, and Metrics populate dynamically from active microservice calls.
+
+Stop and remove the compose stack:
+
+```bash
+pnpm demo:down
+```
+
+## Your own app
+
+This is a data path that sends telemetry to whichever collector you started above.
+
+| Target | Setup guide |
+| --- | --- |
+| React/Vite frontend + Hono API | [React + Hono walkthrough](/docs/instrumenting) |
+| Python Flask API | [Python Flask walkthrough](/docs/instrument-python-flask) |
+| Browser-only application | [Analytics SDK reference](/docs/sdks#obs-unifiedanalytics-sdk) |
+| TypeScript backend | [Telemetry SDK reference](/docs/sdks#obs-unifiedtelemetry-sdk) |
+| Polyglot recipes | [Examples](/docs/examples#language-recipes) |
+
+The common wiring is:
+
+1. Deploy or run an accessible collector endpoint.
+2. Install the appropriate client or server SDK package.
+3. Configure `OBS_COLLECTOR_URL` and a write-only ingest key.
+4. Ensure API CORS policies allow `x-obs-interaction`.
+5. Verify connectivity:
+
+```bash
+obs-unified doctor http://localhost:8790 --origin http://localhost:5173
+```
+
+## Standalone Node collector variant
+
+The all-in-one Docker image is the recommended first-run Docker path. If you only want the collector service backed by Postgres and MinIO/S3, use the standalone Node collector:
+
+```bash
+cd apps/collector-node
+docker compose up -d
+docker compose logs -f collector
+```

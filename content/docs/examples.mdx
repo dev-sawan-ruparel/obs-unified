@@ -1,0 +1,83 @@
+---
+title: Examples
+description: Runnable examples, instrumentation guides, recipes, and migration paths.
+---
+
+Use this page to pick the right starting point. Runnable examples are things you can clone, scaffold, or run locally. Reference examples are docs and snippets to copy into an existing app.
+
+## Fastest paths
+
+| Goal | Start here | Type |
+| --- | --- | --- |
+| First run from a fresh checkout | [Getting started](/docs/getting-started) | Guide |
+| Run everything from one local image | `Dockerfile.local` via `pnpm local:image && pnpm local:run` | Runnable image |
+| Try obs-unified with realistic traffic | `demo/` | Runnable demo |
+| Scaffold a new React + Hono app | `obs-unified create`, choose React + Vite + Hono | Runnable template |
+| Add obs-unified to an existing React + Hono app | [React + Hono walkthrough](/docs/instrumenting) | Walkthrough |
+| Add obs-unified to an existing Python Flask app | [Python Flask walkthrough](/docs/instrument-python-flask) | Walkthrough |
+| Add browser analytics only | [Analytics SDK](/docs/sdks#obs-unifiedanalytics-sdk) | Reference |
+| Add TypeScript backend telemetry | [Telemetry SDK](/docs/sdks#obs-unifiedtelemetry-sdk) | Reference |
+| Instrument Python, JVM, or .NET | [Language recipes](#language-recipes) | Recipes |
+
+## Runnable examples
+
+| Example | What it shows | Run / entry point |
+| --- | --- | --- |
+| `Dockerfile.local` | All-in-one local image with Postgres, collector, dashboard, file blob storage, and seed data. | `pnpm local:image && pnpm local:run` |
+| `packages/cli/templates/react-vite/` | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation. | `obs-unified create my-app`, choose React + Vite + Hono |
+| `packages/cli/templates/vanilla-ts/` | Browser-only Vite + TypeScript analytics. | `obs-unified create my-app`, choose Vanilla TypeScript |
+| `packages/cli/templates/hono-workers/` | Hono on Cloudflare Workers with backend telemetry wiring. | `obs-unified create my-api`, choose Hono on Workers |
+| `apps/obs-demo/` | AI calls, RAG, tool calls, session tracking, and evaluation scenarios. | `pnpm dev`, then `curl http://127.0.0.1:8787/api/demo/run-all` |
+| `apps/collector-node/` | Standalone Node collector with Postgres + MinIO. | `docker compose up -d` from `apps/collector-node` |
+| `demo/` | OpenTelemetry Astronomy Shop feeding obs-unified with polyglot microservice traffic. | `pnpm demo:setup`, `pnpm demo:preflight`, `pnpm demo:up` |
+
+## SDK examples
+
+| Runtime | Example | Notes |
+| --- | --- | --- |
+| Node.js / TypeScript | `sdks/node/examples/basic.ts` | First-party Node SDK usage |
+| Node.js / TypeScript | `sdks/node/examples/smoke.mjs` | Lightweight SDK smoke path |
+| Go | `sdks/go/examples/basic/main.go` | Go SDK init and span conventions |
+| Rust | `sdks/rust/examples/basic.rs` | Rust SDK init and helper usage |
+
+## Instrumentation guides
+
+| App shape | Guide |
+| --- | --- |
+| React + Hono | [Instrumenting your app](/docs/instrumenting) |
+| Python + Flask | [Python Flask instrumentation](/docs/instrument-python-flask) |
+| Browser / React analytics | [Analytics SDK](/docs/sdks#obs-unifiedanalytics-sdk) |
+| TypeScript backend / Workers | [Telemetry SDK](/docs/sdks#obs-unifiedtelemetry-sdk) |
+| Deeper backend instrumentation | [SDK API reference](/docs/sdk-reference) |
+| Profiling / pprof | `docs/howto/profiling.md` in the repo |
+| eBPF / host metrics | `docs/howto/ebpf.md` in the repo |
+
+## Language recipes
+
+| Runtime | Recipe |
+| --- | --- |
+| Python | `docs/recipes/python.md` |
+| JVM / Java / Kotlin | `docs/recipes/jvm.md` |
+| .NET | `docs/recipes/dotnet.md` |
+| Go | `sdks/go/README.md` |
+| Rust | `sdks/rust/README.md` |
+| SDK skeleton for contributors | `sdks/_template/README.md` |
+
+## Migration examples
+
+| Source | Guide |
+| --- | --- |
+| Sentry | `docs/migrate/from-sentry.md` |
+| PostHog | `docs/migrate/from-posthog.md` |
+| Honeycomb | `docs/migrate/from-honeycomb.md` |
+| Old `@obs/*` package scope | `docs/migrate/from-obs-scope.md` |
+
+## Verification
+
+After wiring any example, verify the collector and browser CORS path:
+
+```bash
+obs-unified doctor http://localhost:8790 --origin http://localhost:5173
+```
+
+For browser examples, the origin should match the app you are testing. For the Astronomy Shop demo, use `http://localhost:8080`.

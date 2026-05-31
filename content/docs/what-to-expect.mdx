@@ -112,3 +112,14 @@ These are part of the design — empty data should always be explained, never si
 - The every-minute analyses cron uses a 90s claim/lease to prevent overlap on long-running LLM narrative passes (RFC 0002 Stage 4 follow-up).
 - The pprof receiver returns 422 on decode failure (corrupted blobs surface to the agent instead of landing silently in R2).
 - The connected-routes endpoint returns 400 on unknown entity kinds (catches client-side URL building bugs).
+
+## Recent reliability behavior
+
+The May 31, 2026 updates tightened several user-visible dashboard paths:
+
+- Telemetry and AI dashboards abort stale loaders, so quick filter/tab changes do not let older responses overwrite newer views.
+- Replay chunk loading is paginated, so long sessions load progressively instead of depending on one large response.
+- Live-tail streams enforce project isolation end-to-end.
+- Connected rail scenario tests now cover trace, replay, and service-map pivots more directly.
+
+These are not new navigation concepts, but they make the rail and dashboard flows behave more predictably under realistic traffic.

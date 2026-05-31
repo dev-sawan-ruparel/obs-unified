@@ -1,5 +1,17 @@
 {
 	"title": "obs-unified",
 	"description": "Install, instrument, and read the unified observability dashboard.",
-	"pages": ["index", "installation", "sdks", "instrumenting", "what-to-expect", "comparison"]
+	"pages": [
+		"index",
+		"getting-started",
+		"installation",
+		"examples",
+		"sdks",
+		"sdk-reference",
+		"instrumenting",
+		"instrument-python-flask",
+		"what-to-expect",
+		"ops/production",
+		"comparison"
+	]
 }

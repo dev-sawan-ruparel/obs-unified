@@ -64,7 +64,7 @@ The ten capability axes used in the landing-page table:
 
 ## obs-unified
 
-Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage seam](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-seam.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, and profiles in one stack with a [Connected rail](/docs/what-to-expect#the-connected-rail) that exposes every cross-signal pivot in ≤2 clicks. Free; you pay your own infra bill.
+Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage interface](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-interface.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, and profiles in one stack with a [Connected rail](/docs/what-to-expect#the-connected-rail) that exposes every cross-signal pivot in ≤2 clicks. Free; you pay your own infra bill.
 
 The rest of this page is the third-party comparison.
 
@@ -685,7 +685,7 @@ The vendors split along their primary storage backend, and that split shows up i
 - **Proprietary backends** ([Datadog](#src-dd-pricing), [New Relic](#src-nr-pricing)) meter on dimensions that map to their internal cost model (per host, per indexed event, per GB ingest + per user) and bill at higher per-unit rates.
 - **Wide-event store** ([Honeycomb](#src-hc-pricing)) is a third shape — single event store with event-volume pricing.
 - **PostHog** uses ClickHouse internally for events but exposes per-product SKUs ([per event, per recording, per LLM span](#src-ph-pricing)) rather than per-GB; storage shape and pricing shape are decoupled here.
-- **obs-unified** deliberately does **not** use ClickHouse. The default backend is **SQLite via Cloudflare D1**, with a Postgres adapter via the [storage seam](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-seam.md). The trade-off: D1 caps at ~100M hot rows per project (then archive sweep or move to Postgres), in exchange for zero operational cost on the Workers tier and a single-binary local deploy.
+- **obs-unified** deliberately does **not** use ClickHouse. The default backend is **SQLite via Cloudflare D1**, with a Postgres adapter via the [storage interface](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-interface.md). The trade-off: D1 caps at ~100M hot rows per project (then archive sweep or move to Postgres), in exchange for zero operational cost on the Workers tier and a single-image local deploy.
 
 The right backend depends on what you're optimizing for. ClickHouse pays off for high-cardinality search across billions of rows. SQLite/D1 pays off for projects whose hot-data ceiling is bounded and who want a single-binary or single-Worker deploy. No one shape is universally better.
 

@@ -1,0 +1,196 @@
+---
+title: Production operations
+description: Reverse proxy, Postgres tuning, storage retention, Kubernetes, and rollout checks.
+---
+
+This page covers production deployment patterns for the standalone Node collector backed by Postgres and S3-compatible object storage. The Cloudflare Workers path remains supported, but the Node collector is the clearest fit for container platforms and private infrastructure.
+
+## Network and reverse proxy
+
+The recommended layout places the collector behind TLS, keeps OTLP ingest routes reachable, and protects dashboard/internal query routes with your normal auth boundary.
+
+| Route | Backend | Purpose |
+| --- | --- | --- |
+| `/v1/*` | Collector on `:8790` | Public OTLP and SDK ingest |
+| `/internal/*` | Collector on `:8790` | Dashboard query APIs |
+| `/` | Dashboard static server on `:5173` | React dashboard |
+
+### Nginx
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name obs.my-app.com;
+
+    ssl_certificate /etc/letsencrypt/live/obs.my-app.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/obs.my-app.com/privkey.pem;
+
+    gzip on;
+    gzip_types application/json application/x-protobuf text/plain text/css;
+
+    location /v1/ {
+        proxy_pass http://127.0.0.1:8790;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 10m;
+    }
+
+    location /internal/ {
+        proxy_pass http://127.0.0.1:8790;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+### Caddy
+
+```text
+obs.my-app.com {
+    reverse_proxy /v1/* 127.0.0.1:8790 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+    }
+
+    reverse_proxy /internal/* 127.0.0.1:8790 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+    }
+
+    reverse_proxy /* 127.0.0.1:5173 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+    }
+}
+```
+
+## Postgres tuning
+
+Each collector instance uses a persistent client-side pool. Start with the default `PG_POOL_MAX=10` for low to moderate traffic. For high-throughput environments, scale to `30` or `50`, making sure the total across replicas stays below the database server's `max_connections`.
+
+Set a statement timeout so expensive dashboard or analysis queries cannot lock the database indefinitely:
+
+```bash
+PG_STATEMENT_TIMEOUT=30000
+```
+
+## Object storage retention
+
+Replay chunks and pprof profiles live in S3-compatible object storage. Match bucket lifecycle retention to the database retention window. For a 72-hour hot-debugging window, use a three-day expiration rule.
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "AutoDeleteOldTelemetryBlobs",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Expiration": {
+        "Days": 3
+      }
+    }
+  ]
+}
+```
+
+Apply it with:
+
+```bash
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket obs-unified-storage-bucket \
+  --lifecycle-configuration file://lifecycle-policy.json
+```
+
+## Kubernetes shape
+
+Run collectors as stateless replicas against managed Postgres and S3-compatible storage.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: obs-config
+  namespace: observability
+data:
+  BLOB_STORE: "s3"
+  S3_REGION: "us-east-1"
+  S3_BUCKET: "my-production-obs-bucket"
+  PG_POOL_MAX: "30"
+  PORT: "8790"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: obs-secrets
+  namespace: observability
+type: Opaque
+data:
+  DATABASE_URL: cG9zdGdyZXM6Ly91c2VyOnBhc3NAcGctaG9zdDo1NDMyL29ic191bmlmaWVk
+  S3_ACCESS_KEY_ID: QUtJQVhYWFhYWFhYWFhYWFhYWFg=
+  S3_SECRET_ACCESS_KEY: c2VjcmV0LWtleS12YWx1ZS1nb2VzLWhlcmU=
+  INGEST_KEY: bXktc2VjdXJlLXdyaXRlLWtleQ==
+  DASHBOARD_PASSWORD: bXktc3VwZXItc2VjdXJlLXBhc3N3b3Jk
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obs-collector
+  namespace: observability
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: obs-collector
+  template:
+    metadata:
+      labels:
+        app: obs-collector
+    spec:
+      containers:
+        - name: collector
+          image: obs-unified/collector:latest
+          ports:
+            - containerPort: 8790
+          envFrom:
+            - configMapRef:
+                name: obs-config
+            - secretRef:
+                name: obs-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+```
+
+## Operational checks
+
+Before opening ingest traffic:
+
+1. Run database migrations for the target collector storage.
+2. Confirm `/health` responds through the reverse proxy.
+3. Verify CORS from the browser origin with `obs-unified doctor`.
+4. Send one synthetic trace, one log, and one usage event.
+5. Confirm dashboard login and internal query routes are not publicly exposed without your intended auth.

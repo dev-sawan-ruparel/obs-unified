@@ -25,44 +25,45 @@ export default function Home() {
 					<p className="text-fd-muted-foreground text-base sm:text-lg">
 						A single observability stack where every signal — traces,
 						logs, AI calls, sessions, replays, alerts, profiles — is
-						reachable from every other in ≤2 clicks. End-to-end
-						click-to-CPU on Cloudflare Workers + D1 + R2.
+						reachable from every other in ≤2 clicks. Start locally with
+						one Docker image, then run on Cloudflare Workers + D1 + R2 or
+						Node + Postgres + S3.
 					</p>
 					<div className="flex justify-center gap-3 pt-2">
 						<Link
-							to="/docs"
+							to="/docs/getting-started"
 							className="rounded-md bg-fd-primary text-fd-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-fd-primary/90"
 						>
-							Read the docs
+							Get started
 						</Link>
 						<Link
-							to="/docs/installation"
+							to="/docs/examples"
 							className="rounded-md border border-fd-border px-4 py-2 text-sm font-semibold hover:bg-fd-accent"
 						>
-							Quick install
+							See examples
 						</Link>
 					</div>
 				</div>
 				<div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 max-w-4xl w-full mt-8">
 					<Tile
-						to="/docs/installation"
+						to="/docs/getting-started"
 						title="Install"
-						body="Clone, pnpm install, make run."
+						body="Docker image, local dev, seeded data."
 					/>
 					<Tile
 						to="/docs/sdks"
 						title="SDKs"
-						body="@obs-unified/analytics-sdk + @obs-unified/telemetry-sdk."
+						body="Browser, TypeScript, Go, and Rust."
 					/>
 					<Tile
 						to="/docs/instrumenting"
 						title="Instrument"
-						body="React app, Node server, Workers."
+						body="React, Hono, Workers, Flask, and OTLP."
 					/>
 					<Tile
-						to="/docs/what-to-expect"
-						title="What you'll see"
-						body="The Connected rail, two scenarios end-to-end."
+						to="/docs/ops/production"
+						title="Operate"
+						body="Proxy, Postgres, S3 retention, Kubernetes."
 					/>
 				</div>
 			</main>

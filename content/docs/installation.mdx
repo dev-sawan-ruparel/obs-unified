@@ -1,95 +1,107 @@
 ---
 title: Installation
-description: Clone, install, migrate the local D1, bring the stack up.
+description: Run obs-unified with the all-in-one Docker image, or install the editable local repo.
 ---
 
-This page covers cloning and running the **obs-unified monorepo** — the collector, dashboard, and TypeScript SDKs. If you just want to instrument a service with one of the published SDKs, jump to the [SDKs page](/docs/sdks) instead; TypeScript packages are published through GitHub Packages, while Go and Rust use the public Git repository.
+This page is the shortest install path. For a guided decision tree across runtime and data options, start with [Getting started](/docs/getting-started). If you only want to instrument a service with an SDK, jump to [SDKs](/docs/sdks).
 
-## Prerequisites (for the monorepo)
+## Prerequisites
 
-- **Node.js 22+** and **pnpm 10+** — required to build the collector, dashboard, and `@obs-unified/*` TypeScript packages
-- A POSIX shell (bash / zsh)
-- macOS or Linux (Cloudflare's local `workerd` runs on both; Windows works via WSL2)
-- Optional: Docker, only if you want to run the upstream OTel Astronomy Shop demo
+- **Docker** for the all-in-one local image and the Astronomy Shop demo.
+- **Node.js 22+ and pnpm 10+** for local repo development and scripts.
+- A POSIX shell such as bash or zsh.
 
-> The Go and Rust SDKs are separate Go/Cargo workspaces under `sdks/go` and `sdks/rust`. Working on those only needs the respective language toolchain (Go 1.22+ / Rust 1.75+), not Node.
+## Fastest first run: Docker image
 
-## Clone and install
+Build and run the local image:
+
+```bash
+pnpm local:image
+pnpm local:run
+```
+
+This starts Postgres, the collector, the dashboard, a filesystem blob store, and seeded sample data in one container.
+
+| Interface | URL |
+| --- | --- |
+| Dashboard | `http://localhost:5173` |
+| Collector ingest | `http://localhost:8790` |
+
+Default local credentials:
+
+| Credential | Value |
+| --- | --- |
+| Ingest write key | `dev-ingest-key` |
+| Dashboard password | `e2e-test-pass` |
+
+Run the local image smoke test when you want a full outside-the-container verification:
+
+```bash
+pnpm smoke:local-image
+```
+
+## Editable local install
+
+Use this when you are changing collector, dashboard, or SDK code.
 
 ```bash
 git clone https://github.com/obs-unified/obs-unified.git
 cd obs-unified
 pnpm install
+pnpm run setup
+pnpm run dev
 ```
 
-The repo is a pnpm monorepo with eight workspace packages and four apps. `pnpm install` wires them together via the workspace protocol — no `npm link` needed.
-
-## Set up the local D1 database
-
-The collector stores telemetry in Cloudflare D1 (SQLite-on-the-edge). Locally, `wrangler` runs D1 against a SQLite file under `.wrangler/state/v3/d1`. Run the migrations once:
-
-```bash
-pnpm --filter @obs-demo/collector run db:setup
-```
-
-This calls the versioned migration runner (`apps/collector/scripts/migrate.mjs`) which:
-
-- Creates a `schema_migrations` tracking table
-- Applies every file in `packages/obs-collector/src/migrations/*.sql` not yet recorded
-- Auto-backfills the tracking table for re-runs on a partially-migrated DB
-
-Re-running is safe; only new migrations get applied.
-
-## Run the stack
-
-The top-level `Makefile` orchestrates the three local services:
-
-```bash
-make run-with-demo
-```
+The local dev stack exposes:
 
 | Service | Port | Purpose |
 | --- | --- | --- |
-| `collector` | `8790` | Cloudflare-Worker collector (OTLP ingest + dashboard read API) |
+| `collector` | `8790` | OTLP ingest and dashboard read API |
 | `web` | `5173` | React dashboard |
-| `demo-local` | `8787` | Synthetic demo API for end-to-end testing |
+| `demo` | `8787` | Synthetic demo API for end-to-end testing |
 
-Verify with `make status`. Logs stream via `make logs`. Stop everything with `make stop`.
+## Seed sample data
 
-### First-time dashboard login
-
-The dashboard is password-gated. Default local password: `e2e-test-pass`. Override via `DASHBOARD_PASSWORD` in `apps/collector/.dev.vars`.
-
-## Seed synthetic data
-
-To see populated tabs without manually instrumenting an app first, run the seeder:
+The Docker image seeds sample data automatically. For the editable local install, run:
 
 ```bash
-pnpm seed
+pnpm run seed
 ```
 
-This populates:
+This populates traces, logs, AI calls, usage events, issues, users, and alert rules. Replays require a real browser interaction, so use the dashboard Playground tab to capture one.
 
-- 4 sessions × 12 usage events (page views + clicks, each click with an `interaction_id`)
-- ~96 spans across 4 services with `session_id` + `interaction_id` stamped
-- 20 log records (some carrying `interaction_id`)
-- 12 AI call spans (8 concentrated on a "Heavy Spender" user — for the Scenario B walkthrough)
-- 4 identified users in `user_profiles`
-- 3 alert rules
+## Astronomy Shop demo
 
-Open [http://localhost:5173](http://localhost:5173). You should see populated dashboards across every tab.
+For realistic microservice traffic and service-map edges:
+
+```bash
+pnpm demo:setup
+pnpm demo:preflight
+pnpm demo:up
+```
+
+Open the demo shop at `http://localhost:8080` and the dashboard at `http://localhost:5173`.
+
+Stop it with:
+
+```bash
+pnpm demo:down
+```
+
+## Standalone Node collector
+
+If you only want the collector service with Postgres and MinIO/S3:
+
+```bash
+cd apps/collector-node
+docker compose up -d
+docker compose logs -f collector
+```
 
 ## Production deployment
 
-`apps/collector` deploys as a Cloudflare Worker. Set up the D1 binding + R2 bucket in your Cloudflare account, point `wrangler.toml` at them, then:
-
-```bash
-pnpm --filter @obs-demo/collector run db:migrate:remote
-pnpm --filter @obs-demo/collector exec wrangler deploy
-```
-
-The dashboard (`apps/web`) builds with Vite and can be served from any static host. Point `VITE_OBS_COLLECTOR_URL` at your deployed collector.
+For production deployment details, see [Production operations](/docs/ops/production). At minimum, set a real `INGEST_KEY`, set `DASHBOARD_PASSWORD`, point `VITE_OBS_COLLECTOR_URL` at your collector, configure CORS for browser origins, and run migrations before accepting traffic.
 
 <Callout type="warn">
-The migration runner has a `--remote` mode but it cannot auto-backfill — if your production D1 had ad-hoc DDL applied outside the runner, manually `INSERT INTO schema_migrations (name) VALUES (...)` for each one before the first `db:migrate:remote` run.
+Do not use `ALLOW_UNAUTHENTICATED=true` or the default local credentials in production.
 </Callout>

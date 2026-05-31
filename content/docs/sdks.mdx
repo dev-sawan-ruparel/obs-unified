@@ -5,6 +5,8 @@ description: First-party SDKs for TypeScript, Go, and Rust on the backend; a bro
 
 obs-unified ships first-party SDKs for **three backend languages** plus a browser SDK, all sharing one identity-propagation contract.
 
+For a compact method-by-method cheat sheet, see [SDK API reference](/docs/sdk-reference).
+
 ## Backend SDKs
 
 | Language | Install | Where it runs |
@@ -17,10 +19,11 @@ All three expose the **same API surface**, so muscle memory ports across runtime
 
 | Concept | TypeScript | Go | Rust |
 | --- | --- | --- | --- |
-| Init | `init(config)` | `obs.Init(ctx, cfg)` | `obs_unified::init(cfg)` |
-| LLM span | `withLLMSpan(opts, fn)` | `obs.WithLLMSpan(ctx, opts, fn)` | `with_llm_span(opts, fn).await` |
-| Tool span | `withToolSpan(opts, fn)` | `obs.WithToolSpan(ctx, opts, fn)` | `with_tool_span(opts, fn).await` |
-| Project ID | `setProjectId(id)` | `obs.SetProjectID(ctx, id)` | `set_project_id(id)` |
+| Init | `initObservability(config)` | `obs.Init(ctx, cfg)` | `obs_unified::init(cfg)` |
+| HTTP stamp | `stampInteractionFromRequest(span, req)` | `obs.StampInteraction(ctx, r)` | `obs_unified::stamp_interaction(span, req)` |
+| LLM span | `startLLMSpan(name, opts)` | `obs.StartLLMSpan(ctx, name, opts)` | `start_llm_span(name, opts)` |
+| Tool span | `startToolSpan(name, opts)` | `obs.StartToolSpan(ctx, name, opts)` | `start_tool_span(name, opts)` |
+| Project ID | `extraHeaders: { "x-project-id": id }` | `obs.SetProjectID(ctx, id)` | `set_project_id(id)` |
 
 These are deliberately **thin wrappers around OpenTelemetry**: one-line collector init, OpenInference-shaped helpers so LLM/tool spans render in the dashboard's AI tab, project-id propagation for multi-tenant, and the loop-guard header for services that ingest their own telemetry. HTTP server/client and database instrumentation come from the OTel ecosystem of your language (`@opentelemetry/instrumentation-http`, `otelhttp`, `tower-http` + `tracing-opentelemetry`, etc.).
 
@@ -239,7 +242,7 @@ Logs are flushed at request end via `flushLogs()`. If a span is active, the log 
 The SDK exposes typed helpers for OpenInference-style LLM spans:
 
 ```ts
-import { startToolSpan, startRetrieverSpan, setAISessionContext } from "@obs-unified/telemetry-sdk";
+import { setAISessionContext, startRetrieverSpan } from "@obs-unified/telemetry-sdk";
 
 setAISessionContext({ sessionId, userId });
 
@@ -247,6 +250,20 @@ await startRetrieverSpan("vector.search", { input: query }, async (span) => {
 	span.setAttribute("retriever.k", 10);
 	return await db.vectorSearch(query);
 });
+```
+
+For lower-level LLM and tool spans, use `startLLMSpan()` and `startToolSpan()` as shown in [SDK API reference](/docs/sdk-reference#ai-and-llm-span-tracking).
+
+### Cloudflare Workers bindings
+
+Workers services can wrap platform bindings from the Cloudflare-specific entry point:
+
+```ts
+import { wrapD1, wrapFetch, wrapR2 } from "@obs-unified/telemetry-sdk/cloudflare";
+
+const db = wrapD1(env.DATABASE);
+const bucket = wrapR2(env.STORAGE_BUCKET, { bucketName: "blobs" });
+const telemetryFetch = wrapFetch(globalThis.fetch);
 ```
 
 ## Wire-format compatibility
