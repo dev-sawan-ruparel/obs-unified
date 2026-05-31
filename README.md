@@ -79,6 +79,27 @@ Show local + GitHub-side state for all configured runners:
 scripts/status.sh
 ```
 
+For a host that is ready to run the current workflows, the status table should
+show every runner as `registered` locally and `online` in GitHub:
+
+| key | repository | required labels |
+| --- | --- | --- |
+| `obs-unified` | `obs-unified/obs-unified` | `self-hosted`, `macOS`, `arm64`, `obs-unified` |
+| `obs-unified-docs` | `obs-unified/obs-unified-docs` | `self-hosted`, `macOS`, `arm64`, `docs` |
+| `presence` | `obs-unified/presence` | `self-hosted`, `macOS`, `arm64`, `presence` |
+
+Run both checks after installing or changing the host:
+
+```bash
+scripts/check-prereqs.sh
+scripts/status.sh
+```
+
+`check-prereqs.sh` validates the runner-management tools plus the workflow
+toolchain used by the repos: Node, pnpm, Go, Rust/Cargo, Docker, and
+ShellCheck. `status.sh` is the final readiness check because it confirms
+GitHub can see the launchd services as online.
+
 ## Remove
 
 ```bash
@@ -160,9 +181,11 @@ vars manually before each run.
 ## Notes
 
 - macOS arm64 host means Docker integration tests in `obs-unified/ci.yml`
-  require Docker Desktop running before jobs dispatch.
+  require a reachable Docker daemon before jobs dispatch. Docker Desktop and
+  Colima both work; `scripts/check-prereqs.sh` checks daemon reachability.
 - The runner inherits the host's `PATH`, including Homebrew installs of
-  `pnpm`, `node`, `go`, `cargo`, etc. — there is no automatic setup-node
-  on a self-hosted runner.
+  `pnpm`, `node`, `go`, `cargo`, etc. The workflows also run setup actions,
+  but the host still needs the native toolchain for self-hosted jobs and local
+  smoke tests.
 - If a registration token error appears, your `gh` token is missing repo
   admin scope. `gh auth refresh -s repo,workflow,admin:repo_hook`.
