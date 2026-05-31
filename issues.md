@@ -87,13 +87,9 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Heavy network latency. Large replays consume extreme memory, triggering OOM evictions and script execution timeouts.
   * **Next Action:** Fetch R2/S3 chunks in parallel using bounded concurrency, and implement streaming or range-pagination for large replay sessions.
 
-- [ ] **Alert Evaluator processes Rules Sequentially without Timeouts**
-  * **Location:** [`packages/obs-collector/src/plugins/alerts-evaluator.ts:109-112`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/alerts-evaluator.ts#L109-L112)
-  * **Description:** The rule evaluator cron awaits rules one-by-one sequentially in a single execution loop.
-  * **Risk:** High. Evaluating hundreds of rules across tenant projects will exceed the execution bounds of cron handlers. A single hung query blocks the entire alert pipeline.
-  * **Next Action:** Process rule evaluation concurrently with safe concurrency limits, and attach per-rule database statement timeouts and `AbortController` guards.
-
 ### Resolved Reliability Issues
+- [x] **Alert Evaluator processes Rules Sequentially without Timeouts**
+  * *Resolution:* Refactored alert evaluation into a bounded-concurrency batch runner with a default concurrency of 5 and per-rule timeout guard. A stuck rule now logs an error and the rest of the batch continues; regression tests cover concurrency limiting and timeout continuation.
 - [x] **Telemetry SDK setInterval Memory Leak**
   * *Resolution:* `enableProcessMetrics()` now tracks the active sampler, stops any previous interval on re-initialization, and makes returned `stop()` handles idempotent.
 - [x] **Standalone Collector SIGTERM abrupt Process termination**

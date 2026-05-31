@@ -1,5 +1,6 @@
 import type {
 	AlertChannel,
+	AlertRule,
 	AlertState,
 	AlertWebhookChannel,
 } from "@obs-unified/types";
@@ -11,6 +12,32 @@ import {
 } from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import { sqlDbFor } from "../lib/sql-db";
+
+const DEFAULT_RULE_CONCURRENCY = 5;
+const DEFAULT_RULE_TIMEOUT_MS = 10_000;
+
+interface AlertEvaluatorStore {
+	listEnabledRules(): Promise<AlertRule[]>;
+	evaluateRule(rule: AlertRule): Promise<number>;
+	getState(ruleId: string): Promise<{ current_state: AlertState } | null>;
+	getAnalysisNarrative(
+		projectId: string,
+		analysisId: string,
+	): Promise<{ narrative: string | null; status: string | null } | null>;
+	transitionState(
+		ruleId: string,
+		projectId: string,
+		newState: AlertState,
+		now: string,
+	): Promise<void>;
+	recordEvaluation(
+		ruleId: string,
+		projectId: string,
+		value: number,
+		state: AlertState,
+		notified: boolean,
+	): Promise<void>;
+}
 
 interface WebhookPayload {
 	rule: {
@@ -90,9 +117,181 @@ async function fireChannels(
 	return results.every(Boolean);
 }
 
+async function withTimeout<T>(
+	promise: Promise<T>,
+	ms: number,
+	message: string,
+): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => reject(new Error(message)), ms);
+			}),
+		]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
+
+async function mapWithConcurrency<T, R>(
+	items: T[],
+	concurrency: number,
+	mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let nextIndex = 0;
+	const workerCount = Math.min(concurrency, items.length);
+	await Promise.all(
+		Array.from({ length: workerCount }, async () => {
+			while (nextIndex < items.length) {
+				const current = nextIndex++;
+				results[current] = await mapper(items[current]);
+			}
+		}),
+	);
+	return results;
+}
+
+async function evaluateOneRule(
+	store: AlertEvaluatorStore,
+	rule: AlertRule,
+	logger: Logger,
+	tracer: ChildSpanRunner | undefined,
+	ruleTimeoutMs: number,
+): Promise<{ fired: number; resolved: number }> {
+	try {
+		const value = await withTimeout(
+			store.evaluateRule(rule),
+			ruleTimeoutMs,
+			`rule evaluation timed out after ${ruleTimeoutMs}ms`,
+		);
+		const shouldFire = compareValue(value, rule.threshold, rule.comparison);
+		const priorState = await store.getState(rule.id);
+		const previous: AlertState = priorState?.current_state ?? "ok";
+		const next: AlertState = shouldFire ? "firing" : "ok";
+		const now = new Date().toISOString();
+
+		// Stage 6: when the rule is bound to an analysis, pull the
+		// latest narrative + status so the webhook payload describes
+		// what's happening, not just "value > threshold".
+		const analysisAttachment = rule.analysisId
+			? await store
+					.getAnalysisNarrative(rule.projectId, rule.analysisId)
+					.then((n) =>
+						n
+							? {
+									id: rule.analysisId as string,
+									narrative: n.narrative,
+									status: n.status,
+								}
+							: undefined,
+					)
+					.catch(() => undefined)
+			: undefined;
+
+		if (previous === "ok" && next === "firing") {
+			const ok = await fireChannels(
+				rule.channels,
+				{
+					rule: { id: rule.id, name: rule.name, signal: rule.signal },
+					value,
+					threshold: rule.threshold,
+					comparison: rule.comparison,
+					state: "firing",
+					evaluatedAt: now,
+					projectId: rule.projectId,
+					analysis: analysisAttachment,
+				},
+				logger,
+				tracer,
+			);
+			await store.transitionState(rule.id, rule.projectId, "firing", now);
+			await store.recordEvaluation(
+				rule.id,
+				rule.projectId,
+				value,
+				"firing",
+				ok,
+			);
+			return { fired: 1, resolved: 0 };
+		}
+		if (previous === "firing" && next === "ok") {
+			const ok = await fireChannels(
+				rule.channels,
+				{
+					rule: { id: rule.id, name: rule.name, signal: rule.signal },
+					value,
+					threshold: rule.threshold,
+					comparison: rule.comparison,
+					state: "ok",
+					evaluatedAt: now,
+					projectId: rule.projectId,
+					analysis: analysisAttachment,
+				},
+				logger,
+				tracer,
+			);
+			await store.transitionState(rule.id, rule.projectId, "ok", now);
+			await store.recordEvaluation(rule.id, rule.projectId, value, "ok", ok);
+			return { fired: 0, resolved: 1 };
+		}
+
+		// Same state — write an evaluation but do not fire channels.
+		await store.recordEvaluation(rule.id, rule.projectId, value, next, false);
+	} catch (err) {
+		logger.error("[alerts-evaluator] rule evaluation failed", {
+			rule_id: rule.id,
+			project_id: rule.projectId,
+			error: err instanceof Error ? err.message : String(err),
+		});
+	}
+
+	return { fired: 0, resolved: 0 };
+}
+
+export async function evaluateRuleBatch(
+	store: AlertEvaluatorStore,
+	rules: AlertRule[],
+	options?: {
+		logger?: Logger;
+		tracer?: ChildSpanRunner;
+		concurrency?: number;
+		ruleTimeoutMs?: number;
+	},
+): Promise<{
+	evaluated: number;
+	fired: number;
+	resolved: number;
+}> {
+	const logger = options?.logger ?? consoleLogger;
+	const concurrency = Math.max(
+		1,
+		Math.floor(options?.concurrency ?? DEFAULT_RULE_CONCURRENCY),
+	);
+	const ruleTimeoutMs = Math.max(
+		1,
+		Math.floor(options?.ruleTimeoutMs ?? DEFAULT_RULE_TIMEOUT_MS),
+	);
+	const results = await mapWithConcurrency(rules, concurrency, (rule) =>
+		evaluateOneRule(store, rule, logger, options?.tracer, ruleTimeoutMs),
+	);
+	return {
+		evaluated: rules.length,
+		fired: results.reduce((sum, result) => sum + result.fired, 0),
+		resolved: results.reduce((sum, result) => sum + result.resolved, 0),
+	};
+}
+
 export async function evaluateAllRules(
 	env: CollectorEnv,
-	options?: { logger?: Logger; tracer?: ChildSpanRunner },
+	options?: {
+		logger?: Logger;
+		tracer?: ChildSpanRunner;
+		concurrency?: number;
+		ruleTimeoutMs?: number;
+	},
 ): Promise<{
 	evaluated: number;
 	fired: number;
@@ -102,101 +301,12 @@ export async function evaluateAllRules(
 	const tracer = options?.tracer;
 	const store = new AlertsStore(sqlDbFor(env));
 	const rules = await store.listEnabledRules();
-
-	let fired = 0;
-	let resolved = 0;
-
-	for (const rule of rules) {
-		try {
-			const value = await store.evaluateRule(rule);
-			const shouldFire = compareValue(value, rule.threshold, rule.comparison);
-			const priorState = await store.getState(rule.id);
-			const previous: AlertState = priorState?.current_state ?? "ok";
-			const next: AlertState = shouldFire ? "firing" : "ok";
-			const now = new Date().toISOString();
-
-			// Stage 6: when the rule is bound to an analysis, pull the
-			// latest narrative + status so the webhook payload describes
-			// what's happening, not just "value > threshold".
-			const analysisAttachment = rule.analysisId
-				? await store
-						.getAnalysisNarrative(rule.projectId, rule.analysisId)
-						.then((n) =>
-							n
-								? {
-										id: rule.analysisId as string,
-										narrative: n.narrative,
-										status: n.status,
-									}
-								: undefined,
-						)
-						.catch(() => undefined)
-				: undefined;
-
-			if (previous === "ok" && next === "firing") {
-				const ok = await fireChannels(
-					rule.channels,
-					{
-						rule: { id: rule.id, name: rule.name, signal: rule.signal },
-						value,
-						threshold: rule.threshold,
-						comparison: rule.comparison,
-						state: "firing",
-						evaluatedAt: now,
-						projectId: rule.projectId,
-						analysis: analysisAttachment,
-					},
-					logger,
-					tracer,
-				);
-				await store.transitionState(rule.id, rule.projectId, "firing", now);
-				await store.recordEvaluation(
-					rule.id,
-					rule.projectId,
-					value,
-					"firing",
-					ok,
-				);
-				fired += 1;
-			} else if (previous === "firing" && next === "ok") {
-				const ok = await fireChannels(
-					rule.channels,
-					{
-						rule: { id: rule.id, name: rule.name, signal: rule.signal },
-						value,
-						threshold: rule.threshold,
-						comparison: rule.comparison,
-						state: "ok",
-						evaluatedAt: now,
-						projectId: rule.projectId,
-						analysis: analysisAttachment,
-					},
-					logger,
-					tracer,
-				);
-				await store.transitionState(rule.id, rule.projectId, "ok", now);
-				await store.recordEvaluation(rule.id, rule.projectId, value, "ok", ok);
-				resolved += 1;
-			} else {
-				// Same state — write an evaluation but do not fire channels.
-				await store.recordEvaluation(
-					rule.id,
-					rule.projectId,
-					value,
-					next,
-					false,
-				);
-			}
-		} catch (err) {
-			logger.error("[alerts-evaluator] rule evaluation failed", {
-				rule_id: rule.id,
-				project_id: rule.projectId,
-				error: err instanceof Error ? err.message : String(err),
-			});
-		}
-	}
-
-	return { evaluated: rules.length, fired, resolved };
+	return evaluateRuleBatch(store, rules, {
+		logger,
+		tracer,
+		concurrency: options?.concurrency,
+		ruleTimeoutMs: options?.ruleTimeoutMs,
+	});
 }
 
 /**
