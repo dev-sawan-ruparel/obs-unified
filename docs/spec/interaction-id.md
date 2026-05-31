@@ -13,22 +13,34 @@ the contract tests at
 
 ## TL;DR
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User Browser
+    participant Browser as Browser SDK
+    participant Server as Server SDK
+
+    User->>Browser: Click Button
+    Note over Browser: Mint interaction_id (ULID-shaped)<br/>Store in usage event
+
+    Browser->>Server: fetch(...) HTTP request<br/>headers["x-obs-interaction"] = id
+
+    Note over Server: Read header<br/>Stamp active span attribute<br/>"obs.interaction.id" = id
+    Note over Server: Child spans inherit id<br/>Logs inherit id<br/>AI calls inherit id
 ```
-[Browser]                                  [Server]
-─────────                                  ────────
-click button
-  → mint interaction_id (ULID-shaped)
-  → store in usage event
-  → fetch(...)
-       headers["x-obs-interaction"] = id
-                  │
-                  ▼
-                                          read header → stamp onto active span
-                                          attribute "obs.interaction.id" = id
-                                          → child spans inherit
-                                          → logs in handler inherit
-                                          → AI calls in handler inherit
-```
+
+#### Protocol Flow Explanation
+
+1. **User Action**: The client triggers a DOM event (e.g., clicking a button).
+2. **Local Stamping**: The browser SDK immediately mints a Crockford base32
+   ULID-shaped `interaction_id` and records it directly in the local usage event
+   telemetry.
+3. **HTTP Transport**: On all outbound HTTP requests, the SDK attaches the
+   custom `x-obs-interaction` header containing the active ID.
+4. **Context Propagation**: The backend server SDK reads the header from the
+   request, registers `obs.interaction.id` as a root span attribute, and
+   propagates it downward across all child spans, application logs, and external
+   AI calls.
 
 ## ID format
 

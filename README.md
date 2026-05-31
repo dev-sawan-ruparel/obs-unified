@@ -124,12 +124,15 @@ export default {
 };
 ```
 
-Set environment variables: | Variable | Required | Description |
-|----------|----------|-------------| | `INGEST_KEY` | Yes (prod) | Write-only
-API key for SDKs | | `DASHBOARD_PASSWORD` | Yes (prod) | Password for dashboard
-login | | `ALLOWED_ORIGINS` | Recommended | Comma-separated CORS origins | |
-`RETENTION_HOURS` | No | Data retention window (default: 72) | |
-`ALLOW_UNAUTHENTICATED` | No | Set `"true"` for local dev |
+Set environment variables:
+
+| Variable                | Required    | Description                       |
+| ----------------------- | ----------- | --------------------------------- |
+| `INGEST_KEY`            | Yes (prod)  | Write-only API key for SDKs       |
+| `DASHBOARD_PASSWORD`    | Yes (prod)  | Password for dashboard login      |
+| `ALLOWED_ORIGINS`       | Recommended | Comma-separated CORS origins      |
+| `RETENTION_HOURS`       | No          | Data retention window, default 72 |
+| `ALLOW_UNAUTHENTICATED` | No          | Set `"true"` for local dev        |
 
 ### 2. Instrument Your Backend
 
@@ -275,13 +278,15 @@ once.
 
 ## Packages
 
-| Package                      | Purpose                                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `@obs-unified/collector`     | Collector service — receives telemetry, stores in D1/SQLite, serves dashboard                                |
-| `@obs-unified/telemetry-sdk` | Backend SDK (Cloudflare Workers) — structured logging, request spans, D1/R2/fetch wrappers, AI call tracking |
-| `@obs-unified/analytics-sdk` | Frontend SDK — page views, interactions, errors, session replay                                              |
-| `@obs-unified/dashboard`     | Dashboard UI — React components (also serves as standalone SPA)                                              |
-| `@obs-unified/types`         | Shared TypeScript types and constants                                                                        |
+- `@obs-unified/collector`: Collector service. Receives telemetry, stores it in
+  D1/SQLite or Postgres, and serves dashboard APIs.
+- `@obs-unified/telemetry-sdk`: Backend SDK for Cloudflare Workers. Provides
+  structured logging, request spans, D1/R2/fetch wrappers, and AI call tracking.
+- `@obs-unified/analytics-sdk`: Frontend SDK for page views, interactions,
+  browser errors, and session replay.
+- `@obs-unified/dashboard`: React dashboard components, also used by the
+  standalone dashboard SPA.
+- `@obs-unified/types`: Shared TypeScript types and constants.
 
 ## Polyglot SDKs ([`sdks/`](./sdks))
 
