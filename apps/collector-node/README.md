@@ -41,12 +41,14 @@ pnpm --filter @obs-demo/collector-node run start
 | --- | --- | --- | --- |
 | `DATABASE_URL` | yes | — | Postgres connection string |
 | `PG_POOL_MAX` | no | 10 | Connection pool size |
+| `BLOB_STORE` | no | `file` | The blob storage type: `file` or `s3` |
+| `BLOB_DIR` | no | `/tmp/obs-unified-blobs` | File system path to store blobs when `BLOB_STORE` is `file` |
 | `S3_ENDPOINT` | no | — | S3-compatible endpoint URL (omit for AWS S3) |
 | `S3_REGION` | no | `us-east-1` | AWS region |
-| `S3_BUCKET` | yes | — | Bucket name for replay + pprof blobs |
+| `S3_BUCKET` | yes (if `s3`) | — | Bucket name for replay + pprof blobs |
 | `S3_FORCE_PATH_STYLE` | no | `true` | Set to `false` for AWS S3 |
-| `S3_ACCESS_KEY_ID` | yes | — | Access key |
-| `S3_SECRET_ACCESS_KEY` | yes | — | Secret key |
+| `S3_ACCESS_KEY_ID` | yes (if `s3`) | — | Access key |
+| `S3_SECRET_ACCESS_KEY` | yes (if `s3`) | — | Secret key |
 | `INGEST_KEY` | yes | — | Write-only API key for SDK clients |
 | `DASHBOARD_PASSWORD` | yes | — | Dashboard login password |
 | `ALLOWED_ORIGINS` | no | — | Comma-separated CORS origins |

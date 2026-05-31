@@ -1,62 +1,56 @@
 # Getting Started
 
-This page is the first-run path from a fresh repo checkout to seeing data in the
-dashboard.
+This guide provides the necessary procedures to bootstrap the obs-unified platform from a fresh repository checkout to seeing active telemetry in the dashboard.
 
-## Pick A Track
+## Setup Options
 
-| If you want to... | Use this path |
-| --- | --- |
-| Avoid local Node/pnpm setup | [Track 0 — one local Docker image](#track-0--one-local-docker-image) |
-| See the dashboard quickly without Docker demo traffic | [Track A — local repo + synthetic data](#track-a--local-repo--synthetic-data) |
-| See realistic microservice traffic | [Track B — Astronomy Shop demo](#track-b--astronomy-shop-demo) |
-| Add obs-unified to your own app | [Track C — instrument your app](#track-c--instrument-your-app) |
+Select the bootstrap method that matches your target environment and evaluation goals:
+
+| Method | Target Environment & Capabilities |
+| :--- | :--- |
+| **[Track 0 — Standalone Docker Image](#track-0--one-local-docker-image)** | A zero-dependency local setup running all services (Postgres, Collector, Dashboard, and file-system storage) inside a single container. Includes pre-seeded sample data. |
+| **[Track A — Local Repository + Synthetic Data](#track-a--local-repo--synthetic-data)** | Running services natively on the host system using Node.js and Postgres, then populating dashboards via a synthetic seeder. |
+| **[Track B — Astronomy Shop Demo](#track-b--astronomy-shop-demo)** | Running a multi-container microservice suite instrumented with OpenTelemetry to generate realistic multi-service spans, metrics, and service maps. |
+| **[Track C — Direct SDK Integration](#track-c--instrument-your-app)** | Connecting your own host applications directly to an obs-unified collector using the platform's client-side and server-side SDKs. |
 
 ## Prerequisites
 
-- Docker for Track 0, Track B, or the standalone Node collector
-- Node.js 22+ and pnpm 10+ for repo-local development paths
+* **Docker**: Required for Track 0, Track B, or the standalone Node collector setup.
+* **Node.js 22+ & pnpm 10+**: Required for all host-native development paths (Track A).
+
+---
 
 ## Track 0 — One Local Docker Image
 
-Use this when you want the lowest-friction first run. It starts Postgres, the
-collector, the dashboard, filesystem blob storage, and seeded sample data inside
-one container.
+This method packages the entire stack—including PostgreSQL, the Collector API, the Dashboard UI, local filesystem blob storage, and seeded mock data—into a single container. It is the lowest-friction pathway for initial UI and feature evaluation. For a component-level map of what this container runs, see [`docs/system-components.md`](./system-components.md).
 
-For a component-level map of what this container runs, see
-[`docs/system-components.md`](./system-components.md).
-
-Build locally:
-
+### 1. Build and Launch
+Build the image locally:
 ```bash
 pnpm local:image
 ```
 
-Run:
-
+Start the container:
 ```bash
 pnpm local:run
 ```
 
-Or without package scripts:
-
+**Alternative (Direct Docker commands without pnpm):**
 ```bash
 docker build -f Dockerfile.local -t obs-unified/local:dev .
 docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev
 ```
 
-Open:
+### 2. Access the Interfaces
+* **Dashboard:** `http://localhost:5173`
+* **Collector Ingest:** `http://localhost:8790`
 
-- Dashboard: `http://localhost:5173`
-- Collector: `http://localhost:8790`
+**Access Credentials:**
+* **Ingest Write Key:** `dev-ingest-key`
+* **Dashboard Password:** `e2e-test-pass`
 
-Defaults:
-
-- Ingest key: `dev-ingest-key`
-- Dashboard password: `e2e-test-pass`
-
-To persist local data between runs:
-
+### 3. Persistent Storage (Optional)
+To persist local database and blob storage states across container restarts, create and mount Docker volumes:
 ```bash
 docker volume create obs-unified-local-db
 docker volume create obs-unified-local-blobs
@@ -68,136 +62,159 @@ docker run --rm \
   obs-unified/local:dev
 ```
 
-To verify this first-run path end to end:
-
+### 4. Verify the First-Run Path
+Run the local image smoke test to build the image, boot a fresh container, seed data, and verify collector health, dashboard HTML, and login from outside Docker:
 ```bash
 pnpm smoke:local-image
 ```
 
+---
+
 ## Track A — Local Repo + Synthetic Data
 
-Use this when you want to see the product quickly.
+This method runs the development servers directly on your host machine. This is the optimal track for modifying dashboard code or iterating on the collector locally without container layers.
 
+### 1. Repository Setup and Boot
+Clone the repository and install workspace dependencies:
 ```bash
 git clone https://github.com/obs-unified/obs-unified.git
 cd obs-unified
 pnpm install
+```
+
+Configure and initialize the databases:
+```bash
 pnpm run setup
+```
+
+Start the development servers (Collector on `:8790`, Demo API on `:8787`, and Web Dashboard on `:5173`):
+```bash
 pnpm run dev
 ```
 
-In another terminal:
-
+### 2. Seed Simulated Data
+In a secondary terminal window, execute the synthetic seeder to populate active tables:
 ```bash
 pnpm run seed
 ```
 
-Open:
+### 3. Access URLs
+* **Dashboard:** `http://localhost:5173`
+* **Demo API:** `http://localhost:8787`
+* **Collector:** `http://localhost:8790`
 
-- Dashboard: `http://localhost:5173`
-- Demo API: `http://localhost:8787`
-- Collector: `http://localhost:8790`
+**Evaluation note:** Browsing Traces, Logs, AI Calls, Usage, and Issues displays immediate synthetic data. To preview **Replays**, navigate to the dashboard's *Playground* tab and click the simulated replay trigger.
 
-Expected result: Traces, Logs, AI Calls, Usage, and Issues should have sample
-data. Replays require browser interaction, so open the Playground tab and click
-the replay control once.
+---
 
 ## Track B — Astronomy Shop Demo
 
-Use this when you want realistic microservice traffic and service-map edges.
+This track runs the official OpenTelemetry Astronomy Shop demo (~15 microservices written in Go, Java, .NET, Node, Python, and Rust) and points its native OTel exporters directly at your local obs-unified collector.
 
+### 1. Setup and Preflight Check
+Clone and prepare the upstream demo services:
 ```bash
 pnpm demo:setup
+```
+
+Run preflight configuration diagnostics to ensure port availability and engine support:
+```bash
 pnpm demo:preflight
+```
+
+Launch the host collector to receive the incoming streams:
+```bash
 pnpm dev:collector
 ```
 
-In another terminal:
-
+### 2. Launch the Microservices
+In a secondary terminal, spin up the demo compose stack:
 ```bash
 pnpm demo:up
 ```
 
-Open:
+### 3. Access URLs
+* **Dashboard:** `http://localhost:5173`
+* **Shop Web Interface:** `http://localhost:8080`
 
-- Dashboard: `http://localhost:5173`
-- Shop frontend: `http://localhost:8080`
+**Verification:** The load generator requires approximately 30 seconds to begin driving traffic. Once running, Traces, Service Maps, Issues, Logs, and Metrics populate dynamically from active microservice calls.
 
-Expected result: after roughly 30 seconds, the load generator starts driving
-traffic. Traces, Service Map, Issues, Logs, and Metrics should populate from the
-OpenTelemetry demo.
-
-Tear down:
-
+### 4. Cleanup
+To stop and remove the container stack:
 ```bash
 pnpm demo:down
 ```
 
+---
+
 ## Track C — Instrument Your App
 
-Start by choosing your language/framework:
+This track guides you through adding obs-unified instrumentation directly to your own application codebase.
 
-| App shape | Start here |
-| --- | --- |
-| React/Vite frontend + Hono API | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) |
-| Python Flask API | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md) |
-| Browser-only app | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md) |
-| TypeScript backend | [`packages/telemetry-sdk/README.md`](../packages/telemetry-sdk/README.md) |
-| Python, JVM, .NET, Go, Rust | [`docs/recipes/README.md`](./recipes/README.md) |
-| Not sure yet | [`docs/examples.md`](./examples.md) |
+### 1. Implementation Pathways
+Select the guide matching your application framework:
 
-The common wiring is:
+| Target Framework / Platform | Setup Guide Location |
+| :--- | :--- |
+| **React/Vite Frontend + Hono API** | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) |
+| **Python Flask API** | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md) |
+| **Browser-only Application** | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md) |
+| **TypeScript Backend** | [`packages/telemetry-sdk/README.md`](../packages/telemetry-sdk/README.md) |
+| **Polyglot Recipes (Python, Go, Rust, JVM, .NET)** | [`docs/recipes/README.md`](./recipes/README.md) |
+| **All Examples Directory** | [`docs/examples.md`](./examples.md) |
 
-1. Run or deploy a collector.
-2. Add the browser/backend SDK or language recipe.
-3. Set `OBS_COLLECTOR_URL` and a write-only ingest key.
-4. Allow `x-obs-interaction` in browser-facing CORS.
-5. Verify the collector path.
+### 2. Common Integration Steps
+The core pipeline configuration is standard across all paths:
+1. Deploy or run an accessible collector endpoint.
+2. Install the appropriate client or server SDK package.
+3. Configure the `OBS_COLLECTOR_URL` environment variable and specify a write-only ingest key.
+4. Ensure your API CORS policies allow the custom propagation header: `x-obs-interaction`.
+5. Run the validation tool to verify connectivity:
+   ```bash
+   obs-unified doctor http://localhost:8790 --origin http://localhost:5173
+   ```
 
-```bash
-obs-unified doctor http://localhost:8790 --origin http://localhost:5173
-```
-
-For browser examples, use the origin of the app you are testing. For the
-Astronomy Shop demo, use `http://localhost:8080`.
+---
 
 ## Standalone Node Collector
 
-If you only want a local collector backed by Postgres + MinIO:
+For host or container environments requiring a dedicated telemetry ingestion node backed by Postgres and MinIO/S3, run the standalone server:
 
+### 1. Launch Container
 ```bash
 cd apps/collector-node
 docker compose up -d
 docker compose logs -f collector
 ```
 
-Collector defaults:
+* **Endpoint:** `http://localhost:8790`
+* **Ingest Key:** `dev-ingest-key`
+* **Password:** `e2e-test-pass`
 
-- Collector URL: `http://localhost:8790`
-- Ingest key: `dev-ingest-key`
-- Dashboard password: `e2e-test-pass`
-
-Run the dashboard from the repo root:
-
+### 2. Launch Dashboard
+Run the dashboard server from the repository root:
 ```bash
 pnpm dev:web
 ```
+Access the interface at `http://localhost:5173`.
 
-Then open `http://localhost:5173`.
+---
 
 ## First-Run Troubleshooting
 
-| Symptom | Check |
-| --- | --- |
-| Docker demo fails early | Run `pnpm demo:preflight` and fix the first failed check. |
-| Colima memory is too low | Use `colima stop && colima start --memory 7 --cpu 4`. |
-| Dashboard is empty | Run `pnpm run seed` for Track A or wait for demo traffic in Track B. |
-| Browser telemetry is blocked | Run `obs-unified doctor <collector-url> --origin <app-origin>`. |
-| AI Calls are empty | Set an LLM provider key and trigger an AI demo or instrument an LLM call. |
-| Replays are empty | Open the app in a browser and trigger a replay-producing interaction. |
+| Symptom / Error | Diagnostic Action |
+| :--- | :--- |
+| **Docker compose demo fails to launch** | Execute `pnpm demo:preflight` and address the first reported system check failure. |
+| **Colima / VM memory resource depletion** | Expand hardware allocation: `colima stop && colima start --memory 7 --cpu 4`. |
+| **Dashboard displays empty state** | For Track A, confirm `pnpm run seed` was run. For Track B, allow up to 30 seconds for traffic to establish. |
+| **Browser telemetry requests are blocked** | Verify CORS rules using: `obs-unified doctor <collector-url> --origin <app-origin>`. |
+| **AI Calls table is empty** | Verify the LLM provider key is defined in your active environment variables and trigger an AI span. |
+| **Replays table is empty** | Load the target application in the browser and perform a recording-eligible user action. |
 
-## Next
+---
 
-- Browse all examples: [`docs/examples.md`](./examples.md)
-- Learn package installation: [`docs/github-packages.md`](./github-packages.md)
-- Compare migration paths: [`docs/migrate/README.md`](./migrate/README.md)
+## Next Steps
+
+* **Browse Examples:** [`docs/examples.md`](./examples.md)
+* **Configure Package Registry:** [`docs/github-packages.md`](./github-packages.md)
+* **Plan Database Migrations:** [`docs/migrate/README.md`](./migrate/README.md)

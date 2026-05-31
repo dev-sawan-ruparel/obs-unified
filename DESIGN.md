@@ -127,13 +127,13 @@ Despite the "light" theme, ensure the high-contrast `Text #1A1A1A` is always use
 ### Left rail (220px expanded / 56px collapsed)
 *   Brand mark at the top, 13px UPPERCASE.
 *   Sections grouped by **investigation flow**, not data type:
-    *   **Observe** — Timeline, Service Map, Logs
-    *   **Investigate** — Traces, Issues, AI Calls
+    *   **Observe** — Health, Timeline, Service Map, Logs
+    *   **Investigate** — Investigations, Traces, Issues, AI Calls
     *   **Experience** — Replays
     *   **Operate** — Alerts, Usage, Resources
 *   Pinned to the bottom: Projects, Playground, then the collapse toggle.
 *   Active state: `surface-low` row fill + 3px `primary` left border. No pill, no rounded highlight.
-*   Collapsed: 9×9 chip with the item's 2-letter shortcode (TL/SM/LG/TR/IS/AI/RP/AL/US/RS/PR/PG). Active chip fills with `primary`. Hover `title` shows the full label.
+*   Collapsed: 9×9 chip with the item's 2-letter shortcode (HE/TL/SM/LG/IV/TR/IS/AI/RP/AL/US/RS/PR/PG). Active chip fills with `primary`. Hover `title` shows the full label.
 
 ### Top bar (48px)
 A single horizontal strip with global affordances only:
