@@ -121,10 +121,9 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Location:** `packages/dashboard/src/components/ActionGraphRenderer.tsx`.
   * **Resolution:** Split the renderer into a 145-line state/data coordinator plus `action-graph/ActionGraphTabHeader.tsx`, `TreeTab.tsx`, `GovernanceTab.tsx`, and `DiffTab.tsx`, keeping tab-specific layout and inspectors out of the top-level component.
 
-- [ ] **Shared types file is a cross-domain catch-all**
-  * **Location:** `packages/obs-types/src/types.ts` (~1292 lines).
-  * **Risk:** Low. Type ownership is unclear and domain-specific changes create broad review surfaces.
-  * **Next Action:** Split into domain modules such as traces, logs, metrics, replay, AI, profiles, and alerts, then re-export from the package barrel.
+- [x] **Shared types file is a cross-domain catch-all**
+  * **Location:** `packages/obs-types/src/types.ts`.
+  * **Resolution:** Split the 1292-line declaration file into domain modules under `packages/obs-types/src/types/` for primitives, OTLP, telemetry, usage, logs, AI, identity, replay, projects, alerts, and analyses, while keeping `types.ts` as a compatibility re-export barrel.
 
 - [ ] **Collector store is a monolithic repository**
   * **Location:** `packages/obs-collector/src/lib/store.ts` (~997 lines after extracting trace/issue helper functions).
