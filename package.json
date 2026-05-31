@@ -27,6 +27,7 @@
 		"demo:logs": "docker compose -f demo/upstream/compose.yaml logs -f load-generator",
 		"local:image": "docker build -f Dockerfile.local -t obs-unified/local:dev .",
 		"local:run": "docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev",
+		"smoke:local-image": "bash scripts/smoke-local-image/run.sh",
 		"smoke:collector-node": "pnpm --filter @obs-demo/collector-node run smoke:docker",
 		"seed": "node scripts/seed-everything/run.mjs",
 		"lint": "biome check .",

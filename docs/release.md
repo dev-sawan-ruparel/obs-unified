@@ -35,6 +35,7 @@ cd ../rust && cargo fmt --check && cargo clippy --all-targets --all-features -- 
 For collector runtime changes, run at least one live smoke path:
 
 ```bash
+pnpm smoke:local-image
 pnpm e2e:otlp
 pnpm e2e:alerts
 ```

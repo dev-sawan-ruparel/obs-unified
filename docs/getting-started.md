@@ -23,6 +23,9 @@ Use this when you want the lowest-friction first run. It starts Postgres, the
 collector, the dashboard, filesystem blob storage, and seeded sample data inside
 one container.
 
+For a component-level map of what this container runs, see
+[`docs/system-components.md`](./system-components.md).
+
 Build locally:
 
 ```bash
@@ -63,6 +66,12 @@ docker run --rm \
   -v obs-unified-local-db:/var/lib/postgresql \
   -v obs-unified-local-blobs:/data \
   obs-unified/local:dev
+```
+
+To verify this first-run path end to end:
+
+```bash
+pnpm smoke:local-image
 ```
 
 ## Track A — Local Repo + Synthetic Data

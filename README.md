@@ -16,6 +16,9 @@ authentication details and the Go/Rust install paths.
 
 ## Architecture
 
+For the component inventory and deployment shapes, see
+[docs/system-components.md](docs/system-components.md).
+
 ```
                        Your Infrastructure
   ┌──────────────────────────────────────────────────────┐
