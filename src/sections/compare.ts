@@ -205,7 +205,7 @@ export function renderCompare(): string {
       <h2 id="compare-title">One stack instead of three (or nine)</h2>
       <p class="section-lead">
         Most teams glue an APM, a product-analytics tool, an error/session tool, and now an LLM-observability tool together.
-        obs-unified keeps those workflows on your own infrastructure under one identity chain that lets you pivot between every signal type in ≤2 clicks.
+        obs-unified unifies those workflows under one identity chain and one dashboard, so you can pivot between every signal type in ≤2 clicks while keeping the data plane in your infrastructure.
       </p>
     </header>
     <div class="cmp-scroll" role="region" aria-label="Comparison table" tabindex="0">

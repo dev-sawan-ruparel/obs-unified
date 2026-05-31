@@ -7,17 +7,17 @@ export function renderHero(): string {
     <div class="hero-copy">
       <p class="eyebrow">Open source · MIT licensed</p>
       <h1 id="hero-title" class="hero-title">
-        Every signal,<br/>
-        <span class="accent">two clicks away.</span>
+        Unified observability<br/>
+        <span class="accent">for every signal.</span>
       </h1>
       <p class="hero-lead">
-        <strong>obs-unified</strong> is a self-hosted observability stack with
-        first-party SDKs for <strong>TypeScript, Go, and Rust</strong> — traces,
-        logs, AI calls, usage events, replays, alerts, and user profiles all live
-        in one collector, and the <strong>Connected rail</strong> on every detail
-        page surfaces the entity's neighbors so you pivot from any signal to any
-        other in <strong>≤2 clicks</strong>. Start locally with one Docker image,
-        then run on Cloudflare Workers + D1 + R2 or Node + Postgres + S3.
+        <strong>obs-unified</strong> puts traces, logs, AI calls, usage events,
+        replays, alerts, profiles, and analyses into <strong>one collector</strong>,
+        <strong>one identity chain</strong>, and <strong>one dashboard</strong>.
+        The <strong>Connected rail</strong> on every detail page exposes the
+        neighboring signals, so investigations move across the whole system in
+        <strong>≤2 clicks</strong>. Start locally with one Docker image, then run
+        on Cloudflare Workers + D1 + R2 or Node + Postgres + S3.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
@@ -30,7 +30,7 @@ export function renderHero(): string {
         </a>
       </div>
       <div class="hero-meta">
-        <span><strong>SDKs</strong> TypeScript · Go · Rust · browser</span>
+        <span><strong>Unified SDKs</strong> TypeScript · Go · Rust · browser</span>
         <a class="hero-meta-langs" href="${SDK_DOCS_URL}">SDK docs</a>
       </div>
       <p class="hero-chain">

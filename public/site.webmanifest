@@ -1,7 +1,7 @@
 {
 	"name": "obs-unified",
 	"short_name": "obs-unified",
-	"description": "Self-hosted observability — traces, logs, AI calls, session replay, and usage analytics, no external telemetry services required.",
+	"description": "Unified observability for traces, logs, AI calls, session replay, usage analytics, alerts, and profiles.",
 	"icons": [
 		{
 			"src": "/icon-192.png",

@@ -64,12 +64,12 @@ export function renderFeatures(): string {
 <section id="features" class="features" aria-labelledby="features-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">Every signal · every language · one collector</p>
-      <h2 id="features-title">Every signal reachable from every other in ≤2 clicks.</h2>
+      <p class="eyebrow">One collector · one identity chain · one dashboard</p>
+      <h2 id="features-title">Unified observability means every signal knows its neighbors.</h2>
       <p class="section-lead">
         obs-unified replaces the patchwork of APM + logging + product analytics + session replay
-        + LLM observability + alerting — with one self-hosted stack, correlated through a single
-        identity chain.
+        + LLM observability + alerting with one unified stack, correlated through a single
+        identity chain and explorable through the same dashboard.
       </p>
     </header>
     <div class="feature-grid">${FEATURES.map(card).join("")}</div>

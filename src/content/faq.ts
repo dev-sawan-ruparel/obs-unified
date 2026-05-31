@@ -3,11 +3,11 @@ export type QA = { q: string; a: string };
 export const FAQS: QA[] = [
   {
     q: "What is obs-unified?",
-    a: "obs-unified is an open-source, self-hosted observability platform. A single collector service ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays, stores them in Cloudflare D1/R2 or Postgres/S3-compatible storage, and serves a dashboard for querying and correlating them. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+    a: "obs-unified is an open-source unified observability platform. A single collector ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, and analyses, then connects them through one identity chain and one dashboard. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",
-    a: "It runs on your own infrastructure, so no external telemetry vendor sits in the data path. It also unifies signal types that those tools split across separate products: APM traces, logs, product analytics, session replay, AI observability, and alerting live in one collector and one dashboard, correlated through a single identity chain.",
+    a: "Its primary difference is unification. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, and analyses live in one collector and one dashboard, correlated through a single identity chain. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path.",
   },
   {
     q: "What's the data retention model?",

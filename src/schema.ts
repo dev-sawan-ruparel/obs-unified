@@ -11,7 +11,7 @@ const graph = {
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Cross-platform (Cloudflare Workers, Node.js, Bun, Deno)",
       description:
-        "Self-hosted observability platform that ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays into a single collector backed by Cloudflare D1/R2 or Postgres/S3-compatible storage. The local first-run image includes Postgres, collector, dashboard, blob storage, and seed data.",
+        "Unified observability platform that connects OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, and analyses through one collector, one identity chain, and one dashboard. The local first-run image includes Postgres, collector, dashboard, blob storage, and seed data.",
       url: "https://obsunified.com/",
       programmingLanguage: ["TypeScript", "Go", "Rust"],
       license: "https://opensource.org/license/mit",
@@ -25,6 +25,7 @@ const graph = {
         "Alert rules and notifications",
         "User profiles and identity stitching",
         "Self-hosted on your own infrastructure",
+        "Unified collector, identity chain, and dashboard",
       ],
     },
     {

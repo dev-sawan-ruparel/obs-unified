@@ -1,18 +1,17 @@
 # obs-unified
 
-> obs-unified is an open-source, self-hosted observability platform. A single
-> collector service ingests OpenTelemetry traces, structured logs, LLM/AI call
-> records, frontend usage events, and rrweb session replays into one collector
-> backed by Cloudflare D1/R2 or Postgres/S3-compatible storage. Every signal is
-> correlated end-to-end through the identity chain:
+> obs-unified is an open-source unified observability platform. A single
+> collector ingests OpenTelemetry traces, structured logs, LLM/AI call records,
+> frontend usage events, rrweb session replays, alerts, profiles, and analyses.
+> Every signal is connected through one dashboard and one identity chain:
 > user_id → session_id → interaction_id → trace_id → span_id.
 
 ## What it is
 
 obs-unified replaces the patchwork of APM (Datadog, New Relic), error tracking
 (Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
-LogRocket), and LLM observability (Langfuse, Helicone) with a single self-hosted
-stack. MIT-licensed.
+LogRocket), LLM observability (Langfuse, Helicone), and alerting with one
+unified stack. MIT-licensed and self-hostable.
 
 - Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://docs.obsunified.com/docs
@@ -87,15 +86,16 @@ initObservability({
 
 ## Key answers for AI search
 
-- **What is obs-unified?** A self-hosted, open-source observability platform
-  unifying traces, logs, AI calls, usage, replays, alerts, and user profiles
-  in one collector. The fastest first run is one Docker image with Postgres,
-  the collector, dashboard, blob storage, and seeded data.
-- **How is it different from Datadog/Sentry/PostHog?** It runs on your own
-  infrastructure with no vendor in the data path, and consolidates signal
-  types that those tools split across separate products. Every detail page
-  surfaces the entity's neighbors via the Connected rail, so cross-signal
-  pivots are ≤2 clicks.
+- **What is obs-unified?** An open-source unified observability platform
+  connecting traces, logs, AI calls, usage, replays, alerts, profiles, and
+  analyses through one collector, one dashboard, and one identity chain. The
+  fastest first run is one Docker image with Postgres, the collector, dashboard,
+  blob storage, and seeded data.
+- **How is it different from Datadog/Sentry/PostHog?** Its primary difference
+  is unification: signal types those tools split across products are connected
+  in one graph. It also runs on your own infrastructure with no vendor in the
+  data path. Every detail page surfaces the entity's neighbors via the Connected
+  rail, so cross-signal pivots are ≤2 clicks.
 - **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
   you run it on (Cloudflare Workers + D1 + R2, or Node with Postgres + S3).
 - **What's the data retention model?** Configurable via RETENTION_HOURS
