@@ -117,10 +117,9 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Risk:** Medium. Identity correctness is hard to review because matching rules, DB access, and result shaping live together.
   * **Next Action:** Split into repository/query helpers, scoring/ranking, merge-policy logic, and public orchestration.
 
-- [ ] **Action Graph Renderer mixes layout, rendering, interaction, and tooltip state**
-  * **Location:** `packages/dashboard/src/components/ActionGraphRenderer.tsx` (~837 lines after extracting graph types, helpers, tree node rendering, and badges).
-  * **Risk:** Medium. UI changes to graph controls can alter layout behavior and canvas/SVG rendering unintentionally.
-  * **Next Action:** Extract graph layout/model calculation, renderer layers, controls, and tooltip/selection hooks.
+- [x] **Action Graph Renderer mixes layout, rendering, interaction, and tooltip state**
+  * **Location:** `packages/dashboard/src/components/ActionGraphRenderer.tsx`.
+  * **Resolution:** Split the renderer into a 145-line state/data coordinator plus `action-graph/ActionGraphTabHeader.tsx`, `TreeTab.tsx`, `GovernanceTab.tsx`, and `DiffTab.tsx`, keeping tab-specific layout and inspectors out of the top-level component.
 
 - [ ] **Shared types file is a cross-domain catch-all**
   * **Location:** `packages/obs-types/src/types.ts` (~1292 lines).

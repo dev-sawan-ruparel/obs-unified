@@ -110,3 +110,5 @@ export interface TreeNode {
 	action: ActionRef;
 	children: TreeNode[];
 }
+
+export type ActiveActionGraphTab = "tree" | "governance" | "diff";
