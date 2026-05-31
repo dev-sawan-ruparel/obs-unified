@@ -1,6 +1,7 @@
 # Profiling — sending pprof to obs-unified
 
-obs-unified accepts gzipped pprof blobs at `/v1/profiles/pprof`. Any profiler that produces standard pprof output works — pick whichever fits your runtime.
+obs-unified accepts gzipped pprof blobs at `/v1/profiles/pprof`. Any profiler
+that produces standard pprof output works — pick whichever fits your runtime.
 
 ## Wire format
 
@@ -20,9 +21,17 @@ x-obs-trace-ids: <id1>,<id2>,…          # optional but important — see below
 
 ### `x-obs-trace-ids` — populates the trace waterfall's 🔥 badge
 
-When your profiler tags samples with the active OTel `trace_id`, extract the distinct ids before pushing and pass them as a comma-separated list. The collector populates `profile_trace_index` so `/internal/profiles?trace_id=X` returns this profile, and the trace waterfall renders the 🔥 badge for any span belonging to that trace.
+When your profiler tags samples with the active OTel `trace_id`, extract the
+distinct ids before pushing and pass them as a comma-separated list. The
+collector populates `profile_trace_index` so `/internal/profiles?trace_id=X`
+returns this profile, and the trace waterfall renders the 🔥 badge for any span
+belonging to that trace.
 
-If you can't extract trace_ids yourself, omit the header. The collector will parse valid pprof blobs and index any `trace_id` labels it finds. If the profiler does not tag samples with trace IDs (common with some eBPF setups), the profile still ingests and aggregate views still work; only the per-trace 🔥 badge is missing.
+If you can't extract trace_ids yourself, omit the header. The collector will
+parse valid pprof blobs and index any `trace_id` labels it finds. If the
+profiler does not tag samples with trace IDs (common with some eBPF setups), the
+profile still ingests and aggregate views still work; only the per-trace 🔥
+badge is missing.
 
 ## Per-language recipes
 
@@ -54,7 +63,8 @@ async function captureAndPush() {
 setInterval(captureAndPush, 60_000);
 ```
 
-To label samples with the OTel `trace_id`, use `time.profile`'s `sourceMapper` callback or set sample labels via the OTel context API.
+To label samples with the OTel `trace_id`, use `time.profile`'s `sourceMapper`
+callback or set sample labels via the OTel context API.
 
 ### Go — `runtime/pprof`
 
@@ -88,7 +98,9 @@ func capturePush() error {
 }
 ```
 
-For trace_id labels, use `pprof.Labels(...)` around the work you want to attribute, reading the active span via `propagation.TraceContextFromContext(ctx)`.
+For trace_id labels, use `pprof.Labels(...)` around the work you want to
+attribute, reading the active span via
+`propagation.TraceContextFromContext(ctx)`.
 
 ### Python — `pyroscope-python` push mode
 
@@ -103,14 +115,14 @@ pyroscope.configure(
 )
 ```
 
-Pyroscope's Python agent emits gzipped pprof at the URL you point it at. The trace_id label flow uses `pyroscope.tag_wrapper({...})` around your handler.
+Pyroscope's Python agent emits gzipped pprof at the URL you point it at. The
+trace_id label flow uses `pyroscope.tag_wrapper({...})` around your handler.
 
 ### JVM — `pyroscope-java`
 
 ```yaml
 # pyroscope-java agent flag
--javaagent:./pyroscope.jar
--Dpyroscope.application.name=my-jvm-svc
+-javaagent:./pyroscope.jar -Dpyroscope.application.name=my-jvm-svc
 -Dpyroscope.server.address=https://obs.my-app.com/v1/profiles/pprof
 -Dpyroscope.auth.token=<ingest-key>
 ```
@@ -119,9 +131,13 @@ Pyroscope-java handles JIT symbolization via async-profiler under the hood.
 
 ### eBPF — Parca-Agent / OTel-eBPF-Profiler
 
-Both emit pprof natively. Parca-Agent has a `--remote-store-address` flag; OTel-eBPF-Profiler exports OTLP profiles which a colocated OTel collector can convert to pprof and forward to our endpoint.
+Both emit pprof natively. Parca-Agent has a `--remote-store-address` flag;
+OTel-eBPF-Profiler exports OTLP profiles which a colocated OTel collector can
+convert to pprof and forward to our endpoint.
 
-Trace-id labels: only some eBPF builds tag samples with the OTel context. Without that, the 🔥 badge won't fire for individual traces, but service-level profile views work.
+Trace-id labels: only some eBPF builds tag samples with the OTel context.
+Without that, the 🔥 badge won't fire for individual traces, but service-level
+profile views work.
 
 ## Verifying ingest
 
@@ -133,7 +149,8 @@ curl -H "Authorization: Bearer <ingest-key>" \
   | jq '.profiles[] | {id, profileType, durationMs, blobSizeBytes}'
 ```
 
-You should see the profile listed. If your push included `x-obs-trace-ids`, or the collector extracted trace IDs from the blob, drill in via:
+You should see the profile listed. If your push included `x-obs-trace-ids`, or
+the collector extracted trace IDs from the blob, drill in via:
 
 ```bash
 curl https://obs.my-app.com/internal/profiles/<id>
@@ -141,15 +158,21 @@ curl https://obs.my-app.com/internal/profiles/<id>
 
 The response includes the `traceIds` array.
 
-To fetch a blob scoped to a single trace, request it with `blob=true` and `trace_id`:
+To fetch a blob scoped to a single trace, request it with `blob=true` and
+`trace_id`:
 
 ```bash
 curl -o trace.pprof.gz \
   "https://obs.my-app.com/internal/profiles/<id>?blob=true&trace_id=<trace-id>"
 ```
 
-The collector parses the profile, keeps only samples carrying that `trace_id` label, and returns a smaller gzipped pprof blob. If filtering fails, it falls back to the unfiltered blob and logs the decode error.
+The collector parses the profile, keeps only samples carrying that `trace_id`
+label, and returns a smaller gzipped pprof blob. If filtering fails, it falls
+back to the unfiltered blob and logs the decode error.
 
 ## Dashboard viewer
 
-The trace waterfall shows a 🔥 badge when a profile is linked to the trace. Opening the profile renders the built-in flame graph viewer, scoped to that trace when trace labels are available. You can still download the blob and inspect it with `pprof -http`, Speedscope, or any pprof viewer.
+The trace waterfall shows a 🔥 badge when a profile is linked to the trace.
+Opening the profile renders the built-in flame graph viewer, scoped to that
+trace when trace labels are available. You can still download the blob and
+inspect it with `pprof -http`, Speedscope, or any pprof viewer.

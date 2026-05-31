@@ -1,24 +1,24 @@
 # `interaction_id` conformance tests
 
-Language-agnostic black-box tests every obs-unified SDK MUST pass.
-See [`docs/spec/interaction-id.md`](../../../docs/spec/interaction-id.md)
-for the wire spec.
+Language-agnostic black-box tests every obs-unified SDK MUST pass. See
+[`docs/spec/interaction-id.md`](../../../docs/spec/interaction-id.md) for the
+wire spec.
 
 ## Test cases
 
-Each case is described in `cases.json` as a tuple of (input, expected
-output). SDKs are expected to expose a small test harness (a tiny
-binary or test runner) that ingests a case and reports pass/fail.
+Each case is described in `cases.json` as a tuple of (input, expected output).
+SDKs are expected to expose a small test harness (a tiny binary or test runner)
+that ingests a case and reports pass/fail.
 
 ### Case 1 — ID format
 
 Generate 1,000 IDs via the SDK's mint helper. Assertions:
 
 - Each matches `^[0-9A-HJKMNP-TV-Z]{26}$`.
-- The first 10 chars of each ID, decoded as Crockford base32, equals
-  the mint time in milliseconds within ±1ms.
-- No two consecutive IDs in the same millisecond have identical
-  randomness suffixes (probabilistic — failure rate < 1 in 2^64).
+- The first 10 chars of each ID, decoded as Crockford base32, equals the mint
+  time in milliseconds within ±1ms.
+- No two consecutive IDs in the same millisecond have identical randomness
+  suffixes (probabilistic — failure rate < 1 in 2^64).
 
 ### Case 2 — Header round-trip
 
@@ -57,20 +57,20 @@ Repeat case 3 with hostile values:
 - `01ILOU` (forbidden Crockford letters)
 - empty string
 
-Each MUST be silently dropped — no exception, no synthesized ID, no
-attribute on the span.
+Each MUST be silently dropped — no exception, no synthesized ID, no attribute on
+the span.
 
 ## Running
 
 Each SDK ports its own runner:
 
-| SDK | Test entry |
-| --- | --- |
-| `@obs-unified/analytics-sdk` | `vitest run interaction.conformance` |
-| `@obs-unified/telemetry-sdk` | `vitest run interaction.conformance` |
-| `@obs-unified/sdk` (Node) | `vitest run interaction.conformance` |
-| `obs` (Go) | `go test -run TestInteractionConformance ./...` |
-| `obs-unified` (Rust) | `cargo test interaction_conformance` |
+| SDK                          | Test entry                                      |
+| ---------------------------- | ----------------------------------------------- |
+| `@obs-unified/analytics-sdk` | `vitest run interaction.conformance`            |
+| `@obs-unified/telemetry-sdk` | `vitest run interaction.conformance`            |
+| `@obs-unified/sdk` (Node)    | `vitest run interaction.conformance`            |
+| `obs` (Go)                   | `go test -run TestInteractionConformance ./...` |
+| `obs-unified` (Rust)         | `cargo test interaction_conformance`            |
 
-The CI matrix at `.github/workflows/ci.yml` runs all five in parallel
-on every PR.
+The CI matrix at `.github/workflows/ci.yml` runs all five in parallel on every
+PR.

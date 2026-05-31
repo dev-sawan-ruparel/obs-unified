@@ -1,8 +1,13 @@
 # @obs-unified/brand
 
-Source of truth for obs-unified's visual identity — logo, favicons, OG cards, and CSS design tokens.
+Source of truth for obs-unified's visual identity — logo, favicons, OG cards,
+and CSS design tokens.
 
-The design language is documented in `obs-unified/DESIGN.md` ("The Technical Monolith"). This package is the executable version of that spec: every asset here is built to the same rules — terminal-green primary `#006B18`, clinical-white base, zero radius, Inter Variable, sentence case in chrome with reserved UPPERCASE for section-label tags.
+The design language is documented in `obs-unified/DESIGN.md` ("The Technical
+Monolith"). This package is the executable version of that spec: every asset
+here is built to the same rules — terminal-green primary `#006B18`,
+clinical-white base, zero radius, Inter Variable, sentence case in chrome with
+reserved UPPERCASE for section-label tags.
 
 ## What's in the box
 
@@ -73,13 +78,15 @@ console.log(logo.mark); // → absolute path
 
 ### From obs-unified-docs and presence (sibling repos)
 
-These projects aren't part of the obs-unified pnpm workspace, so they consume assets via a one-shot copy into their `public/` directory:
+These projects aren't part of the obs-unified pnpm workspace, so they consume
+assets via a one-shot copy into their `public/` directory:
 
 ```bash
 node packages/brand/scripts/sync-to-projects.mjs
 ```
 
-This walks every consuming project, copies in the appropriate subset, and writes a `.brand-source` stamp so it's clear the files are managed.
+This walks every consuming project, copies in the appropriate subset, and writes
+a `.brand-source` stamp so it's clear the files are managed.
 
 ## Regenerating rasters
 
@@ -92,8 +99,13 @@ pnpm build:rasters   # writes favicons/*.png, favicons/favicon.ico, og/*.jpg
 pnpm sync            # copies into apps/docs/presence
 ```
 
-Re-run `build:rasters` any time you edit an SVG. Re-run `sync` after that to push the new files out.
+Re-run `build:rasters` any time you edit an SVG. Re-run `sync` after that to
+push the new files out.
 
 ## Editing the design
 
-If you're tempted to add a new color, font, or radius — re-read `DESIGN.md` first. The palette is intentionally constrained: terminal green, system red, clinical white, Inter Variable, zero radius. If you genuinely need a new token, add it to `tokens/tokens.css` and update `DESIGN.md` in the same commit; the tokens file and the spec are not allowed to drift.
+If you're tempted to add a new color, font, or radius — re-read `DESIGN.md`
+first. The palette is intentionally constrained: terminal green, system red,
+clinical white, Inter Variable, zero radius. If you genuinely need a new token,
+add it to `tokens/tokens.css` and update `DESIGN.md` in the same commit; the
+tokens file and the spec are not allowed to drift.

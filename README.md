@@ -1,9 +1,11 @@
 # obs-unified
 
-Self-hosted observability for your project. Traces, logs, usage analytics, session replay, profiles, and AI call tracking — no external telemetry services required.
+Self-hosted observability for your project. Traces, logs, usage analytics,
+session replay, profiles, and AI call tracking — no external telemetry services
+required.
 
-The TypeScript packages publish to GitHub Packages. Configure the
-`@obs-unified` scope once, then install the SDKs:
+The TypeScript packages publish to GitHub Packages. Configure the `@obs-unified`
+scope once, then install the SDKs:
 
 ```bash
 pnpm config set @obs-unified:registry https://npm.pkg.github.com
@@ -46,11 +48,19 @@ graph TD
 ```
 
 #### Architecture Flow Explanation
-* **Your Infrastructure**: The applications under observation. The backend and frontend services are configured with a single write-only API key (similar to platforms like Sentry or PostHog) to interact with the collector.
-* **Collector Service**: The core ingestion engine of the `obs-unified` stack. It receives client data, hosts the visualization dashboard, handles validation, and serves internal reporting queries.
-* **Storage Layer**: Telemetry data is persisted locally (backed by SQLite/D1 and Cloudflare R2) or dynamically mapped to an enterprise Postgres database and S3-compatible blob bucket (like MinIO or AWS S3).
+
+- **Your Infrastructure**: The applications under observation. The backend and
+  frontend services are configured with a single write-only API key (similar to
+  platforms like Sentry or PostHog) to interact with the collector.
+- **Collector Service**: The core ingestion engine of the `obs-unified` stack.
+  It receives client data, hosts the visualization dashboard, handles
+  validation, and serves internal reporting queries.
+- **Storage Layer**: Telemetry data is persisted locally (backed by SQLite/D1
+  and Cloudflare R2) or dynamically mapped to an enterprise Postgres database
+  and S3-compatible blob bucket (like MinIO or AWS S3).
 
 **Two auth boundaries:**
+
 - **SDK to Collector** — write-only API key (like PostHog/Sentry)
 - **Dashboard** — password login (like Grafana)
 
@@ -62,26 +72,26 @@ path, the realistic Docker demo path, and how to instrument your own app.
 
 ### Instrument an existing app
 
-Start by choosing your language and framework, then follow the matching
-example:
+Start by choosing your language and framework, then follow the matching example:
 
-| App shape | Start here |
-| --- | --- |
-| Not sure yet | [Examples index](docs/examples.md) |
-| React/Vite frontend + Hono API | [React + Hono walkthrough](docs/howto/instrument-react-hono.md) |
-| Python Flask API | [Python Flask walkthrough](docs/howto/instrument-python-flask.md) |
-| Browser-only app | [Analytics SDK README](packages/analytics-sdk/README.md) |
-| TypeScript backend | [Telemetry SDK README](packages/telemetry-sdk/README.md) |
-| Python, JVM, .NET, Go, Rust | [Language recipes](docs/recipes/README.md) |
+| App shape                      | Start here                                                        |
+| ------------------------------ | ----------------------------------------------------------------- |
+| Not sure yet                   | [Examples index](docs/examples.md)                                |
+| React/Vite frontend + Hono API | [React + Hono walkthrough](docs/howto/instrument-react-hono.md)   |
+| Python Flask API               | [Python Flask walkthrough](docs/howto/instrument-python-flask.md) |
+| Browser-only app               | [Analytics SDK README](packages/analytics-sdk/README.md)          |
+| TypeScript backend             | [Telemetry SDK README](packages/telemetry-sdk/README.md)          |
+| Python, JVM, .NET, Go, Rust    | [Language recipes](docs/recipes/README.md)                        |
 
-The common wiring is: run a collector, add the browser/backend SDK package,
-set `OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction`
-CORS header for browser calls, and verify the collector path with
+The common wiring is: run a collector, add the browser/backend SDK package, set
+`OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction` CORS
+header for browser calls, and verify the collector path with
 `obs-unified doctor`.
 
 ### 1. Deploy the Collector
 
-The collector is a standalone service that receives telemetry and serves the dashboard.
+The collector is a standalone service that receives telemetry and serves the
+dashboard.
 
 ```bash
 pnpm add @obs-unified/collector hono
@@ -114,14 +124,12 @@ export default {
 };
 ```
 
-Set environment variables:
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `INGEST_KEY` | Yes (prod) | Write-only API key for SDKs |
-| `DASHBOARD_PASSWORD` | Yes (prod) | Password for dashboard login |
-| `ALLOWED_ORIGINS` | Recommended | Comma-separated CORS origins |
-| `RETENTION_HOURS` | No | Data retention window (default: 72) |
-| `ALLOW_UNAUTHENTICATED` | No | Set `"true"` for local dev |
+Set environment variables: | Variable | Required | Description |
+|----------|----------|-------------| | `INGEST_KEY` | Yes (prod) | Write-only
+API key for SDKs | | `DASHBOARD_PASSWORD` | Yes (prod) | Password for dashboard
+login | | `ALLOWED_ORIGINS` | Recommended | Comma-separated CORS origins | |
+`RETENTION_HOURS` | No | Data retention window (default: 72) | |
+`ALLOW_UNAUTHENTICATED` | No | Set `"true"` for local dev |
 
 ### 2. Instrument Your Backend
 
@@ -130,7 +138,11 @@ pnpm add @obs-unified/telemetry-sdk
 ```
 
 ```typescript
-import { initObservability, createLogger, trackAICall } from "@obs-unified/telemetry-sdk";
+import {
+  initObservability,
+  createLogger,
+  trackAICall,
+} from "@obs-unified/telemetry-sdk";
 
 // Initialize once at startup
 initObservability({
@@ -168,7 +180,10 @@ pnpm add @obs-unified/analytics-sdk
 ```
 
 ```tsx
-import { AnalyticsProvider, useAnalytics } from "@obs-unified/analytics-sdk/react";
+import {
+  AnalyticsProvider,
+  useAnalytics,
+} from "@obs-unified/analytics-sdk/react";
 
 // Wrap your app
 function App() {
@@ -189,10 +204,12 @@ function CheckoutButton() {
   const { trackInteraction, identify } = useAnalytics();
 
   return (
-    <button onClick={() => {
-      trackInteraction("checkout_click", { plan: "pro" });
-      identify("user-123", { email: "user@example.com" });
-    }}>
+    <button
+      onClick={() => {
+        trackInteraction("checkout_click", { plan: "pro" });
+        identify("user-123", { email: "user@example.com" });
+      }}
+    >
       Checkout
     </button>
   );
@@ -213,11 +230,11 @@ Two paths, depending on whether you have Docker.
 
 #### Recommended — point the OpenTelemetry Astronomy Shop at the collector
 
-The canonical OSS observability demo (~15 microservices in Go / Java /
-.NET / Node / Python / Rust, all emitting OTLP natively) becomes our
-data source. It includes a Locust load generator that drives the React
-frontend continuously, and built-in feature flags for failure injection
-that exercise Service Map + Issues realistically.
+The canonical OSS observability demo (~15 microservices in Go / Java / .NET /
+Node / Python / Rust, all emitting OTLP natively) becomes our data source. It
+includes a Locust load generator that drives the React frontend continuously,
+and built-in feature flags for failure injection that exercise Service Map +
+Issues realistically.
 
 ```bash
 pnpm dev:collector   # in one terminal
@@ -225,25 +242,25 @@ pnpm demo:setup      # one-time: clones the demo into demo/upstream/
 pnpm demo:up         # docker compose up; ~30 s to first traffic
 ```
 
-Open `http://localhost:5173` — Traces, Service Map, Issues, Logs, and
-Metrics all populate from real microservice traffic. Tear down with
-`pnpm demo:down`. Full details: [demo/README.md](demo/README.md).
+Open `http://localhost:5173` — Traces, Service Map, Issues, Logs, and Metrics
+all populate from real microservice traffic. Tear down with `pnpm demo:down`.
+Full details: [demo/README.md](demo/README.md).
 
-> Requires Docker + docker-compose v2. ~6 GB RAM. First run pulls ~3 GB
-> of images.
+> Requires Docker + docker-compose v2. ~6 GB RAM. First run pulls ~3 GB of
+> images.
 
 #### Fallback — synthetic seeder (no Docker)
 
-Faster but less realistic — writes ~70 spans, 20 logs, 12 AI calls, 49
-usage events, and 3 alert rules straight to the collector:
+Faster but less realistic — writes ~70 spans, 20 logs, 12 AI calls, 49 usage
+events, and 3 alert rules straight to the collector:
 
 ```bash
 pnpm run dev      # start collector + demo + dashboard (in separate panes works too)
 pnpm run seed
 ```
 
-The synthetic seeder doesn't generate Service Map edges or sustained
-load; use it when you want to iterate on UI without booting Docker.
+The synthetic seeder doesn't generate Service Map edges or sustained load; use
+it when you want to iterate on UI without booting Docker.
 
 ```bash
 # overrides
@@ -252,37 +269,37 @@ node scripts/seed-everything/run.mjs \
   --rounds 10
 ```
 
-The only tab that needs a real browser regardless is **Replays** —
-rrweb chunks are captured client-side, so visit the Playground tab and
-click "Start replay" once.
+The only tab that needs a real browser regardless is **Replays** — rrweb chunks
+are captured client-side, so visit the Playground tab and click "Start replay"
+once.
 
 ## Packages
 
-| Package | Purpose |
-|---------|---------|
-| `@obs-unified/collector` | Collector service — receives telemetry, stores in D1/SQLite, serves dashboard |
+| Package                      | Purpose                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `@obs-unified/collector`     | Collector service — receives telemetry, stores in D1/SQLite, serves dashboard                                |
 | `@obs-unified/telemetry-sdk` | Backend SDK (Cloudflare Workers) — structured logging, request spans, D1/R2/fetch wrappers, AI call tracking |
-| `@obs-unified/analytics-sdk` | Frontend SDK — page views, interactions, errors, session replay |
-| `@obs-unified/dashboard` | Dashboard UI — React components (also serves as standalone SPA) |
-| `@obs-unified/types` | Shared TypeScript types and constants |
+| `@obs-unified/analytics-sdk` | Frontend SDK — page views, interactions, errors, session replay                                              |
+| `@obs-unified/dashboard`     | Dashboard UI — React components (also serves as standalone SPA)                                              |
+| `@obs-unified/types`         | Shared TypeScript types and constants                                                                        |
 
 ## Polyglot SDKs ([`sdks/`](./sdks))
 
-Thin OpenTelemetry SDK wrappers for non-Workers languages. They configure
-the standard OTel SDK to point at this collector and add OpenInference
-helpers for LLM/tool spans and project propagation. HTTP / DB / RPC
-auto-instrumentation comes from the OTel ecosystem of each language.
+Thin OpenTelemetry SDK wrappers for non-Workers languages. They configure the
+standard OTel SDK to point at this collector and add OpenInference helpers for
+LLM/tool spans and project propagation. HTTP / DB / RPC auto-instrumentation
+comes from the OTel ecosystem of each language.
 
-| Language | Path | Package |
-|---|---|---|
-| Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obs-unified/sdk` |
-| Go | [`sdks/go`](./sdks/go) | `github.com/obs-unified/obs-unified/sdks/go` |
-| Rust | [`sdks/rust`](./sdks/rust) | `obs-unified` |
+| Language             | Path                       | Package                                      |
+| -------------------- | -------------------------- | -------------------------------------------- |
+| Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obs-unified/sdk`                           |
+| Go                   | [`sdks/go`](./sdks/go)     | `github.com/obs-unified/obs-unified/sdks/go` |
+| Rust                 | [`sdks/rust`](./sdks/rust) | `obs-unified`                                |
 
-Each SDK exposes the same surface — see [`sdks/README.md`](./sdks/README.md)
-for the cross-language API map. The instrumentation philosophy (what's
-auto vs. manual, when to annotate, how span nesting works) is documented
-once in [`packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md`](./packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md).
+Each SDK exposes the same surface — see [`sdks/README.md`](./sdks/README.md) for
+the cross-language API map. The instrumentation philosophy (what's auto vs.
+manual, when to annotate, how span nesting works) is documented once in
+[`packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md`](./packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md).
 
 ## Framework Examples
 
@@ -343,7 +360,10 @@ app.get("/health", (req, res) => {
 For teams that want to embed observability views in their own admin panel:
 
 ```tsx
-import { ObsDashboardProvider, TelemetryDashboard } from "@obs-unified/dashboard";
+import {
+  ObsDashboardProvider,
+  TelemetryDashboard,
+} from "@obs-unified/dashboard";
 
 function AdminObservability() {
   return (

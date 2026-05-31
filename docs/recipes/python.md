@@ -1,8 +1,8 @@
 # Python — OpenTelemetry + obs-unified
 
 obs-unified does not (yet) ship a first-party Python SDK. The standard
-OpenTelemetry Python SDK plus three small helpers is enough to
-participate fully in the platform's identity skeleton.
+OpenTelemetry Python SDK plus three small helpers is enough to participate fully
+in the platform's identity skeleton.
 
 ## Install
 
@@ -43,9 +43,9 @@ def init_obs(service_name: str, project_id: str | None = None) -> None:
 ```
 
 Call `init_obs("my-service")` once at process startup. Standard OTel
-auto-instrumentation (`opentelemetry-instrumentation-flask`,
-`-django`, `-fastapi`, `-requests`, `-psycopg2`, …) populates HTTP +
-DB + RPC spans automatically.
+auto-instrumentation (`opentelemetry-instrumentation-flask`, `-django`,
+`-fastapi`, `-requests`, `-psycopg2`, …) populates HTTP + DB + RPC spans
+automatically.
 
 ## interaction_id — read inbound, stamp the active span
 
@@ -104,8 +104,8 @@ async def stamp(request: Request, call_next):
 
 ## AI calls — OpenInference attributes
 
-For LLM call sites, follow OpenInference's typed-attribute convention so
-the AI tab renders correctly:
+For LLM call sites, follow OpenInference's typed-attribute convention so the AI
+tab renders correctly:
 
 ```python
 from opentelemetry import trace
@@ -125,12 +125,12 @@ with tracer.start_as_current_span("openai.chat.completions") as span:
     )
 ```
 
-The collector's `gen-ai-normalizer` plugin reads these attributes off
-the span and writes a row into the denormalized `ai_calls` table.
+The collector's `gen-ai-normalizer` plugin reads these attributes off the span
+and writes a row into the denormalized `ai_calls` table.
 
 ## What you give up vs. a first-party SDK
 
-Manual `stamp_interaction` call instead of auto-correlation — you need
-to remember to wire the middleware. Other than that, every signal type
-(spans, logs, AI calls) flows end-to-end identically. If you find a
-gap, please open an issue.
+Manual `stamp_interaction` call instead of auto-correlation — you need to
+remember to wire the middleware. Other than that, every signal type (spans,
+logs, AI calls) flows end-to-end identically. If you find a gap, please open an
+issue.

@@ -4,8 +4,8 @@ obs-unified uses three layers of tests:
 
 - **Playwright** — UI smoke tests with mocked APIs (`apps/web/tests/`)
 - **Vitest** — per-package unit tests (currently `--passWithNoTests`)
-- **Shell-based live E2E** — exercises a real `wrangler dev` collector
-  and a real webhook receiver end-to-end (`scripts/e2e-alerts/`)
+- **Shell-based live E2E** — exercises a real `wrangler dev` collector and a
+  real webhook receiver end-to-end (`scripts/e2e-alerts/`)
 
 See `scripts/e2e-alerts/README.md` for the projects + alerts live E2E.
 One-command run:
@@ -32,7 +32,9 @@ pnpm test
 
 ## E2E Tests (Playwright)
 
-E2E tests live in `apps/web/tests/` and verify the dashboard UI renders correctly with mocked API responses. **No backend services need to be running** — all API calls are intercepted by Playwright route handlers.
+E2E tests live in `apps/web/tests/` and verify the dashboard UI renders
+correctly with mocked API responses. **No backend services need to be running**
+— all API calls are intercepted by Playwright route handlers.
 
 ### Running
 
@@ -55,21 +57,23 @@ pnpm exec playwright test -g "renders traces" --debug
 
 ### What the Tests Cover
 
-| Suite | Tests | What It Verifies |
-|-------|-------|-----------------|
-| Navigation | 3 | Default route, tab rendering, hash navigation |
-| Traces | 1 | Trace list renders with mocked overview data |
-| Issues | 1 | Issue list renders with mocked issues data |
-| Logs | 1 | Log entries render with severity badges |
-| AI Calls | 1 | AI call stats, model names, cost display |
-| Usage | 1 | Usage tab mounts (SSE not fully mockable) |
-| Replays | 1 | Replay session list renders |
-| Resources | 1 | Resources tab mounts |
-| Playground | 2 | API buttons render, health endpoint call works |
+| Suite      | Tests | What It Verifies                               |
+| ---------- | ----- | ---------------------------------------------- |
+| Navigation | 3     | Default route, tab rendering, hash navigation  |
+| Traces     | 1     | Trace list renders with mocked overview data   |
+| Issues     | 1     | Issue list renders with mocked issues data     |
+| Logs       | 1     | Log entries render with severity badges        |
+| AI Calls   | 1     | AI call stats, model names, cost display       |
+| Usage      | 1     | Usage tab mounts (SSE not fully mockable)      |
+| Replays    | 1     | Replay session list renders                    |
+| Resources  | 1     | Resources tab mounts                           |
+| Playground | 2     | API buttons render, health endpoint call works |
 
 ### How Mocking Works
 
-Tests use a `mockApis()` helper that intercepts all `/api/` requests at the Playwright level (before Vite's proxy). Each test can override specific endpoints:
+Tests use a `mockApis()` helper that intercepts all `/api/` requests at the
+Playwright level (before Vite's proxy). Each test can override specific
+endpoints:
 
 ```typescript
 await mockApis(page, {
@@ -77,20 +81,26 @@ await mockApis(page, {
 });
 ```
 
-The helper returns proper empty data for all endpoints by default, so the React app never crashes from missing data. See the `EMPTY` constants at the top of `dashboards.spec.ts` for the expected response shapes.
+The helper returns proper empty data for all endpoints by default, so the React
+app never crashes from missing data. See the `EMPTY` constants at the top of
+`dashboards.spec.ts` for the expected response shapes.
 
 ### Adding a New Test
 
-1. Add your test to `apps/web/tests/dashboards.spec.ts` (or create a new `.spec.ts` file)
+1. Add your test to `apps/web/tests/dashboards.spec.ts` (or create a new
+   `.spec.ts` file)
 2. Call `await mockApis(page)` to stub all APIs
 3. Pass overrides for the specific endpoint you want to test with custom data
 4. Navigate to the correct hash route: `await page.goto("/#/logs")`
 5. Assert on visible text, not internal state
 
-**Key gotcha:** The dashboard components live in `packages/dashboard/`, not `apps/web/`. Check the actual component code for:
+**Key gotcha:** The dashboard components live in `packages/dashboard/`, not
+`apps/web/`. Check the actual component code for:
+
 - The API path it fetches (e.g., `/logs/overview`, not `/telemetry/logs`)
 - The exact text it renders (e.g., `TOTAL CALLS` not `Total Calls`)
-- Which fields it displays (e.g., replays show `starting_link`, not `session_id`)
+- Which fields it displays (e.g., replays show `starting_link`, not
+  `session_id`)
 
 ### Viewing Reports
 
@@ -108,7 +118,8 @@ pnpm exec playwright show-trace test-results/<test-name>/trace.zip
 
 ## Unit Tests (Vitest)
 
-Unit tests use Vitest and are configured per-package. Currently packages have `--passWithNoTests` set, so they pass with no test files.
+Unit tests use Vitest and are configured per-package. Currently packages have
+`--passWithNoTests` set, so they pass with no test files.
 
 ```bash
 # Run all package unit tests
@@ -131,6 +142,7 @@ pnpm run type-check
 ## CI
 
 The Playwright config has CI-specific settings:
+
 - 2 retries on failure
 - 1 worker (no parallelism)
 - Traces on first retry

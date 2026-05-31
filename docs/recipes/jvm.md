@@ -1,8 +1,8 @@
 # JVM (Java / Kotlin) — OpenTelemetry + obs-unified
 
-The OpenTelemetry Java agent + ~30 lines of stamping code is enough to
-ship every signal type into obs-unified. No first-party JVM SDK is
-required (or planned today).
+The OpenTelemetry Java agent + ~30 lines of stamping code is enough to ship
+every signal type into obs-unified. No first-party JVM SDK is required (or
+planned today).
 
 ## Install
 
@@ -100,8 +100,8 @@ val InteractionPlugin = createApplicationPlugin("ObsInteraction") {
 
 OpenInference's attribute conventions translate identically. Stamp
 `openinference.span.kind=LLM`, `gen_ai.system`, `gen_ai.request.model`,
-`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` on the span
-that wraps the LLM call.
+`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` on the span that wraps
+the LLM call.
 
 ## Auto-instrumentation packs
 
@@ -110,5 +110,5 @@ that wraps the LLM call.
 - `io.opentelemetry.instrumentation:opentelemetry-apache-httpclient-5.0`
 - ktor, micronaut, quarkus all have official instrumentation modules.
 
-The collector receives plain OTLP — nothing JVM-specific is required
-on the server side.
+The collector receives plain OTLP — nothing JVM-specific is required on the
+server side.

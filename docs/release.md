@@ -4,14 +4,16 @@ Use this checklist before merging substantial public-facing changes to `main`.
 
 ## Source readiness
 
-- `main` has been fetched from GitHub and the branch is not behind `origin/main`.
-- Local-only development artifacts are not staged. In this repo, `.claude/skills/`,
-  `node_modules/`, build outputs, Playwright reports, and runtime logs are ignored.
+- `main` has been fetched from GitHub and the branch is not behind
+  `origin/main`.
+- Local-only development artifacts are not staged. In this repo,
+  `.claude/skills/`, `node_modules/`, build outputs, Playwright reports, and
+  runtime logs are ignored.
 - Every changed publishable package has a Changesets entry.
 - Public package manifests include `description`, `license`, `repository`,
   `files`, `exports`, and `publishConfig` where appropriate.
-- README install instructions and package READMEs match the current package names
-  and registry behavior.
+- README install instructions and package READMEs match the current package
+  names and registry behavior.
 
 ## Verification
 
@@ -55,8 +57,8 @@ Before merging the release PR:
 
 ## Post-release
 
-- Install the public packages from a clean project using the documented
-  GitHub Packages `.npmrc` configuration.
+- Install the public packages from a clean project using the documented GitHub
+  Packages `.npmrc` configuration.
 - Smoke-test the collector health endpoint, dashboard login, and at least one
   SDK ingest path.
 - Check the GitHub Packages page for each published package.

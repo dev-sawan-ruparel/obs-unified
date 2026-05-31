@@ -2,8 +2,8 @@
 
 Thin OpenTelemetry SDK wrapper for obs-unified. One-line init, OpenInference
 LLM/tool helpers, and project propagation. The OTel ecosystem provides
-HTTP/DB/RPC instrumentation; this package adds what OTel doesn't ship out
-of the box.
+HTTP/DB/RPC instrumentation; this package adds what OTel doesn't ship out of the
+box.
 
 ## Install
 
@@ -99,14 +99,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-For service-to-service propagation, set the `obs.ProjectIDHeader` header
-on outbound requests. The receiver reads it and calls `obs.SetProjectID`
-in its handler.
+For service-to-service propagation, set the `obs.ProjectIDHeader` header on
+outbound requests. The receiver reads it and calls `obs.SetProjectID` in its
+handler.
 
 ## Custom logical boundaries
 
-For business operations worth naming in the trace, use the standard OTel
-tracer:
+For business operations worth naming in the trace, use the standard OTel tracer:
 
 ```go
 import "go.opentelemetry.io/otel"
@@ -123,16 +122,16 @@ return fulfillOrder(ctx, orderID)
 ## Self-monitoring (rare)
 
 If your service ingests its own telemetry through the same collector, set
-`SelfTelemetry: true` in `Config`. Every export will carry
-`X-Telemetry-Self: 1` so the collector's request middleware short-circuits
-and avoids an export loop. See
+`SelfTelemetry: true` in `Config`. Every export will carry `X-Telemetry-Self: 1`
+so the collector's request middleware short-circuits and avoids an export loop.
+See
 [`apps/collector/SELF_INSTRUMENTATION.md`](../../apps/collector/SELF_INSTRUMENTATION.md).
 
 ## Caveats
 
-- **Generic auto-instrumentation in Go is limited** vs Python/Java —
-  Go's static linking means there's no monkey-patching. You explicitly
-  wrap your HTTP/DB/RPC clients with the matching `otel*` packages.
-- **Continuous profiling and tracing complement each other.** This
-  package handles tracing; for CPU profiling, use Pyroscope, Datadog
-  Continuous Profiler, or the Go runtime's `net/http/pprof`.
+- **Generic auto-instrumentation in Go is limited** vs Python/Java — Go's static
+  linking means there's no monkey-patching. You explicitly wrap your HTTP/DB/RPC
+  clients with the matching `otel*` packages.
+- **Continuous profiling and tracing complement each other.** This package
+  handles tracing; for CPU profiling, use Pyroscope, Datadog Continuous
+  Profiler, or the Go runtime's `net/http/pprof`.

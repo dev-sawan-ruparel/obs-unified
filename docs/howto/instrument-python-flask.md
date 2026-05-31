@@ -1,9 +1,9 @@
 # Instrument a Python Flask app
 
 This walkthrough wires a Flask service into obs-unified using the standard
-OpenTelemetry Python SDK. obs-unified does not ship a first-party Python SDK yet;
-the only obs-specific pieces are the collector endpoint, ingest key, interaction
-header stamping, and AI-call attributes.
+OpenTelemetry Python SDK. obs-unified does not ship a first-party Python SDK
+yet; the only obs-specific pieces are the collector endpoint, ingest key,
+interaction header stamping, and AI-call attributes.
 
 ## Install
 
@@ -190,8 +190,8 @@ Then open the dashboard and check:
 
 - Traces include `flask-api`.
 - Request spans have child spans such as `hello.lookup`.
-- Requests from a browser frontend carry `obs.interaction.id` when the
-  frontend sends `x-obs-interaction`.
+- Requests from a browser frontend carry `obs.interaction.id` when the frontend
+  sends `x-obs-interaction`.
 - AI-call spans appear in the AI Calls view when you set the OpenInference
   attributes.
 

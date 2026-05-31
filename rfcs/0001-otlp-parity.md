@@ -35,19 +35,19 @@ This RFC defines "parity" as a testable bar and stages the work to reach it.
 ## Definition of parity
 
 **Behavioral parity with the OTLP/HTTP contract**, not feature-for-feature
-parity with the Go collector. Specifically, the following three acceptance
-tests must pass green:
+parity with the Go collector. Specifically, the following three acceptance tests
+must pass green:
 
 1. **Stock SDK test.** An OpenTelemetry JS SDK with default config (protobuf +
-   gzip) emitting traces, logs, and metrics to our endpoint results in all
-   data arriving intact with correct semantics.
+   gzip) emitting traces, logs, and metrics to our endpoint results in all data
+   arriving intact with correct semantics.
 2. **Go collector forward test.** `otelcol-contrib` configured with an
-   `otlphttp` exporter pointed at our collector successfully forwards a
-   fixture batch of traces, logs, and metrics.
-3. **Partial-success test.** A batch containing one malformed span and 99
-   valid spans returns `200 OK` with
-   `partial_success { rejected_spans: 1, error_message: "..." }` and stores
-   99 spans.
+   `otlphttp` exporter pointed at our collector successfully forwards a fixture
+   batch of traces, logs, and metrics.
+3. **Partial-success test.** A batch containing one malformed span and 99 valid
+   spans returns `200 OK` with
+   `partial_success { rejected_spans: 1, error_message: "..." }` and stores 99
+   spans.
 
 If all three pass, the receiver is at parity.
 
@@ -66,11 +66,11 @@ Explicitly out of scope:
 
 ### Scope per signal
 
-| Signal | Status | Target |
-|---|---|---|
-| `/v1/traces` | JSON-only, custom 500-span cap | OTLP JSON + protobuf + gzip, partial_success |
-| `/v1/logs` | Custom shape | Real OTLP `ExportLogsServiceRequest` |
-| `/v1/metrics` | Missing | Full OTLP `ExportMetricsServiceRequest` |
+| Signal        | Status                         | Target                                       |
+| ------------- | ------------------------------ | -------------------------------------------- |
+| `/v1/traces`  | JSON-only, custom 500-span cap | OTLP JSON + protobuf + gzip, partial_success |
+| `/v1/logs`    | Custom shape                   | Real OTLP `ExportLogsServiceRequest`         |
+| `/v1/metrics` | Missing                        | Full OTLP `ExportMetricsServiceRequest`      |
 
 ### Transport & encoding
 
@@ -103,21 +103,22 @@ message ExportTracePartialSuccess {
 
 Status code matrix:
 
-| Condition | Status | Body |
-|---|---|---|
-| All accepted | `200` | Empty `ExportXServiceResponse{}` |
-| Some rejected (validation) | `200` | `partial_success { rejected_X, error_message }` |
-| Malformed body (can't parse) | `400` | Plain error |
-| Auth failure | `401` / `403` | Plain error |
-| Throttled | `429` + `Retry-After` | Plain error |
-| Overloaded | `503` + `Retry-After` | Plain error |
-| Server error | `5xx` (retryable) | Plain error |
+| Condition                    | Status                | Body                                            |
+| ---------------------------- | --------------------- | ----------------------------------------------- |
+| All accepted                 | `200`                 | Empty `ExportXServiceResponse{}`                |
+| Some rejected (validation)   | `200`                 | `partial_success { rejected_X, error_message }` |
+| Malformed body (can't parse) | `400`                 | Plain error                                     |
+| Auth failure                 | `401` / `403`         | Plain error                                     |
+| Throttled                    | `429` + `Retry-After` | Plain error                                     |
+| Overloaded                   | `503` + `Retry-After` | Plain error                                     |
+| Server error                 | `5xx` (retryable)     | Plain error                                     |
 
 ### Schema conformance
 
 Decode the full `Export{Trace,Logs,Metrics}ServiceRequest` without loss for:
 
 **Traces:**
+
 - `kind` (INTERNAL, SERVER, CLIENT, PRODUCER, CONSUMER)
 - `status` with code + message
 - `events[]` (name, timestamp, attributes, droppedAttributesCount)
@@ -127,12 +128,14 @@ Decode the full `Export{Trace,Logs,Metrics}ServiceRequest` without loss for:
 - All `AnyValue` variants: string, bool, int, double, **bytes**, array, kvlist
 
 **Logs:**
+
 - `body` as `AnyValue` (not just string)
 - `severityNumber` (1–24) AND `severityText`
 - `flags`, `traceId`, `spanId`
 - `observedTimeUnixNano` vs `timeUnixNano` — both preserved
 
 **Metrics (phased):**
+
 - Phase 4: `gauge`, `sum` (with aggregationTemporality + isMonotonic),
   `histogram` (buckets, min, max, sum), `exemplars[]`
 - Phase 5: `exponentialHistogram`, `summary`
@@ -176,8 +179,8 @@ metric_point(series_id, ts_ns, value, exemplar_trace_id, exemplar_span_id)
 metric_histogram_point(series_id, ts_ns, count, sum, min, max, bounds_json, bucket_counts_json)
 ```
 
-Details (rollups, temporality handling, cardinality limits) deferred to RFC
-0002.
+Details (rollups, temporality handling, cardinality limits) deferred to
+RFC 0002.
 
 ## Migration / compatibility
 
@@ -185,26 +188,26 @@ Hard cut — no compatibility shim:
 
 - `/v1/logs` is rewritten to accept real OTLP `ExportLogsServiceRequest`. The
   custom `{ logs: [...] }` shape is removed.
-- `@obs-unified/telemetry-sdk`'s logger is updated in the same change to emit real
-  OTLP log payloads.
-- Trace endpoint wire shape doesn't change — only the response envelope. The
-  SDK ignores response bodies today, so this is transparent.
+- `@obs-unified/telemetry-sdk`'s logger is updated in the same change to emit
+  real OTLP log payloads.
+- Trace endpoint wire shape doesn't change — only the response envelope. The SDK
+  ignores response bodies today, so this is transparent.
 - Any external caller hitting `/v1/logs` with the old shape will fail with
   `400 Bad Request` after this lands. This is acceptable — there are no known
   external consumers, only the in-repo SDK.
 
 ## Implementation plan
 
-| Phase | Scope | Est. |
-|---|---|---|
-| 1 | Protobuf decode + gzip + content-type dispatch on `/v1/traces` | 2d |
-| 2 | Rewrite `/v1/logs` to OTLP shape + update SDK emitter (hard cut) | 1d |
-| 3 | Partial-success response envelope on traces + logs | 1d |
-| 4 | `/v1/metrics` — gauge, sum, histogram, exemplars | 4d |
-| 5 | Exponential histogram + summary | 2d |
-| 6 | 429/503 + `Retry-After`, backpressure | 1d |
-| 7 | Acceptance tests (SDK + Go collector forward + partial-success) | 2d |
-| **Total** | | **~2.5 weeks** |
+| Phase     | Scope                                                            | Est.           |
+| --------- | ---------------------------------------------------------------- | -------------- |
+| 1         | Protobuf decode + gzip + content-type dispatch on `/v1/traces`   | 2d             |
+| 2         | Rewrite `/v1/logs` to OTLP shape + update SDK emitter (hard cut) | 1d             |
+| 3         | Partial-success response envelope on traces + logs               | 1d             |
+| 4         | `/v1/metrics` — gauge, sum, histogram, exemplars                 | 4d             |
+| 5         | Exponential histogram + summary                                  | 2d             |
+| 6         | 429/503 + `Retry-After`, backpressure                            | 1d             |
+| 7         | Acceptance tests (SDK + Go collector forward + partial-success)  | 2d             |
+| **Total** |                                                                  | **~2.5 weeks** |
 
 ## Open questions
 
@@ -224,9 +227,11 @@ Hard cut — no compatibility shim:
 
 ## References
 
-- OpenTelemetry Protocol spec: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/otlp.md
+- OpenTelemetry Protocol spec:
+  https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/otlp.md
 - opentelemetry-proto: https://github.com/open-telemetry/opentelemetry-proto
-- Go receiver source: https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
+- Go receiver source:
+  https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver
 
 ## Post-implementation audit
 
@@ -266,30 +271,30 @@ defined, so future parity work starts from reality instead of the plan.
   with aggregationTemporality, isMonotonic, bucket bounds, min/max/sum,
   exemplars
 
-**Non-goals honored** — no gRPC, no Profiles, no zstd, no Arrow, no OTTL,
-no multi-tenant routing beyond existing.
+**Non-goals honored** — no gRPC, no Profiles, no zstd, no Arrow, no OTTL, no
+multi-tenant routing beyond existing.
 
 ### Deferred / not shipped
 
 - **Acceptance test #1 (Stock OTel JS SDK fixture)** — current suite uses
   `@bufbuild/protobuf` to construct payloads. The hex-vs-base64 ID bug that
   shipped and was caught in dev testing would have been caught by a real-SDK
-  fixture. *Recommended follow-up: capture one real payload per signal from
-  `@opentelemetry/sdk-node` and pin it as a golden fixture.*
+  fixture. _Recommended follow-up: capture one real payload per signal from
+  `@opentelemetry/sdk-node` and pin it as a golden fixture._
 - **Acceptance test #2 (Go `otelcol-contrib` forward)** — never implemented.
-  Requires the `otelcol` binary as a test dependency. *Follow-up: add as an
-  optional CI job.*
-- **Rate-limited 429 + Retry-After** — helper `otlpRetryableError` supports
-  429, but no code path emits it. Single-system scope, acceptable gap.
+  Requires the `otelcol` binary as a test dependency. _Follow-up: add as an
+  optional CI job._
+- **Rate-limited 429 + Retry-After** — helper `otlpRetryableError` supports 429,
+  but no code path emits it. Single-system scope, acceptable gap.
 - **`AnyValue.bytesValue` distinguishability** — encoded as base64 string on
   output, indistinguishable from `stringValue` downstream. Real SDKs use this
   only for unusual attribute types; low-impact deferral.
-- **Max body size policy** — no explicit byte cap. Per-signal record caps
-  (500 spans / 1000 logs / 2000 metric points) are the only limit. *Follow-up
-  if we ever see memory pressure.*
+- **Max body size policy** — no explicit byte cap. Per-signal record caps (500
+  spans / 1000 logs / 2000 metric points) are the only limit. _Follow-up if we
+  ever see memory pressure._
 - **Metrics cardinality cap** — deferred to RFC 0002 (metrics storage).
-- **Metrics query endpoints** — outside receiver scope; lives with the
-  dashboard redesign.
+- **Metrics query endpoints** — outside receiver scope; lives with the dashboard
+  redesign.
 
 ### Resolved design decisions
 
@@ -297,17 +302,17 @@ no multi-tenant routing beyond existing.
 - **Protobuf library:** `@bufbuild/protobuf` v2.
 - **Migration strategy:** hard cut. `/v1/logs` custom shape removed in one
   change; SDK updated in the same PR.
-- **Metric type coverage:** all 5 types supported (exp-histogram + summary
-  use a generic `extra_json` column to avoid schema churn).
+- **Metric type coverage:** all 5 types supported (exp-histogram + summary use a
+  generic `extra_json` column to avoid schema churn).
 - **Exemplar storage:** inline as `exemplars_json` on each point row.
 
 ### Acceptance test status
 
-| Bar | Status | Notes |
-|---|---|---|
-| 1. Stock SDK emits traces/logs/metrics, all arrive intact | ⚠️ partial | Buf fixtures cover wire shape; real-SDK fixture deferred. Live dev-loop verifies end-to-end. |
-| 2. Go collector forwards to us via `otlphttp` | ❌ | Deferred — requires `otelcol-contrib` |
-| 3. Malformed span in batch → partial_success | ✅ | Covered by acceptance test `accepts valid spans and rejects malformed ones in the same batch` |
+| Bar                                                       | Status     | Notes                                                                                         |
+| --------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| 1. Stock SDK emits traces/logs/metrics, all arrive intact | ⚠️ partial | Buf fixtures cover wire shape; real-SDK fixture deferred. Live dev-loop verifies end-to-end.  |
+| 2. Go collector forwards to us via `otlphttp`             | ❌         | Deferred — requires `otelcol-contrib`                                                         |
+| 3. Malformed span in batch → partial_success              | ✅         | Covered by acceptance test `accepts valid spans and rejects malformed ones in the same batch` |
 
 ### File layout — actual vs RFC
 
@@ -317,8 +322,14 @@ than moved, to keep the diff tractable.
 
 ### Tests
 
-- **Unit:** [src/otlp/decode.test.ts](../packages/obs-collector/src/otlp/decode.test.ts) — 19 tests covering decode + adapters
-- **Unit:** [src/otlp/response.test.ts](../packages/obs-collector/src/otlp/response.test.ts) — 8 tests covering envelope encoding + retryable errors
-- **Live acceptance:** [src/otlp/acceptance.test.ts](../packages/obs-collector/src/otlp/acceptance.test.ts) — 14 tests; run via `pnpm run e2e:otlp`
+- **Unit:**
+  [src/otlp/decode.test.ts](../packages/obs-collector/src/otlp/decode.test.ts) —
+  19 tests covering decode + adapters
+- **Unit:**
+  [src/otlp/response.test.ts](../packages/obs-collector/src/otlp/response.test.ts)
+  — 8 tests covering envelope encoding + retryable errors
+- **Live acceptance:**
+  [src/otlp/acceptance.test.ts](../packages/obs-collector/src/otlp/acceptance.test.ts)
+  — 14 tests; run via `pnpm run e2e:otlp`
 
 Total: 41 OTLP-specific tests, all green.

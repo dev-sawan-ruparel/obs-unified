@@ -1,7 +1,7 @@
 # .NET — OpenTelemetry + obs-unified
 
-`System.Diagnostics.Activity` + the OpenTelemetry .NET SDK is enough
-to ship every signal type into obs-unified.
+`System.Diagnostics.Activity` + the OpenTelemetry .NET SDK is enough to ship
+every signal type into obs-unified.
 
 ## Install
 
@@ -76,9 +76,9 @@ public class ObsInteractionMiddleware
 app.UseMiddleware<ObsInteractionMiddleware>();
 ```
 
-`Activity.Current` is what OTel's .NET SDK exposes as the active span.
-The middleware MUST run after the AspNetCore instrumentation so the
-request `Activity` has already been created.
+`Activity.Current` is what OTel's .NET SDK exposes as the active span. The
+middleware MUST run after the AspNetCore instrumentation so the request
+`Activity` has already been created.
 
 ## AI calls
 
@@ -96,7 +96,7 @@ activity?.SetTag("gen_ai.usage.output_tokens", response.Usage.CompletionTokens);
 
 ## What you give up vs. a first-party SDK
 
-Manual middleware registration; manual `ActivitySource` plumbing for AI
-calls (instead of typed `withLLMSpan` helpers). Every signal flows
-through OTel/OTLP identically — the collector treats your traces no
-differently than the first-party SDKs'.
+Manual middleware registration; manual `ActivitySource` plumbing for AI calls
+(instead of typed `withLLMSpan` helpers). Every signal flows through OTel/OTLP
+identically — the collector treats your traces no differently than the
+first-party SDKs'.

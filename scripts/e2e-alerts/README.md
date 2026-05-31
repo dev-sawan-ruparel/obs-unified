@@ -1,10 +1,10 @@
 # Projects + alerts E2E
 
-End-to-end verification of the projects (multi-tenancy) and alerts MVP
-against a real `wrangler dev` collector and a real webhook receiver —
-no API mocks. Exercises 12 checks covering auth, key lifecycle, project
-data isolation, alert rule CRUD, scheduled evaluator, webhook delivery,
-state transitions, and idempotence.
+End-to-end verification of the projects (multi-tenancy) and alerts MVP against a
+real `wrangler dev` collector and a real webhook receiver — no API mocks.
+Exercises 12 checks covering auth, key lifecycle, project data isolation, alert
+rule CRUD, scheduled evaluator, webhook delivery, state transitions, and
+idempotence.
 
 ## What it verifies
 
@@ -35,6 +35,7 @@ scripts/e2e-alerts/run-all.sh
 ```
 
 `run-all.sh`:
+
 - Resets `apps/collector/.wrangler` and re-applies all 14 migrations
 - Starts the webhook receiver on `:9998`
 - Starts `wrangler dev --test-scheduled` on `:8790`
@@ -66,8 +67,8 @@ scripts/e2e-alerts/run.sh
 
 - `run.sh` — 12 checks, expects services already up.
 - `run-all.sh` — orchestrator that starts/stops services.
-- `webhook-receiver.mjs` — tiny Node HTTP server that logs every POST
-  as a JSON line to `$STATE_DIR/webhook.log` (default `/tmp/obs-e2e`).
+- `webhook-receiver.mjs` — tiny Node HTTP server that logs every POST as a JSON
+  line to `$STATE_DIR/webhook.log` (default `/tmp/obs-e2e`).
 
 ## Requirements
 

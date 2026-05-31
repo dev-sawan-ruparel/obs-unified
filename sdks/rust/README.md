@@ -2,8 +2,8 @@
 
 Thin OpenTelemetry SDK wrapper for obs-unified. One-line init, OpenInference
 LLM/tool helpers, and project propagation. The OTel ecosystem provides
-HTTP/DB/RPC instrumentation; this crate adds what OTel doesn't ship out of
-the box.
+HTTP/DB/RPC instrumentation; this crate adds what OTel doesn't ship out of the
+box.
 
 ## Install
 
@@ -39,8 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-`_guard` shuts down the providers on drop (flushing pending spans). Hold
-it for the lifetime of `main`.
+`_guard` shuts down the providers on drop (flushing pending spans). Hold it for
+the lifetime of `main`.
 
 ## LLM call instrumentation
 
@@ -107,8 +107,8 @@ set_project_id(&cx, project_id);
 ```
 
 For service-to-service propagation, send the `obs_unified::PROJECT_ID_HEADER`
-header on outbound requests; the receiver reads it and calls
-`set_project_id` in its handler.
+header on outbound requests; the receiver reads it and calls `set_project_id` in
+its handler.
 
 ## Custom logical boundaries
 
@@ -127,19 +127,19 @@ async fn fulfill_order(order_id: &str, region: &str) -> Result<(), Error> {
 ## Self-monitoring (rare)
 
 If your service ingests its own telemetry through the same collector, set
-`self_telemetry: true` in `Config`. Every export carries
-`X-Telemetry-Self: 1` so the collector's request middleware short-circuits
-and avoids an export loop. See
+`self_telemetry: true` in `Config`. Every export carries `X-Telemetry-Self: 1`
+so the collector's request middleware short-circuits and avoids an export loop.
+See
 [`apps/collector/SELF_INSTRUMENTATION.md`](../../apps/collector/SELF_INSTRUMENTATION.md).
 
 ## Caveats
 
-- **Tokio-only**: `init` uses `runtime::Tokio` for the OTLP exporter. If
-  you're on `async-std` or another runtime, swap the runtime feature in
+- **Tokio-only**: `init` uses `runtime::Tokio` for the OTLP exporter. If you're
+  on `async-std` or another runtime, swap the runtime feature in
   `opentelemetry_sdk` (and the corresponding init code) accordingly.
-- **OTel Rust API churn**: this crate targets the `0.27` line. The OTel
-  Rust SDK has had API changes between minor releases historically — pin
-  versions accordingly.
-- **Continuous profiling and tracing complement each other.** This crate
-  handles tracing; for CPU profiling, use Pyroscope, the `pprof` crate,
-  or your platform's profiler.
+- **OTel Rust API churn**: this crate targets the `0.27` line. The OTel Rust SDK
+  has had API changes between minor releases historically — pin versions
+  accordingly.
+- **Continuous profiling and tracing complement each other.** This crate handles
+  tracing; for CPU profiling, use Pyroscope, the `pprof` crate, or your
+  platform's profiler.

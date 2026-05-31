@@ -13,25 +13,25 @@ There are two decisions:
 Pick one runtime path first. You can use any data option after a collector and
 dashboard are running.
 
-| Runtime path | Use when | Starts |
-| :--- | :--- | :--- |
-| **[Option 1 — Docker image](#option-1--docker-image)** | You want the quickest first run with the fewest host dependencies. | Postgres, collector, dashboard, filesystem blob store, and sample data in one container. |
-| **[Option 2 — local install](#option-2--local-install)** | You want to edit code, run dev servers, or inspect internals while using the repo. | Local collector, demo API, and Vite dashboard from the workspace. |
+| Runtime path                                             | Use when                                                                           | Starts                                                                                   |
+| :------------------------------------------------------- | :--------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| **[Option 1 — Docker image](#option-1--docker-image)**   | You want the quickest first run with the fewest host dependencies.                 | Postgres, collector, dashboard, filesystem blob store, and sample data in one container. |
+| **[Option 2 — local install](#option-2--local-install)** | You want to edit code, run dev servers, or inspect internals while using the repo. | Local collector, demo API, and Vite dashboard from the workspace.                        |
 
 ## Choose What To Observe
 
 After the stack is running, choose one or more data paths:
 
-| Data path | Use when | Start here |
-| :--- | :--- | :--- |
-| **[Seeded sample data](#seeded-sample-data)** | You want populated dashboards immediately. | Built into Option 1, or run `pnpm run seed` with Option 2. |
-| **[Astronomy Shop demo](#astronomy-shop-demo)** | You want realistic microservice traffic and service-map edges. | Run the OpenTelemetry demo against your local collector. |
-| **[Your own app](#your-own-app)** | You want to validate obs-unified against a real application. | Add SDKs or OpenTelemetry exporters pointing at your collector. |
+| Data path                                       | Use when                                                       | Start here                                                      |
+| :---------------------------------------------- | :------------------------------------------------------------- | :-------------------------------------------------------------- |
+| **[Seeded sample data](#seeded-sample-data)**   | You want populated dashboards immediately.                     | Built into Option 1, or run `pnpm run seed` with Option 2.      |
+| **[Astronomy Shop demo](#astronomy-shop-demo)** | You want realistic microservice traffic and service-map edges. | Run the OpenTelemetry demo against your local collector.        |
+| **[Your own app](#your-own-app)**               | You want to validate obs-unified against a real application.   | Add SDKs or OpenTelemetry exporters pointing at your collector. |
 
 ## Prerequisites
 
-* **Docker**: Required for the Docker image and Astronomy Shop demo.
-* **Node.js 22+ & pnpm 10+**: Required for local install and repo scripts.
+- **Docker**: Required for the Docker image and Astronomy Shop demo.
+- **Node.js 22+ & pnpm 10+**: Required for local install and repo scripts.
 
 ---
 
@@ -56,6 +56,7 @@ pnpm local:run
 ```
 
 **Alternative (Direct Docker commands without pnpm):**
+
 ```bash
 docker build -f Dockerfile.local -t obs-unified/local:dev .
 docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev
@@ -63,12 +64,13 @@ docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev
 
 ### 2. Access the Interfaces
 
-* **Dashboard:** `http://localhost:5173`
-* **Collector Ingest:** `http://localhost:8790`
+- **Dashboard:** `http://localhost:5173`
+- **Collector Ingest:** `http://localhost:8790`
 
 **Access Credentials:**
-* **Ingest Write Key:** `dev-ingest-key`
-* **Dashboard Password:** `e2e-test-pass`
+
+- **Ingest Write Key:** `dev-ingest-key`
+- **Dashboard Password:** `e2e-test-pass`
 
 ### 3. Persistent Storage (Optional)
 
@@ -125,9 +127,9 @@ Start the development servers:
 pnpm run dev
 ```
 
-* **Dashboard:** `http://localhost:5173`
-* **Demo API:** `http://localhost:8787`
-* **Collector:** `http://localhost:8790`
+- **Dashboard:** `http://localhost:5173`
+- **Demo API:** `http://localhost:8787`
+- **Collector:** `http://localhost:8790`
 
 After the stack is running, choose a data path below.
 
@@ -137,8 +139,8 @@ After the stack is running, choose a data path below.
 
 Use this when you want populated dashboards immediately.
 
-* Docker image: sample data is seeded automatically on startup.
-* Local install: run the seeder in a second terminal.
+- Docker image: sample data is seeded automatically on startup.
+- Local install: run the seeder in a second terminal.
 
 ```bash
 pnpm run seed
@@ -171,7 +173,8 @@ Clone and prepare the upstream demo services:
 pnpm demo:setup
 ```
 
-Run preflight configuration diagnostics to ensure port availability and engine support:
+Run preflight configuration diagnostics to ensure port availability and engine
+support:
 
 ```bash
 pnpm demo:preflight
@@ -187,8 +190,8 @@ pnpm demo:up
 
 ### 3. Access URLs
 
-* **Dashboard:** `http://localhost:5173`
-* **Shop Web Interface:** `http://localhost:8080`
+- **Dashboard:** `http://localhost:5173`
+- **Shop Web Interface:** `http://localhost:8080`
 
 The load generator requires approximately 30 seconds to begin driving traffic.
 Once running, Traces, Service Maps, Issues, Logs, and Metrics populate
@@ -214,14 +217,14 @@ to whichever collector you started above.
 
 Select the guide matching your application framework:
 
-| Target Framework / Platform | Setup Guide Location |
-| :--- | :--- |
-| **React/Vite Frontend + Hono API** | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) |
-| **Python Flask API** | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md) |
-| **Browser-only Application** | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md) |
-| **TypeScript Backend** | [`packages/telemetry-sdk/README.md`](../packages/telemetry-sdk/README.md) |
-| **Polyglot Recipes (Python, Go, Rust, JVM, .NET)** | [`docs/recipes/README.md`](./recipes/README.md) |
-| **All Examples Directory** | [`docs/examples.md`](./examples.md) |
+| Target Framework / Platform                        | Setup Guide Location                                                          |
+| :------------------------------------------------- | :---------------------------------------------------------------------------- |
+| **React/Vite Frontend + Hono API**                 | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md)     |
+| **Python Flask API**                               | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md) |
+| **Browser-only Application**                       | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md)     |
+| **TypeScript Backend**                             | [`packages/telemetry-sdk/README.md`](../packages/telemetry-sdk/README.md)     |
+| **Polyglot Recipes (Python, Go, Rust, JVM, .NET)** | [`docs/recipes/README.md`](./recipes/README.md)                               |
+| **All Examples Directory**                         | [`docs/examples.md`](./examples.md)                                           |
 
 ### 2. Common Integration Steps
 
@@ -229,8 +232,10 @@ The core pipeline configuration is standard across app types:
 
 1. Deploy or run an accessible collector endpoint.
 2. Install the appropriate client or server SDK package.
-3. Configure the `OBS_COLLECTOR_URL` environment variable and specify a write-only ingest key.
-4. Ensure your API CORS policies allow the custom propagation header: `x-obs-interaction`.
+3. Configure the `OBS_COLLECTOR_URL` environment variable and specify a
+   write-only ingest key.
+4. Ensure your API CORS policies allow the custom propagation header:
+   `x-obs-interaction`.
 5. Run the validation tool to verify connectivity:
 
    ```bash
@@ -253,9 +258,9 @@ docker compose up -d
 docker compose logs -f collector
 ```
 
-* **Endpoint:** `http://localhost:8790`
-* **Ingest Key:** `dev-ingest-key`
-* **Password:** `e2e-test-pass`
+- **Endpoint:** `http://localhost:8790`
+- **Ingest Key:** `dev-ingest-key`
+- **Password:** `e2e-test-pass`
 
 ### 2. Launch Dashboard
 
@@ -264,25 +269,27 @@ Run the dashboard server from the repository root:
 ```bash
 pnpm dev:web
 ```
+
 Access the interface at `http://localhost:5173`.
 
 ---
 
 ## First-Run Troubleshooting
 
-| Symptom / Error | Diagnostic Action |
-| :--- | :--- |
-| **Docker compose demo fails to launch** | Execute `pnpm demo:preflight` and address the first reported system check failure. |
-| **Colima / VM memory resource depletion** | Expand hardware allocation: `colima stop && colima start --memory 7 --cpu 4`. |
-| **Dashboard displays empty state** | Run `pnpm run seed`, wait for Astronomy Shop traffic, or confirm your own app is sending telemetry. |
-| **Browser telemetry requests are blocked** | Verify CORS rules using: `obs-unified doctor <collector-url> --origin <app-origin>`. |
-| **AI Calls table is empty** | Verify the LLM provider key is defined in your active environment variables and trigger an AI span. |
-| **Replays table is empty** | Load the target application in the browser and perform a recording-eligible user action. |
+| Symptom / Error                            | Diagnostic Action                                                                                   |
+| :----------------------------------------- | :-------------------------------------------------------------------------------------------------- |
+| **Docker compose demo fails to launch**    | Execute `pnpm demo:preflight` and address the first reported system check failure.                  |
+| **Colima / VM memory resource depletion**  | Expand hardware allocation: `colima stop && colima start --memory 7 --cpu 4`.                       |
+| **Dashboard displays empty state**         | Run `pnpm run seed`, wait for Astronomy Shop traffic, or confirm your own app is sending telemetry. |
+| **Browser telemetry requests are blocked** | Verify CORS rules using: `obs-unified doctor <collector-url> --origin <app-origin>`.                |
+| **AI Calls table is empty**                | Verify the LLM provider key is defined in your active environment variables and trigger an AI span. |
+| **Replays table is empty**                 | Load the target application in the browser and perform a recording-eligible user action.            |
 
 ---
 
 ## Next Steps
 
-* **Browse Examples:** [`docs/examples.md`](./examples.md)
-* **Configure Package Registry:** [`docs/github-packages.md`](./github-packages.md)
-* **Plan Database Migrations:** [`docs/migrate/README.md`](./migrate/README.md)
+- **Browse Examples:** [`docs/examples.md`](./examples.md)
+- **Configure Package Registry:**
+  [`docs/github-packages.md`](./github-packages.md)
+- **Plan Database Migrations:** [`docs/migrate/README.md`](./migrate/README.md)

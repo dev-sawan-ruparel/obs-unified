@@ -10,6 +10,9 @@
 "@obs-unified/sdk": minor
 ---
 
-Release agent action graph telemetry, cross-signal identity propagation, and the interactive dashboard graph view.
+Release agent action graph telemetry, cross-signal identity propagation, and the
+interactive dashboard graph view.
 
-The release also includes SDK/template updates for interaction-id propagation, collector store/query support for action graph data, dashboard refinements across telemetry views, and pprof decoder maintenance fixes.
+The release also includes SDK/template updates for interaction-id propagation,
+collector store/query support for action graph data, dashboard refinements
+across telemetry views, and pprof decoder maintenance fixes.
