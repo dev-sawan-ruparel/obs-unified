@@ -3,7 +3,7 @@ title: Welcome
 description: Unified observability across traces, logs, AI calls, usage, replay, alerts, profiles, and analyses.
 ---
 
-obs-unified is unified observability for every signal. Traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses flow into **one collector**, share **one identity chain**, and appear in **one dashboard**. The **Connected rail** on every detail page surfaces each entity's neighboring signals, so an investigation can move across the whole system in ≤2 clicks.
+obs-unified is unified observability for every signal, built for agentic debugging. Traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses flow into **one collector**, share **one identity chain**, and appear in **one telemetry graph** agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile.
 
 Self-hosting is the deployment model, not the whole pitch: the default hosted path runs on Cloudflare Workers with D1 and R2, while the Node collector path uses Postgres and S3-compatible blob storage.
 
@@ -25,7 +25,7 @@ Self-hosting is the deployment model, not the whole pitch: the default hosted pa
 user_id → session_id → interaction_id → trace_id → span_id
 ```
 
-That identity skeleton is the unifying layer. The SDKs propagate it, the collector stores it, and the dashboard uses it to connect product behavior, backend execution, AI cost, logs, replay, alerts, profiles, and analyses. Read the [SDKs](/docs/sdks) page for which ID is minted where, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
+That identity skeleton is the unifying layer. The SDKs propagate it, the collector stores it, and the dashboard plus agent-readable docs use it to connect product behavior, backend execution, AI cost, logs, replay, alerts, profiles, and analyses. Read the [SDKs](/docs/sdks) page for which ID is minted where, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
 
 The click-to-CPU path is deliberately precise: the browser mints `interaction_id`, the backend stamps it onto spans/logs/AI calls, and profiles join through the `trace_id` those spans belong to. In shorthand:
 

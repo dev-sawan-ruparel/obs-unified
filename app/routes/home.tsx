@@ -23,10 +23,9 @@ export default function Home() {
 						obs-unified
 					</h1>
 					<p className="text-fd-muted-foreground text-base sm:text-lg">
-						Unified observability for every signal: traces, logs, AI
-						calls, sessions, replays, alerts, profiles, and analyses
-						connected through one collector, one identity chain, and one
-						dashboard. Start locally with one Docker image.
+						Built for agentic debugging: one telemetry graph agents can
+						traverse from user action to backend trace, logs, replay, AI
+						cost, and CPU profile. Start locally with one Docker image.
 					</p>
 					<div className="flex justify-center gap-3 pt-2">
 						<Link

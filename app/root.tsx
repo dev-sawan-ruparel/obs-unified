@@ -50,7 +50,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta
           property="og:description"
-          content="One collector, one identity chain, and one dashboard for traces, logs, AI calls, replay, usage, alerts, profiles, and analyses."
+          content="Built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile."
         />
         <meta property="og:url" content="https://docs.obsunified.com/" />
         <meta
@@ -64,7 +64,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta
           name="twitter:description"
-          content="One collector, one identity chain, and one dashboard for every signal."
+          content="Built for agentic debugging: one telemetry graph agents can traverse end-to-end."
         />
         <meta
           name="twitter:image"
