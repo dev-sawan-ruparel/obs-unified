@@ -57,7 +57,23 @@ async function verify(
 	secret: string,
 ): Promise<boolean> {
 	const expected = await sign(payload, secret);
-	return expected === signature;
+	return timingSafeEqualStr(expected, signature);
+}
+
+// Constant-time comparison. Both inputs are SHA-256-digested first so the
+// XOR loop runs over fixed-length (32-byte) buffers — this removes the
+// early-exit timing oracle of `===` and any length-based side channel.
+async function timingSafeEqualStr(a: string, b: string): Promise<boolean> {
+	const enc = new TextEncoder();
+	const [da, db] = await Promise.all([
+		crypto.subtle.digest("SHA-256", enc.encode(a)),
+		crypto.subtle.digest("SHA-256", enc.encode(b)),
+	]);
+	const ha = new Uint8Array(da);
+	const hb = new Uint8Array(db);
+	let diff = 0;
+	for (let i = 0; i < ha.length; i++) diff |= ha[i] ^ hb[i];
+	return diff === 0;
 }
 
 function createSessionToken(expiresAt: number): string {
@@ -180,7 +196,10 @@ export function createDashboardAuth(config: { password: string }): {
 			const body = await c.req
 				.json<{ password?: string }>()
 				.catch(() => ({ password: undefined }));
-			if (!body.password || body.password !== config.password) {
+			if (
+				!body.password ||
+				!(await timingSafeEqualStr(body.password, config.password))
+			) {
 				return c.json({ error: "Invalid password" }, 401);
 			}
 

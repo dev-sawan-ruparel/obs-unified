@@ -28,7 +28,8 @@ import type { SqlDb, SqlStatement } from "./sql-db";
 export interface PostgresAdapterOptions {
 	/**
 	 * Statement-level timeout in milliseconds. Defaults to 30s. Issued
-	 * via `SET LOCAL statement_timeout` at the start of each query.
+	 * via `SET statement_timeout` at the start of each query (session-level;
+	 * `SET LOCAL` outside a transaction would be a no-op).
 	 */
 	statementTimeoutMs?: number;
 }
@@ -40,7 +41,11 @@ export class PostgresAdapter implements SqlDb {
 		private readonly pool: Pool,
 		options: PostgresAdapterOptions = {},
 	) {
-		this.statementTimeoutMs = options.statementTimeoutMs ?? 30_000;
+		const rawTimeout = options.statementTimeoutMs ?? 30_000;
+		this.statementTimeoutMs =
+			Number.isFinite(rawTimeout) && rawTimeout >= 0
+				? Math.trunc(rawTimeout)
+				: 30_000;
 	}
 
 	prepare(sql: string): SqlStatement {
@@ -57,6 +62,10 @@ export class PostgresAdapter implements SqlDb {
 		const client = await this.pool.connect();
 		try {
 			await client.query("BEGIN");
+			// SET LOCAL works here because it is inside the transaction.
+			await client.query(
+				`SET LOCAL statement_timeout = ${this.statementTimeoutMs}`,
+			);
 			const out: Array<{ meta: { changes: number } }> = [];
 			for (const s of statements) {
 				if (!(s instanceof PostgresStatement)) {
@@ -125,9 +134,11 @@ class PostgresStatement implements SqlStatement {
 	}> {
 		const client = await this.pool.connect();
 		try {
-			await client.query(
-				`SET LOCAL statement_timeout = ${this.statementTimeoutMs}`,
-			);
+			// Session-level SET (not SET LOCAL): outside an explicit transaction
+			// SET LOCAL is silently a no-op, so the timeout never applied. Each
+			// pooled connection re-applies this on every exec. The value is
+			// validated to a non-negative integer in the constructor.
+			await client.query(`SET statement_timeout = ${this.statementTimeoutMs}`);
 			const r = await client.query<T>(this.sql, this.bound);
 			return { rows: r.rows, rowCount: r.rowCount };
 		} finally {

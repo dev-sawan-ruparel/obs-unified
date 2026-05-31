@@ -38,7 +38,15 @@ export class TailHub {
 	async fetch(req: Request): Promise<Response> {
 		const url = new URL(req.url);
 		if (req.method === "POST" && url.pathname === "/publish") {
-			const events = (await req.json()) as TailEvent[];
+			let events: TailEvent[];
+			try {
+				events = (await req.json()) as TailEvent[];
+			} catch {
+				return new Response(null, { status: 400 });
+			}
+			if (!Array.isArray(events)) {
+				return new Response(null, { status: 400 });
+			}
 			await this.broadcast(events);
 			return new Response(null, { status: 204 });
 		}

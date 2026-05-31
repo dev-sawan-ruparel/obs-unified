@@ -56,15 +56,22 @@ export function createIngestAuth(config?: {
 	return async (c, next) => {
 		// Lazy bootstrap of legacy env key (idempotent).
 		if (!bootstrapDone) {
-			bootstrapDone = true;
 			const legacy = c.env.INGEST_KEY || c.env.TELEMETRY_INGEST_TOKEN;
 			if (legacy) {
 				const store = new ProjectsStore(sqlDbFor(c.env));
 				try {
 					await store.bootstrapEnvKey(legacy);
+					// Latch only after success: a transient DB error on the first
+					// request must not permanently disable legacy-key bootstrap for
+					// the isolate. bootstrapEnvKey is idempotent, so concurrent
+					// first-requests racing here are harmless.
+					bootstrapDone = true;
 				} catch (err) {
 					console.error("[ingest-auth] bootstrap failed:", err);
 				}
+			} else {
+				// Nothing to bootstrap — don't keep re-checking on every request.
+				bootstrapDone = true;
 			}
 		}
 

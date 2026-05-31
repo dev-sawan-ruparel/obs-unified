@@ -22,6 +22,12 @@ export const tailRoutesPlugin: CollectorPlugin = {
 			// the session; project isolation is the only thing the projectId
 			// controls, and any authenticated user can query any project today.
 			const projectId = c.req.query("projectId")?.trim() || getProjectId(c);
+			// Validate the project identifier before using it as a Durable Object
+			// name / broadcast filter. (Cross-project authz remains a known,
+			// documented limitation — see comment above.)
+			if (!/^[A-Za-z0-9_-]{1,128}$/.test(projectId)) {
+				return c.json({ error: "invalid projectId" }, 400);
+			}
 			const kinds = c.req.query("kinds") || "span,log";
 
 			const id = hub.idFromName("singleton");
