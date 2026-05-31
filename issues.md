@@ -24,13 +24,9 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Any authenticated dashboard user can subscribe to other projects' real-time span and log streams by changing the URL parameter.
   * **Next Action:** Resolve project ID authorization server-side from session keys; validate `/publish` bodies, reject unauthorized subscriptions, and write multi-tenant isolation unit tests.
 
-- [ ] **Non-Constant Time Verification in Session HMAC and Password Checks**
-  * **Location:** [`packages/obs-collector/src/auth/dashboard-auth.ts:60`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/auth/dashboard-auth.ts#L60) & [`:183`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/auth/dashboard-auth.ts#L183)
-  * **Description:** Session HMAC signature verification and login password hashes are compared using standard `===` operators.
-  * **Risk:** Medium. Exposes authentication endpoints to timing side-channel attacks that can leak the signature or password.
-  * **Next Action:** Replace `===` comparisons with a constant-time comparison helper like `crypto.timingSafeEqual`.
-
 ### Resolved Security Issues
+- [x] **Non-Constant Time Verification in Session HMAC and Password Checks**
+  * *Resolution:* Verified `dashboard-auth.ts` now routes both session HMAC verification and password comparison through `timingSafeEqualStr`, avoiding early-exit `===` comparisons.
 - [x] **Administrative Session Cookie Lacks Secure Cookie Attribute**
   * *Resolution:* Attached conditional `; Secure` cookie headers under HTTPS connections in `dashboard-auth.ts`.
 - [x] **WeakMap Ingest Token Cache Reference Identity Drift**
@@ -48,6 +44,13 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Description:** The `getOverview` and `getIssueOverview` queries cap spans at `traceLimit * 50` and then aggregate parent-child traces in memory.
   * **Risk:** High. Boundary traces that exceed the arbitrary span limit lose spans, causing wrong root span identification, wrong span/error counts, and broken p95 latency aggregations.
   * **Next Action:** Re-architect trace listing to aggregate traces at the database layer (via trace headers or SQL group by), then paginate traces rather than raw spans.
+
+- [ ] **Off-by-One Floor Math in Percentile CTE Calculations**
+  * **Location:** [`packages/obs-collector/src/analyses/tier0.ts:283`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/analyses/tier0.ts#L283) (also check related analysis definitions)
+  * **Description:** Some SQLite CTE percentile calculations still select ranks with floor-style integer casts, including `CAST(0.99 * n AS INTEGER)` in `throughputSlope`.
+  * **Verification:** Partially fixed in some analysis paths, but not fully closed in current code.
+  * **Risk:** High. Floor division understates p95/p99 latency metrics on small-to-medium datasets, which suppresses warning and critical alerts.
+  * **Next Action:** Standardize all SQL analyses on nearest-rank ceil formulas (e.g. `(99 * n + 99) / 100`) and add small-window test coverage.
 
 - [ ] **Postgres Adapter Rewrites SQLite Queries dynamically via Regular Expressions**
   * **Location:** [`packages/obs-collector/src/lib/sql-db-postgres.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/sql-db-postgres.ts)
@@ -79,23 +82,11 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Causes all Anthropic-backed narrative runs to crash with 404 HTTP errors.
   * **Next Action:** Update the default Anthropic fallback model ID to a valid model (such as `"claude-3-5-haiku-latest"` or `"claude-3-haiku-20240307"`).
 
-- [ ] **Postgres Session Timeout Statement runs in Autocommit Mode**
-  * **Location:** [`packages/obs-collector/src/lib/sql-db-postgres.ts:122`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/sql-db-postgres.ts#L122)
-  * **Description:** `SET LOCAL statement_timeout` is executed without an active transaction block.
-  * **Risk:** High. Autocommit renders the statement a no-op, leaving Postgres transactions running without statement execution timeouts.
-  * **Next Action:** Wrap statement timeouts in proper transaction boundaries or set timeouts at the connection pool configuration level.
-
 - [ ] **Google API Key Leaked in URL Query Strings**
   * **Location:** [`apps/obs-demo/src/providers.ts:177`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo/src/providers.ts#L177)
   * **Description:** The Google API Key is passed directly in the URL query string, leading to leaks in system logs and telemetry spans.
   * **Risk:** High. Exposed credentials.
   * **Next Action:** Refactor to pass the Google API Key via the standard `x-goog-api-key` HTTP header.
-
-- [ ] **Active Trace Navigation Guard blocks Deep Linking in Telemetry Dashboard**
-  * **Location:** [`packages/dashboard/src/dashboards/TelemetryDashboard.tsx:356`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/TelemetryDashboard.tsx#L356)
-  * **Description:** The initial-trace fetching effect is guarded by `!traceDetail`.
-  * **Risk:** Medium. Navigating to a different `initialTraceId` fails, continuing to display the old trace.
-  * **Next Action:** Modify the hook dependency array to correctly trigger updates when the active trace query ID changes.
 
 - [ ] **Dashboard Replay Timeline utilizes Non-Unique React keys**
   * **Location:** [`packages/dashboard/src/dashboards/ReplayDashboard.tsx:350`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/ReplayDashboard.tsx#L350)
@@ -104,8 +95,10 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Next Action:** Map timeline rows using guaranteed unique keys (e.g. index-composite or generated IDs).
 
 ### Resolved Functional Issues
-- [x] **Off-by-One Floor Math in Percentile CTE Calculations**
-  * *Resolution:* Reconciled and fixed in `tier0.ts` and `derive.ts` by replacing `CAST(0.99 * n AS INTEGER)` and simplified double `MAX(1, MAX(1, ...))` wrappers with standard `(99 * n + 99) / 100` nearest-rank ceil formulas.
+- [x] **Postgres Session Timeout Statement runs in Autocommit Mode**
+  * *Resolution:* Verified `PostgresAdapter` now configures session-level `SET statement_timeout` once on pool `connect`, and uses `SET LOCAL` only inside explicit `BEGIN`/`COMMIT` batch transactions.
+- [x] **Active Trace Navigation Guard blocks Deep Linking in Telemetry Dashboard**
+  * *Resolution:* Verified the initial-trace effect now fetches when `traceDetail?.trace.traceId !== initialTraceId`, so changing the URL trace ID refreshes the detail panel.
 - [x] **Missing SQLite GROUP BY in getServiceOperations**
   * *Resolution:* Removed SQLite aggregates and perform full grouping and aggregation in JavaScript.
 - [x] **Slow Sessions filter understating loadTimeMs properties**
@@ -134,35 +127,21 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** Medium. Double-emitted metrics and cumulative node timer leaks.
   * **Next Action:** Track active intervals in a module-global reference and clear them on re-initialization.
 
-- [ ] **Analytics SDK rrweb Recorder Lifespan and Cleanup Memory Leaks**
-  * **Location:** [`packages/analytics-sdk/src/usage-tracker.ts:519`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/analytics-sdk/src/usage-tracker.ts#L519)
-  * **Description:** The rrweb recorder and its 10-second flush intervals outlive React provider unmounts because there is no cleanup hook calling `stopReplay()`.
-  * **Risk:** Medium. Leaked DOM listeners, active intervals, and lost replay events on page exits.
-  * **Next Action:** Implement a cleanup callback in the React provider to trigger `stopReplay()` and flush pending events on unmount.
-
-- [ ] **Analytics SDK Global installed flag monkey-patch leaks**
-  * **Location:** [`packages/analytics-sdk/src/auto-correlate.ts:179`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/analytics-sdk/src/auto-correlate.ts#L179)
-  * **Description:** Global monkey-patches on `fetch` and `XHR` are managed via a single global `installed` flag. Multiple providers or StrictMode unmounts restore global states prematurely.
-  * **Risk:** Medium. Correlation headers stop transmitting silently when concurrent providers unmount.
-  * **Next Action:** Use atomic ref-counters rather than boolean latches to track monkey-patch instances safely.
-
 - [ ] **Standalone Collector SIGTERM abrupt Process termination**
   * **Location:** [`apps/collector-node/src/server.ts:103`](file:///Users/sawan/projects/obs-unified/apps/collector-node/src/server.ts#L103)
   * **Description:** On SIGTERM, the standalone node server closes the Postgres connection pool and terminates via `process.exit(0)` without closing the HTTP server handle.
   * **Risk:** Medium. Aborts active, in-flight requests during rolling deployments.
   * **Next Action:** Capture the HTTP server handle and trigger `server.close()` to drain active requests gracefully with a deadline before database connection teardowns.
 
-- [ ] **Telemetry SDK ESM Targets Swallowed Import Crash**
-  * **Location:** [`packages/telemetry-sdk/src/otel-config.ts:72`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/otel-config.ts#L72)
-  * **Description:** Executing `require("@opentelemetry/api")` throws in pure ESM/Worker targets, and is silently swallowed.
-  * **Risk:** Medium. Swallows errors but leaves helper actions like `annotateErrorSpan` completely broken.
-  * **Next Action:** Use dynamic imports `await import(...)` or standard ES import statements for ESM compliance.
-
-- [ ] **CLI Scaffolder Directory Traversal Vulnerability**
-  * **Location:** [`packages/cli/src/cli.ts:138`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/cli/src/cli.ts#L138)
-  * **Description:** `scaffoldApp` resolves output paths using user input with no directory traversal checks, and proceeds even on cancelled prompt states.
-  * **Risk:** Medium. Security and filesystem corruption risks (traversals like `../../x` can overwrite system files).
-  * **Next Action:** Validate and sanitize the target folder paths; enforce strict boundary checks and halt execution immediately on prompt cancellation.
+### Resolved Reliability Issues
+- [x] **Analytics SDK rrweb Recorder Lifespan and Cleanup Memory Leaks**
+  * *Resolution:* Verified `AnalyticsProvider` now calls `tracker.stopReplay()` on unmount, and `stopReplay()` clears the rrweb stop function, interval, sequence, and buffered events.
+- [x] **Analytics SDK Global installed flag monkey-patch leaks**
+  * *Resolution:* Verified `auto-correlate.ts` now uses `installRefCount` plus `activeCleanup`, so multiple providers/StrictMode mounts do not prematurely restore global `fetch`/XHR patches.
+- [x] **Telemetry SDK ESM Targets Swallowed Import Crash**
+  * *Resolution:* Verified `otel-config.ts` now imports `trace` from `@opentelemetry/api` directly and no longer uses swallowed CommonJS `require()`.
+- [x] **CLI Scaffolder Directory Traversal Vulnerability**
+  * *Resolution:* Verified `scaffoldApp` rejects absolute paths, parent-directory traversal, nested path separators, empty names, and cancelled prompts before writing files.
 
 ---
 
@@ -192,6 +171,73 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Description:** The CPU sparkline averages fleet-wide service CPU data while the main tile headline metrics report the single busiest service.
   * **Risk:** Low/Medium. Dashboard visualization displays contradictory information.
   * **Next Action:** Align both queries to calculate averages or track peak utilization consistently.
+
+---
+
+## ── P2: ADDITIONAL OPEN BACKLOG FROM SOURCE TRACKERS ──
+
+These lower-priority items were present in the deleted source trackers but were not represented as standalone rows in the first consolidated `issues.md` draft.
+
+- [ ] **Dashboard fetch effects still lack consistent cancellation and error UI**
+  * **Location:** `packages/dashboard/src/dashboards/AIDashboard.tsx`, `packages/dashboard/src/dashboards/TelemetryDashboard.tsx`
+  * **Source:** `FUNCTIONAL_CODE_SMELLS.md` HIGH Dashboard races.
+  * **Risk:** Rapid filter changes can still allow stale responses or swallowed errors in user-facing dashboards.
+  * **Next Action:** Standardize abortable dashboard loaders and visible error/empty states.
+
+- [ ] **AI session context has a module-global fallback**
+  * **Location:** `packages/telemetry-sdk/src/ai-spans.ts`
+  * **Source:** `FUNCTIONAL_CODE_SMELLS.md` MEDIUM Telemetry / analytics SDK.
+  * **Risk:** Hosts that use the global `setAISessionContext` path instead of `AsyncLocalStorage` can stamp concurrent AI spans with the wrong session/user.
+  * **Next Action:** Prefer AsyncLocalStorage-only request scoping in Node and make global context opt-in/test-only.
+
+- [ ] **Standalone collector S3 defaults need production validation**
+  * **Location:** `apps/collector-node/src/server.ts`
+  * **Source:** `FUNCTIONAL_CODE_SMELLS.md` MEDIUM Apps / CLI.
+  * **Risk:** Path-style and region defaults are convenient for local MinIO but easy to deploy accidentally in production.
+  * **Next Action:** Validate S3 configuration at startup and make local-development defaults explicit.
+
+---
+
+## ── ADDITIONAL VERIFIED COMPLETIONS FROM SOURCE TRACKERS ──
+
+These were present in the old trackers but were either omitted from the first aggregate or already fixed before this verification pass.
+
+- [x] **Replay receiver body/session validation**
+  * *Resolution:* Verified `/v1/replays` rejects invalid JSON, unsafe `sessionId`/`visitorId`, negative or non-integer sequence numbers, and non-array events before writing object keys.
+- [x] **Retention-hour parsing in AI/logs/metrics receivers**
+  * *Resolution:* Verified receivers now call `getConfiguredRetentionHours(c.env.RETENTION_HOURS)` instead of bare `parseInt`.
+- [x] **Users query corrupt JSON handling**
+  * *Resolution:* Verified user property parsing catches JSON errors and returns `{}` instead of 500ing the users page.
+- [x] **Ingest CORS allow-all default**
+  * *Resolution:* Verified ingest CORS only reflects origins from `allowedOrigins`/`ALLOWED_ORIGINS`; no allow-list means no reflected origin.
+- [x] **TailHub heartbeat leak and subscriber cap**
+  * *Resolution:* Verified subscribe checks already-aborted requests before creating a timer and enforces `MAX_SUBSCRIBERS`.
+- [x] **AI/log flush failure drops batches**
+  * *Resolution:* Verified failed AI/log flushes requeue the spliced batch, bounded by `MAX_BUFFER_SIZE`.
+- [x] **Telemetry SDK integer span attributes**
+  * *Resolution:* Verified integer span attributes now emit proto-JSON `intValue` strings.
+- [x] **Profiler final upload loss**
+  * *Resolution:* Verified `startProfiler().stop()` awaits the in-flight push before returning.
+- [x] **Analytics identify/replay endpoint and authorization shape**
+  * *Resolution:* Verified endpoint derivation handles `/events` and `/usage`, and shared headers include `Authorization` when an API key is configured.
+- [x] **Analytics session rotation resets page/once-per-session state**
+  * *Resolution:* Verified session rotation clears `lastPagePath` and `onceKeys`.
+- [x] **Analytics tracker rebuilds on transport config changes**
+  * *Resolution:* Verified `AnalyticsProvider` rebuilds the tracker when endpoint/auth/storage primitives change.
+- [x] **Telemetry empty-spans trace bar math**
+  * *Resolution:* Verified waterfall math guards empty span arrays before `Math.min`/`Math.max`.
+- [x] **Logs live-mode selected row mismatch**
+  * *Resolution:* Verified toggling live mode clears `selectedLog`.
+- [x] **Live-tail client ordering**
+  * *Resolution:* Verified `useLiveTail` sorts matched events by timestamp rather than relying on server order.
+- [x] **AskBox Cmd+/ toggle contract**
+  * *Resolution:* Verified Cmd+/ now toggles the AskBox instead of only opening it.
+- [x] **Demo item-route and observability init footguns**
+  * *Resolution:* Verified demo item IDs reject `NaN`, zero, negative, and out-of-range values; observability initialization is guarded by a once flag.
+- [x] **Demo AI evaluation empty-trace/empty-answer handling**
+  * *Resolution:* Verified AI evaluations only post when a trace ID exists and labels fail when answers are empty.
+- [x] **Non-functional parser/build/type-safety fixes**
+  * *Resolution:* Verified the previous non-functional tracker's completed parser allocation, `ByteBuilder`, pool error handler, and unsafe Hono cast fixes were already merged before consolidation.
 
 ---
 
