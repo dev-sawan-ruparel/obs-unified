@@ -72,7 +72,10 @@ switch (subcommand) {
 		]);
 		if (code === 0) {
 			console.log(
-				`${kleur.green("✓")} stack up — dashboard at http://localhost:5173, collector at http://localhost:8790`,
+				`${kleur.green("✓")} collector stack up at http://localhost:8790`,
+			);
+			console.log(
+				"  In this repo, run `pnpm dev:web` for the dashboard at http://localhost:5173.",
 			);
 		}
 		process.exit(code);

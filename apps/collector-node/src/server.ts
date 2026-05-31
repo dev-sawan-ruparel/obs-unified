@@ -148,9 +148,9 @@ function readEnv() {
 		DATABASE_URL: required("DATABASE_URL"),
 		PG_POOL_MAX: readNumberEnv("PG_POOL_MAX", 10),
 		S3_ENDPOINT: process.env.S3_ENDPOINT,
-		S3_REGION: requiredNonDefault("S3_REGION", "us-east-1"),
+		S3_REGION: process.env.S3_REGION || "us-east-1",
 		S3_BUCKET: required("S3_BUCKET"),
-		S3_FORCE_PATH_STYLE: readBooleanEnv("S3_FORCE_PATH_STYLE", false),
+		S3_FORCE_PATH_STYLE: readBooleanEnv("S3_FORCE_PATH_STYLE", true),
 		S3_ACCESS_KEY_ID: required("S3_ACCESS_KEY_ID"),
 		S3_SECRET_ACCESS_KEY: required("S3_SECRET_ACCESS_KEY"),
 		INGEST_KEY: required("INGEST_KEY"),
@@ -171,13 +171,4 @@ function readBooleanEnv(name: string, fallback: boolean): boolean {
 	const raw = process.env[name];
 	if (raw === undefined || raw === "") return fallback;
 	return raw === "true";
-}
-
-function requiredNonDefault(name: string, defaultValue: string): string {
-	const raw = process.env[name];
-	if (!raw || raw === defaultValue) {
-		console.error(`[obs-unified] ${name} must be set explicitly`);
-		process.exit(1);
-	}
-	return raw;
 }

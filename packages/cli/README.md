@@ -3,7 +3,7 @@
 Command-line entry point for [obs-unified](https://github.com/obs-unified/obs-unified).
 
 ```bash
-pnpm dlx @obs-unified/cli up         # spin up local stack
+obs-unified up                       # spin up the repo-local collector stack
 pnpm dlx @obs-unified/cli create my-app   # scaffold an app
 pnpm dlx @obs-unified/cli doctor     # diagnose a collector
 ```
@@ -12,7 +12,7 @@ pnpm dlx @obs-unified/cli doctor     # diagnose a collector
 
 | Command | Purpose |
 | --- | --- |
-| `obs-unified up` | `docker compose up` against the local Postgres+MinIO+collector stack |
+| `obs-unified up` | `docker compose up` against the repo-local Postgres+MinIO+collector stack |
 | `obs-unified down` | tear down |
 | `obs-unified create <name>` | scaffold a new app — picks framework + backend interactively |
 | `obs-unified keys mint` | mint a new ingest key on a running collector |

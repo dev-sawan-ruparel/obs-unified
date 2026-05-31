@@ -17,7 +17,12 @@ Brings up Postgres + MinIO (S3-compatible) + the collector on
 key is `dev-ingest-key`.
 
 Open `http://localhost:5173` (run `pnpm dev:web` from the repo root) to
-see populated dashboards once you seed data via `pnpm seed`.
+see populated dashboards once you seed data via `pnpm seed`. You can
+verify the collector before opening the dashboard with:
+
+```bash
+pnpm --filter @obs-unified/cli exec obs-unified doctor --origin http://localhost:5173
+```
 
 ## Quick start (host install)
 
