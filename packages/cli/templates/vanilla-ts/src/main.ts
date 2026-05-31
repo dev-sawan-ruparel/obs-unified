@@ -19,10 +19,6 @@ installAutoCorrelate({ tracker });
 tracker.identify("demo-user", { email: "demo@example.com" });
 
 document.getElementById("hello")?.addEventListener("click", async () => {
-	// The auto-correlator already minted an interaction_id for this
-	// click. The fetch below carries it as `x-obs-interaction`.
-	const res = await fetch("/api/hello");
-	const body = await res.json();
-	tracker.trackInteraction("hello_clicked", { status: res.status });
-	console.log(body);
+	tracker.trackInteraction("hello_clicked", { source: "vanilla-ts-template" });
+	console.log("hello_clicked tracked");
 });

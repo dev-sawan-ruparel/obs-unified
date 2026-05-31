@@ -14,7 +14,7 @@ pnpm dlx @obs-unified/cli doctor     # diagnose a collector
 | --- | --- |
 | `obs-unified up` | `docker compose up` against the repo-local Postgres+MinIO+collector stack |
 | `obs-unified down` | tear down |
-| `obs-unified create <name>` | scaffold a new app — picks framework + backend interactively |
+| `obs-unified create <name>` | scaffold a new app from React+Hono, vanilla frontend, or Workers API templates |
 | `obs-unified keys mint` | mint a new ingest key on a running collector |
 | `obs-unified keys list` | list keys |
 | `obs-unified doctor [url] [--origin <origin>]` | smoke-test a collector — health, browser ingest CORS, OTLP, dashboard API |

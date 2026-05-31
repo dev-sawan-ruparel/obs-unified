@@ -54,12 +54,13 @@ const run = (cmd: string, args: string[], cwd?: string): Promise<number> =>
 
 switch (subcommand) {
 	case "up": {
-		const composeFile = findComposeFile();
+		const composeFile = findComposeFile(rest);
 		if (!composeFile) {
 			console.error(
-				kleur.red(
-					"could not locate docker-compose.yml — run from the obs-unified repo root or pass --compose-file",
-				),
+				kleur.red("could not locate a collector docker compose file."),
+			);
+			console.error(
+				"Run from the obs-unified repo root, or pass --compose-file <path>.",
 			);
 			process.exit(1);
 		}
@@ -83,9 +84,13 @@ switch (subcommand) {
 	}
 
 	case "down": {
-		const composeFile = findComposeFile();
+		const composeFile = findComposeFile(rest);
 		if (!composeFile) {
-			console.error(kleur.red("no compose file found"));
+			console.error(
+				kleur.red(
+					"could not locate a collector docker compose file. Run from the repo root, or pass --compose-file <path>.",
+				),
+			);
 			process.exit(1);
 		}
 		process.exit(await run("docker", ["compose", "-f", composeFile, "down"]));
@@ -126,7 +131,10 @@ switch (subcommand) {
 		process.exit(1);
 }
 
-function findComposeFile(): string | null {
+function findComposeFile(args: string[] = []): string | null {
+	const explicit = parseComposeFileArg(args);
+	if (explicit) return explicit;
+
 	const candidates = [
 		"apps/collector-node/docker-compose.yml",
 		"docker-compose.yml",
@@ -134,6 +142,30 @@ function findComposeFile(): string | null {
 	];
 	for (const c of candidates) {
 		if (existsSync(c)) return c;
+	}
+	return null;
+}
+
+function parseComposeFileArg(args: string[]): string | null {
+	for (let i = 0; i < args.length; i += 1) {
+		const arg = args[i];
+		if (arg === "--compose-file" || arg === "-f") {
+			const file = args[i + 1];
+			if (!file) {
+				console.error(
+					kleur.red(`usage: obs-unified ${subcommand} --compose-file <path>`),
+				);
+				process.exit(1);
+			}
+			return file;
+		}
+		if (arg.startsWith("--compose-file=")) {
+			return arg.slice("--compose-file=".length);
+		}
+		if (arg.startsWith("-")) {
+			console.error(kleur.red(`unknown ${subcommand} option: ${arg}`));
+			process.exit(1);
+		}
 	}
 	return null;
 }
@@ -159,21 +191,12 @@ async function scaffoldApp(name: string) {
 	const response = await prompts([
 		{
 			type: "select",
-			name: "framework",
-			message: "Frontend framework",
+			name: "template",
+			message: "Template",
 			choices: [
-				{ title: "React + Vite", value: "react-vite" },
-				{ title: "Vanilla TypeScript", value: "vanilla-ts" },
-			],
-		},
-		{
-			type: "select",
-			name: "backend",
-			message: "Backend runtime",
-			choices: [
-				{ title: "Hono on Node.js", value: "hono-node" },
-				{ title: "Hono on Cloudflare Workers", value: "hono-workers" },
-				{ title: "No backend (frontend only)", value: "none" },
+				{ title: "React + Vite + Hono on Node.js", value: "react-vite" },
+				{ title: "Vanilla TypeScript frontend", value: "vanilla-ts" },
+				{ title: "Hono on Cloudflare Workers API", value: "hono-workers" },
 			],
 		},
 		{
@@ -183,18 +206,17 @@ async function scaffoldApp(name: string) {
 			initial: "http://localhost:8790",
 		},
 	]);
-	if (!response.framework || !response.backend || !response.collectorUrl) {
+	if (!response.template || !response.collectorUrl) {
 		console.error(kleur.yellow("scaffold cancelled"));
 		process.exit(1);
 	}
 
 	await mkdir(target, { recursive: true });
-	const templateDir = path.join(TEMPLATES, response.framework);
+	const templateDir = path.join(TEMPLATES, response.template);
 	if (existsSync(templateDir)) {
 		await copyTemplate(templateDir, target, {
 			__APP_NAME__: name,
 			__COLLECTOR_URL__: response.collectorUrl,
-			__BACKEND__: response.backend,
 		});
 	} else {
 		// Minimal inline template if the directory hasn't been populated

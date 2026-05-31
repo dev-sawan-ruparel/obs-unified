@@ -17,10 +17,10 @@ collector dashboard at `__COLLECTOR_URL__`.
 
 ## Adding a backend
 
-Pair this with any of:
+This template only sends browser analytics. Pair it with any of:
 
-- A Hono backend on Node (`obs-unified create my-api` → pick `hono-node`)
-- A Hono backend on Cloudflare Workers (`obs-unified create my-api` → pick `hono-workers`)
+- A React + Vite + Hono Node app (`obs-unified create my-app`)
+- A Hono on Cloudflare Workers API (`obs-unified create my-api`)
 - Your existing backend, instrumented per the
   [Tier 1 SDK docs](https://obs-unified-docs.dev/docs/instrumenting)
   or one of the [Tier 3 recipes](https://github.com/obs-unified/obs-unified/tree/main/docs/recipes).
