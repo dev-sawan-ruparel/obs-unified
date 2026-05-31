@@ -168,7 +168,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 		expect(attrValue(toolSpan, "obs.tool_call.tool_name").stringValue).toBe(
 			"execute-cmd",
 		);
-		expect(attrValue(toolSpan, "obs.tool_call.side_effect").intValue).toBe(1);
+		expect(attrValue(toolSpan, "obs.tool_call.side_effect").intValue).toBe("1");
 		expect(
 			attrValue(toolSpan, "obs.tool_call.approval_state").stringValue,
 		).toBe("human_approved");
@@ -196,7 +196,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 		);
 		expect(
 			attrValue(retrievalSpan, "obs.retrieval.total_results").intValue,
-		).toBe(1);
+		).toBe("1");
 
 		// Find eval span
 		const evalSpan = spanList.find((s) =>
@@ -210,8 +210,8 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 		expect(attrValue(evalSpan, "obs.eval.evaluator_name").stringValue).toBe(
 			"correctness-grader",
 		);
-		expect(attrValue(evalSpan, "obs.eval.passed").intValue).toBe(1);
-		expect(attrValue(evalSpan, "obs.eval.score").intValue).toBe(1);
+		expect(attrValue(evalSpan, "obs.eval.passed").intValue).toBe("1");
+		expect(attrValue(evalSpan, "obs.eval.score").intValue).toBe("1");
 
 		// Find artifact span
 		const artifactSpan = spanList.find((s) =>
@@ -229,7 +229,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 			"patch",
 		);
 		expect(attrValue(artifactSpan, "obs.artifact.size_bytes").intValue).toBe(
-			120,
+			"120",
 		);
 	});
 });

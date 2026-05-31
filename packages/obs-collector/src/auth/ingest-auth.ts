@@ -124,7 +124,9 @@ export function createIngestAuth(config?: {
 
 		const now = Date.now();
 		const hash = await sha256Hex(token);
-		const rawDb = (c.env.DB as any)?.__unwrapped_db || c.env.DB;
+		const rawDb =
+			(c.env.DB as unknown as Record<string, unknown>)?.__unwrapped_db ||
+			c.env.DB;
 		const cache = cacheFor(rawDb);
 		const cached = getCached(cache, hash, now);
 		if (cached) {

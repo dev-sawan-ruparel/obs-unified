@@ -62,10 +62,13 @@ export interface CollectorPlugin {
 
 export interface CollectorAuthConfig {
 	/** Single middleware applied to both /v1/* (ingest) and /internal/* (query) routes */
+	// biome-ignore lint/suspicious/noExplicitAny: Hono generic middleware variables require any for contravariant compatibility
 	middleware?: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 	/** @deprecated Use middleware instead. Ingest-only auth for /v1/* routes. */
+	// biome-ignore lint/suspicious/noExplicitAny: Hono generic middleware variables require any for contravariant compatibility
 	ingest?: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 	/** @deprecated Use middleware instead. Query-only auth for /internal/* routes. */
+	// biome-ignore lint/suspicious/noExplicitAny: Hono generic middleware variables require any for contravariant compatibility
 	query?: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 }
 
@@ -76,6 +79,7 @@ export interface CollectorConfig {
 	allowedOrigins?: string;
 	/** Register dashboard auth routes and middleware */
 	dashboardAuth?: {
+		// biome-ignore lint/suspicious/noExplicitAny: Hono generic middleware variables require any for contravariant compatibility
 		middleware: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 		registerRoutes: (app: Hono<{ Bindings: CollectorEnv }>) => void;
 	};

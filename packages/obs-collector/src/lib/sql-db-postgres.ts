@@ -49,7 +49,9 @@ export class PostgresAdapter implements SqlDb {
 
 		// Configure statement timeout once upon connection establishment
 		this.pool.on("connect", (client) => {
-			client.query(`SET statement_timeout = ${this.statementTimeoutMs}`).catch(() => {});
+			client
+				.query(`SET statement_timeout = ${this.statementTimeoutMs}`)
+				.catch(() => {});
 		});
 	}
 
@@ -57,7 +59,6 @@ export class PostgresAdapter implements SqlDb {
 		return new PostgresStatement(
 			this.pool,
 			translateD1Sql(rewriteQuestionMarks(sql)),
-			this.statementTimeoutMs,
 		);
 	}
 
@@ -98,7 +99,6 @@ class PostgresStatement implements SqlStatement {
 	constructor(
 		private readonly pool: Pool,
 		private readonly sql: string,
-		private readonly statementTimeoutMs: number,
 	) {}
 
 	bind(...args: unknown[]): SqlStatement {
