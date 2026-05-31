@@ -1,4 +1,4 @@
-import { DOCS_URL, GITHUB_URL, SDK_DOCS_URL } from "../config";
+import { GETTING_STARTED_URL, GITHUB_URL, SDK_DOCS_URL } from "../config";
 
 export function renderHero(): string {
   return `
@@ -16,12 +16,12 @@ export function renderHero(): string {
         logs, AI calls, usage events, replays, alerts, and user profiles all live
         in one collector, and the <strong>Connected rail</strong> on every detail
         page surfaces the entity's neighbors so you pivot from any signal to any
-        other in <strong>≤2 clicks</strong>. Deploys on Cloudflare Workers
-        + D1 + R2, with a Node collector path for Postgres + S3-compatible storage.
+        other in <strong>≤2 clicks</strong>. Start locally with one Docker image,
+        then run on Cloudflare Workers + D1 + R2 or Node + Postgres + S3.
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="${DOCS_URL}">
-          Read the docs
+        <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
+          Get started
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
         </a>
         <a class="btn btn-secondary" href="${GITHUB_URL}">

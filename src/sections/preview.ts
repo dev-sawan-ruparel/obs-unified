@@ -1,4 +1,13 @@
-import { SDK_DOCS_URL } from "../config";
+import { EXAMPLES_URL, GETTING_STARTED_URL, SDK_DOCS_URL } from "../config";
+
+const FIRST_RUN = `# Fastest first run
+pnpm local:image
+pnpm local:run
+
+# Editable local repo
+pnpm install
+pnpm run setup
+pnpm run dev`;
 
 const SDK_PATHS = `Backend:
   TypeScript  @obs-unified/* on GitHub Packages
@@ -26,12 +35,15 @@ app.post("/checkout", async (c) => {
   log.info("charge.starting", { user: c.user.id });
   const result = await stripe.charges.create({ amount: 4900 });
 
-  const llm = startLLMSpan({
+  const llm = startLLMSpan("checkout.assistant", {
     provider: "anthropic",
-    model: "claude-sonnet-4",
+    modelName: "claude-sonnet-4",
   });
-  llm.setTokens({ prompt: 150, completion: 80, total: 230 });
-  llm.setCost(0.0021);
+  llm.setAttributes({
+    "openinference.usage.prompt_tokens": 150,
+    "openinference.usage.completion_tokens": 80,
+    "llm.cost_usd": 0.0021,
+  });
   llm.end();
 
   return c.json(result);
@@ -80,23 +92,25 @@ export function renderPreview(): string {
       <p class="eyebrow">Quick preview</p>
       <h2 id="preview-title">From zero to correlated signals in three steps</h2>
       <p class="section-lead">
-        Pick the SDKs for your runtime, point them at your collector, and initialize each service.
+        Start the local stack, pick SDKs for your runtime, and initialize each service.
         Backend spans, frontend interactions, and AI spans share the same identity chain automatically.
       </p>
     </header>
     <div class="preview-grid">
       <div class="preview-card">
-        <div class="preview-step"><span class="step-num">1</span> Pick SDKs</div>
-        <p class="preview-step-note">Full language examples live in the <a href="${SDK_DOCS_URL}">SDK docs</a></p>
+        <div class="preview-step"><span class="step-num">1</span> Start locally</div>
+        <p class="preview-step-note">The full first-run decision tree lives in <a href="${GETTING_STARTED_URL}">Getting started</a></p>
+        ${code("bash", FIRST_RUN)}
+      </div>
+      <div class="preview-card">
+        <div class="preview-step"><span class="step-num">2</span> Pick SDKs</div>
+        <p class="preview-step-note">Runnable examples and recipes live in <a href="${EXAMPLES_URL}">Examples</a> and <a href="${SDK_DOCS_URL}">SDK docs</a></p>
         ${code("text", SDK_PATHS)}
       </div>
       <div class="preview-card">
-        <div class="preview-step"><span class="step-num">2</span> Instrument your backend</div>
+        <div class="preview-step"><span class="step-num">3</span> Instrument backend and frontend</div>
         <p class="preview-step-note">TypeScript shown · equivalent <strong>Go</strong> and <strong>Rust</strong> examples live in the <a href="${SDK_DOCS_URL}">SDK docs</a></p>
         ${code("typescript", BACKEND)}
-      </div>
-      <div class="preview-card">
-        <div class="preview-step"><span class="step-num">3</span> Instrument your frontend</div>
         ${code("tsx", FRONTEND)}
       </div>
     </div>

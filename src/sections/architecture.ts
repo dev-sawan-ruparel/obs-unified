@@ -16,8 +16,9 @@ export function renderArchitecture(): string {
         <li><strong>Dashboard → Collector</strong> — password login for human operators, like Grafana.</li>
       </ul>
       <p class="muted">
-        Cloudflare Workers + D1 + R2 is the default low-ops deployment path; the Node collector
-        runs with Postgres and S3-compatible blob storage.
+        The all-in-one Docker image is the quickest first run. Cloudflare Workers + D1 + R2
+        remains the default low-ops hosted deployment path; the Node collector runs with
+        Postgres and S3-compatible blob storage.
         No external telemetry vendor in the data path.
       </p>
     </div>

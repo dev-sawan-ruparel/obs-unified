@@ -1,4 +1,12 @@
-import { DOCS_URL, FOOTER_PACKAGES, GITHUB_URL } from "../config";
+import {
+  DOCS_URL,
+  EXAMPLES_URL,
+  FOOTER_PACKAGES,
+  GETTING_STARTED_URL,
+  GITHUB_URL,
+  PRODUCTION_OPS_URL,
+  SDK_REFERENCE_URL,
+} from "../config";
 
 const YEAR = new Date().getFullYear();
 
@@ -19,16 +27,19 @@ export function renderFooter(): string {
         Keep the telemetry plane in your infrastructure.
       </p>
       <div class="footer-cta-row" aria-label="Primary project links">
-        <a href="${DOCS_URL}/installation">Start locally</a>
+        <a href="${GETTING_STARTED_URL}">Start locally</a>
         <a href="${GITHUB_URL}">View source</a>
       </div>
     </div>
     <nav class="footer-nav" aria-label="Documentation">
       <h4>Docs</h4>
       <a href="${DOCS_URL}">Introduction</a>
-      <a href="${DOCS_URL}/installation">Installation</a>
+      <a href="${GETTING_STARTED_URL}">Getting started</a>
+      <a href="${EXAMPLES_URL}">Examples</a>
       <a href="${DOCS_URL}/sdks">SDKs and packages</a>
+      <a href="${SDK_REFERENCE_URL}">SDK API reference</a>
       <a href="${DOCS_URL}/instrumenting">Instrumenting</a>
+      <a href="${PRODUCTION_OPS_URL}">Production ops</a>
       <a href="${DOCS_URL}/comparison">Comparison</a>
     </nav>
     <nav class="footer-nav" aria-label="Packages">

@@ -3,7 +3,7 @@ export type QA = { q: string; a: string };
 export const FAQS: QA[] = [
   {
     q: "What is obs-unified?",
-    a: "obs-unified is an open-source, self-hosted observability platform. A single collector service ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays, stores them in Cloudflare D1/R2 or Postgres/S3-compatible storage, and serves a dashboard for querying and correlating them.",
+    a: "obs-unified is an open-source, self-hosted observability platform. A single collector service ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, and rrweb session replays, stores them in Cloudflare D1/R2 or Postgres/S3-compatible storage, and serves a dashboard for querying and correlating them. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",
@@ -15,7 +15,7 @@ export const FAQS: QA[] = [
   },
   {
     q: "When do I outgrow D1, and what's the upgrade path?",
-    a: "D1 is the default low-ops path for small and medium deployments. The practical ceiling depends on event volume, cardinality, and retention, so heavy installs should move to the Node collector with Postgres plus S3-compatible blob storage before D1 becomes the bottleneck.",
+    a: "D1 is the default low-ops hosted path for small and medium deployments. The practical ceiling depends on event volume, cardinality, and retention, so heavy installs should move to the Node collector with Postgres plus S3-compatible blob storage before D1 becomes the bottleneck.",
   },
   {
     q: "How does it handle PII and GDPR?",
@@ -27,7 +27,7 @@ export const FAQS: QA[] = [
   },
   {
     q: "Can I migrate from Datadog, Sentry, or PostHog?",
-    a: "Sentry and PostHog have step-by-step migration guides in the docs covering concept mapping, SDK swap, and identity backfill via /v1/identify. For Datadog, OTLP-native ingest accepts the standard OpenTelemetry SDK over OTLP HTTP, so traces and logs are a configuration change; a dedicated walkthrough is coming.",
+    a: "Sentry, PostHog, Honeycomb, and older @obs/* package migrations are covered in the docs. For Datadog, OTLP-native ingest accepts the standard OpenTelemetry SDK over OTLP HTTP, so traces and logs are usually a configuration change; a dedicated walkthrough is tracked separately.",
   },
   {
     q: "Does it work with my existing OpenTelemetry SDK?",

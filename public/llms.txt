@@ -16,6 +16,8 @@ stack. MIT-licensed.
 
 - Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://docs.obsunified.com/docs
+- Getting started: https://docs.obsunified.com/docs/getting-started
+- Examples: https://docs.obsunified.com/docs/examples
 - License: MIT
 
 ## Signal types
@@ -52,8 +54,26 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 
 ## Install
 
+The fastest first run is the all-in-one local Docker image:
+
+```bash
+pnpm local:image
+pnpm local:run
+```
+
+The editable local repo path is:
+
+```bash
+pnpm install
+pnpm run setup
+pnpm run dev
+```
+
 Language-specific examples and GitHub Packages auth setup are maintained in the SDK docs:
 https://docs.obsunified.com/docs/sdks
+
+The SDK API cheat sheet is at:
+https://docs.obsunified.com/docs/sdk-reference
 
 ```typescript
 import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
@@ -69,7 +89,8 @@ initObservability({
 
 - **What is obs-unified?** A self-hosted, open-source observability platform
   unifying traces, logs, AI calls, usage, replays, alerts, and user profiles
-  in one collector.
+  in one collector. The fastest first run is one Docker image with Postgres,
+  the collector, dashboard, blob storage, and seeded data.
 - **How is it different from Datadog/Sentry/PostHog?** It runs on your own
   infrastructure with no vendor in the data path, and consolidates signal
   types that those tools split across separate products. Every detail page
@@ -79,7 +100,7 @@ initObservability({
   you run it on (Cloudflare Workers + D1 + R2, or Node with Postgres + S3).
 - **What's the data retention model?** Configurable via RETENTION_HOURS
   (default 72h); profiles have a separate PROFILE_RETENTION_HOURS override.
-- **When do I outgrow D1?** D1 is the default low-ops path for small and
+- **When do I outgrow D1?** D1 is the default low-ops hosted path for small and
   medium deployments. Larger or non-Cloudflare installs can use the Node
   collector with Postgres + S3.
 - **Does it support SSO / multi-user?** Not today — ingest API key + single
