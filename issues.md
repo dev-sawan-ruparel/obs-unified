@@ -112,10 +112,9 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Location:** `packages/dashboard/src/dashboards/AIDashboard.tsx`.
   * **Resolution:** Split the dashboard into a 22-line tab coordinator plus `dashboards/ai/Toolbar.tsx`, `SpansView.tsx`, `SessionsView.tsx`, `ConversationPane.tsx`, and shared AI presentation helpers.
 
-- [ ] **Identity Index owns indexing, scoring, merge logic, and persistence**
-  * **Location:** `packages/obs-collector/src/lib/identity-index.ts` (~1027 lines after extracting reference types and row mappers).
-  * **Risk:** Medium. Identity correctness is hard to review because matching rules, DB access, and result shaping live together.
-  * **Next Action:** Split into repository/query helpers, scoring/ranking, merge-policy logic, and public orchestration.
+- [x] **Identity Index owns indexing, scoring, merge logic, and persistence**
+  * **Location:** `packages/obs-collector/src/lib/identity-index.ts`.
+  * **Resolution:** Reduced `IdentityIndex` to a 53-line public facade and moved session/trace/interaction lookups, user expansion, action graph expansion, and shared constants into focused modules under `packages/obs-collector/src/lib/identity-index/`.
 
 - [x] **Action Graph Renderer mixes layout, rendering, interaction, and tooltip state**
   * **Location:** `packages/dashboard/src/components/ActionGraphRenderer.tsx`.

@@ -1,0 +1,639 @@
+import type { SqlDb } from "../sql-db";
+import { FETCH_LIMIT } from "./constants";
+import {
+	mapAction,
+	mapAgentRun,
+	mapAi,
+	mapArtifact,
+	mapEvalResult,
+	mapLog,
+	mapRetrievalEvent,
+	mapSpan,
+	mapToolCall,
+} from "./mappers";
+import type { EntityManifestExtended, ReplayRow } from "./types";
+
+export async function manifestByAction(
+	db: SqlDb,
+	projectId: string,
+	actionId: string,
+): Promise<EntityManifestExtended> {
+	const action = await db
+		.prepare(`SELECT * FROM actions WHERE project_id = ? AND id = ? LIMIT 1`)
+		.bind(projectId, actionId)
+		.first<{
+			id: string;
+			project_id: string;
+			root_action_id: string;
+			caused_by_action_id: string | null;
+			actor_type: string;
+			actor_id: string | null;
+			action_kind: string;
+			name: string | null;
+			status: string;
+			started_at: string;
+			ended_at: string | null;
+			duration_ms: number | null;
+			trace_id: string | null;
+			span_id: string | null;
+			session_id: string | null;
+			interaction_id: string | null;
+			user_id: string | null;
+			agent_run_id: string | null;
+			step_id: string | null;
+			tool_call_id: string | null;
+			prompt_version: string | null;
+			model_name: string | null;
+			provider: string | null;
+			total_cost_usd: number | null;
+			attrs_json: string | null;
+		}>();
+
+	if (!action) {
+		return {
+			spans: [],
+			logs: [],
+			usageEvents: [],
+			aiCalls: [],
+			replay: null,
+			actions: [],
+			agentRuns: [],
+			toolCalls: [],
+			retrievalEvents: [],
+			evalResults: [],
+			artifacts: [],
+		};
+	}
+
+	// Retrieve all actions that share the same root_action_id
+	const actionsRes = await db
+		.prepare(
+			`SELECT * FROM actions
+				WHERE project_id = ? AND root_action_id = ?
+				ORDER BY started_at ASC LIMIT ?`,
+		)
+		.bind(projectId, action.root_action_id, FETCH_LIMIT)
+		.all<Parameters<typeof mapAction>[0]>();
+
+	const matchedActions = actionsRes.results;
+	const actionIds = matchedActions.map((a) => a.id);
+
+	// Execute child queries in parallel
+	const placeholders = actionIds.map(() => "?").join(", ");
+	const [agentRuns, toolCalls, retrievalEvents, evalResults, artifacts] =
+		await Promise.all([
+			db
+				.prepare(
+					`SELECT * FROM agent_runs
+					WHERE project_id = ? AND id = ?
+					LIMIT 1`,
+				)
+				.bind(projectId, action.root_action_id)
+				.all<Parameters<typeof mapAgentRun>[0]>(),
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM tool_calls
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapToolCall>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM retrieval_events
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapRetrievalEvent>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM eval_results
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapEvalResult>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM artifacts
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapArtifact>[0]>()
+				: { results: [] },
+		]);
+
+	// Extract unique trace IDs and session IDs
+	const traceIds = Array.from(
+		new Set(
+			matchedActions
+				.map((a) => a.trace_id)
+				.filter((t): t is string => Boolean(t)),
+		),
+	);
+	const sessionIds = Array.from(
+		new Set(
+			matchedActions
+				.map((a) => a.session_id)
+				.filter((s): s is string => Boolean(s)),
+		),
+	);
+
+	let spansRes = { results: [] as Parameters<typeof mapSpan>[0][] };
+	let logsRes = { results: [] as Parameters<typeof mapLog>[0][] };
+	let aiCallsRes = { results: [] as Parameters<typeof mapAi>[0][] };
+	let replayRes: ReplayRow | null = null;
+
+	if (traceIds.length > 0) {
+		const tracePlaceholders = traceIds.map(() => "?").join(", ");
+		const [s, l, a] = await Promise.all([
+			db
+				.prepare(
+					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
+							status_code, status_message, start_time, duration_ms, interaction_id
+						FROM telemetry_spans
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY start_time ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapSpan>[0]>(),
+			db
+				.prepare(
+					`SELECT log_id, trace_id, span_id, service_name, logger_name,
+							severity, message, occurred_at, interaction_id, session_id
+						FROM logs
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY occurred_at ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapLog>[0]>(),
+			db
+				.prepare(
+					`SELECT call_id, trace_id, model_name, provider, total_cost_usd,
+							occurred_at, interaction_id, session_id
+						FROM ai_calls
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY occurred_at ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapAi>[0]>(),
+		]);
+		spansRes = s;
+		logsRes = l;
+		aiCallsRes = a;
+	}
+
+	if (sessionIds.length > 0) {
+		const sessionPlaceholders = sessionIds.map(() => "?").join(", ");
+		replayRes = await db
+			.prepare(
+				`SELECT session_id, first_chunk_at, last_chunk_at, chunk_count, events_count
+					FROM session_replay_metadata
+					WHERE session_id IN (${sessionPlaceholders})
+					ORDER BY last_chunk_at DESC LIMIT 1`,
+			)
+			.bind(...sessionIds)
+			.first<{
+				session_id: string;
+				first_chunk_at: string;
+				last_chunk_at: string;
+				chunk_count: number;
+				events_count: number;
+			}>();
+	}
+
+	return {
+		spans: spansRes.results.map(mapSpan),
+		logs: logsRes.results.map(mapLog),
+		usageEvents: [],
+		aiCalls: aiCallsRes.results.map(mapAi),
+		replay: replayRes
+			? {
+					sessionId: replayRes.session_id,
+					firstChunkAt: replayRes.first_chunk_at,
+					lastChunkAt: replayRes.last_chunk_at,
+					chunkCount: replayRes.chunk_count,
+					eventsCount: replayRes.events_count,
+				}
+			: null,
+		actions: matchedActions.map(mapAction),
+		agentRuns: agentRuns.results.map(mapAgentRun),
+		toolCalls: toolCalls.results.map(mapToolCall),
+		retrievalEvents: retrievalEvents.results.map(mapRetrievalEvent),
+		evalResults: evalResults.results.map(mapEvalResult),
+		artifacts: artifacts.results.map(mapArtifact),
+	};
+}
+
+export async function manifestByAgentRun(
+	db: SqlDb,
+	projectId: string,
+	agentRunId: string,
+): Promise<EntityManifestExtended> {
+	const run = await db
+		.prepare(`SELECT * FROM agent_runs WHERE project_id = ? AND id = ? LIMIT 1`)
+		.bind(projectId, agentRunId)
+		.first<{
+			id: string;
+			project_id: string;
+			agent_id: string;
+			agent_name: string;
+			agent_version: string;
+			goal: string | null;
+			outcome: string | null;
+			autonomy_level: string;
+			status: string;
+			error_message: string | null;
+			total_cost_usd: number | null;
+			total_duration_ms: number | null;
+			metadata_json: string | null;
+		}>();
+
+	if (!run) {
+		return {
+			spans: [],
+			logs: [],
+			usageEvents: [],
+			aiCalls: [],
+			replay: null,
+			actions: [],
+			agentRuns: [],
+			toolCalls: [],
+			retrievalEvents: [],
+			evalResults: [],
+			artifacts: [],
+		};
+	}
+
+	const actionsRes = await db
+		.prepare(
+			`SELECT * FROM actions
+				WHERE project_id = ? AND (root_action_id = ? OR agent_run_id = ?)
+				ORDER BY started_at ASC LIMIT ?`,
+		)
+		.bind(projectId, agentRunId, agentRunId, FETCH_LIMIT)
+		.all<Parameters<typeof mapAction>[0]>();
+
+	const matchedActions = actionsRes.results;
+	const actionIds = matchedActions.map((a) => a.id);
+
+	// Execute child queries in parallel
+	const placeholders = actionIds.map(() => "?").join(", ");
+	const [agentRuns, toolCalls, retrievalEvents, evalResults, artifacts] =
+		await Promise.all([
+			db
+				.prepare(
+					`SELECT * FROM agent_runs
+					WHERE project_id = ? AND id = ?
+					LIMIT 1`,
+				)
+				.bind(projectId, agentRunId)
+				.all<Parameters<typeof mapAgentRun>[0]>(),
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM tool_calls
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapToolCall>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM retrieval_events
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapRetrievalEvent>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM eval_results
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapEvalResult>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM artifacts
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapArtifact>[0]>()
+				: { results: [] },
+		]);
+
+	// Extract unique trace IDs and session IDs
+	const traceIds = Array.from(
+		new Set(
+			matchedActions
+				.map((a) => a.trace_id)
+				.filter((t): t is string => Boolean(t)),
+		),
+	);
+	const sessionIds = Array.from(
+		new Set(
+			matchedActions
+				.map((a) => a.session_id)
+				.filter((s): s is string => Boolean(s)),
+		),
+	);
+
+	let spansRes = { results: [] as Parameters<typeof mapSpan>[0][] };
+	let logsRes = { results: [] as Parameters<typeof mapLog>[0][] };
+	let aiCallsRes = { results: [] as Parameters<typeof mapAi>[0][] };
+	let replayRes: ReplayRow | null = null;
+
+	if (traceIds.length > 0) {
+		const tracePlaceholders = traceIds.map(() => "?").join(", ");
+		const [s, l, a] = await Promise.all([
+			db
+				.prepare(
+					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
+							status_code, status_message, start_time, duration_ms, interaction_id
+						FROM telemetry_spans
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY start_time ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapSpan>[0]>(),
+			db
+				.prepare(
+					`SELECT log_id, trace_id, span_id, service_name, logger_name,
+							severity, message, occurred_at, interaction_id, session_id
+						FROM logs
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY occurred_at ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapLog>[0]>(),
+			db
+				.prepare(
+					`SELECT call_id, trace_id, model_name, provider, total_cost_usd,
+							occurred_at, interaction_id, session_id
+						FROM ai_calls
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY occurred_at ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapAi>[0]>(),
+		]);
+		spansRes = s;
+		logsRes = l;
+		aiCallsRes = a;
+	}
+
+	if (sessionIds.length > 0) {
+		const sessionPlaceholders = sessionIds.map(() => "?").join(", ");
+		replayRes = await db
+			.prepare(
+				`SELECT session_id, first_chunk_at, last_chunk_at, chunk_count, events_count
+					FROM session_replay_metadata
+					WHERE session_id IN (${sessionPlaceholders})
+					ORDER BY last_chunk_at DESC LIMIT 1`,
+			)
+			.bind(...sessionIds)
+			.first<{
+				session_id: string;
+				first_chunk_at: string;
+				last_chunk_at: string;
+				chunk_count: number;
+				events_count: number;
+			}>();
+	}
+
+	return {
+		spans: spansRes.results.map(mapSpan),
+		logs: logsRes.results.map(mapLog),
+		usageEvents: [],
+		aiCalls: aiCallsRes.results.map(mapAi),
+		replay: replayRes
+			? {
+					sessionId: replayRes.session_id,
+					firstChunkAt: replayRes.first_chunk_at,
+					lastChunkAt: replayRes.last_chunk_at,
+					chunkCount: replayRes.chunk_count,
+					eventsCount: replayRes.events_count,
+				}
+			: null,
+		actions: matchedActions.map(mapAction),
+		agentRuns: agentRuns.results.map(mapAgentRun),
+		toolCalls: toolCalls.results.map(mapToolCall),
+		retrievalEvents: retrievalEvents.results.map(mapRetrievalEvent),
+		evalResults: evalResults.results.map(mapEvalResult),
+		artifacts: artifacts.results.map(mapArtifact),
+	};
+}
+
+export async function manifestByActor(
+	db: SqlDb,
+	projectId: string,
+	actorType: string,
+	actorId: string,
+): Promise<EntityManifestExtended> {
+	const actionsRes = await db
+		.prepare(
+			`SELECT * FROM actions
+				WHERE project_id = ? AND actor_type = ? AND actor_id = ?
+				ORDER BY started_at DESC LIMIT ?`,
+		)
+		.bind(projectId, actorType, actorId, FETCH_LIMIT)
+		.all<Parameters<typeof mapAction>[0]>();
+
+	const matchedActions = actionsRes.results;
+	if (matchedActions.length === 0) {
+		return {
+			spans: [],
+			logs: [],
+			usageEvents: [],
+			aiCalls: [],
+			replay: null,
+			actions: [],
+			agentRuns: [],
+			toolCalls: [],
+			retrievalEvents: [],
+			evalResults: [],
+			artifacts: [],
+		};
+	}
+
+	const actionIds = matchedActions.map((a) => a.id);
+	const rootActionIds = Array.from(
+		new Set(matchedActions.map((a) => a.root_action_id)),
+	);
+
+	// Execute child queries in parallel
+	const placeholders = actionIds.map(() => "?").join(", ");
+	const rootPlaceholders = rootActionIds.map(() => "?").join(", ");
+	const [agentRuns, toolCalls, retrievalEvents, evalResults, artifacts] =
+		await Promise.all([
+			rootActionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM agent_runs
+							WHERE project_id = ? AND id IN (${rootPlaceholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...rootActionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapAgentRun>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM tool_calls
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapToolCall>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM retrieval_events
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapRetrievalEvent>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM eval_results
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapEvalResult>[0]>()
+				: { results: [] },
+			actionIds.length > 0
+				? db
+						.prepare(
+							`SELECT * FROM artifacts
+							WHERE project_id = ? AND action_id IN (${placeholders})
+							LIMIT ?`,
+						)
+						.bind(projectId, ...actionIds, FETCH_LIMIT)
+						.all<Parameters<typeof mapArtifact>[0]>()
+				: { results: [] },
+		]);
+
+	// Extract unique trace IDs and session IDs
+	const traceIds = Array.from(
+		new Set(
+			matchedActions
+				.map((a) => a.trace_id)
+				.filter((t): t is string => Boolean(t)),
+		),
+	);
+	const sessionIds = Array.from(
+		new Set(
+			matchedActions
+				.map((a) => a.session_id)
+				.filter((s): s is string => Boolean(s)),
+		),
+	);
+
+	let spansRes = { results: [] as Parameters<typeof mapSpan>[0][] };
+	let logsRes = { results: [] as Parameters<typeof mapLog>[0][] };
+	let aiCallsRes = { results: [] as Parameters<typeof mapAi>[0][] };
+	let replayRes: ReplayRow | null = null;
+
+	if (traceIds.length > 0) {
+		const tracePlaceholders = traceIds.map(() => "?").join(", ");
+		const [s, l, a] = await Promise.all([
+			db
+				.prepare(
+					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
+							status_code, status_message, start_time, duration_ms, interaction_id
+						FROM telemetry_spans
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY start_time ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapSpan>[0]>(),
+			db
+				.prepare(
+					`SELECT log_id, trace_id, span_id, service_name, logger_name,
+							severity, message, occurred_at, interaction_id, session_id
+						FROM logs
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY occurred_at ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapLog>[0]>(),
+			db
+				.prepare(
+					`SELECT call_id, trace_id, model_name, provider, total_cost_usd,
+							occurred_at, interaction_id, session_id
+						FROM ai_calls
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY occurred_at ASC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapAi>[0]>(),
+		]);
+		spansRes = s;
+		logsRes = l;
+		aiCallsRes = a;
+	}
+
+	if (sessionIds.length > 0) {
+		const sessionPlaceholders = sessionIds.map(() => "?").join(", ");
+		replayRes = await db
+			.prepare(
+				`SELECT session_id, first_chunk_at, last_chunk_at, chunk_count, events_count
+					FROM session_replay_metadata
+					WHERE session_id IN (${sessionPlaceholders})
+					ORDER BY last_chunk_at DESC LIMIT 1`,
+			)
+			.bind(...sessionIds)
+			.first<{
+				session_id: string;
+				first_chunk_at: string;
+				last_chunk_at: string;
+				chunk_count: number;
+				events_count: number;
+			}>();
+	}
+
+	return {
+		spans: spansRes.results.map(mapSpan),
+		logs: logsRes.results.map(mapLog),
+		usageEvents: [],
+		aiCalls: aiCallsRes.results.map(mapAi),
+		replay: replayRes
+			? {
+					sessionId: replayRes.session_id,
+					firstChunkAt: replayRes.first_chunk_at,
+					lastChunkAt: replayRes.last_chunk_at,
+					chunkCount: replayRes.chunk_count,
+					eventsCount: replayRes.events_count,
+				}
+			: null,
+		actions: matchedActions.map(mapAction),
+		agentRuns: agentRuns.results.map(mapAgentRun),
+		toolCalls: toolCalls.results.map(mapToolCall),
+		retrievalEvents: retrievalEvents.results.map(mapRetrievalEvent),
+		evalResults: evalResults.results.map(mapEvalResult),
+		artifacts: artifacts.results.map(mapArtifact),
+	};
+}
