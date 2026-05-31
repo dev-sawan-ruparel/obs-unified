@@ -8,6 +8,7 @@ copy into an existing app.
 
 | Goal | Start here | Type |
 | --- | --- | --- |
+| First run from a fresh checkout | [`docs/getting-started.md`](./getting-started.md) | Guide |
 | Try obs-unified with realistic traffic | [`demo/`](../demo/) | Runnable demo |
 | Scaffold a new React + Hono app | [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/) via `obs-unified create` | Runnable template |
 | Add obs-unified to an existing React + Hono app | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) | Walkthrough |

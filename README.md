@@ -36,6 +36,10 @@ authentication details and the Go/Rust install paths.
 
 ## Quick Start
 
+If this is your first run, start with
+[docs/getting-started.md](docs/getting-started.md). It covers the fastest local
+path, the realistic Docker demo path, and how to instrument your own app.
+
 ### Instrument an existing app
 
 Start by choosing your language and framework, then follow the matching
