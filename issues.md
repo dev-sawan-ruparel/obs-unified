@@ -156,10 +156,9 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Location:** `apps/web/src/App.tsx`.
   * **Resolution:** Split hash routing, navigation config, persisted UI preferences, lazy dashboard module registry, and Playground into `apps/web/src/app/*`, reducing `App.tsx` to the shell and route rendering.
 
-- [ ] **AI store combines AI session, trace, evaluation, and analytics queries**
-  * **Location:** `packages/obs-collector/src/lib/ai-store.ts` (~634 lines after extracting row types and shared cost/attribute helpers).
-  * **Risk:** Medium. AI query correctness is hard to review because several data products share one repository.
-  * **Next Action:** Split AI sessions, spans/traces, evaluations, and derived analytics into focused query modules.
+- [x] **AI store combines AI session, trace, evaluation, and analytics queries**
+  * **Location:** `packages/obs-collector/src/lib/ai-store.ts`.
+  * **Resolution:** Reduced `AIStore` to a 77-line facade and moved AI calls, span overviews, sessions, evaluations, and retention cleanup into focused modules under `packages/obs-collector/src/lib/ai-store/`.
 
 - [x] **Analytics usage tracker owns event capture, batching, replay lifecycle, and session state**
   * **Location:** `packages/analytics-sdk/src/usage-tracker.ts`.
