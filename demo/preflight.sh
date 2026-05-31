@@ -7,6 +7,10 @@ MIN_DOCKER_MEM_BYTES="${MIN_DOCKER_MEM_BYTES:-6442450944}"
 
 fail=0
 
+format_gib() {
+	awk -v bytes="$1" 'BEGIN { printf "%.1f GiB", bytes / 1024 / 1024 / 1024 }'
+}
+
 if ! command -v docker >/dev/null 2>&1; then
 	echo "✗ docker is not installed or not on PATH"
 	exit 1
@@ -14,10 +18,15 @@ fi
 
 docker_mem="$(docker info --format '{{.MemTotal}}' 2>/dev/null || echo 0)"
 if [ "${docker_mem:-0}" -lt "$MIN_DOCKER_MEM_BYTES" ]; then
-	echo "✗ Docker memory is ${docker_mem} bytes; Astronomy Shop validation needs at least ${MIN_DOCKER_MEM_BYTES} bytes"
+	echo "✗ Docker memory is $(format_gib "$docker_mem"); Astronomy Shop validation needs at least $(format_gib "$MIN_DOCKER_MEM_BYTES")"
+	if docker context show 2>/dev/null | grep -qx 'colima'; then
+		echo "  Active Docker context is Colima. Try: colima stop && colima start --memory 6 --cpu 4"
+	else
+		echo "  Increase Docker Desktop/engine memory before running pnpm demo:up."
+	fi
 	fail=1
 else
-	echo "✓ Docker memory is ${docker_mem} bytes"
+	echo "✓ Docker memory is $(format_gib "$docker_mem")"
 fi
 
 if docker compose -f demo/upstream/compose.yaml config --services >/dev/null 2>&1; then
@@ -30,7 +39,8 @@ fi
 if env | grep -Eq '^(OPENAI_API_KEY|ANTHROPIC_API_KEY|GOOGLE_API_KEY|GEMINI_API_KEY)='; then
 	echo "✓ at least one LLM provider key is present for Scenario B"
 else
-	echo "✗ no LLM provider key found; set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or GEMINI_API_KEY"
+	echo "✗ no LLM provider key found for Scenario B; set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or GEMINI_API_KEY"
+	echo "  Scenario A does not need an LLM provider key, but Scenario B will be known-empty without one."
 	fail=1
 fi
 

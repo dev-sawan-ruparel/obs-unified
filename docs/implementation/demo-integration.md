@@ -54,13 +54,13 @@ LLM cost spike scenario — needs `@obs-unified/telemetry-sdk`'s `trackAICall` w
 
 ## 6.6 — Playwright matrix
 
-`apps/web/tests/connected-rail.spec.ts` (skeleton in this repo at `tests/scaffold/connected-rail.spec.ts`) walks the any-to-any matrix from `docs/ux/click-to-cpu.md`. Run with:
+`apps/web/tests/connected-rail.spec.ts` walks the any-to-any matrix from `docs/ux/click-to-cpu.md`. The suite is gated behind `E2E_LIVE_STACK=1` so ordinary Playwright runs skip before dashboard login/setup. Run the live matrix with:
 
 ```bash
-DASHBOARD_PASSWORD=e2e-test-pass pnpm --filter @obs-demo/web test:e2e
+E2E_LIVE_STACK=1 DASHBOARD_PASSWORD=e2e-test-pass pnpm --filter @obs-demo/web test:e2e:all -- connected-rail
 ```
 
-The current scaffold marks every cell as `it.skip` — flip them to `it` as each cell is verified manually first.
+Collector-side deterministic coverage for Scenario A and Scenario B lives in `packages/obs-collector/src/plugins/connected-routes.test.ts`; it verifies the graph pivots while full live validation is blocked by local Docker/provider prerequisites.
 
 ## 6.7 — Comparison doc refresh
 

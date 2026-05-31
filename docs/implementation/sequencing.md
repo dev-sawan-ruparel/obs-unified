@@ -123,12 +123,12 @@ Documentation-heavy. Mostly unblocks itself once Phase 4 ships off-CPU profile r
 
 The demo currently uses native OTel SDKs. Several RFC acceptance criteria need our SDKs running in the demo. Land last so we validate against the assembled stack, not against synthetic harnesses.
 
-- [ ] **6.1** Replace OTel browser SDK in Astronomy Shop frontend (`demo/upstream/...`) with `@obs-unified/analytics-sdk`. Wires up `interaction_id`, RUM events, replay. *Recipe documented in `docs/implementation/demo-integration.md`; operator-side run pending.*
-- [ ] **6.2** Add `enableProcessMetrics()` to one or two demo backend services (frontend-svc, payment-svc — the ones the UX scenarios star). *Recipe documented; operator-side run pending.*
-- [ ] **6.3** Optional: configure `@datadog/pprof` via `startProfiler` on those two services so the demo has profiles to drill into. *Recipe documented; operator-side run pending.*
-- [ ] **6.4** Run UX Scenario A (alert → root cause) end-to-end. Capture a screencast. *Requires 6.1-6.3 first.*
-- [ ] **6.5** Run UX Scenario B (LLM cost spike) end-to-end. Capture a screencast. *Requires 6.1-6.3 first.*
-- [x] **6.6** Wire the any-to-any matrix into a Playwright suite (RFC 0003 acceptance criterion 3). *Scaffold landed at `apps/web/tests/connected-rail.spec.ts`; cells flip from `test.skip` to active as each path is verified during 6.4-6.5.*
+- [x] **6.1** Replace OTel browser SDK in Astronomy Shop frontend (`demo/upstream/...`) with `@obs-unified/analytics-sdk`. Wires up `interaction_id`, RUM events, replay. Automated by `pnpm demo:setup`.
+- [x] **6.2** Add `enableProcessMetrics()` to one or two demo backend services (frontend-svc, payment-svc — the ones the UX scenarios star). Automated by `pnpm demo:setup`.
+- [x] **6.3** Optional: configure `@datadog/pprof` via `startProfiler` on those two services so the demo has profiles to drill into. Automated by `pnpm demo:setup`.
+- [ ] **6.4** Run UX Scenario A (alert → root cause) end-to-end. Capture a screencast. *Local graph contract coverage exists in `connected-routes.test.ts`; full Astronomy Shop validation still needs a Docker runtime with ~6 GB RAM.*
+- [ ] **6.5** Run UX Scenario B (LLM cost spike) end-to-end. Capture a screencast. *Local graph contract coverage exists in `connected-routes.test.ts`; full Astronomy Shop validation still needs ~6 GB Docker RAM plus an LLM provider key.*
+- [x] **6.6** Wire the any-to-any matrix into a Playwright suite (RFC 0003 acceptance criterion 3). *Scaffold landed at `apps/web/tests/connected-rail.spec.ts`; the suite is gated behind `E2E_LIVE_STACK=1` and skips cleanly in local non-live runs.*
 - [x] **6.7** Update `docs/comparison/uptrace.md` with the now-shipped capabilities — remove the "❌ planned" markers that became "✅."
 
 **Exit criteria:** Both UX scenarios reproducible from a fresh install. Playwright matrix green. Comparison doc reflects reality.
