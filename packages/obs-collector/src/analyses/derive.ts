@@ -294,12 +294,12 @@ const makeServiceLatencyP95 = (
 		),
 		cur_p95 AS (
 			SELECT duration_ms FROM cur
-			WHERE rn = MAX(1, MAX(1, (95 * n + 99) / 100))
+			WHERE rn = MAX(1, (95 * n + 99) / 100)
 			LIMIT 1
 		),
 		base_p95 AS (
 			SELECT duration_ms FROM base
-			WHERE rn = MAX(1, MAX(1, (95 * n + 99) / 100))
+			WHERE rn = MAX(1, (95 * n + 99) / 100)
 			LIMIT 1
 		),
 		cur_val  AS (SELECT (SELECT duration_ms FROM cur_p95)  AS v),
@@ -465,7 +465,7 @@ const makeMessagingLag = (
 		),
 		p95_row AS (
 			SELECT lag_seconds FROM ordered
-			WHERE rn = MAX(1, MAX(1, (95 * n + 99) / 100))
+			WHERE rn = MAX(1, (95 * n + 99) / 100)
 			LIMIT 1
 		),
 		stats AS (

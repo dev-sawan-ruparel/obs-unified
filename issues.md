@@ -6,6 +6,13 @@ This document is the single, unified source of truth for all codebase issues, co
 - `[ ]` **Open** — Backlog item that needs to be addressed.
 - `[x]` **Completed** — Fully implemented, verified healthy, and merged.
 
+### Aggregation Verification
+- **Verified on:** 2026-05-31.
+- **Current tracker of record:** this file. The prior tracker docs were consolidated and removed in commit `fdfb77e` (`docs: aggregate and consolidate all codebase trackers into issues.md`).
+- **Source documents folded into this tracker:** `FUNCTIONAL_CODE_SMELLS.md`, `NON_FUNCTIONAL_CODE_SMELLS.md`, the supplemental production-readiness shortcut list, `docs/implementation/shortcuts.md`, Phase 6 demo validation notes, and setup/CI TODO work.
+- **Verification method:** checked `issues.md` against the deleted source docs via `git show HEAD^:<doc>` and spot-verified stale statuses against current code.
+- **Coverage note:** the initial consolidated draft was mostly an aggregation, but a few stale open items and omitted lower-level findings remained. This pass moves verified completions to resolved sections and adds explicit source-tracker carryovers below.
+
 ---
 
 ## ── P0: SECURITY & TENANT ISOLATION ──
@@ -41,12 +48,6 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Description:** The `getOverview` and `getIssueOverview` queries cap spans at `traceLimit * 50` and then aggregate parent-child traces in memory.
   * **Risk:** High. Boundary traces that exceed the arbitrary span limit lose spans, causing wrong root span identification, wrong span/error counts, and broken p95 latency aggregations.
   * **Next Action:** Re-architect trace listing to aggregate traces at the database layer (via trace headers or SQL group by), then paginate traces rather than raw spans.
-
-- [ ] **Off-by-One Floor Math in Percentile CTE Calculations**
-  * **Location:** [`packages/obs-collector/src/analyses/tier0.ts:283`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/analyses/tier0.ts#L283) (also in `derive.ts`, `investigations.ts`)
-  * **Description:** SQLite CTE percentile calculations select ranks using `rn = MAX(1, CAST(0.95 * n AS INTEGER))` (integer floor division).
-  * **Risk:** High. Floor division understates p95/p99 latency metrics on small-to-medium datasets, which suppresses warning and critical alerts.
-  * **Next Action:** Standardize all SQL analyses on nearest-rank ceil formulas (e.g. `(95 * n + 99) / 100`) and add small-window test coverage.
 
 - [ ] **Postgres Adapter Rewrites SQLite Queries dynamically via Regular Expressions**
   * **Location:** [`packages/obs-collector/src/lib/sql-db-postgres.ts`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/lib/sql-db-postgres.ts)
@@ -103,6 +104,8 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Next Action:** Map timeline rows using guaranteed unique keys (e.g. index-composite or generated IDs).
 
 ### Resolved Functional Issues
+- [x] **Off-by-One Floor Math in Percentile CTE Calculations**
+  * *Resolution:* Reconciled and fixed in `tier0.ts` and `derive.ts` by replacing `CAST(0.99 * n AS INTEGER)` and simplified double `MAX(1, MAX(1, ...))` wrappers with standard `(99 * n + 99) / 100` nearest-rank ceil formulas.
 - [x] **Missing SQLite GROUP BY in getServiceOperations**
   * *Resolution:* Removed SQLite aggregates and perform full grouping and aggregation in JavaScript.
 - [x] **Slow Sessions filter understating loadTimeMs properties**
@@ -144,7 +147,7 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Next Action:** Use atomic ref-counters rather than boolean latches to track monkey-patch instances safely.
 
 - [ ] **Standalone Collector SIGTERM abrupt Process termination**
-  * **Location:** [`apps/collector-node/src/server.ts:103`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/collector-node/src/server.ts#L103)
+  * **Location:** [`apps/collector-node/src/server.ts:103`](file:///Users/sawan/projects/obs-unified/apps/collector-node/src/server.ts#L103)
   * **Description:** On SIGTERM, the standalone node server closes the Postgres connection pool and terminates via `process.exit(0)` without closing the HTTP server handle.
   * **Risk:** Medium. Aborts active, in-flight requests during rolling deployments.
   * **Next Action:** Capture the HTTP server handle and trigger `server.close()` to drain active requests gracefully with a deadline before database connection teardowns.
@@ -189,6 +192,36 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Description:** The CPU sparkline averages fleet-wide service CPU data while the main tile headline metrics report the single busiest service.
   * **Risk:** Low/Medium. Dashboard visualization displays contradictory information.
   * **Next Action:** Align both queries to calculate averages or track peak utilization consistently.
+
+---
+
+## ── PHASE 6: DEMO INTEGRATION & VALIDATION ──
+
+### Open Issues (Active Reconciliation Backlog)
+- [ ] **6.1 - Replace OTel Browser SDK in Astronomy Shop Frontend**
+  * **Location:** [`demo/upstream/src/frontend`](file:///Users/sawan/projects/obs-unified/obs-unified/demo/upstream/src/frontend) & [`docs/implementation/demo-integration.md:5-51`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L5-L51)
+  * **Description:** Mount `@obs-unified/analytics-sdk` via a client wrapper (`ObsBootstrap`) inside `demo/upstream/src/frontend/src/main.tsx` using `VITE_OBS_COLLECTOR_URL` and `VITE_OBS_INGEST_KEY` to collect page views, interactions, and replay logs.
+  * **Why it's pending:** Needs execution of the SDK overlay recipe on the running docker-compose stack.
+
+- [ ] **6.2 - Add enableProcessMetrics() to Star backend services**
+  * **Location:** [`apps/obs-demo`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo) & [`docs/implementation/demo-integration.md:52-76`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L52-L76)
+  * **Description:** Wire the process metrics collector inside `frontend-svc` and `payment-svc` Node applications with `intervalMs: 30000` to feed the health dashboard's CPU sparklines.
+  * **Why it's pending:** Needs compose-env container restarts with `OBS_COLLECTOR_URL=http://host.docker.internal:8790`.
+
+- [ ] **6.3 - Wire dd-pprof Profiling in payment-svc**
+  * **Location:** [`apps/obs-demo`](file:///Users/sawan/projects/obs-unified/obs-unified/apps/obs-demo) & [`docs/implementation/demo-integration.md:77-101`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L77-L101)
+  * **Description:** Implement `setInterval` and `@datadog/pprof` in `payment-svc` to run time profiles, gzip pprof binaries, and invoke `pushProfile()` over 60s intervals with proper OTel trace_id labels.
+  * **Why it's pending:** Required for Scenario A's flame graph drill-down step to resolve real container bottlenecks.
+
+- [ ] **6.4 - Run and Verify UX Scenario A (Alert to Root Cause) End-to-End**
+  * **Location:** [`docs/implementation/demo-integration.md:102-113`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L102-L113)
+  * **Description:** Exercise the full click-to-CPU path: click around the demo shop, trigger an alert on the health page, open the trace, drill into the `PROFILES` badge, expand the span, and trace back to the click session via the Connected rail.
+  * **Why it's pending:** Blocked on completing steps 6.1 through 6.3 on the docker-compose stack.
+
+- [ ] **6.5 - Run and Verify UX Scenario B (LLM Cost Spike) End-to-End**
+  * **Location:** [`docs/implementation/demo-integration.md:114-117`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L114-L117)
+  * **Description:** Wire `@obs-unified/telemetry-sdk`'s `trackAICall` helper into the Astronomy Shop's Recommendation Service (or AI agent helper) to verify LLM cost aggregates and parent-child span associations.
+  * **Why it's pending:** Needs LLM provider key mapping and endpoint integration testing.
 
 ---
 
@@ -240,10 +273,10 @@ This document is the single, unified source of truth for all codebase issues, co
   * *Resolution:* Added `@biomejs/biome` to docs dependencies, created `lint` scripts, and integrated it into the docs CI pipeline.
 - [x] **Normalize pnpm ignored-build-script warnings**
   * *Resolution:* Committed frozen dependency approvals via `pnpm.onlyBuiltDependencies` for `esbuild` in both docs and presence.
-- [x] **Add shell linting for CI and Skill scripts**
+- [x] **Add shell lints for CI and Skill scripts**
   * *Resolution:* Added ShellCheck checks and PR validation workflows covering `/ci` and `/obs-unified-skills` scripts.
 - [x] **Create interaction fixture parity conformance test**
-  * *Resolution:* Added `packages/telemetry-sdk/src/interaction-fixture-parity.test.ts` to assert inline fixtures match the canonical JSON file.
+  * *Resolution:* Added `packages/telemetry-sdk/src/interaction-fixture-parity.test.ts` to assert inline fixtures match the conformance JSON.
 - [x] **Prune unused type-import warnings from dashboard builds**
   * *Resolution:* Removed stale `IngestKey` type imports, eliminating build warnings.
 - [x] **Inspect and reduce large demo web bundles**
