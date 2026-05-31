@@ -27,6 +27,7 @@ interface CachedShape {
 }
 
 const SHAPE_CACHE_TTL_MS = 5 * 60 * 1000;
+const SHAPE_CACHE_MAX_ENTRIES = 200;
 const shapeCache: Map<string, CachedShape> = new Map();
 
 const slug = (value: string): string =>
@@ -147,12 +148,24 @@ const getShape = async (
 	if (cached && cached.expiresAt > nowMs) return cached.shape;
 
 	const shape = await fetchShape(projectId, db);
+	pruneShapeCache(nowMs);
 	shapeCache.set(projectId, {
 		shape,
 		expiresAt: nowMs + SHAPE_CACHE_TTL_MS,
 	});
 	return shape;
 };
+
+function pruneShapeCache(nowMs: number): void {
+	for (const [key, entry] of shapeCache) {
+		if (entry.expiresAt <= nowMs) shapeCache.delete(key);
+	}
+	while (shapeCache.size >= SHAPE_CACHE_MAX_ENTRIES) {
+		const oldestKey = shapeCache.keys().next().value;
+		if (!oldestKey) break;
+		shapeCache.delete(oldestKey);
+	}
+}
 
 // ── Builders ────────────────────────────────────────────────────────────────
 

@@ -222,6 +222,33 @@ describe("decodeTraceRequest", () => {
 		expect(span?.spanId).toBe(SPAN_HEX);
 		expect(span?.parentSpanId).toBe("1122334455667788");
 	});
+
+	it("drops spans with malformed IDs instead of producing invalid hex", () => {
+		const body = JSON.stringify({
+			resourceSpans: [
+				{
+					scopeSpans: [
+						{
+							spans: [
+								{
+									traceId: "abc",
+									spanId: "def",
+									name: "bad-id",
+									startTimeUnixNano: "1700000000000000000",
+									endTimeUnixNano: "1700000000100000000",
+								},
+							],
+						},
+					],
+				},
+			],
+		});
+		const decoded = decodeTraceRequest({
+			bytes: new TextEncoder().encode(body),
+			wireFormat: "json",
+		});
+		expect(decoded.resourceSpans?.[0]?.scopeSpans?.[0]?.spans).toEqual([]);
+	});
 });
 
 // ── Logs ────────────────────────────────────────────────────────────────
@@ -302,6 +329,31 @@ describe("decodeLogsRequest", () => {
 		expect(log?.severity).toBe("ERROR");
 		expect(log?.message).toBe("boom");
 		expect(log?.traceId).toBe("112233445566778899aabbccddeeff00");
+	});
+
+	it("ignores malformed JSON timestamps instead of rejecting the batch", () => {
+		const body = JSON.stringify({
+			resourceLogs: [
+				{
+					scopeLogs: [
+						{
+							logRecords: [
+								{
+									timeUnixNano: "not-a-number",
+									body: { stringValue: "timestamp survives" },
+								},
+							],
+						},
+					],
+				},
+			],
+		});
+		const [log] = decodeLogsRequest({
+			bytes: new TextEncoder().encode(body),
+			wireFormat: "json",
+		});
+		expect(log?.message).toBe("timestamp survives");
+		expect(() => new Date(log?.occurredAt ?? "").toISOString()).not.toThrow();
 	});
 
 	it("maps severity number to LogSeverity buckets", () => {

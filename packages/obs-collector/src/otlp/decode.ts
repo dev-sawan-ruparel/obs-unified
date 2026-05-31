@@ -162,7 +162,11 @@ const rewriteHexIdsToBase64 = (node: JsonValue): void => {
 				isHex(value, 16)
 			) {
 				obj[key] = hexToBase64(value);
+			} else if (isTimestampKey(key) && !isUint64String(value)) {
+				delete obj[key];
 			}
+		} else if (isTimestampKey(key) && typeof value !== "number") {
+			delete obj[key];
 		} else {
 			rewriteHexIdsToBase64(value);
 		}
@@ -171,6 +175,14 @@ const rewriteHexIdsToBase64 = (node: JsonValue): void => {
 
 const isHex = (s: string, length: number): boolean =>
 	s.length === length && /^[0-9a-f]+$/i.test(s);
+
+const isTimestampKey = (key: string): boolean =>
+	key === "timeUnixNano" ||
+	key === "observedTimeUnixNano" ||
+	key === "startTimeUnixNano" ||
+	key === "endTimeUnixNano";
+
+const isUint64String = (s: string): boolean => /^\d+$/.test(s);
 
 const hexToBase64 = (hex: string): string => {
 	const bytes = new Uint8Array(hex.length / 2);
@@ -739,38 +751,51 @@ const adaptResourceSpans = (rs: ResourceSpans): OtlpResourceSpans => ({
 		scope: ss.scope
 			? { name: ss.scope.name, version: ss.scope.version }
 			: undefined,
-		spans: ss.spans.map((s) => ({
-			traceId: bytesToHex(s.traceId),
-			spanId: bytesToHex(s.spanId),
-			parentSpanId: s.parentSpanId.length
-				? bytesToHex(s.parentSpanId)
-				: undefined,
-			traceState: s.traceState || undefined,
-			name: s.name,
-			kind: s.kind,
-			startTimeUnixNano: bigintToString(s.startTimeUnixNano),
-			endTimeUnixNano: bigintToString(s.endTimeUnixNano),
-			attributes: s.attributes.map(adaptKeyValue),
-			droppedAttributesCount: s.droppedAttributesCount || undefined,
-			events: s.events.map((e) => ({
-				name: e.name,
-				timeUnixNano: bigintToString(e.timeUnixNano),
-				attributes: e.attributes.map(adaptKeyValue),
-				droppedAttributesCount: e.droppedAttributesCount || undefined,
-			})),
-			droppedEventsCount: s.droppedEventsCount || undefined,
-			links: s.links.map((l) => ({
-				traceId: bytesToHex(l.traceId),
-				spanId: bytesToHex(l.spanId),
-				traceState: l.traceState || undefined,
-				attributes: l.attributes.map(adaptKeyValue),
-				droppedAttributesCount: l.droppedAttributesCount || undefined,
-			})),
-			droppedLinksCount: s.droppedLinksCount || undefined,
-			status: s.status
-				? { code: s.status.code, message: s.status.message }
-				: undefined,
-		})),
+		spans: ss.spans.flatMap((s) => {
+			if (s.traceId.length !== 16 || s.spanId.length !== 8) return [];
+			return [
+				{
+					traceId: bytesToHex(s.traceId),
+					spanId: bytesToHex(s.spanId),
+					parentSpanId:
+						s.parentSpanId.length === 8
+							? bytesToHex(s.parentSpanId)
+							: undefined,
+					traceState: s.traceState || undefined,
+					name: s.name,
+					kind: s.kind,
+					startTimeUnixNano: bigintToString(s.startTimeUnixNano),
+					endTimeUnixNano: bigintToString(s.endTimeUnixNano),
+					attributes: s.attributes.map(adaptKeyValue),
+					droppedAttributesCount: s.droppedAttributesCount || undefined,
+					events: s.events.map((e) => ({
+						name: e.name,
+						timeUnixNano: bigintToString(e.timeUnixNano),
+						attributes: e.attributes.map(adaptKeyValue),
+						droppedAttributesCount: e.droppedAttributesCount || undefined,
+					})),
+					droppedEventsCount: s.droppedEventsCount || undefined,
+					links: s.links.flatMap((l) =>
+						l.traceId.length === 16 && l.spanId.length === 8
+							? [
+									{
+										traceId: bytesToHex(l.traceId),
+										spanId: bytesToHex(l.spanId),
+										traceState: l.traceState || undefined,
+										attributes: l.attributes.map(adaptKeyValue),
+										droppedAttributesCount:
+											l.droppedAttributesCount || undefined,
+									},
+								]
+							: [],
+					),
+					droppedLinksCount: s.droppedLinksCount || undefined,
+					status: s.status
+						? { code: s.status.code, message: s.status.message }
+						: undefined,
+				},
+			];
+		}),
 	})),
 });
 

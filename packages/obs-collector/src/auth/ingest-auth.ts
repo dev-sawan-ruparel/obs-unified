@@ -5,32 +5,64 @@ import { ProjectsStore } from "../lib/projects-store";
 import { sqlDbFor } from "../lib/sql-db";
 
 const CACHE_TTL_MS = 60_000; // 60 seconds
+const CACHE_MAX_ENTRIES = 500;
 
 interface CacheEntry {
 	projectId: string;
 	expiresAt: number;
 }
 
-const keyCache = new Map<string, CacheEntry>();
+let keyCaches = new WeakMap<object, Map<string, CacheEntry>>();
 let bootstrapDone = false;
 
-function getCached(hash: string, now: number): string | null {
-	const entry = keyCache.get(hash);
+function cacheFor(dbKey: object): Map<string, CacheEntry> {
+	let cache = keyCaches.get(dbKey);
+	if (!cache) {
+		cache = new Map();
+		keyCaches.set(dbKey, cache);
+	}
+	return cache;
+}
+
+function getCached(
+	cache: Map<string, CacheEntry>,
+	hash: string,
+	now: number,
+): string | null {
+	pruneKeyCache(cache, now);
+	const entry = cache.get(hash);
 	if (!entry) return null;
 	if (entry.expiresAt <= now) {
-		keyCache.delete(hash);
+		cache.delete(hash);
 		return null;
 	}
 	return entry.projectId;
 }
 
-function setCached(hash: string, projectId: string, now: number): void {
-	keyCache.set(hash, { projectId, expiresAt: now + CACHE_TTL_MS });
+function setCached(
+	cache: Map<string, CacheEntry>,
+	hash: string,
+	projectId: string,
+	now: number,
+): void {
+	pruneKeyCache(cache, now);
+	while (cache.size >= CACHE_MAX_ENTRIES) {
+		const oldestKey = cache.keys().next().value;
+		if (!oldestKey) break;
+		cache.delete(oldestKey);
+	}
+	cache.set(hash, { projectId, expiresAt: now + CACHE_TTL_MS });
+}
+
+function pruneKeyCache(cache: Map<string, CacheEntry>, now: number): void {
+	for (const [hash, entry] of cache) {
+		if (entry.expiresAt <= now) cache.delete(hash);
+	}
 }
 
 /** Test helper — clears the in-memory cache and bootstrap flag. */
 export function resetIngestAuthCache(): void {
-	keyCache.clear();
+	keyCaches = new WeakMap();
 	bootstrapDone = false;
 }
 
@@ -92,7 +124,8 @@ export function createIngestAuth(config?: {
 
 		const now = Date.now();
 		const hash = await sha256Hex(token);
-		const cached = getCached(hash, now);
+		const cache = cacheFor(c.env.DB);
+		const cached = getCached(cache, hash, now);
 		if (cached) {
 			c.set("projectId", cached);
 			return next();
@@ -104,7 +137,7 @@ export function createIngestAuth(config?: {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
-		setCached(hash, match.projectId, now);
+		setCached(cache, hash, match.projectId, now);
 		c.set("projectId", match.projectId);
 		return next();
 	};

@@ -12,22 +12,27 @@ interface ProjectCacheEntry {
 	expiresAt: number;
 }
 
-let projectCache: ProjectCacheEntry | null = null;
+let projectCache = new WeakMap<object, ProjectCacheEntry>();
 
-async function knownProjectIds(db: SqlDb, now: number): Promise<Set<string>> {
-	if (projectCache && projectCache.expiresAt > now) {
-		return projectCache.ids;
+async function knownProjectIds(
+	dbKey: object,
+	db: SqlDb,
+	now: number,
+): Promise<Set<string>> {
+	const cached = projectCache.get(dbKey);
+	if (cached && cached.expiresAt > now) {
+		return cached.ids;
 	}
 	const store = new ProjectsStore(db);
 	const projects = await store.listProjects();
 	const ids = new Set(projects.map((p) => p.id));
-	projectCache = { ids, expiresAt: now + PROJECT_CACHE_TTL_MS };
+	projectCache.set(dbKey, { ids, expiresAt: now + PROJECT_CACHE_TTL_MS });
 	return ids;
 }
 
 /** Test helper — clears the project list cache. */
 export function resetDashboardProjectCache(): void {
-	projectCache = null;
+	projectCache = new WeakMap();
 }
 
 /**
@@ -173,7 +178,11 @@ export function createDashboardAuth(config: { password: string }): {
 		if (needsProject) {
 			const headerProject = c.req.header("X-Project-Id");
 			const projectId = headerProject?.trim() || "default";
-			const known = await knownProjectIds(sqlDbFor(c.env), Date.now());
+			const known = await knownProjectIds(
+				c.env.DB,
+				sqlDbFor(c.env),
+				Date.now(),
+			);
 			// Always allow 'default' so fresh installs don't 400 before any
 			// project is seeded (ensure_default_project runs via migration).
 			if (projectId !== "default" && !known.has(projectId)) {
