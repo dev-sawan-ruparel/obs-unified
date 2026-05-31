@@ -31,6 +31,24 @@ interface Subscriber {
 
 const HEARTBEAT_MS = 20_000;
 const MAX_SUBSCRIBERS = 200;
+const PROJECT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTailEvent(value: unknown): value is TailEvent {
+	if (!isRecord(value)) return false;
+	const { kind, projectId, row, t } = value;
+	return (
+		(kind === "span" || kind === "log") &&
+		typeof projectId === "string" &&
+		PROJECT_ID_RE.test(projectId) &&
+		isRecord(row) &&
+		typeof t === "string" &&
+		t.length > 0
+	);
+}
 
 export class TailHub {
 	private readonly subscribers = new Map<string, Subscriber>();
@@ -48,11 +66,17 @@ export class TailHub {
 			if (!Array.isArray(events)) {
 				return new Response(null, { status: 400 });
 			}
+			if (!events.every(isTailEvent)) {
+				return new Response(null, { status: 400 });
+			}
 			await this.broadcast(events);
 			return new Response(null, { status: 204 });
 		}
 		if (req.method === "GET" && url.pathname === "/subscribe") {
 			const projectId = url.searchParams.get("projectId") ?? "default";
+			if (!PROJECT_ID_RE.test(projectId)) {
+				return new Response("bad projectId", { status: 400 });
+			}
 			const kindsParam = url.searchParams.get("kinds") ?? "span,log";
 			const kinds = new Set(
 				kindsParam

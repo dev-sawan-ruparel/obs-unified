@@ -17,14 +17,10 @@ export const tailRoutesPlugin: CollectorPlugin = {
 					503,
 				);
 			}
-			// EventSource can't send custom headers, so allow projectId override
-			// via query param. The dashboard-auth middleware has already verified
-			// the session; project isolation is the only thing the projectId
-			// controls, and any authenticated user can query any project today.
-			const projectId = c.req.query("projectId")?.trim() || getProjectId(c);
-			// Validate the project identifier before using it as a Durable Object
-			// name / broadcast filter. (Cross-project authz remains a known,
-			// documented limitation — see comment above.)
+			// Project scope must come from auth middleware, never from the client
+			// URL. The dashboard live-tail client uses a fetch stream so it can
+			// send the same X-Project-Id header as the rest of the API.
+			const projectId = getProjectId(c);
 			if (!/^[A-Za-z0-9_-]{1,128}$/.test(projectId)) {
 				return c.json({ error: "invalid projectId" }, 400);
 			}

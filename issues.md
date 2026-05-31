@@ -18,13 +18,10 @@ This document is the single, unified source of truth for all codebase issues, co
 ## ── P0: SECURITY & TENANT ISOLATION ──
 
 ### Open Issues
-- [ ] **Live-Tail Websocket Bypasses Project Verification (Tenant Isolation Leak)**
-  * **Location:** [`packages/obs-collector/src/durable-objects/tail-hub.ts:41`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/durable-objects/tail-hub.ts#L41) & [`tail-routes.ts:24`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/tail-routes.ts#L24)
-  * **Description:** The tail websocket subscription accepts and trusts a client-supplied `?projectId` query parameter without verifying if the authenticated session has rights to that project.
-  * **Risk:** High. Any authenticated dashboard user can subscribe to other projects' real-time span and log streams by changing the URL parameter.
-  * **Next Action:** Resolve project ID authorization server-side from session keys; validate `/publish` bodies, reject unauthorized subscriptions, and write multi-tenant isolation unit tests.
 
 ### Resolved Security Issues
+- [x] **Live-Tail Websocket Bypasses Project Verification (Tenant Isolation Leak)**
+  * *Resolution:* Live-tail now resolves project scope only from dashboard auth context (`X-Project-Id` via the provider fetcher) and ignores client-supplied `?projectId`. The dashboard live-tail hook uses a credentialed fetch stream instead of `EventSource` so the project header is sent consistently, and `TailHub` now validates publish and subscribe project IDs before broadcasting.
 - [x] **Non-Constant Time Verification in Session HMAC and Password Checks**
   * *Resolution:* Verified `dashboard-auth.ts` now routes both session HMAC verification and password comparison through `timingSafeEqualStr`, avoiding early-exit `===` comparisons.
 - [x] **Administrative Session Cookie Lacks Secure Cookie Attribute**

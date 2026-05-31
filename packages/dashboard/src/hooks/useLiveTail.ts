@@ -35,7 +35,7 @@ export function useLiveTail<T>(
 	predicate: (event: TailEvent) => event is TailEvent<T>,
 	options: UseLiveTailOptions = {},
 ): UseLiveTailResult<T> {
-	const { basePath, projectId } = useDashboard();
+	const { basePath, fetcher } = useDashboard();
 	const { kinds = ["span", "log"], maxRows = 500, enabled = true } = options;
 	const kindsKey = kinds.join(",");
 
@@ -53,22 +53,14 @@ export function useLiveTail<T>(
 
 	useEffect(() => {
 		if (!enabled) return;
-		const url = `${basePath}/telemetry/tail?kinds=${encodeURIComponent(
-			kindsKey,
-		)}&projectId=${encodeURIComponent(projectId)}`;
-		const source = new EventSource(url, { withCredentials: true });
+		let cancelled = false;
+		let retryTimer: ReturnType<typeof setTimeout> | undefined;
+		const controller = new AbortController();
+		const url = `${basePath}/telemetry/tail?kinds=${encodeURIComponent(kindsKey)}`;
 
-		source.onopen = () => {
-			setConnected(true);
-			setError(null);
-		};
-		source.onerror = () => {
-			setConnected(false);
-			setError("Disconnected — retrying…");
-		};
-		source.addEventListener("tail", (event) => {
+		const handleTailPayload = (data: string) => {
 			try {
-				const parsed = JSON.parse((event as MessageEvent).data) as TailEvent[];
+				const parsed = JSON.parse(data) as TailEvent[];
 				const matched: T[] = [];
 				for (const e of parsed) {
 					if (predicateRef.current(e)) matched.push(e.row);
@@ -89,13 +81,73 @@ export function useLiveTail<T>(
 			} catch (err) {
 				console.error("[useLiveTail] parse error:", err);
 			}
-		});
+		};
+
+		const processFrame = (frame: string) => {
+			const lines = frame.split(/\r?\n/);
+			let eventName = "message";
+			const data: string[] = [];
+			for (const line of lines) {
+				if (line.startsWith("event:")) {
+					eventName = line.slice("event:".length).trim();
+				} else if (line.startsWith("data:")) {
+					data.push(line.slice("data:".length).trimStart());
+				}
+			}
+			if (eventName === "tail" && data.length > 0) {
+				handleTailPayload(data.join("\n"));
+			}
+		};
+
+		const connect = async () => {
+			try {
+				const res = await fetcher(url, {
+					method: "GET",
+					headers: { Accept: "text/event-stream" },
+					signal: controller.signal,
+				});
+				if (!res.ok) throw new Error(`Live tail failed: ${res.status}`);
+				if (!res.body) throw new Error("Live tail response has no body");
+				if (cancelled) return;
+				setConnected(true);
+				setError(null);
+
+				const reader = res.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = "";
+				while (!cancelled) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					buffer += decoder.decode(value, { stream: true });
+					const frames = buffer.split(/\r?\n\r?\n/);
+					buffer = frames.pop() ?? "";
+					for (const frame of frames) {
+						processFrame(frame);
+					}
+				}
+				buffer += decoder.decode();
+				if (buffer.trim()) processFrame(buffer);
+			} catch (err) {
+				if (cancelled || controller.signal.aborted) return;
+				console.error("[useLiveTail] stream error:", err);
+			} finally {
+				if (!cancelled) {
+					setConnected(false);
+					setError("Disconnected - retrying...");
+					retryTimer = setTimeout(connect, 1000);
+				}
+			}
+		};
+
+		void connect();
 
 		return () => {
-			source.close();
+			cancelled = true;
+			if (retryTimer) clearTimeout(retryTimer);
+			controller.abort();
 			setConnected(false);
 		};
-	}, [basePath, projectId, kindsKey, enabled, maxRows]);
+	}, [basePath, fetcher, kindsKey, enabled, maxRows]);
 
 	const togglePause = useCallback(() => {
 		setPaused((prev) => {
