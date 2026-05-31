@@ -491,12 +491,18 @@ export class AIStore {
       WHERE p.project_id = ?
         AND p.session_id IS NOT NULL
         AND p.session_id IN (${sessionIds.map(() => "?").join(", ")})
-        AND p.received_at >= datetime('now', '-' || ? || ' hours')
-        AND p.input_json IS NOT NULL
-      ORDER BY s.start_time DESC
-    `,
+	        AND p.received_at >= datetime('now', '-' || ? || ' hours')
+	        AND p.input_json IS NOT NULL
+	      ORDER BY s.start_time DESC
+	      LIMIT ?
+	    `,
 						)
-						.bind(options.projectId, ...sessionIds, hours)
+						.bind(
+							options.projectId,
+							...sessionIds,
+							hours,
+							sessionIds.length * 5,
+						)
 						.all<AISessionPreviewRow>();
 		const previewBySession = new Map<string, string>();
 		for (const row of previewRows.results || []) {

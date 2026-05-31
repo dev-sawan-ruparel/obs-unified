@@ -1,4 +1,5 @@
 import type { LogRecord, LogSeverity } from "@obs-unified/types";
+import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { LogsStore } from "../lib/logs-store";
 import { sqlDbFor } from "../lib/sql-db";
@@ -48,7 +49,7 @@ export const logsReceiverPlugin: CollectorPlugin = {
 			}
 
 			const store = new LogsStore(sqlDbFor(c.env));
-			const retentionHours = parseInt(c.env.RETENTION_HOURS || "72", 10);
+			const retentionHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
 			const now = new Date();
 			const nowStr = now.toISOString();
 			const expires = new Date(

@@ -48,16 +48,22 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 			}
 
 			const prefix = `replays/${projectId}/${sessionId}/`;
-			const list = await c.env.REPLAYS_BUCKET.list({ prefix });
+			const objects: Array<{ key: string }> = [];
+			let cursor: string | undefined;
+			do {
+				const page = await c.env.REPLAYS_BUCKET.list({ prefix, cursor });
+				objects.push(...page.objects);
+				cursor = page.truncated ? page.cursor : undefined;
+			} while (cursor);
 
-			if (list.objects.length === 0) {
+			if (objects.length === 0) {
 				return c.json({ error: "Replay chunks missing in storage" }, 404);
 			}
 
-			list.objects.sort((a, b) => a.key.localeCompare(b.key));
+			objects.sort((a, b) => a.key.localeCompare(b.key));
 
 			const orderedChunksData: Record<string, unknown>[][] = [];
-			for (const obj of list.objects) {
+			for (const obj of objects) {
 				const objectData = await c.env.REPLAYS_BUCKET.get(obj.key);
 				if (objectData) {
 					orderedChunksData.push(
@@ -100,11 +106,14 @@ export const replayQueryRoutesPlugin: CollectorPlugin = {
 				return c.json({ error: "Replay storage not configured" }, 500);
 			}
 			const prefix = `replays/${projectId}/${sessionId}/`;
-			const list = await bucket.list({ prefix });
-
-			if (list.objects.length > 0) {
-				await Promise.all(list.objects.map((obj) => bucket.delete(obj.key)));
-			}
+			let cursor: string | undefined;
+			do {
+				const page = await bucket.list({ prefix, cursor });
+				if (page.objects.length > 0) {
+					await Promise.all(page.objects.map((obj) => bucket.delete(obj.key)));
+				}
+				cursor = page.truncated ? page.cursor : undefined;
+			} while (cursor);
 
 			// 3. Delete metadata from DB
 			await sqlDbFor(c.env)

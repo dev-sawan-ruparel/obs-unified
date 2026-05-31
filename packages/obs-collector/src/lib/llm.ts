@@ -44,6 +44,8 @@ export interface LlmConfig {
 	model: string;
 	/** Override base URL — Anthropic-compatible or OpenAI-compatible. */
 	apiUrl?: string;
+	/** Optional abort signal used to cap provider calls from schedulers. */
+	signal?: AbortSignal;
 	/**
 	 * Optional child-span runner. When set, every LLM API call (and tool
 	 * dispatch in the agent loop) is wrapped in an OpenInference-shaped span
@@ -208,6 +210,7 @@ async function generateNarrativeAnthropic(
 				system: SYSTEM_PROMPT,
 				messages: [{ role: "user", content: userPrompt }],
 			}),
+			signal: config.signal,
 		});
 		if (span) {
 			span.setAttribute("http.response.status_code", response.status);
@@ -224,7 +227,11 @@ async function generateNarrativeAnthropic(
 		const body = (await response.json()) as {
 			content?: Array<{ type?: string; text?: string }>;
 			usage?: { input_tokens?: number; output_tokens?: number };
+			stop_reason?: string;
 		};
+		if (body.stop_reason === "max_tokens") {
+			throw new LlmCallError("anthropic response truncated by max_tokens");
+		}
 		if (span && body.usage) {
 			if (typeof body.usage.input_tokens === "number")
 				span.setAttribute("gen_ai.usage.input_tokens", body.usage.input_tokens);

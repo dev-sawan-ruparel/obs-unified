@@ -242,6 +242,8 @@ export const createTelemetryCollectorApp = (
 			.split(",")
 			.map((s) => s.trim())
 			.filter(Boolean);
+		const allowedOrigin =
+			origin && allowList.includes(origin) ? origin : undefined;
 
 		if (c.req.method === "OPTIONS") {
 			const headers: Record<string, string> = {
@@ -250,8 +252,8 @@ export const createTelemetryCollectorApp = (
 					"Content-Type, Authorization, X-API-Key, X-Project-Id, Cache-Control, X-Telemetry-Self",
 				"Access-Control-Max-Age": "86400",
 			};
-			if (allowList.length === 0 || (origin && allowList.includes(origin))) {
-				headers["Access-Control-Allow-Origin"] = origin || "*";
+			if (allowedOrigin) {
+				headers["Access-Control-Allow-Origin"] = allowedOrigin;
 			}
 			return new Response(null, { status: 204, headers });
 		}
@@ -264,8 +266,8 @@ export const createTelemetryCollectorApp = (
 		// `c.json(...)` (e.g. auth returning 401). Without this, error
 		// responses ship CORS-naked and browsers misreport them as CORS
 		// blocks instead of the underlying status.
-		if (origin && (allowList.length === 0 || allowList.includes(origin))) {
-			c.res.headers.set("Access-Control-Allow-Origin", origin);
+		if (allowedOrigin) {
+			c.res.headers.set("Access-Control-Allow-Origin", allowedOrigin);
 		}
 	});
 

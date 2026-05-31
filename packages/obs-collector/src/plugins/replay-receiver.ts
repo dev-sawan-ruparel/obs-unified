@@ -8,7 +8,21 @@ export const replayReceiverPlugin: CollectorPlugin = {
 	register(app, runtime) {
 		app.post("/v1/replays", async (c) => {
 			const projectId = getProjectId(c);
-			const payload = await c.req.json<ReplayChunkInput>();
+			let payload: ReplayChunkInput;
+			try {
+				payload = await c.req.json<ReplayChunkInput>();
+			} catch {
+				return c.json({ error: "Invalid JSON body" }, 400);
+			}
+			if (
+				!isSafeId(payload.sessionId) ||
+				(payload.visitorId !== undefined && !isSafeId(payload.visitorId)) ||
+				!Number.isInteger(payload.sequenceNumber) ||
+				payload.sequenceNumber < 0 ||
+				!Array.isArray(payload.events)
+			) {
+				return c.json({ error: "Invalid replay payload" }, 400);
+			}
 			const now = new Date().toISOString();
 
 			const timestamp = Date.now();
@@ -55,3 +69,13 @@ export const replayReceiverPlugin: CollectorPlugin = {
 		});
 	},
 };
+
+function isSafeId(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= 160 &&
+		/^[A-Za-z0-9._:-]+$/.test(value) &&
+		!value.includes("..")
+	);
+}

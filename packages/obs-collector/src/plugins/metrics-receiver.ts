@@ -1,5 +1,6 @@
 /** OTLP/HTTP metrics receiver. Accepts JSON or protobuf, with gzip. */
 
+import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { MetricsStore } from "../lib/metrics-store";
 import { sqlDbFor } from "../lib/sql-db";
@@ -46,7 +47,7 @@ export const metricsReceiverPlugin: CollectorPlugin = {
 				points = points.slice(0, MAX_POINTS_PER_REQUEST);
 			}
 
-			const retentionHours = parseInt(c.env.RETENTION_HOURS || "72", 10);
+			const retentionHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
 			const now = new Date();
 			const receivedAt = now.toISOString();
 			const expiresAt = new Date(

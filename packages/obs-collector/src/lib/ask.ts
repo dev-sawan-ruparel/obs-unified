@@ -185,6 +185,16 @@ async function runAskAnthropic(
 			.trim();
 
 		// Model finished — return the answer.
+		if (response.stop_reason === "max_tokens") {
+			return {
+				answer: null,
+				evidence: [...evidence.values()],
+				queries,
+				error: "model response was truncated by max_tokens",
+				timestamp: startedAt,
+			};
+		}
+
 		if (response.stop_reason === "end_turn" || toolUses.length === 0) {
 			return {
 				answer: finalText.length > 0 ? finalText : null,

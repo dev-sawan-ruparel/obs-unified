@@ -31,7 +31,7 @@ export const aiReceiverPlugin: CollectorPlugin = {
 			}
 			const store = new AIStore(sqlDbFor(c.env));
 
-			const retentionHours = parseInt(c.env.RETENTION_HOURS || "72", 10);
+			const retentionHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
 			const now = new Date();
 			const nowStr = now.toISOString();
 			const expires = new Date(

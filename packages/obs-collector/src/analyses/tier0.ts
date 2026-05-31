@@ -505,23 +505,30 @@ const serviceCpuUtilization: AnalysisDefinition = {
 				AND received_at <  datetime('now', '-5 minutes')
 			GROUP BY service_name
 		),
-		top_now AS (
-			SELECT service_name, avg_util
-			FROM now_window
-			ORDER BY avg_util DESC
-			LIMIT 5
-		),
-		spark AS (
-			SELECT
-				strftime('%Y-%m-%dT%H:%M:00Z', received_at) AS minute,
-				AVG(value) AS avg_util
-			FROM cpu_points
-			GROUP BY minute
-			ORDER BY minute ASC
-		),
-		fleet_max AS (
-			SELECT COALESCE(MAX(avg_util), 0) AS m FROM now_window
-		)
+			top_now AS (
+				SELECT service_name, avg_util
+				FROM now_window
+				ORDER BY avg_util DESC
+				LIMIT 5
+			),
+			fleet_max AS (
+				SELECT COALESCE(MAX(avg_util), 0) AS m FROM now_window
+			),
+			top_service AS (
+				SELECT service_name
+				FROM now_window
+				ORDER BY avg_util DESC
+				LIMIT 1
+			),
+			spark AS (
+				SELECT
+					strftime('%Y-%m-%dT%H:%M:00Z', received_at) AS minute,
+					AVG(value) AS avg_util
+				FROM cpu_points
+				WHERE service_name = (SELECT service_name FROM top_service)
+				GROUP BY minute
+				ORDER BY minute ASC
+			)
 		SELECT
 			CASE
 				WHEN NOT EXISTS (SELECT 1 FROM cpu_points) THEN 'unknown'

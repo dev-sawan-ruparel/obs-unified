@@ -222,10 +222,12 @@ async function narratePass(
 
 	try {
 		budgetState.remaining -= 1;
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 20_000);
 		const text = await generateNarrative(
 			{ definition: def, current, previous },
-			ctx.llm,
-		);
+			{ ...ctx.llm, signal: controller.signal },
+		).finally(() => clearTimeout(timeout));
 		current.narrative = text;
 		// Keep the just-computed signature so cache compare works next run.
 	} catch (error) {

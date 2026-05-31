@@ -142,6 +142,7 @@ const post = async <T extends { usage?: OpenAiResponse["usage"] }>(
 				"content-type": "application/json",
 			},
 			body: JSON.stringify(body),
+			signal: cfg.signal,
 		});
 		if (span) span.setAttribute("http.response.status_code", response.status);
 		if (!response.ok) {
@@ -286,6 +287,9 @@ export async function generateNarrativeOpenAI(
 		{ maxTokens: 200 },
 	);
 	const text = (body.choices?.[0]?.message?.content ?? "").trim();
+	if (body.choices?.[0]?.finish_reason === "length") {
+		throw new LlmCallError("openai response truncated by max_tokens");
+	}
 	if (!text || text === "NO_NARRATIVE") return null;
 	return text.replace(/^["']|["']$/g, "").trim();
 }
@@ -362,9 +366,7 @@ export async function runAskOpenAI(
 		// Final answer.
 		if (
 			(!toolCalls || toolCalls.length === 0) &&
-			(finishReason === "stop" ||
-				finishReason === "length" ||
-				finishReason === undefined)
+			(finishReason === "stop" || finishReason === undefined)
 		) {
 			return {
 				answer: text.length > 0 ? text : null,
@@ -394,6 +396,15 @@ export async function runAskOpenAI(
 					: {};
 			} catch {
 				parsedArgs = {};
+			}
+			if ((!toolCalls || toolCalls.length === 0) && finishReason === "length") {
+				return {
+					answer: null,
+					evidence: [...evidence.values()],
+					queries,
+					error: "model response was truncated by max_tokens",
+					timestamp: startedAt,
+				};
 			}
 			const toolName = call.function.name;
 			const tracer = deps.llm.tracer;

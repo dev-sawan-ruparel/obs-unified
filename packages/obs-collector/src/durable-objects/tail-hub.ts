@@ -30,6 +30,7 @@ interface Subscriber {
 }
 
 const HEARTBEAT_MS = 20_000;
+const MAX_SUBSCRIBERS = 200;
 
 export class TailHub {
 	private readonly subscribers = new Map<string, Subscriber>();
@@ -59,6 +60,9 @@ export class TailHub {
 					.map((s) => s.trim())
 					.filter(Boolean),
 			) as Set<TailKind>;
+			if (![...kinds].every((kind) => kind === "span" || kind === "log")) {
+				return new Response("bad kinds", { status: 400 });
+			}
 			return this.subscribe(projectId, kinds, req);
 		}
 		return new Response("not found", { status: 404 });
@@ -69,6 +73,12 @@ export class TailHub {
 		kinds: Set<TailKind>,
 		req: Request,
 	): Response {
+		if (req.signal.aborted) {
+			return new Response(null, { status: 499 });
+		}
+		if (this.subscribers.size >= MAX_SUBSCRIBERS) {
+			return new Response("too many subscribers", { status: 429 });
+		}
 		const { readable, writable } = new TransformStream<
 			Uint8Array,
 			Uint8Array
@@ -84,8 +94,8 @@ export class TailHub {
 				.catch(() => this.drop(id));
 		}, HEARTBEAT_MS);
 
-		this.subscribers.set(id, { id, projectId, kinds, writer, heartbeat });
 		req.signal.addEventListener("abort", () => this.drop(id));
+		this.subscribers.set(id, { id, projectId, kinds, writer, heartbeat });
 
 		return new Response(readable, {
 			headers: {

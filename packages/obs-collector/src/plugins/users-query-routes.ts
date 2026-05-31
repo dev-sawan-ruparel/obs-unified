@@ -1,4 +1,8 @@
-import type { UserProfileDetail, UserProfileRow } from "@obs-unified/types";
+import type {
+	JsonValue,
+	UserProfileDetail,
+	UserProfileRow,
+} from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
@@ -24,7 +28,7 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 				visitorId: row.visitor_id,
 				email: row.email,
 				name: row.name,
-				properties: row.properties_json ? JSON.parse(row.properties_json) : {},
+				properties: parseProperties(row.properties_json),
 				firstSeenAt: row.first_seen_at,
 				lastSeenAt: row.last_seen_at,
 			}));
@@ -51,9 +55,7 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 				visitorId: user.visitor_id,
 				email: user.email,
 				name: user.name,
-				properties: user.properties_json
-					? JSON.parse(user.properties_json)
-					: {},
+				properties: parseProperties(user.properties_json),
 				firstSeenAt: user.first_seen_at,
 				lastSeenAt: user.last_seen_at,
 			};
@@ -62,3 +64,15 @@ export const usersQueryRoutesPlugin: CollectorPlugin = {
 		});
 	},
 };
+
+function parseProperties(value: string | null): Record<string, JsonValue> {
+	if (!value) return {};
+	try {
+		const parsed = JSON.parse(value) as JsonValue;
+		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+			? (parsed as Record<string, JsonValue>)
+			: {};
+	} catch {
+		return {};
+	}
+}
