@@ -13,6 +13,7 @@
  * telemetry_spans table stays lean.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
@@ -34,6 +35,10 @@ interface AISessionContext {
 }
 
 let currentContext: AISessionContext = {};
+const contextStorage = new AsyncLocalStorage<AISessionContext>();
+
+const activeContext = (): AISessionContext =>
+	contextStorage.getStore() ?? currentContext;
 
 /**
  * Set the session / user that subsequent AI spans should be grouped under.
@@ -45,21 +50,24 @@ let currentContext: AISessionContext = {};
  *   try { await handle(req); } finally { reset(); }
  */
 export function setAISessionContext(ctx: AISessionContext): () => void {
-	const previous = currentContext;
+	const previous = activeContext();
 	currentContext = { ...ctx };
+	contextStorage.enterWith(currentContext);
 	return () => {
 		currentContext = previous;
+		contextStorage.enterWith(previous);
 	};
 }
 
 /** Clear the session context. */
 export function clearAISessionContext(): void {
 	currentContext = {};
+	contextStorage.enterWith(currentContext);
 }
 
 /** Read the current session context (mostly for testing). */
 export function getAISessionContext(): AISessionContext {
-	return { ...currentContext };
+	return { ...activeContext() };
 }
 
 // ── shared shape ────────────────────────────────────────────────────────────
@@ -104,11 +112,12 @@ const createBaseSpan = (
 	const child = parent.createChildSpan(name);
 	child.setAttribute(OPENINFERENCE_SPAN_KIND_KEY, kind);
 	// Stamp ambient session/user context if set.
-	if (currentContext.sessionId) {
-		child.setAttribute(SESSION_ID_KEY, currentContext.sessionId);
+	const context = activeContext();
+	if (context.sessionId) {
+		child.setAttribute(SESSION_ID_KEY, context.sessionId);
 	}
-	if (currentContext.userId) {
-		child.setAttribute(USER_ID_KEY, currentContext.userId);
+	if (context.userId) {
+		child.setAttribute(USER_ID_KEY, context.userId);
 	}
 	if (input !== undefined) {
 		child.setAttribute(AI_PAYLOAD_INPUT_KEY, stringify(input));

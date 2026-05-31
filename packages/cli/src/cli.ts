@@ -137,6 +137,17 @@ function findComposeFile(): string | null {
 
 async function scaffoldApp(name: string) {
 	const target = path.resolve(name);
+	const cwd = process.cwd();
+	const relativeTarget = path.relative(cwd, target);
+	if (
+		!name.trim() ||
+		path.isAbsolute(name) ||
+		relativeTarget.startsWith("..") ||
+		path.basename(name) !== name
+	) {
+		console.error(kleur.red("app name must be a single directory name"));
+		process.exit(1);
+	}
 	if (existsSync(target)) {
 		console.error(kleur.red(`directory ${name} already exists`));
 		process.exit(1);
@@ -169,6 +180,10 @@ async function scaffoldApp(name: string) {
 			initial: "http://localhost:8790",
 		},
 	]);
+	if (!response.framework || !response.backend || !response.collectorUrl) {
+		console.error(kleur.yellow("scaffold cancelled"));
+		process.exit(1);
+	}
 
 	await mkdir(target, { recursive: true });
 	const templateDir = path.join(TEMPLATES, response.framework);

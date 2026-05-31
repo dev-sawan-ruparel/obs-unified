@@ -217,9 +217,10 @@ export function createDashboardAuth(config: { password: string }): {
 			const sig = await sign(payload, config.password);
 			const cookieValue = `${payload}.${sig}`;
 
+			const isSecure = c.req.url.startsWith("https:");
 			c.header(
 				"Set-Cookie",
-				`${SESSION_COOKIE}=${encodeURIComponent(cookieValue)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MAX_AGE}`,
+				`${SESSION_COOKIE}=${encodeURIComponent(cookieValue)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MAX_AGE}${isSecure ? "; Secure" : ""}`,
 			);
 
 			return c.json({ success: true });
@@ -255,9 +256,10 @@ export function createDashboardAuth(config: { password: string }): {
 		});
 
 		app.post("/auth/logout", (c) => {
+			const isSecure = c.req.url.startsWith("https:");
 			c.header(
 				"Set-Cookie",
-				`${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`,
+				`${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${isSecure ? "; Secure" : ""}`,
 			);
 			return c.json({ success: true });
 		});

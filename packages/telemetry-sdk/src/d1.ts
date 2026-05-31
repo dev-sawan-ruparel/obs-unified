@@ -124,6 +124,9 @@ export const wrapD1 = <T extends D1Database>(
 
 	return new Proxy(db, {
 		get(target, prop, receiver) {
+			if (prop === "__unwrapped_db") {
+				return target;
+			}
 			if (prop === "prepare") {
 				return (sql: string) => {
 					const stmt = target.prepare(sql);

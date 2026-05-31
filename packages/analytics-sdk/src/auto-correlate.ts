@@ -100,7 +100,7 @@ export const installClickListeners = (
 		if (e.isTrusted === false) return;
 		const id = mint();
 		pushInteraction(id);
-		queueMicrotask(() => queueMicrotask(() => popInteraction()));
+		queueMicrotask(() => queueMicrotask(() => popInteraction(id)));
 	};
 
 	for (const evt of TRIGGER_EVENTS) {
@@ -176,7 +176,8 @@ const installXhrPatch = (
 
 // ── Top-level installer ──────────────────────────────────────────────
 
-let installed = false;
+let installRefCount = 0;
+let activeCleanup: (() => void) | null = null;
 
 export interface InstallAutoCorrelateOptions {
 	/** EventTarget to attach click listeners to. Defaults to `document`. */
@@ -197,12 +198,21 @@ export interface InstallAutoCorrelateOptions {
 export const installAutoCorrelate = (
 	opts: InstallAutoCorrelateOptions = {},
 ): (() => void) => {
-	if (installed) return () => {};
+	if (activeCleanup) {
+		installRefCount += 1;
+		return () => {
+			installRefCount = Math.max(0, installRefCount - 1);
+			if (installRefCount === 0) {
+				activeCleanup?.();
+				activeCleanup = null;
+			}
+		};
+	}
 	const target =
 		opts.target ?? (typeof document !== "undefined" ? document : undefined);
 	if (!target) return () => {};
 
-	installed = true;
+	installRefCount = 1;
 
 	const clickHandle = installClickListeners(target, opts.mint);
 
@@ -224,15 +234,23 @@ export const installAutoCorrelate = (
 		xhrCleanup = installXhrPatch(XMLHttpRequest, currentInteractionId).cleanup;
 	}
 
-	return () => {
+	activeCleanup = () => {
 		clickHandle.cleanup();
 		fetchCleanup();
 		xhrCleanup();
-		installed = false;
+	};
+	return () => {
+		installRefCount = Math.max(0, installRefCount - 1);
+		if (installRefCount === 0) {
+			activeCleanup?.();
+			activeCleanup = null;
+		}
 	};
 };
 
 /** Test-only — undo the installation flag without running cleanup. */
 export const __resetAutoCorrelateForTests = (): void => {
-	installed = false;
+	activeCleanup?.();
+	activeCleanup = null;
+	installRefCount = 0;
 };

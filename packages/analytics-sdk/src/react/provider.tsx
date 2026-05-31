@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { installAutoCorrelate } from "../auto-correlate";
 import { wrapInteraction } from "../interaction";
 import { UsageTracker, type UsageTrackerConfig } from "../usage-tracker";
@@ -29,11 +29,24 @@ export function AnalyticsProvider({
 	autoCorrelate = true,
 	...config
 }: AnalyticsProviderProps) {
-	const trackerRef = useRef<UsageTracker | null>(null);
-	if (!trackerRef.current) {
-		trackerRef.current = new UsageTracker(config);
-	}
-	const tracker = trackerRef.current;
+	const trackerConfigKey = JSON.stringify({
+		collectorUrl: config.collectorUrl,
+		apiKey: config.apiKey,
+		endpoint: config.endpoint,
+		debug: config.debug,
+		errorEndpoint: config.errorEndpoint,
+		storagePrefix: config.storagePrefix,
+		credentials: config.credentials,
+		maxMetadataLength: config.maxMetadataLength,
+	});
+	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild transport only when endpoint/auth primitives change.
+	const tracker = useMemo(() => new UsageTracker(config), [trackerConfigKey]);
+
+	useEffect(() => {
+		return () => {
+			void tracker.stopReplay();
+		};
+	}, [tracker]);
 
 	// Auto page view tracking on SPA navigation
 	useEffect(() => {

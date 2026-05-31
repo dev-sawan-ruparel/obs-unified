@@ -1,3 +1,5 @@
+import { trace } from "@opentelemetry/api";
+
 /**
  * OTEL configuration helpers for Cloudflare Workers (from Presence).
  * Creates config for @microlabs/otel-cf-workers instrument().
@@ -65,23 +67,14 @@ export const annotateErrorSpan = (
 	error: unknown,
 	context?: { path?: string; method?: string },
 ): void => {
-	// This is a lightweight helper — actual span annotation depends on
-	// whether you're using @opentelemetry/api or the custom span system.
-	// When using custom spans, use getActiveSpan() from ./span instead.
-	try {
-		const { trace } = require("@opentelemetry/api");
-		const span = trace.getActiveSpan();
-		if (!span) return;
+	const span = trace.getActiveSpan();
+	if (!span) return;
 
-		span.recordException(
-			error instanceof Error ? error : new Error(String(error)),
-		);
-		span.setStatus({ code: 2 });
-		if (context?.path) span.setAttribute("url.path", context.path);
-		if (context?.method)
-			span.setAttribute("http.request.method", context.method);
-		span.setAttribute("app.error.handled", true);
-	} catch {
-		// @opentelemetry/api not available — no-op
-	}
+	span.recordException(
+		error instanceof Error ? error : new Error(String(error)),
+	);
+	span.setStatus({ code: 2 });
+	if (context?.path) span.setAttribute("url.path", context.path);
+	if (context?.method) span.setAttribute("http.request.method", context.method);
+	span.setAttribute("app.error.handled", true);
 };

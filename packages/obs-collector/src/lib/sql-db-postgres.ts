@@ -46,6 +46,11 @@ export class PostgresAdapter implements SqlDb {
 			Number.isFinite(rawTimeout) && rawTimeout >= 0
 				? Math.trunc(rawTimeout)
 				: 30_000;
+
+		// Configure statement timeout once upon connection establishment
+		this.pool.on("connect", (client) => {
+			client.query(`SET statement_timeout = ${this.statementTimeoutMs}`).catch(() => {});
+		});
 	}
 
 	prepare(sql: string): SqlStatement {
@@ -134,11 +139,6 @@ class PostgresStatement implements SqlStatement {
 	}> {
 		const client = await this.pool.connect();
 		try {
-			// Session-level SET (not SET LOCAL): outside an explicit transaction
-			// SET LOCAL is silently a no-op, so the timeout never applied. Each
-			// pooled connection re-applies this on every exec. The value is
-			// validated to a non-negative integer in the constructor.
-			await client.query(`SET statement_timeout = ${this.statementTimeoutMs}`);
 			const r = await client.query<T>(this.sql, this.bound);
 			return { rows: r.rows, rowCount: r.rowCount };
 		} finally {

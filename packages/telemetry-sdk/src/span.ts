@@ -20,7 +20,7 @@ const toKv = (key: string, value: unknown): OtlpKeyValue => {
 	if (typeof value === "boolean") return { key, value: { boolValue: value } };
 	if (typeof value === "number") {
 		return Number.isInteger(value)
-			? { key, value: { intValue: value } }
+			? { key, value: { intValue: String(value) } }
 			: { key, value: { doubleValue: value } };
 	}
 	return { key, value: { stringValue: String(value ?? "") } };

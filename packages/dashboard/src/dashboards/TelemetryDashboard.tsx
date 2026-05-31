@@ -354,7 +354,7 @@ export function TelemetryDashboard({
 
 	// Load initial trace/issue from URL
 	useEffect(() => {
-		if (initialTraceId && !traceDetail) {
+		if (initialTraceId && traceDetail?.trace.traceId !== initialTraceId) {
 			api<TraceDetail>(
 				`/telemetry/traces/${encodeURIComponent(initialTraceId)}`,
 			)
@@ -826,10 +826,12 @@ function TraceDetailView({
 }) {
 	const spans = trace.spans;
 	const meta = trace.trace;
-	const traceStart = Math.min(
-		...spans.map((s) => new Date(s.startTime).getTime()),
-	);
-	const traceEnd = Math.max(...spans.map((s) => new Date(s.endTime).getTime()));
+	const spanStarts = spans.map((s) => new Date(s.startTime).getTime());
+	const spanEnds = spans.map((s) => new Date(s.endTime).getTime());
+	const traceStart = spanStarts.length
+		? Math.min(...spanStarts)
+		: new Date(meta.startTime).getTime();
+	const traceEnd = spanEnds.length ? Math.max(...spanEnds) : traceStart;
 	const traceDuration = traceEnd - traceStart || 1;
 	const tree = buildSpanTree(spans);
 

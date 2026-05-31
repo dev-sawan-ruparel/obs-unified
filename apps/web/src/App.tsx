@@ -98,6 +98,24 @@ type Route = {
 	userId?: string;
 };
 
+const KNOWN_TABS = new Set([
+	"playground",
+	"health",
+	"investigate",
+	"traces",
+	"service-map",
+	"issues",
+	"logs",
+	"ai",
+	"usage",
+	"replay",
+	"timeline",
+	"alerts",
+	"resources",
+	"projects",
+	"users",
+]);
+
 function parseHash(): Route {
 	const hash = location.hash.slice(1) || "/health";
 	const [path, query] = hash.split("?");
@@ -473,6 +491,8 @@ export function App() {
 								}}
 							/>
 						)}
+						{route.tab === "users" && !route.userId && <ProjectsDashboard />}
+						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}
 					</Suspense>
 				</main>
 			</div>

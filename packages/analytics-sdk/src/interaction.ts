@@ -77,8 +77,13 @@ export const pushInteraction = (id: string): void => {
 	stack.push(id);
 };
 
-export const popInteraction = (): void => {
-	stack.pop();
+export const popInteraction = (id?: string): void => {
+	if (id === undefined || stack[stack.length - 1] === id) {
+		stack.pop();
+		return;
+	}
+	const index = stack.lastIndexOf(id);
+	if (index !== -1) stack.splice(index, 1);
 };
 
 /**

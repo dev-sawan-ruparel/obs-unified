@@ -124,12 +124,14 @@ function ReplayPlayer({
 	const playerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
+		let cancelled = false;
 		setLoading(true);
 		setIssue(null);
 		setEvents(null);
 
 		fetcher(`${basePath}/replays/${encodeURIComponent(sessionId)}`)
 			.then(async (r) => {
+				if (cancelled) return null;
 				if (r.status === 404) {
 					setIssue({
 						kind: "absence",
@@ -148,7 +150,7 @@ function ReplayPlayer({
 				return (await r.json()) as { events?: RrwebEvent[] };
 			})
 			.then((data) => {
-				if (!data) return;
+				if (cancelled || !data) return;
 				if (data.events && data.events.length > 2) {
 					setEvents(data.events);
 				} else {
@@ -159,13 +161,20 @@ function ReplayPlayer({
 					});
 				}
 			})
-			.catch((e) =>
-				setIssue({
-					kind: "error",
-					message: e instanceof Error ? e.message : String(e),
-				}),
-			)
-			.finally(() => setLoading(false));
+			.catch((e) => {
+				if (!cancelled) {
+					setIssue({
+						kind: "error",
+						message: e instanceof Error ? e.message : String(e),
+					});
+				}
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [sessionId, fetcher, basePath]);
 
 	useEffect(() => {
@@ -179,18 +188,27 @@ function ReplayPlayer({
 					width: playerRef.current.clientWidth,
 				},
 			});
+			const handleTimeUpdate = (e: unknown) => {
+				const update = e as RrwebUiUpdateEvent;
+				const offset = update.payload ?? update.detail;
+				if (typeof offset === "number" && events[0]?.timestamp) {
+					onTimeUpdate?.(events[0].timestamp + offset);
+				}
+			};
 			if (onTimeUpdate) {
-				player.addEventListener("ui-update-current-time", (e: unknown) => {
-					const update = e as RrwebUiUpdateEvent;
-					const offset = update.payload ?? update.detail;
-					if (typeof offset === "number" && events[0]?.timestamp) {
-						onTimeUpdate(events[0].timestamp + offset);
-					}
-				});
+				player.addEventListener("ui-update-current-time", handleTimeUpdate);
 			}
 			return () => {
 				try {
+					if (onTimeUpdate) {
+						(
+							player as unknown as {
+								removeEventListener?: typeof player.addEventListener;
+							}
+						).removeEventListener?.("ui-update-current-time", handleTimeUpdate);
+					}
 					player.pause();
+					(player as unknown as { destroy?: () => void }).destroy?.();
 				} catch {}
 			};
 		}
@@ -277,18 +295,30 @@ export function ReplayDashboard({
 
 	const [sidebarWidth, setSidebarWidth] = useState(380);
 	const [isDragging, setIsDragging] = useState(false);
+	const openRequestId = useRef(0);
 
 	useEffect(() => {
+		let cancelled = false;
 		setLoadingList(true);
 		fetcher(`${basePath}/replays`)
 			.then((r) => r.json() as Promise<{ replays: ReplayRow[] }>)
-			.then((d) => setReplaysList(d.replays || []))
-			.catch((err) => console.error("Error fetching replays:", err))
-			.finally(() => setLoadingList(false));
+			.then((d) => {
+				if (!cancelled) setReplaysList(d.replays || []);
+			})
+			.catch((err) => {
+				if (!cancelled) console.error("Error fetching replays:", err);
+			})
+			.finally(() => {
+				if (!cancelled) setLoadingList(false);
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [basePath, fetcher]);
 
 	const openSession = useCallback(
 		async (id: string) => {
+			const requestId = ++openRequestId.current;
 			setLoading(true);
 			setSelectedSessionId(id);
 			setTraceEvents([]);
@@ -315,12 +345,14 @@ export function ReplayDashboard({
 						groups?: Record<string, TimelineGroup>;
 					}>,
 				]);
-				setSessionDetail(detail);
-				setTraceEvents(tracesObj.traces || []);
-				setInteractionGroups(timeline.groups ?? {});
+				if (requestId === openRequestId.current) {
+					setSessionDetail(detail);
+					setTraceEvents(tracesObj.traces || []);
+					setInteractionGroups(timeline.groups ?? {});
+				}
 			} catch {
 			} finally {
-				setLoading(false);
+				if (requestId === openRequestId.current) setLoading(false);
 			}
 		},
 		[basePath, fetcher, onNavigate],

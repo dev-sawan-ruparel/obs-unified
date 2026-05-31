@@ -37,6 +37,10 @@ const pool = new Pool({
 	idleTimeoutMillis: 30_000,
 });
 
+pool.on("error", (err) => {
+	console.error("[obs-unified] pg.Pool idle client connection error:", err);
+});
+
 const sqlDb = new PostgresAdapter(pool, {
 	statementTimeoutMs: 30_000,
 });
@@ -76,12 +80,9 @@ const dashboardAuth = createDashboardAuth({
 const app = createDefaultCollectorApp({
 	// `auth` and `dashboardAuth` middlewares are declared with
 	// `Variables: { projectId: string }`. The framework's CollectorConfig
-	// types them without Variables — a known structural mismatch that's
-	// benign at runtime. Same cast used by the Workers entrypoint in
-	// `apps/collector/src/index.ts` (which doesn't run type-check, so the
-	// drift wasn't caught upstream).
-	auth: { middleware: ingestAuth } as never,
-	dashboardAuth: dashboardAuth as never,
+	// types them with Variables: any — ensuring full type-safety.
+	auth: { middleware: ingestAuth },
+	dashboardAuth: dashboardAuth,
 	allowedOrigins: env.ALLOWED_ORIGINS.join(","),
 	// `sqlDb` in CollectorConfig is a factory `(env) => SqlDb`. We
 	// already constructed the PostgresAdapter once at startup, so the
@@ -135,9 +136,9 @@ function readEnv() {
 		DATABASE_URL: required("DATABASE_URL"),
 		PG_POOL_MAX: readNumberEnv("PG_POOL_MAX", 10),
 		S3_ENDPOINT: process.env.S3_ENDPOINT,
-		S3_REGION: process.env.S3_REGION ?? "us-east-1",
+		S3_REGION: requiredNonDefault("S3_REGION", "us-east-1"),
 		S3_BUCKET: required("S3_BUCKET"),
-		S3_FORCE_PATH_STYLE: (process.env.S3_FORCE_PATH_STYLE ?? "true") === "true",
+		S3_FORCE_PATH_STYLE: readBooleanEnv("S3_FORCE_PATH_STYLE", false),
 		S3_ACCESS_KEY_ID: required("S3_ACCESS_KEY_ID"),
 		S3_SECRET_ACCESS_KEY: required("S3_SECRET_ACCESS_KEY"),
 		INGEST_KEY: required("INGEST_KEY"),
@@ -152,4 +153,19 @@ function readNumberEnv(name: string, fallback: number): number {
 	if (raw === undefined || raw === "") return fallback;
 	const parsed = Number(raw);
 	return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function readBooleanEnv(name: string, fallback: boolean): boolean {
+	const raw = process.env[name];
+	if (raw === undefined || raw === "") return fallback;
+	return raw === "true";
+}
+
+function requiredNonDefault(name: string, defaultValue: string): string {
+	const raw = process.env[name];
+	if (!raw || raw === defaultValue) {
+		console.error(`[obs-unified] ${name} must be set explicitly`);
+		process.exit(1);
+	}
+	return raw;
 }

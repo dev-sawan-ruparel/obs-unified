@@ -21,9 +21,9 @@
 ## HIGH severity
 
 ### Wrong data / aggregation
-- **`packages/obs-collector/src/lib/store.ts:1157`** — `getServiceOperations` mixes bare aggregates (`COUNT(*)`, `SUM`) with non-aggregated columns and **no `GROUP BY`**, so SQLite collapses to a single row → the operations drawer is computed from one span.
+- [x] **`packages/obs-collector/src/lib/store.ts:1157`** — `getServiceOperations` mixes bare aggregates (`COUNT(*)`, `SUM`) with non-aggregated columns and **no `GROUP BY`**, so SQLite collapses to a single row → the operations drawer is computed from one span. *(Fixed: Removed SQLite aggregates and perform full grouping/aggregation in JS; verified by connected-routes.test.ts)*
 - **`packages/obs-collector/src/lib/store.ts:457`** — `getOverview` caps spans at `traceLimit*50` then reconstructs traces in JS; boundary traces lose spans/root, corrupting `spanCount`/`errorRate`/`p95`. Same shape in `getIssueOverview`.
-- **`packages/obs-collector/src/lib/usage-store.ts:496`** — "slow sessions" filter reads only `$.loadTimeMs` while ingest accepts `load_time_ms`/`durationMs` too → slow sessions silently excluded.
+- [x] **`packages/obs-collector/src/lib/usage-store.ts:496`** — "slow sessions" filter reads only `$.loadTimeMs` while ingest accepts `load_time_ms`/`durationMs` too → slow sessions silently excluded. *(Fixed: Implemented dynamic COALESCE lookup on $.loadTimeMs, $.load_time_ms, and $.durationMs in the query; verified by connected-routes.test.ts)*
 - **`packages/obs-collector/src/analyses/tier0.ts:283`** (and `derive.ts`, `investigations.ts`) — percentile CTE uses `CAST(0.95·n AS INT)` (floor) instead of nearest-rank ceil → **p95/p99 understated**, causing missed warn/critical alerts. On windows under 20 spans the "tail" degenerates to a single row.
 - **`packages/obs-collector/src/lib/analyses-runner.ts:337`** — Narrative LLM fallback hardcodes the default Anthropic model ID as `"claude-haiku-4-5"`. This model does not exist in Anthropic's API, causing all downstream narrative generation attempts to fail with a 404 error unless explicitly overridden by the `NARRATIVE_MODEL` environment variable.
 
@@ -33,7 +33,7 @@
 ### Auth / tenant isolation
 - **`packages/obs-collector/src/auth/dashboard-auth.ts:60`** — session HMAC verified with plain `===` (non-constant-time); same for the login password check at `:183`. Timing side-channel.
 - **`packages/obs-collector/src/durable-objects/tail-hub.ts:41`** — TailHub `/subscribe` trusts a client-supplied `?projectId`; `tail-routes.ts:24` forwards it verbatim → any authenticated dashboard user can bypass the selected/validated project and stream another project's live spans/logs. `/publish` body is unvalidated → 500 on malformed input.
-- **`packages/obs-collector/src/auth/ingest-auth.ts:58`** — `bootstrapDone = true` is set *before* `bootstrapEnvKey` runs and the error is swallowed; one transient DB error permanently disables legacy-key auth for the isolate (intermittent 401s after cold start).
+- [x] **`packages/obs-collector/src/auth/ingest-auth.ts:58`** — `bootstrapDone = true` is set *before* `bootstrapEnvKey` runs and the error is swallowed; one transient DB error permanently disables legacy-key auth for the isolate (intermittent 401s after cold start). *(Fixed: Latched bootstrapDone to true only after successful bootstrapEnvKey completion; verified in ingest auth code paths)*
 
 ### Dead / unregistered logic
 - **`packages/obs-collector/src/plugins/onboarding-routes.ts`** & **`dashboard-routes.ts`** — both plugins are exported but never added to `allPlugins`/`createDefaultCollectorApp` → `/internal/onboarding/counts` 404s, and the `/` redirect + `/dashboard/*` SPA fallback never mount (client routes 404 on refresh).

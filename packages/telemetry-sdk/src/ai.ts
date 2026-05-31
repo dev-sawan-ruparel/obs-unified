@@ -81,7 +81,16 @@ export async function flushAICalls() {
 		});
 	} catch (err) {
 		console.error("Failed to flush AI calls:", err);
+		requeueAICalls(batch);
 	} finally {
 		flushInProgress = false;
+	}
+}
+
+function requeueAICalls(batch: AICallInput[]): void {
+	if (batch.length === 0) return;
+	aiBuffer.unshift(...batch);
+	if (aiBuffer.length > MAX_BUFFER_SIZE) {
+		aiBuffer.splice(0, aiBuffer.length - MAX_BUFFER_SIZE);
 	}
 }

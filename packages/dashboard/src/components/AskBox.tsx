@@ -32,8 +32,11 @@ export function AskBox() {
 		const onKey = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "/") {
 				e.preventDefault();
-				setOpen(true);
-				setTimeout(() => inputRef.current?.focus(), 10);
+				setOpen((value) => {
+					const next = !value;
+					if (next) setTimeout(() => inputRef.current?.focus(), 10);
+					return next;
+				});
 			} else if (e.key === "Escape" && open) {
 				setOpen(false);
 			}

@@ -62,11 +62,11 @@ export interface CollectorPlugin {
 
 export interface CollectorAuthConfig {
 	/** Single middleware applied to both /v1/* (ingest) and /internal/* (query) routes */
-	middleware?: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+	middleware?: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 	/** @deprecated Use middleware instead. Ingest-only auth for /v1/* routes. */
-	ingest?: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+	ingest?: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 	/** @deprecated Use middleware instead. Query-only auth for /internal/* routes. */
-	query?: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+	query?: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 }
 
 export interface CollectorConfig {
@@ -76,7 +76,7 @@ export interface CollectorConfig {
 	allowedOrigins?: string;
 	/** Register dashboard auth routes and middleware */
 	dashboardAuth?: {
-		middleware: MiddlewareHandler<{ Bindings: CollectorEnv }>;
+		middleware: MiddlewareHandler<{ Bindings: CollectorEnv; Variables: any }>;
 		registerRoutes: (app: Hono<{ Bindings: CollectorEnv }>) => void;
 	};
 	/**

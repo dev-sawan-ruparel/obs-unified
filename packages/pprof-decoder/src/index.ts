@@ -31,6 +31,7 @@ const WIRE_FIXED32 = 5;
 
 export class Reader {
 	private pos = 0;
+	private readonly decoder = new TextDecoder("utf-8");
 	constructor(private readonly buf: Uint8Array) {}
 
 	get eof(): boolean {
@@ -70,7 +71,7 @@ export class Reader {
 
 	readString(len: number): string {
 		const bytes = this.readBytes(len);
-		return new TextDecoder().decode(bytes);
+		return this.decoder.decode(bytes);
 	}
 
 	skipField(wireType: number): void {
@@ -324,7 +325,37 @@ export const decodePprofBlob = async (
 // smaller blob; safe to expose from the shared package).
 // Symmetric to the decoder above; only emits the fields we read.
 
-const writeVarint = (out: number[], value: number): void => {
+interface ByteSink {
+	push(byte: number): void;
+}
+
+class ByteBuilder implements ByteSink {
+	private buf = new Uint8Array(1024 * 16); // 16KB initial capacity
+	private len = 0;
+
+	get length(): number {
+		return this.len;
+	}
+
+	push(byte: number): void {
+		if (this.len >= this.buf.length) {
+			const next = new Uint8Array(this.buf.length * 2);
+			next.set(this.buf);
+			this.buf = next;
+		}
+		this.buf[this.len++] = byte;
+	}
+
+	[Symbol.iterator]() {
+		return this.buf.subarray(0, this.len)[Symbol.iterator]();
+	}
+
+	toArray(): Uint8Array {
+		return this.buf.subarray(0, this.len);
+	}
+}
+
+const writeVarint = (out: ByteSink, value: number): void => {
 	while (value >= 0x80) {
 		out.push((value & 0x7f) | 0x80);
 		value = Math.floor(value / 128);
@@ -332,11 +363,11 @@ const writeVarint = (out: number[], value: number): void => {
 	out.push(value & 0x7f);
 };
 
-const writeTag = (out: number[], fieldNum: number, wireType: number): void =>
+const writeTag = (out: ByteSink, fieldNum: number, wireType: number): void =>
 	writeVarint(out, (fieldNum << 3) | wireType);
 
 const writeLengthDelimited = (
-	out: number[],
+	out: ByteSink,
 	fieldNum: number,
 	bytes: number[] | Uint8Array,
 ): void => {
@@ -345,13 +376,13 @@ const writeLengthDelimited = (
 	for (let i = 0; i < bytes.length; i++) out.push(bytes[i]);
 };
 
-const writeString = (out: number[], fieldNum: number, str: string): void => {
+const writeString = (out: ByteSink, fieldNum: number, str: string): void => {
 	const bytes = new TextEncoder().encode(str);
 	writeLengthDelimited(out, fieldNum, bytes);
 };
 
 const writePackedVarints = (
-	out: number[],
+	out: ByteSink,
 	fieldNum: number,
 	values: number[],
 ): void => {
@@ -436,7 +467,7 @@ const encodeFunction = (fn: PprofFunction): number[] => {
 };
 
 export const encodePprof = (profile: PprofProfile): Uint8Array => {
-	const out: number[] = [];
+	const out = new ByteBuilder();
 	for (const vt of profile.sampleTypes) {
 		writeLengthDelimited(out, 1, encodeValueType(vt));
 	}
@@ -452,7 +483,7 @@ export const encodePprof = (profile: PprofProfile): Uint8Array => {
 	for (const str of profile.stringTable) {
 		writeString(out, 6, str);
 	}
-	return new Uint8Array(out);
+	return out.toArray();
 };
 
 /** Convenience: gzip a Uint8Array using CompressionStream. */

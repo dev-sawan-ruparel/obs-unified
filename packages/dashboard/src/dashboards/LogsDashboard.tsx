@@ -252,6 +252,11 @@ export function LogsDashboard() {
 
 	const visibleLogs = liveMode ? liveFilteredLogs : filteredLogs;
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: selected row must reset only when toggling between live and historical sources.
+	useEffect(() => {
+		setSelectedLog(null);
+	}, [liveMode]);
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-sys-bg font-sans text-sys-on-surface p-2">
 			<div className="mb-2 flex-none flex flex-wrap items-center gap-2 bg-sys-surface px-3 py-2">

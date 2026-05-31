@@ -81,8 +81,17 @@ export async function flushLogs() {
 		});
 	} catch (err) {
 		console.error("Failed to flush logs:", err);
+		requeueLogs(batch);
 	} finally {
 		flushInProgress = false;
+	}
+}
+
+function requeueLogs(batch: BufferedLog[]): void {
+	if (batch.length === 0) return;
+	logBuffer.unshift(...batch);
+	if (logBuffer.length > MAX_BUFFER_SIZE) {
+		logBuffer.splice(0, logBuffer.length - MAX_BUFFER_SIZE);
 	}
 }
 

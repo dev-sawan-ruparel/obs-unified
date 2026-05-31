@@ -109,7 +109,7 @@ export interface StartProfilerOptions {
 }
 
 export interface ProfilerHandle {
-	stop: () => void;
+	stop: () => Promise<void>;
 }
 
 /**
@@ -183,12 +183,10 @@ export function startProfiler(opts: StartProfilerOptions): ProfilerHandle {
 	if (typeof timer.unref === "function") timer.unref();
 
 	return {
-		stop: () => {
+		stop: async () => {
 			stopped = true;
 			clearInterval(timer);
-			// Caller may want to await the in-flight push; we expose it
-			// via a then-able since stop() itself is sync.
-			void inFlight;
+			await inFlight;
 		},
 	};
 }

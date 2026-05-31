@@ -331,6 +331,8 @@ export class UsageTracker {
 			safeStorage(sessionStorage, sessionKey, "");
 			safeStorage(sessionStorage, startKey, "");
 			safeStorage(sessionStorage, activityKey, "");
+			this.lastPagePath = null;
+			this.onceKeys.clear();
 			rotated = true;
 		}
 
@@ -429,11 +431,12 @@ export class UsageTracker {
 
 	identify(userId: string, properties?: Record<string, unknown>): void {
 		try {
-			const baseUrl = this.config.endpoint.replace("/events", "");
+			const baseUrl = this.collectorBaseUrl();
 			const identifyUrl = `${baseUrl}/identify`;
+			const headers = this.authHeaders();
 			const init: RequestInit = {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers,
 				body: JSON.stringify({
 					userId,
 					visitorId: this.visitorId,
@@ -545,11 +548,12 @@ export class UsageTracker {
 		this.replayEvents = [];
 
 		try {
-			const baseUrl = this.config.endpoint.replace("/events", "");
+			const baseUrl = this.collectorBaseUrl();
 			const replayUrl = `${baseUrl}/replays`;
+			const headers = this.authHeaders();
 			const init: RequestInit = {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers,
 				body: JSON.stringify({
 					sessionId: this.sessionId,
 					visitorId: this.visitorId,
@@ -569,6 +573,28 @@ export class UsageTracker {
 			if (this.config.debug)
 				console.warn("[analytics-sdk] replay flush error", e);
 		}
+	}
+
+	private collectorBaseUrl(): string {
+		try {
+			const url = new URL(this.config.endpoint, window.location.href);
+			if (url.pathname.endsWith("/v1/usage")) {
+				url.pathname = url.pathname.slice(0, -"/usage".length);
+			} else if (url.pathname.endsWith("/events")) {
+				url.pathname = url.pathname.slice(0, -"/events".length);
+			}
+			return url.toString().replace(/\/$/, "");
+		} catch {
+			return this.config.endpoint.replace(/\/(?:events|usage)$/, "");
+		}
+	}
+
+	private authHeaders(): Record<string, string> {
+		const headers: Record<string, string> = {
+			"Content-Type": "application/json",
+		};
+		if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
+		return headers;
 	}
 
 	trackPageView(path: string, title: string): void {

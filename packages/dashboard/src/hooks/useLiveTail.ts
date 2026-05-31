@@ -74,7 +74,9 @@ export function useLiveTail<T>(
 					if (predicateRef.current(e)) matched.push(e.row);
 				}
 				if (matched.length === 0) return;
-				const newest = matched.reverse();
+				const newest = matched.sort(
+					(a, b) => rowTimestamp(b) - rowTimestamp(a),
+				);
 				if (pausedRef.current) {
 					bufferRef.current = [...newest, ...bufferRef.current].slice(
 						0,
@@ -118,4 +120,11 @@ export function useLiveTail<T>(
 	}, []);
 
 	return { rows, paused, buffered, togglePause, clear, connected, error };
+}
+
+function rowTimestamp(row: unknown): number {
+	if (!row || typeof row !== "object") return 0;
+	const record = row as Record<string, unknown>;
+	const value = record.occurredAt ?? record.startTime ?? record.t ?? 0;
+	return new Date(String(value)).getTime();
 }
