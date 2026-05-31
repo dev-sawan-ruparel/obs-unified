@@ -12,6 +12,8 @@ export interface ObservabilityConfig {
 	serviceName: string;
 	/** Optional service version */
 	serviceVersion?: string;
+	/** Periodic flush interval in milliseconds for logs and AI calls. Set to 0 to disable. */
+	flushIntervalMs?: number;
 	/**
 	 * Additional HTTP headers attached to every collector POST (logs + AI).
 	 * Used by the obs-collector worker to mark self-emitted telemetry with
@@ -47,12 +49,14 @@ export function initObservability(config: ObservabilityConfig): void {
 		authToken: config.apiKey,
 		serviceName: config.serviceName,
 		extraHeaders: config.extraHeaders,
+		flushIntervalMs: config.flushIntervalMs,
 	};
 	const aiConfig: AILoggerConfig = {
 		collectorUrl: config.collectorUrl,
 		authToken: config.apiKey,
 		serviceName: config.serviceName,
 		extraHeaders: config.extraHeaders,
+		flushIntervalMs: config.flushIntervalMs,
 	};
 	initLogger(loggerConfig);
 	initAI(aiConfig);
@@ -80,7 +84,13 @@ export {
 	tool,
 } from "./agent";
 // ── AI tracking ──
-export { type AILoggerConfig, flushAICalls, initAI, trackAICall } from "./ai";
+export {
+	type AILoggerConfig,
+	flushAICalls,
+	initAI,
+	shutdownAI,
+	trackAICall,
+} from "./ai";
 // ── AI span helpers (OpenInference) ──
 export {
 	type AISpan,
@@ -115,6 +125,7 @@ export {
 	type Logger,
 	type LoggerConfig,
 	type LogSeverity,
+	shutdownLogger,
 } from "./logger";
 // ── OTEL config ──
 export { annotateErrorSpan, createResolveConfig } from "./otel-config";

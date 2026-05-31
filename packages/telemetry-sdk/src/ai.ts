@@ -1,10 +1,13 @@
 import type { AICallInput, AICallPayload } from "@obs-unified/types";
+import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 import { getActiveSpan } from "./span";
 
 export interface AILoggerConfig {
 	collectorUrl: string;
 	authToken?: string;
 	serviceName: string;
+	/** Periodic flush interval in milliseconds. Set to 0 to disable. */
+	flushIntervalMs?: number;
 	/**
 	 * Additional HTTP headers attached to every `/v1/ai` POST. Mirrors
 	 * `LoggerConfig.extraHeaders` — used by the collector for self-emit
@@ -14,13 +17,27 @@ export interface AILoggerConfig {
 }
 
 const MAX_BUFFER_SIZE = 200;
+const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
 
 let aiConfig: AILoggerConfig | null = null;
 const aiBuffer: AICallInput[] = [];
 let flushInProgress = false;
+let flushLifecycle: FlushLifecycle | null = null;
 
 export function initAI(config: AILoggerConfig) {
 	aiConfig = config;
+	flushLifecycle?.stop();
+	flushLifecycle = installFlushLifecycle({
+		name: "AI telemetry",
+		flush: flushAICalls,
+		intervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+	});
+}
+
+export function shutdownAI() {
+	flushLifecycle?.stop();
+	flushLifecycle = null;
+	return flushAICalls();
 }
 
 /**

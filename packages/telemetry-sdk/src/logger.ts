@@ -7,6 +7,7 @@
  */
 
 import type { JsonValue } from "@obs-unified/types";
+import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 import { getActiveSpan } from "./span";
 
 const SEVERITY_DEBUG = 5;
@@ -27,6 +28,8 @@ export interface LoggerConfig {
 	collectorUrl: string;
 	authToken?: string;
 	serviceName: string;
+	/** Periodic flush interval in milliseconds. Set to 0 to disable. */
+	flushIntervalMs?: number;
 	/**
 	 * Additional HTTP headers attached to every `/v1/logs` POST. Used by the
 	 * collector to mark its own self-emitted telemetry with `X-Telemetry-Self`
@@ -48,13 +51,27 @@ interface BufferedLog {
 }
 
 const MAX_BUFFER_SIZE = 500;
+const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
 
 let logConfig: LoggerConfig | null = null;
 const logBuffer: BufferedLog[] = [];
 let flushInProgress = false;
+let flushLifecycle: FlushLifecycle | null = null;
 
 export function initLogger(config: LoggerConfig) {
 	logConfig = config;
+	flushLifecycle?.stop();
+	flushLifecycle = installFlushLifecycle({
+		name: "log telemetry",
+		flush: flushLogs,
+		intervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+	});
+}
+
+export function shutdownLogger() {
+	flushLifecycle?.stop();
+	flushLifecycle = null;
+	return flushLogs();
 }
 
 export async function flushLogs() {

@@ -54,13 +54,9 @@ This document is the single, unified source of truth for all codebase issues, co
   * **Risk:** High. Captured telemetry is silently lost by default.
   * **Next Action:** Implement a background export queue, configure standard HTTP/OTLP span exporters, and verify span transmission via tests.
 
-- [ ] **Telemetry SDK Lacks Flush Timers and Exit Hooks**
-  * **Location:** [`packages/telemetry-sdk/src/ai.ts:55`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/ai.ts#L55) & [`logger.ts:235`](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/logger.ts#L235)
-  * **Description:** AI telemetry and logger SDKs only flush once a count threshold is hit. There are no flush timers or process exit/shutdown hooks.
-  * **Risk:** High. Sub-threshold traces, logs, and events are permanently lost when a process exits, a container redeploys, or a short-lived script terminates.
-  * **Next Action:** Add periodic flush intervals (e.g., 5 seconds) and listen to `process.on('beforeExit' / 'SIGTERM')` and browser `pagehide` events to drain queues.
-
 ### Resolved Functional Issues
+- [x] **Telemetry SDK Lacks Flush Timers and Exit Hooks**
+  * *Resolution:* Added a shared flush lifecycle helper for AI calls and logs with a default 5s periodic drain, browser `pagehide` drain, Node `beforeExit` drain, cooperative SIGTERM/SIGINT drain when the host already owns signal handling, and explicit `shutdownAI()` / `shutdownLogger()` drain helpers. Added interval regression tests for sub-threshold AI and log buffers.
 - [x] **Onboarding & SPA Fallback Dashboard Plugins are Unregistered**
   * *Resolution:* Registered `onboardingRoutesPlugin` and `dashboardRoutesPlugin` in `allPlugins` within `packages/obs-collector/src/index.ts`, and updated the `/dashboard/*` wildcard route fallback to serve the client-side SPA index.html directly via `c.env.ASSETS` when available.
 - [x] **Narrative LLM Fallback Hardcodes Non-Existent Anthropic Model ID**
