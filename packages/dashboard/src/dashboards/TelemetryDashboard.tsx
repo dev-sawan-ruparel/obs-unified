@@ -12,6 +12,7 @@ import {
 import { StateRow } from "../components/states";
 import { type TailEvent, useLiveTail } from "../hooks/useLiveTail";
 import { useDashboard, useTimeWindowHours } from "../provider";
+import { errorMessage, isAbortError } from "../use-api";
 import { Badge, copy, fmtTs } from "./telemetry/shared";
 import { TraceDetailView } from "./telemetry/TraceDetailView";
 import type {
@@ -53,8 +54,8 @@ export function TelemetryDashboard({
 }: Props) {
 	const { basePath, fetcher } = useDashboard();
 	const api = useCallback(
-		async <T,>(path: string): Promise<T> => {
-			const r = await fetcher(`${basePath}${path}`);
+		async <T,>(path: string, init?: RequestInit): Promise<T> => {
+			const r = await fetcher(`${basePath}${path}`, init);
 			if (!r.ok) throw new Error(`${r.status}`);
 			return r.json();
 		},
@@ -79,6 +80,9 @@ export function TelemetryDashboard({
 	const [issueDetail, setIssueDetail] = useState<IssueDetail | null>(null);
 	const [category, setCategory] = useState("all");
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
+	const [traceError, setTraceError] = useState<string | null>(null);
+	const [issueError, setIssueError] = useState<string | null>(null);
 	const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null);
 	const [liveMode, setLiveMode] = useState(false);
 
@@ -96,40 +100,44 @@ export function TelemetryDashboard({
 		return ["all", ...svcs];
 	}, [overview, issueOverview]);
 
-	const loadAll = useCallback(async () => {
-		setLoading(true);
-		try {
-			const svc = serviceFilter !== "all" ? `&service=${serviceFilter}` : "";
-			const q = search ? `&q=${encodeURIComponent(search)}` : "";
-			const cat = category !== "all" ? `&category=${category}` : "";
-			const [ov, iss] = await Promise.all([
-				api<Overview>(
-					`/telemetry/overview?hours=${hours}&status=${statusFilter}${svc}${q}`,
-				),
-				api<IssueOverview>(`/telemetry/issues?hours=${hours}${svc}${cat}`),
-			]);
-			setOverview(ov);
-			setIssueOverview(iss);
-		} catch {
-		} finally {
-			setLoading(false);
-		}
-	}, [hours, statusFilter, serviceFilter, search, category, api]);
+	const loadAll = useCallback(
+		async (signal?: AbortSignal) => {
+			setLoading(true);
+			setLoadError(null);
+			try {
+				const svc = serviceFilter !== "all" ? `&service=${serviceFilter}` : "";
+				const q = search ? `&q=${encodeURIComponent(search)}` : "";
+				const cat = category !== "all" ? `&category=${category}` : "";
+				const [ov, iss] = await Promise.all([
+					api<Overview>(
+						`/telemetry/overview?hours=${hours}&status=${statusFilter}${svc}${q}`,
+						{ signal },
+					),
+					api<IssueOverview>(`/telemetry/issues?hours=${hours}${svc}${cat}`, {
+						signal,
+					}),
+				]);
+				setOverview(ov);
+				setIssueOverview(iss);
+			} catch (err) {
+				if (isAbortError(err)) return;
+				setLoadError(errorMessage(err));
+			} finally {
+				if (!signal?.aborted) setLoading(false);
+			}
+		},
+		[hours, statusFilter, serviceFilter, search, category, api],
+	);
 
 	useEffect(() => {
-		loadAll();
+		const controller = new AbortController();
+		loadAll(controller.signal);
+		return () => controller.abort();
 	}, [loadAll]);
 
-	// Load initial trace/issue from URL
 	useEffect(() => {
-		if (initialTraceId && traceDetail?.trace.traceId !== initialTraceId) {
-			api<TraceDetail>(
-				`/telemetry/traces/${encodeURIComponent(initialTraceId)}`,
-			)
-				.then(setTraceDetail)
-				.catch(() => {});
-		}
-	}, [initialTraceId, api, traceDetail]);
+		if (initialTraceId) setExpandedTraceId(initialTraceId);
+	}, [initialTraceId]);
 
 	// Re-sync the service filter when the URL's ?service= param changes —
 	// e.g. when the Health tab opens /#/traces?service=checkout and the user
@@ -139,16 +147,52 @@ export function TelemetryDashboard({
 	}, [initialService]);
 
 	useEffect(() => {
-		if (initialIssueId && !issueDetail) {
-			api<IssueDetail>(
-				`/telemetry/issues/detail?issueId=${encodeURIComponent(initialIssueId)}&hours=${hours}`,
-			)
-				.then(setIssueDetail)
-				.catch(() => {});
-		}
-	}, [initialIssueId, hours, issueDetail, api]);
+		if (initialIssueId) setSelectedIssueId(initialIssueId);
+	}, [initialIssueId]);
 
-	const expandTrace = async (id: string) => {
+	useEffect(() => {
+		if (!expandedTraceId) {
+			setTraceDetail(null);
+			setTraceError(null);
+			return;
+		}
+		const controller = new AbortController();
+		setTraceDetail(null);
+		setTraceError(null);
+		api<TraceDetail>(
+			`/telemetry/traces/${encodeURIComponent(expandedTraceId)}`,
+			{
+				signal: controller.signal,
+			},
+		)
+			.then(setTraceDetail)
+			.catch((err) => {
+				if (!isAbortError(err)) setTraceError(errorMessage(err));
+			});
+		return () => controller.abort();
+	}, [expandedTraceId, api]);
+
+	useEffect(() => {
+		if (!selectedIssueId) {
+			setIssueDetail(null);
+			setIssueError(null);
+			return;
+		}
+		const controller = new AbortController();
+		setIssueDetail(null);
+		setIssueError(null);
+		api<IssueDetail>(
+			`/telemetry/issues/detail?issueId=${encodeURIComponent(selectedIssueId)}&hours=${hours}`,
+			{ signal: controller.signal },
+		)
+			.then(setIssueDetail)
+			.catch((err) => {
+				if (!isAbortError(err)) setIssueError(errorMessage(err));
+			});
+		return () => controller.abort();
+	}, [selectedIssueId, hours, api]);
+
+	const expandTrace = (id: string) => {
 		if (expandedTraceId === id) {
 			setExpandedTraceId(null);
 			setExpandedSpanId(null);
@@ -158,23 +202,11 @@ export function TelemetryDashboard({
 		setExpandedTraceId(id);
 		setExpandedSpanId(null);
 		onNavigate({ tab: "traces", traceId: id });
-		try {
-			setTraceDetail(
-				await api<TraceDetail>(`/telemetry/traces/${encodeURIComponent(id)}`),
-			);
-		} catch {}
 	};
 
-	const selectIssue = async (issue: IssueSummary) => {
+	const selectIssue = (issue: IssueSummary) => {
 		setSelectedIssueId(issue.issueId);
 		onNavigate({ tab: "issues", issueId: issue.issueId });
-		try {
-			setIssueDetail(
-				await api<IssueDetail>(
-					`/telemetry/issues/detail?issueId=${encodeURIComponent(issue.issueId)}&hours=${hours}`,
-				),
-			);
-		} catch {}
 	};
 
 	const handleExport = async () => {
@@ -235,7 +267,7 @@ export function TelemetryDashboard({
 						]}
 					/>
 				)}
-				<Button variant="primary" onClick={loadAll}>
+				<Button variant="primary" onClick={() => loadAll()}>
 					Refresh
 				</Button>
 				{mode === "traces" && (
@@ -269,6 +301,23 @@ export function TelemetryDashboard({
 			</div>
 
 			{loading && !overview ? <StateRow>Initializing…</StateRow> : null}
+			{loadError && (
+				<div className="mb-2 border-l-[4px] border-sys-error bg-sys-error/10 p-3">
+					<div className="flex items-start gap-3">
+						<div className="min-w-0 flex-1">
+							<p className="m-0 text-[0.75rem] font-bold uppercase tracking-[0.05em] text-sys-error">
+								Failed to load telemetry
+							</p>
+							<p className="m-0 mt-1 break-words font-mono text-[0.8125rem] text-sys-error">
+								{loadError}
+							</p>
+						</div>
+						<Button variant="ghost" onClick={() => loadAll()}>
+							Retry
+						</Button>
+					</div>
+				</div>
+			)}
 
 			{mode === "traces" && liveMode && (
 				<LiveSpansView
@@ -285,6 +334,7 @@ export function TelemetryDashboard({
 					expandedTraceId={expandedTraceId}
 					traceDetail={traceDetail}
 					expandedSpanId={expandedSpanId}
+					traceError={traceError}
 					onExpandTrace={expandTrace}
 					onExpandSpan={setExpandedSpanId}
 				/>
@@ -294,6 +344,7 @@ export function TelemetryDashboard({
 					overview={issueOverview}
 					selectedIssueId={selectedIssueId}
 					issueDetail={issueDetail}
+					issueError={issueError}
 					onSelect={selectIssue}
 				/>
 			)}
@@ -373,6 +424,7 @@ function TracesView({
 	expandedTraceId,
 	traceDetail,
 	expandedSpanId,
+	traceError,
 	onExpandTrace,
 	onExpandSpan,
 }: {
@@ -381,6 +433,7 @@ function TracesView({
 	expandedTraceId: string | null;
 	traceDetail: TraceDetail | null;
 	expandedSpanId: string | null;
+	traceError: string | null;
 	onExpandTrace: (id: string) => void;
 	onExpandSpan: (id: string | null) => void;
 }) {
@@ -563,8 +616,14 @@ function TracesView({
 									</div>
 								)}
 								{isExpanded && !detail && (
-									<div className="bg-sys-bg p-2 border-t-[1px] border-sys-surface-low font-mono text-[0.75rem] opacity-60">
-										Loading spans...
+									<div
+										className={`bg-sys-bg p-2 border-t-[1px] border-sys-surface-low font-mono text-[0.75rem] ${
+											traceError ? "text-sys-error" : "opacity-60"
+										}`}
+									>
+										{traceError
+											? `Failed to load spans: ${traceError}`
+											: "Loading spans..."}
 									</div>
 								)}
 							</div>
@@ -587,11 +646,13 @@ function IssuesView({
 	overview,
 	selectedIssueId,
 	issueDetail,
+	issueError,
 	onSelect,
 }: {
 	overview: IssueOverview;
 	selectedIssueId: string | null;
 	issueDetail: IssueDetail | null;
+	issueError: string | null;
 	onSelect: (i: IssueSummary) => void;
 }) {
 	const selected =
@@ -655,6 +716,16 @@ function IssuesView({
 					</p>
 				) : (
 					<div className="space-y-6">
+						{issueError && (
+							<div className="border-l-[4px] border-sys-error bg-sys-error/10 p-3">
+								<p className="m-0 text-[0.75rem] font-bold uppercase tracking-[0.05em] text-sys-error">
+									Failed to load issue detail
+								</p>
+								<p className="m-0 mt-1 break-words font-mono text-[0.8125rem] text-sys-error">
+									{issueError}
+								</p>
+							</div>
+						)}
 						<div>
 							<div className="flex items-center gap-3 mb-2">
 								<Badge

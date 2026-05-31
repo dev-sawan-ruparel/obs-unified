@@ -1,6 +1,14 @@
 import { useCallback } from "react";
 import { useDashboard } from "./provider";
 
+export function isAbortError(err: unknown): boolean {
+	return err instanceof DOMException && err.name === "AbortError";
+}
+
+export function errorMessage(err: unknown): string {
+	return err instanceof Error ? err.message : String(err);
+}
+
 /**
  * Returns a fetch-like function that prepends the configured basePath
  * and uses the dashboard's fetcher (which includes credentials by default).

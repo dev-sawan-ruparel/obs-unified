@@ -53,3 +53,33 @@ export function StateRow({
 		</div>
 	);
 }
+
+export function ErrorState({
+	title = "Failed to load",
+	message,
+	action,
+	className = "",
+}: {
+	title?: string;
+	message: ReactNode;
+	action?: ReactNode;
+	className?: string;
+}) {
+	return (
+		<div
+			className={`border-l-[4px] border-sys-error bg-sys-error/10 p-3 ${className}`}
+		>
+			<div className="flex items-start gap-3">
+				<div className="min-w-0 flex-1">
+					<p className="m-0 text-[0.75rem] font-bold uppercase tracking-[0.05em] text-sys-error">
+						{title}
+					</p>
+					<p className="m-0 mt-1 break-words font-mono text-[0.8125rem] text-sys-error">
+						{message}
+					</p>
+				</div>
+				{action}
+			</div>
+		</div>
+	);
+}

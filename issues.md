@@ -104,16 +104,6 @@ This document is the single, unified source of truth for all codebase issues, co
 
 ---
 
-## ── P2: ADDITIONAL OPEN BACKLOG FROM SOURCE TRACKERS ──
-
-These lower-priority items were present in the deleted source trackers but were not represented as standalone rows in the first consolidated `issues.md` draft.
-
-- [ ] **Dashboard fetch effects still lack consistent cancellation and error UI**
-  * **Location:** `packages/dashboard/src/dashboards/AIDashboard.tsx`, `packages/dashboard/src/dashboards/TelemetryDashboard.tsx`
-  * **Source:** `FUNCTIONAL_CODE_SMELLS.md` HIGH Dashboard races.
-  * **Risk:** Rapid filter changes can still allow stale responses or swallowed errors in user-facing dashboards.
-  * **Next Action:** Standardize abortable dashboard loaders and visible error/empty states.
-
 ## ── P2: GOD OBJECTS & READABILITY REFACTOR BACKLOG ──
 
 These files are the current large-code "god object" candidates found by a line-count audit, excluding generated `.wrangler/tmp` files. They should be split only along existing runtime boundaries, with focused tests after each extraction.
@@ -233,6 +223,8 @@ These were present in the old trackers but were either omitted from the first ag
   * *Resolution:* AI span context now uses `AsyncLocalStorage` without a module-global ambient fallback, preventing cross-request context bleed while preserving `setAISessionContext()` reset semantics.
 - [x] **Standalone collector S3 defaults need production validation**
   * *Resolution:* Verified the standalone collector requires an explicit non-default `S3_REGION`, defaults `S3_FORCE_PATH_STYLE` to `false`, and fails startup when required S3 credentials/bucket config are missing.
+- [x] **Dashboard fetch effects still lack consistent cancellation and error UI**
+  * *Resolution:* `AIDashboard` and `TelemetryDashboard` now use `AbortController`-backed loaders for overview, detail, session, trace, issue, and action-graph fetches. Aborted requests no longer race stale state into the UI, and failed dashboard loads now render visible error states with retry affordances instead of only logging or swallowing errors.
 
 ---
 

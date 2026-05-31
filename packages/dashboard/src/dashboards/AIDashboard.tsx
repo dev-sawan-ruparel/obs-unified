@@ -36,8 +36,9 @@ import {
 	Waterfall,
 	type WaterfallSpan,
 } from "../components/primitives";
+import { ErrorState, StateRow } from "../components/states";
 import { useTimeWindowHours } from "../provider";
-import { useApi } from "../use-api";
+import { errorMessage, isAbortError, useApi } from "../use-api";
 
 // ── Shared ─────────────────────────────────────────────────────────────────
 
@@ -204,17 +205,37 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 	const [selected, setSelected] = useState<AISpanRecord | null>(null);
 	const [traceSpans, setTraceSpans] = useState<AISpanRecord[] | null>(null);
 	const [evals, setEvals] = useState<AIEvaluationRecord[] | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
+	const [detailLoading, setDetailLoading] = useState(false);
+	const [detailError, setDetailError] = useState<string | null>(null);
 
-	const load = useCallback(async () => {
-		const qs = new URLSearchParams({ hours });
-		if (kind) qs.set("kind", kind);
-		if (service) qs.set("service", service);
-		const data = await api<AISpansOverviewResponse>(`/ai/spans?${qs}`);
-		setOverview(data);
-	}, [hours, kind, service, api]);
+	const load = useCallback(
+		async (signal?: AbortSignal) => {
+			const qs = new URLSearchParams({ hours });
+			if (kind) qs.set("kind", kind);
+			if (service) qs.set("service", service);
+			const data = await api<AISpansOverviewResponse>(`/ai/spans?${qs}`, {
+				signal,
+			});
+			setOverview(data);
+		},
+		[hours, kind, service, api],
+	);
 
 	useEffect(() => {
-		load().catch(console.error);
+		const controller = new AbortController();
+		setLoading(true);
+		setLoadError(null);
+		load(controller.signal)
+			.catch((err) => {
+				if (isAbortError(err)) return;
+				setLoadError(errorMessage(err));
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) setLoading(false);
+			});
+		return () => controller.abort();
 	}, [load]);
 
 	// Filter client-side by model / provider / search.
@@ -253,29 +274,37 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 		if (!selected) {
 			setTraceSpans(null);
 			setEvals(null);
+			setDetailError(null);
+			setDetailLoading(false);
 			return;
 		}
-		let cancelled = false;
+		const controller = new AbortController();
+		setTraceSpans(null);
+		setEvals(null);
+		setDetailError(null);
+		setDetailLoading(true);
 		(async () => {
 			try {
 				const [spansRes, evalsRes] = await Promise.all([
 					api<AISpansOverviewResponse>(
 						`/ai/spans?traceId=${selected.traceId}&hours=720`,
+						{ signal: controller.signal },
 					),
 					api<AIEvaluationsListResponse>(
 						`/ai/evaluations?traceId=${selected.traceId}`,
+						{ signal: controller.signal },
 					),
 				]);
-				if (cancelled) return;
 				setTraceSpans(spansRes.spans);
 				setEvals(evalsRes.evaluations);
 			} catch (err) {
-				console.error(err);
+				if (isAbortError(err)) return;
+				setDetailError(errorMessage(err));
+			} finally {
+				if (!controller.signal.aborted) setDetailLoading(false);
 			}
 		})();
-		return () => {
-			cancelled = true;
-		};
+		return () => controller.abort();
 	}, [selected, api]);
 
 	// Derived stats
@@ -424,6 +453,34 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 				)}
 			</Toolbar>
 
+			{loadError && (
+				<div className="flex-none px-2 pt-2">
+					<ErrorState
+						message={loadError}
+						action={
+							<button
+								type="button"
+								onClick={() => {
+									const controller = new AbortController();
+									setLoading(true);
+									setLoadError(null);
+									load(controller.signal)
+										.catch((err) => {
+											if (!isAbortError(err)) setLoadError(errorMessage(err));
+										})
+										.finally(() => {
+											if (!controller.signal.aborted) setLoading(false);
+										});
+								}}
+								className="flex-none border border-sys-error px-2 py-1 text-[0.6875rem] font-bold text-sys-error"
+							>
+								Retry
+							</button>
+						}
+					/>
+				</div>
+			)}
+
 			{/* Stats strip */}
 			<div className="flex-none grid grid-cols-6 gap-2 p-2">
 				<Stat
@@ -486,6 +543,7 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 						note={`${spans.length} of ${overview?.summary.totalSpans ?? 0}`}
 					/>
 					<div className="flex-1 overflow-y-auto">
+						{loading && !overview && <StateRow>Loading AI spans…</StateRow>}
 						{spans.map((s) => (
 							<SpanRow
 								key={`${s.traceId}-${s.spanId}`}
@@ -499,7 +557,7 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 								onSelectProvider={(p) => setProvider(p)}
 							/>
 						))}
-						{spans.length === 0 && (
+						{!loading && !loadError && spans.length === 0 && (
 							<div className="p-6 text-center text-[0.75rem] opacity-60">
 								No spans match the current filters.
 							</div>
@@ -514,6 +572,8 @@ function SpansView({ hours, view, setView }: SpansViewProps) {
 								span={selected}
 								traceSpans={traceSpans}
 								evaluations={evals}
+								loading={detailLoading}
+								error={detailError}
 								onClose={() => setSelected(null)}
 								onJumpTo={(span) => setSelected(span)}
 							/>
@@ -684,12 +744,16 @@ function SpanDetailPane({
 	span,
 	traceSpans,
 	evaluations,
+	loading,
+	error,
 	onClose,
 	onJumpTo,
 }: {
 	span: AISpanRecord;
 	traceSpans: AISpanRecord[] | null;
 	evaluations: AIEvaluationRecord[] | null;
+	loading: boolean;
+	error: string | null;
 	onClose: () => void;
 	onJumpTo: (span: AISpanRecord) => void;
 }) {
@@ -728,32 +792,30 @@ function SpanDetailPane({
 		if (tab !== "actionGraph" || !actionId) {
 			return;
 		}
-		let cancelled = false;
+		const controller = new AbortController();
 		setGraphLoading(true);
 		setGraphError(null);
 		(async () => {
 			try {
 				const res = await api<{ rawManifest?: EntityManifestExtended }>(
 					`/connected/action/${actionId}`,
+					{ signal: controller.signal },
 				);
-				if (cancelled) return;
 				if (res.rawManifest) {
 					setGraphData(res.rawManifest);
 				} else {
 					setGraphError("No action graph manifest returned from the server.");
 				}
 			} catch (err) {
-				if (cancelled) return;
+				if (isAbortError(err)) return;
 				setGraphError(err instanceof Error ? err.message : String(err));
 			} finally {
-				if (!cancelled) {
+				if (!controller.signal.aborted) {
 					setGraphLoading(false);
 				}
 			}
 		})();
-		return () => {
-			cancelled = true;
-		};
+		return () => controller.abort();
 	}, [actionId, tab, api]);
 
 	return (
@@ -855,6 +917,11 @@ function SpanDetailPane({
 			</div>
 
 			{/* Body */}
+			{error && (
+				<div className="flex-none p-3">
+					<ErrorState title="Failed to load trace context" message={error} />
+				</div>
+			)}
 			{tab === "actionGraph" ? (
 				<div className="flex-1 min-h-0 relative">
 					{graphLoading && (
@@ -898,6 +965,7 @@ function SpanDetailPane({
 						<TraceWaterfall
 							focusSpanId={span.spanId}
 							spans={traceSpans}
+							loading={loading}
 							onJumpTo={onJumpTo}
 						/>
 					)}
@@ -947,10 +1015,12 @@ function DetailTabBtn({
 function TraceWaterfall({
 	focusSpanId,
 	spans,
+	loading,
 	onJumpTo,
 }: {
 	focusSpanId: string;
 	spans: AISpanRecord[] | null;
+	loading: boolean;
 	onJumpTo: (span: AISpanRecord) => void;
 }) {
 	// Order for gantt: by start time, depth-first within parent groups.
@@ -961,7 +1031,9 @@ function TraceWaterfall({
 
 	if (!spans) {
 		return (
-			<div className="text-[0.75rem] opacity-60 font-mono">Loading trace…</div>
+			<div className="text-[0.75rem] opacity-60 font-mono">
+				{loading ? "Loading trace…" : "Trace context unavailable."}
+			</div>
 		);
 	}
 	if (spans.length === 0) {
@@ -1092,41 +1164,65 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 	const [data, setData] = useState<AISessionsListResponse | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [detail, setDetail] = useState<AISessionDetailResponse | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
+	const [detailLoading, setDetailLoading] = useState(false);
+	const [detailError, setDetailError] = useState<string | null>(null);
 
-	const load = useCallback(async () => {
-		try {
+	const load = useCallback(
+		async (signal?: AbortSignal) => {
 			const res = await api<AISessionsListResponse>(
 				`/ai/sessions?hours=${hours}`,
+				{
+					signal,
+				},
 			);
 			setData(res);
-		} catch (err) {
-			console.error(err);
-		}
-	}, [api, hours]);
+		},
+		[api, hours],
+	);
 
 	useEffect(() => {
-		load();
+		const controller = new AbortController();
+		setLoading(true);
+		setLoadError(null);
+		load(controller.signal)
+			.catch((err) => {
+				if (isAbortError(err)) return;
+				setLoadError(errorMessage(err));
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) setLoading(false);
+			});
+		return () => controller.abort();
 	}, [load]);
 
 	useEffect(() => {
 		if (!selected) {
 			setDetail(null);
+			setDetailError(null);
+			setDetailLoading(false);
 			return;
 		}
-		let cancelled = false;
+		const controller = new AbortController();
+		setDetail(null);
+		setDetailError(null);
+		setDetailLoading(true);
 		(async () => {
 			try {
 				const res = await api<AISessionDetailResponse>(
 					`/ai/sessions/${encodeURIComponent(selected)}`,
+					{ signal: controller.signal },
 				);
-				if (!cancelled) setDetail(res);
+				setDetail(res);
 			} catch (err) {
-				console.error(err);
+				if (isAbortError(err)) return;
+				setDetailError(errorMessage(err));
+			} finally {
+				if (!controller.signal.aborted) setDetailLoading(false);
 			}
 		})();
-		return () => {
-			cancelled = true;
-		};
+		return () => controller.abort();
 	}, [selected, api]);
 
 	const sessions = data?.sessions ?? [];
@@ -1142,6 +1238,12 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 					{sessions.length} session{sessions.length === 1 ? "" : "s"}
 				</div>
 			</Toolbar>
+
+			{loadError && (
+				<div className="flex-none px-2 pt-2">
+					<ErrorState message={loadError} />
+				</div>
+			)}
 
 			{/* When a session is selected, the conversation pane needs a real
 			    minimum width or its monospace content (long error messages
@@ -1164,6 +1266,7 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 						note={`${sessions.length} in window`}
 					/>
 					<div className="flex-1 overflow-y-auto">
+						{loading && !data && <StateRow>Loading AI sessions…</StateRow>}
 						{sessions.map((s) => (
 							<SessionRow
 								key={s.sessionId}
@@ -1174,7 +1277,7 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 								}
 							/>
 						))}
-						{sessions.length === 0 && (
+						{!loading && !loadError && sessions.length === 0 && (
 							<div className="p-6 text-center text-[0.75rem] opacity-60 leading-relaxed">
 								No sessions yet.
 								<br />
@@ -1194,6 +1297,8 @@ function SessionsView({ hours, view, setView }: SpansViewProps) {
 					<Card className="min-h-0 overflow-hidden flex flex-col">
 						<ConversationPane
 							detail={detail}
+							loading={detailLoading}
+							error={detailError}
 							onClose={() => setSelected(null)}
 						/>
 					</Card>
@@ -1262,9 +1367,13 @@ function SessionRow({
 
 function ConversationPane({
 	detail,
+	loading,
+	error,
 	onClose,
 }: {
 	detail: AISessionDetailResponse | null;
+	loading: boolean;
+	error: string | null;
 	onClose: () => void;
 }) {
 	const evalsBySpan = useMemo(() => {
@@ -1278,9 +1387,32 @@ function ConversationPane({
 
 	if (!detail) {
 		return (
-			<div className="p-3 text-[0.75rem] opacity-60 font-mono">
-				Loading session…
-			</div>
+			<>
+				<div className="flex items-center justify-between gap-2 border-b border-sys-outline/30 p-3">
+					<div className="font-bold font-mono text-[0.875rem] truncate">
+						Session detail
+					</div>
+					<button
+						type="button"
+						onClick={onClose}
+						className="text-[0.75rem] opacity-60 hover:opacity-100 cursor-pointer"
+						aria-label="Close conversation"
+					>
+						✕
+					</button>
+				</div>
+				{error ? (
+					<ErrorState
+						title="Failed to load session"
+						message={error}
+						className="m-3"
+					/>
+				) : (
+					<div className="p-3 text-[0.75rem] opacity-60 font-mono">
+						{loading ? "Loading session…" : "Session detail unavailable."}
+					</div>
+				)}
+			</>
 		);
 	}
 
