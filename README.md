@@ -36,6 +36,18 @@ authentication details and the Go/Rust install paths.
 
 ## Quick Start
 
+### Instrument an existing app
+
+If you already have a TypeScript/JavaScript app, start with the CLI scanner:
+
+```bash
+pnpm dlx @obs-unified/cli instrument --collector-url http://localhost:8790 --origin http://localhost:5173
+```
+
+It detects common React/Vite/Next.js frontends and Hono/Express/Fastify
+backends, then prints the missing packages, env vars, CORS headers, and
+file-specific SDK wiring needed to send data to obs-unified.
+
 ### 1. Deploy the Collector
 
 The collector is a standalone service that receives telemetry and serves the dashboard.
