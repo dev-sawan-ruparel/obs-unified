@@ -28,6 +28,14 @@ For Scenario A's flame graph step, `pnpm demo:setup` now adds `@datadog/pprof` t
 
 ## 6.4 — Run UX Scenario A
 
+First run:
+
+```bash
+pnpm demo:preflight
+```
+
+Scenario A needs Docker memory at or above the Astronomy Shop requirement before the compose workload can be trusted.
+
 After 6.1+6.2+6.3 are wired and `pnpm demo:up` is running:
 
 1. Open the demo frontend (`http://localhost:8080`), click around for ~3 minutes.
@@ -41,6 +49,8 @@ If steps 3-5 work, RFC 0003's "≤ 2 clicks to any neighbor" promise is verified
 ## 6.5 — UX Scenario B
 
 LLM cost spike scenario — needs `@obs-unified/telemetry-sdk`'s `trackAICall` wired into one demo service that hits an LLM. The Astronomy Shop's recommendation service is a candidate; see its existing OTel instrumentation for the integration point.
+
+`pnpm demo:preflight` also checks for a provider key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `GEMINI_API_KEY`) so this scenario does not start with a known-empty LLM environment.
 
 ## 6.6 — Playwright matrix
 
