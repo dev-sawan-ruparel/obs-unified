@@ -204,12 +204,19 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 		const rawEdges: Edge[] = data.edges.map((e) => {
 			const errorPct = (e.errorRate * 100).toFixed(1);
 			const p95 = Math.round(e.p95DurationMs);
-			const color =
+			const healthColor =
 				e.errorRate >= 0.1
 					? "var(--color-sys-error)"
 					: e.errorRate >= 0.01
 						? "var(--color-sys-warning)"
 						: "var(--color-sys-outline)";
+			const sourceColor =
+				source === "ebpf"
+					? "var(--color-sys-primary)"
+					: source === "sdk"
+						? "var(--color-sys-on-surface)"
+						: healthColor;
+			const color = e.errorRate >= 0.01 ? healthColor : sourceColor;
 			return {
 				id: `${e.source}->${e.target}`,
 				source: e.source,
@@ -221,13 +228,17 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 					fill: "var(--color-sys-on-surface)",
 				},
 				labelBgStyle: { fill: "var(--color-sys-surface)" },
-				style: { stroke: color, strokeWidth: e.errorRate >= 0.01 ? 2 : 1 },
+				style: {
+					stroke: color,
+					strokeWidth: source === "ebpf" || e.errorRate >= 0.01 ? 2 : 1,
+					strokeDasharray: source === "ebpf" ? "6 4" : undefined,
+				},
 				markerEnd: { type: MarkerType.ArrowClosed, color },
-				animated: e.errorRate >= 0.1,
+				animated: source === "ebpf" || e.errorRate >= 0.1,
 			};
 		});
 		return { nodes: layout(rawNodes, rawEdges), edges: rawEdges };
-	}, [data]);
+	}, [data, source]);
 
 	const totalCalls = data?.edges.reduce((s, e) => s + e.calls, 0) ?? 0;
 	const totalErrors = data?.edges.reduce((s, e) => s + e.errors, 0) ?? 0;
@@ -278,6 +289,13 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 						{s.toUpperCase()}
 					</button>
 				))}
+				<span className="ml-auto text-[0.6875rem] font-mono text-sys-on-surface-muted">
+					{source === "ebpf"
+						? "Beyla/eBPF edges render dashed + animated"
+						: source === "sdk"
+							? "SDK edges render solid"
+							: "Color shows health; filter to isolate edge source"}
+				</span>
 			</div>
 
 			<div className="relative flex min-h-0 flex-1 gap-2">

@@ -175,7 +175,7 @@ The whole RFC is type-shape work, ~800 LOC of mechanical refactor, no behavior c
 4. A new `IdentityIndex` class exists, used by both `/internal/timeline/:sessionId` (refactored) and `/internal/connected/:kind/:id` (new in RFC 0006).
 5. New code (RFC 0004's `interaction_id` queries, RFC 0007's `profile_blobs`) is written against `SqlDb` from day one, not against `D1Database`.
 6. Existing tests (e.g. [`stage6.test.ts`](../packages/obs-collector/src/lib/stage6.test.ts)) reuse a shared `MemSqlDb` test double instead of hand-rolling one.
-7. **Out of scope** — `BetterSqliteAdapter` and `ClickHouseAdapter` are deliberately not built. They become real work the moment a Node deployment is actually attempted (or scale forces an engine swap), and the seam this RFC builds is what makes that work small.
+7. **Out of scope** — `BetterSqliteAdapter` and `ClickHouseAdapter` are deliberately not built. `apps/collector` is a Cloudflare Worker today and the workspace has no embedded-SQLite runtime or `better-sqlite3` dependency to exercise. They become real work the moment a Node/Bun embedded-SQLite deployment is actually attempted (or scale forces an engine swap), and the seam this RFC builds is what makes that work small.
 
 ## Non-goals
 

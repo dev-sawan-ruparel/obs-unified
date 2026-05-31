@@ -200,7 +200,7 @@ The OTel Astronomy Shop demo today uses native OTel SDKs and does not include `@
 6. `@obs-unified/telemetry-sdk` middleware reads `x-obs-interaction` and the resulting root span carries `interaction_id` as a top-level field.
 7. `/internal/timeline/:sessionId` returns the new `groups` field alongside the flat `events` list. Each group bundles its originating click, the trace(s) that resulted, and related events emitted in the trace's window. Events without an `interaction_id` appear in the flat list only — they are not coerced into a synthetic group.
 8. The replay viewer's event detail (Step 6 in the UX walkthrough) renders a "Trace caused by this click" link when the click's `interaction_id` matches at least one span's `interaction_id`. The link is absent (with the "—" informative-absence pattern from RFC 0006) when no match exists.
-8. The `obs.interaction.propagation` metric appears in `metric_point` after one minute of demo traffic, with both `propagated=true` and `propagated=false` samples present (mixed real-world coverage is expected; 100% is not the bar).
+8. The `obs.interaction.propagation` metric appears in `metric_point` after the periodic propagation aggregate runs (currently retention-cron cadence, approximately hourly in production), with both `propagated=true` and `propagated=false` samples present (mixed real-world coverage is expected; 100% is not the bar). This metric is deliberately aggregate feedback, not a real-time write on every click, to avoid high write amplification.
 
 ## Non-goals
 

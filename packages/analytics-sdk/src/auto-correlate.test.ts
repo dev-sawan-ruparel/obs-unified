@@ -239,35 +239,30 @@ describe("installAutoCorrelate", () => {
 	});
 
 	it("integrates: trusted click on target makes fetch carry the header", async () => {
-		// Install with a synthetic target. The fetch wrap also requires
-		// globalThis.fetch to exist — vitest has it (whatwg-fetch) so we
-		// can drive end-to-end. The wrapped fetch calls the original which
-		// would actually network in a real environment; we patch globalThis.fetch
-		// after install to a stub so we observe the header.
+		const originalFetch = globalThis.fetch;
+		const fetchSpy = vi.fn<typeof fetch>(async () => new Response("ok"));
+		globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
 		const target = new EventTarget();
 		const cleanup = installAutoCorrelate({
 			target,
 			mint: () => "INTEGRATION-ID",
 		});
 
-		// The installer wrapped globalThis.fetch. Replace the *underlying*
-		// original with our spy by re-patching — saves us from running an
-		// actual network call.
-		const spy = vi.fn(async () => new Response("ok"));
-		const wrappedByInstaller = globalThis.fetch;
-		// The wrap captures the *previous* globalThis.fetch by closure, so
-		// reassigning globalThis.fetch here won't affect what the wrapper
-		// calls. Instead we test the wrapper logic via wrapFetchWithCorrelation
-		// (covered above). For this smoke test, just verify install + click.
+		try {
+			const e = new Event("click");
+			Object.defineProperty(e, "isTrusted", { value: true });
+			target.dispatchEvent(e);
 
-		const e = new Event("click");
-		Object.defineProperty(e, "isTrusted", { value: true });
-		target.dispatchEvent(e);
+			await globalThis.fetch("https://example.com/api", { method: "POST" });
 
-		expect(currentInteractionId()).toBe("INTEGRATION-ID");
-		cleanup();
-		// Note: globalThis.fetch should be restored after cleanup. Verify.
-		expect(globalThis.fetch).not.toBe(wrappedByInstaller); // restored to original
-		expect(spy).not.toHaveBeenCalled(); // we never invoked it
+			const init = fetchSpy.mock.calls[0][1] as RequestInit;
+			expect(new Headers(init.headers).get(INTERACTION_HEADER)).toBe(
+				"INTEGRATION-ID",
+			);
+		} finally {
+			cleanup();
+			globalThis.fetch = originalFetch;
+		}
 	});
 });

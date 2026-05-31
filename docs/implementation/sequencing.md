@@ -57,7 +57,7 @@ UI-only work plus optional SDK helper. Independent of Phase 1; can start in para
 - [x] **2.1** Trace waterfall in `TelemetryDashboard.tsx` — split bar visualization (accounted-for vs self-time) per span.
 - [x] **2.2** Async-parent striping for spans where `self_ms < 0` after clamp.
 - [x] **2.3** Per-trace summary header — "Total wall: 1.4s — across 14 spans, 200ms self-time."
-- [x] **2.4** "Likely uninstrumented" badge with calibrated threshold. *Calibrate against Astronomy Shop demo before merge — adjust if spammy.*
+- [x] **2.4** "Likely uninstrumented" badge with advisory threshold. *Live-workload calibration remains in Phase 6 validation; the badge is intentionally heuristic until demo traffic proves the gates.*
 - [x] **2.5** `@obs-unified/telemetry-sdk` — `enableProcessMetrics()` Node helper wrapping `@opentelemetry/instrumentation-runtime-node`.
 - [x] **2.6** Health dashboard — per-service CPU sparkline tile when `process.cpu.utilization` is in `metric_point`.
 

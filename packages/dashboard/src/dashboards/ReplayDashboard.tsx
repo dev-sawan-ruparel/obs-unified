@@ -9,7 +9,10 @@ import {
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import { Button } from "../components/Button";
-import { ConnectedRail } from "../components/ConnectedRail";
+import {
+	ConnectedRail,
+	type ConnectedSection,
+} from "../components/ConnectedRail";
 import { Input } from "../components/forms";
 import { useDashboard } from "../provider";
 
@@ -430,6 +433,32 @@ export function ReplayDashboard({
 		return null;
 	}, [combinedTimeline, playbackTime]);
 
+	const interactionRailSections = useMemo<ConnectedSection[]>(() => {
+		const groups = Object.values(interactionGroups);
+		if (groups.length === 0) {
+			return [
+				{
+					label: "Interactions in this session",
+					links: [],
+					emptyReason:
+						"No interaction_id stamped on any event in this session.",
+				},
+			];
+		}
+		return groups.map((group) => ({
+			label: group.clickEvent?.title ?? "Interaction",
+			links: group.causedTraces.map((trace) => ({
+				label: `${trace.serviceName ?? "unknown"} · ${trace.rootSpanName} · ${trace.durationMs}ms`,
+				href: `#/traces/${trace.traceId}`,
+				sample: group.interactionId,
+			})),
+			emptyReason:
+				group.causedTraces.length === 0
+					? "The click was recorded but no backend trace was ingested with this interaction_id."
+					: undefined,
+		}));
+	}, [interactionGroups]);
+
 	const deleteReplay = async () => {
 		if (!selectedSessionId) return;
 		if (
@@ -657,167 +686,95 @@ export function ReplayDashboard({
 								/>
 							</div>
 
-							{/* RFC 0004 — interactions panel. One row per click that
-							    minted an interaction_id, with one-click link to the
-							    trace it caused. Shows informative-absence (per RFC 0006)
-							    when no interactions are recorded for the session. */}
-							<div className="flex-none bg-sys-surface border-[1px] border-sys-outline">
-								<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
-									<span className="text-[0.875rem] font-semibold">
-										Interactions in this session
-										{Object.keys(interactionGroups).length > 0 && (
-											<span className="ml-2 text-[0.625rem] font-mono opacity-60 font-bold bg-sys-bg px-2 py-0.5">
-												{Object.keys(interactionGroups).length}
-											</span>
-										)}
-									</span>
-								</div>
-								<div className="max-h-[200px] overflow-y-auto">
-									{Object.keys(interactionGroups).length === 0 ? (
-										<div
-											className="p-3 text-[0.75rem] opacity-60"
-											title="Mode A propagation either isn't enabled in @obs-unified/analytics-sdk or this session was recorded before RFC 0004 landed."
+							<div className="flex min-h-[420px] flex-none gap-2">
+								{/* RFC 0006 — connected rail for the session itself.
+								    RFC 0004 click→trace groups are injected as rail
+								    related sections so replay has one relationship
+								    surface instead of a separate interactions panel. */}
+								<ConnectedRail
+									entityKind="replay"
+									entityId={selected.session.sessionId}
+									sessionId={selected.session.sessionId}
+									extraRelatedSections={interactionRailSections}
+									onNavigate={(href) => {
+										const traceId = href.match(/^#\/traces\/(.+)$/)?.[1];
+										if (traceId) {
+											onNavigate({ tab: "traces", traceId });
+										}
+									}}
+								/>
+
+								<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
+									<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
+										<span className="text-[0.875rem] font-semibold">
+											Full event stream ({combinedTimeline.length} entries)
+										</span>
+										<button
+											type="button"
+											className="text-[0.75rem] font-semibold hover:text-sys-primary cursor-pointer transition-none underline"
+											onClick={() => copy(JSON.stringify(selected, null, 2))}
 										>
-											—
-											<span className="ml-2">
-												No interaction_id stamped on any event in this session.
-											</span>
-										</div>
-									) : (
-										Object.values(interactionGroups).map((group) => (
-											<div
-												key={group.interactionId}
-												className="border-b-[1px] border-sys-surface-low px-3 py-2"
-											>
-												<div className="flex items-center gap-2 mb-1">
-													<span className="text-[0.625rem] font-mono opacity-60 font-bold bg-sys-bg px-1.5 py-0.5">
-														{group.interactionId.slice(0, 12)}…
-													</span>
-													<span className="text-[0.875rem] font-semibold truncate">
-														{group.clickEvent?.title ?? "(no click event)"}
-													</span>
-													{group.clickEvent?.subtitle && (
-														<span className="text-[0.75rem] opacity-60 truncate">
-															{group.clickEvent.subtitle}
-														</span>
-													)}
-												</div>
-												{group.causedTraces.length === 0 ? (
-													<div
-														className="text-[0.75rem] opacity-60 ml-2"
-														title="The click was recorded but no backend trace was ingested with this interaction_id. Likely the request didn't reach an instrumented service, or autoCorrelate dropped the header."
-													>
-														— no trace caused by this click
-													</div>
-												) : (
-													<div className="flex flex-wrap gap-2 ml-2">
-														{group.causedTraces.map((trace) => (
-															<button
-																type="button"
-																key={trace.traceId}
-																onClick={() =>
-																	onNavigate({
-																		tab: "traces",
-																		traceId: trace.traceId,
-																	})
-																}
-																className={`text-[0.75rem] font-mono px-2 py-1 border-[1px] hover:bg-sys-surface-high cursor-pointer transition-none ${
-																	trace.status === "error"
-																		? "border-sys-error text-sys-error"
-																		: "border-sys-outline"
-																}`}
-																title={`Open trace ${trace.traceId} (${trace.durationMs}ms)`}
-															>
-																🔗 {trace.serviceName ?? "unknown"} ·{" "}
-																{trace.rootSpanName} · {trace.durationMs}ms
-															</button>
-														))}
-													</div>
-												)}
-											</div>
-										))
-									)}
-								</div>
-							</div>
-
-							{/* RFC 0006 — connected rail for the session itself.
-							    Complements the interactions panel above which is
-							    session-scoped click→trace; this rail surfaces the
-							    rest of the identity-graph (logs, AI calls, etc.). */}
-							<ConnectedRail
-								entityKind="replay"
-								entityId={selected.session.sessionId}
-								sessionId={selected.session.sessionId}
-							/>
-
-							<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
-								<div className="bg-sys-surface-low border-b-[2px] border-sys-outline flex items-center justify-between px-3 py-2">
-									<span className="text-[0.875rem] font-semibold">
-										Full event stream ({combinedTimeline.length} entries)
-									</span>
-									<button
-										type="button"
-										className="text-[0.75rem] font-semibold hover:text-sys-primary cursor-pointer transition-none underline"
-										onClick={() => copy(JSON.stringify(selected, null, 2))}
-									>
-										Copy JSON
-									</button>
-								</div>
-								<div className="flex-1 overflow-y-auto pb-4">
-									{combinedTimeline.map((ev) => {
-										const isActive = ev.timelineKey === activeEvent;
-										return (
-											<div
-												key={ev.timelineKey}
-												className={`flex items-start gap-2 py-1.5 px-3 border-b-[1px] border-sys-surface-low font-mono text-[0.75rem] transition-none ${
-													isActive
-														? "bg-sys-surface-high border-l-[4px] border-l-sys-primary"
-														: ev.isTrace
-															? "hover:bg-sys-surface-high border-l-[4px] border-l-transparent"
-															: "hover:bg-sys-surface-low border-l-[4px] border-l-transparent"
-												} ${!isActive && ev.severity === "error" ? "bg-sys-error/10 text-sys-error" : ""}`}
-											>
-												<span
-													className={`w-32 flex-none font-bold py-1 ${
+											Copy JSON
+										</button>
+									</div>
+									<div className="flex-1 overflow-y-auto pb-4">
+										{combinedTimeline.map((ev) => {
+											const isActive = ev.timelineKey === activeEvent;
+											return (
+												<div
+													key={ev.timelineKey}
+													className={`flex items-start gap-2 py-1.5 px-3 border-b-[1px] border-sys-surface-low font-mono text-[0.75rem] transition-none ${
 														isActive
-															? "text-sys-primary"
+															? "bg-sys-surface-high border-l-[4px] border-l-sys-primary"
 															: ev.isTrace
-																? "text-sys-on-surface opacity-80"
-																: "opacity-60"
-													}`}
+																? "hover:bg-sys-surface-high border-l-[4px] border-l-transparent"
+																: "hover:bg-sys-surface-low border-l-[4px] border-l-transparent"
+													} ${!isActive && ev.severity === "error" ? "bg-sys-error/10 text-sys-error" : ""}`}
 												>
-													{ev.eventType.toUpperCase()}
-												</span>
-												<span className="min-w-0 flex-1">
-													<div className="font-bold text-[0.875rem] mb-1">
-														{ev.eventName}
-													</div>
-													{ev.properties &&
-														Object.keys(ev.properties).length > 0 && (
-															<div className="flex flex-wrap gap-2 opacity-80 mt-2">
-																{Object.entries(ev.properties).map(([k, v]) => (
-																	<span
-																		key={k}
-																		className="bg-sys-bg px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em]"
-																	>
-																		{k}:{" "}
-																		{typeof v === "string"
-																			? v
-																			: JSON.stringify(v)}
-																	</span>
-																))}
-															</div>
-														)}
-												</span>
-												<span className="flex-none max-w-[200px] truncate text-right py-1 opacity-60">
-													{ev.pagePath || "—"}
-												</span>
-												<span className="flex-none whitespace-nowrap w-[140px] text-right py-1 opacity-80">
-													{fmtTs(ev.occurredAt)}
-												</span>
-											</div>
-										);
-									})}
+													<span
+														className={`w-32 flex-none font-bold py-1 ${
+															isActive
+																? "text-sys-primary"
+																: ev.isTrace
+																	? "text-sys-on-surface opacity-80"
+																	: "opacity-60"
+														}`}
+													>
+														{ev.eventType.toUpperCase()}
+													</span>
+													<span className="min-w-0 flex-1">
+														<div className="font-bold text-[0.875rem] mb-1">
+															{ev.eventName}
+														</div>
+														{ev.properties &&
+															Object.keys(ev.properties).length > 0 && (
+																<div className="flex flex-wrap gap-2 opacity-80 mt-2">
+																	{Object.entries(ev.properties).map(
+																		([k, v]) => (
+																			<span
+																				key={k}
+																				className="bg-sys-bg px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em]"
+																			>
+																				{k}:{" "}
+																				{typeof v === "string"
+																					? v
+																					: JSON.stringify(v)}
+																			</span>
+																		),
+																	)}
+																</div>
+															)}
+													</span>
+													<span className="flex-none max-w-[200px] truncate text-right py-1 opacity-60">
+														{ev.pagePath || "—"}
+													</span>
+													<span className="flex-none whitespace-nowrap w-[140px] text-right py-1 opacity-80">
+														{fmtTs(ev.occurredAt)}
+													</span>
+												</div>
+											);
+										})}
+									</div>
 								</div>
 							</div>
 						</div>

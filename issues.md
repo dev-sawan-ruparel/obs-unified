@@ -261,29 +261,22 @@ These were present in the old trackers but were either omitted from the first ag
 ## ── P2: ARCHITECTURAL SPEC DRIFT ──
 
 ### Open Issues (🟡 Active / Drift)
-- [ ] **Replay Viewer overlaps Custom Interactions List with ConnectedRail**
-  * *Drift:* The replay session details page renders both a bespoke "Interactions" panel and a generic `ConnectedRail`, duplicating information.
-  * *Next Action:* Fold the visual click-bundle interactions UX directly into `<ConnectedRail />` and deprecate the standalone panel.
-- [ ] **Platform Resources Dashboard lacks UI Toggles for Linux Hosts**
-  * *Drift:* Renders both Cloudflare metrics and Linux eBPF host grids together when both are present, rather than showing a dashboard selector.
-  * *Next Action:* Introduce an explicit source toggle in the dashboard UI.
-- [ ] **Active eBPF edge/SDK toggles in Service Map**
-  * *Drift:* Filter queries by `telemetry_sdk_name` are operational but UI visual edge contrasts can be improved.
-  * *Next Action:* Verify and refine eBPF edge visuals when a full composable docker-compose eBPF Beyla stack is active.
-- [ ] **eBPF-derived Propagation Metric aggregates Hourly instead of Real-Time**
-  * *Drift:* Aggregations run hourly inside the retention cron rather than real-time to avoid high write amplification.
-  * *Next Action:* Relax the RFC wording to reflect this trade-off, or expose an on-demand `/internal/admin/run-propagation-aggregate` endpoint for immediate feedback.
-- [ ] **Uninstrumented-Badge Threshold lacks real calibration**
-  * *Drift:* Badges rely on starting heuristics and have not been calibrated against live traffic data to reduce noise.
-  * *Next Action:* Calibrate thresholds (e.g. duration checks and child span count constraints) once live demo workloads are running.
-- [ ] **Mode A click -> fetch integration test lacks dynamic coverage**
-  * *Drift:* Correlation monkey-patches are verified via unit tests, but click-to-header propagation is not covered by integration tests.
-  * *Next Action:* Set up `happy-dom` or JSDOM in `vitest.config.ts` to simulate clicks and fetch interceptions.
-- [ ] **Storage Interface lacks Bun/Node BetterSqliteAdapter implementation**
-  * *Drift:* The storage seam exists, but `BetterSqliteAdapter` has not been implemented.
-  * *Next Action:* Build the adapter if a local standalone Node/Bun deployment with embedded SQLite is planned.
 
 ### Resolved Spec Drift Items
+- [x] **Replay Viewer overlaps Custom Interactions List with ConnectedRail**
+  * *Resolution:* Removed the standalone replay interactions panel. Replay now injects click→trace bundles as extra `ConnectedRail` related sections, keeping one relationship surface for session-scoped neighbors.
+- [x] **Platform Resources Dashboard lacks UI Toggles for Linux Hosts**
+  * *Resolution:* Added an explicit Cloudflare/Linux resource selector. Linux host cards render only in the Linux view, while D1/R2/Worker cards remain in the Cloudflare view.
+- [x] **Active eBPF edge/SDK toggles in Service Map**
+  * *Resolution:* Kept the existing `telemetry_sdk_name` source query filter and added source-aware edge presentation: eBPF edges render dashed/animated, SDK edges render solid, and health colors still override for warning/error rates.
+- [x] **eBPF-derived Propagation Metric aggregates Hourly instead of Real-Time**
+  * *Resolution:* Updated RFC 0004 to describe the propagation metric as a periodic retention-cron aggregate rather than a real-time per-click write, documenting the write-amplification trade-off.
+- [x] **Uninstrumented-Badge Threshold lacks real calibration**
+  * *Resolution:* Updated RFC 0005 and sequencing docs to mark the badge threshold as an advisory heuristic, with live-workload calibration tracked in Phase 6 validation instead of claimed as already calibrated.
+- [x] **Mode A click -> fetch integration test lacks dynamic coverage**
+  * *Resolution:* Added an integration test that installs Mode A auto-correlation, dispatches a trusted click, calls the patched global `fetch`, and asserts `x-obs-interaction` reaches the intercepted request headers.
+- [x] **Storage Interface lacks Bun/Node BetterSqliteAdapter implementation**
+  * *Resolution:* Clarified RFC 0008 that `BetterSqliteAdapter` is deliberately deferred until a Node/Bun embedded-SQLite deployment exists; the current public runtime is Cloudflare Worker/D1 and has no `better-sqlite3` dependency to exercise.
 - [x] **eBPF profile ingest parsed from headers instead of blobs**
   * *Resolution:* Moved the `parse-pprof.ts` decoder into a Worker-safe path to extract trace IDs directly from sample labels at ingest.
 - [x] ** startProfiler() SDK wrapper lacking auto-loop ergonomics**

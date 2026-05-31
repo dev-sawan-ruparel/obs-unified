@@ -53,6 +53,9 @@ export function ResourcesDashboard() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+	const [resourceView, setResourceView] = useState<"cloudflare" | "linux">(
+		"cloudflare",
+	);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -131,112 +134,137 @@ export function ResourcesDashboard() {
 
 			{data && (
 				<>
+					{hosts.length > 0 && (
+						<div className="mb-2 flex items-center gap-2 bg-sys-surface px-3 py-2 border border-[#E5E7E3]">
+							<span className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-60">
+								Resource view
+							</span>
+							{(["cloudflare", "linux"] as const).map((view) => (
+								<button
+									key={view}
+									type="button"
+									onClick={() => setResourceView(view)}
+									className={`text-[0.75rem] font-mono px-2 py-1 border-[1px] cursor-pointer transition-none ${
+										resourceView === view
+											? "bg-sys-primary text-white border-sys-primary"
+											: "border-sys-outline hover:bg-sys-surface-high"
+									}`}
+								>
+									{view === "cloudflare" ? "Cloudflare" : "Linux hosts"}
+								</button>
+							))}
+						</div>
+					)}
 					{/* Top-level KPIs */}
-					<div className="mb-2 grid grid-cols-4 gap-2">
-						<Stat
-							label="D1 rows (total)"
-							value={fmtNum(data.d1.rowDensity)}
-							accent="primary"
-							footer="spans + logs + usage + ai"
-						/>
-						<Stat
-							label="R2 storage"
-							value={fmtBytes(data.r2.storageBytes)}
-							accent="accent"
-							footer="session replay footprint"
-						/>
-						<Stat
-							label="Worker CPU"
-							value={data.worker.cpuMs ? `${data.worker.cpuMs}ms` : "—"}
-							accent="warning"
-							footer={
-								data.worker.requestsCount
-									? `${data.worker.requestsCount} reqs`
-									: "pending auth"
-							}
-						/>
-						<Stat
-							label="Worker mem"
-							value={
-								data.worker.memoryBytes
-									? fmtBytes(data.worker.memoryBytes)
-									: "—"
-							}
-							footer={
-								data.worker.status.includes("Needs") ? "no token" : "live"
-							}
-						/>
-					</div>
+					{resourceView === "cloudflare" && (
+						<div className="mb-2 grid grid-cols-4 gap-2">
+							<Stat
+								label="D1 rows (total)"
+								value={fmtNum(data.d1.rowDensity)}
+								accent="primary"
+								footer="spans + logs + usage + ai"
+							/>
+							<Stat
+								label="R2 storage"
+								value={fmtBytes(data.r2.storageBytes)}
+								accent="accent"
+								footer="session replay footprint"
+							/>
+							<Stat
+								label="Worker CPU"
+								value={data.worker.cpuMs ? `${data.worker.cpuMs}ms` : "—"}
+								accent="warning"
+								footer={
+									data.worker.requestsCount
+										? `${data.worker.requestsCount} reqs`
+										: "pending auth"
+								}
+							/>
+							<Stat
+								label="Worker mem"
+								value={
+									data.worker.memoryBytes
+										? fmtBytes(data.worker.memoryBytes)
+										: "—"
+								}
+								footer={
+									data.worker.status.includes("Needs") ? "no token" : "live"
+								}
+							/>
+						</div>
+					)}
 
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-						{/* D1 breakdown */}
-						<Card className="flex flex-col gap-3 p-4" accent="primary">
-							<div className="flex items-center justify-between">
-								<SectionTitle title="Data store (D1)" />
-								<Tag>SQLite</Tag>
-							</div>
-							<div className="font-mono text-[2.25rem] font-light leading-none tracking-tight">
-								{fmtNum(data.d1.rowDensity)}
-							</div>
-							<div className="text-[0.6875rem] text-sys-on-surface-muted">
-								Combined rows across 4 signal tables
-							</div>
-							<div className="mt-auto pt-3 border-t border-[#E5E7E3]">
-								<BarList
-									title=""
-									items={[
-										["Usage events", data.d1.eventsCount],
-										["Telemetry spans", data.d1.tracesCount],
-										["System logs", data.d1.logsCount],
-										["AI executions", data.d1.aiCallsCount],
-									]}
-									compact
-								/>
-							</div>
-						</Card>
+					{resourceView === "cloudflare" && (
+						<div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+							{/* D1 breakdown */}
+							<Card className="flex flex-col gap-3 p-4" accent="primary">
+								<div className="flex items-center justify-between">
+									<SectionTitle title="Data store (D1)" />
+									<Tag>SQLite</Tag>
+								</div>
+								<div className="font-mono text-[2.25rem] font-light leading-none tracking-tight">
+									{fmtNum(data.d1.rowDensity)}
+								</div>
+								<div className="text-[0.6875rem] text-sys-on-surface-muted">
+									Combined rows across 4 signal tables
+								</div>
+								<div className="mt-auto pt-3 border-t border-[#E5E7E3]">
+									<BarList
+										title=""
+										items={[
+											["Usage events", data.d1.eventsCount],
+											["Telemetry spans", data.d1.tracesCount],
+											["System logs", data.d1.logsCount],
+											["AI executions", data.d1.aiCallsCount],
+										]}
+										compact
+									/>
+								</div>
+							</Card>
 
-						{/* R2 */}
-						<Card className="flex flex-col gap-3 p-4" accent="accent">
-							<div className="flex items-center justify-between">
-								<SectionTitle title="Blob storage (R2)" />
-								<Tag tone="accent">Object</Tag>
-							</div>
-							<div className="font-mono text-[2.25rem] font-light leading-none tracking-tight">
-								{fmtBytes(data.r2.storageBytes)}
-							</div>
-							<div className="text-[0.6875rem] text-sys-on-surface-muted">
-								Session replay footprint
-							</div>
-							<p className="mt-auto pt-3 border-t border-[#E5E7E3] text-[0.75rem] font-mono opacity-60 leading-relaxed">
-								R2 holds rrweb chunks keyed by project + session. D1 tracks
-								metadata, R2 holds the frames.
-							</p>
-						</Card>
+							{/* R2 */}
+							<Card className="flex flex-col gap-3 p-4" accent="accent">
+								<div className="flex items-center justify-between">
+									<SectionTitle title="Blob storage (R2)" />
+									<Tag tone="accent">Object</Tag>
+								</div>
+								<div className="font-mono text-[2.25rem] font-light leading-none tracking-tight">
+									{fmtBytes(data.r2.storageBytes)}
+								</div>
+								<div className="text-[0.6875rem] text-sys-on-surface-muted">
+									Session replay footprint
+								</div>
+								<p className="mt-auto pt-3 border-t border-[#E5E7E3] text-[0.75rem] font-mono opacity-60 leading-relaxed">
+									R2 holds rrweb chunks keyed by project + session. D1 tracks
+									metadata, R2 holds the frames.
+								</p>
+							</Card>
 
-						{/* Worker */}
-						<Card className="flex flex-col gap-3 p-4" accent="warning">
-							<div className="flex items-center justify-between">
-								<SectionTitle title="Compute (Worker)" />
-								<Tag tone="warning">
-									{data.worker.status.includes("Needs")
-										? "Pending auth"
-										: "Live"}
-								</Tag>
-							</div>
-							<div className="font-mono text-[1.125rem] font-bold leading-tight tracking-tight text-sys-warning">
-								{data.worker.status}
-							</div>
-							<p className="mt-auto pt-3 border-t border-[#E5E7E3] text-[0.75rem] font-mono opacity-60 leading-relaxed">
-								Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to pull
-								CPU/memory/request metrics via the GraphQL Analytics API.
-							</p>
-						</Card>
-					</div>
+							{/* Worker */}
+							<Card className="flex flex-col gap-3 p-4" accent="warning">
+								<div className="flex items-center justify-between">
+									<SectionTitle title="Compute (Worker)" />
+									<Tag tone="warning">
+										{data.worker.status.includes("Needs")
+											? "Pending auth"
+											: "Live"}
+									</Tag>
+								</div>
+								<div className="font-mono text-[1.125rem] font-bold leading-tight tracking-tight text-sys-warning">
+									{data.worker.status}
+								</div>
+								<p className="mt-auto pt-3 border-t border-[#E5E7E3] text-[0.75rem] font-mono opacity-60 leading-relaxed">
+									Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to
+									pull CPU/memory/request metrics via the GraphQL Analytics API.
+								</p>
+							</Card>
+						</div>
+					)}
 
 					{/* RFC 0009 Phase 5.2 — Linux hosts mode. Renders only when
 					    OTel hostmetrics are flowing in via the receiver. The
 					    informative-empty-state lives in docs/howto/ebpf.md. */}
-					{hosts.length > 0 && (
+					{resourceView === "linux" && hosts.length > 0 && (
 						<div className="mt-2">
 							<div className="mb-2 flex items-center gap-3">
 								<SectionTitle title="Linux hosts" />

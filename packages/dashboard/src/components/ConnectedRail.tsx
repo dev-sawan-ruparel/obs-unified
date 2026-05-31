@@ -39,7 +39,7 @@ interface ConnectedLink {
 	sample?: string;
 }
 
-interface ConnectedSection {
+export interface ConnectedSection {
 	label: string;
 	links: ConnectedLink[];
 	emptyReason?: string;
@@ -64,6 +64,12 @@ export interface ConnectedRailProps {
 	traceId?: string;
 	sessionId?: string;
 	onNavigate?: (href: string) => void;
+	/**
+	 * Caller-scoped relationship groups that are already available on the
+	 * detail surface. Used by replay to show click→trace bundles inside the
+	 * rail instead of rendering a second relationship panel beside it.
+	 */
+	extraRelatedSections?: ConnectedSection[];
 }
 
 // Title-case the four canonical section names so the group label can be
@@ -172,6 +178,7 @@ export function ConnectedRail({
 	traceId,
 	sessionId,
 	onNavigate,
+	extraRelatedSections = [],
 }: ConnectedRailProps) {
 	const api = useApi();
 	const [manifest, setManifest] = useState<ConnectedManifest | null>(null);
@@ -241,7 +248,7 @@ export function ConnectedRail({
 			<SectionHeader>Down</SectionHeader>
 			{renderGroup(manifest.down, "Down")}
 			<SectionHeader>Related</SectionHeader>
-			{renderGroup(manifest.related, "Related")}
+			{renderGroup([...extraRelatedSections, ...manifest.related], "Related")}
 		</aside>
 	);
 }
