@@ -233,12 +233,12 @@ These were present in the old trackers but were either omitted from the first ag
 - [ ] **6.4 - Run and Verify UX Scenario A (Alert to Root Cause) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:102-113`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L102-L113)
   * **Description:** Exercise the full click-to-CPU path: click around the demo shop, trigger an alert on the health page, open the trace, drill into the `PROFILES` badge, expand the span, and trace back to the click session via the Connected rail.
-  * **Why it's pending:** Blocked on completing steps 6.1 through 6.3 on the docker-compose stack.
+  * **Why it's pending:** 6.1 through 6.3 are now automated by `pnpm demo:setup`, but the current local Docker runtime reports ~2 GB RAM (`docker info`) while the Astronomy Shop stack needs roughly 6 GB. Needs a higher-memory Docker environment to boot the full compose workload and verify the dashboard path.
 
 - [ ] **6.5 - Run and Verify UX Scenario B (LLM Cost Spike) End-to-End**
   * **Location:** [`docs/implementation/demo-integration.md:114-117`](file:///Users/sawan/projects/obs-unified/obs-unified/docs/implementation/demo-integration.md#L114-L117)
   * **Description:** Wire `@obs-unified/telemetry-sdk`'s `trackAICall` helper into the Astronomy Shop's Recommendation Service (or AI agent helper) to verify LLM cost aggregates and parent-child span associations.
-  * **Why it's pending:** Needs LLM provider key mapping and endpoint integration testing.
+  * **Why it's pending:** No LLM provider keys are present in the current environment, and the full demo stack cannot be run under the available Docker memory cap. Needs provider key mapping plus the higher-memory compose environment used for Scenario A.
 
 ---
 
