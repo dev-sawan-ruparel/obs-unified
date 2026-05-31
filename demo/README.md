@@ -14,25 +14,41 @@ demo** at our collector. That gets us:
 
 ## Architecture
 
+```mermaid
+graph TD
+    subgraph OTelDemo ["OpenTelemetry Demo (docker-compose)"]
+        frontend[frontend] --> cart[cart]
+        cart --> checkout[checkout]
+        checkout --> pay_ship[payment / shipping / ...]
+        cart -.-> otelcol[otel-collector]
+        
+        otelcol --> Jaeger[Jaeger]
+        otelcol --> Prom[Prometheus]
+        otelcol --> OS[OpenSearch]
+        otelcol -->|otlphttp / OTel Exporter| WebExporter[otlphttp/obs-unified]
+    end
+
+    subgraph ObsStack ["obs-unified (Host Native)"]
+        Collector[obs-unified collector<br/>pnpm dev:collector]
+        Storage[(Postgres Database)]
+        Dashboard[obs-unified dashboard<br/>:5173]
+    end
+
+    WebExporter -->|http://host.docker.internal:8790| Collector
+    Collector -->|/v1/traces, /v1/logs, /v1/metrics| Storage
+    Collector -->|/internal/* queries| Storage
+    Dashboard -->|Reads /auth & /internal| Collector
+
+    style OTelDemo fill:#f8f9fa,stroke:#ccc,stroke-width:1px
+    style ObsStack fill:#eef9f0,stroke:#006B18,stroke-width:1px
+    style Collector fill:#006B18,stroke:#006B18,color:#fff
+    style Dashboard fill:#e6f2e8,stroke:#006B18
 ```
-   ┌──────────────────────────────────────────────────────────┐
-   │  OpenTelemetry Demo (docker-compose)                     │
-   │                                                          │
-   │  frontend  → cart  → checkout  → payment / shipping ...  │
-   │                  ↓                                       │
-   │            otel-collector ──────┐                        │
-   │              ↓     ↓            ↓                        │
-   │           Jaeger Prom OS    otlphttp/obs-unified         │
-   └──────────────────────────────────────────────────────────┘
-                                     ↓ http://host.docker.internal:8790
-   ┌──────────────────────────────────────────────────────────┐
-   │  obs-unified collector (pnpm dev:collector)              │
-   │                                                          │
-   │  /v1/traces  /v1/logs  /v1/metrics  /internal/* → D1     │
-   └──────────────────────────────────────────────────────────┘
-                                     ↓
-                           obs-unified dashboard (:5173)
-```
+
+#### Demo Architecture Flow Explanation
+* **OpenTelemetry Demo Stack**: A multi-container Docker compose environment mimicking a real-world web shop. Its internal services (cart, checkout, shipping, etc.) emit traces and logs to the local `otel-collector`.
+* **Telemetry Routing**: The standard OTel collector is configured to simultaneously push data to its default debug backends (Jaeger, Prometheus, and OpenSearch) **and** export OTLP payloads to our host `obs-unified` collector endpoint via a custom `otlphttp` exporter.
+* **obs-unified Stack**: Receives these OTLP streams on `:8790` and stores them in your local PostgreSQL database, where the frontend React dashboard on `:5173` queries the endpoints to visualize the real-time topology, service maps, and error spikes.
 
 The demo keeps shipping data to its own backends (Jaeger / Prometheus /
 OpenSearch) **and** to ours. We don't fork their config — we layer an

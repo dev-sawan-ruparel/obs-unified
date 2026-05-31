@@ -19,19 +19,36 @@ authentication details and the Go/Rust install paths.
 For the component inventory and deployment shapes, see
 [docs/system-components.md](docs/system-components.md).
 
+```mermaid
+graph TD
+    subgraph Infrastructure ["Your Infrastructure"]
+        BE[Your Backend]
+        FE[Your Frontend]
+    end
+
+    subgraph ObsStack ["obs-unified Stack"]
+        CS[Collector Service]
+        DB[(Storage Layer:<br/>D1/R2 or Postgres/S3)]
+    end
+
+    BE -->|Write-only API key| CS
+    FE -->|Write-only API key| CS
+
+    CS -->|/v1/* Ingest| DB
+    CS -->|/internal/* Queries| DB
+    CS -->|/dashboard/* UI| DB
+    CS -->|/health| DB
+
+    style Infrastructure fill:#f4f4f4,stroke:#ccc,stroke-width:1px
+    style ObsStack fill:#eef9f0,stroke:#006B18,stroke-width:1px
+    style CS fill:#006B18,stroke:#006B18,color:#fff
+    style DB fill:#e6f2e8,stroke:#006B18
 ```
-                       Your Infrastructure
-  ┌──────────────────────────────────────────────────────┐
-  │                                                      │
-  │   Your Backend ──(API key)──> Collector Service      │
-  │                               ├─ /v1/* ingest        │
-  │   Your Frontend ──(API key)──>├─ /internal/* queries  │
-  │                               ├─ /dashboard/* UI      │
-  │                               └─ /health              │
-  │                                    │                  │
-  │                               D1/R2 or Postgres/S3    │
-  └──────────────────────────────────────────────────────┘
-```
+
+#### Architecture Flow Explanation
+* **Your Infrastructure**: The applications under observation. The backend and frontend services are configured with a single write-only API key (similar to platforms like Sentry or PostHog) to interact with the collector.
+* **Collector Service**: The core ingestion engine of the `obs-unified` stack. It receives client data, hosts the visualization dashboard, handles validation, and serves internal reporting queries.
+* **Storage Layer**: Telemetry data is persisted locally (backed by SQLite/D1 and Cloudflare R2) or dynamically mapped to an enterprise Postgres database and S3-compatible blob bucket (like MinIO or AWS S3).
 
 **Two auth boundaries:**
 - **SDK to Collector** — write-only API key (like PostHog/Sentry)

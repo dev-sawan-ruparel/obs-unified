@@ -14,7 +14,7 @@ Pick one runtime path first. You can use any data option after a collector and
 dashboard are running.
 
 | Runtime path | Use when | Starts |
-| :--- | :--- |
+| :--- | :--- | :--- |
 | **[Option 1 — Docker image](#option-1--docker-image)** | You want the quickest first run with the fewest host dependencies. | Postgres, collector, dashboard, filesystem blob store, and sample data in one container. |
 | **[Option 2 — local install](#option-2--local-install)** | You want to edit code, run dev servers, or inspect internals while using the repo. | Local collector, demo API, and Vite dashboard from the workspace. |
 
