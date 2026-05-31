@@ -1,6 +1,6 @@
 {
 	"title": "obs-unified",
-	"description": "Install, instrument, and read the unified observability dashboard.",
+	"description": "Install, instrument, and read unified observability across every signal.",
 	"pages": [
 		"index",
 		"getting-started",

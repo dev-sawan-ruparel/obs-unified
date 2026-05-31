@@ -46,11 +46,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta property="og:site_name" content="obs-unified" />
         <meta
           property="og:title"
-          content="obs-unified docs — self-hosted observability"
+          content="obs-unified docs — unified observability"
         />
         <meta
           property="og:description"
-          content="Collector, dashboard, and SDKs for self-hosted traces, logs, AI calls, replay, usage, and alerts. MIT-licensed."
+          content="One collector, one identity chain, and one dashboard for traces, logs, AI calls, replay, usage, alerts, profiles, and analyses."
         />
         <meta property="og:url" content="https://docs.obsunified.com/" />
         <meta
@@ -60,11 +60,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="twitter:card" content="summary_large_image" />
         <meta
           name="twitter:title"
-          content="obs-unified docs — self-hosted observability"
+          content="obs-unified docs — unified observability"
         />
         <meta
           name="twitter:description"
-          content="Collector, dashboard, and SDKs for self-hosted traces, logs, AI calls, replay, usage, and alerts."
+          content="One collector, one identity chain, and one dashboard for every signal."
         />
         <meta
           name="twitter:image"

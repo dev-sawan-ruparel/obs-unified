@@ -1,6 +1,6 @@
 # obs-unified-docs
 
-Documentation site for [obs-unified](https://github.com/obs-unified/obs-unified) — the self-hosted observability platform. Live at **[docs.obsunified.com](https://docs.obsunified.com)**.
+Documentation site for [obs-unified](https://github.com/obs-unified/obs-unified) — unified observability across traces, logs, AI calls, usage, replay, alerts, profiles, and analyses. Live at **[docs.obsunified.com](https://docs.obsunified.com)**.
 
 Built with [Fumadocs](https://fumadocs.dev/) on React Router 7 (SPA, no Next.js).
 

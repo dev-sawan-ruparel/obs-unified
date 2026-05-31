@@ -9,7 +9,7 @@ export function meta({}: Route.MetaArgs) {
 		{
 			name: "description",
 			content:
-				"Install, instrument, and read the unified observability dashboard.",
+				"Install, instrument, and read the unified observability stack.",
 		},
 	];
 }
@@ -23,11 +23,10 @@ export default function Home() {
 						obs-unified
 					</h1>
 					<p className="text-fd-muted-foreground text-base sm:text-lg">
-						A single observability stack where every signal — traces,
-						logs, AI calls, sessions, replays, alerts, profiles — is
-						reachable from every other in ≤2 clicks. Start locally with
-						one Docker image, then run on Cloudflare Workers + D1 + R2 or
-						Node + Postgres + S3.
+						Unified observability for every signal: traces, logs, AI
+						calls, sessions, replays, alerts, profiles, and analyses
+						connected through one collector, one identity chain, and one
+						dashboard. Start locally with one Docker image.
 					</p>
 					<div className="flex justify-center gap-3 pt-2">
 						<Link

@@ -1,9 +1,11 @@
 ---
 title: Welcome
-description: A single observability stack where every signal is reachable from every other in ≤2 clicks.
+description: Unified observability across traces, logs, AI calls, usage, replay, alerts, profiles, and analyses.
 ---
 
-obs-unified ships traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses into one collector. The default deployment runs on Cloudflare Workers with D1 (SQL) and R2 (blob storage); the Node collector path uses Postgres and S3-compatible blob storage. A React dashboard renders the signals, and the **Connected rail** on every detail page surfaces the entity's neighbors so the user can pivot in one click.
+obs-unified is unified observability for every signal. Traces, logs, AI calls, usage events, replays, alerts, profiles, and analyses flow into **one collector**, share **one identity chain**, and appear in **one dashboard**. The **Connected rail** on every detail page surfaces each entity's neighboring signals, so an investigation can move across the whole system in ≤2 clicks.
+
+Self-hosting is the deployment model, not the whole pitch: the default hosted path runs on Cloudflare Workers with D1 and R2, while the Node collector path uses Postgres and S3-compatible blob storage.
 
 ## What's in this documentation
 
@@ -23,7 +25,7 @@ obs-unified ships traces, logs, AI calls, usage events, replays, alerts, profile
 user_id → session_id → interaction_id → trace_id → span_id
 ```
 
-That identity skeleton is propagated by the SDKs and stored on every signal. Read the [SDKs](/docs/sdks) page for which ID is minted where, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
+That identity skeleton is the unifying layer. The SDKs propagate it, the collector stores it, and the dashboard uses it to connect product behavior, backend execution, AI cost, logs, replay, alerts, profiles, and analyses. Read the [SDKs](/docs/sdks) page for which ID is minted where, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
 
 <Callout type="info">
 This documentation describes the platform as it ships on `main` today. For the fastest first run, use the all-in-one Docker image from [Getting started](/docs/getting-started).
