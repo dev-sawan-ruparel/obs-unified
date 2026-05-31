@@ -9,6 +9,7 @@ copy into an existing app.
 | Goal | Start here | Type |
 | --- | --- | --- |
 | First run from a fresh checkout | [`docs/getting-started.md`](./getting-started.md) | Guide |
+| Run everything from one local image | [`Dockerfile.local`](../Dockerfile.local) via `pnpm local:image && pnpm local:run` | Runnable image |
 | Try obs-unified with realistic traffic | [`demo/`](../demo/) | Runnable demo |
 | Scaffold a new React + Hono app | [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/) via `obs-unified create` | Runnable template |
 | Add obs-unified to an existing React + Hono app | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md) | Walkthrough |
@@ -21,6 +22,7 @@ copy into an existing app.
 
 | Example | What it shows | Run / entry point |
 | --- | --- | --- |
+| [`Dockerfile.local`](../Dockerfile.local) | All-in-one local image with Postgres, collector, dashboard, file blob storage, and seed data | `pnpm local:image && pnpm local:run` |
 | [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/) | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation | `obs-unified create my-app`, choose React + Vite + Hono |
 | [`packages/cli/templates/vanilla-ts/`](../packages/cli/templates/vanilla-ts/) | Browser-only Vite + TypeScript analytics | `obs-unified create my-app`, choose Vanilla TypeScript |
 | [`packages/cli/templates/hono-workers/`](../packages/cli/templates/hono-workers/) | Hono on Cloudflare Workers with backend telemetry wiring | `obs-unified create my-api`, choose Hono on Workers |

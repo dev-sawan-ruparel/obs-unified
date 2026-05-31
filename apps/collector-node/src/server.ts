@@ -28,6 +28,7 @@ import {
 	S3BlobStore,
 } from "@obs-unified/collector";
 import { Pool } from "pg";
+import { FileBlobStore } from "./file-blob-store";
 
 const env = readEnv();
 
@@ -45,26 +46,27 @@ const sqlDb = new PostgresAdapter(pool, {
 	statementTimeoutMs: 30_000,
 });
 
-const s3 = new S3Client({
-	endpoint: env.S3_ENDPOINT,
-	region: env.S3_REGION,
-	forcePathStyle: env.S3_FORCE_PATH_STYLE,
-	credentials: {
-		accessKeyId: env.S3_ACCESS_KEY_ID,
-		secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-	},
-});
-
-const blob = new S3BlobStore({
-	client: s3,
-	commands: {
-		PutObjectCommand,
-		GetObjectCommand,
-		DeleteObjectCommand,
-		ListObjectsV2Command,
-	},
-	bucket: env.S3_BUCKET,
-});
+const blob =
+	env.BLOB_STORE === "file"
+		? new FileBlobStore({ root: env.BLOB_DIR })
+		: new S3BlobStore({
+				client: new S3Client({
+					endpoint: env.S3_ENDPOINT,
+					region: env.S3_REGION,
+					forcePathStyle: env.S3_FORCE_PATH_STYLE,
+					credentials: {
+						accessKeyId: env.S3_ACCESS_KEY_ID,
+						secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+					},
+				}),
+				commands: {
+					PutObjectCommand,
+					GetObjectCommand,
+					DeleteObjectCommand,
+					ListObjectsV2Command,
+				},
+				bucket: env.S3_BUCKET,
+			});
 
 // INGEST_KEY is consumed by the auth layer via env-bootstrap; we
 // expose it on `process.env` so the middleware's lazy lookup finds it.
@@ -109,7 +111,7 @@ const server = serve(
 	({ port }) => {
 		console.log(
 			`[obs-unified] collector listening on http://0.0.0.0:${port}` +
-				` (postgres + ${env.S3_ENDPOINT ?? "s3"}/${env.S3_BUCKET})`,
+				` (postgres + ${env.BLOB_STORE === "file" ? `file://${env.BLOB_DIR}` : `${env.S3_ENDPOINT ?? "s3"}/${env.S3_BUCKET}`})`,
 		);
 	},
 );
@@ -143,16 +145,28 @@ function readEnv() {
 		}
 		return v;
 	};
+	const blobStore = process.env.BLOB_STORE === "s3" ? "s3" : "file";
 	return {
 		PORT: readNumberEnv("PORT", 8790),
 		DATABASE_URL: required("DATABASE_URL"),
 		PG_POOL_MAX: readNumberEnv("PG_POOL_MAX", 10),
+		BLOB_STORE: blobStore,
+		BLOB_DIR: process.env.BLOB_DIR ?? "/tmp/obs-unified-blobs",
 		S3_ENDPOINT: process.env.S3_ENDPOINT,
 		S3_REGION: process.env.S3_REGION || "us-east-1",
-		S3_BUCKET: required("S3_BUCKET"),
+		S3_BUCKET:
+			blobStore === "s3"
+				? required("S3_BUCKET")
+				: (process.env.S3_BUCKET ?? "obs-local-blobs"),
 		S3_FORCE_PATH_STYLE: readBooleanEnv("S3_FORCE_PATH_STYLE", true),
-		S3_ACCESS_KEY_ID: required("S3_ACCESS_KEY_ID"),
-		S3_SECRET_ACCESS_KEY: required("S3_SECRET_ACCESS_KEY"),
+		S3_ACCESS_KEY_ID:
+			blobStore === "s3"
+				? required("S3_ACCESS_KEY_ID")
+				: (process.env.S3_ACCESS_KEY_ID ?? "local"),
+		S3_SECRET_ACCESS_KEY:
+			blobStore === "s3"
+				? required("S3_SECRET_ACCESS_KEY")
+				: (process.env.S3_SECRET_ACCESS_KEY ?? "local"),
 		INGEST_KEY: required("INGEST_KEY"),
 		DASHBOARD_PASSWORD: required("DASHBOARD_PASSWORD"),
 		ALLOWED_ORIGINS:

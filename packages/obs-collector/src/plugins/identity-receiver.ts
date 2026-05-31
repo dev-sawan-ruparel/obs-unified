@@ -1,6 +1,6 @@
 import type { IdentifyInput } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
-import { sqlDbFor } from "../lib/sql-db";
+import { dialectFor, sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 export const identityReceiverPlugin: CollectorPlugin = {
@@ -59,7 +59,13 @@ export const identityReceiverPlugin: CollectorPlugin = {
 			// On conflict we keep the EARLIEST first_seen_at via MIN() — once
 			// observed, a user's first-seen is monotonic; an identify() call
 			// that runs at "now" must not overwrite a true historical value.
-			await sqlDbFor(c.env)
+			const db = sqlDbFor(c.env);
+			const firstSeenExpr =
+				dialectFor(db).name === "postgres"
+					? "LEAST(user_profiles.first_seen_at, excluded.first_seen_at)"
+					: "MIN(user_profiles.first_seen_at, excluded.first_seen_at)";
+
+			await db
 				.prepare(
 					`INSERT INTO user_profiles (project_id, user_id, visitor_id, email, name, properties_json, first_seen_at, last_seen_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -68,7 +74,7 @@ export const identityReceiverPlugin: CollectorPlugin = {
            email = COALESCE(excluded.email, user_profiles.email),
            name = COALESCE(excluded.name, user_profiles.name),
            properties_json = COALESCE(excluded.properties_json, user_profiles.properties_json),
-           first_seen_at = MIN(user_profiles.first_seen_at, excluded.first_seen_at),
+           first_seen_at = ${firstSeenExpr},
            last_seen_at = excluded.last_seen_at
         `,
 				)

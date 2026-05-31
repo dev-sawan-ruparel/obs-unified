@@ -14,7 +14,7 @@ export async function ingestAICallBatch(
 	if (calls.length === 0) return;
 
 	const stmt = db.prepare(`
-      INSERT INTO ai_calls (
+      INSERT OR IGNORE INTO ai_calls (
         project_id, call_id, trace_id, span_id, service_name, model_name, provider, call_type,
         request_json, response_json, prompt_tokens, completion_tokens, total_cost_usd,
         latency_ms, is_error, error_message, occurred_at, received_at, expires_at,

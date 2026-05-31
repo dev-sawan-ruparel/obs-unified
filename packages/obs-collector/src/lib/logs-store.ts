@@ -62,7 +62,7 @@ export class LogsStore {
 		if (logs.length === 0) return;
 
 		const stmt = this.db.prepare(`
-      INSERT INTO logs (
+      INSERT OR IGNORE INTO logs (
         project_id, log_id, trace_id, span_id, service_name, severity, severity_number,
         logger_name, message, attributes_json, flags, dropped_attributes_count,
         occurred_at, received_at, expires_at, session_id, interaction_id

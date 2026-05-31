@@ -21,7 +21,26 @@
  */
 
 import process from "node:process";
-import { SpanStatusCode, trace } from "@opentelemetry/api";
+
+const noopSpan = {
+	end() {},
+	recordException() {},
+	setAttribute() {},
+	setStatus() {},
+};
+const fallbackTrace = {
+	getTracer: () => ({
+		startActiveSpan: async (_name, fn) => fn(noopSpan),
+	}),
+};
+let SpanStatusCode = { OK: 1, ERROR: 2 };
+let trace = fallbackTrace;
+try {
+	({ SpanStatusCode, trace } = await import("@opentelemetry/api"));
+} catch {
+	// Optional: plain seeding should work even when self-instrumentation deps
+	// have not been installed.
+}
 
 // Get a tracer scoped to the seeder. The actual provider was set up in
 // `instrumentation.mjs` (loaded via --import). When run without that

@@ -7,15 +7,63 @@ dashboard.
 
 | If you want to... | Use this path |
 | --- | --- |
+| Avoid local Node/pnpm setup | [Track 0 — one local Docker image](#track-0--one-local-docker-image) |
 | See the dashboard quickly without Docker demo traffic | [Track A — local repo + synthetic data](#track-a--local-repo--synthetic-data) |
 | See realistic microservice traffic | [Track B — Astronomy Shop demo](#track-b--astronomy-shop-demo) |
 | Add obs-unified to your own app | [Track C — instrument your app](#track-c--instrument-your-app) |
 
 ## Prerequisites
 
-- Node.js 22+
-- pnpm 10+
-- Docker only for Track B or the standalone Node collector
+- Docker for Track 0, Track B, or the standalone Node collector
+- Node.js 22+ and pnpm 10+ for repo-local development paths
+
+## Track 0 — One Local Docker Image
+
+Use this when you want the lowest-friction first run. It starts Postgres, the
+collector, the dashboard, filesystem blob storage, and seeded sample data inside
+one container.
+
+Build locally:
+
+```bash
+pnpm local:image
+```
+
+Run:
+
+```bash
+pnpm local:run
+```
+
+Or without package scripts:
+
+```bash
+docker build -f Dockerfile.local -t obs-unified/local:dev .
+docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev
+```
+
+Open:
+
+- Dashboard: `http://localhost:5173`
+- Collector: `http://localhost:8790`
+
+Defaults:
+
+- Ingest key: `dev-ingest-key`
+- Dashboard password: `e2e-test-pass`
+
+To persist local data between runs:
+
+```bash
+docker volume create obs-unified-local-db
+docker volume create obs-unified-local-blobs
+docker run --rm \
+  -p 5173:5173 \
+  -p 8790:8790 \
+  -v obs-unified-local-db:/var/lib/postgresql \
+  -v obs-unified-local-blobs:/data \
+  obs-unified/local:dev
+```
 
 ## Track A — Local Repo + Synthetic Data
 

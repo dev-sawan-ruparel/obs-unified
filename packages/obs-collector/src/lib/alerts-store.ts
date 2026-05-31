@@ -19,16 +19,21 @@ import type {
 import { randomHex } from "./hash";
 import type { SqlDb } from "./sql-db";
 
+const parseJsonField = <T>(value: unknown): T => {
+	if (typeof value === "string") return JSON.parse(value) as T;
+	return value as T;
+};
+
 const rowToRule = (row: AlertRuleRow, state?: AlertStateRow): AlertRule => ({
 	id: row.id,
 	projectId: row.project_id,
 	name: row.name,
 	signal: row.signal,
-	query: JSON.parse(row.query_json) as AlertQuery,
+	query: parseJsonField<AlertQuery>(row.query_json),
 	threshold: row.threshold,
 	windowMins: row.window_mins,
 	comparison: row.comparison,
-	channels: JSON.parse(row.channels_json) as AlertChannel[],
+	channels: parseJsonField<AlertChannel[]>(row.channels_json),
 	enabled: row.enabled === 1,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,

@@ -101,11 +101,22 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 					try {
 						const db = sqlDbFor(context.env);
 						const stmt = db.prepare(
-							`INSERT OR REPLACE INTO ai_span_payloads (
+							`INSERT INTO ai_span_payloads (
 								project_id, trace_id, span_id, span_kind,
 								input_json, output_json, session_id, user_id,
 								received_at, expires_at, interaction_id, action_id
-							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+							ON CONFLICT(trace_id, span_id) DO UPDATE SET
+								project_id = excluded.project_id,
+								span_kind = excluded.span_kind,
+								input_json = excluded.input_json,
+								output_json = excluded.output_json,
+								session_id = excluded.session_id,
+								user_id = excluded.user_id,
+								received_at = excluded.received_at,
+								expires_at = excluded.expires_at,
+								interaction_id = excluded.interaction_id,
+								action_id = excluded.action_id`,
 						);
 						await db.batch(
 							rows.map((r) =>
