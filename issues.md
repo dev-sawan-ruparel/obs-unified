@@ -125,10 +125,9 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Location:** `packages/obs-types/src/types.ts`.
   * **Resolution:** Split the 1292-line declaration file into domain modules under `packages/obs-types/src/types/` for primitives, OTLP, telemetry, usage, logs, AI, identity, replay, projects, alerts, and analyses, while keeping `types.ts` as a compatibility re-export barrel.
 
-- [ ] **Collector store is a monolithic repository**
-  * **Location:** `packages/obs-collector/src/lib/store.ts` (~997 lines after extracting trace/issue helper functions).
-  * **Risk:** Medium. Trace overview, issue, log, metric, and replay query behavior is coupled in one file.
-  * **Next Action:** Extract focused stores/repositories for trace overview, issues, logs, metrics, and replay reads while preserving the public `Store` facade.
+- [x] **Collector store is a monolithic repository**
+  * **Location:** `packages/obs-collector/src/lib/store.ts`.
+  * **Resolution:** Reduced `TelemetryStore` to a 77-line public facade and moved ingest, trace overview/detail, issue grouping, export, service-map/operations, retention, and shared trace-candidate queries into focused modules under `packages/obs-collector/src/lib/store/`.
 
 - [x] **Connected routes plugin owns graph traversal, enrichment, and HTTP responses**
   * **Location:** `packages/obs-collector/src/plugins/connected-routes.ts`.
