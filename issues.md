@@ -138,10 +138,9 @@ These files are the current large-code "god object" candidates found by a line-c
   * **Location:** `packages/dashboard/src/components/primitives.tsx`.
   * **Resolution:** Split primitives by family under `packages/dashboard/src/components/primitives/*` (`layout`, `spark`, `time-series`, `lists`, `status`, `math`, `Chip`, `JsonBlock`, `Waterfall`, `ChatBubble`) and kept `primitives.tsx` as a 10-line compatibility facade.
 
-- [ ] **OTLP decoder mixes protobuf traversal and domain normalization**
-  * **Location:** `packages/obs-collector/src/otlp/decode.ts` (~855 lines).
-  * **Risk:** Medium. Protocol decoding bugs are hard to isolate from app-specific normalization behavior.
-  * **Next Action:** Separate raw OTLP extraction helpers from app-domain mapping for spans, logs, metrics, resources, and attributes.
+- [x] **OTLP decoder mixes protobuf traversal and domain normalization**
+  * **Location:** `packages/obs-collector/src/otlp/decode.ts`.
+  * **Resolution:** Reduced the public decoder file to an 11-line barrel and split request body parsing, shared OTLP value adapters, trace adaptation, log normalization, and metric point shaping into focused modules under `packages/obs-collector/src/otlp/decode/`.
 
 - [x] **Action graph processor mixes ingestion, graph derivation, and persistence updates**
   * **Location:** `packages/obs-collector/src/plugins/action-graph-processor.ts`.
