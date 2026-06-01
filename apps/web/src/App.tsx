@@ -267,7 +267,9 @@ export function App() {
 								onNavigate={navigate}
 							/>
 						)}
-						{route.tab === "alerts" && <AlertsDashboard />}
+						{route.tab === "alerts" && (
+							<AlertsDashboard onNavigate={navigate} />
+						)}
 						{route.tab === "resources" && <ResourcesDashboard />}
 						{route.tab === "projects" && <ProjectsDashboard />}
 						{route.tab === "users" && route.userId && (

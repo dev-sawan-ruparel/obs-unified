@@ -109,10 +109,11 @@ export async function getTelemetryServiceMap(
 						consumer.service_name AS target,
 						consumer.status_code AS status_code,
 						consumer.duration_ms AS duration_ms,
-						consumer.received_at AS received_at
+						consumer.received_at AS received_at,
+						CASE WHEN consumer.telemetry_sdk_name IN ('beyla', 'otel-ebpf-profiler') THEN 1 ELSE 0 END AS is_ebpf
 					FROM (
 						SELECT trace_id, span_id, project_id, service_name,
-							status_code, duration_ms, received_at, links_json
+							status_code, duration_ms, received_at, links_json, telemetry_sdk_name
 						FROM telemetry_spans
 						WHERE project_id = ?
 							AND received_at >= ?
@@ -135,7 +136,8 @@ export async function getTelemetryServiceMap(
 						consumer.service_name AS target,
 						consumer.status_code AS status_code,
 						consumer.duration_ms AS duration_ms,
-						consumer.received_at AS received_at
+						consumer.received_at AS received_at,
+						CASE WHEN consumer.telemetry_sdk_name IN ('beyla', 'otel-ebpf-profiler') THEN 1 ELSE 0 END AS is_ebpf
 					-- Pre-filter consumers in a subquery so json_each is only
 					-- invoked on spans that actually carry links. Without this
 					-- gate the cross product fans out across every span in the
@@ -143,7 +145,7 @@ export async function getTelemetryServiceMap(
 					-- rows.
 					FROM (
 						SELECT trace_id, span_id, project_id, service_name,
-							status_code, duration_ms, received_at, links_json
+							status_code, duration_ms, received_at, links_json, telemetry_sdk_name
 						FROM telemetry_spans
 						WHERE project_id = ?
 							AND received_at >= ?
@@ -173,7 +175,8 @@ export async function getTelemetryServiceMap(
 						c.service_name AS target,
 						c.status_code AS status_code,
 						c.duration_ms AS duration_ms,
-						c.received_at AS received_at
+						c.received_at AS received_at,
+						CASE WHEN c.telemetry_sdk_name IN ('beyla', 'otel-ebpf-profiler') THEN 1 ELSE 0 END AS is_ebpf
 					FROM telemetry_spans p
 					JOIN telemetry_spans c
 						ON c.parent_span_id = p.span_id
@@ -208,6 +211,7 @@ export async function getTelemetryServiceMap(
 			target: string;
 			status_code: number;
 			duration_ms: number;
+			is_ebpf: number;
 		}>();
 
 	interface EdgeAcc {
@@ -216,6 +220,7 @@ export async function getTelemetryServiceMap(
 		calls: number;
 		errors: number;
 		durations: number[];
+		isEbpf: boolean;
 	}
 	const edgeMap = new Map<string, EdgeAcc>();
 	for (const row of edgeRowsResult.results ?? []) {
@@ -228,12 +233,14 @@ export async function getTelemetryServiceMap(
 				calls: 0,
 				errors: 0,
 				durations: [],
+				isEbpf: false,
 			};
 			edgeMap.set(key, acc);
 		}
 		acc.calls += 1;
 		if (row.status_code === 2) acc.errors += 1;
 		acc.durations.push(row.duration_ms ?? 0);
+		if (row.is_ebpf === 1) acc.isEbpf = true;
 	}
 
 	const windowSeconds = Math.max(1, options.hours * 3600);
@@ -246,6 +253,7 @@ export async function getTelemetryServiceMap(
 		p50DurationMs: percentile(e.durations, 0.5),
 		p95DurationMs: percentile(e.durations, 0.95),
 		rps: e.calls / windowSeconds,
+		isEbpf: e.isEbpf,
 	}));
 
 	const nodes = (nodesResult.results ?? []).map((r) => ({

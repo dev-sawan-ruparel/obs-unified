@@ -35,6 +35,10 @@ export function TraceDetailView({
 	const traceEnd = spanEnds.length ? Math.max(...spanEnds) : traceStart;
 	const traceDuration = traceEnd - traceStart || 1;
 	const tree = buildSpanTree(spans);
+	const slowestSpan =
+		tree.length > 0
+			? tree.reduce((prev, curr) => (prev.selfMs > curr.selfMs ? prev : curr))
+			: null;
 
 	const totalSelfMs = tree.reduce((acc, s) => acc + s.selfMs, 0);
 	const asyncParents = tree.filter((s) => s.asyncParent).length;
@@ -216,11 +220,28 @@ export function TraceDetailView({
 						const isExpanded = expandedSpanId === s.spanId;
 						const isError = s.statusCode === 2;
 						const selfBarWidth = width * s.selfRatio;
+
+						const isDbQuery = !!(
+							s.attributes &&
+							Object.keys(s.attributes).some((k) => k.includes("db.system"))
+						);
+						const isHttpClient = s.spanKind === 3;
+						const isSlowest = !!(
+							slowestSpan &&
+							s.spanId === slowestSpan.spanId &&
+							s.selfMs > 0
+						);
+
 						const baseColor = isError
 							? "bg-sys-error"
-							: s.parentSpanId
-								? "bg-sys-outline"
-								: "bg-sys-primary";
+							: isDbQuery
+								? "bg-sys-accent"
+								: isHttpClient
+									? "bg-sys-warning"
+									: s.parentSpanId
+										? "bg-sys-outline"
+										: "bg-sys-primary";
+
 						const uninstrumented = isLikelyUninstrumented(s);
 						return (
 							<div key={s.spanId}>
@@ -258,6 +279,23 @@ export function TraceDetailView({
 											</span>
 										)}
 									</span>
+									<div className="flex items-center gap-1 flex-none mr-2">
+										{isDbQuery && (
+											<span className="text-[0.625rem] bg-sys-accent/10 text-sys-accent px-1 font-sans font-bold border border-sys-accent/20">
+												[DB]
+											</span>
+										)}
+										{isHttpClient && (
+											<span className="text-[0.625rem] bg-sys-warning/10 text-sys-warning px-1 font-sans font-bold border border-sys-warning/20">
+												[HTTP]
+											</span>
+										)}
+										{isSlowest && (
+											<span className="text-[0.625rem] bg-sys-error/10 text-sys-error px-1 font-sans font-bold border border-sys-error/20 animate-pulse">
+												🔥 slowest
+											</span>
+										)}
+									</div>
 									<div className="relative h-[8px] min-w-0 flex-1 bg-sys-bg">
 										{s.asyncParent ? (
 											<div
@@ -265,7 +303,7 @@ export function TraceDetailView({
 												style={{
 													left: `${left}%`,
 													width: `${width}%`,
-													backgroundImage: `repeating-linear-gradient(45deg, var(--color-sys-outline) 0 4px, transparent 4px 8px), linear-gradient(${isError ? "var(--color-sys-error)" : "var(--color-sys-primary)"}, ${isError ? "var(--color-sys-error)" : "var(--color-sys-primary)"})`,
+													backgroundImage: `repeating-linear-gradient(45deg, var(--color-sys-outline) 0 4px, transparent 4px 8px), linear-gradient(${isError ? "var(--color-sys-error)" : isDbQuery ? "var(--color-sys-accent)" : isHttpClient ? "var(--color-sys-warning)" : "var(--color-sys-primary)"}, ${isError ? "var(--color-sys-error)" : isDbQuery ? "var(--color-sys-accent)" : isHttpClient ? "var(--color-sys-warning)" : "var(--color-sys-primary)"})`,
 													backgroundBlendMode: "normal",
 												}}
 												title={`Async parent - children's wall (${Math.round(s.durationMs - s.selfMs)}ms) exceeds parent's window. Self-time clamped to 0.`}
@@ -292,9 +330,9 @@ export function TraceDetailView({
 									</span>
 								</button>
 								{isExpanded && (
-									<div className="flex gap-2 ml-6 mr-2">
+									<div className="flex flex-col md:flex-row gap-2 ml-6 mr-2">
 										<div className="flex-1 min-w-0">
-											<SpanView span={s} />
+											<SpanView span={s} isSlowest={isSlowest} />
 										</div>
 										<ConnectedRail
 											entityKind="span"
@@ -323,7 +361,13 @@ export function TraceDetailView({
 	);
 }
 
-function SpanView({ span }: { span: SpanDetail }) {
+function SpanView({
+	span,
+	isSlowest = false,
+}: {
+	span: SpanDetail & { selfMs?: number; selfRatio?: number };
+	isSlowest?: boolean;
+}) {
 	const attrs = Object.entries(span.attributes).filter(
 		([k]) => !k.startsWith("collector."),
 	);
@@ -350,11 +394,22 @@ function SpanView({ span }: { span: SpanDetail }) {
 					{span.spanName}
 				</span>
 				<span className="font-mono text-[0.75rem] opacity-60">
-					{span.durationMs}ms
+					{span.durationMs}ms wall
 				</span>
+				{span.selfMs !== undefined && (
+					<span className="font-mono text-[0.75rem] text-sys-primary font-bold">
+						{Math.round(span.selfMs)}ms self (
+						{Math.round((span.selfRatio ?? 0) * 100)}%)
+					</span>
+				)}
 				<span className="bg-sys-surface-low px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em]">
 					{SPAN_KIND[span.spanKind] ?? span.spanKind}
 				</span>
+				{isSlowest && (
+					<span className="bg-sys-error px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-sys-on-error animate-pulse">
+						🔥 SLOWEST SPAN
+					</span>
+				)}
 				{isError && (
 					<span className="bg-sys-error px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-sys-on-error">
 						SYSTEM_ERROR

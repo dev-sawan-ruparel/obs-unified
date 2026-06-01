@@ -13,7 +13,15 @@ import { Tag } from "../components/Tag";
 import { useApi } from "../use-api";
 import { AlertRuleForm } from "./AlertRuleForm";
 
-export function AlertsDashboard() {
+export function AlertsDashboard({
+	onNavigate,
+}: {
+	onNavigate?: (route: {
+		tab: string;
+		service?: string;
+		traceId?: string;
+	}) => void;
+}) {
 	const api = useApi();
 	const [rules, setRules] = useState<AlertRule[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -189,7 +197,11 @@ export function AlertsDashboard() {
 
 				<div className="flex gap-2">
 					<div className="flex-1 min-w-0">
-						<AlertDetail ruleId={selectedRuleId} rules={rules} />
+						<AlertDetail
+							ruleId={selectedRuleId}
+							rules={rules}
+							onNavigate={onNavigate}
+						/>
 					</div>
 					{selectedRuleId && (
 						<ConnectedRail entityKind="alert" entityId={selectedRuleId} />
@@ -313,9 +325,15 @@ function alertRuleColumns({
 function AlertDetail({
 	ruleId,
 	rules,
+	onNavigate,
 }: {
 	ruleId: string | null;
 	rules: AlertRule[];
+	onNavigate?: (route: {
+		tab: string;
+		service?: string;
+		traceId?: string;
+	}) => void;
 }) {
 	const api = useApi();
 	const rule = ruleId ? rules.find((r) => r.id === ruleId) : null;
@@ -365,6 +383,18 @@ function AlertDetail({
 		);
 	}
 
+	const queryObj = rule.query as Record<string, unknown>;
+	const serviceName =
+		typeof queryObj.serviceName === "string" ? queryObj.serviceName : null;
+	const routeName =
+		typeof queryObj.spanName === "string"
+			? queryObj.spanName
+			: typeof queryObj.pathPattern === "string"
+				? queryObj.pathPattern
+				: typeof queryObj.eventName === "string"
+					? queryObj.eventName
+					: null;
+
 	return (
 		<div className="bg-sys-surface border-[1px] border-sys-outline overflow-auto p-3 flex flex-col gap-3">
 			<div>
@@ -408,6 +438,63 @@ function AlertDetail({
 						</span>
 					</div>
 				)}
+			</div>
+
+			<div className="border-t-[1px] border-sys-outline pt-3">
+				<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60 mb-2">
+					Evidence & Diagnostics
+				</div>
+				<div className="bg-sys-surface-low p-2 border border-sys-outline-soft space-y-2">
+					<div className="text-[0.75rem] leading-relaxed">
+						This alert tracks the{" "}
+						<span className="font-bold font-mono">{rule.signal}</span> signal
+						{serviceName ? (
+							<span>
+								{" "}
+								on service{" "}
+								<span className="font-bold font-mono">{serviceName}</span>
+							</span>
+						) : (
+							""
+						)}
+						{routeName ? (
+							<span>
+								{" "}
+								for <span className="font-bold font-mono">{routeName}</span>
+							</span>
+						) : (
+							""
+						)}
+						.
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<button
+							type="button"
+							onClick={() => {
+								if (onNavigate) {
+									onNavigate({
+										tab: "traces",
+										service: serviceName || undefined,
+									});
+								} else {
+									location.hash = `#/traces?service=${encodeURIComponent(serviceName || "")}`;
+								}
+							}}
+							className="text-[0.6875rem] font-mono font-bold bg-sys-accent text-white px-2 py-1 hover:bg-sys-accent/85 border border-sys-accent/20 cursor-pointer"
+						>
+							Investigate Firing Traces
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								location.hash = `#/logs?service=${encodeURIComponent(serviceName || "")}&severity=ERROR`;
+							}}
+							className="text-[0.6875rem] font-mono font-bold bg-sys-warning text-sys-on-warning px-2 py-1 hover:bg-sys-warning/85 border border-sys-warning/20 cursor-pointer"
+						>
+							View Firing Logs
+						</button>
+					</div>
+				</div>
 			</div>
 
 			<div className="border-t-[1px] border-sys-outline pt-3">

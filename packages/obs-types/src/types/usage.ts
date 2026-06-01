@@ -91,6 +91,7 @@ export interface UsageEventRow {
 	utm_source: string | null;
 	utm_medium: string | null;
 	utm_campaign: string | null;
+	interaction_id?: string | null;
 }
 
 export interface UsageOverviewOptions {
@@ -216,6 +217,7 @@ export interface UsageSessionDetailResponse {
 		occurredAt: string;
 		properties: Record<string, JsonValue>;
 		context: Record<string, JsonValue>;
+		interactionId?: string | null;
 	}>;
 	timestamp: string;
 }

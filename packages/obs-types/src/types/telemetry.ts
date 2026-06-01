@@ -164,6 +164,7 @@ export interface ServiceMapEdge {
 	p50DurationMs: number;
 	p95DurationMs: number;
 	rps: number;
+	isEbpf?: boolean;
 }
 
 export interface ServiceMapResponse {

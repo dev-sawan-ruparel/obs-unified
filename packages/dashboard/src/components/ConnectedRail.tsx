@@ -204,7 +204,7 @@ export function ConnectedRail({
 
 	if (loading) {
 		return (
-			<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
+			<aside className="w-full md:w-[260px] md:min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
 				<div className="text-[0.75rem] opacity-60">Loading neighbors...</div>
 			</aside>
 		);
@@ -212,7 +212,7 @@ export function ConnectedRail({
 
 	if (error || !manifest) {
 		return (
-			<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
+			<aside className="w-full md:w-[260px] md:min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
 				<div className="border-l-[4px] border-sys-error bg-sys-error/10 p-2 text-[0.75rem] text-sys-error">
 					<div className="font-bold">Failed to load related entities</div>
 					{error && <div className="mt-1 break-words font-mono">{error}</div>}
@@ -223,6 +223,26 @@ export function ConnectedRail({
 
 	const renderGroup = (sections: ConnectedSection[], parentHeader: string) => {
 		const deduped = dedupeAdjacent(sections);
+		if (deduped.length === 0) {
+			let defaultReason = "No neighbors.";
+			if (parentHeader === "Up") {
+				defaultReason = "Root execution layer (server-originated work).";
+			} else if (parentHeader === "Across") {
+				defaultReason = "No peer steps (no profile coverage).";
+			} else if (parentHeader === "Down") {
+				defaultReason = "No downstream spans or child operations.";
+			} else if (parentHeader === "Related") {
+				defaultReason =
+					"No related alerts, logs, or replays (no replay captured).";
+			}
+			return (
+				<div className="px-1 py-1">
+					<div className="text-[0.75rem] opacity-60 italic">
+						— {defaultReason}
+					</div>
+				</div>
+			);
+		}
 		return deduped.map((s) => (
 			<SectionGroup
 				key={`${parentHeader}-${s.label}-${s.links.map((link) => link.href).join("|")}`}
@@ -233,27 +253,32 @@ export function ConnectedRail({
 		));
 	};
 
-	// min-w-[260px] guards against the layout bug where a flex parent
-	// squeezes the rail down to ~10px and monospace content character-wraps
-	// vertically. The aside is meant to be a fixed-width sidebar — not a
-	// resizable column. overflow-y-auto lets the inner content scroll
-	// independently rather than being chopped by overflow:hidden parents.
 	return (
-		<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2 overflow-y-auto">
+		<aside className="w-full md:w-[260px] md:min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2 overflow-y-auto">
 			<div className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-50 mb-2">
 				Connected — {entityKind}
 			</div>
-			<SectionHeader>Up</SectionHeader>
-			{renderGroup(manifest.up ?? [], "Up")}
-			<SectionHeader>Across</SectionHeader>
-			{renderGroup(manifest.across ?? [], "Across")}
-			<SectionHeader>Down</SectionHeader>
-			{renderGroup(manifest.down ?? [], "Down")}
-			<SectionHeader>Related</SectionHeader>
-			{renderGroup(
-				[...extraRelatedSections, ...(manifest.related ?? [])],
-				"Related",
-			)}
+			<div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 md:flex md:flex-col">
+				<div>
+					<SectionHeader>Up</SectionHeader>
+					{renderGroup(manifest.up ?? [], "Up")}
+				</div>
+				<div>
+					<SectionHeader>Across</SectionHeader>
+					{renderGroup(manifest.across ?? [], "Across")}
+				</div>
+				<div>
+					<SectionHeader>Down</SectionHeader>
+					{renderGroup(manifest.down ?? [], "Down")}
+				</div>
+				<div>
+					<SectionHeader>Related</SectionHeader>
+					{renderGroup(
+						[...extraRelatedSections, ...(manifest.related ?? [])],
+						"Related",
+					)}
+				</div>
+			</div>
 		</aside>
 	);
 }

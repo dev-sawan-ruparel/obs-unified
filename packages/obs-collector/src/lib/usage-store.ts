@@ -427,7 +427,7 @@ export class UsageStore {
              page_path, page_title, referrer, severity, source,
              context_json, properties_json, user_agent, occurred_at,
              received_at, country, browser, os, device_type, is_bot,
-             utm_source, utm_medium, utm_campaign
+             utm_source, utm_medium, utm_campaign, interaction_id
       FROM usage_events
       WHERE project_id = ? AND session_id = ?
       ORDER BY occurred_at ASC
@@ -450,6 +450,7 @@ export class UsageStore {
 				occurredAt: row.occurred_at,
 				properties: parseJsonRecord(row.properties_json),
 				context: parseJsonRecord(row.context_json),
+				interactionId: row.interaction_id ?? null,
 			})),
 			timestamp: new Date().toISOString(),
 		};

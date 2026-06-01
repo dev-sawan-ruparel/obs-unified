@@ -84,4 +84,5 @@ export interface ReplayTimelineEntry {
 	occurredAt: string;
 	properties: Record<string, unknown>;
 	isTrace: boolean;
+	interactionId?: string | null;
 }

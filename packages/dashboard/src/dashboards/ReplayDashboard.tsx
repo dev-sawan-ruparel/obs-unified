@@ -466,6 +466,7 @@ export function ReplayDashboard({
 									activeEvent={activeEvent}
 									copyValue={selected}
 									onNavigate={onNavigate}
+									interactionGroups={interactionGroups}
 								/>
 							</div>
 						</div>

@@ -1,4 +1,4 @@
-import type { ReplayTimelineEntry } from "./types";
+import type { ReplayTimelineEntry, TimelineGroup } from "./types";
 import { copy, fmtTs } from "./utils";
 
 export function ReplayTimeline({
@@ -6,11 +6,13 @@ export function ReplayTimeline({
 	activeEvent,
 	copyValue,
 	onNavigate,
+	interactionGroups = {},
 }: {
 	entries: ReplayTimelineEntry[];
 	activeEvent: string | null;
 	copyValue: unknown;
 	onNavigate?: (route: { tab?: string; traceId?: string }) => void;
+	interactionGroups?: Record<string, TimelineGroup>;
 }) {
 	return (
 		<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
@@ -29,6 +31,9 @@ export function ReplayTimeline({
 			<div className="flex-1 overflow-y-auto pb-4">
 				{entries.map((ev) => {
 					const isActive = ev.timelineKey === activeEvent;
+					const group = ev.interactionId
+						? interactionGroups?.[ev.interactionId]
+						: null;
 					return (
 						<div
 							key={ev.timelineKey}
@@ -74,10 +79,86 @@ export function ReplayTimeline({
 														traceId: ev.properties.traceId as string,
 													})
 												}
-												className="bg-sys-primary px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-white hover:bg-sys-primary-strong"
+												className="bg-sys-primary px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-white hover:bg-sys-primary-strong cursor-pointer border border-sys-primary/20"
 											>
 												View trace
 											</button>
+										)}
+									</div>
+								)}
+
+								{ev.eventType === "interaction" && (
+									<div className="mt-2 text-[0.75rem] border-l-[2px] border-sys-outline pl-2 bg-sys-surface-low p-2">
+										<div className="font-semibold text-sys-on-surface opacity-80 uppercase text-[0.625rem] tracking-[0.05em] mb-1">
+											Causality & Evidence
+										</div>
+										{group ? (
+											<div className="space-y-2">
+												{group.causedTraces && group.causedTraces.length > 0 ? (
+													<div className="space-y-1">
+														<div className="text-[0.6875rem] opacity-70">
+															Caused Traces:
+														</div>
+														{group.causedTraces.map((trace) => (
+															<div
+																key={trace.traceId}
+																className="flex items-center gap-2"
+															>
+																<button
+																	type="button"
+																	onClick={() =>
+																		onNavigate?.({
+																			tab: "traces",
+																			traceId: trace.traceId,
+																		})
+																	}
+																	className="text-sys-primary hover:underline font-mono text-[0.75rem] font-bold text-left cursor-pointer"
+																>
+																	{trace.traceId.slice(0, 8)} ·{" "}
+																	{trace.rootSpanName} ({trace.serviceName})
+																</button>
+																<span className="text-[0.6875rem] opacity-60 font-mono">
+																	{trace.durationMs}ms
+																</span>
+																<span
+																	className={`text-[0.625rem] px-1 font-bold ${trace.status === "error" ? "bg-sys-error/25 text-sys-error" : "bg-sys-primary/25 text-sys-primary"}`}
+																>
+																	{trace.status.toUpperCase()}
+																</span>
+															</div>
+														))}
+													</div>
+												) : (
+													<div className="text-[0.6875rem] opacity-60 italic">
+														No caused backend traces were recorded for this
+														interaction.
+													</div>
+												)}
+
+												{group.relatedEvents &&
+												group.relatedEvents.length > 0 ? (
+													<div className="space-y-1">
+														<div className="text-[0.6875rem] opacity-70">
+															Related Events:
+														</div>
+														<div className="flex flex-wrap gap-1">
+															{group.relatedEvents.map((evt) => (
+																<span
+																	key={`${evt.kind}-${evt.id}`}
+																	className="bg-sys-surface px-1.5 py-0.5 border border-sys-outline font-mono text-[0.6875rem]"
+																>
+																	{evt.kind}: {evt.id.slice(0, 8)}
+																</span>
+															))}
+														</div>
+													</div>
+												) : null}
+											</div>
+										) : (
+											<div className="text-[0.6875rem] opacity-60 italic">
+												No backend traces or logs mapped to this interaction (no
+												replay captured).
+											</div>
 										)}
 									</div>
 								)}

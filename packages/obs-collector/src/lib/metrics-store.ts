@@ -15,15 +15,49 @@ interface SeriesRow {
 	identity: string;
 }
 
+interface StoredExemplar {
+	value: number;
+	traceId: string | null;
+	spanId: string | null;
+	tsNs: string;
+}
+
+const parseExemplars = (raw: string | null): StoredExemplar[] => {
+	if (!raw) return [];
+	try {
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter(
+			(exemplar): exemplar is StoredExemplar =>
+				typeof exemplar === "object" &&
+				exemplar !== null &&
+				typeof exemplar.value === "number" &&
+				Number.isFinite(exemplar.value) &&
+				typeof exemplar.tsNs === "string" &&
+				(exemplar.traceId === null || typeof exemplar.traceId === "string") &&
+				(exemplar.spanId === null || typeof exemplar.spanId === "string"),
+		);
+	} catch {
+		return [];
+	}
+};
+
 export class MetricsStore {
 	constructor(private readonly db: SqlDb) {}
 
 	async purgeExpired(): Promise<number> {
 		const dialect = dialectFor(this.db);
-		const result = await this.db
-			.prepare(`DELETE FROM metric_point WHERE expires_at < ${dialect.now()}`)
-			.run();
-		return result.meta.changes ?? 0;
+		const [exemplarResult, pointResult] = await this.db.batch([
+			this.db.prepare(
+				`DELETE FROM metric_exemplars WHERE expires_at < ${dialect.now()}`,
+			),
+			this.db.prepare(
+				`DELETE FROM metric_point WHERE expires_at < ${dialect.now()}`,
+			),
+		]);
+		return (
+			(exemplarResult?.meta.changes ?? 0) + (pointResult?.meta.changes ?? 0)
+		);
 	}
 
 	async ingestBatch(opts: {
@@ -37,38 +71,120 @@ export class MetricsStore {
 
 		const seriesByIdentity = await this.resolveSeries(projectId, points);
 
-		const stmt = this.db.prepare(`
+		const pointStmt = this.db.prepare(`
 			INSERT INTO metric_point (
 				id, series_id, project_id, ts_ns, start_ts_ns,
 				value, count, sum, min, max, bounds_json, bucket_counts_json,
 				extra_json, exemplars_json, received_at, expires_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
+		const exemplarStmt = this.db.prepare(`
+			INSERT INTO metric_exemplars (
+				id, point_id, series_id, project_id, metric_name, service_name,
+				trace_id, span_id, ts_ns, value, received_at, expires_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`);
 
-		const batch = points.map((p) => {
+		const batch: SqlStatement[] = [];
+		for (const p of points) {
 			const series = seriesByIdentity.get(p.identity);
 			if (!series) throw new Error(`series not resolved: ${p.identity}`);
-			return stmt.bind(
-				crypto.randomUUID(),
-				series.id,
-				projectId,
-				p.tsNs,
-				p.startTsNs,
-				p.value,
-				p.count,
-				p.sum,
-				p.min,
-				p.max,
-				p.boundsJson,
-				p.bucketCountsJson,
-				p.extraJson,
-				p.exemplarsJson,
-				receivedAt,
-				expiresAt,
+			const pointId = crypto.randomUUID();
+			batch.push(
+				pointStmt.bind(
+					pointId,
+					series.id,
+					projectId,
+					p.tsNs,
+					p.startTsNs,
+					p.value,
+					p.count,
+					p.sum,
+					p.min,
+					p.max,
+					p.boundsJson,
+					p.bucketCountsJson,
+					p.extraJson,
+					p.exemplarsJson,
+					receivedAt,
+					expiresAt,
+				),
 			);
-		});
+			for (const exemplar of parseExemplars(p.exemplarsJson)) {
+				if (!exemplar.traceId && !exemplar.spanId) continue;
+				batch.push(
+					exemplarStmt.bind(
+						crypto.randomUUID(),
+						pointId,
+						series.id,
+						projectId,
+						p.name,
+						p.serviceName,
+						exemplar.traceId,
+						exemplar.spanId,
+						exemplar.tsNs,
+						exemplar.value,
+						receivedAt,
+						expiresAt,
+					),
+				);
+			}
+		}
 
 		await this.db.batch(batch);
+	}
+
+	async exemplarsForTrace(
+		projectId: string,
+		traceId: string,
+		limit = 50,
+	): Promise<
+		Array<{
+			id: string;
+			pointId: string;
+			seriesId: string;
+			metricName: string;
+			serviceName: string | null;
+			traceId: string | null;
+			spanId: string | null;
+			tsNs: string;
+			value: number;
+			receivedAt: string;
+		}>
+	> {
+		const rows = await this.db
+			.prepare(
+				`SELECT id, point_id, series_id, metric_name, service_name,
+						trace_id, span_id, ts_ns, value, received_at
+					FROM metric_exemplars
+					WHERE project_id = ? AND trace_id = ?
+					ORDER BY ts_ns DESC LIMIT ?`,
+			)
+			.bind(projectId, traceId, limit)
+			.all<{
+				id: string;
+				point_id: string;
+				series_id: string;
+				metric_name: string;
+				service_name: string | null;
+				trace_id: string | null;
+				span_id: string | null;
+				ts_ns: string;
+				value: number;
+				received_at: string;
+			}>();
+		return rows.results.map((row) => ({
+			id: row.id,
+			pointId: row.point_id,
+			seriesId: row.series_id,
+			metricName: row.metric_name,
+			serviceName: row.service_name,
+			traceId: row.trace_id,
+			spanId: row.span_id,
+			tsNs: row.ts_ns,
+			value: row.value,
+			receivedAt: row.received_at,
+		}));
 	}
 
 	/**

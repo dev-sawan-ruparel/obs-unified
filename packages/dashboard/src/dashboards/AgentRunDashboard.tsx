@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
+import type {
+	ActionRef,
+	EntityManifestExtended,
+} from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
@@ -447,7 +450,11 @@ export function AgentRunDashboard({
 									{rootAction?.sessionId ? (
 										<button
 											type="button"
-											onClick={() => onNavigate?.(`#/replay`)}
+											onClick={() =>
+												onNavigate?.(
+													`#/replay?session=${encodeURIComponent(rootAction.sessionId ?? "")}`,
+												)
+											}
 											className="text-sys-primary hover:underline text-left cursor-pointer font-bold"
 										>
 											🎥 {rootAction.sessionId}
@@ -564,17 +571,62 @@ export function AgentRunDashboard({
 							/>
 							<div className="mt-2 flex-1 overflow-y-auto max-h-[380px] pr-1 flex flex-col gap-2">
 								{(() => {
-									// Filter out trigger action and sort remaining by startedAt
-									const steps = actions
-										.filter((a) => a.id !== rootAction?.causedByActionId)
-										.sort((a, b) => {
-											const timeA = new Date(a.startedAt).getTime();
-											const timeB = new Date(b.startedAt).getTime();
-											if (timeA !== timeB) return timeA - timeB;
-											return a.id.localeCompare(b.id);
-										});
+									// Build recursive action causal tree
+									const buildActionTree = () => {
+										const childrenMap = new Map<string, ActionRef[]>();
+										for (const a of actions) {
+											if (a.causedByActionId) {
+												if (!childrenMap.has(a.causedByActionId)) {
+													childrenMap.set(a.causedByActionId, []);
+												}
+												childrenMap.get(a.causedByActionId)?.push(a);
+											}
+										}
 
-									if (steps.length === 0) {
+										// Sort kids by start time
+										for (const list of childrenMap.values()) {
+											list.sort(
+												(a, b) =>
+													new Date(a.startedAt).getTime() -
+													new Date(b.startedAt).getTime(),
+											);
+										}
+
+										// Roots: actions where causedByActionId is missing or doesn't exist in the list
+										const actionIds = new Set(actions.map((a) => a.id));
+										const roots = actions.filter(
+											(a) =>
+												!a.causedByActionId ||
+												!actionIds.has(a.causedByActionId),
+										);
+										roots.sort(
+											(a, b) =>
+												new Date(a.startedAt).getTime() -
+												new Date(b.startedAt).getTime(),
+										);
+
+										const flattened: Array<{
+											action: ActionRef;
+											depth: number;
+										}> = [];
+										const walk = (node: ActionRef, depth: number) => {
+											flattened.push({ action: node, depth });
+											const kids = childrenMap.get(node.id) ?? [];
+											for (const kid of kids) {
+												walk(kid, depth + 1);
+											}
+										};
+
+										for (const r of roots) {
+											walk(r, 0);
+										}
+
+										return flattened;
+									};
+
+									const stepsWithDepth = buildActionTree();
+
+									if (stepsWithDepth.length === 0) {
 										return (
 											<div className="flex h-full items-center justify-center text-center p-8 text-[0.75rem] opacity-60 font-mono italic">
 												No execution steps recorded.
@@ -582,7 +634,7 @@ export function AgentRunDashboard({
 										);
 									}
 
-									return steps.map((step) => {
+									return stepsWithDepth.map(({ action: step, depth }) => {
 										const isErr = step.status === "error";
 										const stepCost = step.totalCostUsd ?? 0;
 										const stepDuration = step.durationMs ?? 0;
@@ -608,14 +660,23 @@ export function AgentRunDashboard({
 												"bg-sys-error/10 border border-sys-error/20 text-sys-error";
 										}
 
+										// Fetch tool calls and evaluations linked to this action
+										const stepToolCalls = toolCalls.filter(
+											(t) => t.actionId === step.id,
+										);
+										const stepEvals = evalResults.filter(
+											(e) => e.actionId === step.id,
+										);
+
 										return (
 											<div
 												key={step.id}
-												className="flex items-start gap-3 p-2 border rounded transition-all duration-150 bg-sys-surface-low/30 hover:bg-sys-surface-low border-sys-outline/20"
+												className="flex items-start gap-3 p-2 border transition-none bg-sys-surface-low/30 hover:bg-sys-surface-low border-sys-outline/20"
+												style={{ marginLeft: `${depth * 16}px` }}
 											>
 												{/* Status dot */}
 												<span
-													className={`h-2.5 w-2.5 rounded-full flex-none mt-1.5 ${
+													className={`h-2.5 w-2.5 rounded-none flex-none mt-1.5 ${
 														isErr
 															? "bg-sys-error animate-pulse"
 															: "bg-sys-primary"
@@ -626,7 +687,7 @@ export function AgentRunDashboard({
 												<div className="flex-1 min-w-0 font-mono text-[0.7rem] flex flex-col gap-0.5">
 													<div className="flex items-center gap-2 flex-wrap">
 														<span
-															className={`px-1.5 py-0.2 rounded text-[0.55rem] font-bold uppercase ${badgeColor}`}
+															className={`px-1.5 py-0.2 rounded-none text-[0.55rem] font-bold uppercase ${badgeColor}`}
 														>
 															{step.actionKind}
 														</span>
@@ -645,6 +706,80 @@ export function AgentRunDashboard({
 													{step.stepId && (
 														<div className="text-[0.625rem] opacity-60">
 															Step: {step.stepId}
+														</div>
+													)}
+
+													{/* Mutating/mutatable tool calls */}
+													{stepToolCalls.length > 0 && (
+														<div className="mt-2 space-y-1 pl-2 border-l border-sys-outline/30">
+															<div className="text-[0.625rem] opacity-75 font-semibold uppercase tracking-[0.05em]">
+																Tool Calls:
+															</div>
+															{stepToolCalls.map((t) => {
+																const isMutating = t.sideEffect === 1;
+																const toolColor = isMutating
+																	? "bg-sys-warning/20 border border-sys-warning/40 text-sys-warning font-bold"
+																	: "bg-sys-surface-high border border-sys-outline/30 text-sys-on-surface/80";
+																return (
+																	<div
+																		key={t.id}
+																		className={`flex items-center justify-between p-1.5 text-[0.6875rem] font-mono rounded-none ${toolColor}`}
+																	>
+																		<div>
+																			<span>
+																				tool:{" "}
+																				<span className="font-bold">
+																					{t.toolName}
+																				</span>
+																			</span>
+																			{isMutating && (
+																				<span className="ml-2 text-[0.55rem] uppercase font-bold tracking-wider">
+																					[MUTATION]
+																				</span>
+																			)}
+																		</div>
+																	</div>
+																);
+															})}
+														</div>
+													)}
+
+													{/* Inlined Guardrails & Evaluations */}
+													{stepEvals.length > 0 && (
+														<div className="mt-2 space-y-1 pl-2 border-l border-sys-outline/30">
+															<div className="text-[0.625rem] opacity-75 font-semibold uppercase tracking-[0.05em]">
+																Evaluations & Guardrails:
+															</div>
+															{stepEvals.map((e) => {
+																const evalColor = e.passed
+																	? "bg-sys-primary/10 border border-sys-primary/20 text-sys-primary"
+																	: "bg-sys-error/10 border border-sys-error/20 text-sys-error font-bold";
+																return (
+																	<div
+																		key={e.id}
+																		className={`p-1.5 text-[0.6875rem] rounded-none ${evalColor}`}
+																	>
+																		<div className="flex justify-between font-mono">
+																			<span className="font-bold">
+																				{e.evaluatorName}
+																			</span>
+																			<span className="uppercase text-[0.55rem] font-bold">
+																				{e.passed ? "passed" : "failed"}
+																			</span>
+																		</div>
+																		{e.score !== undefined && (
+																			<div className="text-[0.625rem] opacity-75 font-mono">
+																				score: {e.score}
+																			</div>
+																		)}
+																		{e.reasoning && (
+																			<div className="text-[0.625rem] opacity-80 mt-0.5 italic">
+																				{e.reasoning}
+																			</div>
+																		)}
+																	</div>
+																);
+															})}
 														</div>
 													)}
 												</div>

@@ -60,6 +60,10 @@ type ServiceNodeData = {
 	traceCount: number;
 };
 
+type ServiceMapEdgeData = ServiceMapResponse["edges"][number] & {
+	isEbpf?: boolean;
+};
+
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 90;
 
@@ -205,7 +209,8 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 				traceCount: n.traceCount,
 			},
 		}));
-		const rawEdges: Edge[] = data.edges.map((e) => {
+		const mapEdges = data.edges as ServiceMapEdgeData[];
+		const rawEdges: Edge[] = mapEdges.map((e) => {
 			const errorPct = (e.errorRate * 100).toFixed(1);
 			const p95 = Math.round(e.p95DurationMs);
 			const healthColor =
@@ -214,12 +219,12 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 					: e.errorRate >= 0.01
 						? "var(--color-sys-warning)"
 						: "var(--color-sys-outline)";
-			const sourceColor =
-				source === "ebpf"
-					? "var(--color-sys-primary)"
-					: source === "sdk"
-						? "var(--color-sys-on-surface)"
-						: healthColor;
+
+			const isEbpfEdge =
+				source === "ebpf" || (source === "all" && Boolean(e.isEbpf));
+			const sourceColor = isEbpfEdge
+				? "var(--color-sys-primary)"
+				: "var(--color-sys-on-surface)";
 			const color = e.errorRate >= 0.01 ? healthColor : sourceColor;
 			return {
 				id: `${e.source}->${e.target}`,
@@ -234,11 +239,11 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 				labelBgStyle: { fill: "var(--color-sys-surface)" },
 				style: {
 					stroke: color,
-					strokeWidth: source === "ebpf" || e.errorRate >= 0.01 ? 2 : 1,
-					strokeDasharray: source === "ebpf" ? "6 4" : undefined,
+					strokeWidth: isEbpfEdge || e.errorRate >= 0.01 ? 2 : 1,
+					strokeDasharray: isEbpfEdge ? "6 4" : undefined,
 				},
 				markerEnd: { type: MarkerType.ArrowClosed, color },
-				animated: source === "ebpf" || e.errorRate >= 0.1,
+				animated: isEbpfEdge || e.errorRate >= 0.1,
 			};
 		});
 		return { nodes: layout(rawNodes, rawEdges), edges: rawEdges };
@@ -358,6 +363,7 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 						loading={opsLoading}
 						onClose={() => setSelectedService(null)}
 						onNavigate={onNavigate}
+						edges={data?.edges ?? []}
 					/>
 				)}
 			</div>
@@ -418,6 +424,7 @@ function ServiceDetailPanel({
 	loading,
 	onClose,
 	onNavigate,
+	edges = [],
 }: {
 	service: string;
 	node: {
@@ -434,6 +441,7 @@ function ServiceDetailPanel({
 		traceId?: string;
 		service?: string;
 	}) => void;
+	edges?: ServiceMapEdgeData[];
 }) {
 	const errorPct = node ? (node.errorRate * 100).toFixed(1) : "0.0";
 	return (
@@ -498,6 +506,95 @@ function ServiceDetailPanel({
 						View traces
 					</Button>
 				</div>
+
+				{/* Incoming and Outgoing Edges with clear eBPF vs SDK status */}
+				{(() => {
+					const incomingEdges = edges.filter((e) => e.target === service);
+					const outgoingEdges = edges.filter((e) => e.source === service);
+					return (
+						<>
+							{incomingEdges.length > 0 && (
+								<div>
+									<div className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
+										Incoming dependencies
+									</div>
+									<div className="flex flex-col gap-1">
+										{incomingEdges.map((e) => (
+											<div
+												key={e.source}
+												className="bg-sys-surface-low p-2 border border-sys-outline-soft"
+											>
+												<div className="flex justify-between items-baseline">
+													<span className="font-bold font-mono text-[0.75rem]">
+														{e.source}
+													</span>
+													<span className="text-[0.625rem] font-mono opacity-60">
+														{e.isEbpf ? "eBPF (dashed)" : "SDK (solid)"}
+													</span>
+												</div>
+												<div className="flex justify-between items-center text-[0.6875rem] font-mono opacity-80 mt-1">
+													<span>
+														{e.calls.toLocaleString()} calls · p95{" "}
+														{Math.round(e.p95DurationMs)}ms
+													</span>
+													<button
+														type="button"
+														onClick={() =>
+															onNavigate?.({ tab: "traces", service: e.source })
+														}
+														className="text-sys-primary hover:underline cursor-pointer font-bold"
+													>
+														View traces
+													</button>
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+
+							{outgoingEdges.length > 0 && (
+								<div>
+									<div className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
+										Outgoing dependencies
+									</div>
+									<div className="flex flex-col gap-1">
+										{outgoingEdges.map((e) => (
+											<div
+												key={e.target}
+												className="bg-sys-surface-low p-2 border border-sys-outline-soft"
+											>
+												<div className="flex justify-between items-baseline">
+													<span className="font-bold font-mono text-[0.75rem]">
+														{e.target}
+													</span>
+													<span className="text-[0.625rem] font-mono opacity-60">
+														{e.isEbpf ? "eBPF (dashed)" : "SDK (solid)"}
+													</span>
+												</div>
+												<div className="flex justify-between items-center text-[0.6875rem] font-mono opacity-80 mt-1">
+													<span>
+														{e.calls.toLocaleString()} calls · p95{" "}
+														{Math.round(e.p95DurationMs)}ms
+													</span>
+													<button
+														type="button"
+														onClick={() =>
+															onNavigate?.({ tab: "traces", service: service })
+														}
+														className="text-sys-primary hover:underline cursor-pointer font-bold"
+													>
+														View traces
+													</button>
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+						</>
+					);
+				})()}
 
 				{loading && <StateRow>Loading…</StateRow>}
 
