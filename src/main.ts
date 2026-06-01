@@ -2,6 +2,7 @@ import "./style.css";
 import { renderHeader } from "./sections/header";
 import { renderHero } from "./sections/hero";
 import { renderScreenshots } from "./sections/screenshots";
+import { renderAnswers } from "./sections/answers";
 import { renderFeatures } from "./sections/features";
 import { renderPreview } from "./sections/preview";
 import { renderArchitecture } from "./sections/architecture";
@@ -21,6 +22,7 @@ if (!root.innerHTML.trim()) {
     `<main id="main">`,
     renderHero(),
     renderScreenshots(),
+    renderAnswers(),
     renderFeatures(),
     renderPreview(),
     renderArchitecture(),

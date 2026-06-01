@@ -15,6 +15,7 @@ export function renderHeader(): string {
     </a>
     <nav class="site-nav" aria-label="Primary">
       <a href="#screenshots">Screenshots</a>
+      <a href="#answers">Answers</a>
       <a href="#features">Features</a>
       <a href="#preview">Preview</a>
       <a href="#compare">Compare</a>

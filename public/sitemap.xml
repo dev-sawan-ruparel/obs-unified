@@ -1,8 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
   <url>
     <loc>https://obsunified.com/</loc>
+    <lastmod>2026-05-31</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://obsunified.com/screenshots/app/agent-action-graph.png</image:loc>
+      <image:caption>obs-unified agent action graph for agentic debugging</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obsunified.com/screenshots/app/service-map-astronomy.png</image:loc>
+      <image:caption>OpenTelemetry Astronomy Shop service map in obs-unified</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obsunified.com/screenshots/app/ai-cost-spans.png</image:loc>
+      <image:caption>AI cost and LLM spans in obs-unified</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obsunified.com/og.jpg</image:loc>
+      <image:caption>obs-unified telemetry graph for agentic debugging</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://obsunified.com/llms.txt</loc>
+    <lastmod>2026-05-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>

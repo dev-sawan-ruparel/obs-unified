@@ -1,58 +1,107 @@
-import { FAQS } from "./content/faq";
+const SITE_URL = "https://obsunified.com/";
+const DOCS_URL = "https://docs.obsunified.com/docs";
+const GITHUB_URL = "https://github.com/obs-unified/obs-unified";
+
+const description =
+  "Self-hosted unified observability for agentic debugging across traces, logs, replay, product events, AI cost, and CPU profiles.";
 
 const graph = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "SoftwareApplication",
-      "@id": "https://obsunified.com/#software",
-      name: "obs-unified",
-      alternateName: "obs",
-      applicationCategory: "DeveloperApplication",
-      operatingSystem: "Cross-platform (Cloudflare Workers, Node.js, Bun, Deno)",
-      description:
-        "Built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile. The local first-run image includes Postgres, collector, dashboard, blob storage, and seed data.",
-      url: "https://obsunified.com/",
-      programmingLanguage: ["TypeScript", "Go", "Rust"],
-      license: "https://opensource.org/license/mit",
-      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-      featureList: [
-        "Distributed tracing (OTLP)",
-        "Structured logging with trace correlation",
-        "LLM/AI call tracking (tokens, cost, latency)",
-        "Session replay via rrweb",
-        "Frontend usage analytics",
-        "Alert rules and notifications",
-        "User profiles and identity stitching",
-        "Self-hosted on your own infrastructure",
-        "Unified collector, identity chain, and dashboard",
-        "Agentic debugging graph from user action to CPU profile",
-      ],
-    },
-    {
       "@type": "Organization",
-      "@id": "https://obsunified.com/#org",
+      "@id": `${SITE_URL}#org`,
       name: "obs-unified",
-      url: "https://obsunified.com/",
+      url: SITE_URL,
+      logo: `${SITE_URL}icon-512.png`,
+      sameAs: [GITHUB_URL],
     },
     {
       "@type": "WebSite",
-      "@id": "https://obsunified.com/#website",
-      url: "https://obsunified.com/",
+      "@id": `${SITE_URL}#website`,
+      url: SITE_URL,
       name: "obs-unified",
-      publisher: { "@id": "https://obsunified.com/#org" },
+      description,
+      publisher: { "@id": `${SITE_URL}#org` },
+      inLanguage: "en-US",
     },
     {
-      "@type": "FAQPage",
-      "@id": "https://obsunified.com/#faq",
-      mainEntity: FAQS.map(({ q, a }) => ({
-        "@type": "Question",
-        name: q,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: a,
+      "@type": "WebPage",
+      "@id": `${SITE_URL}#webpage`,
+      url: SITE_URL,
+      name: "obs-unified — agentic debugging on one telemetry graph",
+      description,
+      isPartOf: { "@id": `${SITE_URL}#website` },
+      about: { "@id": `${SITE_URL}#software` },
+      primaryImageOfPage: { "@id": `${SITE_URL}#og-image` },
+      inLanguage: "en-US",
+    },
+    {
+      "@type": "ImageObject",
+      "@id": `${SITE_URL}#og-image`,
+      url: `${SITE_URL}og.jpg`,
+      width: 1200,
+      height: 630,
+      caption: "obs-unified telemetry graph for agentic debugging",
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${SITE_URL}#software`,
+      name: "obs-unified",
+      alternateName: "Observability Unified",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Cross-platform (Cloudflare Workers, Node.js, Bun, Deno)",
+      description,
+      url: SITE_URL,
+      image: `${SITE_URL}og.jpg`,
+      screenshot: `${SITE_URL}screenshots/app/agent-action-graph.png`,
+      softwareHelp: DOCS_URL,
+      codeRepository: GITHUB_URL,
+      downloadUrl: GITHUB_URL,
+      programmingLanguage: ["TypeScript", "Go", "Rust"],
+      license: "https://opensource.org/license/mit",
+      isAccessibleForFree: true,
+      offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
+      review: {
+        "@type": "Review",
+        author: { "@type": "Organization", name: "obs-unified maintainers" },
+        reviewBody:
+          "Designed as one self-hosted telemetry graph for agentic debugging, connecting frontend interactions to backend traces, logs, replay, AI cost, and CPU profiling evidence.",
+      },
+      featureList: [
+        "Agentic debugging graph from user action to CPU profile",
+        "OpenTelemetry trace ingest over OTLP HTTP",
+        "Structured logging with trace correlation",
+        "LLM and AI call tracking for tokens, cost, latency, and errors",
+        "Session replay via rrweb",
+        "Frontend product analytics and usage events",
+        "Alert rules and notifications",
+        "User profiles and identity stitching",
+        "Self-hosted on Cloudflare Workers with D1 and R2",
+        "Node collector with Postgres and S3-compatible storage",
+      ],
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": `${SITE_URL}#source`,
+      name: "obs-unified source code",
+      codeRepository: GITHUB_URL,
+      programmingLanguage: ["TypeScript", "Go", "Rust"],
+      license: "https://opensource.org/license/mit",
+      runtimePlatform: ["Cloudflare Workers", "Node.js", "Browser"],
+      about: { "@id": `${SITE_URL}#software` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${SITE_URL}#breadcrumbs`,
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "obs-unified",
+          item: SITE_URL,
         },
-      })),
+      ],
     },
   ],
 };

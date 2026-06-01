@@ -24,3 +24,4 @@ User-agent: Google-Extended
 Allow: /
 
 Sitemap: https://obsunified.com/sitemap.xml
+Sitemap: https://docs.obsunified.com/sitemap.xml
