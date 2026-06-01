@@ -17,7 +17,9 @@ unified stack. MIT-licensed and self-hostable.
 It is built for agentic debugging: humans use the dashboard, while AI agents can
 use the obs-unified MCP server to inspect the same connected telemetry graph
 across traces, logs, replay, AI cost, agent runs, actions, tool calls, and CPU
-profile evidence.
+profile evidence. Recent dashboard work made action, agent-run, and tool-call
+detail pages nested and bookmarkable, so the same action ID can be opened by a
+human in the dashboard or traversed by an agent through MCP.
 
 - Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://docs.obsunified.com/docs
@@ -34,7 +36,7 @@ profile evidence.
   latency, and failure category.
 - **Agent Action Graph** — Browser actions, cron jobs, agent runs, LLM calls,
   retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval
-  cases linked through stable action IDs.
+  cases linked through stable action IDs and nested dashboard routes.
 - **MCP server** — Read-only investigation tools for AI agents: status, traces,
   logs, service map, users, replays, connected signals, agent runs, actions, and
   tool calls.
@@ -113,7 +115,8 @@ initObservability({
   action IDs.
 - **Can AI agents use obs-unified directly?** Yes. The MCP server exposes
   read-only tools for recent traces, trace details, logs, service maps, users,
-  replays, connected signals, agent runs, actions, and tool calls.
+  replays, connected signals, agent runs, actions, and tool calls. Agents can
+  start from a trace or action ID and traverse the same graph as the dashboard.
 - **How is it different from Datadog/Sentry/PostHog?** Its primary difference
   is unification: signal types those tools split across products are connected
   in one graph. It also runs on your own infrastructure with no vendor in the

@@ -12,13 +12,14 @@ export function renderHero(): string {
       </h1>
       <p class="hero-lead">
         <strong>Built for agentic debugging:</strong> one telemetry graph agents
-        can traverse from user action to backend trace, logs, replay, AI cost,
-        CPU profile, and MCP tool context. <strong>obs-unified</strong> puts
-        every signal into <strong>one collector</strong>, <strong>one identity
-        chain</strong>, <strong>one dashboard</strong>, and an <strong>MCP
-        server for agents</strong>, so humans and agents discover root cause
-        faster. Start locally with one Docker image, then run on Cloudflare
-        Workers + D1 + R2 or Node + Postgres + S3.
+        can traverse from user action to a bookmarkable Agent Action Graph,
+        backend trace, logs, replay, AI cost, CPU profile, and MCP tool context.
+        <strong>obs-unified</strong> puts every signal into <strong>one
+        collector</strong>, <strong>one identity chain</strong>, <strong>one
+        dashboard</strong>, and a read-only <strong>MCP server for
+        agents</strong>, so humans and agents discover root cause faster. Start
+        locally with one Docker image, then run on Cloudflare Workers + D1 + R2
+        or Node + Postgres + S3.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
@@ -47,8 +48,8 @@ export function renderHero(): string {
         <img src="/screenshots/app/agent-action-graph.png" alt="obs-unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1440" height="1000" />
       </div>
       <figcaption>
-        <span>Agent action graph</span>
-        <p>One action graph ties the user action to backend traces, logs, replay, AI cost, MCP tool calls, and profile evidence an agent needs to inspect.</p>
+        <span>Bookmarkable Agent Action Graph</span>
+        <p>Nested action pages tie the user action to agent steps, tool calls, backend traces, logs, replay, AI cost, MCP context, and profile evidence.</p>
       </figcaption>
     </figure>
   </div>

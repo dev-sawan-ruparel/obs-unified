@@ -3,7 +3,7 @@ const DOCS_URL = "https://docs.obsunified.com/docs";
 const GITHUB_URL = "https://github.com/obs-unified/obs-unified";
 
 const description =
-  "Self-hosted unified observability for agentic debugging across traces, logs, replay, product events, AI cost, MCP tools, and CPU profiles.";
+  "Self-hosted unified observability for agentic debugging across bookmarkable action graphs, traces, logs, replay, product events, AI cost, MCP tools, and CPU profiles.";
 
 const graph = {
   "@context": "https://schema.org",
@@ -66,14 +66,14 @@ const graph = {
         "@type": "Review",
         author: { "@type": "Organization", name: "obs-unified maintainers" },
         reviewBody:
-          "Designed as one self-hosted telemetry graph for agentic debugging, connecting frontend interactions to backend traces, logs, replay, AI cost, MCP tool context, and CPU profiling evidence.",
+          "Designed as one self-hosted telemetry graph for agentic debugging, connecting frontend interactions to bookmarkable action graphs, backend traces, logs, replay, AI cost, MCP tool context, and CPU profiling evidence.",
       },
       featureList: [
-        "Agentic debugging graph from user action to MCP tool context and CPU profile",
-        "MCP server for AI agents to inspect traces, logs, replays, agent runs, actions, and tool calls",
+        "Agentic debugging graph from user action to bookmarkable action route, MCP tool context, and CPU profile",
+        "MCP server for AI agents to inspect traces, logs, replays, connected signals, agent runs, actions, and tool calls",
         "OpenTelemetry trace ingest over OTLP HTTP",
         "Structured logging with trace correlation",
-        "Agent Action Graph for LLM calls, retrievals, tool calls, guardrails, and eval cases",
+        "Nested Agent Action Graph pages for LLM calls, retrievals, tool calls, guardrails, and eval cases",
         "LLM and AI call tracking for tokens, cost, latency, and errors",
         "Session replay via rrweb",
         "Frontend product analytics and usage events",
