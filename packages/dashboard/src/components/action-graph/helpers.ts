@@ -1,5 +1,33 @@
 import type { ActionRef, TreeNode } from "./types";
 
+export type NormalizedActionKind =
+	| "AGENT"
+	| "CHAIN"
+	| "EVAL"
+	| "GUARDRAIL"
+	| "LLM"
+	| "RETRIEVER"
+	| "TOOL"
+	| "OTHER";
+
+export function normalizeActionKind(kind: string | null | undefined) {
+	const normalized = (kind ?? "").trim().toLowerCase();
+	if (normalized.includes("llm")) return "LLM";
+	if (normalized.includes("tool")) return "TOOL";
+	if (
+		normalized.includes("retrieval") ||
+		normalized.includes("retriever") ||
+		normalized.includes("retrieve")
+	) {
+		return "RETRIEVER";
+	}
+	if (normalized.includes("guardrail")) return "GUARDRAIL";
+	if (normalized.includes("agent")) return "AGENT";
+	if (normalized.includes("chain")) return "CHAIN";
+	if (normalized.includes("eval")) return "EVAL";
+	return "OTHER";
+}
+
 // Simple line diff helper to build side-by-side or inline prompt diffs without heavy packages.
 export interface DiffSegment {
 	type: "added" | "removed" | "same";

@@ -10,10 +10,10 @@ export type TagTone =
 
 const TONE: Record<TagTone, string> = {
 	neutral: "bg-sys-surface-low text-sys-on-surface",
-	primary: "bg-sys-primary text-white",
-	accent: "bg-sys-accent text-white",
-	warning: "bg-sys-warning text-white",
-	error: "bg-sys-error text-white",
+	primary: "bg-sys-primary text-sys-on-primary",
+	accent: "bg-sys-accent text-sys-on-accent",
+	warning: "bg-sys-warning text-sys-on-warning",
+	error: "bg-sys-error text-sys-on-error",
 	muted: "bg-sys-surface-low text-sys-on-surface-muted",
 };
 

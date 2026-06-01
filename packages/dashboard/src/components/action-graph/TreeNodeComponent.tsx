@@ -1,3 +1,4 @@
+import { normalizeActionKind } from "./helpers";
 import type {
 	ArtifactRef,
 	EvalResultRef,
@@ -50,24 +51,22 @@ export function TreeNodeComponent({
 	let kindColor = "border-sys-outline bg-sys-surface text-sys-on-surface";
 	let kindBadge =
 		"bg-sys-outline/10 text-sys-on-surface/80 border border-sys-outline/30";
-	if (action.actionKind.toUpperCase() === "LLM") {
+	const normalizedKind = normalizeActionKind(action.actionKind);
+	if (normalizedKind === "LLM") {
 		kindColor = "border-sys-primary/60 bg-sys-primary/5 text-sys-primary";
 		kindBadge =
 			"bg-sys-primary/10 text-sys-primary border border-sys-primary/20";
-	} else if (action.actionKind.toUpperCase() === "TOOL") {
+	} else if (normalizedKind === "TOOL") {
 		kindColor = "border-sys-accent/60 bg-sys-accent/5 text-sys-accent";
 		kindBadge = "bg-sys-accent/10 text-sys-accent border border-sys-accent/20";
-	} else if (action.actionKind.toUpperCase() === "RETRIEVER") {
+	} else if (normalizedKind === "RETRIEVER") {
 		kindColor = "border-sys-warning/60 bg-sys-warning/5 text-sys-warning";
 		kindBadge =
 			"bg-sys-warning/10 text-sys-warning border border-sys-warning/20";
-	} else if (action.actionKind.toUpperCase() === "GUARDRAIL") {
+	} else if (normalizedKind === "GUARDRAIL") {
 		kindColor = "border-sys-error/60 bg-sys-error/5 text-sys-error";
 		kindBadge = "bg-sys-error/10 text-sys-error border border-sys-error/20";
-	} else if (
-		action.actionKind.toUpperCase() === "AGENT" ||
-		action.actionKind.toUpperCase() === "CHAIN"
-	) {
+	} else if (normalizedKind === "AGENT" || normalizedKind === "CHAIN") {
 		kindColor =
 			"border-sys-primary/40 bg-sys-surface text-sys-on-surface border-dashed";
 		kindBadge = "bg-sys-surface border border-sys-outline";

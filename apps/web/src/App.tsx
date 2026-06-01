@@ -104,7 +104,7 @@ export function App() {
 					title={label}
 					className={`relative mx-auto my-0.5 flex h-9 w-9 items-center justify-center text-[0.6875rem] font-semibold tracking-[0.08em] transition-none ${
 						active
-							? "bg-sys-primary text-white"
+							? "bg-sys-primary text-sys-on-primary"
 							: "bg-sys-surface-low text-sys-on-surface-muted hover:bg-sys-surface-high hover:text-sys-on-surface"
 					}`}
 				>

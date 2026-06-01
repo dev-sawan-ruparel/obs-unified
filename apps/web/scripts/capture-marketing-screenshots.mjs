@@ -502,34 +502,24 @@ async function openAgentGraph(page) {
 		.locator('button[aria-label="Open span openai.chat.completions"]')
 		.first();
 	if ((await targetedAgentButton.count()) > 0) {
-		await targetedAgentButton.click({ timeout: 5000 }).catch(() => {});
+		await targetedAgentButton.click({ timeout: 5000 });
 		await page.waitForTimeout(900);
 	} else if ((await openButton.count()) > 0) {
-		await openButton.click({ timeout: 5000 }).catch(() => {});
+		await openButton.click({ timeout: 5000 });
 		await page.waitForTimeout(900);
 	} else if ((await agentRow.count()) > 0) {
-		await agentRow.click({ timeout: 5000 }).catch(() => {});
+		await agentRow.click({ timeout: 5000 });
 		await page.waitForTimeout(900);
+	} else {
+		throw new Error("agent graph target span was not found");
 	}
 	const tab = page.getByText("Action Graph", { exact: false }).first();
 	if ((await tab.count()) > 0) {
-		await tab.click({ timeout: 5000 }).catch(() => {});
-		await page
-			.waitForFunction(
-				() => {
-					const text = document.body.innerText;
-					return (
-						!/Loading action graph/i.test(text) &&
-						/CAUSAL ACTION TREE|GOVERNANCE|PROMPT DIFF|Agent runs|Tool calls/i.test(
-							text,
-						)
-					);
-				},
-				undefined,
-				{ timeout: 30000 },
-			)
-			.catch(() => {});
+		await tab.click({ timeout: 5000 });
+		await waitForAgentGraph(page);
 		await page.waitForTimeout(800);
+	} else {
+		throw new Error("Action Graph tab was not found after opening agent span");
 	}
 }
 
@@ -537,8 +527,14 @@ async function openAgentGraphGovernance(page) {
 	await openAgentGraph(page);
 	const tab = page.getByText("Governance", { exact: false }).first();
 	if ((await tab.count()) > 0) {
-		await tab.click({ timeout: 5000 }).catch(() => {});
-		await page.waitForTimeout(800);
+		await tab.click({ timeout: 5000 });
+		await waitForText(
+			page,
+			/Autonomy & Governance Audit Log|Tool Invocations|Security Approval/i,
+			"governance audit content",
+		);
+	} else {
+		throw new Error("Governance tab was not found after opening action graph");
 	}
 }
 
@@ -588,13 +584,78 @@ async function reviewPage(page) {
 			),
 		hasErrorState,
 		hasConnectedRail: /Connected —/i.test(text),
-		hasAgentGraph: /Action Graph|Decision spine|Agent runs|Tool calls/i.test(
-			text,
-		),
+		hasAgentGraph:
+			/Causal Plan Sequence|CAUSAL ACTION TREE/i.test(text) &&
+			/Plan investigation|openai\.chat\.completions|query service map/i.test(
+				text,
+			),
+		hasGovernance:
+			/Autonomy & Governance Audit Log|Tool Invocations|Security Approval/i.test(
+				text,
+			),
 		hasInteractionId: /interaction/i.test(text),
 		hasCpuProfile: /Profile|CPU|pprof|flame/i.test(text),
 		textSample: text.replace(/\s+/g, " ").slice(0, 320),
 	};
+}
+
+async function waitForText(page, pattern, label) {
+	await page.waitForFunction(
+		(source) => new RegExp(source, "i").test(document.body.innerText),
+		pattern.source,
+		{ timeout: 30000 },
+	);
+	const text = await page.locator("body").innerText({ timeout: 5000 });
+	if (!pattern.test(text)) {
+		throw new Error(`expected ${label} before screenshot capture`);
+	}
+}
+
+async function waitForAgentGraph(page) {
+	await page.waitForFunction(
+		() => {
+			const text = document.body.innerText;
+			return (
+				!/Loading action graph/i.test(text) &&
+				/Causal Plan Sequence|CAUSAL ACTION TREE/i.test(text) &&
+				/Plan investigation|openai\.chat\.completions|query service map/i.test(
+					text,
+				)
+			);
+		},
+		undefined,
+		{ timeout: 30000 },
+	);
+}
+
+function assertCaptureAccepted(target, review) {
+	if (review.hasErrorState) {
+		throw new Error(
+			`${target.id} rendered an error state: ${review.textSample}`,
+		);
+	}
+
+	if (target.id === "agent-action-graph" && !review.hasAgentGraph) {
+		throw new Error(
+			"agent-action-graph did not render seeded graph content before capture",
+		);
+	}
+
+	if (target.id === "agent-governance") {
+		if (!review.hasGovernance) {
+			throw new Error("agent-governance did not render governance content");
+		}
+	}
+
+	if (
+		target.id === "traces-astronomy" ||
+		target.id === "trace-waterfall-connected-rail" ||
+		target.id === "interaction-id-path"
+	) {
+		if (!review.hasData) {
+			throw new Error(`${target.id} did not render usable trace data`);
+		}
+	}
 }
 
 async function main() {
@@ -623,10 +684,11 @@ async function main() {
 		if (target.action) {
 			await actions[target.action]?.(page);
 		}
+		const review = await reviewPage(page);
+		assertCaptureAccepted(target, review);
 		const fileName = `${target.id}.png`;
 		const filePath = path.join(outDir, fileName);
 		await page.screenshot({ path: filePath, fullPage: false });
-		const review = await reviewPage(page);
 		reviews.push({
 			...target,
 			file: fileName,

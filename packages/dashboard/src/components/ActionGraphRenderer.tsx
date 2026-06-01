@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ActionGraphTabHeader } from "./action-graph/ActionGraphTabHeader";
 import { DiffTab } from "./action-graph/DiffTab";
 import { GovernanceTab } from "./action-graph/GovernanceTab";
-import { buildActionTree } from "./action-graph/helpers";
+import { buildActionTree, normalizeActionKind } from "./action-graph/helpers";
 import { TreeTab } from "./action-graph/TreeTab";
 import type {
 	ActionGraphRendererProps,
@@ -52,7 +52,7 @@ export function ActionGraphRenderer({
 	}, [actions, actionId, selectedNode]);
 
 	const llmActions = useMemo(() => {
-		return actions.filter((a) => a.actionKind.toUpperCase() === "LLM");
+		return actions.filter((a) => normalizeActionKind(a.actionKind) === "LLM");
 	}, [actions]);
 
 	useMemo(() => {

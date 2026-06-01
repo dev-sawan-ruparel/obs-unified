@@ -284,7 +284,7 @@ export function LogsDashboard() {
 				<Button
 					variant="ghost"
 					active={liveMode}
-					activeClassName="bg-sys-error text-white font-semibold"
+					activeClassName="bg-sys-error text-sys-on-error font-semibold"
 					onClick={() => setLiveMode((v) => !v)}
 					title={liveMode ? "Stop streaming" : "Stream logs in real time"}
 				>
@@ -294,7 +294,7 @@ export function LogsDashboard() {
 					<Button
 						variant="ghost"
 						active={liveTail.paused}
-						activeClassName="bg-sys-warning text-white font-semibold"
+						activeClassName="bg-sys-warning text-sys-on-warning font-semibold"
 						onClick={liveTail.togglePause}
 					>
 						{liveTail.paused

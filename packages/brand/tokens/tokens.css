@@ -33,6 +33,11 @@
 	--color-sys-warning: #a56100;
 	--color-sys-accent: #17497b;
 
+	--color-sys-on-primary: #ffffff;
+	--color-sys-on-warning: #ffffff;
+	--color-sys-on-accent: #ffffff;
+	--color-sys-on-error: #ffffff;
+
 	/* ── Text on surfaces ───────────────────────────────────────────
 	 * Maintain ≥7:1 against the active surface for body. */
 	--color-sys-on-surface: #1a1c1c;
@@ -81,6 +86,10 @@ html[data-theme="dark"] {
 	--color-sys-error: #e0556a;
 	--color-sys-warning: #d89248;
 	--color-sys-accent: #4f8fcb;
+	--color-sys-on-primary: #0e1110;
+	--color-sys-on-warning: #0e1110;
+	--color-sys-on-accent: #0e1110;
+	--color-sys-on-error: #ffffff;
 	--color-sys-on-surface: #e6e9e7;
 	--color-sys-on-surface-muted: #9ca5a2;
 	--color-sys-on-surface-subtle: #6e7773;
@@ -88,10 +97,27 @@ html[data-theme="dark"] {
 	--color-sys-outline-soft: #1f2622;
 }
 
-/* Zero-radius enforcement — matches the @layer base reset in theme.css.
+/* Zero-radius and custom scrollbar enforcement — matches the @layer base reset in theme.css.
  * The Radius is Zero. If you need a circle, use an SVG. */
 * {
 	border-radius: 0;
+	scrollbar-color: var(--color-sys-on-surface-subtle)
+		var(--color-sys-surface-low);
+	scrollbar-width: thin;
+}
+
+@supports not (scrollbar-color: auto) {
+	*::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+	*::-webkit-scrollbar-thumb {
+		background: var(--color-sys-on-surface-subtle);
+		border-radius: 0;
+	}
+	*::-webkit-scrollbar-track {
+		background: var(--color-sys-surface-low);
+	}
 }
 
 /* Brand mark utility — the chrome-level logotype treatment. */

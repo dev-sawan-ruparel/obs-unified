@@ -223,7 +223,7 @@ test.describe("Feature: Live Tail", () => {
 		});
 
 		// Pause the stream.
-		await page.getByRole("button", { name: /^PAUSE$/ }).click();
+		await page.getByRole("button", { name: /^PAUSE$/i }).click();
 
 		// Fire three logs while paused.
 		const prefix = `e2e-pause-${Date.now()}`;
@@ -235,11 +235,11 @@ test.describe("Feature: Live Tail", () => {
 
 		// RESUME button should show a buffered count.
 		await expect(
-			page.getByRole("button", { name: /RESUME\s*\(\d+\)/ }),
+			page.getByRole("button", { name: /RESUME\s*\(\d+\)/i }),
 		).toBeVisible({ timeout: 5000 });
 
 		// Resume and verify all three buffered events are rendered.
-		await page.getByRole("button", { name: /RESUME/ }).click();
+		await page.getByRole("button", { name: /RESUME/i }).click();
 		for (const suffix of ["A", "B", "C"]) {
 			await expect(page.getByText(`${prefix}-${suffix}`)).toBeVisible({
 				timeout: 3000,
@@ -485,7 +485,9 @@ test.describe("Feature: Sessions Explorer", () => {
 		// The seeded session renders in the sessions panel — the panel-scoped
 		// span shows `lastPath`, so target that span directly.
 		await expect(
-			page.locator("span.font-mono.font-bold").filter({ hasText: pathTag }),
+			page
+				.locator("div.lg\\:flex span.font-mono.font-bold")
+				.filter({ hasText: pathTag }),
 		).toBeVisible({ timeout: 10_000 });
 	});
 });

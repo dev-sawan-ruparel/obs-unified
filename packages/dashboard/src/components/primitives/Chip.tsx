@@ -17,13 +17,13 @@ export function Chip({
 }) {
 	const toneClass =
 		tone === "primary"
-			? "bg-sys-primary text-white"
+			? "bg-sys-primary text-sys-on-primary"
 			: tone === "accent"
-				? "bg-sys-accent text-white"
+				? "bg-sys-accent text-sys-on-accent"
 				: tone === "warning"
-					? "bg-sys-warning text-black"
+					? "bg-sys-warning text-sys-on-warning"
 					: tone === "error"
-						? "bg-sys-error text-white"
+						? "bg-sys-error text-sys-on-error"
 						: active
 							? "bg-sys-surface-low text-sys-on-surface border border-sys-primary"
 							: "bg-sys-surface-low text-sys-on-surface border border-sys-outline";
