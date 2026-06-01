@@ -3,15 +3,19 @@ export type QA = { q: string; a: string };
 export const FAQS: QA[] = [
   {
     q: "What is Observability Unified?",
-    a: "Observability Unified is an open-source observability platform for agentic debugging. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard and MCP server connect those signals through one identity chain, from user action to backend trace, logs, replay, AI cost, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+    a: "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
   },
   {
     q: "What is the Agent Action Graph?",
     a: "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP.",
   },
   {
+    q: "Is this for debugging AI agents or for agents debugging software?",
+    a: "Both. Observability Unified debugs AI agents by showing LLM calls, retrievals, tool calls, agent runs, evals, costs, latency, and failures in an Agent Action Graph. It also helps AI agents debug software by exposing MCP tools for traces, logs, service maps, users, replays, connected signals, agent runs, actions, and tool calls.",
+  },
+  {
     q: "Can AI agents inspect Observability Unified through MCP?",
-    a: "Yes. The Observability Unified MCP server exposes read-only tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can start from a failing trace or action ID and gather evidence without needing write access to telemetry ingest.",
+    a: "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can start from a failing trace or action ID and gather the same evidence an engineer sees in the dashboard.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",

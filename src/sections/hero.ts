@@ -8,17 +8,17 @@ export function renderHero(): string {
       <p class="eyebrow">Open source · MIT licensed</p>
       <h1 id="hero-title" class="hero-title">
         <span class="hero-title-line">Unified observability</span>
-        <span class="accent">for every signal.</span>
+        <span class="accent">for humans and agents.</span>
       </h1>
       <p class="hero-lead">
-        <strong>Built for agentic debugging:</strong> one telemetry graph
-        connects a user action to agent steps, backend traces, logs, replay, AI
-        cost, CPU profiles, and MCP context. <strong>Observability Unified</strong> puts
-        those signals into <strong>one collector</strong>, <strong>one identity
-        chain</strong>, <strong>one dashboard</strong>, and a read-only
-        <strong>MCP server for agents</strong>. Start locally with one Docker
-        image. For production, choose Cloudflare Workers with D1/R2, or run the
-        Node collector on any cloud with Postgres and S3-compatible storage.
+        <strong>Debug AI agents, and help AI agents debug software.</strong>
+        <strong>Observability Unified</strong> connects a user action to agent
+        steps, backend traces, logs, replay, AI cost, CPU profiles, and MCP
+        context in <strong>one telemetry graph</strong>. Humans use the
+        dashboard; agents use the <strong>MCP server</strong> to inspect the
+        same evidence. Start locally with one Docker image. For production,
+        choose Cloudflare Workers with D1/R2, or run the Node collector on any
+        cloud with Postgres and S3-compatible storage.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
@@ -48,7 +48,7 @@ export function renderHero(): string {
       </div>
       <figcaption>
         <span>Agent Action Graph</span>
-        <p>See what the agent did, what each step caused, and which traces, logs, replay, AI cost, MCP context, and profiles explain the result.</p>
+        <p>See what an agent did, what each step caused, and which traces, logs, replay, AI cost, MCP context, and profiles explain the result.</p>
       </figcaption>
     </figure>
   </div>

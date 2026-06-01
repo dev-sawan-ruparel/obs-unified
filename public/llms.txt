@@ -14,11 +14,11 @@ Observability Unified replaces the patchwork of APM (Datadog, New Relic), error 
 LogRocket), LLM observability (Langfuse, Helicone), and alerting with one
 unified stack. MIT-licensed and self-hostable.
 
-It is built for agentic debugging: humans use the dashboard, while AI agents can
-use the Observability Unified MCP server to inspect the same connected telemetry graph
-across traces, logs, replay, AI cost, agent runs, actions, tool calls, and CPU
-profile evidence. Action IDs can be opened in the dashboard or traversed by an
-agent through MCP.
+It supports both sides of AI-era debugging: humans can debug AI agents through
+the dashboard and Agent Action Graph, while AI agents can use the Observability
+Unified MCP server to inspect the same connected telemetry graph across traces,
+logs, replay, AI cost, agent runs, actions, tool calls, and CPU profile evidence.
+Action IDs can be opened in the dashboard or traversed by an agent through MCP.
 
 - Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://docs.obsunified.com/docs
@@ -36,7 +36,7 @@ agent through MCP.
 - **Agent Action Graph** — Browser actions, cron jobs, agent runs, LLM calls,
   retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval
   cases linked through stable action IDs.
-- **MCP server** — Read-only investigation tools for AI agents: status, traces,
+- **MCP server** — Investigation tools for AI agents: status, traces,
   logs, service map, users, replays, connected signals, agent runs, actions, and
   tool calls.
 - **Usage** — Page views, interactions, frontend errors, UTM parameters.
@@ -53,7 +53,7 @@ A single collector service:
 - `/health` — liveness probe
 
 The `@obs-unified/mcp-server` package exposes those investigation surfaces to
-MCP-compatible AI agents without granting write access to telemetry ingest.
+MCP-compatible AI agents.
 
 Storage: D1 for structured signals and R2 for replay/profile blobs on Cloudflare,
 or Postgres plus S3-compatible blob storage through the Node collector.
@@ -108,20 +108,26 @@ initObservability({
   analyses through one collector, one dashboard, one MCP server, and one identity chain. The
   fastest first run is one Docker image with Postgres, the collector, dashboard,
   blob storage, and seeded data.
+- **Is it for debugging AI agents or for agents debugging software?** Both.
+  Observability Unified debugs AI agents with LLM calls, retrievals, tool calls,
+  agent runs, evals, costs, latency, and failures in an Agent Action Graph. It
+  also helps AI agents debug software by exposing MCP tools for traces,
+  logs, service maps, users, replays, connected signals, agent runs, actions, and
+  tool calls.
 - **What is the Agent Action Graph?** A causal graph that connects browser
   actions, background jobs, agent runs, LLM calls, retrievals, tool calls,
   guardrails, backend traces, logs, profiles, and eval cases through stable
   action IDs.
 - **Can AI agents use Observability Unified directly?** Yes. The MCP server exposes
-  read-only tools for recent traces, trace details, logs, service maps, users,
+  tools for recent traces, trace details, logs, service maps, users,
   replays, connected signals, agent runs, actions, and tool calls. Agents can
   start from a trace or action ID and inspect the same evidence graph as the
   dashboard.
 - **How is it different from Datadog/Sentry/PostHog?** Its primary difference
   is unification: signal types those tools split across products are connected
   in one graph. It also runs on your own infrastructure with no vendor in the
-  data path. It is built for agentic debugging: one telemetry graph agents can
-  traverse from user action to backend trace, logs, replay, AI cost, MCP tool
+  data path. Humans use the dashboard; AI agents can traverse the same graph
+  through MCP from user action to backend trace, logs, replay, AI cost, MCP tool
   context, and CPU profile.
 - **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
   you run it on. Production can use either Cloudflare Workers + D1/R2, or the

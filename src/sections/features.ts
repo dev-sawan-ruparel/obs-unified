@@ -47,7 +47,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: "SDKs and MCP server",
-    body: "First-party SDKs for TypeScript, Go, and Rust plus a read-only MCP server that lets agents inspect traces, logs, replays, agent runs, actions, and tool calls.",
+    body: "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, agent runs, actions, and tool calls.",
     icon: `<polyline points="8 18 2 12 8 6"/><polyline points="16 6 22 12 16 18"/><line x1="14" y1="4" x2="10" y2="20"/>`,
   },
 ];

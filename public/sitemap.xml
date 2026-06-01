@@ -10,7 +10,7 @@
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/agent-action-graph.png</image:loc>
-      <image:caption>Observability Unified agent action graph for agentic debugging</image:caption>
+      <image:caption>Observability Unified agent action graph for debugging AI agents</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/service-map-astronomy.png</image:loc>
@@ -22,7 +22,7 @@
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/og.jpg</image:loc>
-      <image:caption>Observability Unified telemetry graph for agentic debugging</image:caption>
+      <image:caption>Observability Unified telemetry graph for humans and AI agents debugging software</image:caption>
     </image:image>
   </url>
   <url>

@@ -61,7 +61,7 @@ export function renderArchitecture(): string {
         <div class="arch-boundary arch-boundary-read">
           <span class="arch-node-kicker">Read boundary</span>
           <strong>Dashboard + APIs + MCP</strong>
-          <p>Agents inspect telemetry with read-only investigation tools.</p>
+          <p>Agents inspect telemetry with MCP investigation tools.</p>
         </div>
       </div>
 

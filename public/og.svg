@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Observability Unified — one telemetry graph for agentic debugging">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Observability Unified — one telemetry graph for humans and AI agents debugging software">
   <title>Observability Unified</title>
   <rect width="1200" height="630" fill="#F9F9F9"/>
   <rect x="40" y="40" width="1120" height="550" fill="#FFFFFF"/>
@@ -34,14 +34,14 @@
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
     font-size="76"
     font-weight="300"
-  >Built for agentic</text>
+  >Debug AI agents.</text>
   <text
     x="96" y="424"
     fill="#006B18"
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
     font-size="76"
     font-weight="300"
-  >debugging.</text>
+  >Help agents debug.</text>
 
   <text
     x="96" y="478"
@@ -49,7 +49,7 @@
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
     font-size="22"
     font-weight="400"
-  >One telemetry graph for traces, logs, replay, AI cost, MCP, and CPU.</text>
+  >One graph for traces, logs, replay, AI cost, MCP, and CPU.</text>
 
   <rect x="40" y="540" width="1120" height="50" fill="#F3F3F3"/>
   <text

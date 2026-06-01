@@ -21,7 +21,8 @@
 * { box-sizing: border-box; }
 
 html, body { margin: 0; padding: 0; }
-html { overflow-x: clip; }
+html,
+body { overflow-x: hidden; }
 
 body {
   background: var(--color-sys-bg);
@@ -193,6 +194,14 @@ code {
   .brand-name {
     font-size: 11px;
     letter-spacing: 0.04em;
+  }
+}
+@media (max-width: 480px) {
+  .site-nav { display: none; }
+  .brand { gap: 8px; }
+  .brand-mark {
+    width: 30px;
+    height: 30px;
   }
 }
 

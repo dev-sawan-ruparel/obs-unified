@@ -3,7 +3,7 @@ const DOCS_URL = "https://docs.obsunified.com/docs";
 const GITHUB_URL = "https://github.com/obs-unified/obs-unified";
 
 const description =
-  "Self-hosted unified observability for agentic debugging across traces, logs, replay, AI cost, action graphs, MCP tools, and CPU profiles.";
+  "Self-hosted observability for debugging AI agents and helping AI agents debug software across traces, logs, replay, AI cost, action graphs, MCP tools, and CPU profiles.";
 
 const graph = {
   "@context": "https://schema.org",
@@ -29,7 +29,7 @@ const graph = {
       "@type": "WebPage",
       "@id": `${SITE_URL}#webpage`,
       url: SITE_URL,
-      name: "Observability Unified — agentic debugging on one telemetry graph",
+      name: "Observability Unified — one graph for humans and AI agents debugging software",
       description,
       isPartOf: { "@id": `${SITE_URL}#website` },
       about: { "@id": `${SITE_URL}#software` },
@@ -42,7 +42,7 @@ const graph = {
       url: `${SITE_URL}og.jpg`,
       width: 1200,
       height: 630,
-      caption: "Observability Unified telemetry graph for agentic debugging",
+      caption: "Observability Unified telemetry graph for debugging AI agents and helping AI agents debug software",
     },
     {
       "@type": "SoftwareApplication",
@@ -66,14 +66,14 @@ const graph = {
         "@type": "Review",
         author: { "@type": "Organization", name: "Observability Unified maintainers" },
         reviewBody:
-          "Designed as one self-hosted telemetry graph for agentic debugging, connecting frontend interactions to action graphs, backend traces, logs, replay, AI cost, MCP context, and CPU profiling evidence.",
+          "Designed as one self-hosted telemetry graph for debugging AI agents and helping AI agents debug software, connecting frontend interactions to action graphs, backend traces, logs, replay, AI cost, MCP context, and CPU profiling evidence.",
       },
       featureList: [
-        "Agentic debugging graph from user action to backend trace, action graph, MCP context, and CPU profile",
+        "One telemetry graph for humans and AI agents debugging software",
+        "Agent Action Graph for debugging AI agent runs, LLM calls, retrievals, tool calls, guardrails, and eval cases",
         "MCP server for AI agents to inspect traces, logs, replays, connected signals, agent runs, actions, and tool calls",
         "OpenTelemetry trace ingest over OTLP HTTP",
         "Structured logging with trace correlation",
-        "Agent Action Graph for LLM calls, retrievals, tool calls, guardrails, and eval cases",
         "LLM and AI call tracking for tokens, cost, latency, and errors",
         "Session replay via rrweb",
         "Frontend product analytics and usage events",
