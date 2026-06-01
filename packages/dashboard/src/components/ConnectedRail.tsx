@@ -157,6 +157,7 @@ const shouldSuppressGroupLabel = (
 // keeping both is visual noise that suggests two distinct things exist.
 const dedupeAdjacent = (sections: ConnectedSection[]): ConnectedSection[] => {
 	const out: ConnectedSection[] = [];
+	if (!Array.isArray(sections)) return out;
 	for (const section of sections) {
 		const prev = out[out.length - 1];
 		if (
@@ -242,13 +243,16 @@ export function ConnectedRail({
 				Connected — {entityKind}
 			</div>
 			<SectionHeader>Up</SectionHeader>
-			{renderGroup(manifest.up, "Up")}
+			{renderGroup(manifest.up ?? [], "Up")}
 			<SectionHeader>Across</SectionHeader>
-			{renderGroup(manifest.across, "Across")}
+			{renderGroup(manifest.across ?? [], "Across")}
 			<SectionHeader>Down</SectionHeader>
-			{renderGroup(manifest.down, "Down")}
+			{renderGroup(manifest.down ?? [], "Down")}
 			<SectionHeader>Related</SectionHeader>
-			{renderGroup([...extraRelatedSections, ...manifest.related], "Related")}
+			{renderGroup(
+				[...extraRelatedSections, ...(manifest.related ?? [])],
+				"Related",
+			)}
 		</aside>
 	);
 }

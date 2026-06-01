@@ -233,10 +233,15 @@ this a one-off, a bad tool, a bad prompt version, or a bad agent version?"
 Close the improvement loop.
 
 - [x] **7.1** Add eval case storage and backend REST APIs in [eval-cases-routes.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/eval-cases-routes.ts) (including `POST` / `GET` / `GET :id` REST endpoints).
-- [ ] **7.2** Add "save as eval case" from agent run, action, AI call, tool
-      call, and failed trace surfaces.
-- [ ] **7.3** Include redacted prompt, retrieved document refs, tool outputs /
-      hashes, expected outcome, eval rubric, and linked spans.
+- [x] **7.2a** Add "save as eval case" from agent run, action, and tool
+      call detail surfaces.
+- [ ] **7.2b** Extend "save as eval case" to AI call and failed trace
+      surfaces.
+- [x] **7.3a** Include expected outcome, eval rubric, source entity, and
+      linked run/action/tool/trace/span IDs in saved eval cases.
+- [ ] **7.3b** Hydrate saved eval cases with redacted prompt, retrieved
+      document refs, tool outputs / hashes, and richer reference payloads when
+      available.
 - [ ] **7.4** Add eval result ingest and comparison views.
 
 **Exit criteria:** the wrong-invoice run can become an eval case and remain

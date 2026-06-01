@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
+import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Card, SectionTitle } from "../components/primitives";
+import { SaveEvalCaseModal } from "../components/SaveEvalCaseModal";
 import { StateRow } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -24,6 +26,7 @@ export function ActionDashboard({
 	const [manifest, setManifest] = useState<ConnectedManifest | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [showEvalModal, setShowEvalModal] = useState(false);
 
 	useEffect(() => {
 		setLoading(true);
@@ -79,30 +82,41 @@ export function ActionDashboard({
 	return (
 		<div className="flex h-full bg-sys-bg">
 			<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
-				<header className="flex items-start gap-3 flex-none">
-					<div className="flex h-12 w-12 flex-none items-center justify-center bg-sys-surface-high text-[1.25rem] font-bold border border-sys-outline/30">
-						AC
+				<header className="flex items-start justify-between gap-3 flex-none">
+					<div className="flex items-start gap-3 min-w-0">
+						<div className="flex h-12 w-12 flex-none items-center justify-center bg-sys-surface-high text-[1.25rem] font-bold border border-sys-outline/30">
+							AC
+						</div>
+						<div className="min-w-0">
+							<div className="flex items-center gap-2 min-w-0">
+								<h1 className="font-mono text-[1rem] font-bold tracking-[-0.01em] truncate">
+									{action?.name ?? "Action Step"}
+								</h1>
+								{action?.actionKind && (
+									<span className="flex-none border border-sys-primary bg-sys-primary/10 text-sys-primary px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-[0.08em]">
+										{action.actionKind}
+									</span>
+								)}
+								<span
+									className={`h-2.5 w-2.5 rounded-full ${
+										action?.status === "ok" ? "bg-sys-primary" : "bg-sys-error"
+									}`}
+									title={`Status: ${action?.status ?? "unknown"}`}
+								/>
+							</div>
+							<div className="mt-0.5 font-mono text-[0.75rem] opacity-70 truncate">
+								action_id: {actionId}
+							</div>
+						</div>
 					</div>
-					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-2 min-w-0">
-							<h1 className="font-mono text-[1rem] font-bold tracking-[-0.01em] truncate">
-								{action?.name ?? "Action Step"}
-							</h1>
-							{action?.actionKind && (
-								<span className="flex-none border border-sys-primary bg-sys-primary/10 text-sys-primary px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-[0.08em]">
-									{action.actionKind}
-								</span>
-							)}
-							<span
-								className={`h-2.5 w-2.5 rounded-full ${
-									action?.status === "ok" ? "bg-sys-primary" : "bg-sys-error"
-								}`}
-								title={`Status: ${action?.status ?? "unknown"}`}
-							/>
-						</div>
-						<div className="mt-0.5 font-mono text-[0.75rem] opacity-70 truncate">
-							action_id: {actionId}
-						</div>
+					<div className="flex items-center gap-2 flex-none">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setShowEvalModal(true)}
+						>
+							Save as eval case
+						</Button>
 					</div>
 				</header>
 
@@ -253,6 +267,23 @@ export function ActionDashboard({
 				entityId={actionId}
 				onNavigate={onNavigate}
 			/>
+
+			{showEvalModal && (
+				<SaveEvalCaseModal
+					sourceEntityType="action"
+					sourceEntityId={actionId}
+					sourceAgentRunId={action?.agentRunId ?? undefined}
+					sourceActionId={actionId}
+					sourceTraceId={action?.traceId ?? undefined}
+					sourceSpanId={action?.spanId ?? undefined}
+					prefillExpectedOutcome={
+						action?.status === "ok"
+							? "Status should be OK"
+							: "Status should be ERROR"
+					}
+					onClose={() => setShowEvalModal(false)}
+				/>
+			)}
 		</div>
 	);
 }

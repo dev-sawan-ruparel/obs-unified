@@ -102,6 +102,18 @@ async function mockApis(
 		if (p.includes("/usage/sessions")) return json(route, "{}");
 		if (p.includes("/platform/resources"))
 			return json(route, '{"plugins":[],"database":{"tables":[]}}');
+		if (p.includes("/connected/")) {
+			return json(
+				route,
+				JSON.stringify({
+					entity: { kind: "span", id: "default", projectId: "p1" },
+					up: [],
+					across: [],
+					down: [],
+					related: [],
+				}),
+			);
+		}
 		return json(route, '{"status":"ok"}');
 	});
 }
@@ -407,13 +419,9 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 	test("renders AgentRunDashboard with metadata and action graph", async ({
 		page,
 	}) => {
-		const runManifest = JSON.stringify({
-			entity: { kind: "agent_run", id: "run123", projectId: "p1" },
-			up: [],
-			across: [],
-			down: [],
-			related: [],
-			rawManifest: {
+		const runResponse = JSON.stringify({
+			agentRun: { id: "run123" },
+			manifest: {
 				agentRuns: [
 					{
 						id: "run123",
@@ -443,7 +451,7 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 		});
 
 		await mockApis(page, {
-			"/connected/agent_run/run123": (r) => json(r, runManifest),
+			"/agent-runs/run123": (r) => json(r, runResponse),
 		});
 
 		await page.goto("/#/agent-runs/run123");
@@ -459,6 +467,90 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 			),
 		).toBeVisible();
 		await expect(page.locator("text=AUTONOMOUS WRITE").first()).toBeVisible();
+	});
+
+	test("saves agent run as an eval case through UI modal", async ({ page }) => {
+		const runResponse = JSON.stringify({
+			agentRun: { id: "run123" },
+			manifest: {
+				agentRuns: [
+					{
+						id: "run123",
+						projectId: "p1",
+						agentId: "support-triage",
+						agentName: "Support Triage Agent",
+						agentVersion: "1.0.0",
+						goal: "Resolve invoice billing address discrepancy",
+						outcome: "Successfully updated customer profile billing details",
+						autonomyLevel: "autonomous_write",
+						status: "success",
+					},
+				],
+				actions: [
+					{
+						id: "run123",
+						project_id: "p1",
+						root_action_id: "run123",
+						actor_type: "agent",
+						actionKind: "agent.run",
+						name: "Support Agent Exec",
+						status: "ok",
+						startedAt: "2026-05-31T21:00:00Z",
+						traceId: "trace123",
+						spanId: "span123",
+					},
+				],
+			},
+		});
+
+		let evalCasePayload: Record<string, unknown> | null = null;
+		await mockApis(page, {
+			"/agent-runs/run123": (r) => json(r, runResponse),
+			"/internal/eval-cases": (r) => {
+				if (r.request().method() === "POST") {
+					evalCasePayload = r.request().postDataJSON();
+					return json(
+						r,
+						JSON.stringify({ evalCase: { id: "eval_created_abc" } }),
+					);
+				}
+				return json(r, JSON.stringify({ evalCases: [] }));
+			},
+		});
+
+		await page.goto("/#/agent-runs/run123");
+		await expect(page.locator("text=Save as eval case")).toBeVisible();
+
+		// Click button to open modal
+		await page.locator("text=Save as eval case").click();
+		await expect(page.locator("text=Save as evaluation case")).toBeVisible();
+
+		// Verify prefilled values
+		const nameInput = page.locator("#case-name");
+		await expect(nameInput).toHaveValue("Eval Case: agent run run123");
+		const outcomeInput = page.locator("#case-outcome");
+		await expect(outcomeInput).toHaveValue(
+			"Successfully updated customer profile billing details",
+		);
+
+		// Click Save Case
+		await page.locator("text=Save Case").click();
+
+		// Verify success state
+		await expect(
+			page.locator("text=Evaluation Case Created Successfully!"),
+		).toBeVisible();
+		await expect(
+			page.locator("text=Created Case ID: eval_created_abc"),
+		).toBeVisible();
+
+		// Check submitted payload
+		expect(evalCasePayload).toBeDefined();
+		expect(evalCasePayload.sourceEntityType).toBe("agent_run");
+		expect(evalCasePayload.sourceEntityId).toBe("run123");
+		expect(evalCasePayload.source.agentRunId).toBe("run123");
+		expect(evalCasePayload.source.traceId).toBe("trace123");
+		expect(evalCasePayload.source.spanId).toBe("span123");
 	});
 
 	test("renders ActionDashboard with metadata and action graph", async ({
@@ -597,17 +689,13 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 
 		// Intercept the API endpoint for our specific agent run
 		const runId = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
-		const runManifest = JSON.stringify({
-			entity: { kind: "agent_run", id: runId, projectId: "proj_prod_01" },
-			up: [],
-			across: [],
-			down: [],
-			related: [],
-			rawManifest: fixtureData,
+		const runResponse = JSON.stringify({
+			agentRun: { id: runId },
+			manifest: fixtureData,
 		});
 
 		await mockApis(page, {
-			[`/connected/agent_run/${runId}`]: (r) => json(r, runManifest),
+			[`/agent-runs/${runId}`]: (r) => json(r, runResponse),
 			// Also mock tool call and action details endpoints so E2E flow can navigate
 			"/connected/tool_call/": (r) => {
 				const url = r.request().url();
@@ -748,30 +836,31 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 test.describe("Phase 6 Operational Views", () => {
 	test("renders Tool Reliability Dashboard", async ({ page }) => {
 		const reliabilityMock = JSON.stringify({
-			summary: {
-				totalCalls: 100,
-				p50LatencyMs: 250,
-				p95LatencyMs: 990,
-				errorRate: 0.05,
-				sideEffectCount: 15,
-				timeoutCount: 5,
-				retryCount: 10,
-				malformedArgsCount: 2,
-			},
-			topAgents: [
+			tools: [
 				{
-					agentName: "Reliability Test Agent",
-					invocations: 100,
+					toolName: "test.tool",
+					callCount: 100,
+					p50LatencyMs: 250,
+					p95LatencyMs: 990,
 					errorRate: 0.05,
-					avgLatencyMs: 250,
-					sideEffects: 15,
+					timeoutCount: 5,
+					retryCount: 10,
+					malformedArgumentCount: 2,
+					sideEffectCount: 15,
+					topCausingAgents: [
+						{
+							id: "agent-1",
+							label: "Reliability Test Agent",
+							count: 100,
+						},
+					],
 				},
 			],
-			timestamp: new Date().toISOString(),
+			generatedAt: new Date().toISOString(),
 		});
 
 		await mockApis(page, {
-			"/connected/tool_reliability": (r) => json(r, reliabilityMock),
+			"/actions/aggregates/tool-reliability": (r) => json(r, reliabilityMock),
 		});
 
 		await page.goto("/#/tool-reliability");
@@ -789,25 +878,69 @@ test.describe("Phase 6 Operational Views", () => {
 
 	test("renders Cost Attribution Dashboard", async ({ page }) => {
 		const costMock = JSON.stringify({
-			summary: {
-				totalCostUsd: 150.0,
-				totalRuns: 500,
-				avgCostPerRunUsd: 0.3,
-			},
-			breakdowns: {
-				agents: [["Cost Test Agent", 150.0]],
-				runs: [["run_test_cost", 150.0]],
-				models: [["gpt-4o", 150.0]],
-				providers: [["openai", 150.0]],
-				promptVersions: [["v1.0.0", 150.0]],
-				tools: [["db.test_tool", 150.0]],
-				users: [["tenant_test", 150.0]],
-			},
-			timestamp: new Date().toISOString(),
+			byAgent: [
+				{
+					key: "agent1",
+					label: "Cost Test Agent",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byRun: [
+				{
+					key: "run_test_cost",
+					label: "run_test_cost",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byModel: [
+				{
+					key: "gpt-4o",
+					label: "gpt-4o",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byProvider: [
+				{
+					key: "openai",
+					label: "openai",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byPromptVersion: [
+				{
+					key: "v1.0.0",
+					label: "v1.0.0",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byTool: [
+				{
+					key: "db.test_tool",
+					label: "db.test_tool",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byUser: [
+				{
+					key: "tenant_test",
+					label: "tenant_test",
+					totalCostUsd: 150.0,
+					agentRunCount: 500,
+				},
+			],
+			byTenant: [],
+			byWorkflow: [],
+			generatedAt: new Date().toISOString(),
 		});
 
 		await mockApis(page, {
-			"/connected/cost_attribution": (r) => json(r, costMock),
+			"/actions/aggregates/cost-attribution": (r) => json(r, costMock),
 		});
 
 		await page.goto("/#/cost-attribution");
@@ -847,7 +980,7 @@ test.describe("Phase 6 Operational Views", () => {
 		});
 
 		await mockApis(page, {
-			"/connected/autonomous_review": (r) => json(r, reviewMock),
+			"/actions/aggregates/autonomous-review": (r) => json(r, reviewMock),
 		});
 
 		await page.goto("/#/autonomous-review");
@@ -880,7 +1013,7 @@ test.describe("Phase 6 Operational Views", () => {
 		});
 
 		await mockApis(page, {
-			"/connected/version_diff": (r) => json(r, diffMock),
+			"/actions/aggregates/version-diff": (r) => json(r, diffMock),
 		});
 
 		await page.goto("/#/agent-version-diff");

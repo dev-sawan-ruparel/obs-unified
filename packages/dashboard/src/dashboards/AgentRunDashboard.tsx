@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
+import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Card, SectionTitle } from "../components/primitives";
+import { SaveEvalCaseModal } from "../components/SaveEvalCaseModal";
 import { StateRow } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -37,6 +39,7 @@ export function AgentRunDashboard({
 	const [profiles, setProfiles] = useState<ProfileMatch[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [showEvalModal, setShowEvalModal] = useState(false);
 
 	useEffect(() => {
 		setLoading(true);
@@ -162,36 +165,47 @@ export function AgentRunDashboard({
 	return (
 		<div className="flex h-full bg-sys-bg">
 			<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
-				<header className="flex items-start gap-3 flex-none">
-					<div className="flex h-12 w-12 flex-none items-center justify-center bg-sys-surface-high text-[1.25rem] font-bold border border-sys-outline/30">
-						AG
+				<header className="flex items-start justify-between gap-3 flex-none">
+					<div className="flex items-start gap-3 min-w-0">
+						<div className="flex h-12 w-12 flex-none items-center justify-center bg-sys-surface-high text-[1.25rem] font-bold border border-sys-outline/30">
+							AG
+						</div>
+						<div className="min-w-0">
+							<div className="flex items-center gap-2 min-w-0">
+								<h1 className="font-mono text-[1rem] font-bold tracking-[-0.01em] truncate">
+									{run?.agentName ?? "Agent Run"}
+								</h1>
+								{run?.agentVersion && (
+									<span className="flex-none border border-sys-outline bg-sys-surface-low px-1.5 py-0.5 font-mono text-[0.625rem] tracking-[0.08em] opacity-70">
+										{run.agentVersion.startsWith("v")
+											? run.agentVersion
+											: `v${run.agentVersion}`}
+									</span>
+								)}
+								{run?.autonomyLevel && (
+									<span
+										className={`flex-none border px-1.5 py-0.5 font-mono text-[0.625rem] uppercase tracking-[0.08em] ${
+											autonomyBadgeColor[run.autonomyLevel] ??
+											"border-sys-outline"
+										}`}
+									>
+										{run.autonomyLevel.replace(/_/g, " ")}
+									</span>
+								)}
+							</div>
+							<div className="mt-0.5 font-mono text-[0.75rem] opacity-70 truncate">
+								run_id: {agentRunId}
+							</div>
+						</div>
 					</div>
-					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-2 min-w-0">
-							<h1 className="font-mono text-[1rem] font-bold tracking-[-0.01em] truncate">
-								{run?.agentName ?? "Agent Run"}
-							</h1>
-							{run?.agentVersion && (
-								<span className="flex-none border border-sys-outline bg-sys-surface-low px-1.5 py-0.5 font-mono text-[0.625rem] tracking-[0.08em] opacity-70">
-									{run.agentVersion.startsWith("v")
-										? run.agentVersion
-										: `v${run.agentVersion}`}
-								</span>
-							)}
-							{run?.autonomyLevel && (
-								<span
-									className={`flex-none border px-1.5 py-0.5 font-mono text-[0.625rem] uppercase tracking-[0.08em] ${
-										autonomyBadgeColor[run.autonomyLevel] ??
-										"border-sys-outline"
-									}`}
-								>
-									{run.autonomyLevel.replace(/_/g, " ")}
-								</span>
-							)}
-						</div>
-						<div className="mt-0.5 font-mono text-[0.75rem] opacity-70 truncate">
-							run_id: {agentRunId}
-						</div>
+					<div className="flex items-center gap-2 flex-none">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setShowEvalModal(true)}
+						>
+							Save as eval case
+						</Button>
 					</div>
 				</header>
 
@@ -676,6 +690,18 @@ export function AgentRunDashboard({
 				entityId={agentRunId}
 				onNavigate={onNavigate}
 			/>
+
+			{showEvalModal && (
+				<SaveEvalCaseModal
+					sourceEntityType="agent_run"
+					sourceEntityId={agentRunId}
+					sourceAgentRunId={agentRunId}
+					sourceTraceId={rootAction?.traceId ?? undefined}
+					sourceSpanId={rootAction?.spanId ?? undefined}
+					prefillExpectedOutcome={run?.outcome ?? ""}
+					onClose={() => setShowEvalModal(false)}
+				/>
+			)}
 		</div>
 	);
 }

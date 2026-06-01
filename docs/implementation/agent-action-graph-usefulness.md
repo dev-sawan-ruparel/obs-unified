@@ -21,9 +21,11 @@ source and tests:
   and dashboards for tool reliability, cost attribution, version diff, and
   autonomous review in
   [packages/dashboard/src/dashboards](../../packages/dashboard/src/dashboards).
-- **Phase 7 is backend-present, UI-incomplete.** Eval-case storage, store logic,
-  and `POST/GET /internal/eval-cases` exist. The missing piece is the user-facing
-  "save as eval case" flow from agent run, action, and tool-call surfaces.
+- **Phase 7 now has the first product loop.** Eval-case storage, store logic,
+  and `POST/GET /internal/eval-cases` exist, and the dashboard can save eval
+  cases from agent run, action, and tool-call detail surfaces. AI-call and failed
+  trace save affordances, plus richer redacted/reference payload capture, remain
+  open.
 - **The earlier critical gaps are closed.** Persisted agent run cost/latency
   rollups now aggregate child action data, Phase 0 fixtures are load-bearing in
   conformance tests, the run view renders profiles and guardrails, dashboards use
@@ -42,9 +44,10 @@ Two gaps matter most now:
    unchecked. This is the adoption gate. Without a wrapper, teams either
    hand-instrument with the manual agent SDK or must already emit compatible OTel
    GenAI / OpenInference spans.
-2. **Save as eval case UI.** The backend loop exists, but the clickable product
-   path does not. This is what makes the production-to-eval story real instead of
-   API-only.
+2. **Complete save-as-eval coverage.** The core clickable path exists for agent
+   runs, actions, and tool calls. The remaining work is to add the same affordance
+   to AI-call and failed-trace surfaces and hydrate cases with richer redacted
+   context.
 
 Everything else in RFC 0010 is present enough to validate with a real workflow.
 
@@ -79,8 +82,8 @@ The failure mode is no longer "incomplete." It is:
    done / UI pending, MCP propagation complete, and remove stale gap claims.
 2. **Land one framework wrapper** for the stack earliest users actually run.
    This unlocks the existing surface for real data.
-3. **Add save as eval case UI** from agent run, action, and tool-call detail
-   pages.
+3. **Finish save as eval case UI coverage** for AI-call and failed-trace detail
+   pages, then enrich saved cases with redacted/reference payloads.
 4. **Validate one end-to-end journey with real data:** framework app ingest →
    run replay → operational view → save as eval. If that journey is better than
    the incumbent, there is a product. If not, it exposes the real gap before more
@@ -106,19 +109,19 @@ Exit criteria: a tiny demo app using the chosen framework produces an agent run
 visible in `AgentRunDashboard`, with at least one LLM child action and one tool
 child action in the graph, without manual instrumentation at the call site.
 
-### Slice B: Save as eval case UI
+### Slice B: Complete save as eval case UI
 
-Wire the existing eval-case backend into the action graph surfaces:
+Finish wiring the existing eval-case backend into the remaining action graph
+surfaces:
 
-- add a "Save as eval case" affordance on agent run, action, and tool-call detail
-  pages
-- prefill source ids, trace/action/run context, expected outcome, rubric shell,
-  and source payload hashes or redacted payloads when available
+- add a "Save as eval case" affordance on AI-call and failed-trace detail pages
+- prefill source ids, trace/span context, expected outcome, rubric shell, and
+  source payload hashes or redacted payloads when available
 - call the existing `/internal/eval-cases` route
 - render success/error states and a link to the created eval case or eval list
 
-Exit criteria: the wrong-invoice scenario can be opened from the action graph and
-saved as an eval case through the UI, without directly calling the API.
+Exit criteria: an AI failure or failed backend trace can be saved as an eval case
+through the UI, without directly calling the API.
 
 ### Slice C: Checklist reconciliation
 
@@ -126,7 +129,8 @@ Update [agent-action-graph.md](./agent-action-graph.md) and the gap audit so the
 docs match the implementation:
 
 - mark Phase 6 complete with links to aggregate routes, dashboards, and tests
-- mark Phase 7.1 backend-complete and 7.2 pending UI
+- mark Phase 7.1 backend-complete, 7.2a UI-complete for agent/action/tool-call
+  surfaces, and 7.2b pending for AI-call/failed-trace surfaces
 - mark MCP context propagation complete, including flat action keys,
   `tracestate`, and `baggage`
 - replace stale gap claims for cost rollup, profiles/guardrails, and fixture
