@@ -342,6 +342,7 @@ code {
 
 /* Sections alternate surface tone — tonal islanding instead of borders. */
 section { padding: 72px 0; }
+main > section { scroll-margin-top: 82px; }
 section:nth-of-type(odd) { background: var(--color-sys-bg); }
 section:nth-of-type(even) { background: var(--color-sys-surface); }
 @media (max-width: 640px) {
@@ -552,198 +553,53 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
 .code-block code { background: none; padding: 0; color: inherit; }
 
 /* Architecture */
-.arch-grid {
+.arch-flow {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 28px;
-  align-items: start;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
 }
-.arch-copy {
-  max-width: 820px;
-}
-.arch-copy h2 {
-  font-size: clamp(26px, 3vw, 34px);
-  font-weight: 300;
-  letter-spacing: 0;
-  margin-bottom: 18px;
-}
-.arch-copy p { color: var(--color-sys-on-surface-muted); margin-bottom: 16px; }
-.arch-copy strong { color: var(--color-sys-on-surface); font-weight: 600; }
-.arch-list { color: var(--color-sys-on-surface-muted); padding-left: 18px; margin: 0 0 16px; }
-.arch-list li { margin-bottom: 8px; }
-.arch-visual {
-  margin: 0;
-  background: var(--color-sys-surface-low);
-  border-left: 4px solid var(--color-sys-primary);
-  padding: 18px;
-  max-width: 100%;
-  min-width: 0;
-}
-.arch-visual-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 16px;
-  font-family: var(--font-mono);
-}
-.arch-kicker {
-  color: var(--color-sys-on-surface);
-  font-size: 13px;
-  font-weight: 700;
-}
-.arch-state {
-  background: color-mix(in srgb, var(--color-sys-primary) 12%, transparent);
-  color: var(--color-sys-primary);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 5px 7px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.arch-flow-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-  overflow: visible;
-}
-.arch-zone,
-.arch-observe-shell {
-  fill: color-mix(in srgb, var(--color-sys-surface) 58%, transparent);
-  stroke: var(--color-sys-outline-soft);
-  stroke-width: 1;
-}
-.arch-observe-shell {
-  fill: color-mix(in srgb, var(--color-sys-primary) 5%, var(--color-sys-surface));
-  stroke: color-mix(in srgb, var(--color-sys-primary) 22%, var(--color-sys-outline-soft));
-}
-.arch-zone-label,
-.arch-edge-label,
-.arch-pill text {
-  font-family: var(--font-mono);
-}
-.arch-zone-label {
-  fill: var(--color-sys-on-surface-subtle);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.arch-node-svg rect,
-.arch-pill rect {
-  fill: var(--color-sys-surface);
-  stroke: transparent;
-}
-.arch-node-source rect {
-  stroke: var(--color-sys-outline-soft);
-  stroke-width: 3;
-}
-.arch-node-auth rect {
-  fill: color-mix(in srgb, var(--color-sys-surface) 88%, var(--color-sys-primary));
-}
-.arch-node-read rect {
-  fill: color-mix(in srgb, var(--color-sys-surface) 88%, var(--color-sys-accent));
-}
-.arch-node-collector rect {
-  fill: var(--color-sys-surface);
-  stroke: var(--color-sys-primary);
-  stroke-width: 4;
-}
-.arch-node-storage rect {
-  fill: var(--color-sys-surface);
-  stroke: color-mix(in srgb, var(--color-sys-accent) 42%, var(--color-sys-outline-soft));
-  stroke-width: 3;
-}
-.arch-node-svg text {
-  fill: var(--color-sys-on-surface);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 700;
-}
-.arch-node-small {
-  fill: var(--color-sys-on-surface-muted) !important;
-  font-family: var(--font-sans) !important;
-  font-size: 13px !important;
-  font-weight: 400 !important;
-}
-.arch-node-tag {
-  fill: var(--color-sys-on-surface-subtle) !important;
-  font-family: var(--font-mono) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.1em;
-}
-.arch-route {
-  fill: var(--color-sys-on-surface-muted) !important;
-  font-family: var(--font-mono) !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-}
-.arch-pill rect {
-  fill: var(--color-sys-surface);
-  stroke: color-mix(in srgb, var(--color-sys-primary) 18%, transparent);
-}
-.arch-pill text {
-  fill: var(--color-sys-on-surface);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 700;
-}
-.arch-edge {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.arch-edge-ingest { stroke: var(--color-sys-primary); marker-end: url("#arrow-ingest"); }
-.arch-edge-read { stroke: var(--color-sys-accent); marker-end: url("#arrow-read"); }
-.arch-edge-store { stroke: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); marker-end: url("#arrow-store"); }
-.arch-arrow-ingest { fill: var(--color-sys-primary); }
-.arch-arrow-read { fill: var(--color-sys-accent); }
-.arch-arrow-store { fill: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); }
-.arch-edge-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.arch-label-ingest { fill: var(--color-sys-primary); }
-.arch-label-store { fill: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); }
-.arch-label-read { fill: var(--color-sys-accent); }
-.arch-flow-stack {
-  display: none;
-  gap: 10px;
-  margin-top: 14px;
-}
-.arch-step {
+.arch-card {
   background: var(--color-sys-surface);
-  border-left: 3px solid var(--color-sys-outline-soft);
-  padding: 12px;
+  border-left: 4px solid var(--color-sys-primary);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px;
 }
-.arch-step strong {
-  display: block;
-  color: var(--color-sys-on-surface);
-  font-size: 13px;
-  margin-bottom: 4px;
+section:nth-of-type(even) .arch-card { background: var(--color-sys-bg); }
+.arch-card-top {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
-.arch-step span {
+.arch-step-num,
+.arch-detail {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.arch-step-num {
+  background: var(--color-sys-primary);
+  color: #fff;
+  padding: 5px 7px;
+}
+.arch-detail {
+  color: var(--color-sys-on-surface-subtle);
+  text-transform: uppercase;
+}
+.arch-card h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+.arch-card p {
   color: var(--color-sys-on-surface-muted);
-  display: block;
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 14.5px;
+  line-height: 1.6;
 }
-.arch-step-ingest { border-left-color: var(--color-sys-primary); }
-.arch-step-store { border-left-color: color-mix(in srgb, var(--color-sys-accent) 52%, var(--color-sys-primary)); }
-.arch-step-read { border-left-color: var(--color-sys-accent); }
-@media (max-width: 540px) {
-  .arch-visual { padding: 14px; }
-  .arch-visual-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .arch-flow-svg { display: none; }
-  .arch-flow-stack { display: grid; }
+@media (max-width: 920px) {
+  .arch-flow { grid-template-columns: 1fr; }
 }
 
 /* FAQ */
