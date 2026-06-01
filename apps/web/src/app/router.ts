@@ -40,6 +40,7 @@ export const KNOWN_TABS = new Set([
 	"cost-attribution",
 	"autonomous-review",
 	"agent-version-diff",
+	"evaluations",
 ]);
 
 export function parseHash(): Route {

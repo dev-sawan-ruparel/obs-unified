@@ -1,3 +1,4 @@
+import type { JsonValue } from "@obs-unified/types";
 import { useCallback, useState } from "react";
 import { useApi } from "../use-api";
 import { Button } from "./Button";
@@ -15,10 +16,14 @@ interface SaveEvalCaseModalProps {
 	sourceEntityId: string;
 	sourceAgentRunId?: string;
 	sourceActionId?: string;
+	sourceAiCallId?: string;
 	sourceToolCallId?: string;
 	sourceTraceId?: string;
 	sourceSpanId?: string;
 	prefillExpectedOutcome?: string;
+	redactedPrompt?: JsonValue | null;
+	referencePayload?: JsonValue | null;
+	metadata?: Record<string, JsonValue> | null;
 	onClose: () => void;
 }
 
@@ -27,10 +32,14 @@ export function SaveEvalCaseModal({
 	sourceEntityId,
 	sourceAgentRunId,
 	sourceActionId,
+	sourceAiCallId,
 	sourceToolCallId,
 	sourceTraceId,
 	sourceSpanId,
 	prefillExpectedOutcome = "",
+	redactedPrompt = null,
+	referencePayload = null,
+	metadata = null,
 	onClose,
 }: SaveEvalCaseModalProps) {
 	const api = useApi();
@@ -78,9 +87,13 @@ export function SaveEvalCaseModal({
 				name: name.trim() || `Eval Case: ${sourceEntityType} ${sourceEntityId}`,
 				expectedOutcome: expectedOutcome.trim() || null,
 				rubric,
+				redactedPrompt,
+				referencePayload,
+				metadata,
 				source: {
 					agentRunId: sourceAgentRunId || null,
 					actionId: sourceActionId || null,
+					aiCallId: sourceAiCallId || null,
 					toolCallId: sourceToolCallId || null,
 					traceId: sourceTraceId || null,
 					spanId: sourceSpanId || null,
@@ -110,8 +123,12 @@ export function SaveEvalCaseModal({
 		name,
 		expectedOutcome,
 		rubricText,
+		redactedPrompt,
+		referencePayload,
+		metadata,
 		sourceAgentRunId,
 		sourceActionId,
+		sourceAiCallId,
 		sourceToolCallId,
 		sourceTraceId,
 		sourceSpanId,
@@ -202,7 +219,9 @@ export function SaveEvalCaseModal({
 								{sourceToolCallId && (
 									<div>Tool Call ID: {sourceToolCallId}</div>
 								)}
+								{sourceAiCallId && <div>AI Call ID: {sourceAiCallId}</div>}
 								{sourceTraceId && <div>Trace ID: {sourceTraceId}</div>}
+								{sourceSpanId && <div>Span ID: {sourceSpanId}</div>}
 							</div>
 
 							<div className="mt-2 flex justify-end gap-2">

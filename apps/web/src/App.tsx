@@ -14,6 +14,7 @@ import {
 	AlertsDashboard,
 	AutonomousReviewDashboard,
 	CostAttributionDashboard,
+	EvaluationsDashboard,
 	HealthDashboard,
 	InvestigationPage,
 	InvestigationsDashboard,
@@ -310,6 +311,7 @@ export function App() {
 						{route.tab === "agent-version-diff" && (
 							<AgentVersionDiffDashboard />
 						)}
+						{route.tab === "evaluations" && <EvaluationsDashboard />}
 						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}
 					</Suspense>
 				</main>

@@ -7,6 +7,7 @@ import {
 	EvalCasesStore,
 	isEvalCaseSourceType,
 } from "../lib/eval-cases-store";
+import { randomHex } from "../lib/hash";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -167,6 +168,126 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				);
 			}
 			return c.json({ evalCase });
+		});
+
+		app.post("/internal/eval-cases/:id/results", async (c) => {
+			const evalCaseId = c.req.param("id");
+			if (!evalCaseId) return c.json(badRequest("id is required"), 400);
+
+			let body: {
+				runId?: unknown;
+				passed?: unknown;
+				score?: unknown;
+				actualOutcome?: unknown;
+				details?: unknown;
+			};
+			try {
+				body = (await c.req.json()) as typeof body;
+			} catch {
+				return c.json(badRequest("body must be JSON"), 400);
+			}
+
+			if (body.passed === undefined || typeof body.passed !== "boolean") {
+				return c.json(badRequest("passed must be a boolean"), 400);
+			}
+
+			const db = sqlDbFor(c.env);
+
+			// Verify case exists
+			const store = new EvalCasesStore(db);
+			const evalCase = await store.getCase(getProjectId(c), evalCaseId);
+			if (!evalCase) {
+				return c.json(
+					{ error: "Not Found", message: "Eval case not found" },
+					404,
+				);
+			}
+
+			const id = randomHex(16);
+			const runId =
+				typeof body.runId === "string" ? body.runId : `run_${randomHex(8)}`;
+			const passed = body.passed ? 1 : 0;
+			const score = typeof body.score === "number" ? body.score : null;
+			const actualOutcome =
+				typeof body.actualOutcome === "string" ? body.actualOutcome : null;
+			const details_json = body.details ? JSON.stringify(body.details) : null;
+			const now = new Date().toISOString();
+
+			await db
+				.prepare(
+					`INSERT INTO eval_case_results (
+					id, project_id, eval_case_id, run_id, passed, score, actual_outcome, details_json, created_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				)
+				.bind(
+					id,
+					getProjectId(c),
+					evalCaseId,
+					runId,
+					passed,
+					score,
+					actualOutcome,
+					details_json,
+					now,
+				)
+				.run();
+
+			return c.json(
+				{
+					evalCaseResult: {
+						id,
+						projectId: getProjectId(c),
+						evalCaseId,
+						runId,
+						passed: body.passed,
+						score,
+						actualOutcome,
+						details: body.details ?? null,
+						createdAt: now,
+					},
+				},
+				201,
+			);
+		});
+
+		app.get("/internal/eval-cases/:id/results", async (c) => {
+			const evalCaseId = c.req.param("id");
+			if (!evalCaseId) return c.json(badRequest("id is required"), 400);
+
+			const db = sqlDbFor(c.env);
+
+			const rows = await db
+				.prepare(
+					`SELECT * FROM eval_case_results
+				WHERE project_id = ? AND eval_case_id = ?
+				ORDER BY created_at DESC`,
+				)
+				.bind(getProjectId(c), evalCaseId)
+				.all<{
+					id: string;
+					project_id: string;
+					eval_case_id: string;
+					run_id: string;
+					passed: number;
+					score: number | null;
+					actual_outcome: string | null;
+					details_json: string | null;
+					created_at: string;
+				}>();
+
+			const evalCaseResults = rows.results.map((row) => ({
+				id: row.id,
+				projectId: row.project_id,
+				evalCaseId: row.eval_case_id,
+				runId: row.run_id,
+				passed: row.passed === 1,
+				score: row.score,
+				actualOutcome: row.actual_outcome,
+				details: row.details_json ? JSON.parse(row.details_json) : null,
+				createdAt: row.created_at,
+			}));
+
+			return c.json({ evalCaseResults });
 		});
 	},
 };

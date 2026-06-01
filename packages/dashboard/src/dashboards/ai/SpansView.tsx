@@ -15,6 +15,7 @@ import {
 	ActionGraphRenderer,
 	type EntityManifestExtended,
 } from "../../components/ActionGraphRenderer";
+import { Button } from "../../components/Button";
 import { ConnectedRail } from "../../components/ConnectedRail";
 import { MessageView } from "../../components/MessageView";
 import {
@@ -30,6 +31,7 @@ import {
 	Waterfall,
 	type WaterfallSpan,
 } from "../../components/primitives";
+import { SaveEvalCaseModal } from "../../components/SaveEvalCaseModal";
 import { ErrorState, StateRow } from "../../components/states";
 import { errorMessage, isAbortError, useApi } from "../../use-api";
 import {
@@ -389,10 +391,10 @@ export function SpansView({ hours, view, setView }: SpansViewProps) {
 
 			{/* Master / detail body */}
 			<div
-				className="flex-1 min-h-0 grid gap-2 px-2 pb-2"
+				className="flex-1 min-h-0 grid gap-3 px-2 pb-2"
 				style={{
 					gridTemplateColumns: selected
-						? "minmax(0,1fr) minmax(0,1fr)"
+						? "minmax(420px,0.95fr) minmax(0,1.25fr)"
 						: "minmax(0,1fr)",
 				}}
 			>
@@ -425,7 +427,7 @@ export function SpansView({ hours, view, setView }: SpansViewProps) {
 				</Card>
 
 				{selected && (
-					<div className="flex gap-2 min-h-0 overflow-hidden">
+					<div className="flex gap-3 min-h-0 overflow-hidden">
 						<div className="flex-1 min-w-0">
 							<SpanDetailPane
 								span={selected}
@@ -599,6 +601,15 @@ type DetailTab =
 	| "evaluations"
 	| "actionGraph";
 
+const safeParseJson = (str: string | null | undefined) => {
+	if (!str) return null;
+	try {
+		return JSON.parse(str);
+	} catch {
+		return str;
+	}
+};
+
 function SpanDetailPane({
 	span,
 	traceSpans,
@@ -617,6 +628,7 @@ function SpanDetailPane({
 	onJumpTo: (span: AISpanRecord) => void;
 }) {
 	const [tab, setTab] = useState<DetailTab>("messages");
+	const [showEvalModal, setShowEvalModal] = useState(false);
 	const api = useApi();
 
 	const evalsForSpan = useMemo(
@@ -635,6 +647,59 @@ function SpanDetailPane({
 	const isError = span.statusCode === 2;
 
 	const actionId = attrString(span.attributes, "obs.action.id");
+	const agentRunId = attrString(span.attributes, "obs.agent_run.id");
+
+	const suggestedOutcome = useMemo(() => {
+		if (isError)
+			return span.statusMessage || "Error: AI call failed during execution";
+		if (evalsForSpan && evalsForSpan.length > 0) {
+			const passed = evalsForSpan.filter(
+				(e) => e.score === 1 || e.label === "pass",
+			);
+			const failed = evalsForSpan.filter(
+				(e) => e.score === 0 || e.label === "fail",
+			);
+			if (failed.length > 0) {
+				return `Failed evaluations: ${failed
+					.map((e) => `${e.name} (${e.explanation || "no explanation"})`)
+					.join("; ")}`;
+			}
+			if (passed.length > 0) {
+				return `Passed evaluations: ${passed.map((e) => e.name).join(", ")}`;
+			}
+		}
+		return `Successful GenAI completion using ${model || "model"} (${provider || "provider"}).`;
+	}, [isError, span.statusMessage, evalsForSpan, model, provider]);
+
+	const metadata = useMemo(() => {
+		return {
+			model: model ?? null,
+			provider: provider ?? null,
+			spanName: span.spanName,
+			spanKind: span.spanKind,
+			serviceName: span.serviceName ?? null,
+			durationMs: span.durationMs,
+			statusCode: span.statusCode,
+			statusMessage: span.statusMessage ?? null,
+			tokenCountPrompt: pt ?? null,
+			tokenCountCompletion: ct ?? null,
+			tokenCountTotal: tt ?? null,
+			costTotalUsd: cost ?? null,
+		};
+	}, [
+		model,
+		provider,
+		span.spanName,
+		span.spanKind,
+		span.serviceName,
+		span.durationMs,
+		span.statusCode,
+		span.statusMessage,
+		pt,
+		ct,
+		tt,
+		cost,
+	]);
 	const [graphData, setGraphData] = useState<EntityManifestExtended | null>(
 		null,
 	);
@@ -678,170 +743,200 @@ function SpanDetailPane({
 	}, [actionId, tab, api]);
 
 	return (
-		<Card className="min-h-0 overflow-hidden flex flex-col">
-			{/* Header */}
-			<div className="flex items-start justify-between gap-2 border-b border-sys-outline/30 p-3">
-				<div className="flex flex-col gap-1 min-w-0">
-					<div className="flex items-center gap-2">
-						<KindBadge kind={span.spanKind} />
-						<span className="font-bold font-mono text-[0.875rem] truncate">
-							{model ?? toolName ?? span.spanName}
-						</span>
-						{isError && (
-							<span className="px-1.5 py-[2px] text-[0.5rem] font-bold uppercase bg-sys-error text-white">
-								error
+		<>
+			<Card className="min-h-0 overflow-hidden flex flex-col">
+				{/* Header */}
+				<div className="flex items-start justify-between gap-2 border-b border-sys-outline/30 p-3">
+					<div className="flex flex-col gap-1 min-w-0">
+						<div className="flex items-center gap-2">
+							<KindBadge kind={span.spanKind} />
+							<span className="font-bold font-mono text-[0.875rem] truncate">
+								{model ?? toolName ?? span.spanName}
 							</span>
-						)}
+							{isError && (
+								<span className="px-1.5 py-[2px] text-[0.5rem] font-bold uppercase bg-sys-error text-white">
+									error
+								</span>
+							)}
+						</div>
+						<div className="flex flex-wrap items-center gap-3 text-[0.625rem] font-mono opacity-70">
+							{provider && <span>provider:{provider}</span>}
+							{span.serviceName && <span>svc:{span.serviceName}</span>}
+							<span>dur:{formatDuration(span.durationMs)}</span>
+							{pt !== undefined && ct !== undefined && (
+								<span>
+									tok:{pt}↑/{ct}↓{tt !== undefined && ` (${tt})`}
+								</span>
+							)}
+							{cost !== undefined && cost > 0 && (
+								<span
+									title={computed ? "computed from token counts" : "reported"}
+								>
+									{formatCost(cost)} {computed ? "≈" : ""}
+								</span>
+							)}
+							<span className="opacity-60">
+								{new Date(span.startTime).toLocaleString()}
+							</span>
+						</div>
+						<div className="flex items-center gap-1 pt-1">
+							<Chip>trace:{span.traceId.slice(0, 8)}…</Chip>
+							<Chip>span:{span.spanId.slice(0, 8)}…</Chip>
+							{isError && span.statusMessage && (
+								<span className="text-[0.625rem] text-sys-error font-mono truncate max-w-[40ch]">
+									{span.statusMessage}
+								</span>
+							)}
+						</div>
 					</div>
-					<div className="flex flex-wrap items-center gap-3 text-[0.625rem] font-mono opacity-70">
-						{provider && <span>provider:{provider}</span>}
-						{span.serviceName && <span>svc:{span.serviceName}</span>}
-						<span>dur:{formatDuration(span.durationMs)}</span>
-						{pt !== undefined && ct !== undefined && (
-							<span>
-								tok:{pt}↑/{ct}↓{tt !== undefined && ` (${tt})`}
-							</span>
-						)}
-						{cost !== undefined && cost > 0 && (
-							<span
-								title={computed ? "computed from token counts" : "reported"}
-							>
-								{formatCost(cost)} {computed ? "≈" : ""}
-							</span>
-						)}
-						<span className="opacity-60">
-							{new Date(span.startTime).toLocaleString()}
-						</span>
-					</div>
-					<div className="flex items-center gap-1 pt-1">
-						<Chip>trace:{span.traceId.slice(0, 8)}…</Chip>
-						<Chip>span:{span.spanId.slice(0, 8)}…</Chip>
-						{isError && span.statusMessage && (
-							<span className="text-[0.625rem] text-sys-error font-mono truncate max-w-[40ch]">
-								{span.statusMessage}
-							</span>
-						)}
+					<div className="flex items-center gap-2 flex-none">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setShowEvalModal(true)}
+						>
+							Save as eval case
+						</Button>
+						<button
+							type="button"
+							onClick={onClose}
+							className="text-[0.75rem] opacity-60 hover:opacity-100 cursor-pointer"
+							aria-label="Close detail"
+						>
+							✕
+						</button>
 					</div>
 				</div>
-				<button
-					type="button"
-					onClick={onClose}
-					className="text-[0.75rem] opacity-60 hover:opacity-100 cursor-pointer"
-					aria-label="Close detail"
-				>
-					✕
-				</button>
-			</div>
 
-			{/* Tabs */}
-			<div className="flex-none flex items-center border-b border-sys-outline/30">
-				<DetailTabBtn
-					active={tab === "messages"}
-					onClick={() => setTab("messages")}
-				>
-					Messages
-				</DetailTabBtn>
-				<DetailTabBtn
-					active={tab === "waterfall"}
-					onClick={() => setTab("waterfall")}
-				>
-					Waterfall{" "}
-					{traceSpans && (
-						<span className="opacity-50 ml-1">({traceSpans.length})</span>
-					)}
-				</DetailTabBtn>
-				<DetailTabBtn
-					active={tab === "evaluations"}
-					onClick={() => setTab("evaluations")}
-				>
-					Evaluations{" "}
-					{evalsForSpan.length > 0 && (
-						<span className="opacity-50 ml-1">({evalsForSpan.length})</span>
-					)}
-				</DetailTabBtn>
-				{actionId && (
+				{/* Tabs */}
+				<div className="flex-none flex items-center border-b border-sys-outline/30">
 					<DetailTabBtn
-						active={tab === "actionGraph"}
-						onClick={() => setTab("actionGraph")}
+						active={tab === "messages"}
+						onClick={() => setTab("messages")}
 					>
-						🌳 Action Graph
+						Messages
 					</DetailTabBtn>
+					<DetailTabBtn
+						active={tab === "waterfall"}
+						onClick={() => setTab("waterfall")}
+					>
+						Waterfall{" "}
+						{traceSpans && (
+							<span className="opacity-50 ml-1">({traceSpans.length})</span>
+						)}
+					</DetailTabBtn>
+					<DetailTabBtn
+						active={tab === "evaluations"}
+						onClick={() => setTab("evaluations")}
+					>
+						Evaluations{" "}
+						{evalsForSpan.length > 0 && (
+							<span className="opacity-50 ml-1">({evalsForSpan.length})</span>
+						)}
+					</DetailTabBtn>
+					{actionId && (
+						<DetailTabBtn
+							active={tab === "actionGraph"}
+							onClick={() => setTab("actionGraph")}
+						>
+							🌳 Action Graph
+						</DetailTabBtn>
+					)}
+					<DetailTabBtn
+						active={tab === "attributes"}
+						onClick={() => setTab("attributes")}
+					>
+						Attributes
+					</DetailTabBtn>
+				</div>
+
+				{/* Body */}
+				{error && (
+					<div className="flex-none p-3">
+						<ErrorState title="Failed to load trace context" message={error} />
+					</div>
 				)}
-				<DetailTabBtn
-					active={tab === "attributes"}
-					onClick={() => setTab("attributes")}
-				>
-					Attributes
-				</DetailTabBtn>
-			</div>
-
-			{/* Body */}
-			{error && (
-				<div className="flex-none p-3">
-					<ErrorState title="Failed to load trace context" message={error} />
-				</div>
-			)}
-			{tab === "actionGraph" ? (
-				<div className="flex-1 min-h-0 relative">
-					{graphLoading && (
-						<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
-							Loading action graph...
-						</div>
-					)}
-					{graphError && (
-						<div className="p-6 text-center text-[0.75rem] text-sys-error font-mono">
-							Failed to load action graph: {graphError}
-						</div>
-					)}
-					{!graphLoading && !graphError && graphData && actionId && (
-						<ActionGraphRenderer actionId={actionId} rawManifest={graphData} />
-					)}
-					{!graphLoading && !graphError && !graphData && (
-						<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
-							No action graph data found.
-						</div>
-					)}
-				</div>
-			) : (
-				<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-					{tab === "messages" && (
-						<div className="flex flex-col gap-3">
-							<MessageView
-								raw={span.inputJson}
-								label="Input"
-								defaultRole="user"
+				{tab === "actionGraph" ? (
+					<div className="flex-1 min-h-0 relative">
+						{graphLoading && (
+							<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
+								Loading action graph...
+							</div>
+						)}
+						{graphError && (
+							<div className="p-6 text-center text-[0.75rem] text-sys-error font-mono">
+								Failed to load action graph: {graphError}
+							</div>
+						)}
+						{!graphLoading && !graphError && graphData && actionId && (
+							<ActionGraphRenderer
+								actionId={actionId}
+								rawManifest={graphData}
 							/>
-							<MessageView
-								raw={span.outputJson}
-								label="Output"
-								defaultRole="assistant"
-								accent={isError ? "error" : undefined}
+						)}
+						{!graphLoading && !graphError && !graphData && (
+							<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
+								No action graph data found.
+							</div>
+						)}
+					</div>
+				) : (
+					<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+						{tab === "messages" && (
+							<div className="flex flex-col gap-3">
+								<MessageView
+									raw={span.inputJson}
+									label="Input"
+									defaultRole="user"
+								/>
+								<MessageView
+									raw={span.outputJson}
+									label="Output"
+									defaultRole="assistant"
+									accent={isError ? "error" : undefined}
+								/>
+							</div>
+						)}
+
+						{tab === "waterfall" && (
+							<TraceWaterfall
+								focusSpanId={span.spanId}
+								spans={traceSpans}
+								loading={loading}
+								onJumpTo={onJumpTo}
 							/>
-						</div>
-					)}
+						)}
 
-					{tab === "waterfall" && (
-						<TraceWaterfall
-							focusSpanId={span.spanId}
-							spans={traceSpans}
-							loading={loading}
-							onJumpTo={onJumpTo}
-						/>
-					)}
+						{tab === "evaluations" && (
+							<EvaluationsList evaluations={evalsForSpan} />
+						)}
 
-					{tab === "evaluations" && (
-						<EvaluationsList evaluations={evalsForSpan} />
-					)}
-
-					{tab === "attributes" && (
-						<JsonBlock
-							label="attributes"
-							value={JSON.stringify(span.attributes, null, 2)}
-						/>
-					)}
-				</div>
+						{tab === "attributes" && (
+							<JsonBlock
+								label="attributes"
+								value={JSON.stringify(span.attributes, null, 2)}
+							/>
+						)}
+					</div>
+				)}
+			</Card>
+			{showEvalModal && (
+				<SaveEvalCaseModal
+					sourceEntityType="ai_call"
+					sourceEntityId={span.spanId}
+					sourceTraceId={span.traceId}
+					sourceSpanId={span.spanId}
+					sourceAgentRunId={agentRunId || undefined}
+					sourceActionId={actionId || undefined}
+					sourceAiCallId={span.spanId}
+					prefillExpectedOutcome={suggestedOutcome}
+					redactedPrompt={safeParseJson(span.inputJson)}
+					referencePayload={safeParseJson(span.outputJson)}
+					metadata={metadata}
+					onClose={() => setShowEvalModal(false)}
+				/>
 			)}
-		</Card>
+		</>
 	);
 }
 

@@ -166,4 +166,68 @@ describe("evalCasesRoutesPlugin", () => {
 		);
 		expect(missing.status).toBe(404);
 	});
+
+	it("ingests and lists eval case results", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM eval_cases")) {
+					return evalCaseRow;
+				}
+				return null;
+			},
+			all: () => [
+				{
+					id: "result-1",
+					project_id: "default",
+					eval_case_id: "case-1",
+					run_id: "run-123",
+					passed: 1,
+					score: 0.95,
+					actual_outcome: "Correctly updated address",
+					details_json: '{"diff":"none"}',
+					created_at: "2026-05-31T01:00:00.000Z",
+				},
+			],
+		});
+		const app = setup();
+
+		// POST result
+		const postRes = await app.request(
+			"/internal/eval-cases/case-1/results",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					runId: "run-123",
+					passed: true,
+					score: 0.95,
+					actualOutcome: "Correctly updated address",
+					details: { diff: "none" },
+				}),
+			},
+			env(db),
+		);
+
+		expect(postRes.status).toBe(201);
+		const postBody = (await postRes.json()) as {
+			evalCaseResult: { id: string; runId: string; passed: boolean };
+		};
+		expect(postBody.evalCaseResult.runId).toBe("run-123");
+		expect(postBody.evalCaseResult.passed).toBe(true);
+
+		// GET results
+		const getRes = await app.request(
+			"/internal/eval-cases/case-1/results",
+			{ method: "GET" },
+			env(db),
+		);
+
+		expect(getRes.status).toBe(200);
+		const getBody = (await getRes.json()) as {
+			evalCaseResults: Array<{ runId: string; passed: boolean }>;
+		};
+		expect(getBody.evalCaseResults).toHaveLength(1);
+		expect(getBody.evalCaseResults[0].runId).toBe("run-123");
+		expect(getBody.evalCaseResults[0].passed).toBe(true);
+	});
 });

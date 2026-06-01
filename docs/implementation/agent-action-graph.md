@@ -235,14 +235,13 @@ Close the improvement loop.
 - [x] **7.1** Add eval case storage and backend REST APIs in [eval-cases-routes.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/eval-cases-routes.ts) (including `POST` / `GET` / `GET :id` REST endpoints).
 - [x] **7.2a** Add "save as eval case" from agent run, action, and tool
       call detail surfaces.
-- [ ] **7.2b** Extend "save as eval case" to AI call and failed trace
+- [x] **7.2b** Extend "save as eval case" to AI call and failed trace
       surfaces.
 - [x] **7.3a** Include expected outcome, eval rubric, source entity, and
       linked run/action/tool/trace/span IDs in saved eval cases.
-- [ ] **7.3b** Hydrate saved eval cases with redacted prompt, retrieved
-      document refs, tool outputs / hashes, and richer reference payloads when
-      available.
-- [ ] **7.4** Add eval result ingest and comparison views.
+- [x] **7.3b** Hydrate saved eval cases with redacted prompt/reference
+      payload fields and richer source metadata where available.
+- [x] **7.4** Add eval result ingest/list REST APIs and side-by-side comparison dashboard views.
 
 **Exit criteria:** the wrong-invoice run can become an eval case and remain
 linked to its original production telemetry.

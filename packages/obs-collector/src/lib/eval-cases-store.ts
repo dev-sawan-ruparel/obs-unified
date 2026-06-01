@@ -368,14 +368,32 @@ export class EvalCasesStore {
 				break;
 			}
 			case "ai_call": {
-				const call = await this.db
-					.prepare(
-						`SELECT call_id, trace_id, span_id, request_json, response_json
-						FROM ai_calls
-						WHERE project_id = ? AND call_id = ? LIMIT 1`,
-					)
-					.bind(projectId, sourceEntityId)
-					.first<AiCallSourceRow>();
+				const call = explicit.sourceTraceId
+					? await this.db
+							.prepare(
+								`SELECT call_id, trace_id, span_id, request_json, response_json
+								FROM ai_calls
+								WHERE project_id = ?
+									AND trace_id = ?
+									AND (call_id = ? OR span_id = ?)
+								LIMIT 1`,
+							)
+							.bind(
+								projectId,
+								explicit.sourceTraceId,
+								sourceEntityId,
+								sourceEntityId,
+							)
+							.first<AiCallSourceRow>()
+					: await this.db
+							.prepare(
+								`SELECT call_id, trace_id, span_id, request_json, response_json
+								FROM ai_calls
+								WHERE project_id = ? AND (call_id = ? OR span_id = ?)
+								LIMIT 1`,
+							)
+							.bind(projectId, sourceEntityId, sourceEntityId)
+							.first<AiCallSourceRow>();
 				if (!call)
 					throw new EvalCaseSourceNotFoundError(
 						projectId,

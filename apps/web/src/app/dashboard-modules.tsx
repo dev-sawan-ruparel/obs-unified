@@ -107,3 +107,8 @@ export const AgentVersionDiffDashboard = lazy(() =>
 		"../../../../packages/dashboard/src/dashboards/AgentVersionDiffDashboard"
 	).then((m) => ({ default: m.AgentVersionDiffDashboard })),
 );
+export const EvaluationsDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/EvaluationsDashboard"
+	).then((m) => ({ default: m.EvaluationsDashboard })),
+);
