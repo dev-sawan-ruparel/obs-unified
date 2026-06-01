@@ -47,15 +47,9 @@ export interface SpansViewProps {
 	hours: string;
 	view: View;
 	setView: (v: View) => void;
-	onNavigate?: (href: string) => void;
 }
 
-export function SpansView({
-	hours,
-	view,
-	setView,
-	onNavigate,
-}: SpansViewProps) {
+export function SpansView({ hours, view, setView }: SpansViewProps) {
 	const api = useApi();
 	const [overview, setOverview] = useState<AISpansOverviewResponse | null>(
 		null,
@@ -439,7 +433,6 @@ export function SpansView({
 								error={detailError}
 								onClose={() => setSelected(null)}
 								onJumpTo={(span) => setSelected(span)}
-								onNavigate={onNavigate}
 							/>
 						</div>
 						{/* RFC 0006 — connected rail next to the AI span detail */}
@@ -616,7 +609,6 @@ function SpanDetailPane({
 	error,
 	onClose,
 	onJumpTo,
-	onNavigate,
 }: {
 	span: AISpanRecord;
 	traceSpans: AISpanRecord[] | null;
@@ -625,7 +617,6 @@ function SpanDetailPane({
 	error: string | null;
 	onClose: () => void;
 	onJumpTo: (span: AISpanRecord) => void;
-	onNavigate?: (href: string) => void;
 }) {
 	const [tab, setTab] = useState<DetailTab>("messages");
 	const [showEvalModal, setShowEvalModal] = useState(false);
@@ -797,14 +788,9 @@ function SpanDetailPane({
 						)}
 					</DetailTabBtn>
 					{actionId && (
-						<DetailTabBtn
-							active={false}
-							onClick={() => {
-								onNavigate?.(`#/actions/${encodeURIComponent(actionId)}`);
-							}}
-						>
+						<DetailTabLink href={`#/actions/${encodeURIComponent(actionId)}`}>
 							Action Graph
-						</DetailTabBtn>
+						</DetailTabLink>
 					)}
 					<DetailTabBtn
 						active={tab === "attributes"}
@@ -877,6 +863,14 @@ function SpanDetailPane({
 	);
 }
 
+function detailTabClassName(active: boolean) {
+	return `px-3 py-2 text-[0.8125rem] font-medium cursor-pointer border-b-2 ${
+		active
+			? "border-sys-primary text-sys-on-surface"
+			: "border-transparent text-sys-on-surface/60 hover:text-sys-on-surface hover:bg-sys-surface-low"
+	}`;
+}
+
 function DetailTabBtn({
 	active,
 	onClick,
@@ -890,14 +884,32 @@ function DetailTabBtn({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`px-3 py-2 text-[0.8125rem] font-medium cursor-pointer border-b-2 ${
-				active
-					? "border-sys-primary text-sys-on-surface"
-					: "border-transparent text-sys-on-surface/60 hover:text-sys-on-surface hover:bg-sys-surface-low"
-			}`}
+			className={detailTabClassName(active)}
 		>
 			{children}
 		</button>
+	);
+}
+
+function DetailTabLink({
+	href,
+	children,
+}: {
+	href: string;
+	children: import("react").ReactNode;
+}) {
+	return (
+		<a
+			href={href}
+			onClick={() => {
+				if (typeof window !== "undefined") {
+					window.location.hash = href.slice(1);
+				}
+			}}
+			className={detailTabClassName(false)}
+		>
+			{children}
+		</a>
 	);
 }
 
