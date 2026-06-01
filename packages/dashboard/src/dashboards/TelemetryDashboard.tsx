@@ -556,10 +556,17 @@ function TracesView({
 								className="border-b-[1px] border-sys-surface-low last:border-b-0"
 							>
 								{/* Log-line row */}
-								<button
-									type="button"
+								<div
+									role="button"
+									tabIndex={0}
 									className={`flex w-full cursor-pointer items-start gap-2 py-1.5 text-left hover:bg-sys-surface-low transition-none ${isExpanded ? "bg-sys-surface-low" : ""} ${t.statusCode === 2 ? "bg-sys-error/10" : ""}`}
 									onClick={() => onExpandTrace(t.traceId)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											onExpandTrace(t.traceId);
+										}
+									}}
 								>
 									{t.statusCode === 2 && (
 										<span className="mt-1 inline-block h-[8px] w-[8px] flex-none bg-sys-error" />
@@ -603,7 +610,7 @@ function TracesView({
 									>
 										{t.traceId.slice(0, 16)}
 									</button>
-								</button>
+								</div>
 
 								{/* Expanded: waterfall + spans */}
 								{isExpanded && detail && (

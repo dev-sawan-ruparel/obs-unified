@@ -308,9 +308,9 @@ export function ToolReliabilityDashboard() {
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-sys-outline-soft/40">
-									{data.topAgents.map((agent, _i) => (
+									{data.topAgents.map((agent, i) => (
 										<tr
-											key={agent.agentName}
+											key={`${agent.agentName}-${agent.invocations}-${i}`}
 											className="hover:bg-sys-surface-low/50"
 										>
 											<td className="py-2.5 font-semibold truncate max-w-[200px]">

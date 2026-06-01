@@ -39,7 +39,9 @@ export function TimeSeriesBars({
 			: 0;
 
 	// X-axis ticks: 4 evenly-spaced timestamps (0%, 33%, 67%, 100% of window).
-	const tickIdx = [0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1];
+	const tickIdx = Array.from(
+		new Set([0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1]),
+	);
 
 	const fmtTime = (iso: string) => {
 		const d = new Date(iso);
