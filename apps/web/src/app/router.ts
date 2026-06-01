@@ -36,6 +36,10 @@ export const KNOWN_TABS = new Set([
 	"agent-runs",
 	"actions",
 	"tool-calls",
+	"tool-reliability",
+	"cost-attribution",
+	"autonomous-review",
+	"agent-version-diff",
 ]);
 
 export function parseHash(): Route {

@@ -2,6 +2,10 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { CollectorRuntime } from "../framework/collector";
 import type { CollectorEnv } from "../framework/env";
+import type {
+	CostAttributionResult,
+	ToolReliabilityResult,
+} from "../lib/action-aggregates";
 import type { EntityManifestExtended } from "../lib/identity-index";
 import { MemSqlDb } from "../lib/test-utils/mem-sql-db";
 import { actionRoutesPlugin } from "./action-routes";
@@ -162,5 +166,276 @@ describe("actionRoutesPlugin", () => {
 		expect((await fetch("/internal/actions/missing")).status).toBe(404);
 		expect((await fetch("/internal/agent-runs/missing")).status).toBe(404);
 		expect((await fetch("/internal/tool-calls/missing")).status).toBe(404);
+	});
+
+	it("returns tool reliability aggregate shape with explicit null/zero unsupported metrics", async () => {
+		const fetch = setup(
+			new MemSqlDb({
+				all: (sql) => {
+					if (
+						sql.includes("FROM tool_calls t") &&
+						sql.includes("GROUP BY t.tool_name")
+					) {
+						return [
+							{
+								tool_name: "update_invoice",
+								call_count: 4,
+								error_count: 2,
+								timeout_count: 1,
+								malformed_argument_count: 1,
+								side_effect_count: 3,
+							},
+							{
+								tool_name: "lookup_customer",
+								call_count: 1,
+								error_count: 0,
+								timeout_count: 0,
+								malformed_argument_count: 0,
+								side_effect_count: 0,
+							},
+						];
+					}
+					if (sql.includes("FROM tool_calls t")) {
+						return [
+							{
+								tool_name: "update_invoice",
+								duration_ms: 100,
+								agent_id: "billing-agent",
+								agent_label: "Billing Agent",
+								workflow_id: "invoice-workflow",
+								workflow_label: "invoice-workflow",
+							},
+							{
+								tool_name: "update_invoice",
+								duration_ms: 200,
+								agent_id: "billing-agent",
+								agent_label: "Billing Agent",
+								workflow_id: "invoice-workflow",
+								workflow_label: "invoice-workflow",
+							},
+							{
+								tool_name: "update_invoice",
+								duration_ms: 400,
+								agent_id: "billing-agent",
+								agent_label: "Billing Agent",
+								workflow_id: "invoice-workflow",
+								workflow_label: "invoice-workflow",
+							},
+							{
+								tool_name: "update_invoice",
+								duration_ms: 800,
+								agent_id: "refund-agent",
+								agent_label: "Refund Agent",
+								workflow_id: null,
+								workflow_label: null,
+							},
+							{
+								tool_name: "lookup_customer",
+								duration_ms: null,
+								agent_id: null,
+								agent_label: null,
+								workflow_id: null,
+								workflow_label: null,
+							},
+						];
+					}
+					return [];
+				},
+			}),
+		);
+
+		const res = await fetch(
+			"/internal/actions/aggregates/tool-reliability?hours=24&limit=2",
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as ToolReliabilityResult;
+		expect(body.windowHours).toBe(24);
+		expect(body.tools).toHaveLength(2);
+		expect(body.tools[0]).toMatchObject({
+			toolName: "update_invoice",
+			callCount: 4,
+			p50LatencyMs: 200,
+			p95LatencyMs: 800,
+			errorCount: 2,
+			errorRate: 0.5,
+			timeoutCount: 1,
+			timeoutRate: 0.25,
+			retryCount: 0,
+			malformedArgumentCount: 1,
+			sideEffectCount: 3,
+		});
+		expect(body.tools[0].topCausingAgents[0]).toEqual({
+			id: "billing-agent",
+			label: "Billing Agent",
+			count: 3,
+		});
+		expect(body.tools[0].topCausingWorkflows[0]).toEqual({
+			id: "invoice-workflow",
+			label: "invoice-workflow",
+			count: 3,
+		});
+		expect(body.tools[1]).toMatchObject({
+			toolName: "lookup_customer",
+			p50LatencyMs: null,
+			p95LatencyMs: null,
+			retryCount: 0,
+			malformedArgumentCount: 0,
+		});
+	});
+
+	it("returns cost attribution aggregate shape across agent run action tool user tenant workflow dimensions", async () => {
+		const fetch = setup(
+			new MemSqlDb({
+				all: (sql) => {
+					if (sql.includes("FROM agent_runs ar")) {
+						if (sql.includes("GROUP BY ar.agent_id")) {
+							return [
+								{
+									key: "billing-agent",
+									label: "Billing Agent",
+									total_cost_usd: 0.3,
+									action_count: 0,
+									agent_run_count: 2,
+									tool_call_count: 0,
+								},
+							];
+						}
+						return [
+							{
+								key: "run-1",
+								label: "Billing Agent",
+								total_cost_usd: 0.2,
+								action_count: 0,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					if (
+						sql.includes("FROM tool_calls t") &&
+						sql.includes("COUNT(*) AS tool_call_count")
+					) {
+						return [
+							{
+								key: "update_invoice",
+								label: "update_invoice",
+								total_cost_usd: 0.07,
+								action_count: 2,
+								agent_run_count: 1,
+								tool_call_count: 4,
+							},
+						];
+					}
+					if (sql.includes("a.model_name AS key")) {
+						return [
+							{
+								key: "gpt-4o",
+								label: "gpt-4o",
+								total_cost_usd: 0.13,
+								action_count: 3,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					if (sql.includes("a.provider AS key")) {
+						return [
+							{
+								key: "openai",
+								label: "openai",
+								total_cost_usd: 0.13,
+								action_count: 3,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					if (sql.includes("a.prompt_version AS key")) {
+						return [
+							{
+								key: "billing-v3",
+								label: "billing-v3",
+								total_cost_usd: 0.11,
+								action_count: 2,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					if (sql.includes("a.user_id AS key")) {
+						return [
+							{
+								key: "user-123",
+								label: "user-123",
+								total_cost_usd: 0.09,
+								action_count: 2,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					if (sql.includes("target_tenant")) {
+						return [
+							{
+								key: "acme_corp",
+								label: "acme_corp",
+								total_cost_usd: 0.08,
+								action_count: 1,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					if (sql.includes("workflow_id") || sql.includes("task_id")) {
+						return [
+							{
+								key: "invoice-workflow",
+								label: "invoice-workflow",
+								total_cost_usd: 0.06,
+								action_count: 1,
+								agent_run_count: 1,
+								tool_call_count: 0,
+							},
+						];
+					}
+					return [];
+				},
+			}),
+		);
+
+		const res = await fetch(
+			"/internal/actions/aggregates/cost-attribution?hours=48&limit=10",
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as CostAttributionResult;
+		expect(body.windowHours).toBe(48);
+		expect(body.byAgent[0]).toMatchObject({
+			dimension: "agent",
+			key: "billing-agent",
+			totalCostUsd: 0.3,
+			agentRunCount: 2,
+		});
+		expect(body.byRun[0]).toMatchObject({
+			dimension: "run",
+			key: "run-1",
+			totalCostUsd: 0.2,
+		});
+		expect(body.byModel[0]).toMatchObject({
+			dimension: "model",
+			key: "gpt-4o",
+			totalCostUsd: 0.13,
+		});
+		expect(body.byProvider[0].key).toBe("openai");
+		expect(body.byPromptVersion[0].key).toBe("billing-v3");
+		expect(body.byTool[0]).toMatchObject({
+			dimension: "tool",
+			key: "update_invoice",
+			toolCallCount: 4,
+		});
+		expect(body.byUser[0].key).toBe("user-123");
+		expect(body.byTenant[0].key).toBe("acme_corp");
+		expect(body.byWorkflow[0].key).toBe("invoice-workflow");
 	});
 });

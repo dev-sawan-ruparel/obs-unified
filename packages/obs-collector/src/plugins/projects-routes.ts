@@ -42,10 +42,16 @@ export const projectsRoutesPlugin: CollectorPlugin = {
 		app.patch("/internal/projects/:id", async (c) => {
 			const id = c.req.param("id");
 			const body = await c.req
-				.json<{ name?: string }>()
-				.catch(() => ({ name: undefined }));
+				.json<{ name?: string; payloadCaptureEnabled?: boolean }>()
+				.catch(() => ({
+					name: undefined,
+					payloadCaptureEnabled: undefined,
+				}));
 			const store = new ProjectsStore(sqlDbFor(c.env));
-			const project = await store.updateProject(id, { name: body.name });
+			const project = await store.updateProject(id, {
+				name: body.name,
+				payloadCaptureEnabled: body.payloadCaptureEnabled,
+			});
 			if (!project) return c.json({ error: "Project not found" }, 404);
 			return c.json({ project });
 		});

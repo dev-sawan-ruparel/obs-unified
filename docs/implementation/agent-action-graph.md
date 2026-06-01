@@ -79,7 +79,7 @@ Add the graph spine without changing the existing ingest behavior.
       `GET /internal/agent-runs/:id`.
 - [x] **1.7** Extend `/internal/connected/:kind/:id` with `action`, `agent_run`,
       and `tool_call` kinds. Do not introduce a separate connected endpoint.
-- [ ] **1.8** Add redaction processor and per-project payload-capture flags per
+- [x] **1.8** Add redaction processor and per-project payload-capture flags per
       RFC 0010 Privacy and governance. Default to metadata + hashes only;
       payload bytes captured only when project config opts in. Must land before
       Phase 4 — otherwise OTel GenAI / MCP / OpenInference normalizers will
@@ -200,17 +200,17 @@ without searching separate trace, AI, log, and replay pages.
 
 Add aggregate views after the run-level experience proves the graph.
 
-- [ ] **6.1** Tool reliability dashboard: call count, p50 / p95 latency, error
+- [x] **6.1** Tool reliability dashboard: call count, p50 / p95 latency, error
       rate, timeout rate, retry count, malformed argument count, side-effect
       count, and top causing agents / workflows.
-- [ ] **6.2** Cost attribution: agent, run, model, provider, prompt version,
+- [x] **6.2** Cost attribution: agent, run, model, provider, prompt version,
       tool, user / tenant, and workflow.
-- [ ] **6.3** Prompt / agent version diff: success rate, eval score, latency,
+- [x] **6.3** Prompt / agent version diff: success rate, eval score, latency,
       cost, tool error rate, user-visible failure rate, downstream service
       errors. Initially populated from production eval results (3.6 + 4.3
       `EVALUATOR`); the comparison-against-eval-cases dimension fills in after
       Phase 7 lands and is allowed to render as empty before then.
-- [ ] **6.4** Autonomous-write review surface: rows where `side_effect = true`
+- [x] **6.4** Autonomous-write review surface: rows where `side_effect = true`
       and `autonomy_level = autonomous_write`.
 
 **Exit criteria:** users can move from one bad run to aggregate answers: "is
@@ -222,7 +222,7 @@ this a one-off, a bad tool, a bad prompt version, or a bad agent version?"
 
 Close the improvement loop.
 
-- [ ] **7.1** Add eval case storage with links back to source production
+- [x] **7.1** Add eval case storage with links back to source production
       entities.
 - [ ] **7.2** Add "save as eval case" from agent run, action, AI call, tool
       call, and failed trace surfaces.

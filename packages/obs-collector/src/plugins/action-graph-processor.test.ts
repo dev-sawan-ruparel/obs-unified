@@ -25,6 +25,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 		context = {
 			env: {
 				DB: db,
+				OBS_PAYLOAD_CAPTURE_DEFAULT: "true",
 			},
 			now: new Date(),
 			logger: console,
@@ -262,5 +263,80 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 		// redactedDocs = runRedaction(rawDocs, ...)
 		// redactedQuery = runRedaction(rawQuery, ...)
 		// queryHash is sha256Hex of rawQuery.
+	});
+
+	it("stores hashes and metadata only when project payload capture is disabled", async () => {
+		context = {
+			...context,
+			env: {
+				DB: db,
+			},
+		} as unknown as CollectorRouteContext;
+
+		const span: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-privacy",
+			parentSpanId: null,
+			traceId: "trace-privacy",
+			traceState: null,
+			serviceName: "test-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "update-invoice",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-22T00:00:00.000Z",
+			endTime: "2026-05-22T00:00:01.000Z",
+			durationMs: 1000,
+			attributesJson: JSON.stringify({
+				"obs.action.id": "action-privacy",
+				"obs.action.kind": "tool.call",
+				"obs.tool_call.tool_name": "update_invoice",
+				"obs.tool_call.args": JSON.stringify({
+					invoiceId: "inv-123",
+					email: "customer@example.com",
+				}),
+				"obs.tool_call.result": JSON.stringify({ ok: true }),
+				"ai.payload.input": "raw prompt must not persist",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:01.000Z",
+			expiresAt: "2026-05-23T00:00:01.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const processors: SpanProcessorPlugin[] = [];
+		actionGraphProcessorPlugin.register(
+			{} as Parameters<typeof actionGraphProcessorPlugin.register>[0],
+			{
+				addSpanProcessor(p: SpanProcessorPlugin) {
+					processors.push(p);
+				},
+			} as unknown as CollectorRuntime,
+		);
+		const processFn = processors[0]?.process;
+		if (!processFn) throw new Error("span processor was not registered");
+		await processFn([span], context);
+
+		const actionInsert = db.callsMatching("INSERT INTO actions")[0];
+		expect(actionInsert.binds).not.toContain("raw prompt must not persist");
+		expect(
+			actionInsert.binds.some((bind) => String(bind).includes("email")),
+		).toBe(false);
+
+		const toolInsert = db.callsMatching("INSERT INTO tool_calls")[0];
+		expect(toolInsert.binds).toContain(null);
+		expect(
+			toolInsert.binds.some((bind) =>
+				String(bind).includes("customer@example.com"),
+			),
+		).toBe(false);
 	});
 });

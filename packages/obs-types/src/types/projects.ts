@@ -3,6 +3,7 @@ export interface Project {
 	name: string;
 	slug: string;
 	createdAt: string;
+	payloadCaptureEnabled: boolean;
 }
 
 export interface ProjectRow {
@@ -10,6 +11,7 @@ export interface ProjectRow {
 	name: string;
 	slug: string;
 	created_at: string;
+	payload_capture_enabled?: boolean | number | string | null;
 }
 
 export interface IngestKey {

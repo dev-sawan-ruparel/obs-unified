@@ -1,11 +1,70 @@
+import {
+	DEFAULT_WINDOW_HOURS,
+	getConfiguredRetentionHours,
+} from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import {
+	getCostAttributionAggregates,
+	getToolReliabilityAggregates,
+} from "../lib/action-aggregates";
 import { IdentityIndex } from "../lib/identity-index";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
+const parsePositiveInt = (
+	raw: string | undefined,
+	fallback: number,
+	min: number,
+	max: number,
+): number => {
+	const parsed = Number.parseInt(raw ?? "", 10);
+	if (!Number.isFinite(parsed)) return fallback;
+	return Math.min(max, Math.max(min, parsed));
+};
+
+const parseWindowHours = (
+	raw: string | undefined,
+	retentionHours: string | undefined,
+): number => {
+	const maxHours = getConfiguredRetentionHours(retentionHours);
+	return parsePositiveInt(raw, DEFAULT_WINDOW_HOURS, 1, maxHours);
+};
+
 export const actionRoutesPlugin: CollectorPlugin = {
 	name: "action-routes",
 	register(app) {
+		app.get("/internal/actions/aggregates/tool-reliability", async (c) => {
+			const projectId = getProjectId(c);
+			const hours = parseWindowHours(
+				c.req.query("hours"),
+				c.env.RETENTION_HOURS,
+			);
+			const limit = parsePositiveInt(c.req.query("limit"), 20, 1, 100);
+			const result = await getToolReliabilityAggregates(
+				sqlDbFor(c.env),
+				projectId,
+				hours,
+				limit,
+			);
+			return c.json(result);
+		});
+
+		app.get("/internal/actions/aggregates/cost-attribution", async (c) => {
+			const projectId = getProjectId(c);
+			const hours = parseWindowHours(
+				c.req.query("hours"),
+				c.env.RETENTION_HOURS,
+			);
+			const limit = parsePositiveInt(c.req.query("limit"), 20, 1, 100);
+			const result = await getCostAttributionAggregates(
+				sqlDbFor(c.env),
+				projectId,
+				hours,
+				limit,
+			);
+			return c.json(result);
+		});
+
 		app.get("/internal/actions/:id", async (c) => {
 			const projectId = getProjectId(c);
 			const id = c.req.param("id");

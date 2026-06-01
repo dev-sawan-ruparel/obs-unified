@@ -31,6 +31,11 @@ export interface CollectorEnv {
 	/** Set to "true" to allow unauthenticated ingest (local dev only) */
 	ALLOW_UNAUTHENTICATED?: string;
 	TELEMETRY_REDACT_FIELDS?: string;
+	/**
+	 * Local/test escape hatch for payload capture. Production should prefer the
+	 * per-project `payload_capture_enabled` flag, which defaults to false.
+	 */
+	OBS_PAYLOAD_CAPTURE_DEFAULT?: string;
 	RETENTION_HOURS?: string;
 	/**
 	 * Stage 3 narrative pipeline (RFC 0002).

@@ -17,6 +17,7 @@ import { botFilterPlugin } from "./plugins/bot-filter";
 import { connectedRoutesPlugin } from "./plugins/connected-routes";
 import { dashboardRoutesPlugin } from "./plugins/dashboard-routes";
 import { defaultSpanEnrichmentPlugin } from "./plugins/default-span-enrichment";
+import { evalCasesRoutesPlugin } from "./plugins/eval-cases-routes";
 import { genAiNormalizerPlugin } from "./plugins/gen-ai-normalizer";
 import { identityReceiverPlugin } from "./plugins/identity-receiver";
 import { issueEnrichmentPlugin } from "./plugins/issue-enrichment";
@@ -87,6 +88,16 @@ export {
 	R2BlobStore,
 } from "./lib/blob-store";
 export { S3BlobStore, type S3BlobStoreOptions } from "./lib/blob-store-s3";
+export {
+	type EvalCase,
+	type EvalCaseInput,
+	type EvalCaseListOptions,
+	type EvalCaseSourceLinks,
+	EvalCaseSourceNotFoundError,
+	type EvalCaseSourceType,
+	EvalCasesStore,
+	isEvalCaseSourceType,
+} from "./lib/eval-cases-store";
 export { MetricsStore } from "./lib/metrics-store";
 export { ProjectsStore } from "./lib/projects-store";
 export { D1Adapter, type SqlDb, type SqlStatement } from "./lib/sql-db";
@@ -106,6 +117,7 @@ export {
 	createAlertEvaluatorHandler,
 	dashboardRoutesPlugin,
 	defaultSpanEnrichmentPlugin,
+	evalCasesRoutesPlugin,
 	evaluateAllRules,
 	genAiNormalizerPlugin,
 	identityReceiverPlugin,
@@ -166,6 +178,7 @@ export const allPlugins = [
 	alertsRoutesPlugin,
 	analysesRoutesPlugin,
 	actionRoutesPlugin,
+	evalCasesRoutesPlugin,
 	askRoutesPlugin,
 	tailRoutesPlugin,
 	timelineRoutesPlugin,

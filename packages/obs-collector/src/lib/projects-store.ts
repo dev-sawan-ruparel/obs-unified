@@ -13,6 +13,11 @@ const rowToProject = (row: ProjectRow): Project => ({
 	name: row.name,
 	slug: row.slug,
 	createdAt: row.created_at,
+	payloadCaptureEnabled:
+		row.payload_capture_enabled === true ||
+		row.payload_capture_enabled === 1 ||
+		row.payload_capture_enabled === "1" ||
+		row.payload_capture_enabled === "true",
 });
 
 const rowToKey = (row: IngestKeyRow): IngestKey => ({
@@ -63,25 +68,39 @@ export class ProjectsStore {
 			.bind(id, name, slug, createdAt)
 			.run();
 
-		return { id, name, slug, createdAt };
+		return { id, name, slug, createdAt, payloadCaptureEnabled: false };
 	}
 
 	async updateProject(
 		id: string,
-		patch: { name?: string },
+		patch: { name?: string; payloadCaptureEnabled?: boolean },
 	): Promise<Project | null> {
 		const existing = await this.getProject(id);
 		if (!existing) return null;
 
 		const name = patch.name?.trim();
+		let next = existing;
 		if (name !== undefined && name !== existing.name) {
 			await this.db
 				.prepare(`UPDATE projects SET name = ? WHERE id = ?`)
 				.bind(name, id)
 				.run();
-			return { ...existing, name };
+			next = { ...next, name };
 		}
-		return existing;
+		if (
+			patch.payloadCaptureEnabled !== undefined &&
+			patch.payloadCaptureEnabled !== existing.payloadCaptureEnabled
+		) {
+			await this.db
+				.prepare(`UPDATE projects SET payload_capture_enabled = ? WHERE id = ?`)
+				.bind(patch.payloadCaptureEnabled ? 1 : 0, id)
+				.run();
+			next = {
+				...next,
+				payloadCaptureEnabled: patch.payloadCaptureEnabled,
+			};
+		}
+		return next;
 	}
 
 	async ensureDefaultProject(): Promise<void> {

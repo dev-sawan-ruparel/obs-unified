@@ -87,3 +87,23 @@ export const ToolCallDashboard = lazy(() =>
 		"../../../../packages/dashboard/src/dashboards/ToolCallDashboard"
 	).then((m) => ({ default: m.ToolCallDashboard })),
 );
+export const ToolReliabilityDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/ToolReliabilityDashboard"
+	).then((m) => ({ default: m.ToolReliabilityDashboard })),
+);
+export const CostAttributionDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/CostAttributionDashboard"
+	).then((m) => ({ default: m.CostAttributionDashboard })),
+);
+export const AutonomousReviewDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/AutonomousReviewDashboard"
+	).then((m) => ({ default: m.AutonomousReviewDashboard })),
+);
+export const AgentVersionDiffDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/AgentVersionDiffDashboard"
+	).then((m) => ({ default: m.AgentVersionDiffDashboard })),
+);

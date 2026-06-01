@@ -744,3 +744,154 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 		).toBeVisible();
 	});
 });
+
+test.describe("Phase 6 Operational Views", () => {
+	test("renders Tool Reliability Dashboard", async ({ page }) => {
+		const reliabilityMock = JSON.stringify({
+			summary: {
+				totalCalls: 100,
+				p50LatencyMs: 250,
+				p95LatencyMs: 990,
+				errorRate: 0.05,
+				sideEffectCount: 15,
+				timeoutCount: 5,
+				retryCount: 10,
+				malformedArgsCount: 2,
+			},
+			topAgents: [
+				{
+					agentName: "Reliability Test Agent",
+					invocations: 100,
+					errorRate: 0.05,
+					avgLatencyMs: 250,
+					sideEffects: 15,
+				},
+			],
+			timestamp: new Date().toISOString(),
+		});
+
+		await mockApis(page, {
+			"/connected/tool_reliability": (r) => json(r, reliabilityMock),
+		});
+
+		await page.goto("/#/tool-reliability");
+		await page.waitForLoadState("domcontentloaded");
+
+		await expect(page.locator("text=Tool Reliability Dashboard")).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(page.locator("text=100 tool calls monitored")).toBeVisible();
+		await expect(page.locator("text=250ms").first()).toBeVisible();
+		await expect(page.locator("text=990ms").first()).toBeVisible();
+		await expect(page.locator("text=5.0%").first()).toBeVisible();
+		await expect(page.locator("text=Reliability Test Agent")).toBeVisible();
+	});
+
+	test("renders Cost Attribution Dashboard", async ({ page }) => {
+		const costMock = JSON.stringify({
+			summary: {
+				totalCostUsd: 150.0,
+				totalRuns: 500,
+				avgCostPerRunUsd: 0.3,
+			},
+			breakdowns: {
+				agents: [["Cost Test Agent", 150.0]],
+				runs: [["run_test_cost", 150.0]],
+				models: [["gpt-4o", 150.0]],
+				providers: [["openai", 150.0]],
+				promptVersions: [["v1.0.0", 150.0]],
+				tools: [["db.test_tool", 150.0]],
+				users: [["tenant_test", 150.0]],
+			},
+			timestamp: new Date().toISOString(),
+		});
+
+		await mockApis(page, {
+			"/connected/cost_attribution": (r) => json(r, costMock),
+		});
+
+		await page.goto("/#/cost-attribution");
+		await page.waitForLoadState("domcontentloaded");
+
+		await expect(page.locator("text=Cost Attribution")).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(
+			page.locator("text=Attributing $150.00 USD across runs"),
+		).toBeVisible();
+		await expect(page.locator("text=$150.00").first()).toBeVisible();
+		await expect(page.locator("text=Cost Test Agent").first()).toBeVisible();
+	});
+
+	test("renders Autonomous-Write Review Surface", async ({ page }) => {
+		const reviewMock = JSON.stringify({
+			rows: [
+				{
+					id: "test_tc_01",
+					toolName: "test.mutative_tool",
+					actionId: "act_test_01",
+					actionName: "Test Mutative Action",
+					agentRunId: "run_test_01",
+					agentName: "Autonomous Test Agent",
+					agentVersion: "v1.0.0",
+					autonomyLevel: "autonomous_write",
+					sideEffect: true,
+					approvalState: "pending",
+					status: "ok",
+					errorSnippet: null,
+					traceId: "trace_test_01",
+					occurredAt: new Date().toISOString(),
+				},
+			],
+			timestamp: new Date().toISOString(),
+		});
+
+		await mockApis(page, {
+			"/connected/autonomous_review": (r) => json(r, reviewMock),
+		});
+
+		await page.goto("/#/autonomous-review");
+		await page.waitForLoadState("domcontentloaded");
+
+		await expect(
+			page.locator("text=Autonomous-Write Review Surface"),
+		).toBeVisible({ timeout: 10000 });
+		await expect(page.locator("text=1 Pending Reviews")).toBeVisible();
+		await expect(page.locator("text=test.mutative_tool")).toBeVisible();
+		await expect(page.locator("text=Autonomous Test Agent")).toBeVisible();
+		await expect(page.locator("text=Test Mutative Action")).toBeVisible();
+		await expect(page.locator("text=pending").first()).toBeVisible();
+	});
+
+	test("renders Prompt / Agent Version Diff Shell", async ({ page }) => {
+		const diffMock = JSON.stringify({
+			baselineVersion: "v1.0.0",
+			targetVersion: "v2.0.0",
+			metrics: [
+				{
+					label: "Success Rate",
+					baselineValue: "80%",
+					targetValue: "90%",
+					deltaValue: "+10%",
+					deltaDirection: "positive",
+				},
+			],
+			timestamp: new Date().toISOString(),
+		});
+
+		await mockApis(page, {
+			"/connected/version_diff": (r) => json(r, diffMock),
+		});
+
+		await page.goto("/#/agent-version-diff");
+		await page.waitForLoadState("domcontentloaded");
+
+		await expect(page.locator("text=Prompt & Agent Version Diff")).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(page.locator("text=Success Rate")).toBeVisible();
+		await expect(page.locator("text=Baseline").first()).toBeVisible();
+		await expect(page.locator("text=Target").first()).toBeVisible();
+		await expect(page.locator("text=+10%")).toBeVisible();
+	});
+});

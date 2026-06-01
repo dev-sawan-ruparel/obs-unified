@@ -19,6 +19,8 @@ import {
 	AGENT_RUN_ID_KEY,
 	AGENT_STEP_ID_KEY,
 	AGENT_VERSION_KEY,
+	AI_PAYLOAD_INPUT_KEY,
+	AI_PAYLOAD_OUTPUT_KEY,
 	ARTIFACT_CONTENT_KEY,
 	ARTIFACT_NAME_KEY,
 	ARTIFACT_SHA256_HASH_KEY,
@@ -48,6 +50,7 @@ import {
 import type { CollectorPlugin } from "../framework/collector";
 import { sha256Hex } from "../lib/hash";
 import { parseJsonRecord } from "../lib/json";
+import { isPayloadCaptureEnabled } from "../lib/payload-capture";
 import { type SqlStatement, sqlDbFor } from "../lib/sql-db";
 
 import { enricherPlugins } from "./action-graph-processor/enrichers";
@@ -93,6 +96,34 @@ const firstBoolLikeAttr = (
 	return value === true || value === 1 || value === "1" || value === "true";
 };
 
+const PAYLOAD_ATTR_KEYS = [
+	AI_PAYLOAD_INPUT_KEY,
+	AI_PAYLOAD_OUTPUT_KEY,
+	AGENT_GOAL_KEY,
+	"obs.agent_run.goal",
+	AGENT_OUTCOME_KEY,
+	"obs.agent_run.outcome",
+	TOOL_ARGS_KEY,
+	"obs.tool_call.args",
+	TOOL_RESULT_KEY,
+	"obs.tool_call.result",
+	RETRIEVAL_QUERY_KEY,
+	RETRIEVAL_DOCUMENTS_KEY,
+	ARTIFACT_CONTENT_KEY,
+	EVAL_REASONING_KEY,
+	EVAL_RUBRIC_KEY,
+];
+
+const stripPayloadAttrs = (
+	attrs: Record<string, JsonValue>,
+): Record<string, JsonValue> => {
+	const next = { ...attrs };
+	for (const key of PAYLOAD_ATTR_KEYS) {
+		delete next[key];
+	}
+	return next;
+};
+
 export type { ActionEnricherPlugin } from "./action-graph-processor/enrichers";
 export {
 	clearActionEnricherPlugins,
@@ -115,6 +146,18 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 			name: "action-graph-processor",
 			async process(spans, context) {
 				const db = sqlDbFor(context.env);
+				const captureByProject = new Map<string, boolean>();
+				const projectCaptureEnabled = async (projectId: string) => {
+					const cached = captureByProject.get(projectId);
+					if (cached !== undefined) return cached;
+					const enabled = await isPayloadCaptureEnabled(
+						db,
+						projectId,
+						context.env,
+					);
+					captureByProject.set(projectId, enabled);
+					return enabled;
+				};
 
 				const actionsToInsert: Record<string, unknown>[] = [];
 				const agentRunsToInsert: Record<string, unknown>[] = [];
@@ -126,6 +169,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 				const transformed = await Promise.all(
 					spans.map(async (span): Promise<StoredSpan> => {
 						const attrs = parseJsonRecord(span.attributesJson);
+						const capturePayloads = await projectCaptureEnabled(span.projectId);
 
 						const obsActionId = attrs[ACTION_ID_KEY];
 						const openInferenceKind = attrs[OPENINFERENCE_SPAN_KIND_KEY];
@@ -213,7 +257,10 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							firstNumberAttr(attrs, ACTION_TOTAL_COST_USD_KEY) ??
 							firstNumberAttr(attrs, "llm.total_cost_usd");
 
-						const attrsJson = JSON.stringify(attrs);
+						const persistedAttrs = capturePayloads
+							? attrs
+							: stripPayloadAttrs(attrs);
+						const attrsJson = JSON.stringify(persistedAttrs);
 
 						const actionRecord = {
 							id: actionId,
@@ -288,22 +335,24 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										AGENT_VERSION_KEY,
 										"obs.agent_run.agent_version",
 									) ?? "1.0.0",
-								goal:
-									firstStringAttr(
-										attrs,
-										AGENT_GOAL_KEY,
-										"obs.agent_run.goal",
-									) ??
-									(attrs["ai.payload.input"] as string) ??
-									null,
-								outcome:
-									firstStringAttr(
-										attrs,
-										AGENT_OUTCOME_KEY,
-										"obs.agent_run.outcome",
-									) ??
-									(attrs["ai.payload.output"] as string) ??
-									null,
+								goal: capturePayloads
+									? (firstStringAttr(
+											attrs,
+											AGENT_GOAL_KEY,
+											"obs.agent_run.goal",
+										) ??
+										(attrs[AI_PAYLOAD_INPUT_KEY] as string) ??
+										null)
+									: null,
+								outcome: capturePayloads
+									? (firstStringAttr(
+											attrs,
+											AGENT_OUTCOME_KEY,
+											"obs.agent_run.outcome",
+										) ??
+										(attrs[AI_PAYLOAD_OUTPUT_KEY] as string) ??
+										null)
+									: null,
 								autonomyLevel:
 									firstStringAttr(
 										attrs,
@@ -346,7 +395,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						if (isToolCall) {
 							const rawArgs =
 								firstStringAttr(attrs, TOOL_ARGS_KEY, "obs.tool_call.args") ??
-								(attrs["ai.payload.input"] as string) ??
+								(attrs[AI_PAYLOAD_INPUT_KEY] as string) ??
 								"{}";
 							const rawResult =
 								firstStringAttr(
@@ -354,28 +403,32 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 									TOOL_RESULT_KEY,
 									"obs.tool_call.result",
 								) ??
-								(attrs["ai.payload.output"] as string) ??
+								(attrs[AI_PAYLOAD_OUTPUT_KEY] as string) ??
 								"{}";
 
 							const argsHash = await sha256Hex(rawArgs);
 							const resultHash = await sha256Hex(rawResult);
 
-							const redactedArgs = await runRedaction(rawArgs, {
-								projectId: span.projectId,
-								actionId,
-								traceId: span.traceId,
-								spanId: span.spanId,
-								kind: "tool_call",
-								fieldName: "args",
-							});
-							const redactedResult = await runRedaction(rawResult, {
-								projectId: span.projectId,
-								actionId,
-								traceId: span.traceId,
-								spanId: span.spanId,
-								kind: "tool_call",
-								fieldName: "result",
-							});
+							const redactedArgs = capturePayloads
+								? await runRedaction(rawArgs, {
+										projectId: span.projectId,
+										actionId,
+										traceId: span.traceId,
+										spanId: span.spanId,
+										kind: "tool_call",
+										fieldName: "args",
+									})
+								: null;
+							const redactedResult = capturePayloads
+								? await runRedaction(rawResult, {
+										projectId: span.projectId,
+										actionId,
+										traceId: span.traceId,
+										spanId: span.spanId,
+										kind: "tool_call",
+										fieldName: "result",
+									})
+								: null;
 
 							const toolCallRecord = {
 								id: span.spanId,
@@ -411,13 +464,17 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										"obs.tool_call.approval_state",
 									) ?? "suggested",
 								argsRedacted:
-									typeof redactedArgs === "string"
-										? redactedArgs
-										: JSON.stringify(redactedArgs),
+									redactedArgs === null
+										? null
+										: typeof redactedArgs === "string"
+											? redactedArgs
+											: JSON.stringify(redactedArgs),
 								resultRedacted:
-									typeof redactedResult === "string"
-										? redactedResult
-										: JSON.stringify(redactedResult),
+									redactedResult === null
+										? null
+										: typeof redactedResult === "string"
+											? redactedResult
+											: JSON.stringify(redactedResult),
 							};
 
 							for (const plugin of enricherPlugins) {
@@ -448,30 +505,24 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						if (isRetrieval) {
 							const rawQuery =
 								firstStringAttr(attrs, RETRIEVAL_QUERY_KEY) ??
-								(attrs["ai.payload.input"] as string) ??
+								(attrs[AI_PAYLOAD_INPUT_KEY] as string) ??
 								"";
 							const rawDocs =
 								firstStringAttr(attrs, RETRIEVAL_DOCUMENTS_KEY) ??
-								(attrs["ai.payload.output"] as string) ??
+								(attrs[AI_PAYLOAD_OUTPUT_KEY] as string) ??
 								"[]";
 
 							const queryHash = await sha256Hex(rawQuery);
-							const _redactedQuery = await runRedaction(rawQuery, {
-								projectId: span.projectId,
-								actionId,
-								traceId: span.traceId,
-								spanId: span.spanId,
-								kind: "retrieval",
-								fieldName: "query",
-							});
-							const redactedDocs = await runRedaction(rawDocs, {
-								projectId: span.projectId,
-								actionId,
-								traceId: span.traceId,
-								spanId: span.spanId,
-								kind: "retrieval",
-								fieldName: "documents",
-							});
+							const redactedDocs = capturePayloads
+								? await runRedaction(rawDocs, {
+										projectId: span.projectId,
+										actionId,
+										traceId: span.traceId,
+										spanId: span.spanId,
+										kind: "retrieval",
+										fieldName: "documents",
+									})
+								: null;
 
 							const retrievalRecord = {
 								id: span.spanId,
@@ -481,9 +532,11 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 									firstStringAttr(attrs, RETRIEVAL_NAME_KEY) ?? span.spanName,
 								queryHash,
 								documentsJson:
-									typeof redactedDocs === "string"
-										? redactedDocs
-										: JSON.stringify(redactedDocs),
+									redactedDocs === null
+										? null
+										: typeof redactedDocs === "string"
+											? redactedDocs
+											: JSON.stringify(redactedDocs),
 								totalResults:
 									firstNumberAttr(attrs, RETRIEVAL_TOTAL_RESULTS_KEY) ?? 0,
 								maxRelevanceScore: firstNumberAttr(
@@ -560,14 +613,16 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						if (hasArtifact) {
 							const content =
 								firstStringAttr(attrs, ARTIFACT_CONTENT_KEY) ?? "";
-							const redactedContent = await runRedaction(content, {
-								projectId: span.projectId,
-								actionId,
-								traceId: span.traceId,
-								spanId: span.spanId,
-								kind: "artifact",
-								fieldName: "content",
-							});
+							const redactedContent = capturePayloads
+								? await runRedaction(content, {
+										projectId: span.projectId,
+										actionId,
+										traceId: span.traceId,
+										spanId: span.spanId,
+										kind: "artifact",
+										fieldName: "content",
+									})
+								: null;
 
 							const artifactRecord = {
 								id: span.spanId,
@@ -583,9 +638,11 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 									firstStringAttr(attrs, ARTIFACT_SHA256_HASH_KEY) ??
 									(await sha256Hex(content)),
 								contentPreview:
-									typeof redactedContent === "string"
-										? redactedContent
-										: JSON.stringify(redactedContent),
+									redactedContent === null
+										? null
+										: typeof redactedContent === "string"
+											? redactedContent
+											: JSON.stringify(redactedContent),
 							};
 
 							for (const plugin of enricherPlugins) {

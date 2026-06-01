@@ -30,6 +30,10 @@ export const NAV_GROUPS: NavGroup[] = [
 			{ key: "alerts", label: "Alerts", short: "AL" },
 			{ key: "usage", label: "Usage", short: "US" },
 			{ key: "resources", label: "Resources", short: "RS" },
+			{ key: "tool-reliability", label: "Tool Reliability", short: "TR" },
+			{ key: "cost-attribution", label: "Cost Attribution", short: "CA" },
+			{ key: "autonomous-review", label: "Autonomous Review", short: "AR" },
+			{ key: "agent-version-diff", label: "Version Diff", short: "VD" },
 		],
 	},
 ];

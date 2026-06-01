@@ -9,8 +9,11 @@ import {
 import {
 	ActionDashboard,
 	AgentRunDashboard,
+	AgentVersionDiffDashboard,
 	AIDashboard,
 	AlertsDashboard,
+	AutonomousReviewDashboard,
+	CostAttributionDashboard,
 	HealthDashboard,
 	InvestigationPage,
 	InvestigationsDashboard,
@@ -22,6 +25,7 @@ import {
 	TelemetryDashboard,
 	TimelineDashboard,
 	ToolCallDashboard,
+	ToolReliabilityDashboard,
 	UsageDashboard,
 	UserDashboard,
 } from "./app/dashboard-modules";
@@ -297,6 +301,14 @@ export function App() {
 									location.hash = href.startsWith("#") ? href.slice(1) : href;
 								}}
 							/>
+						)}
+						{route.tab === "tool-reliability" && <ToolReliabilityDashboard />}
+						{route.tab === "cost-attribution" && <CostAttributionDashboard />}
+						{route.tab === "autonomous-review" && (
+							<AutonomousReviewDashboard onNavigate={navigate} />
+						)}
+						{route.tab === "agent-version-diff" && (
+							<AgentVersionDiffDashboard />
 						)}
 						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}
 					</Suspense>

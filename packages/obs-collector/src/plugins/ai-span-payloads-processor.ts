@@ -23,7 +23,9 @@ import {
 	USER_ID_KEY,
 } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { sha256Hex } from "../lib/hash";
 import { parseJsonRecord } from "../lib/json";
+import { isPayloadCaptureEnabled } from "../lib/payload-capture";
 import { sqlDbFor } from "../lib/sql-db";
 
 interface PayloadRow {
@@ -33,6 +35,8 @@ interface PayloadRow {
 	spanKind: string;
 	inputJson: string | null;
 	outputJson: string | null;
+	inputHash: string | null;
+	outputHash: string | null;
 	sessionId: string | null;
 	userId: string | null;
 	interactionId: string | null;
@@ -60,58 +64,79 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 		runtime.addSpanProcessor({
 			name: "ai-span-payloads-processor",
 			async process(spans, context) {
+				const db = sqlDbFor(context.env);
 				const rows: PayloadRow[] = [];
+				const captureByProject = new Map<string, boolean>();
+				const projectCaptureEnabled = async (projectId: string) => {
+					const cached = captureByProject.get(projectId);
+					if (cached !== undefined) return cached;
+					const enabled = await isPayloadCaptureEnabled(
+						db,
+						projectId,
+						context.env,
+					);
+					captureByProject.set(projectId, enabled);
+					return enabled;
+				};
 
-				const transformed = spans.map((span): StoredSpan => {
-					const attrs = parseJsonRecord(span.attributesJson);
-					const kind = attrs[OPENINFERENCE_SPAN_KIND_KEY];
-					if (!isOpenInferenceSpanKind(kind)) return span;
+				const transformed = await Promise.all(
+					spans.map(async (span): Promise<StoredSpan> => {
+						const attrs = parseJsonRecord(span.attributesJson);
+						const kind = attrs[OPENINFERENCE_SPAN_KIND_KEY];
+						if (!isOpenInferenceSpanKind(kind)) return span;
 
-					const rawInput = attrs[AI_PAYLOAD_INPUT_KEY];
-					const rawOutput = attrs[AI_PAYLOAD_OUTPUT_KEY];
-					const hasInput = rawInput !== undefined;
-					const hasOutput = rawOutput !== undefined;
+						const rawInput = attrs[AI_PAYLOAD_INPUT_KEY];
+						const rawOutput = attrs[AI_PAYLOAD_OUTPUT_KEY];
+						const hasInput = rawInput !== undefined;
+						const hasOutput = rawOutput !== undefined;
+						const inputJson = hasInput ? toJsonString(rawInput) : null;
+						const outputJson = hasOutput ? toJsonString(rawOutput) : null;
+						const capturePayloads = await projectCaptureEnabled(span.projectId);
 
-					// Always record the row for OpenInference spans so callers can
-					// join on (trace_id, span_id) even when payloads are absent.
-					rows.push({
-						projectId: span.projectId,
-						traceId: span.traceId,
-						spanId: span.spanId,
-						spanKind: kind,
-						inputJson: hasInput ? toJsonString(rawInput) : null,
-						outputJson: hasOutput ? toJsonString(rawOutput) : null,
-						sessionId: asString(attrs[SESSION_ID_KEY]),
-						userId: asString(attrs[USER_ID_KEY]),
-						interactionId: asString(attrs[INTERACTION_ID_KEY]),
-						actionId: asString(attrs[ACTION_ID_KEY]),
-						receivedAt: span.receivedAt,
-						expiresAt: span.expiresAt,
-					});
+						// Always record the row for OpenInference spans so callers can
+						// join on (trace_id, span_id) even when payloads are absent.
+						rows.push({
+							projectId: span.projectId,
+							traceId: span.traceId,
+							spanId: span.spanId,
+							spanKind: kind,
+							inputJson: capturePayloads ? inputJson : null,
+							outputJson: capturePayloads ? outputJson : null,
+							inputHash: inputJson ? await sha256Hex(inputJson) : null,
+							outputHash: outputJson ? await sha256Hex(outputJson) : null,
+							sessionId: asString(attrs[SESSION_ID_KEY]),
+							userId: asString(attrs[USER_ID_KEY]),
+							interactionId: asString(attrs[INTERACTION_ID_KEY]),
+							actionId: asString(attrs[ACTION_ID_KEY]),
+							receivedAt: span.receivedAt,
+							expiresAt: span.expiresAt,
+						});
 
-					if (!hasInput && !hasOutput) return span;
+						if (!hasInput && !hasOutput) return span;
 
-					// Strip payload attrs — they live in ai_span_payloads now.
-					const stripped = { ...attrs };
-					delete stripped[AI_PAYLOAD_INPUT_KEY];
-					delete stripped[AI_PAYLOAD_OUTPUT_KEY];
-					return { ...span, attributesJson: JSON.stringify(stripped) };
-				});
+						// Strip payload attrs — they live in ai_span_payloads now.
+						const stripped = { ...attrs };
+						delete stripped[AI_PAYLOAD_INPUT_KEY];
+						delete stripped[AI_PAYLOAD_OUTPUT_KEY];
+						return { ...span, attributesJson: JSON.stringify(stripped) };
+					}),
+				);
 
 				if (rows.length > 0) {
 					try {
-						const db = sqlDbFor(context.env);
 						const stmt = db.prepare(
 							`INSERT INTO ai_span_payloads (
 								project_id, trace_id, span_id, span_kind,
-								input_json, output_json, session_id, user_id,
+								input_json, output_json, input_hash, output_hash, session_id, user_id,
 								received_at, expires_at, interaction_id, action_id
-							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 							ON CONFLICT(trace_id, span_id) DO UPDATE SET
 								project_id = excluded.project_id,
 								span_kind = excluded.span_kind,
 								input_json = excluded.input_json,
 								output_json = excluded.output_json,
+								input_hash = excluded.input_hash,
+								output_hash = excluded.output_hash,
 								session_id = excluded.session_id,
 								user_id = excluded.user_id,
 								received_at = excluded.received_at,
@@ -128,6 +153,8 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 									r.spanKind,
 									r.inputJson,
 									r.outputJson,
+									r.inputHash,
+									r.outputHash,
 									r.sessionId,
 									r.userId,
 									r.receivedAt,
