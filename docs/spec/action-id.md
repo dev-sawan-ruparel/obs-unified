@@ -1,6 +1,6 @@
 # `action_id` Graph Wire Spec
 
-Status: proposed / draft (Phase 0.1)  
+Status: implemented  
 Owner: obs-unified core  
 Depends on: [`docs/spec/interaction-id.md`](interaction-id.md)  
 Parent RFC: [RFC 0010 — Agent Action Graph](../../rfcs/0010-agent-action-graph.md)
@@ -129,11 +129,16 @@ Agent telemetry commonly handles raw prompts, tool arguments, retrieved context 
 ### Confidence Levels
 Not all action graph links are equal. Dashboards and replays MUST visually distinguish between the two confidence grades:
 1. **High Confidence (`explicit`)**: Native SDK or framework-wrapped calls where `action_id` and `root_action_id` were explicitly minted, passed across headers, and logged.
-2. **Fallback Confidence (`derived`)**: Derived by the collector from generic OpenTelemetry GenAI or OpenInference spans. When explicit action attributes are absent, the collector calculates a deterministic fallback ID:
+2. **Fallback Confidence (`fallback`)**: Derived by the collector from generic OpenTelemetry GenAI or OpenInference spans. When explicit action attributes are absent or malformed, the collector calculates a deterministic fallback ID:
    ```ts
    action_id = sha256(project_id + trace_id + span_id).toCrockfordBase32().substring(0, 26)
    ```
    Derived records are helpful for graph navigation but carry an attribute `obs.action.confidence = "fallback"`.
+
+SDKs and collector normalizers MUST validate explicit action IDs against the RFC
+0010 regex before restoring or persisting them as trusted identity. Malformed
+explicit IDs are rejected at SDK boundaries and treated as absent by collector
+fallback normalization.
 
 ---
 

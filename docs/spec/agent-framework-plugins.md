@@ -3,7 +3,7 @@
 RFC 0010 framework wrappers are optional adapters over the native
 `@obs-unified/telemetry-sdk/agent` primitives. The core Agent Action Graph
 contract stays stable; wrappers translate framework-specific callbacks into
-`agent.run`, `agent.step`, `llm`, `tool.call`, retrieval, and evaluation
+`agent.run`, `agent.step`, `llm.call`, `tool.call`, retrieval, and evaluation
 actions.
 
 ## Package Shape
@@ -76,6 +76,7 @@ Every wrapper must preserve:
 - `root_action_id` for the whole run.
 - `action_id` for the current framework event.
 - `caused_by_action_id` from framework parent/edge information when available.
+- `interaction_id` when a browser interaction triggered the agent run.
 - `agent_run_id`, agent name, version, autonomy level, and actor id when known.
 - W3C trace context across async boundaries.
 

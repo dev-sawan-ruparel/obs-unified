@@ -141,7 +141,15 @@ await startAgentRun(
 
 The SDK automatically creates action IDs, stores the active context in async
 local storage, and sets `caused_by_action_id` for nested steps, LLM calls, tool
-calls, retrievals, evals, and artifacts.
+calls, retrievals, evals, and artifacts. If the active request came from a
+browser interaction, `startAgentRun` mints a new agent `root_action_id` and
+points `caused_by_action_id` back to the triggering browser action while
+carrying the original `interaction_id` forward. This keeps the agent workflow as
+its own root graph without losing the click, replay, user, or session join.
+
+Explicit contexts restored with `withAction` must use RFC 0010 action IDs. The
+SDK rejects malformed `actionId`, `rootActionId`, `causedByActionId`, and
+`agentRunId` values instead of letting invalid graph keys propagate.
 
 ### 2. Vercel AI SDK Wrapper
 
@@ -184,6 +192,7 @@ await withVercelAIRun(
 
 The wrapper maps generation and streaming lifecycle events to agent steps, LLM
 actions, token counts, tool calls, side-effect flags, and approval metadata.
+LLM actions emit the canonical action kind `llm.call`.
 
 ### 3. LangGraph Wrapper
 
@@ -226,6 +235,11 @@ When explicit action IDs are present, the graph is high confidence. When they
 are absent, the collector derives deterministic fallback IDs from trace/span
 identity so the dashboard can still render useful navigation.
 
+Malformed explicit action IDs are treated as absent at collector ingress. The
+normalizer replaces them with deterministic fallback IDs and marks the action
+confidence as `fallback`, preserving graph navigability without trusting invalid
+identity data.
+
 ## MCP Propagation
 
 MCP calls do not always have per-request HTTP headers, so obs-unified propagates
@@ -234,12 +248,17 @@ trace and action context through JSON-RPC `params._meta`.
 Client helpers in `@obs-unified/telemetry-sdk/mcp` inject:
 
 - `traceparent`
+- optional `tracestate`
+- `baggage`, including `obs.interaction.id` when an active browser-triggered
+  action context exists
 - `obs.action.root_id`
 - `obs.action.id`
 - nested `obs.root_action_id` and `obs.action_id` compatibility keys
 
 Server helpers extract those fields and restore action context before the MCP
-server performs nested tool, database, HTTP, or model work.
+server performs nested tool, database, HTTP, or model work. Extracted action IDs
+are validated against the RFC 0010 Crockford base32 format; malformed IDs are
+ignored rather than restored into async-local action context.
 
 ```ts
 import {
@@ -248,12 +267,14 @@ import {
 } from "@obs-unified/telemetry-sdk/mcp";
 import { withAction } from "@obs-unified/telemetry-sdk/agent";
 
-injectMcpContext(params);
+injectMcpContext(params, { tracestate: "obs=high" });
 
 const context = extractMcpContext(params);
-await withAction(context?.actionContext ?? {}, async () => {
-  await callTool();
-});
+if (context?.actionContext) {
+  await withAction(context.actionContext, async () => {
+    await callTool();
+  });
+}
 ```
 
 ## Dashboard Surfaces

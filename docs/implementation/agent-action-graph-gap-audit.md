@@ -28,6 +28,10 @@ The following gaps were successfully closed and verified in the codebase:
 * **Audit Finding:** MCP helpers lacked flat action context keys, `tracestate`, `baggage`, and notification support.
 * **Resolution:** The MCP client-side and server-side utilities in [mcp.ts](../../packages/telemetry-sdk/src/mcp.ts) successfully inject and extract W3C `traceparent` headers, flat action context keys (`obs.action.id`, `obs.action.root_id`), and cleanly propagate `tracestate` and `baggage` across boundaries, backed by thorough unit tests in [mcp.test.ts](../../packages/telemetry-sdk/src/mcp.test.ts).
 
+### P1 — Action ID Spec Alignment
+* **Audit Finding:** Browser-triggered `startAgentRun` calls inherited the browser root action instead of minting a new agent run root; agent child spans could lose `interaction_id`; native LLM spans emitted `llm` instead of canonical `llm.call`; MCP extraction and collector ingress trusted malformed explicit action IDs.
+* **Resolution:** Fully resolved in [agent.ts](../../packages/telemetry-sdk/src/agent.ts), [span.ts](../../packages/telemetry-sdk/src/span.ts), [mcp.ts](../../packages/telemetry-sdk/src/mcp.ts), and [gen-ai-normalizer.ts](../../packages/obs-collector/src/plugins/gen-ai-normalizer.ts). Browser-triggered agents now create a fresh `root_action_id`, point `caused_by_action_id` at the triggering browser action, and carry `interaction_id` through child spans and serialized context. SDK LLM spans emit `llm.call`. MCP extraction validates action IDs before restoration, and collector fallback normalization replaces malformed explicit IDs with deterministic fallback IDs.
+
 ---
 
 ## Active Status & Roadmap
