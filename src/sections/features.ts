@@ -72,7 +72,7 @@ export function renderFeatures(): string {
       <p class="eyebrow">One collector · one identity chain · dashboard + MCP</p>
       <h2 id="features-title">Unified observability means every signal knows its neighbors.</h2>
       <p class="section-lead">
-        obs-unified replaces the patchwork of APM + logging + product analytics + session replay
+        Observability Unified replaces the patchwork of APM + logging + product analytics + session replay
         + LLM observability + alerting with one unified stack, correlated through a single
         identity chain and explorable through the dashboard, action graph, or
         MCP tools.

@@ -210,7 +210,7 @@ export function renderCompare(): string {
       <h2 id="compare-title">One stack instead of three (or nine)</h2>
       <p class="section-lead">
         Most teams glue an APM, a product-analytics tool, an error/session tool, and now an LLM-observability tool together.
-        obs-unified unifies those workflows under one identity chain and one dashboard, so humans and agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile while keeping the data plane in your infrastructure.
+        Observability Unified brings those workflows under one identity chain and one dashboard, so humans and agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile while keeping the data plane in your infrastructure.
       </p>
     </header>
     <div class="cmp-scroll" role="region" aria-label="Comparison table" tabindex="0">
@@ -218,7 +218,7 @@ export function renderCompare(): string {
         <thead>
           <tr>
             <th scope="col" class="cmp-corner">Capability</th>
-            <th scope="col" class="cmp-head cmp-head-us">obs-unified</th>
+            <th scope="col" class="cmp-head cmp-head-us">Observability Unified</th>
             <th scope="col" class="cmp-head">Datadog</th>
             <th scope="col" class="cmp-head">Sentry</th>
             <th scope="col" class="cmp-head">PostHog</th>

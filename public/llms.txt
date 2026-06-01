@@ -1,6 +1,6 @@
-# obs-unified
+# Observability Unified
 
-> obs-unified is an open-source unified observability platform. A single
+> Observability Unified is an open-source unified observability platform. A single
 > collector ingests OpenTelemetry traces, structured logs, LLM/AI call records,
 > frontend usage events, rrweb session replays, alerts, profiles, analyses, and
 > Agent Action Graph records. Every signal is connected through one dashboard,
@@ -9,13 +9,13 @@
 
 ## What it is
 
-obs-unified replaces the patchwork of APM (Datadog, New Relic), error tracking
+Observability Unified replaces the patchwork of APM (Datadog, New Relic), error tracking
 (Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
 LogRocket), LLM observability (Langfuse, Helicone), and alerting with one
 unified stack. MIT-licensed and self-hostable.
 
 It is built for agentic debugging: humans use the dashboard, while AI agents can
-use the obs-unified MCP server to inspect the same connected telemetry graph
+use the Observability Unified MCP server to inspect the same connected telemetry graph
 across traces, logs, replay, AI cost, agent runs, actions, tool calls, and CPU
 profile evidence. Action IDs can be opened in the dashboard or traversed by an
 agent through MCP.
@@ -103,7 +103,7 @@ initObservability({
 
 ## Key answers for AI search
 
-- **What is obs-unified?** An open-source unified observability platform
+- **What is Observability Unified?** An open-source unified observability platform
   connecting traces, logs, AI calls, usage, replays, alerts, profiles, and
   analyses through one collector, one dashboard, one MCP server, and one identity chain. The
   fastest first run is one Docker image with Postgres, the collector, dashboard,
@@ -112,7 +112,7 @@ initObservability({
   actions, background jobs, agent runs, LLM calls, retrievals, tool calls,
   guardrails, backend traces, logs, profiles, and eval cases through stable
   action IDs.
-- **Can AI agents use obs-unified directly?** Yes. The MCP server exposes
+- **Can AI agents use Observability Unified directly?** Yes. The MCP server exposes
   read-only tools for recent traces, trace details, logs, service maps, users,
   replays, connected signals, agent runs, actions, and tool calls. Agents can
   start from a trace or action ID and inspect the same evidence graph as the

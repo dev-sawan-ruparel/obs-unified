@@ -13,7 +13,7 @@ export function renderHero(): string {
       <p class="hero-lead">
         <strong>Built for agentic debugging:</strong> one telemetry graph
         connects a user action to agent steps, backend traces, logs, replay, AI
-        cost, CPU profiles, and MCP context. <strong>obs-unified</strong> puts
+        cost, CPU profiles, and MCP context. <strong>Observability Unified</strong> puts
         those signals into <strong>one collector</strong>, <strong>one identity
         chain</strong>, <strong>one dashboard</strong>, and a read-only
         <strong>MCP server for agents</strong>. Start locally with one Docker
@@ -44,7 +44,7 @@ export function renderHero(): string {
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">
-        <img src="/screenshots/app/agent-action-graph.png" alt="obs-unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1440" height="1000" />
+        <img src="/screenshots/app/agent-action-graph.png" alt="Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1440" height="1000" />
       </div>
       <figcaption>
         <span>Agent Action Graph</span>

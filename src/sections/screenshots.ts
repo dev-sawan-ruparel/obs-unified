@@ -38,17 +38,17 @@ export function renderScreenshots() {
         <div class="section-header">
           <p class="eyebrow">Product proof</p>
           <h2>The same demo, seen through every signal.</h2>
-          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through obs-unified, including the Agent Action Graph, interaction ID path, connected trace evidence, AI cost, and profile join point.</p>
+          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through Observability Unified, including the Agent Action Graph, interaction ID path, connected trace evidence, AI cost, and profile join point.</p>
         </div>
 
         <div class="screenshot-showcase">
-          <div class="screenshot-grid" aria-label="Additional obs-unified product screenshots">
+          <div class="screenshot-grid" aria-label="Additional Observability Unified product screenshots">
             ${screenshots
               .map(
                 (shot) => `
                   <figure class="screenshot-card">
                     <div class="screenshot-frame">
-                      <img src="${shot.src}" alt="${shot.title} in the obs-unified dashboard" loading="lazy" width="1440" height="1000" />
+                      <img src="${shot.src}" alt="${shot.title} in the Observability Unified dashboard" loading="lazy" width="1440" height="1000" />
                     </div>
                     <figcaption>
                       <span>${shot.title}</span>

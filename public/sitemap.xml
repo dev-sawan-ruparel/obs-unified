@@ -10,19 +10,19 @@
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/agent-action-graph.png</image:loc>
-      <image:caption>obs-unified agent action graph for agentic debugging</image:caption>
+      <image:caption>Observability Unified agent action graph for agentic debugging</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/service-map-astronomy.png</image:loc>
-      <image:caption>OpenTelemetry Astronomy Shop service map in obs-unified</image:caption>
+      <image:caption>OpenTelemetry Astronomy Shop service map in Observability Unified</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/ai-cost-spans.png</image:loc>
-      <image:caption>AI cost and LLM spans in obs-unified</image:caption>
+      <image:caption>AI cost and LLM spans in Observability Unified</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/og.jpg</image:loc>
-      <image:caption>obs-unified telemetry graph for agentic debugging</image:caption>
+      <image:caption>Observability Unified telemetry graph for agentic debugging</image:caption>
     </image:image>
   </url>
   <url>

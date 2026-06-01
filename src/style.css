@@ -169,7 +169,7 @@ code {
 .brand-name {
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -190,6 +190,10 @@ code {
   .site-nav a:not(.btn) { display: none; }
   .site-nav { gap: 6px; }
   .site-nav .btn-ghost { padding: 7px 8px; }
+  .brand-name {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
 }
 
 /* Hero */
@@ -230,6 +234,7 @@ code {
   line-height: 1.65;
   max-width: 56ch;
   margin-bottom: 28px;
+  overflow-wrap: anywhere;
 }
 .hero-lead strong { color: var(--color-sys-on-surface); font-weight: 600; }
 .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -320,6 +325,9 @@ code {
   background: transparent;
   padding: 0;
   color: var(--color-sys-on-surface-muted);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /* Section header */

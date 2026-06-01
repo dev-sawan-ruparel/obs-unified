@@ -6,13 +6,13 @@ export function renderArchitecture(): string {
       <p class="eyebrow">Architecture</p>
       <h2 id="arch-title">One collector. Your telemetry graph.</h2>
       <p class="section-lead">
-        Instrumented services write telemetry into obs-unified. Humans and agents
+        Instrumented services write telemetry into Observability Unified. Humans and agents
         read the same connected graph through dashboard APIs and MCP tools, while
         ingest credentials stay separate from investigation access.
       </p>
     </header>
 
-    <figure class="arch-map" aria-label="obs-unified product architecture map">
+    <figure class="arch-map" aria-label="Observability Unified product architecture map">
       <div class="arch-side arch-side-left">
         <div class="arch-side-label">Instrumented systems</div>
         <div class="arch-mini-node">
@@ -41,7 +41,7 @@ export function renderArchitecture(): string {
         </div>
 
         <div class="arch-core">
-          <div class="arch-core-label">obs-unified</div>
+          <div class="arch-core-label">Observability Unified</div>
           <div class="arch-core-step">
             <span>Collector</span>
             <p>Normalizes every signal into one identity chain.</p>

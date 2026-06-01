@@ -2,16 +2,16 @@ export type QA = { q: string; a: string };
 
 export const FAQS: QA[] = [
   {
-    q: "What is obs-unified?",
-    a: "obs-unified is an open-source observability platform for agentic debugging. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard and MCP server connect those signals through one identity chain, from user action to backend trace, logs, replay, AI cost, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+    q: "What is Observability Unified?",
+    a: "Observability Unified is an open-source observability platform for agentic debugging. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard and MCP server connect those signals through one identity chain, from user action to backend trace, logs, replay, AI cost, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
   },
   {
     q: "What is the Agent Action Graph?",
     a: "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP.",
   },
   {
-    q: "Can AI agents inspect obs-unified through MCP?",
-    a: "Yes. The obs-unified MCP server exposes read-only tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can start from a failing trace or action ID and gather evidence without needing write access to telemetry ingest.",
+    q: "Can AI agents inspect Observability Unified through MCP?",
+    a: "Yes. The Observability Unified MCP server exposes read-only tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can start from a failing trace or action ID and gather evidence without needing write access to telemetry ingest.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",
@@ -43,6 +43,6 @@ export const FAQS: QA[] = [
   },
   {
     q: "Is it free and open source?",
-    a: "Yes. obs-unified is MIT-licensed. You pay only for the infrastructure you run it on. For production, choose either Cloudflare Workers with D1/R2, or the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage.",
+    a: "Yes. Observability Unified is MIT-licensed. You pay only for the infrastructure you run it on. For production, choose either Cloudflare Workers with D1/R2, or the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage.",
   },
 ];
