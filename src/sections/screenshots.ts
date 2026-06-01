@@ -2,7 +2,7 @@ const screenshots = [
   {
     src: "/screenshots/app/agent-action-graph.png",
     title: "Agent Action Graph",
-    body: "One action page shows the agent run, plan, tool calls, evals, trace ID, and interaction ID together.",
+    body: "The agent run, plan, tool calls, evals, trace ID, and interaction ID are visible in one causal view.",
   },
   {
     src: "/screenshots/app/interaction-id-path.png",

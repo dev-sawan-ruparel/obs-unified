@@ -47,7 +47,7 @@ export function renderHero(): string {
       </div>
       <figcaption>
         <span>Agent Action Graph</span>
-        <p>A direct action page ties the user action to agent steps, tool calls, backend traces, logs, replay, AI cost, MCP context, and profile evidence.</p>
+        <p>See what the agent did, what each step caused, and which traces, logs, replay, AI cost, MCP context, and profiles explain the result.</p>
       </figcaption>
     </figure>
   </div>
