@@ -5,8 +5,26 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: [self-hosted, obs-unified]
+    outputs:
+      go-sdk: ${{ steps.filter.outputs.go-sdk }}
+      rust-sdk: ${{ steps.filter.outputs.rust-sdk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go-sdk:
+              - 'sdks/go/**'
+            rust-sdk:
+              - 'sdks/rust/**'
+
   ts-check:
     name: TS — type-check + tests + build
     runs-on: [self-hosted, obs-unified]
@@ -18,9 +36,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r --sort run build
-      - run: pnpm -r run type-check
-      - run: pnpm -r run test
+      - name: PR TypeScript smoke
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm -r --sort --filter @obs-unified/dashboard... --filter @obs-unified/collector... run build
+          pnpm --filter @obs-unified/dashboard run type-check
+          pnpm --filter @obs-unified/collector run type-check
+      - name: Full TypeScript validation
+        if: github.event_name != 'pull_request'
+        run: |
+          pnpm -r --sort run build
+          pnpm -r run type-check
+          pnpm -r run test
 
   lint:
     name: Lint
@@ -38,6 +65,8 @@ jobs:
   go-sdk:
     name: Go SDK
     runs-on: [self-hosted, obs-unified]
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.go-sdk == 'true'
     defaults:
       run:
         working-directory: sdks/go
@@ -54,6 +83,8 @@ jobs:
   rust-sdk:
     name: Rust SDK
     runs-on: [self-hosted, obs-unified]
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rust-sdk == 'true'
     defaults:
       run:
         working-directory: sdks/rust
