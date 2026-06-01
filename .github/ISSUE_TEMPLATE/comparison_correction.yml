@@ -1,0 +1,73 @@
+name: Comparison correction
+description: Report a stale, wrong, or misleading cell in the vendor comparison (obsunified.com#compare / docs comparison page).
+labels: ["comparison", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the comparison honest. We compare obs-unified against other tools and we'd rather be corrected than wrong — **vendor employees and readers are both welcome.** Every accepted correction is logged in the [Corrections table](https://obsunified.com/docs/comparison#corrections).
+
+        We aim to respond within five working days.
+
+  - type: input
+    id: cell
+    attributes:
+      label: Which cell?
+      description: Vendor + capability axis, e.g. "Grafana · session replay" or the `src-*` anchor id (e.g. `src-gr-replay`).
+      placeholder: "Grafana · session replay (src-gr-replay)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: What does the comparison currently say?
+      description: Quote the current cell value / claim as it appears today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct
+    attributes:
+      label: What should it say, and why?
+      description: The corrected claim. If it's a "vendor now ships X" or a pricing/naming change, say what changed and (if you know) roughly when.
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Source URL
+      description: A link to the vendor's own page (docs/pricing/changelog) that supports the correction. We anchor every claim to a first-party source.
+      placeholder: "https://grafana.com/docs/..."
+    validations:
+      required: true
+
+  - type: input
+    id: quote
+    attributes:
+      label: Supporting quote (optional)
+      description: A verbatim phrase from that page that backs the corrected claim.
+
+  - type: dropdown
+    id: relationship
+    attributes:
+      label: Your relationship to the product (optional)
+      description: Purely for context — it does not change how we evaluate the correction.
+      options:
+        - I work on / for the vendor
+        - I'm a user of the vendor
+        - I'm an obs-unified user
+        - Other / none of the above
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: The source I linked is the vendor's own domain (not a third-party blog or review site).
+          required: true
+        - label: I checked the [comparison page](https://obsunified.com/docs/comparison) and this isn't already corrected.
+          required: true
