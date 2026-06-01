@@ -198,7 +198,17 @@ without searching separate trace, AI, log, and replay pages.
 
 ## Phase 6 — Operational views
 
-Add aggregate views after the run-level experience proves the graph.
+Add aggregate views after the run-level experience proves the graph. All four operational views are fully implemented end-to-end, integrated with backend aggregate REST APIs, visual dashboard shells, and verified in Playwright E2E suites.
+
+- **Collector Aggregate Routes:** [/internal/actions/aggregates/* in packages/obs-collector/src/plugins/action-routes.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/action-routes.ts)
+- **Dashboard Views:**
+  - [ToolReliabilityDashboard.tsx](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/ToolReliabilityDashboard.tsx)
+  - [CostAttributionDashboard.tsx](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/CostAttributionDashboard.tsx)
+  - [AgentVersionDiffDashboard.tsx](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/AgentVersionDiffDashboard.tsx)
+  - [AutonomousReviewDashboard.tsx](file:///Users/sawan/projects/obs-unified/obs-unified/packages/dashboard/src/dashboards/AutonomousReviewDashboard.tsx)
+- **Automated Tests:**
+  - Route tests: [action-routes.test.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/action-routes.test.ts)
+  - Playwright E2E tests: [dashboards.spec.ts](file:///Users/sawan/projects/obs-unified/obs-unified/apps/web/tests/dashboards.spec.ts)
 
 - [x] **6.1** Tool reliability dashboard: call count, p50 / p95 latency, error
       rate, timeout rate, retry count, malformed argument count, side-effect
@@ -222,8 +232,7 @@ this a one-off, a bad tool, a bad prompt version, or a bad agent version?"
 
 Close the improvement loop.
 
-- [x] **7.1** Add eval case storage with links back to source production
-      entities.
+- [x] **7.1** Add eval case storage and backend REST APIs in [eval-cases-routes.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/obs-collector/src/plugins/eval-cases-routes.ts) (including `POST` / `GET` / `GET :id` REST endpoints).
 - [ ] **7.2** Add "save as eval case" from agent run, action, AI call, tool
       call, and failed trace surfaces.
 - [ ] **7.3** Include redacted prompt, retrieved document refs, tool outputs /
@@ -242,13 +251,7 @@ Reduce user instrumentation burden after the manual API is stable.
 - [ ] **8.1** OpenAI Agents SDK wrapper.
 - [ ] **8.2** LangGraph wrapper.
 - [ ] **8.3** Vercel AI SDK wrapper.
-- [x] **8.4** MCP client / server helpers. Client side: inject `traceparent`,
-      `tracestate`, `baggage`, `obs.action.id`, and `obs.action.root_id` into
-      MCP `params._meta` on outgoing requests and notifications. Server side:
-      extract those values on inbound MCP spans, set as parent action, and map
-      `tools/call`, `resources/read`, `prompts/get` to the corresponding action
-      kinds. Phase 4.2 covers the ingest-only path when neither helper is in
-      use; 8.4 closes the cross-process causality gap that ingest cannot.
+- [x] **8.4** MCP client / server helpers in [mcp.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/mcp.ts). Client side: inject W3C `traceparent`, `tracestate`, `baggage`, and flat action keys (`obs.action.id`, `obs.action.root_id`) into MCP `params._meta` on outgoing requests and notifications. Server side: extract all flat action keys, `traceparent`, `tracestate`, and `baggage` from `params._meta` on inbound MCP spans, set as parent action, and map `tools/call`, `resources/read`, `prompts/get` to the corresponding action kinds (verified in [mcp.test.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/mcp.test.ts)).
 - [ ] **8.5** Demand-driven follow-ups: LlamaIndex, Mastra, AutoGen.
 
 **Exit criteria:** at least two common agent stacks can emit high-quality action
