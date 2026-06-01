@@ -7,7 +7,7 @@ export function renderHero(): string {
     <div class="hero-copy">
       <p class="eyebrow">Open source · MIT licensed</p>
       <h1 id="hero-title" class="hero-title">
-        Unified observability<br/>
+        <span class="hero-title-line">Unified observability</span>
         <span class="accent">for every signal.</span>
       </h1>
       <p class="hero-lead">
@@ -40,24 +40,15 @@ export function renderHero(): string {
         and AI calls; CPU/off-CPU profiles join through the trace it caused.</span>
       </p>
     </div>
-    <aside class="hero-preview" aria-hidden="true">
-      <div class="window">
-        <div class="window-chrome">
-          <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
-          <span class="window-title">dashboard · trace · connected rail</span>
-        </div>
-        <div class="window-body">
-          <div class="signal-row"><span class="tag tag-int">INTERACTION</span> button.checkout.click <span class="muted">user_412</span></div>
-          <div class="signal-row indent"><span class="tag tag-trace">TRACE</span> POST /api/checkout <span class="muted">→ 187ms</span></div>
-          <div class="signal-row indent"><span class="tag tag-log">LOG</span> checkout.charge.created <span class="muted">amount=4900</span></div>
-          <div class="signal-row indent"><span class="tag tag-ai">AI</span> claude-sonnet-4 · 230ms · $0.0021</div>
-          <div class="signal-row indent"><span class="tag tag-replay">REPLAY</span> 00:42 → 00:51 <span class="muted">rrweb</span></div>
-          <div class="signal-row indent"><span class="tag tag-prof">CPU</span> pprof sample set <span class="muted">joined by trace</span></div>
-          <div class="signal-row indent"><span class="tag tag-alert">ALERT</span> p99 latency · threshold breach</div>
-        </div>
-        <div class="window-footnote">↑ one trace · six neighbors · all ≤1 click away</div>
+    <figure class="hero-product-shot">
+      <div class="hero-shot-frame">
+        <img src="/screenshots/app/agent-action-graph.png" alt="obs-unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1440" height="1000" />
       </div>
-    </aside>
+      <figcaption>
+        <span>Agent action graph</span>
+        <p>One interaction ID ties the user action to the backend trace, logs, replay, AI cost, and profile evidence an agent needs to inspect.</p>
+      </figcaption>
+    </figure>
   </div>
 </section>
 `;

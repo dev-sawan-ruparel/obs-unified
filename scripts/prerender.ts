@@ -5,7 +5,6 @@ import { dirname, resolve } from "node:path";
 import { renderHeader } from "../src/sections/header";
 import { renderHero } from "../src/sections/hero";
 import { renderScreenshots } from "../src/sections/screenshots";
-import { renderAnswers } from "../src/sections/answers";
 import { renderFeatures } from "../src/sections/features";
 import { renderPreview } from "../src/sections/preview";
 import { renderArchitecture } from "../src/sections/architecture";
@@ -22,7 +21,6 @@ const body = [
   `<main id="main">`,
   renderHero(),
   renderScreenshots(),
-  renderAnswers(),
   renderFeatures(),
   renderPreview(),
   renderArchitecture(),
