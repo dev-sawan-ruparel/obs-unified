@@ -16,7 +16,7 @@ export function Input({
 	return (
 		<input
 			{...rest}
-			className={`h-8 border-b-[2px] border-sys-outline bg-transparent px-2 text-[0.8125rem] text-sys-on-surface placeholder:text-sys-on-surface-subtle focus:border-sys-primary focus:outline-none transition-none ${className}`}
+			className={`h-8 border-b-[2px] border-sys-outline bg-transparent px-2 text-[0.8125rem] text-sys-on-surface placeholder:text-sys-on-surface-subtle focus:border-sys-primary focus:outline-none transition-none disabled:cursor-not-allowed disabled:bg-sys-surface-low/30 disabled:opacity-60 ${className}`}
 		/>
 	);
 }
@@ -36,7 +36,7 @@ export function TextField({
 			{...rest}
 			className={`bg-sys-bg px-2 py-1 text-[0.8125rem] text-sys-on-surface outline outline-1 outline-sys-outline focus:outline-sys-primary focus:outline-1 focus:outline-2 transition-none ${
 				mono ? "font-mono" : ""
-			} ${className}`}
+			} disabled:cursor-not-allowed disabled:bg-sys-surface-low/30 disabled:opacity-60 ${className}`}
 		/>
 	);
 }
@@ -56,7 +56,7 @@ export function Select({
 	return (
 		<select
 			{...rest}
-			className={`h-8 bg-transparent text-[0.8125rem] font-medium text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer ${className}`}
+			className={`h-8 bg-transparent text-[0.8125rem] font-medium text-sys-on-surface border-b-[2px] border-sys-outline focus:outline-none focus:border-sys-primary transition-none cursor-pointer disabled:cursor-not-allowed disabled:bg-sys-surface-low/30 disabled:opacity-60 ${className}`}
 		>
 			{options.map(([v, l]) => (
 				<option key={v} value={v}>
@@ -85,7 +85,7 @@ export function SelectField({
 			{...rest}
 			className={`bg-sys-bg px-2 py-1 text-[0.8125rem] text-sys-on-surface outline outline-1 outline-sys-outline focus:outline-sys-primary focus:outline-2 transition-none cursor-pointer ${
 				mono ? "font-mono" : ""
-			} ${className}`}
+			} disabled:cursor-not-allowed disabled:bg-sys-surface-low/30 disabled:opacity-60 ${className}`}
 		>
 			{options.map(([v, l]) => (
 				<option key={v} value={v}>

@@ -396,9 +396,9 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 										<span
 											className={`flex-none px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${
 												ev.severity === "error"
-													? "bg-sys-error text-white"
+													? "bg-sys-error text-sys-on-error"
 													: ev.severity === "warn"
-														? "bg-sys-warning text-white"
+														? "bg-sys-warning text-sys-on-warning"
 														: "bg-sys-surface-high text-sys-on-surface"
 											}`}
 										>
@@ -484,9 +484,9 @@ function EventDrawer({
 					<span
 						className={`flex-none px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${
 							event.severity === "error"
-								? "bg-sys-error text-white"
+								? "bg-sys-error text-sys-on-error"
 								: event.severity === "warn"
-									? "bg-sys-warning text-white"
+									? "bg-sys-warning text-sys-on-warning"
 									: "bg-sys-surface-low text-sys-on-surface"
 						}`}
 					>

@@ -1,5 +1,5 @@
 import type { JsonValue } from "@obs-unified/types";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useApi } from "../use-api";
 import { Button } from "./Button";
 import { Field, TextField } from "./forms";
@@ -63,6 +63,20 @@ export function SaveEvalCaseModal({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [createdId, setCreatedId] = useState<string | null>(null);
+	const dialogRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		const previousActive = document.activeElement;
+		dialogRef.current?.focus();
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape" && !loading) onClose();
+		};
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("keydown", onKeyDown);
+			if (previousActive instanceof HTMLElement) previousActive.focus();
+		};
+	}, [loading, onClose]);
 
 	const handleSave = useCallback(async () => {
 		setLoading(true);
@@ -136,9 +150,19 @@ export function SaveEvalCaseModal({
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-			<div className="bg-sys-bg border-[1px] border-sys-outline w-full max-w-[560px] max-h-[90vh] overflow-auto flex flex-col">
+			<div
+				ref={dialogRef}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="save-eval-case-title"
+				tabIndex={-1}
+				className="bg-sys-bg border-[1px] border-sys-outline w-full max-w-[560px] max-h-[90vh] overflow-auto flex flex-col"
+			>
 				<header className="flex items-center justify-between px-4 py-3 border-b-[1px] border-sys-outline bg-sys-surface">
-					<div className="text-[0.8125rem] font-semibold text-sys-on-surface">
+					<div
+						id="save-eval-case-title"
+						className="text-[0.8125rem] font-semibold text-sys-on-surface"
+					>
 						Save as evaluation case
 					</div>
 					<Button size="sm" onClick={onClose} disabled={loading}>
@@ -204,7 +228,7 @@ export function SaveEvalCaseModal({
 									onChange={(e) => setRubricText(e.target.value)}
 									placeholder="Enter validation criteria in JSON format"
 									disabled={loading}
-									className="bg-sys-bg px-2 py-1 text-[0.8125rem] text-sys-on-surface outline outline-1 outline-sys-outline focus:outline-sys-primary focus:outline-1 focus:outline-2 transition-none font-mono h-24"
+									className="bg-sys-bg px-2 py-1 text-[0.8125rem] text-sys-on-surface outline outline-1 outline-sys-outline focus:outline-sys-primary focus:outline-1 focus:outline-2 transition-none font-mono h-24 disabled:cursor-not-allowed disabled:bg-sys-surface-low/30 disabled:opacity-60"
 								/>
 							</Field>
 

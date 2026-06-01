@@ -160,15 +160,17 @@ export function CostAttributionDashboard() {
 				<span className="text-[0.8125rem] text-sys-on-surface-muted font-mono">
 					Attributing ${s.totalCostUsd.toFixed(2)} USD across runs
 				</span>
-				<button
-					type="button"
-					onClick={() => {
-						setShowEmptyState(true);
-					}}
-					className="text-[0.6875rem] font-semibold underline text-sys-on-surface-muted hover:text-sys-on-surface ml-2"
-				>
-					Simulate Empty State
-				</button>
+				{import.meta.env.DEV && (
+					<button
+						type="button"
+						onClick={() => {
+							setShowEmptyState(true);
+						}}
+						className="text-[0.6875rem] font-semibold underline text-sys-on-surface-muted hover:text-sys-on-surface ml-2"
+					>
+						Simulate Empty State
+					</button>
+				)}
 				<div className="ml-auto flex items-center gap-2">
 					<UpdatedChip at={data.timestamp} />
 				</div>

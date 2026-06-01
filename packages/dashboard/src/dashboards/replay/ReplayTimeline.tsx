@@ -5,10 +5,12 @@ export function ReplayTimeline({
 	entries,
 	activeEvent,
 	copyValue,
+	onNavigate,
 }: {
 	entries: ReplayTimelineEntry[];
 	activeEvent: string | null;
 	copyValue: unknown;
+	onNavigate?: (route: { tab?: string; traceId?: string }) => void;
 }) {
 	return (
 		<div className="bg-sys-surface flex-1 flex flex-col min-h-0 border-[1px] border-sys-outline">
@@ -63,6 +65,20 @@ export function ReplayTimeline({
 												{k}: {typeof v === "string" ? v : JSON.stringify(v)}
 											</span>
 										))}
+										{typeof ev.properties.traceId === "string" && (
+											<button
+												type="button"
+												onClick={() =>
+													onNavigate?.({
+														tab: "traces",
+														traceId: ev.properties.traceId as string,
+													})
+												}
+												className="bg-sys-primary px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-white hover:bg-sys-primary-strong"
+											>
+												View trace
+											</button>
+										)}
 									</div>
 								)}
 							</span>

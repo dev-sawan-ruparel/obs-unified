@@ -69,6 +69,7 @@ export function ActionDashboard({
 	const action = manifest.rawManifest?.actions?.find((a) => a.id === actionId);
 	const durationMs = action?.durationMs ?? null;
 	const totalCostUsd = action?.totalCostUsd ?? null;
+	const hasGraph = Boolean(manifest.rawManifest);
 
 	const parsedAttrs = (() => {
 		if (!action?.attrsJson) return {};
@@ -253,11 +254,27 @@ export function ActionDashboard({
 						Decision and action graph
 					</div>
 					<div className="flex-1 min-h-0 border-[1px] border-sys-outline overflow-hidden">
-						{manifest.rawManifest && (
+						{hasGraph ? (
 							<ActionGraphRenderer
 								actionId={actionId}
-								rawManifest={manifest.rawManifest}
+								rawManifest={manifest.rawManifest as EntityManifestExtended}
 							/>
+						) : (
+							<div className="flex h-full items-center justify-center bg-sys-surface p-6 text-center">
+								<div className="max-w-md">
+									<div className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
+										Graph unavailable
+									</div>
+									<p className="mt-2 text-[0.875rem] font-semibold text-sys-on-surface">
+										No action graph manifest was returned for this action.
+									</p>
+									<p className="mt-1 text-[0.75rem] text-sys-on-surface-muted">
+										The action metadata can still be inspected here, but the
+										collector did not provide decision graph nodes for this
+										entity.
+									</p>
+								</div>
+							</div>
 						)}
 					</div>
 				</div>

@@ -356,7 +356,7 @@ function SpanView({ span }: { span: SpanDetail }) {
 					{SPAN_KIND[span.spanKind] ?? span.spanKind}
 				</span>
 				{isError && (
-					<span className="bg-sys-error px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-white">
+					<span className="bg-sys-error px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] text-sys-on-error">
 						SYSTEM_ERROR
 					</span>
 				)}
@@ -392,7 +392,7 @@ function SpanView({ span }: { span: SpanDetail }) {
 				</span>
 			</div>
 			{span.statusMessage && (
-				<div className="mt-2 bg-sys-error p-3 font-mono text-[0.75rem] text-white font-bold">
+				<div className="mt-2 bg-sys-error p-3 font-mono text-[0.75rem] text-sys-on-error font-bold">
 					{span.statusMessage}
 				</div>
 			)}

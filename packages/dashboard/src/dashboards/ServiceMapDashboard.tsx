@@ -45,7 +45,11 @@ interface ServiceOperationsResponse {
 }
 
 interface Props {
-	onNavigate?: (route: { tab?: string; traceId?: string }) => void;
+	onNavigate?: (route: {
+		tab?: string;
+		traceId?: string;
+		service?: string;
+	}) => void;
 }
 
 type ServiceNodeData = {
@@ -425,7 +429,11 @@ function ServiceDetailPanel({
 	ops: ServiceOperationsResponse | null;
 	loading: boolean;
 	onClose: () => void;
-	onNavigate?: (route: { tab?: string; traceId?: string }) => void;
+	onNavigate?: (route: {
+		tab?: string;
+		traceId?: string;
+		service?: string;
+	}) => void;
 }) {
 	const errorPct = node ? (node.errorRate * 100).toFixed(1) : "0.0";
 	return (
@@ -484,8 +492,8 @@ function ServiceDetailPanel({
 					<Button
 						variant="primary"
 						size="sm"
-						onClick={() => onNavigate?.({ tab: "traces" })}
-						title="Open Traces tab"
+						onClick={() => onNavigate?.({ tab: "traces", service })}
+						title="Open Traces tab filtered to this service"
 					>
 						View traces
 					</Button>

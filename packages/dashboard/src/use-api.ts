@@ -9,6 +9,27 @@ export function errorMessage(err: unknown): string {
 	return err instanceof Error ? err.message : String(err);
 }
 
+async function apiErrorMessage(response: Response): Promise<string> {
+	const fallback = `API error: ${response.status}`;
+	const body = await response
+		.clone()
+		.json()
+		.catch(() => null);
+	if (body && typeof body === "object") {
+		const candidate =
+			"error" in body
+				? body.error
+				: "message" in body
+					? body.message
+					: undefined;
+		if (typeof candidate === "string" && candidate.trim()) {
+			return candidate;
+		}
+	}
+	const text = await response.text().catch(() => "");
+	return text.trim() || fallback;
+}
+
 /**
  * Returns a fetch-like function that prepends the configured basePath
  * and uses the dashboard's fetcher (which includes credentials by default).
@@ -25,7 +46,7 @@ export function useApi() {
 			const url = `${basePath}${path}`;
 			const response = await fetcher(url, init);
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				throw new Error(await apiErrorMessage(response));
 			}
 			return response.json() as Promise<T>;
 		},

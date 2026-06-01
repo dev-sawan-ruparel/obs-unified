@@ -55,6 +55,7 @@ export class UsageTracker {
 
 	/** API key for direct-to-collector mode */
 	private readonly apiKey?: string;
+	private dispatchDisabled = false;
 
 	/** Consumer-supplied rrweb privacy overrides, merged with SDK defaults in startReplay(). */
 	private readonly replayPrivacyOptions: ReplayPrivacyOptions;
@@ -69,6 +70,7 @@ export class UsageTracker {
 			? `${config.collectorUrl.replace(/\/$/, "")}/v1/usage`
 			: (config.endpoint ?? "");
 		this.apiKey = config.apiKey;
+		this.dispatchDisabled = Boolean(config.collectorUrl && !config.apiKey);
 
 		this.config = {
 			endpoint: resolvedEndpoint,
@@ -254,6 +256,7 @@ export class UsageTracker {
 
 	private dispatch(events: UsageEventPayload[]): void {
 		if (events.length === 0) return;
+		if (this.dispatchDisabled || !this.config.endpoint) return;
 		this.bumpActivity();
 		try {
 			const headers: Record<string, string> = {
@@ -271,10 +274,19 @@ export class UsageTracker {
 			if (this.config.credentials) {
 				init.credentials = this.config.credentials;
 			}
-			fetch(this.config.endpoint, init).catch((error) => {
-				if (this.config.debug)
-					console.warn("[analytics-sdk] dispatch failed", error);
-			});
+			fetch(this.config.endpoint, init)
+				.then((response) => {
+					if (response.status === 401) {
+						this.dispatchDisabled = true;
+						if (this.config.debug) {
+							console.warn("[analytics-sdk] dispatch disabled after 401");
+						}
+					}
+				})
+				.catch((error) => {
+					if (this.config.debug)
+						console.warn("[analytics-sdk] dispatch failed", error);
+				});
 		} catch (error) {
 			if (this.config.debug)
 				console.warn("[analytics-sdk] dispatch error", error);
@@ -304,6 +316,7 @@ export class UsageTracker {
 	}
 
 	identify(userId: string, properties?: Record<string, unknown>): void {
+		if (this.dispatchDisabled || !this.config.endpoint) return;
 		try {
 			const baseUrl = this.collectorBaseUrl();
 			const identifyUrl = `${baseUrl}/identify`;
@@ -422,6 +435,10 @@ export class UsageTracker {
 
 	flushReplays(): void {
 		if (this.replayEvents.length === 0) return;
+		if (this.dispatchDisabled || !this.config.endpoint) {
+			this.replayEvents = [];
+			return;
+		}
 		const events = [...this.replayEvents];
 		this.replayEvents = [];
 		const sessionId = this.ensureSessionCurrent();

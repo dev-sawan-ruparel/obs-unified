@@ -128,7 +128,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 
 		// 3. Assert LLM
 		const llmSpan = spans.find((s) =>
-			hasStringAttr(s, "obs.action.kind", "llm"),
+			hasStringAttr(s, "obs.action.kind", "llm.call"),
 		);
 		if (!llmSpan) throw new Error("Missing llmSpan");
 		expect(llmSpan.parentSpanId).toBe(runSpan.spanId);
@@ -199,7 +199,8 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 		const llmSpan = spans.find((s) =>
 			s.attributes?.some(
 				(attr: any) =>
-					attr.key === "obs.action.kind" && attr.value?.stringValue === "llm",
+					attr.key === "obs.action.kind" &&
+					attr.value?.stringValue === "llm.call",
 			),
 		);
 		if (!llmSpan) throw new Error("Missing llmSpan");

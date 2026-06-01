@@ -11,19 +11,21 @@ import "./index.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
+const ingestKey = import.meta.env.VITE_OBS_INGEST_KEY ?? "";
+const analyticsEnabled = ingestKey.trim().length > 0;
 
 createRoot(root).render(
 	<StrictMode>
 		<AnalyticsProvider
 			collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL ?? "/"}
-			apiKey={import.meta.env.VITE_OBS_INGEST_KEY ?? ""}
+			apiKey={ingestKey}
 			debug={
 				import.meta.env.DEV &&
 				import.meta.env.VITE_OBS_ANALYTICS_DEBUG === "true"
 			}
-			trackPageViews={true}
-			captureErrors={true}
-			trackOutboundLinks={true}
+			trackPageViews={analyticsEnabled}
+			captureErrors={analyticsEnabled}
+			trackOutboundLinks={analyticsEnabled}
 			storagePrefix="obs_demo"
 		>
 			<ObsDashboardProvider basePath="/internal">

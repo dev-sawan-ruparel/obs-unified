@@ -157,7 +157,7 @@ export function TreeNodeComponent({
 								</span>
 							)}
 							{isError && (
-								<span className="px-1.5 py-0.2 bg-sys-error text-white text-[0.5rem] font-bold uppercase rounded">
+								<span className="px-1.5 py-0.2 bg-sys-error text-sys-on-error text-[0.5rem] font-bold uppercase rounded">
 									error
 								</span>
 							)}

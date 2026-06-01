@@ -36,12 +36,29 @@ const isLogEvent = (e: TailEvent): e is TailEvent<LiveLogRow> =>
 	e.kind === "log";
 
 const SEVERITY_BADGE_BG: Record<string, string> = {
-	ERROR: "bg-sys-error text-white",
-	FATAL: "bg-sys-error text-white",
-	WARN: "bg-sys-warning text-white",
+	ERROR: "bg-sys-error text-sys-on-error",
+	FATAL: "bg-sys-error text-sys-on-error",
+	WARN: "bg-sys-warning text-sys-on-warning",
 	INFO: "bg-sys-surface-high text-sys-on-surface",
 	DEBUG: "bg-sys-surface-low text-sys-on-surface-muted",
 };
+
+function readInitialLogFilters(): {
+	search: string;
+	severity: "all" | "ERROR" | "WARN" | "INFO";
+	service: string;
+} {
+	const params = new URLSearchParams(location.hash.split("?")[1] ?? "");
+	const severity = params.get("severity");
+	return {
+		search: params.get("search") ?? "",
+		severity:
+			severity === "ERROR" || severity === "WARN" || severity === "INFO"
+				? severity
+				: "all",
+		service: params.get("service") ?? "",
+	};
+}
 
 function formatClockTime(iso: string): string {
 	const d = new Date(iso);
@@ -57,12 +74,17 @@ export function LogsDashboard() {
 	const [overview, setOverview] = useState<LogsOverviewResponse | null>(null);
 	const hours = String(useTimeWindowHours());
 	const [loading, setLoading] = useState(false);
+	const initialFilters = useMemo(readInitialLogFilters, []);
+	const [searchQuery, setSearchQuery] = useState(initialFilters.search);
+	const [submittedSearchQuery, setSubmittedSearchQuery] = useState(
+		initialFilters.search,
+	);
 	const [severityFilter, setSeverityFilter] = useState<
 		"all" | "ERROR" | "WARN" | "INFO"
-	>("all");
+	>(initialFilters.severity);
 	const [liveMode, setLiveMode] = useState(false);
 	const [selectedServices, setSelectedServices] = useState<ReadonlySet<string>>(
-		new Set(),
+		() => new Set(initialFilters.service ? [initialFilters.service] : []),
 	);
 	const [selectedLoggers, setSelectedLoggers] = useState<ReadonlySet<string>>(
 		new Set(),
@@ -75,19 +97,25 @@ export function LogsDashboard() {
 		maxRows: 500,
 	});
 
-	const loadAll = useCallback(async () => {
-		setLoading(true);
-		try {
-			const data = await api<LogsOverviewResponse>(
-				`/logs/overview?hours=${hours}`,
-			);
-			setOverview(data);
-		} catch (err) {
-			console.error(err);
-		} finally {
-			setLoading(false);
-		}
-	}, [hours, api]);
+	const loadAll = useCallback(
+		async (searchOverride?: string) => {
+			setLoading(true);
+			try {
+				const qs = new URLSearchParams({ hours });
+				const q = (searchOverride ?? submittedSearchQuery).trim();
+				if (q) qs.set("search", q);
+				const data = await api<LogsOverviewResponse>(
+					`/logs/overview?${qs.toString()}`,
+				);
+				setOverview(data);
+			} catch (err) {
+				console.error(err);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[hours, api, submittedSearchQuery],
+	);
 
 	useEffect(() => {
 		loadAll();
@@ -160,7 +188,21 @@ export function LogsDashboard() {
 			severity: string;
 			serviceName: string | null;
 			loggerName: string | null;
+			message?: string | null;
+			attributesJson?: string | null;
 		}) => {
+			const q = searchQuery.trim().toLowerCase();
+			if (
+				q &&
+				!(
+					l.message?.toLowerCase().includes(q) ||
+					l.serviceName?.toLowerCase().includes(q) ||
+					l.loggerName?.toLowerCase().includes(q) ||
+					l.attributesJson?.toLowerCase().includes(q)
+				)
+			) {
+				return false;
+			}
 			if (
 				severityFilter === "ERROR" &&
 				!(l.severity === "ERROR" || l.severity === "FATAL")
@@ -180,7 +222,7 @@ export function LogsDashboard() {
 				return false;
 			return true;
 		},
-		[severityFilter, selectedServices, selectedLoggers],
+		[severityFilter, selectedServices, selectedLoggers, searchQuery],
 	);
 
 	const filteredLogs = useMemo(
@@ -215,6 +257,8 @@ export function LogsDashboard() {
 		setSelectedServices(new Set());
 		setSelectedLoggers(new Set());
 		setSeverityFilter("all");
+		setSearchQuery("");
+		setSubmittedSearchQuery("");
 	}, []);
 
 	const activeChips = useMemo(() => {
@@ -225,6 +269,16 @@ export function LogsDashboard() {
 				key: `sev:${severityFilter}`,
 				label: `severity:${severityFilter}`,
 				onClear: () => setSeverityFilter("all"),
+			});
+		}
+		if (searchQuery.trim()) {
+			chips.push({
+				key: "search",
+				label: `search:${searchQuery.trim()}`,
+				onClear: () => {
+					setSearchQuery("");
+					setSubmittedSearchQuery("");
+				},
 			});
 		}
 		for (const s of selectedServices) {
@@ -244,6 +298,7 @@ export function LogsDashboard() {
 		return chips;
 	}, [
 		severityFilter,
+		searchQuery,
 		selectedServices,
 		selectedLoggers,
 		toggleService,
@@ -264,7 +319,15 @@ export function LogsDashboard() {
 					type="text"
 					className="min-w-[200px] flex-1"
 					placeholder="Search log messages, attributes…"
-					disabled
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							e.preventDefault();
+							setSubmittedSearchQuery(searchQuery);
+							loadAll(searchQuery);
+						}
+					}}
 				/>
 				<Select
 					value={severityFilter}
@@ -278,7 +341,13 @@ export function LogsDashboard() {
 						["INFO", "Info only"],
 					]}
 				/>
-				<Button variant="primary" onClick={loadAll}>
+				<Button
+					variant="primary"
+					onClick={() => {
+						setSubmittedSearchQuery(searchQuery);
+						loadAll(searchQuery);
+					}}
+				>
 					Refresh
 				</Button>
 				<Button

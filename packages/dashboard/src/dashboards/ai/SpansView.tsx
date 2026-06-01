@@ -708,7 +708,7 @@ function SpanDetailPane({
 								{model ?? toolName ?? span.spanName}
 							</span>
 							{isError && (
-								<span className="px-1.5 py-[2px] text-[0.5rem] font-bold uppercase bg-sys-error text-white">
+								<span className="px-1.5 py-[2px] text-[0.5rem] font-bold uppercase bg-sys-error text-sys-on-error">
 									error
 								</span>
 							)}

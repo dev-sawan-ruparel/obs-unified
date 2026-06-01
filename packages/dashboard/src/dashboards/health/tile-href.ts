@@ -18,6 +18,16 @@ import type { AnalysisDefinition } from "@obs-unified/types";
 export function tileHref(def: AnalysisDefinition): string {
 	const scope = (def.scope ?? {}) as Record<string, unknown>;
 	const service = typeof scope.service === "string" ? scope.service : null;
+	if (def.id.startsWith("log_")) {
+		const params = new URLSearchParams();
+		if (def.id.includes("error")) params.set("severity", "ERROR");
+		if (def.id.includes("warn")) params.set("severity", "WARN");
+		if (service) params.set("service", service);
+		const qs = params.toString();
+		return qs ? `#/logs?${qs}` : "#/logs";
+	}
+	if (def.id.startsWith("ai_")) return "#/ai";
+
 	if (service) return `#/traces?service=${encodeURIComponent(service)}`;
 
 	const source = typeof scope.source === "string" ? scope.source : null;
@@ -26,9 +36,6 @@ export function tileHref(def: AnalysisDefinition): string {
 
 	const topic = typeof scope.topic === "string" ? scope.topic : null;
 	if (topic) return "#/traces";
-
-	if (def.id.startsWith("log_")) return "#/logs";
-	if (def.id.startsWith("ai_")) return "#/ai";
 
 	return "#/traces";
 }

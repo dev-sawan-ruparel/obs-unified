@@ -213,8 +213,9 @@ export function ConnectedRail({
 	if (error || !manifest) {
 		return (
 			<aside className="w-[260px] min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2">
-				<div className="text-[0.75rem] text-sys-error" title={error ?? ""}>
-					Failed to load related entities
+				<div className="border-l-[4px] border-sys-error bg-sys-error/10 p-2 text-[0.75rem] text-sys-error">
+					<div className="font-bold">Failed to load related entities</div>
+					{error && <div className="mt-1 break-words font-mono">{error}</div>}
 				</div>
 			</aside>
 		);

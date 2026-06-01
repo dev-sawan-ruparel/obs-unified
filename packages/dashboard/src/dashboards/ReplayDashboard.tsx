@@ -46,6 +46,8 @@ export function ReplayDashboard({
 	const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
 	const [playbackTime, setPlaybackTime] = useState<number | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [loadError, setLoadError] = useState<string | null>(null);
 	// RFC 0004 — interaction groups derived from /internal/timeline. Empty
 	// object when the session predates Mode A or has no clicks with
 	// interaction_id stamped (informative-absence pattern from RFC 0006).
@@ -87,11 +89,27 @@ export function ReplayDashboard({
 			setTraceEvents([]);
 			setPlaybackTime(null);
 			setInteractionGroups({});
+			setLoadError(null);
 			onNavigate({ tab: "replay", sessionId: id });
 			try {
 				const [detail, tracesObj, timeline] = await Promise.all([
 					fetcher(`${basePath}/usage/sessions/${encodeURIComponent(id)}`).then(
-						(r) => r.json(),
+						async (r) => {
+							if (!r.ok) {
+								const body = (await r.json().catch(() => null)) as {
+									error?: unknown;
+									message?: unknown;
+								} | null;
+								throw new Error(
+									(typeof body?.error === "string" ? body.error : undefined) ||
+										(typeof body?.message === "string"
+											? body.message
+											: undefined) ||
+										`Session load failed: ${r.status}`,
+								);
+							}
+							return r.json();
+						},
 					) as Promise<SessionDetail>,
 					fetcher(
 						`${basePath}/telemetry/overview?hours=72&q=${encodeURIComponent(id)}`,
@@ -113,7 +131,15 @@ export function ReplayDashboard({
 					setTraceEvents(tracesObj.traces || []);
 					setInteractionGroups(timeline.groups ?? {});
 				}
-			} catch {
+			} catch (err) {
+				if (requestId === openRequestId.current) {
+					setSessionDetail(null);
+					setLoadError(
+						err instanceof Error
+							? err.message
+							: "Failed to load replay session.",
+					);
+				}
 			} finally {
 				if (requestId === openRequestId.current) setLoading(false);
 			}
@@ -194,7 +220,7 @@ export function ReplayDashboard({
 			label: group.clickEvent?.title ?? "Interaction",
 			links: group.causedTraces.map((trace) => ({
 				label: `${trace.serviceName ?? "unknown"} · ${trace.rootSpanName} · ${trace.durationMs}ms`,
-				href: `#/traces/${trace.traceId}`,
+				href: `#/traces?trace=${encodeURIComponent(trace.traceId)}`,
 				sample: group.interactionId,
 			})),
 			emptyReason:
@@ -203,6 +229,17 @@ export function ReplayDashboard({
 					: undefined,
 		}));
 	}, [interactionGroups]);
+
+	const visibleReplays = useMemo(() => {
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return replaysList;
+		return replaysList.filter(
+			(replay) =>
+				replay.session_id.toLowerCase().includes(q) ||
+				replay.visitor_id.toLowerCase().includes(q) ||
+				replay.starting_link?.toLowerCase().includes(q),
+		);
+	}, [replaysList, searchQuery]);
 
 	const deleteReplay = async () => {
 		if (!selectedSessionId) return;
@@ -258,9 +295,10 @@ export function ReplayDashboard({
 					type="text"
 					className="min-w-[200px] flex-1"
 					placeholder="Search replays (e.g. users, links)…"
-					disabled
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
 				/>
-				<Button disabled>Search</Button>
+				<Button onClick={() => setSearchQuery((q) => q.trim())}>Search</Button>
 				{selectedSessionId && (
 					<div className="ml-auto flex items-center gap-2">
 						<Button variant="danger" onClick={deleteReplay}>
@@ -270,6 +308,7 @@ export function ReplayDashboard({
 							variant="primary"
 							onClick={() => {
 								setSelectedSessionId(null);
+								setLoadError(null);
 								onNavigate({ tab: "replay" });
 							}}
 						>
@@ -287,7 +326,7 @@ export function ReplayDashboard({
 			>
 				<ReplayList
 					width={sidebarWidth}
-					replays={replaysList}
+					replays={visibleReplays}
 					loading={loadingList}
 					selectedSessionId={selectedSessionId}
 					onOpenSession={openSession}
@@ -329,6 +368,30 @@ export function ReplayDashboard({
 					) : loading ? (
 						<div className="flex-1 flex justify-center items-center text-[0.875rem] tracking-[0.05em] font-bold opacity-60 bg-sys-surface border-[1px] border-sys-outline">
 							Loading session telemetry...
+						</div>
+					) : loadError ? (
+						<div className="flex-1 flex flex-col items-center justify-center gap-3 bg-sys-surface border-[1px] border-sys-outline p-6 text-center">
+							<p className="font-mono text-[0.875rem] font-bold text-sys-error">
+								{loadError}
+							</p>
+							<div className="flex gap-2">
+								<Button
+									size="sm"
+									onClick={() => openSession(selectedSessionId)}
+								>
+									Retry
+								</Button>
+								<Button
+									size="sm"
+									onClick={() => {
+										setSelectedSessionId(null);
+										setLoadError(null);
+										onNavigate({ tab: "replay" });
+									}}
+								>
+									Back to list
+								</Button>
+							</div>
 						</div>
 					) : selected ? (
 						<div className="flex flex-col gap-2 flex-1 overflow-y-auto">
@@ -384,9 +447,16 @@ export function ReplayDashboard({
 									sessionId={selected.session.sessionId}
 									extraRelatedSections={interactionRailSections}
 									onNavigate={(href) => {
-										const traceId = href.match(/^#\/traces\/(.+)$/)?.[1];
+										const traceId =
+											href.match(/^#\/traces\/(.+)$/)?.[1] ??
+											new URLSearchParams(href.split("?")[1] ?? "").get(
+												"trace",
+											);
 										if (traceId) {
-											onNavigate({ tab: "traces", traceId });
+											onNavigate({
+												tab: "traces",
+												traceId: decodeURIComponent(traceId),
+											});
 										}
 									}}
 								/>
@@ -395,6 +465,7 @@ export function ReplayDashboard({
 									entries={combinedTimeline}
 									activeEvent={activeEvent}
 									copyValue={selected}
+									onNavigate={onNavigate}
 								/>
 							</div>
 						</div>

@@ -200,15 +200,17 @@ export function ToolReliabilityDashboard() {
 				<span className="text-[0.8125rem] text-sys-on-surface-muted font-mono">
 					{s.totalCalls.toLocaleString()} tool calls monitored
 				</span>
-				<button
-					type="button"
-					onClick={() => {
-						setShowEmptyState(true);
-					}}
-					className="text-[0.6875rem] font-semibold underline text-sys-on-surface-muted hover:text-sys-on-surface ml-2"
-				>
-					Simulate Empty State
-				</button>
+				{import.meta.env.DEV && (
+					<button
+						type="button"
+						onClick={() => {
+							setShowEmptyState(true);
+						}}
+						className="text-[0.6875rem] font-semibold underline text-sys-on-surface-muted hover:text-sys-on-surface ml-2"
+					>
+						Simulate Empty State
+					</button>
+				)}
 				<div className="ml-auto flex items-center gap-2">
 					<UpdatedChip at={data.timestamp} />
 				</div>
@@ -308,9 +310,9 @@ export function ToolReliabilityDashboard() {
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-sys-outline-soft/40">
-									{data.topAgents.map((agent, i) => (
+									{data.topAgents.map((agent) => (
 										<tr
-											key={`${agent.agentName}-${agent.invocations}-${i}`}
+											key={`${agent.agentName}-${agent.invocations}-${agent.avgLatencyMs}-${agent.sideEffects}`}
 											className="hover:bg-sys-surface-low/50"
 										>
 											<td className="py-2.5 font-semibold truncate max-w-[200px]">

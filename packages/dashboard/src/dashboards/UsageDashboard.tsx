@@ -109,6 +109,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const hours = String(useTimeWindowHours());
 	const [pathFilter, setPathFilter] = useState("all");
 	const [includeAdmin, setIncludeAdmin] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
 	const [filteredSessions, setFilteredSessions] = useState<
 		FilteredSession[] | null
@@ -185,6 +186,46 @@ export function UsageDashboard({ onNavigate }: Props) {
 		[overview],
 	);
 
+	const search = searchQuery.trim().toLowerCase();
+	const matchesSearch = (
+		...values: Array<string | number | null | undefined>
+	) =>
+		!search ||
+		values.some((value) =>
+			String(value ?? "")
+				.toLowerCase()
+				.includes(search),
+		);
+
+	const visiblePages = overview
+		? overview.pages.filter((p) => matchesSearch(p.path, p.title))
+		: [];
+	const visibleEvents = overview
+		? overview.events.filter((ev) => matchesSearch(ev.eventName, ev.eventType))
+		: [];
+	const visibleFrontendErrors = overview
+		? overview.frontendErrors.filter((err) =>
+				matchesSearch(
+					err.sessionId,
+					err.pagePath,
+					err.errorName,
+					err.errorMessage,
+					err.component,
+				),
+			)
+		: [];
+	const visibleSessions = (
+		sessionFilter === "all"
+			? (overview?.recentSessions.map((s) => ({
+					...s,
+					interactionCount: 0,
+					maxLoadTimeMs: null as number | null,
+				})) ?? [])
+			: (filteredSessions ?? [])
+	).filter((sess) =>
+		matchesSearch(sess.sessionId, sess.visitorId, sess.lastPath, sess.referrer),
+	);
+
 	if (loading && !overview)
 		return <p className="p-3 text-xs text-stone-500">Loading usage data...</p>;
 	if (!overview) return null;
@@ -199,9 +240,10 @@ export function UsageDashboard({ onNavigate }: Props) {
 					type="text"
 					className="min-w-[200px] flex-1"
 					placeholder="Search paths, users…"
-					disabled
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
 				/>
-				<Button disabled>Search</Button>
+				<Button onClick={() => setSearchQuery((q) => q.trim())}>Search</Button>
 				<Select
 					value={pathFilter}
 					onChange={(e) => setPathFilter(e.target.value)}
@@ -371,7 +413,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 								</tr>
 							</thead>
 							<tbody className="[&>tr:nth-child(even)]:bg-sys-surface-low">
-								{overview.pages.map((p) => (
+								{visiblePages.map((p) => (
 									<tr
 										key={p.path}
 										className="group transition-none hover:bg-sys-surface-high"
@@ -429,7 +471,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 								</tr>
 							</thead>
 							<tbody className="[&>tr:nth-child(even)]:bg-sys-surface-low">
-								{overview.events.map((ev) => (
+								{visibleEvents.map((ev) => (
 									<tr
 										key={`${ev.eventType}-${ev.eventName}`}
 										className="group transition-none hover:bg-sys-surface-high"
@@ -456,12 +498,12 @@ export function UsageDashboard({ onNavigate }: Props) {
 							System_halt
 						</div>
 						<div className="flex flex-col">
-							{overview.frontendErrors.length === 0 ? (
+							{visibleFrontendErrors.length === 0 ? (
 								<p className="py-2 text-[0.875rem] opacity-60">
 									NO system halts detected.
 								</p>
 							) : (
-								overview.frontendErrors.map((err) => (
+								visibleFrontendErrors.map((err) => (
 									<div
 										key={err.eventId}
 										className="flex items-center gap-2 py-1.5 transition-none hover:bg-sys-surface-low border-b border-sys-bg last:border-b-0"
@@ -521,14 +563,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 						</div>
 					</div>
 					<div className="flex flex-col overflow-y-auto [&>button:nth-child(even)]:bg-sys-surface-low">
-						{(sessionFilter === "all"
-							? overview.recentSessions.map((s) => ({
-									...s,
-									interactionCount: 0,
-									maxLoadTimeMs: null as number | null,
-								}))
-							: (filteredSessions ?? [])
-						).map((sess) => {
+						{visibleSessions.map((sess) => {
 							const badges: Array<{ label: string; className: string }> = [
 								{
 									label: `${sess.eventCount} EV`,
@@ -542,17 +577,17 @@ export function UsageDashboard({ onNavigate }: Props) {
 							if (sess.errorCount > 0)
 								badges.push({
 									label: `${sess.errorCount} ERR`,
-									className: "bg-sys-error text-white",
+									className: "bg-sys-error text-sys-on-error",
 								});
 							if (sessionFilter === "dropoff" && sess.interactionCount === 0)
 								badges.push({
 									label: "NO interaction",
-									className: "bg-sys-warning text-white",
+									className: "bg-sys-warning text-sys-on-warning",
 								});
 							if (sessionFilter === "slow" && sess.maxLoadTimeMs != null)
 								badges.push({
 									label: `${Math.round(sess.maxLoadTimeMs)}MS LOAD`,
-									className: "bg-sys-warning text-white",
+									className: "bg-sys-warning text-sys-on-warning",
 								});
 							return (
 								<button

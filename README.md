@@ -1,17 +1,59 @@
 # obs-unified
 
-Self-hosted observability for your project. Traces, logs, usage analytics,
-session replay, profiles, AI call tracking, Agent Action Graphs, and a read-only
-investigation MCP server for agents — no external telemetry services required.
+Self-hosted observability for agentic debugging. Traces, logs, session replay,
+usage analytics, AI cost, profiles, Agent Action Graphs, and a read-only MCP
+server live in one collector and one dashboard, correlated end-to-end.
+
+[![MIT](https://img.shields.io/badge/license-MIT-006B18)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-docs.obsunified.com-006B18)](https://docs.obsunified.com/docs)
+[![Website](https://img.shields.io/badge/website-obsunified.com-006B18)](https://obsunified.com)
+
+## Why obs-unified?
+
+Modern debugging now has two users: engineers and AI agents. Most observability
+stacks split evidence across APM, logs, product analytics, session replay, LLM
+observability, profiling, and alerting. obs-unified keeps those signals together
+so a person or agent can follow one chain:
+
+```text
+user_id -> session_id -> interaction_id -> trace_id -> span_id -> action_id
+```
+
+That means a checkout click can lead to the backend trace, related logs, replay,
+AI calls, agent steps, tool calls, eval cases, and CPU/profile evidence without
+copy-pasting IDs between vendors.
+
+## What you get
+
+| Area | What ships |
+| --- | --- |
+| Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, and Agent Action Graph records |
+| Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, and action graph views |
+| Agent Action Graph | Causal view of agent runs, LLM calls, retrievals, tool calls, guardrails, evals, traces, logs, profiles, and replay evidence |
+| MCP server | Read-only investigation tools for agents: status, traces, logs, service map, users, replays, connected signals, agent runs, actions, and tool calls |
+| SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust |
+| Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |
 
 [![obs-unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
 
 <sub>More views: [AI cost & LLM spans](https://obsunified.com/screenshots/app/ai-cost-spans.png) ·
 [Unified timeline](https://obsunified.com/screenshots/app/timeline-unified.png) ·
-[Correlated logs](https://obsunified.com/screenshots/app/logs-correlated.png) ·
+[Agent Action Graph](https://obsunified.com/screenshots/app/agent-action-graph.png) ·
+[Interaction ID path](https://obsunified.com/screenshots/app/interaction-id-path.png) ·
 see all on [obsunified.com](https://obsunified.com)</sub>
 
-## Agent Action Graphs
+## Feature tour
+
+| Feature | Why it matters |
+| --- | --- |
+| **Traces + logs** | Standard OpenTelemetry spans and structured logs land in the same store, with trace correlation available from the dashboard and MCP tools. |
+| **Session replay + usage analytics** | Frontend behavior is not a separate product. Page views, interactions, errors, identity, and replay chunks are tied to the same session and interaction IDs. |
+| **AI cost and LLM observability** | Model, provider, tokens, latency, cost, error category, prompt/output payloads, and trace context stay queryable together. |
+| **Agent Action Graph** | Agent work is represented as a causal graph, not loose LLM spans. You can see what the agent did, what each step caused, and which evidence supports the result. |
+| **Profiles and resources** | CPU/profile evidence and resource context can join the same incident path instead of living in a separate profiling tool. |
+| **MCP investigation server** | Agents can inspect the graph with read-only tools, without receiving write-only ingest credentials. |
+
+## Agent Action Graph
 
 obs-unified now includes an Agent Action Graph for debugging AI agents as
 causal workflows instead of loose LLM spans. Browser clicks, cron jobs, agent
@@ -38,6 +80,16 @@ Start here:
 - [Action ID wire spec](docs/spec/action-id.md)
 - [Framework plugin contract](docs/spec/agent-framework-plugins.md)
 - [Agent replay worked example](docs/ux/agent-run-replay.md)
+
+## Deployment options
+
+Start locally, then choose one of two production paths:
+
+| Path | Storage | Best for |
+| --- | --- | --- |
+| Local all-in-one image | Postgres + blob storage in one container | Evaluation, screenshots, demos, local development |
+| Cloudflare collector | Workers + D1 + R2 | Low-ops hosted deployments on Cloudflare |
+| Node collector | Postgres + S3-compatible object storage | AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud with Postgres and object storage |
 
 ## Try it
 

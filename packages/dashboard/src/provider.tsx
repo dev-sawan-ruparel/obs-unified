@@ -7,6 +7,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export interface DashboardConfig {
 	/** Base path for collector API endpoints. Default: "/internal" */
@@ -152,7 +153,7 @@ export function ObsDashboardProvider({
 
 	return (
 		<DashboardContext.Provider value={config}>
-			{children}
+			<ErrorBoundary>{children}</ErrorBoundary>
 		</DashboardContext.Provider>
 	);
 }

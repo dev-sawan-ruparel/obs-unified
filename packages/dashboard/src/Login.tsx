@@ -46,16 +46,25 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 					Enter dashboard password to continue
 				</div>
 
-				<input
-					type="password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					placeholder="Password"
-					className="h-10 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
-				/>
+				<label className="flex flex-col gap-1">
+					<span className="text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
+						Dashboard Password
+					</span>
+					<input
+						type="password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						placeholder="Password"
+						aria-describedby={error ? "login-error-msg" : undefined}
+						className="h-10 border-b-[2px] border-sys-outline bg-transparent px-2 font-mono text-[0.875rem] font-bold placeholder:opacity-40 focus:border-sys-primary focus:outline-none transition-none"
+					/>
+				</label>
 
 				{error && (
-					<div className="text-[0.75rem] font-semibold text-sys-error">
+					<div
+						id="login-error-msg"
+						className="text-[0.75rem] font-semibold text-sys-error"
+					>
 						{error}
 					</div>
 				)}

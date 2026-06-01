@@ -274,7 +274,7 @@ export function TelemetryDashboard({
 					<Button
 						variant="ghost"
 						active={liveMode}
-						activeClassName="bg-sys-error text-white font-semibold"
+						activeClassName="bg-sys-error text-sys-on-error font-semibold"
 						onClick={() => setLiveMode((v) => !v)}
 						title={liveMode ? "Stop streaming" : "Stream spans in real time"}
 					>
@@ -289,7 +289,7 @@ export function TelemetryDashboard({
 					<Button
 						variant="ghost"
 						active={liveTail.paused}
-						activeClassName="bg-sys-warning text-white font-semibold"
+						activeClassName="bg-sys-warning text-sys-on-warning font-semibold"
 						onClick={liveTail.togglePause}
 					>
 						{liveTail.paused
@@ -382,7 +382,7 @@ function LiveSpansView({
 							<span
 								className={`px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${
 									isError
-										? "bg-sys-error text-white"
+										? "bg-sys-error text-sys-on-error"
 										: "bg-sys-surface-high text-sys-on-surface"
 								}`}
 							>
@@ -556,17 +556,10 @@ function TracesView({
 								className="border-b-[1px] border-sys-surface-low last:border-b-0"
 							>
 								{/* Log-line row */}
-								<div
-									role="button"
-									tabIndex={0}
+								<button
+									type="button"
 									className={`flex w-full cursor-pointer items-start gap-2 py-1.5 text-left hover:bg-sys-surface-low transition-none ${isExpanded ? "bg-sys-surface-low" : ""} ${t.statusCode === 2 ? "bg-sys-error/10" : ""}`}
 									onClick={() => onExpandTrace(t.traceId)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											onExpandTrace(t.traceId);
-										}
-									}}
 								>
 									{t.statusCode === 2 && (
 										<span className="mt-1 inline-block h-[8px] w-[8px] flex-none bg-sys-error" />
@@ -610,7 +603,7 @@ function TracesView({
 									>
 										{t.traceId.slice(0, 16)}
 									</button>
-								</div>
+								</button>
 
 								{/* Expanded: waterfall + spans */}
 								{isExpanded && detail && (
@@ -686,7 +679,7 @@ function IssuesView({
 								<Badge
 									cls={
 										issue.severity === "critical"
-											? "bg-sys-error text-white"
+											? "bg-sys-error text-sys-on-error"
 											: "bg-sys-on-surface text-sys-bg"
 									}
 								>
@@ -738,7 +731,7 @@ function IssuesView({
 								<Badge
 									cls={
 										selected.severity === "critical"
-											? "bg-sys-error text-white"
+											? "bg-sys-error text-sys-on-error"
 											: "bg-sys-on-surface text-sys-bg"
 									}
 								>
@@ -782,7 +775,7 @@ function IssuesView({
 							</span>
 						</div>
 						{selected.latestStatusMessage && (
-							<div className="bg-sys-error p-2 text-[0.875rem] font-bold font-mono text-white">
+							<div className="bg-sys-error p-2 text-[0.875rem] font-bold font-mono text-sys-on-error">
 								{selected.latestStatusMessage}
 							</div>
 						)}
