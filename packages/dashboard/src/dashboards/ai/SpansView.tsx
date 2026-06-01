@@ -629,6 +629,7 @@ function SpanDetailPane({
 }) {
 	const [tab, setTab] = useState<DetailTab>("messages");
 	const [showEvalModal, setShowEvalModal] = useState(false);
+	const [showGraphWorkspace, setShowGraphWorkspace] = useState(false);
 	const api = useApi();
 
 	const evalsForSpan = useMemo(
@@ -705,12 +706,16 @@ function SpanDetailPane({
 	);
 	const [graphLoading, setGraphLoading] = useState(false);
 	const [graphError, setGraphError] = useState<string | null>(null);
+	const spanId = span.spanId;
 
 	useEffect(() => {
+		if (!spanId) return;
 		setGraphData(null);
 		setGraphLoading(false);
 		setGraphError(null);
-	}, []);
+		setShowGraphWorkspace(false);
+		setTab("messages");
+	}, [spanId]);
 
 	useEffect(() => {
 		if (tab !== "actionGraph" || !actionId) {
@@ -837,9 +842,12 @@ function SpanDetailPane({
 					{actionId && (
 						<DetailTabBtn
 							active={tab === "actionGraph"}
-							onClick={() => setTab("actionGraph")}
+							onClick={() => {
+								setTab("actionGraph");
+								setShowGraphWorkspace(true);
+							}}
 						>
-							🌳 Action Graph
+							Action Graph
 						</DetailTabBtn>
 					)}
 					<DetailTabBtn
@@ -857,7 +865,7 @@ function SpanDetailPane({
 					</div>
 				)}
 				{tab === "actionGraph" ? (
-					<div className="flex-1 min-h-0 relative">
+					<div className="flex-1 min-h-0 overflow-y-auto p-4">
 						{graphLoading && (
 							<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
 								Loading action graph...
@@ -868,11 +876,21 @@ function SpanDetailPane({
 								Failed to load action graph: {graphError}
 							</div>
 						)}
-						{!graphLoading && !graphError && graphData && actionId && (
-							<ActionGraphRenderer
-								actionId={actionId}
-								rawManifest={graphData}
-							/>
+						{!graphLoading && !graphError && graphData && (
+							<div className="flex flex-col gap-3">
+								<SectionTitle
+									title="Action graph"
+									note={model ?? span.spanName}
+								/>
+								<Button
+									variant="primary"
+									size="sm"
+									onClick={() => setShowGraphWorkspace(true)}
+									className="self-start"
+								>
+									Open graph workspace
+								</Button>
+							</div>
 						)}
 						{!graphLoading && !graphError && !graphData && (
 							<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
@@ -920,6 +938,18 @@ function SpanDetailPane({
 					</div>
 				)}
 			</Card>
+			{showGraphWorkspace && (
+				<ActionGraphWorkspace
+					span={span}
+					model={model}
+					provider={provider}
+					actionId={actionId}
+					graphData={graphData}
+					graphLoading={graphLoading}
+					graphError={graphError}
+					onClose={() => setShowGraphWorkspace(false)}
+				/>
+			)}
 			{showEvalModal && (
 				<SaveEvalCaseModal
 					sourceEntityType="ai_call"
@@ -937,6 +967,84 @@ function SpanDetailPane({
 				/>
 			)}
 		</>
+	);
+}
+
+function ActionGraphWorkspace({
+	span,
+	model,
+	provider,
+	actionId,
+	graphData,
+	graphLoading,
+	graphError,
+	onClose,
+}: {
+	span: AISpanRecord;
+	model: string | undefined;
+	provider: string | undefined;
+	actionId: string | undefined;
+	graphData: EntityManifestExtended | null;
+	graphLoading: boolean;
+	graphError: string | null;
+	onClose: () => void;
+}) {
+	return (
+		<div
+			className="fixed inset-0 z-50 bg-black/30 p-3 md:p-6"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Action graph workspace"
+			onKeyDown={(event) => {
+				if (event.key === "Escape") onClose();
+			}}
+		>
+			<div className="h-full min-h-0 bg-sys-surface border border-sys-outline shadow-2xl flex flex-col">
+				<div className="flex-none border-b border-sys-outline/40 px-4 py-3 flex items-start justify-between gap-4">
+					<div className="min-w-0 flex flex-col gap-1">
+						<div className="flex items-center gap-2 min-w-0">
+							<KindBadge kind={span.spanKind} />
+							<h2 className="font-mono font-bold text-[0.95rem] truncate">
+								Action graph
+							</h2>
+							<span className="font-mono text-[0.75rem] opacity-60 truncate">
+								{model ?? span.spanName}
+							</span>
+						</div>
+						<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.625rem] font-mono opacity-70">
+							{provider && <span>provider:{provider}</span>}
+							{span.serviceName && <span>svc:{span.serviceName}</span>}
+							<span>trace:{span.traceId.slice(0, 12)}...</span>
+							<span>span:{span.spanId.slice(0, 12)}...</span>
+						</div>
+					</div>
+					<Button variant="ghost" size="sm" onClick={onClose}>
+						Close
+					</Button>
+				</div>
+
+				<div className="flex-1 min-h-0 overflow-hidden">
+					{graphLoading && (
+						<div className="h-full flex items-center justify-center text-[0.75rem] opacity-60 font-mono">
+							Loading action graph...
+						</div>
+					)}
+					{graphError && (
+						<div className="h-full flex items-center justify-center p-6 text-center text-[0.75rem] text-sys-error font-mono">
+							Failed to load action graph: {graphError}
+						</div>
+					)}
+					{!graphLoading && !graphError && graphData && actionId && (
+						<ActionGraphRenderer actionId={actionId} rawManifest={graphData} />
+					)}
+					{!graphLoading && !graphError && !graphData && (
+						<div className="h-full flex items-center justify-center text-[0.75rem] opacity-60 font-mono">
+							No action graph data found.
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
 	);
 }
 

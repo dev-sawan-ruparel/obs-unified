@@ -14,6 +14,13 @@ const outDir =
 	process.env.MARKETING_SCREENSHOT_OUT ??
 	path.resolve("marketing-screenshots/app");
 const captureAll = process.env.MARKETING_SCREENSHOT_SET !== "website";
+const targetFilter = process.env.MARKETING_SCREENSHOT_TARGETS
+	? new Set(
+			process.env.MARKETING_SCREENSHOT_TARGETS.split(",")
+				.map((id) => id.trim())
+				.filter(Boolean),
+		)
+	: null;
 if (!password) {
 	throw new Error("DASHBOARD_PASSWORD is required for marketing screenshots");
 }
@@ -672,7 +679,13 @@ async function main() {
 	});
 	await login(page);
 
-	const selected = TARGETS.filter((target) => captureAll || target.website);
+	const selected = TARGETS.filter((target) => {
+		if (targetFilter && !targetFilter.has(target.id)) return false;
+		return captureAll || target.website;
+	});
+	if (selected.length === 0) {
+		throw new Error("No screenshot targets selected.");
+	}
 	const reviews = [];
 	for (const target of selected) {
 		await page.setViewportSize(target.viewport ?? { width: 1440, height: 900 });
