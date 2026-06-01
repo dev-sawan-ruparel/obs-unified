@@ -26,12 +26,24 @@ granting write access to telemetry ingest.
 
 ## Install
 
+The MCP server lives in the obs-unified monorepo at
+`packages/mcp-server`. GitHub Packages publishing is pending a package-write
+token, so use a local checkout today:
+
+```bash
+git clone https://github.com/obs-unified/obs-unified.git
+cd obs-unified
+pnpm install
+pnpm --filter @obs-unified/mcp-server build
+```
+
+Once the package is published to the obs-unified GitHub Packages registry, it
+can be installed globally:
+
 ```bash
 pnpm config set @obs-unified:registry https://npm.pkg.github.com
 pnpm add -g @obs-unified/mcp-server
 ```
-
-The package is published to the obs-unified GitHub Packages registry.
 
 ## Configure
 
@@ -120,4 +132,3 @@ pnpm --filter @obs-unified/mcp-server build
 
 For package-level details, see the
 [MCP server README](https://github.com/obs-unified/obs-unified/blob/main/packages/mcp-server/README.md).
-
