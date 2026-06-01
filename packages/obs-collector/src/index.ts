@@ -67,6 +67,15 @@ export type {
 
 export type { Logger } from "./framework/logger";
 export { consoleLogger } from "./framework/logger";
+export {
+	type ActionRecord,
+	ActionStore,
+	type AgentRunRecord,
+	type ArtifactRecord,
+	type EvalResultRecord,
+	type RetrievalEventRecord,
+	type ToolCallRecord,
+} from "./lib/actions-store";
 export { AlertsStore, compareValue } from "./lib/alerts-store";
 export {
 	type BlobListOptions,

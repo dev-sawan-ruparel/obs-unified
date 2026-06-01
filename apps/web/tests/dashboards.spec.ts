@@ -553,4 +553,194 @@ test.describe("Agent / Action / Tool Graph Detail Pages", () => {
 			page.getByText("Yes (Mutates External State)", { exact: true }),
 		).toBeVisible();
 	});
+
+	test("renders wrong-invoice-update journey with full context", async ({
+		page,
+	}) => {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
+		const wrongInvoiceRaw = fs.readFileSync(
+			path.resolve(
+				process.cwd(),
+				"../../tests/fixtures/actions/wrong-invoice-update.json",
+			),
+			"utf8",
+		);
+		type JsonValue =
+			| string
+			| number
+			| boolean
+			| null
+			| JsonValue[]
+			| { [key: string]: JsonValue };
+		const rawFixtureData = JSON.parse(wrongInvoiceRaw) as JsonValue;
+
+		// Recursively camelCase all keys in rawFixtureData to match real server-side normalization
+		const camelCaseKeys = (obj: JsonValue): JsonValue => {
+			if (Array.isArray(obj)) {
+				return obj.map(camelCaseKeys);
+			}
+			if (obj !== null && typeof obj === "object") {
+				const newObj: Record<string, JsonValue> = {};
+				for (const [key, val] of Object.entries(obj)) {
+					const newKey = key.replace(/_([a-z])/g, (_, letter: string) =>
+						letter.toUpperCase(),
+					);
+					newObj[newKey] = camelCaseKeys(val);
+				}
+				return newObj;
+			}
+			return obj;
+		};
+
+		const fixtureData = camelCaseKeys(rawFixtureData);
+
+		// Intercept the API endpoint for our specific agent run
+		const runId = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
+		const runManifest = JSON.stringify({
+			entity: { kind: "agent_run", id: runId, projectId: "proj_prod_01" },
+			up: [],
+			across: [],
+			down: [],
+			related: [],
+			rawManifest: fixtureData,
+		});
+
+		await mockApis(page, {
+			[`/connected/agent_run/${runId}`]: (r) => json(r, runManifest),
+			// Also mock tool call and action details endpoints so E2E flow can navigate
+			"/connected/tool_call/": (r) => {
+				const url = r.request().url();
+				const parts = url.split("/");
+				const tcId = parts[parts.length - 1];
+				return json(
+					r,
+					JSON.stringify({
+						entity: { kind: "tool_call", id: tcId, projectId: "proj_prod_01" },
+						rawManifest: fixtureData,
+					}),
+				);
+			},
+			"/connected/action/": (r) => {
+				const url = r.request().url();
+				const parts = url.split("/");
+				const actId = parts[parts.length - 1];
+				return json(
+					r,
+					JSON.stringify({
+						entity: { kind: "action", id: actId, projectId: "proj_prod_01" },
+						rawManifest: fixtureData,
+					}),
+				);
+			},
+		});
+
+		await page.goto(`/#/agent-runs/${runId}`);
+		await page.waitForLoadState("domcontentloaded");
+
+		// 1. Assert Agent Header
+		await expect(
+			page.locator("h1:has-text('Billing Operations Assistant')"),
+		).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(page.getByText("v3.1.2", { exact: true })).toBeVisible();
+		await expect(page.locator("text=AUTONOMOUS WRITE").first()).toBeVisible();
+
+		// 2. Assert Stats Bar Counts
+		await expect(page.getByText("LLM Calls").first()).toBeVisible();
+		await expect(page.locator("text=2").first()).toBeVisible(); // 2 LLM Calls
+		await expect(page.getByText("Tool Calls").first()).toBeVisible();
+		await expect(page.locator("text=2").nth(1)).toBeVisible(); // 2 Tool Calls
+		await expect(page.getByText("Retrievals").first()).toBeVisible();
+		await expect(page.locator("text=1").first()).toBeVisible(); // 1 Retrieval
+		await expect(page.getByText("Evaluations").first()).toBeVisible();
+		await expect(page.locator("text=1").nth(1)).toBeVisible(); // 1 Evaluation
+
+		// 3. Assert Run Summary
+		await expect(
+			page.locator(
+				"dd:has-text('Process customer billing address update request')",
+			),
+		).toBeVisible();
+		await expect(
+			page.locator("dd:has-text('completed_with_guardrail_error')"),
+		).toBeVisible();
+
+		// 4. Assert Trigger / Source Context Card
+		const triggerCard = page
+			.locator(".bg-sys-surface", {
+				hasText: "Trigger / Source Context",
+			})
+			.first();
+		await expect(triggerCard).toBeVisible();
+		await expect(
+			triggerCard.locator("text=support_portal.submit_billing_change"),
+		).toBeVisible();
+		await expect(
+			triggerCard.locator("text=button#submit-ticket"),
+		).toBeVisible();
+		await expect(
+			triggerCard.locator(
+				"text=Please update billing address on my last invoice INV-2026-9912 to 100 Main St.",
+			),
+		).toBeVisible();
+
+		// 5. Assert Telemetry & Connections Card
+		const telemetryCard = page
+			.locator(".bg-sys-surface", {
+				hasText: "Telemetry & Connections",
+			})
+			.first();
+		await expect(telemetryCard).toBeVisible();
+		await expect(
+			telemetryCard.locator("text=8cf92f3577b34da6a3ce929d0e0e4739"),
+		).toBeVisible();
+		await expect(telemetryCard.locator("text=usr_772183")).toBeVisible();
+
+		// 6. Assert Chronological timeline steps
+		const timelineCard = page
+			.locator(".bg-sys-surface", {
+				hasText: "Chronological Execution Steps",
+			})
+			.first();
+		await expect(timelineCard).toBeVisible();
+		await expect(
+			timelineCard.locator("text=classify_billing_intent").first(),
+		).toBeVisible();
+		await expect(
+			timelineCard.locator("text=retrieve_invoice_rules").first(),
+		).toBeVisible();
+		await expect(
+			timelineCard.locator("text=lookup_invoice_record").first(),
+		).toBeVisible();
+		await expect(
+			timelineCard.locator("text=mutate_invoice_address").first(),
+		).toBeVisible();
+		await expect(
+			timelineCard.locator("text=validate_invoice_permissions").first(),
+		).toBeVisible();
+		await expect(
+			timelineCard.locator("text=generate_final_response").first(),
+		).toBeVisible();
+
+		// 7. Verify we can select tool node and see empty states in Action Detail Panel
+		const mutateNode = page
+			.locator("button:has-text('db.invoice_update')")
+			.first();
+		await mutateNode.click();
+
+		// Assert empty evaluator grader state in Action Detail Panel
+		await expect(
+			page.locator("text=No evaluations graded for this action step."),
+		).toBeVisible();
+		// Assert tool details trace warning (linked_backend_trace_id exists)
+		await expect(
+			page.locator("text=Backend Trace: 9df92f3577b34da6a3ce929d0e0e4741"),
+		).toBeVisible();
+		// Assert warning banner: Payload Redacted Capture Disabled
+		await expect(
+			page.locator("text=Tool payload redacted (capture disabled)"),
+		).toBeVisible();
+	});
 });

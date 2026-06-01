@@ -165,20 +165,27 @@ export function ActionDashboard({
 							</>
 						)}
 
-						{action?.traceId && (
+						{action?.traceId ? (
 							<>
-								<dt className="opacity-60">Telemetry Trace</dt>
+								<dt className="opacity-60 font-semibold">Telemetry Trace</dt>
 								<dd>
 									<button
 										type="button"
 										onClick={() =>
 											onNavigate?.(`#/traces?trace=${action.traceId}`)
 										}
-										className="text-sys-primary hover:underline text-left cursor-pointer truncate max-w-full block"
+										className="text-sys-primary hover:underline text-left cursor-pointer truncate max-w-full block font-bold"
 										title={action.traceId}
 									>
-										{action.traceId}
+										🔗 {action.traceId}
 									</button>
+								</dd>
+							</>
+						) : (
+							<>
+								<dt className="opacity-60 font-semibold">Telemetry Trace</dt>
+								<dd className="text-sys-warning font-semibold font-mono text-[0.75rem]">
+									Backend Trace: None linked
 								</dd>
 							</>
 						)}
@@ -190,10 +197,20 @@ export function ActionDashboard({
 							</>
 						)}
 
-						{action?.interactionId && (
+						{action?.interactionId ? (
 							<>
-								<dt className="opacity-60">Interaction ID</dt>
-								<dd>{action.interactionId}</dd>
+								<dt className="opacity-60 font-semibold">Interaction ID</dt>
+								<dd className="font-mono text-[0.75rem]">
+									{action.interactionId}
+								</dd>
+							</>
+						) : (
+							<>
+								<dt className="opacity-60 font-semibold">Interaction ID</dt>
+								<dd className="text-sys-warning font-semibold font-mono text-[0.75rem]">
+									No interaction ID (triggered autonomously by background system
+									task/cron)
+								</dd>
 							</>
 						)}
 

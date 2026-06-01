@@ -6,10 +6,13 @@ import {
 	recordArtifact,
 	recordEvaluation,
 	recordRetrieval,
+	restoreActionContext,
+	serializeActionContext,
 	startAgentRun,
 	step,
 	tool,
 	withAction,
+	withSerializedActionContext,
 } from "./agent";
 import { createRequestSpan, runWithSpan } from "./span";
 
@@ -363,5 +366,131 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 				s.attributes?.some((attr) => attr.key === "obs.action.kind"),
 			),
 		).toHaveLength(7);
+	});
+
+	it("returns undefined when no active action context is available", () => {
+		expect(serializeActionContext()).toBeUndefined();
+		expect(restoreActionContext(undefined)).toBeUndefined();
+	});
+
+	it("serializes active agent run context for queue metadata", async () => {
+		await startAgentRun(
+			{
+				agentId: "queue-agent",
+				agentName: "Queue Agent",
+				actorType: "agent",
+				actorId: "queue-agent",
+			},
+			async (run) => {
+				const metadata = serializeActionContext();
+				expect(metadata).toEqual({
+					rootActionId: run.runId,
+					actionId: run.runId,
+					agentRunId: run.runId,
+					actorType: "agent",
+					actorId: "queue-agent",
+				});
+			},
+		);
+	});
+
+	it("restores queue metadata so consumer child steps point to the producer action", async () => {
+		const requestSpan = createRequestSpan("test-service", "queue-consumer");
+		let queuedMetadata: ReturnType<typeof serializeActionContext>;
+
+		await startAgentRun(
+			{ agentId: "producer-agent", agentName: "Producer Agent" },
+			async () => {
+				await step({ name: "enqueue-invoice-job" }, async () => {
+					queuedMetadata = serializeActionContext();
+				});
+			},
+		);
+
+		if (!queuedMetadata) throw new Error("Expected serialized queue metadata");
+
+		await runWithSpan(requestSpan, async () => {
+			await withSerializedActionContext(queuedMetadata, async () => {
+				await step({ name: "process-invoice-job" }, async () => undefined);
+			});
+		});
+
+		const spans =
+			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
+				?.spans ?? [];
+		const consumerStep = spans.find((s) =>
+			s.attributes?.some(
+				(attr) =>
+					attr.key === "obs.action.kind" &&
+					attr.value?.stringValue === "agent.step",
+			),
+		);
+		expect(consumerStep).toBeDefined();
+		expect(
+			consumerStep?.attributes?.find(
+				(attr) => attr.key === "obs.action.caused_by_id",
+			)?.value?.stringValue,
+		).toBe(queuedMetadata.actionId);
+		expect(
+			consumerStep?.attributes?.find(
+				(attr) => attr.key === "obs.action.root_id",
+			)?.value?.stringValue,
+		).toBe(queuedMetadata.rootActionId);
+	});
+
+	it("carries explicit serialized metadata through a fake queue payload", async () => {
+		const requestSpan = createRequestSpan("test-service", "explicit-queue");
+		const payload = {
+			name: "sync-invoice",
+			metadata: {
+				obsActionContext: {
+					rootActionId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+					actionId: "01BX5ZZKBKACTAV9WEVGEMMVRZ",
+					causedByActionId: "01BX5ZZKBKACTAV9WEVGEMMVRX",
+					agentRunId: "01BX5ZZKBKACTAV9WEVGEMMVS0",
+					actorType: "agent",
+					actorId: "billing-worker",
+				},
+			},
+		};
+
+		await runWithSpan(requestSpan, async () => {
+			await withSerializedActionContext(
+				payload.metadata.obsActionContext,
+				async () => {
+					const active = getActiveAgentContext();
+					expect(active?.actionId).toBe(
+						payload.metadata.obsActionContext.actionId,
+					);
+					expect(active?.rootActionId).toBe(
+						payload.metadata.obsActionContext.rootActionId,
+					);
+					expect(active?.causedByActionId).toBe(
+						payload.metadata.obsActionContext.causedByActionId,
+					);
+					await step({ name: payload.name }, async () => undefined);
+				},
+			);
+		});
+
+		const spans =
+			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
+				?.spans ?? [];
+		const consumerStep = spans.find((s) =>
+			s.attributes?.some(
+				(attr) =>
+					attr.key === "obs.action.kind" &&
+					attr.value?.stringValue === "agent.step",
+			),
+		);
+		expect(
+			consumerStep?.attributes?.find(
+				(attr) => attr.key === "obs.action.caused_by_id",
+			)?.value?.stringValue,
+		).toBe(payload.metadata.obsActionContext.actionId);
+		expect(
+			consumerStep?.attributes?.find((attr) => attr.key === "obs.agent.run_id")
+				?.value?.stringValue,
+		).toBe(payload.metadata.obsActionContext.agentRunId);
 	});
 });

@@ -62,22 +62,22 @@ schema code; fixture IDs show exactly how parent / child action edges work.
 
 Add the graph spine without changing the existing ingest behavior.
 
-- [ ] **1.1** Migration `031_action_graph.sql`: create `actions`, `agent_runs`,
+- [x] **1.1** Migration `031_action_graph.sql`: create `actions`, `agent_runs`,
       `tool_calls`, `retrieval_events`, `eval_results`, and `artifacts`.
-- [ ] **1.2** Migration `031_action_graph.sql`: add nullable `action_id` to
+- [x] **1.2** Migration `031_action_graph.sql`: add nullable `action_id` to
       `ai_span_payloads` and any existing signal tables that need direct joins
       in Phase 1.
-- [ ] **1.3** Add `ActionStore` in
+- [x] **1.3** Add `ActionStore` in
       `packages/obs-collector/src/lib/actions-store.ts`, using the existing
       `SqlDb` interface.
-- [ ] **1.4** Extend `IdentityIndex` with `byAction`, `byAgentRun`, and
+- [x] **1.4** Extend `IdentityIndex` with `byAction`, `byAgentRun`, and
       `byActor`; preserve existing `bySession`, `byTrace`, `byInteraction`, and
       `byUser` methods.
-- [ ] **1.5** Add read-time projection for legacy browser-originated rows:
+- [x] **1.5** Add read-time projection for legacy browser-originated rows:
       `action_id = root_action_id = interaction_id` when no action row exists.
-- [ ] **1.6** Add internal routes: `GET /internal/actions/:id` and
+- [x] **1.6** Add internal routes: `GET /internal/actions/:id` and
       `GET /internal/agent-runs/:id`.
-- [ ] **1.7** Extend `/internal/connected/:kind/:id` with `action`, `agent_run`,
+- [x] **1.7** Extend `/internal/connected/:kind/:id` with `action`, `agent_run`,
       and `tool_call` kinds. Do not introduce a separate connected endpoint.
 - [ ] **1.8** Add redaction processor and per-project payload-capture flags per
       RFC 0010 Privacy and governance. Default to metadata + hashes only;
@@ -107,7 +107,7 @@ Make action identity flow through existing app boundaries.
       the root span.
 - [x] **2.4** Logger, AI call tracking, and profile helpers inherit the active
       action context from the active span / async context.
-- [ ] **2.5** Add queue / workflow helpers to serialize and restore action
+- [x] **2.5** Add queue / workflow helpers to serialize and restore action
       context in job metadata.
 
 **Exit criteria:** click -> fetch -> backend span -> log -> AI call all share
@@ -178,18 +178,18 @@ action graph records without installing the native agent SDK.
 
 Land the first user-visible "aha" surface.
 
-- [ ] **5.1** Add an agent run detail route / view in `packages/dashboard`,
+- [x] **5.1** Add an agent run detail route / view in `packages/dashboard`,
       backed by `/internal/agent-runs/:id`.
-- [ ] **5.2** Render the run timeline: trigger, goal, autonomy level, steps, LLM
+- [x] **5.2** Render the run timeline: trigger, goal, autonomy level, steps, LLM
       calls, retrievals, tool calls, guardrails, evals, artifacts, linked
       traces, logs, profiles, replay, and users.
-- [ ] **5.3** Render a decision graph by walking `caused_by_action_id` edges
+- [x] **5.3** Render a decision graph by walking `caused_by_action_id` edges
       within a `root_action_id`.
-- [ ] **5.4** Wire Connected rail into agent run, action, and tool-call detail
+- [x] **5.4** Wire Connected rail into agent run, action, and tool-call detail
       surfaces.
-- [ ] **5.5** Add empty-state copy for no `interaction_id`, no tools, no evals,
+- [x] **5.5** Add empty-state copy for no `interaction_id`, no tools, no evals,
       no backend trace, and no payload capture.
-- [ ] **5.6** Add Playwright coverage for the wrong-invoice journey.
+- [x] **5.6** Add Playwright coverage for the wrong-invoice journey.
 
 **Exit criteria:** a user can open one agent run and understand what happened
 without searching separate trace, AI, log, and replay pages.

@@ -126,6 +126,20 @@ const toKv = (key: string, value: unknown): OtlpKeyValue => {
 	return { key, value: { stringValue: String(value ?? "") } };
 };
 
+const setOrReplaceKv = (
+	attributes: OtlpKeyValue[],
+	key: string,
+	value: unknown,
+): void => {
+	const kv = toKv(key, value);
+	const existingIndex = attributes.findIndex((attr) => attr.key === key);
+	if (existingIndex === -1) {
+		attributes.push(kv);
+		return;
+	}
+	attributes[existingIndex] = kv;
+};
+
 export interface ChildSpan {
 	readonly spanId: string;
 	setAttribute(key: string, value: unknown): void;
@@ -416,7 +430,7 @@ export function createRequestSpan(
 			return statusCode;
 		},
 		setAttribute(key, value) {
-			attributes.push(toKv(key, value));
+			setOrReplaceKv(attributes, key, value);
 		},
 		addEvent(name, attrs) {
 			const event: OtlpEvent = { name, timeUnixNano: nowNano() };
@@ -475,7 +489,7 @@ export function createRequestSpan(
 			return {
 				spanId: child.spanId,
 				setAttribute(key: string, value: unknown) {
-					child.attributes.push(toKv(key, value));
+					setOrReplaceKv(child.attributes, key, value);
 				},
 				addEvent(evtName: string, attrs?: Record<string, unknown>) {
 					const event: OtlpEvent = { name: evtName, timeUnixNano: nowNano() };

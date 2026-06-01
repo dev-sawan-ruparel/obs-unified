@@ -89,13 +89,17 @@ export {
 	recordArtifact,
 	recordEvaluation,
 	recordRetrieval,
+	restoreActionContext,
+	type SerializedActionContext,
 	type StepOptions,
+	serializeActionContext,
 	startAgentRun,
 	step,
 	type ToolCall,
 	type ToolOptions,
 	tool,
 	withAction,
+	withSerializedActionContext,
 } from "./agent";
 // ── AI tracking ──
 export {

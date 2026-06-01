@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
 import { ConnectedRail } from "../components/ConnectedRail";
-import { Card, SectionTitle } from "../components/primitives";
+import { Card, JsonBlock, SectionTitle } from "../components/primitives";
 import { StateRow } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -75,6 +75,15 @@ export function ToolCallDashboard({
 		(a) => a.id === actionId,
 	);
 
+	const causalAttrs = (() => {
+		if (!causalAction?.attrsJson) return {};
+		try {
+			return JSON.parse(causalAction.attrsJson);
+		} catch {
+			return {};
+		}
+	})();
+
 	const approvalBadgeColor: Record<string, string> = {
 		suggested: "border-sys-outline bg-sys-outline/10 text-sys-on-surface-muted",
 		human_approved:
@@ -142,6 +151,28 @@ export function ToolCallDashboard({
 							</>
 						)}
 
+						<dt className="opacity-60 font-semibold">Backend Trace</dt>
+						<dd>
+							{causalAttrs.linked_backend_trace_id ? (
+								<button
+									type="button"
+									onClick={() =>
+										onNavigate?.(
+											`#/traces?trace=${causalAttrs.linked_backend_trace_id}`,
+										)
+									}
+									className="text-sys-primary hover:underline font-bold text-left cursor-pointer truncate max-w-full block"
+									title={causalAttrs.linked_backend_trace_id}
+								>
+									🔗 {causalAttrs.linked_backend_trace_id}
+								</button>
+							) : (
+								<span className="text-sys-warning font-semibold font-mono text-[0.75rem]">
+									Backend Trace: None linked
+								</span>
+							)}
+						</dd>
+
 						<dt className="opacity-60">Side Effect</dt>
 						<dd>
 							{toolCall?.sideEffect
@@ -178,6 +209,30 @@ export function ToolCallDashboard({
 						</dd>
 					</dl>
 				</Card>
+
+				{/* ── Payload Capture Card ── */}
+				{toolCall && (
+					<Card className="flex-none p-3">
+						<SectionTitle title="Payload Capture" />
+						{toolCall.argsRedacted || toolCall.resultRedacted ? (
+							<div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+								{toolCall.argsRedacted && (
+									<JsonBlock label="arguments" value={toolCall.argsRedacted} />
+								)}
+								{toolCall.resultRedacted && (
+									<JsonBlock
+										label="result / outcome"
+										value={toolCall.resultRedacted}
+									/>
+								)}
+							</div>
+						) : (
+							<div className="mt-2 p-3 border border-l-[3px] border-l-sys-warning bg-sys-warning/5 text-sys-warning font-semibold font-mono text-[0.7rem] rounded">
+								Tool payload redacted (capture disabled)
+							</div>
+						)}
+					</Card>
+				)}
 
 				<div className="flex-1 min-h-[400px] flex flex-col min-w-0">
 					<div className="flex-none px-3 py-1 bg-sys-surface border-[1px] border-b-0 border-sys-outline font-mono text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-80">

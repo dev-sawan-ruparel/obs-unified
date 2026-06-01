@@ -1,5 +1,6 @@
 import type { SqlDb } from "../sql-db";
 import { FETCH_LIMIT } from "./constants";
+import { manifestByInteraction } from "./key-lookups";
 import {
 	mapAction,
 	mapAgentRun,
@@ -11,7 +12,115 @@ import {
 	mapSpan,
 	mapToolCall,
 } from "./mappers";
-import type { EntityManifestExtended, ReplayRow } from "./types";
+import type { ActionRef, EntityManifestExtended, ReplayRow } from "./types";
+
+const emptyExtendedManifest = (): EntityManifestExtended => ({
+	spans: [],
+	logs: [],
+	usageEvents: [],
+	aiCalls: [],
+	replay: null,
+	actions: [],
+	agentRuns: [],
+	toolCalls: [],
+	retrievalEvents: [],
+	evalResults: [],
+	artifacts: [],
+});
+
+const earliest = (values: Array<string | null | undefined>): string =>
+	values.filter((v): v is string => Boolean(v)).sort()[0] ??
+	new Date(0).toISOString();
+
+const latest = (values: Array<string | null | undefined>): string | null => {
+	const sorted = values.filter((v): v is string => Boolean(v)).sort();
+	return sorted[sorted.length - 1] ?? null;
+};
+
+const durationMs = (
+	startedAt: string,
+	endedAt: string | null,
+): number | null => {
+	if (!endedAt) return null;
+	const duration = Date.parse(endedAt) - Date.parse(startedAt);
+	return Number.isFinite(duration) && duration >= 0 ? duration : null;
+};
+
+const projectLegacyInteraction = async (
+	db: SqlDb,
+	projectId: string,
+	interactionId: string,
+): Promise<EntityManifestExtended> => {
+	const manifest = await manifestByInteraction(db, projectId, interactionId);
+	const hasSignals =
+		manifest.spans.length > 0 ||
+		manifest.logs.length > 0 ||
+		manifest.usageEvents.length > 0 ||
+		manifest.aiCalls.length > 0;
+
+	if (!hasSignals) return emptyExtendedManifest();
+
+	const startedAt = earliest([
+		...manifest.spans.map((s) => s.startTime),
+		...manifest.logs.map((l) => l.occurredAt),
+		...manifest.usageEvents.map((u) => u.occurredAt),
+		...manifest.aiCalls.map((a) => a.occurredAt),
+	]);
+	const endedAt = latest([
+		...manifest.logs.map((l) => l.occurredAt),
+		...manifest.usageEvents.map((u) => u.occurredAt),
+		...manifest.aiCalls.map((a) => a.occurredAt),
+	]);
+	const firstSpan = manifest.spans[0];
+	const firstUsage = manifest.usageEvents[0];
+	const action: ActionRef = {
+		id: interactionId,
+		projectId,
+		rootActionId: interactionId,
+		causedByActionId: null,
+		actorType: "human",
+		actorId: null,
+		actionKind: "browser.interaction",
+		name: firstUsage?.eventName ?? firstSpan?.spanName ?? "Legacy interaction",
+		status:
+			manifest.logs.some((l) => l.severity.toLowerCase() === "error") ||
+			manifest.spans.some((s) => s.statusCode >= 2)
+				? "error"
+				: "ok",
+		startedAt,
+		endedAt,
+		durationMs: durationMs(startedAt, endedAt),
+		traceId: firstSpan?.traceId ?? manifest.aiCalls[0]?.traceId ?? null,
+		spanId: firstSpan?.spanId ?? null,
+		sessionId: firstUsage?.sessionId ?? null,
+		interactionId,
+		userId: null,
+		agentRunId: null,
+		stepId: null,
+		toolCallId: null,
+		promptVersion: null,
+		modelName: manifest.aiCalls[0]?.modelName ?? null,
+		provider: manifest.aiCalls[0]?.provider ?? null,
+		totalCostUsd:
+			manifest.aiCalls.length > 0
+				? manifest.aiCalls.reduce(
+						(sum, call) => sum + (call.totalCostUsd ?? 0),
+						0,
+					)
+				: null,
+		attrsJson: JSON.stringify({ projectedFrom: "interaction_id" }),
+	};
+
+	return {
+		...manifest,
+		actions: [action],
+		agentRuns: [],
+		toolCalls: [],
+		retrievalEvents: [],
+		evalResults: [],
+		artifacts: [],
+	};
+};
 
 export async function manifestByAction(
 	db: SqlDb,
@@ -50,19 +159,7 @@ export async function manifestByAction(
 		}>();
 
 	if (!action) {
-		return {
-			spans: [],
-			logs: [],
-			usageEvents: [],
-			aiCalls: [],
-			replay: null,
-			actions: [],
-			agentRuns: [],
-			toolCalls: [],
-			retrievalEvents: [],
-			evalResults: [],
-			artifacts: [],
-		};
+		return projectLegacyInteraction(db, projectId, actionId);
 	}
 
 	// Retrieve all actions that share the same root_action_id
@@ -259,19 +356,7 @@ export async function manifestByAgentRun(
 		}>();
 
 	if (!run) {
-		return {
-			spans: [],
-			logs: [],
-			usageEvents: [],
-			aiCalls: [],
-			replay: null,
-			actions: [],
-			agentRuns: [],
-			toolCalls: [],
-			retrievalEvents: [],
-			evalResults: [],
-			artifacts: [],
-		};
+		return emptyExtendedManifest();
 	}
 
 	const actionsRes = await db
@@ -459,19 +544,7 @@ export async function manifestByActor(
 
 	const matchedActions = actionsRes.results;
 	if (matchedActions.length === 0) {
-		return {
-			spans: [],
-			logs: [],
-			usageEvents: [],
-			aiCalls: [],
-			replay: null,
-			actions: [],
-			agentRuns: [],
-			toolCalls: [],
-			retrievalEvents: [],
-			evalResults: [],
-			artifacts: [],
-		};
+		return emptyExtendedManifest();
 	}
 
 	const actionIds = matchedActions.map((a) => a.id);

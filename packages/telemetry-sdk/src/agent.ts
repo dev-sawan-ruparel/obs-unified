@@ -98,6 +98,15 @@ export interface ActionContextOptions {
 	actorId?: string | null;
 }
 
+export interface SerializedActionContext {
+	rootActionId: string;
+	actionId: string;
+	causedByActionId?: string | null;
+	agentRunId?: string | null;
+	actorType?: string;
+	actorId?: string | null;
+}
+
 export interface LLMOptions {
 	model: string;
 	provider: string;
@@ -171,6 +180,51 @@ export interface ArtifactOptions {
  */
 export function getActiveAgentContext(): AgentActionContext | undefined {
 	return agentContextStorage.getStore();
+}
+
+/**
+ * Serialize the active RFC 0010 action context into JSON-safe job metadata.
+ *
+ * Queue and workflow producers should attach this value to job metadata. The
+ * consumer can pass it to `withSerializedActionContext` before creating child
+ * spans so causal links point back to the producer action.
+ */
+export function serializeActionContext(
+	context = getActiveAgentContext(),
+): SerializedActionContext | undefined {
+	if (!context) return undefined;
+
+	const serialized: SerializedActionContext = {
+		rootActionId: context.rootActionId,
+		actionId: context.actionId,
+	};
+	if (context.causedByActionId) {
+		serialized.causedByActionId = context.causedByActionId;
+	}
+	if (context.agentRunId) {
+		serialized.agentRunId = context.agentRunId;
+	}
+	if (context.actorType) {
+		serialized.actorType = context.actorType;
+	}
+	if (context.actorId) {
+		serialized.actorId = context.actorId;
+	}
+	return serialized;
+}
+
+export function restoreActionContext(
+	metadata: SerializedActionContext | null | undefined,
+): ActionContextOptions | undefined {
+	if (!metadata) return undefined;
+	return {
+		rootActionId: metadata.rootActionId,
+		actionId: metadata.actionId,
+		causedByActionId: metadata.causedByActionId ?? null,
+		agentRunId: metadata.agentRunId ?? null,
+		actorType: metadata.actorType,
+		actorId: metadata.actorId ?? null,
+	};
 }
 
 const CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -363,6 +417,15 @@ export async function withAction<T>(
 	return agentContextStorage.run(context, fn);
 }
 
+export async function withSerializedActionContext<T>(
+	metadata: SerializedActionContext | null | undefined,
+	fn: () => Promise<T>,
+): Promise<T> {
+	const restored = restoreActionContext(metadata);
+	if (!restored) return fn();
+	return withAction(restored, fn);
+}
+
 /**
  * Record a discrete step in the agent's plan or reasoning cycle.
  */
@@ -386,21 +449,23 @@ export async function step<T>(
 		actorId: parentContext?.actorId ?? null,
 	};
 
-	return withChildSpan(opts.name, async (child) => {
-		setActionAttrs(child, context, opts.kind ?? "agent.step");
-		setAttrWithAliases(child, AGENT_STEP_ID_KEY, actionId, [
-			"obs.action.step_id",
-		]);
+	return agentContextStorage.run(context, () =>
+		withChildSpan(opts.name, async (child) => {
+			setActionAttrs(child, context, opts.kind ?? "agent.step");
+			setAttrWithAliases(child, AGENT_STEP_ID_KEY, actionId, [
+				"obs.action.step_id",
+			]);
 
-		const stepObj: AgentStep = {
-			stepId: actionId,
-			setAttribute(key: string, value: unknown) {
-				child.setAttribute(key, value);
-			},
-		};
+			const stepObj: AgentStep = {
+				stepId: actionId,
+				setAttribute(key: string, value: unknown) {
+					child.setAttribute(key, value);
+				},
+			};
 
-		return agentContextStorage.run(context, () => fn(stepObj));
-	});
+			return fn(stepObj);
+		}),
+	);
 }
 
 /**
@@ -426,48 +491,50 @@ export async function llm<T>(
 		actorId: parentContext?.actorId ?? null,
 	};
 
-	return withChildSpan(opts.name ?? "llm", async (child) => {
-		setActionAttrs(child, context, "llm");
-		child.setAttribute("openinference.span.kind", "LLM");
-		child.setAttribute("llm.model_name", opts.model);
-		child.setAttribute("llm.provider", opts.provider);
-		child.setAttribute("gen_ai.system", opts.provider);
-		child.setAttribute("gen_ai.request.model", opts.model);
-		child.setAttribute("gen_ai.operation.name", "chat");
-		child.setAttribute("ai.payload.input", stringify(opts.input));
-		if (opts.promptVersion) {
-			child.setAttribute("obs.prompt.version", opts.promptVersion);
-		}
+	return agentContextStorage.run(context, () =>
+		withChildSpan(opts.name ?? "llm", async (child) => {
+			setActionAttrs(child, context, "llm");
+			child.setAttribute("openinference.span.kind", "LLM");
+			child.setAttribute("llm.model_name", opts.model);
+			child.setAttribute("llm.provider", opts.provider);
+			child.setAttribute("gen_ai.system", opts.provider);
+			child.setAttribute("gen_ai.request.model", opts.model);
+			child.setAttribute("gen_ai.operation.name", "chat");
+			child.setAttribute("ai.payload.input", stringify(opts.input));
+			if (opts.promptVersion) {
+				child.setAttribute("obs.prompt.version", opts.promptVersion);
+			}
 
-		const llmCall: LLMCall = {
-			actionId,
-			setOutput(output) {
-				child.setAttribute("ai.payload.output", stringify(output));
-			},
-			setTokens({ prompt, completion, total }) {
-				if (prompt !== undefined) {
-					child.setAttribute("llm.token_count.prompt", prompt);
-					child.setAttribute("gen_ai.usage.input_tokens", prompt);
-				}
-				if (completion !== undefined) {
-					child.setAttribute("llm.token_count.completion", completion);
-					child.setAttribute("gen_ai.usage.output_tokens", completion);
-				}
-				if (total !== undefined) {
-					child.setAttribute("llm.token_count.total", total);
-				}
-			},
-			setCost(usd) {
-				child.setAttribute("llm.cost.total_usd", usd);
-				child.setAttribute("gen_ai.usage.cost_usd", usd);
-			},
-			setAttribute(key, value) {
-				child.setAttribute(key, value);
-			},
-		};
+			const llmCall: LLMCall = {
+				actionId,
+				setOutput(output) {
+					child.setAttribute("ai.payload.output", stringify(output));
+				},
+				setTokens({ prompt, completion, total }) {
+					if (prompt !== undefined) {
+						child.setAttribute("llm.token_count.prompt", prompt);
+						child.setAttribute("gen_ai.usage.input_tokens", prompt);
+					}
+					if (completion !== undefined) {
+						child.setAttribute("llm.token_count.completion", completion);
+						child.setAttribute("gen_ai.usage.output_tokens", completion);
+					}
+					if (total !== undefined) {
+						child.setAttribute("llm.token_count.total", total);
+					}
+				},
+				setCost(usd) {
+					child.setAttribute("llm.cost.total_usd", usd);
+					child.setAttribute("gen_ai.usage.cost_usd", usd);
+				},
+				setAttribute(key, value) {
+					child.setAttribute(key, value);
+				},
+			};
 
-		return agentContextStorage.run(context, () => fn(llmCall));
-	});
+			return fn(llmCall);
+		}),
+	);
 }
 
 /**
@@ -498,56 +565,58 @@ export async function tool<T>(
 			? opts.arguments
 			: JSON.stringify(opts.arguments);
 
-	return withChildSpan(opts.name, async (child) => {
-		setActionAttrs(child, context, "tool.call");
-		setAttrWithAliases(child, TOOL_CALL_ID_KEY, actionId, [
-			"obs.action.tool_call_id",
-		]);
+	return agentContextStorage.run(context, () =>
+		withChildSpan(opts.name, async (child) => {
+			setActionAttrs(child, context, "tool.call");
+			setAttrWithAliases(child, TOOL_CALL_ID_KEY, actionId, [
+				"obs.action.tool_call_id",
+			]);
 
-		// Downstream OpenInference normalization trigger
-		child.setAttribute("openinference.span.kind", "TOOL");
+			// Downstream OpenInference normalization trigger
+			child.setAttribute("openinference.span.kind", "TOOL");
 
-		// Leaf attributes
-		setAttrWithAliases(child, TOOL_NAME_KEY, opts.name, [
-			"obs.tool_call.tool_name",
-		]);
-		setAttrWithAliases(child, TOOL_ARGS_KEY, rawArgs, ["obs.tool_call.args"]);
-		setAttrWithAliases(child, TOOL_SIDE_EFFECT_KEY, opts.sideEffect ? 1 : 0, [
-			"obs.tool_call.side_effect",
-		]);
-		setAttrWithAliases(
-			child,
-			TOOL_APPROVAL_STATE_KEY,
-			opts.approvalState ?? "suggested",
-			["obs.tool_call.approval_state"],
-		);
+			// Leaf attributes
+			setAttrWithAliases(child, TOOL_NAME_KEY, opts.name, [
+				"obs.tool_call.tool_name",
+			]);
+			setAttrWithAliases(child, TOOL_ARGS_KEY, rawArgs, ["obs.tool_call.args"]);
+			setAttrWithAliases(child, TOOL_SIDE_EFFECT_KEY, opts.sideEffect ? 1 : 0, [
+				"obs.tool_call.side_effect",
+			]);
+			setAttrWithAliases(
+				child,
+				TOOL_APPROVAL_STATE_KEY,
+				opts.approvalState ?? "suggested",
+				["obs.tool_call.approval_state"],
+			);
 
-		// Stored payloads link compatibility
-		child.setAttribute("ai.payload.input", rawArgs);
+			// Stored payloads link compatibility
+			child.setAttribute("ai.payload.input", rawArgs);
 
-		const toolCallObj: ToolCall = {
-			toolCallId: actionId,
-			setResult(result: unknown) {
-				const rawResult =
-					typeof result === "string" ? result : JSON.stringify(result);
-				setAttrWithAliases(child, TOOL_RESULT_KEY, rawResult, [
-					"obs.tool_call.result",
-				]);
-				child.setAttribute("ai.payload.output", rawResult);
-			},
-			setError(errorType: string, message?: string) {
-				setAttrWithAliases(child, TOOL_ERROR_TYPE_KEY, errorType, [
-					"obs.tool_call.error_type",
-				]);
-				child.setStatus(2, message ?? errorType);
-			},
-			setAttribute(key: string, value: unknown) {
-				child.setAttribute(key, value);
-			},
-		};
+			const toolCallObj: ToolCall = {
+				toolCallId: actionId,
+				setResult(result: unknown) {
+					const rawResult =
+						typeof result === "string" ? result : JSON.stringify(result);
+					setAttrWithAliases(child, TOOL_RESULT_KEY, rawResult, [
+						"obs.tool_call.result",
+					]);
+					child.setAttribute("ai.payload.output", rawResult);
+				},
+				setError(errorType: string, message?: string) {
+					setAttrWithAliases(child, TOOL_ERROR_TYPE_KEY, errorType, [
+						"obs.tool_call.error_type",
+					]);
+					child.setStatus(2, message ?? errorType);
+				},
+				setAttribute(key: string, value: unknown) {
+					child.setAttribute(key, value);
+				},
+			};
 
-		return agentContextStorage.run(context, () => fn(toolCallObj));
-	});
+			return fn(toolCallObj);
+		}),
+	);
 }
 
 /**
@@ -573,27 +642,29 @@ export async function recordRetrieval<T>(
 		actorId: parentContext?.actorId ?? null,
 	};
 
-	return withChildSpan(opts.retrieverName, async (child) => {
-		setActionAttrs(child, context, "retrieval");
+	return agentContextStorage.run(context, () =>
+		withChildSpan(opts.retrieverName, async (child) => {
+			setActionAttrs(child, context, "retrieval");
 
-		child.setAttribute("openinference.span.kind", "RETRIEVER");
-		child.setAttribute(RETRIEVAL_NAME_KEY, opts.retrieverName);
-		child.setAttribute(RETRIEVAL_QUERY_KEY, opts.query);
-		child.setAttribute("ai.payload.input", opts.query);
+			child.setAttribute("openinference.span.kind", "RETRIEVER");
+			child.setAttribute(RETRIEVAL_NAME_KEY, opts.retrieverName);
+			child.setAttribute(RETRIEVAL_QUERY_KEY, opts.query);
+			child.setAttribute("ai.payload.input", opts.query);
 
-		const retrieverObj: Retriever = {
-			addDocuments(docs: RetrievalDocument[]) {
-				child.setAttribute(RETRIEVAL_TOTAL_RESULTS_KEY, docs.length);
-				child.setAttribute(RETRIEVAL_DOCUMENTS_KEY, JSON.stringify(docs));
-				child.setAttribute("ai.payload.output", JSON.stringify(docs));
-			},
-			setMaxRelevanceScore(score: number) {
-				child.setAttribute(RETRIEVAL_MAX_RELEVANCE_SCORE_KEY, score);
-			},
-		};
+			const retrieverObj: Retriever = {
+				addDocuments(docs: RetrievalDocument[]) {
+					child.setAttribute(RETRIEVAL_TOTAL_RESULTS_KEY, docs.length);
+					child.setAttribute(RETRIEVAL_DOCUMENTS_KEY, JSON.stringify(docs));
+					child.setAttribute("ai.payload.output", JSON.stringify(docs));
+				},
+				setMaxRelevanceScore(score: number) {
+					child.setAttribute(RETRIEVAL_MAX_RELEVANCE_SCORE_KEY, score);
+				},
+			};
 
-		return agentContextStorage.run(context, () => fn(retrieverObj));
-	});
+			return fn(retrieverObj);
+		}),
+	);
 }
 
 /**
@@ -606,41 +677,39 @@ export async function recordEvaluation(opts: EvalOptions): Promise<void> {
 	const rootActionId = parentContext?.rootActionId ?? actionId;
 	const causedByActionId = parentContext?.actionId ?? null;
 	const agentRunId = parentContext?.agentRunId ?? null;
+	const context: AgentActionContext = {
+		actionId,
+		rootActionId,
+		causedByActionId,
+		agentRunId,
+		actorType: parentContext?.actorType ?? "agent",
+		actorId: parentContext?.actorId ?? null,
+	};
 
-	await withChildSpan(opts.evaluatorName, async (child) => {
-		const actorType = parentContext?.actorType ?? "agent";
-		setActionAttrs(
-			child,
-			{
-				actionId,
-				rootActionId,
-				causedByActionId,
-				agentRunId,
-				actorType,
-				actorId: parentContext?.actorId ?? null,
-			},
-			"eval",
-		);
-		child.setAttribute(EVAL_EVALUATOR_NAME_KEY, opts.evaluatorName);
-		child.setAttribute(
-			EVAL_EVALUATOR_VERSION_KEY,
-			opts.evaluatorVersion ?? "1.0.0",
-		);
-		if (opts.score !== undefined) {
-			child.setAttribute(EVAL_SCORE_KEY, opts.score);
-		}
-		child.setAttribute(EVAL_PASSED_KEY, opts.passed ? 1 : 0);
-		if (opts.reasoning) {
-			child.setAttribute(EVAL_REASONING_KEY, opts.reasoning);
-		}
-		if (opts.rubric !== undefined) {
-			const rubricStr =
-				typeof opts.rubric === "string"
-					? opts.rubric
-					: JSON.stringify(opts.rubric);
-			child.setAttribute(EVAL_RUBRIC_KEY, rubricStr);
-		}
-	});
+	await agentContextStorage.run(context, () =>
+		withChildSpan(opts.evaluatorName, async (child) => {
+			setActionAttrs(child, context, "eval");
+			child.setAttribute(EVAL_EVALUATOR_NAME_KEY, opts.evaluatorName);
+			child.setAttribute(
+				EVAL_EVALUATOR_VERSION_KEY,
+				opts.evaluatorVersion ?? "1.0.0",
+			);
+			if (opts.score !== undefined) {
+				child.setAttribute(EVAL_SCORE_KEY, opts.score);
+			}
+			child.setAttribute(EVAL_PASSED_KEY, opts.passed ? 1 : 0);
+			if (opts.reasoning) {
+				child.setAttribute(EVAL_REASONING_KEY, opts.reasoning);
+			}
+			if (opts.rubric !== undefined) {
+				const rubricStr =
+					typeof opts.rubric === "string"
+						? opts.rubric
+						: JSON.stringify(opts.rubric);
+				child.setAttribute(EVAL_RUBRIC_KEY, rubricStr);
+			}
+		}),
+	);
 }
 
 /**
@@ -653,32 +722,30 @@ export async function recordArtifact(opts: ArtifactOptions): Promise<void> {
 	const rootActionId = parentContext?.rootActionId ?? actionId;
 	const causedByActionId = parentContext?.actionId ?? null;
 	const agentRunId = parentContext?.agentRunId ?? null;
+	const context: AgentActionContext = {
+		actionId,
+		rootActionId,
+		causedByActionId,
+		agentRunId,
+		actorType: parentContext?.actorType ?? "agent",
+		actorId: parentContext?.actorId ?? null,
+	};
 
-	await withChildSpan(opts.name, async (child) => {
-		const actorType = parentContext?.actorType ?? "agent";
-		setActionAttrs(
-			child,
-			{
-				actionId,
-				rootActionId,
-				causedByActionId,
-				agentRunId,
-				actorType,
-				actorId: parentContext?.actorId ?? null,
-			},
-			"artifact",
-		);
+	await agentContextStorage.run(context, () =>
+		withChildSpan(opts.name, async (child) => {
+			setActionAttrs(child, context, "artifact");
 
-		child.setAttribute(ARTIFACT_NAME_KEY, opts.name);
-		child.setAttribute(ARTIFACT_TYPE_KEY, opts.type);
-		child.setAttribute(ARTIFACT_CONTENT_KEY, opts.content);
-		if (opts.storageRef) {
-			child.setAttribute(ARTIFACT_STORAGE_REF_KEY, opts.storageRef);
-		}
-		if (opts.sizeBytes !== undefined) {
-			child.setAttribute(ARTIFACT_SIZE_BYTES_KEY, opts.sizeBytes);
-		}
-	});
+			child.setAttribute(ARTIFACT_NAME_KEY, opts.name);
+			child.setAttribute(ARTIFACT_TYPE_KEY, opts.type);
+			child.setAttribute(ARTIFACT_CONTENT_KEY, opts.content);
+			if (opts.storageRef) {
+				child.setAttribute(ARTIFACT_STORAGE_REF_KEY, opts.storageRef);
+			}
+			if (opts.sizeBytes !== undefined) {
+				child.setAttribute(ARTIFACT_SIZE_BYTES_KEY, opts.sizeBytes);
+			}
+		}),
+	);
 }
 
 const stringify = (value: unknown): string => {

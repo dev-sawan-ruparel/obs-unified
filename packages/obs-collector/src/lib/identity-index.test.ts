@@ -423,6 +423,65 @@ describe("IdentityIndex.byAction", () => {
 		expect(manifest.toolCalls).toEqual([]);
 		expect(manifest.spans).toEqual([]);
 	});
+
+	it("projects a legacy interaction into a synthetic root action when no action row exists", async () => {
+		const db = new MemSqlDb({
+			first: noFirst,
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "trace-legacy",
+							span_id: "span-legacy",
+							parent_span_id: null,
+							service_name: "web",
+							span_name: "checkout click",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-01T00:00:00.000Z",
+							duration_ms: 25,
+							interaction_id: "01HLEGACYINTERACTION000000",
+						},
+					];
+				}
+				if (sql.includes("FROM usage_events")) {
+					return [
+						{
+							event_id: "event-legacy",
+							event_type: "click",
+							event_name: "Checkout clicked",
+							page_path: "/checkout",
+							severity: null,
+							occurred_at: "2026-05-01T00:00:00.010Z",
+							interaction_id: "01HLEGACYINTERACTION000000",
+							session_id: "session-legacy",
+						},
+					];
+				}
+				if (sql.includes("FROM logs")) return [];
+				if (sql.includes("FROM ai_calls")) return [];
+				return [];
+			},
+		});
+
+		const index = new IdentityIndex(db);
+		const manifest = await index.byAction(
+			"proj-1",
+			"01HLEGACYINTERACTION000000",
+		);
+
+		expect(manifest.actions).toHaveLength(1);
+		expect(manifest.actions[0]).toMatchObject({
+			id: "01HLEGACYINTERACTION000000",
+			rootActionId: "01HLEGACYINTERACTION000000",
+			interactionId: "01HLEGACYINTERACTION000000",
+			actionKind: "browser.interaction",
+			actorType: "human",
+			sessionId: "session-legacy",
+		});
+		expect(manifest.spans).toHaveLength(1);
+		expect(manifest.usageEvents).toHaveLength(1);
+	});
 });
 
 describe("IdentityIndex.byAgentRun", () => {

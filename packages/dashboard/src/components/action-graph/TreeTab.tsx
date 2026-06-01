@@ -179,7 +179,7 @@ function ActionDetailPanel({
 					)}
 
 					<EvalList evals={evals} />
-					<ToolList tools={tools} />
+					<ToolList tools={tools} actionAttrs={actionAttrs} />
 					<RetrievalList retrievals={retrievals} />
 					<ArtifactList artifacts={artifacts} />
 
@@ -203,164 +203,212 @@ function ActionDetailPanel({
 }
 
 function EvalList({ evals }: { evals: EvalResultRef[] }) {
-	if (evals.length === 0) return null;
-
 	return (
 		<div>
 			<SectionTitle title={`Evaluator Graders (${evals.length})`} />
-			<div className="flex flex-col gap-2 mt-1">
-				{evals.map((e) => (
-					<div
-						key={e.id}
-						className={`p-2.5 rounded-lg border flex flex-col gap-1.5 ${
-							e.passed
-								? "border-sys-primary/40 bg-sys-primary/5"
-								: "border-sys-error/40 bg-sys-error/5"
-						}`}
-					>
-						<div className="flex items-center justify-between">
-							<span className="font-mono font-bold text-[0.7rem]">
-								{e.evaluatorName}
-							</span>
-							<span
-								className={`text-[0.55rem] font-bold font-mono px-1.5 py-0.5 rounded border ${
-									e.passed
-										? "border-sys-primary bg-sys-primary/10 text-sys-primary"
-										: "border-sys-error bg-sys-error/10 text-sys-error"
-								}`}
-							>
-								{e.passed ? "PASSED" : "FAILED"}
-							</span>
-						</div>
-						{e.score != null && (
-							<div className="text-[0.625rem] font-mono">
-								Score: <span className="font-bold">{e.score.toFixed(2)}</span>
+			{evals.length === 0 ? (
+				<div className="mt-1 p-3 border border-dashed border-sys-outline/30 rounded-lg text-center text-[0.7rem] opacity-60 font-mono italic bg-sys-surface-low/30">
+					No evaluations graded for this action step.
+				</div>
+			) : (
+				<div className="flex flex-col gap-2 mt-1">
+					{evals.map((e) => (
+						<div
+							key={e.id}
+							className={`p-2.5 rounded-lg border flex flex-col gap-1.5 ${
+								e.passed
+									? "border-sys-primary/40 bg-sys-primary/5"
+									: "border-sys-error/40 bg-sys-error/5"
+							}`}
+						>
+							<div className="flex items-center justify-between">
+								<span className="font-mono font-bold text-[0.7rem]">
+									{e.evaluatorName}
+								</span>
+								<span
+									className={`text-[0.55rem] font-bold font-mono px-1.5 py-0.5 rounded border ${
+										e.passed
+											? "border-sys-primary bg-sys-primary/10 text-sys-primary"
+											: "border-sys-error bg-sys-error/10 text-sys-error"
+									}`}
+								>
+									{e.passed ? "PASSED" : "FAILED"}
+								</span>
 							</div>
-						)}
-						{e.reasoning && (
-							<p className="text-[0.6875rem] font-mono opacity-80 whitespace-pre-wrap leading-relaxed border-t border-sys-outline/20 pt-1">
-								{e.reasoning}
-							</p>
-						)}
-					</div>
-				))}
-			</div>
+							{e.score != null && (
+								<div className="text-[0.625rem] font-mono">
+									Score: <span className="font-bold">{e.score.toFixed(2)}</span>
+								</div>
+							)}
+							{e.reasoning && (
+								<p className="text-[0.6875rem] font-mono opacity-80 whitespace-pre-wrap leading-relaxed border-t border-sys-outline/20 pt-1">
+									{e.reasoning}
+								</p>
+							)}
+						</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
 
-function ToolList({ tools }: { tools: ToolCallRef[] }) {
-	if (tools.length === 0) return null;
-
+function ToolList({
+	tools,
+	actionAttrs,
+}: {
+	tools: ToolCallRef[];
+	actionAttrs?: Record<string, unknown>;
+}) {
 	return (
 		<div>
 			<SectionTitle title={`Tool Invocations (${tools.length})`} />
-			<div className="flex flex-col gap-2 mt-1">
-				{tools.map((t) => (
-					<div
-						key={t.id}
-						className="p-2.5 rounded-lg border border-sys-outline/30 bg-sys-surface flex flex-col gap-1.5"
-					>
-						<div className="flex items-center justify-between">
-							<span className="font-mono font-bold text-[0.7rem] truncate">
-								🛠️ {t.toolName}
-							</span>
-							<div className="flex items-center gap-1">
-								{t.sideEffect === 1 && (
-									<span className="text-[0.5rem] font-bold px-1 rounded bg-sys-accent/20 text-sys-accent border border-sys-accent/30 uppercase tracking-[0.05em]">
-										mutation
-									</span>
+			{tools.length === 0 ? (
+				<div className="mt-1 p-3 border border-dashed border-sys-outline/30 rounded-lg text-center text-[0.7rem] opacity-60 font-mono italic bg-sys-surface-low/30">
+					No tool calls executed in this action step.
+				</div>
+			) : (
+				<div className="flex flex-col gap-2 mt-1">
+					{tools.map((t) => (
+						<div
+							key={t.id}
+							className="p-2.5 rounded-lg border border-sys-outline/30 bg-sys-surface flex flex-col gap-1.5"
+						>
+							<div className="flex items-center justify-between">
+								<span className="font-mono font-bold text-[0.7rem] truncate">
+									{t.toolName}
+								</span>
+								<div className="flex items-center gap-1">
+									{t.sideEffect === 1 && (
+										<span className="text-[0.5rem] font-bold px-1 rounded bg-sys-accent/20 text-sys-accent border border-sys-accent/30 uppercase tracking-[0.05em]">
+											mutation
+										</span>
+									)}
+									<ApprovalBadge state={t.approvalState} />
+								</div>
+							</div>
+
+							<div className="flex flex-col gap-2 pt-1 border-t border-sys-outline/20">
+								{t.argsRedacted && (
+									<JsonBlock label="arguments" value={t.argsRedacted} />
 								)}
-								<ApprovalBadge state={t.approvalState} />
+								{t.resultRedacted && (
+									<JsonBlock
+										label="result / outcome"
+										value={t.resultRedacted}
+									/>
+								)}
+								{!t.argsRedacted && !t.resultRedacted && (
+									<div className="text-[0.625rem] font-mono text-sys-warning font-semibold border-t border-sys-outline/20 pt-1.5 flex items-center gap-1">
+										Tool payload redacted (capture disabled)
+									</div>
+								)}
+								{actionAttrs?.linked_backend_trace_id ? (
+									<div className="text-[0.625rem] font-mono opacity-80 border-t border-sys-outline/20 pt-1.5">
+										Backend Trace:{" "}
+										<span className="font-bold text-sys-primary">
+											{String(actionAttrs.linked_backend_trace_id)}
+										</span>
+									</div>
+								) : (
+									<div className="text-[0.625rem] font-mono text-sys-warning font-semibold border-t border-sys-outline/20 pt-1.5">
+										Backend Trace: None linked
+									</div>
+								)}
 							</div>
 						</div>
-
-						<div className="flex flex-col gap-2 pt-1 border-t border-sys-outline/20">
-							{t.argsRedacted && (
-								<JsonBlock label="arguments" value={t.argsRedacted} />
-							)}
-							{t.resultRedacted && (
-								<JsonBlock label="result / outcome" value={t.resultRedacted} />
-							)}
-						</div>
-					</div>
-				))}
-			</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
 
 function RetrievalList({ retrievals }: { retrievals: RetrievalEventRef[] }) {
-	if (retrievals.length === 0) return null;
-
 	return (
 		<div>
 			<SectionTitle title={`Vector Retrievals (${retrievals.length})`} />
-			<div className="flex flex-col gap-2 mt-1">
-				{retrievals.map((r) => (
-					<div
-						key={r.id}
-						className="p-2.5 rounded-lg border border-sys-outline/30 bg-sys-surface flex flex-col gap-1.5"
-					>
-						<div className="flex items-center justify-between text-[0.7rem] font-mono">
-							<span className="font-bold">🔍 {r.retrieverName}</span>
-							<span>{r.durationMs ? `${r.durationMs.toFixed(0)}ms` : ""}</span>
-						</div>
-						<div className="grid grid-cols-2 gap-2 text-[0.625rem] font-mono opacity-85">
-							<div>
-								Docs Found: <span className="font-bold">{r.totalResults}</span>
+			{retrievals.length === 0 ? (
+				<div className="mt-1 p-3 border border-dashed border-sys-outline/30 rounded-lg text-center text-[0.7rem] opacity-60 font-mono italic bg-sys-surface-low/30">
+					No vector retrievals executed in this action step.
+				</div>
+			) : (
+				<div className="flex flex-col gap-2 mt-1">
+					{retrievals.map((r) => (
+						<div
+							key={r.id}
+							className="p-2.5 rounded-lg border border-sys-outline/30 bg-sys-surface flex flex-col gap-1.5"
+						>
+							<div className="flex items-center justify-between text-[0.7rem] font-mono">
+								<span className="font-bold">{r.retrieverName}</span>
+								<span>
+									{r.durationMs ? `${r.durationMs.toFixed(0)}ms` : ""}
+								</span>
 							</div>
-							{r.maxRelevanceScore != null && (
+							<div className="grid grid-cols-2 gap-2 text-[0.625rem] font-mono opacity-85">
 								<div>
-									Max Score:{" "}
-									<span className="font-bold">
-										{r.maxRelevanceScore.toFixed(3)}
-									</span>
+									Docs Found:{" "}
+									<span className="font-bold">{r.totalResults}</span>
 								</div>
+								{r.maxRelevanceScore != null && (
+									<div>
+										Max Score:{" "}
+										<span className="font-bold">
+											{r.maxRelevanceScore.toFixed(3)}
+										</span>
+									</div>
+								)}
+							</div>
+							{r.documentsJson && (
+								<JsonBlock
+									label="retrieved documents"
+									value={r.documentsJson}
+								/>
 							)}
 						</div>
-						{r.documentsJson && (
-							<JsonBlock label="retrieved documents" value={r.documentsJson} />
-						)}
-					</div>
-				))}
-			</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
 
 function ArtifactList({ artifacts }: { artifacts: ArtifactRef[] }) {
-	if (artifacts.length === 0) return null;
-
 	return (
 		<div>
 			<SectionTitle title={`Generated Artifacts (${artifacts.length})`} />
-			<div className="flex flex-col gap-2 mt-1">
-				{artifacts.map((a) => (
-					<div
-						key={a.id}
-						className="p-2.5 rounded-lg border border-sys-outline/30 bg-sys-surface flex flex-col gap-1.5"
-					>
-						<div className="flex items-center justify-between text-[0.7rem] font-mono">
-							<span className="font-bold">📄 {a.artifactName}</span>
-							<span className="opacity-60">{a.artifactType}</span>
+			{artifacts.length === 0 ? (
+				<div className="mt-1 p-3 border border-dashed border-sys-outline/30 rounded-lg text-center text-[0.7rem] opacity-60 font-mono italic bg-sys-surface-low/30">
+					No artifacts generated in this action step.
+				</div>
+			) : (
+				<div className="flex flex-col gap-2 mt-1">
+					{artifacts.map((a) => (
+						<div
+							key={a.id}
+							className="p-2.5 rounded-lg border border-sys-outline/30 bg-sys-surface flex flex-col gap-1.5"
+						>
+							<div className="flex items-center justify-between text-[0.7rem] font-mono">
+								<span className="font-bold">📄 {a.artifactName}</span>
+								<span className="opacity-60">{a.artifactType}</span>
+							</div>
+							<div className="text-[0.625rem] font-mono opacity-70">
+								Size:{" "}
+								<span className="font-bold">
+									{a.sizeBytes
+										? `${(a.sizeBytes / 1024).toFixed(1)} KB`
+										: "unknown"}
+								</span>
+							</div>
+							{a.contentPreview && (
+								<pre className="text-[0.625rem] font-mono p-1.5 rounded bg-sys-surface-low overflow-x-auto whitespace-pre-wrap max-h-36 opacity-90 border border-sys-outline/10 leading-normal">
+									{a.contentPreview}
+								</pre>
+							)}
 						</div>
-						<div className="text-[0.625rem] font-mono opacity-70">
-							Size:{" "}
-							<span className="font-bold">
-								{a.sizeBytes
-									? `${(a.sizeBytes / 1024).toFixed(1)} KB`
-									: "unknown"}
-							</span>
-						</div>
-						{a.contentPreview && (
-							<pre className="text-[0.625rem] font-mono p-1.5 rounded bg-sys-surface-low overflow-x-auto whitespace-pre-wrap max-h-36 opacity-90 border border-sys-outline/10 leading-normal">
-								{a.contentPreview}
-							</pre>
-						)}
-					</div>
-				))}
-			</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
