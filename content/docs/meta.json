@@ -8,6 +8,8 @@
 		"examples",
 		"sdks",
 		"sdk-reference",
+		"agent-action-graph",
+		"mcp-server",
 		"instrumenting",
 		"instrument-python-flask",
 		"what-to-expect",

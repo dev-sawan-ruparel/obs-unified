@@ -50,7 +50,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta
           property="og:description"
-          content="Built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile."
+          content="Built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile."
         />
         <meta property="og:url" content="https://docs.obsunified.com/" />
         <meta
@@ -64,7 +64,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta
           name="twitter:description"
-          content="Built for agentic debugging: one telemetry graph agents can traverse end-to-end."
+          content="Built for agentic debugging with Agent Action Graphs and MCP tools agents can traverse end-to-end."
         />
         <meta
           name="twitter:image"

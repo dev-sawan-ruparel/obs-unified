@@ -1,0 +1,76 @@
+---
+title: Agent Action Graph
+description: Debug AI agents as causal workflows across user actions, agent runs, LLM calls, retrievals, tools, traces, logs, profiles, and eval cases.
+---
+
+The Agent Action Graph is obs-unified's causal view of human and agent work.
+Traditional traces show execution order. The action graph adds the semantic
+"why": which browser action, cron job, agent run, LLM call, retrieval, or tool
+call caused the next step.
+
+Use it when you need to answer:
+
+- Which user action or background job started this agent run?
+- Which model step chose a side-effecting tool?
+- Which retrieval or prompt version influenced the answer?
+- Which backend trace, log line, replay, AI cost, CPU profile, or eval case is
+  connected to this action?
+
+## Identity model
+
+The graph extends the normal interaction chain:
+
+```text
+user_id → session_id → interaction_id → trace_id → span_id
+```
+
+with action-level causality:
+
+```text
+root_action_id → action_id → caused_by_action_id
+```
+
+Browser-triggered agents create a fresh `root_action_id` while retaining the
+browser `interaction_id`. Background agents, cron jobs, and MCP hosts can also
+mint action roots when there is no browser interaction.
+
+## What becomes graph data
+
+obs-unified projects these records into the action graph when explicit action
+fields are present or derivable:
+
+- Native SDK agent runs and steps
+- LLM calls, retrievals, tool calls, guardrails, and eval cases
+- OpenInference-shaped spans
+- OpenTelemetry GenAI spans
+- OpenTelemetry MCP spans such as `tools/call`, `resources/read`, and
+  `prompts/get`
+- Backend traces, logs, profiles, and replay evidence sharing the same identity
+  chain
+
+## Dashboard surface
+
+In the dashboard, action graph pages are nested, bookmarkable routes:
+
+```text
+#/actions/:actionId
+#/agent-runs/:agentRunId
+#/tool-calls/:toolCallId
+```
+
+Each page shows action metadata, upstream/downstream causes, connected telemetry,
+and graph tabs for the causal action tree, governance/auditing, and prompt
+diffs/evals.
+
+## Agent surface
+
+The same graph is exposed to AI agents through the [MCP server](/docs/mcp-server).
+An agent can start from a failing trace, follow connected signals to an action,
+inspect the action graph, then return with the relevant replay, log, AI cost, or
+profile evidence.
+
+For implementation details in the GitHub repo, see the
+[Agent Action Graph guide](https://github.com/obs-unified/obs-unified/blob/main/docs/agent-action-graph.md)
+and the
+[Action ID wire spec](https://github.com/obs-unified/obs-unified/blob/main/docs/spec/action-id.md).
+

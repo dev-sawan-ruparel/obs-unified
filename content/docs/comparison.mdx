@@ -90,7 +90,7 @@ The ten capability axes used in the landing-page table:
 
 ## obs-unified
 
-Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage interface](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-interface.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, and profiles in one stack with one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile. The [Connected rail](/docs/what-to-expect#the-connected-rail) is the human-facing version of that graph. Free; you pay your own infra bill.
+Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage interface](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-interface.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, profiles, Agent Action Graphs, and an MCP server in one stack with one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile. The [Connected rail](/docs/what-to-expect#the-connected-rail) is the human-facing version of that graph; the [MCP server](/docs/mcp-server) is the agent-facing version. Free; you pay your own infra bill.
 
 The rest of this page is the third-party comparison.
 
@@ -750,7 +750,7 @@ The factual table at the top is the answer to "what does each vendor do." This i
 - If you need **deep trace analysis** and you'll build the rest yourself → **Honeycomb**.
 - If you want **OSS, OTel-native, and ClickHouse-shaped pricing** → **SigNoz**, **HyperDX**, or **Uptrace** (mostly differ on UX taste; HyperDX is the only one with session replay; Uptrace is the only one with native OTLP/gRPC; SigNoz has the most alert types).
 - If you want a **fully composable LGTM stack** you can scale independently → **Grafana Cloud** (or self-host the components).
-- If you want **everything-in-one (traces, logs, metrics, replay, LLM, analytics) self-hosted on your infra and built for agentic debugging** → **obs-unified**, with the trade-offs in the next section.
+- If you want **everything-in-one (traces, logs, metrics, replay, LLM, analytics, Agent Action Graphs, and MCP) self-hosted on your infra and built for agentic debugging** → **obs-unified**, with the trade-offs in the next section.
 
 ---
 

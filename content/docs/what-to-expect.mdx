@@ -3,7 +3,7 @@ title: What to expect
 description: How unified observability appears in the dashboard through the Connected rail.
 ---
 
-obs-unified is designed around one promise: **built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile**. The dashboard's ≤2-click rail is the human-facing version of that same graph. This page walks through what the dashboard actually surfaces once instrumentation is in place.
+obs-unified is designed around one promise: **built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile**. The dashboard's Connected rail is the human-facing version of that same graph; the [MCP server](/docs/mcp-server) is the agent-facing version. This page walks through what the dashboard actually surfaces once instrumentation is in place.
 
 ## The Connected rail
 
@@ -57,7 +57,7 @@ Six clicks across the entire platform. The platform's claim is that every neighb
 
 ## Interaction ID to CPU
 
-The browser SDK mints a single `interaction_id` for a frontend action and injects it as `x-obs-interaction` on outbound requests. Backend SDKs copy that value onto the active span as `obs.interaction.id`, and correlated logs or AI calls inherit it from the span context.
+The browser SDK mints a single `interaction_id` for a frontend action and injects it as `x-obs-interaction` on outbound requests. Backend SDKs copy that value onto the active span as `obs.interaction.id`, and correlated logs, AI calls, or MCP tool context inherit it from the span context.
 
 CPU and off-CPU profiles are joined through traces rather than storing `interaction_id` directly on every sample. If profiling is enabled and samples are labeled with trace IDs, the dashboard can follow:
 
@@ -78,6 +78,22 @@ A different entry point exercising the same identity skeleton:
 5. **Click an interaction** → trace waterfall for the trace that click caused. Connected rail's "Click that caused this trace" closes the loop back to the originating click.
 
 The seed (`pnpm seed`) plants a "Heavy Spender (seed)" user with 8–9 high-cost claude-3-5-haiku calls so this walkthrough is reproducible without writing real AI traffic.
+
+## Scenario B2 — agent action graph → MCP investigation
+
+The agent-facing path starts from the same connected telemetry but uses MCP
+tools instead of dashboard clicks:
+
+1. An AI agent calls `recent_traces` or `search_logs` to find the failing path.
+2. It calls `connected_signals` to pivot from the trace to related AI calls,
+   replay evidence, and action IDs.
+3. It calls `get_action` or `get_agent_run` to inspect the Agent Action Graph:
+   LLM calls, retrievals, tool calls, governance signals, and eval cases.
+4. It reports back with stable dashboard links, action IDs, trace IDs, and the
+   relevant logs/replay/profile evidence.
+
+This is why the product copy says "agents can traverse the graph": the graph is
+not just visible in the dashboard; it is exposed through read-only MCP tools.
 
 ## Scenario C — futex contention via off-CPU flame graph
 
@@ -100,7 +116,7 @@ This scenario currently runs only against the docker-compose demo with [Beyla](h
 | **Investigations** | List of analyses + per-analysis detail page with narrative + evidence + connected rail | Rail's "Cited traces" → trace detail |
 | **Traces** | Trace list with inline waterfall expansion, self-time visualization, ⚠ + 🔥 badges, span detail drawer | Click a span row → rail with "Click that caused this trace" |
 | **Issues** | Trace-level issue grouping by error fingerprint | Click an issue → trace |
-| **AI Calls** | Two views — Spans (typed LLM/TOOL/RETRIEVER spans) and Sessions (multi-turn conversation rendering with cost + tokens). User chips are clickable. | Click `👤 user-id` → user detail page |
+| **AI Calls** | Two views — Spans (typed LLM/TOOL/RETRIEVER spans) and Sessions (multi-turn conversation rendering with cost + tokens). User chips are clickable. | Click `👤 user-id` → user detail page; action graph links open `#/actions/:actionId` |
 | **Replays** | Session list + rrweb player + per-session interactions panel | Click an interaction → trace it caused |
 | **Alerts** | Alert rules + recent firings + bound analyses | Click an alert → bound Analysis → exemplar traces |
 | **Usage** | Page views, interactions, top paths, by-country breakdown | Click a session row → timeline |

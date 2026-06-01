@@ -9,7 +9,7 @@ export function meta({}: Route.MetaArgs) {
 		{
 			name: "description",
 			content:
-				"Install, instrument, and read the unified observability stack.",
+				"Install, instrument, and read the unified observability stack for humans and AI agents.",
 		},
 	];
 }
@@ -25,7 +25,8 @@ export default function Home() {
 					<p className="text-fd-muted-foreground text-base sm:text-lg">
 						Built for agentic debugging: one telemetry graph agents can
 						traverse from user action to backend trace, logs, replay, AI
-						cost, and CPU profile. Start locally with one Docker image.
+						cost, MCP tool context, and CPU profile. Start locally with one
+						Docker image.
 					</p>
 					<div className="flex justify-center gap-3 pt-2">
 						<Link
@@ -50,18 +51,18 @@ export default function Home() {
 					/>
 					<Tile
 						to="/docs/sdks"
-						title="SDKs"
-						body="Browser, TypeScript, Go, and Rust."
+						title="SDKs + MCP"
+						body="Browser, TypeScript, Go, Rust, and agent tools."
 					/>
 					<Tile
-						to="/docs/instrumenting"
-						title="Instrument"
-						body="React, Hono, Workers, Flask, and OTLP."
+						to="/docs/agent-action-graph"
+						title="Agent graph"
+						body="Actions, runs, tools, evals, and traces."
 					/>
 					<Tile
-						to="/docs/ops/production"
-						title="Operate"
-						body="Proxy, Postgres, S3 retention, Kubernetes."
+						to="/docs/mcp-server"
+						title="MCP server"
+						body="Read-only investigation tools for agents."
 					/>
 				</div>
 			</main>
