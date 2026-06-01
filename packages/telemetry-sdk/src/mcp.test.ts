@@ -56,6 +56,26 @@ describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation"
 		});
 	});
 
+	it("injects tracestate and carries interaction context as MCP baggage", async () => {
+		await withAction(
+			{
+				rootActionId: "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+				actionId: "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+				interactionId: "01HZQ5W3K8M4P2X7N9B0CDEFGH",
+			},
+			async () => {
+				// biome-ignore lint/suspicious/noExplicitAny: standard JSON-RPC params
+				const params: any = {};
+				injectMcpContext(params, { tracestate: "obs=high" });
+
+				expect(params._meta.tracestate).toBe("obs=high");
+				expect(params._meta.baggage).toContain(
+					"obs.interaction.id=01HZQ5W3K8M4P2X7N9B0CDEFGH",
+				);
+			},
+		);
+	});
+
 	it("extracts trace parent and obs action context from MCP JSON-RPC meta", () => {
 		const params = {
 			_meta: {
@@ -104,6 +124,19 @@ describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation"
 		expect(context?.actionContext?.actionId).toBe("01J3Y4Z5A6B7C8D9E0F1G2H3K5");
 		expect(context?.tracestate).toBe("vendor=value");
 		expect(context?.baggage).toBe("tenant=acme");
+	});
+
+	it("rejects malformed MCP action ids instead of restoring invalid graph context", () => {
+		const context = extractMcpContext({
+			_meta: {
+				traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+				"obs.action.root_id": "not-valid",
+				"obs.action.id": "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+			},
+		});
+
+		expect(context?.traceContext).toBeDefined();
+		expect(context?.actionContext).toBeUndefined();
 	});
 
 	it("injects the same context shape for MCP notifications", async () => {

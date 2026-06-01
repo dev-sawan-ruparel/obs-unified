@@ -20,6 +20,7 @@ import {
 	ACTOR_ID_KEY,
 	ACTOR_TYPE_KEY,
 	AGENT_RUN_ID_KEY,
+	INTERACTION_ID_KEY,
 } from "@obs-unified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 
@@ -303,6 +304,7 @@ export interface AgentActionContext {
 	actionId: string;
 	rootActionId: string;
 	causedByActionId: string | null;
+	interactionId: string | null;
 	agentRunId: string | null;
 	actorType: string;
 	actorId: string | null;
@@ -338,10 +340,12 @@ export function clearActiveActionContext(): void {
 
 const anonymousInboundActionContext = (
 	context: IncomingActionContext,
+	interactionId: string | null,
 ): AgentActionContext => ({
 	actionId: context.actionId,
 	rootActionId: context.rootActionId,
 	causedByActionId: context.causedByActionId,
+	interactionId,
 	agentRunId: null,
 	actorType: "unknown",
 	actorId: null,
@@ -385,12 +389,17 @@ export const stampActionFromRequest = (
 			: undefined);
 	if (!context) return undefined;
 
+	if (interactionId) {
+		span.setAttribute(INTERACTION_ID_KEY, interactionId);
+	}
 	span.setAttribute(ACTION_ID_KEY, context.actionId);
 	span.setAttribute(ACTION_ROOT_ID_KEY, context.rootActionId);
 	if (context.causedByActionId) {
 		span.setAttribute(ACTION_CAUSED_BY_ID_KEY, context.causedByActionId);
 	}
-	setActiveActionContext(anonymousInboundActionContext(context));
+	setActiveActionContext(
+		anonymousInboundActionContext(context, interactionId ?? null),
+	);
 	return context;
 };
 
@@ -467,6 +476,11 @@ export function createRequestSpan(
 				if (agentCtx.causedByActionId) {
 					child.attributes.push(
 						toKv(ACTION_CAUSED_BY_ID_KEY, agentCtx.causedByActionId),
+					);
+				}
+				if (agentCtx.interactionId) {
+					child.attributes.push(
+						toKv(INTERACTION_ID_KEY, agentCtx.interactionId),
 					);
 				}
 				child.attributes.push(toKv(ACTOR_TYPE_KEY, agentCtx.actorType));

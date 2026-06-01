@@ -187,6 +187,62 @@ describe("genAiNormalizerPlugin - OTel GenAI normalization", () => {
 		expect(attrs[ACTOR_TYPE_KEY]).toBe("system");
 		expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Explicit);
 	});
+
+	it("derives fallback action ids when explicit Action Graph attributes are malformed", async () => {
+		const processFn = registerNormalizer();
+
+		const invalidSpan: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-456",
+			parentSpanId: "span-parent",
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "my-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "chat",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				"gen_ai.operation.name": "chat",
+				[ACTION_ID_KEY]: "not-an-action-id",
+				[ACTION_ROOT_ID_KEY]: "also-invalid",
+				[ACTION_CAUSED_BY_ID_KEY]: "bad-parent",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const [processed] = await processFn([invalidSpan], context);
+		const attrs = parseJsonRecord(processed.attributesJson);
+
+		expect(attrs[ACTION_ID_KEY]).toBe(
+			await deriveActionId("proj-123", "trace-789", "span-456"),
+		);
+		expect(attrs[ACTION_ROOT_ID_KEY]).toBe(
+			await deriveActionId(
+				"proj-123",
+				"trace-789",
+				"trace-789".substring(0, 16),
+			),
+		);
+		expect(attrs[ACTION_CAUSED_BY_ID_KEY]).toBe(
+			await deriveActionId("proj-123", "trace-789", "span-parent"),
+		);
+		expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Fallback);
+	});
 });
 
 describe("genAiNormalizerPlugin - OTel MCP normalization", () => {

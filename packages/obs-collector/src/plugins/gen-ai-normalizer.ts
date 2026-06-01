@@ -15,6 +15,7 @@ import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
 	ACTION_ID_KEY,
+	ACTION_ID_RE,
 	ACTION_KIND_KEY,
 	ACTION_ROOT_ID_KEY,
 	ACTOR_TYPE_KEY,
@@ -88,6 +89,12 @@ const toJsonString = (value: unknown): string | null => {
 	} catch {
 		return String(value);
 	}
+};
+
+const asValidActionId = (value: unknown): string | undefined => {
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return ACTION_ID_RE.test(trimmed) ? trimmed : undefined;
 };
 
 const collectIndexed = (
@@ -169,29 +176,36 @@ export const genAiNormalizerPlugin: CollectorPlugin = {
 						}
 
 						// 2. Set Action Graph Schema Attributes
-						const hasExplicitActionId = attrs[ACTION_ID_KEY] !== undefined;
-						const actionId = hasExplicitActionId
-							? (attrs[ACTION_ID_KEY] as string)
-							: await deriveActionId(span.projectId, span.traceId, span.spanId);
+						const explicitActionId = asValidActionId(attrs[ACTION_ID_KEY]);
+						const hasExplicitActionId = explicitActionId !== undefined;
+						const actionId =
+							explicitActionId ??
+							(await deriveActionId(span.projectId, span.traceId, span.spanId));
 
 						normalized[ACTION_ID_KEY] = actionId;
 						normalized[ACTION_CONFIDENCE_KEY] = hasExplicitActionId
 							? ActionConfidence.Explicit
 							: ActionConfidence.Fallback;
 
-						if (normalized[ACTION_ROOT_ID_KEY] === undefined) {
-							normalized[ACTION_ROOT_ID_KEY] =
-								attrs[AGENT_RUN_ID_KEY] ??
-								attrs["obs.action.agent_run_id"] ??
-								attrs["obs.agent_run.id"] ??
-								(await deriveActionId(
-									span.projectId,
-									span.traceId,
-									span.traceId.substring(0, 16),
-								));
-						}
+						const explicitRootActionId =
+							asValidActionId(attrs[ACTION_ROOT_ID_KEY]) ??
+							asValidActionId(attrs[AGENT_RUN_ID_KEY]) ??
+							asValidActionId(attrs["obs.action.agent_run_id"]) ??
+							asValidActionId(attrs["obs.agent_run.id"]);
+						normalized[ACTION_ROOT_ID_KEY] =
+							explicitRootActionId ??
+							(await deriveActionId(
+								span.projectId,
+								span.traceId,
+								span.traceId.substring(0, 16),
+							));
 
-						if (normalized[ACTION_CAUSED_BY_ID_KEY] === undefined) {
+						const explicitCausedByActionId = asValidActionId(
+							attrs[ACTION_CAUSED_BY_ID_KEY],
+						);
+						if (explicitCausedByActionId) {
+							normalized[ACTION_CAUSED_BY_ID_KEY] = explicitCausedByActionId;
+						} else if (attrs[ACTION_CAUSED_BY_ID_KEY] !== null) {
 							normalized[ACTION_CAUSED_BY_ID_KEY] =
 								span.parentSpanId !== null && span.parentSpanId !== undefined
 									? await deriveActionId(
@@ -200,6 +214,13 @@ export const genAiNormalizerPlugin: CollectorPlugin = {
 											span.parentSpanId,
 										)
 									: null;
+						}
+
+						if (
+							normalized[ACTION_CAUSED_BY_ID_KEY] === undefined &&
+							attrs[ACTION_CAUSED_BY_ID_KEY] === null
+						) {
+							normalized[ACTION_CAUSED_BY_ID_KEY] = null;
 						}
 
 						if (normalized[ACTOR_TYPE_KEY] === undefined) {

@@ -7,6 +7,7 @@ import {
 	ACTION_ROOT_ID_KEY,
 	ACTOR_ID_KEY,
 	ACTOR_TYPE_KEY,
+	ActionKind,
 	AGENT_AUTONOMY_LEVEL_KEY,
 	AGENT_GOAL_KEY,
 	AGENT_ID_KEY,
@@ -26,6 +27,7 @@ import {
 	EVAL_REASONING_KEY,
 	EVAL_RUBRIC_KEY,
 	EVAL_SCORE_KEY,
+	INTERACTION_ID_KEY,
 	RETRIEVAL_DOCUMENTS_KEY,
 	RETRIEVAL_MAX_RELEVANCE_SCORE_KEY,
 	RETRIEVAL_NAME_KEY,
@@ -93,6 +95,7 @@ export interface ActionContextOptions {
 	actionId?: string;
 	rootActionId?: string;
 	causedByActionId?: string | null;
+	interactionId?: string | null;
 	agentRunId?: string | null;
 	actorType?: string;
 	actorId?: string | null;
@@ -102,6 +105,7 @@ export interface SerializedActionContext {
 	rootActionId: string;
 	actionId: string;
 	causedByActionId?: string | null;
+	interactionId?: string | null;
 	agentRunId?: string | null;
 	actorType?: string;
 	actorId?: string | null;
@@ -201,6 +205,9 @@ export function serializeActionContext(
 	if (context.causedByActionId) {
 		serialized.causedByActionId = context.causedByActionId;
 	}
+	if (context.interactionId) {
+		serialized.interactionId = context.interactionId;
+	}
 	if (context.agentRunId) {
 		serialized.agentRunId = context.agentRunId;
 	}
@@ -221,6 +228,7 @@ export function restoreActionContext(
 		rootActionId: metadata.rootActionId,
 		actionId: metadata.actionId,
 		causedByActionId: metadata.causedByActionId ?? null,
+		interactionId: metadata.interactionId ?? null,
 		agentRunId: metadata.agentRunId ?? null,
 		actorType: metadata.actorType,
 		actorId: metadata.actorId ?? null,
@@ -280,6 +288,9 @@ const setActionAttrs = (
 	if (context.causedByActionId) {
 		child.setAttribute(ACTION_CAUSED_BY_ID_KEY, context.causedByActionId);
 	}
+	if (context.interactionId) {
+		child.setAttribute(INTERACTION_ID_KEY, context.interactionId);
+	}
 	setAttrWithAliases(child, ACTOR_TYPE_KEY, context.actorType, [
 		"obs.action.actor_type",
 	]);
@@ -296,6 +307,13 @@ const setActionAttrs = (
 	}
 };
 
+const requireActionId = (value: string, field: string): string => {
+	if (!ACTION_ID_RE.test(value)) {
+		throw new Error(`${field} must satisfy RFC 0010 action id format`);
+	}
+	return value;
+};
+
 /**
  * Start an agent run segment. Sets up AsyncLocalStorage context and OTel span wrappers.
  */
@@ -306,7 +324,7 @@ export async function startAgentRun<T>(
 	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
-	const rootActionId = parentContext?.rootActionId ?? actionId;
+	const rootActionId = actionId;
 	const causedByActionId = parentContext?.actionId ?? null;
 	const agentRunId = actionId;
 
@@ -314,6 +332,7 @@ export async function startAgentRun<T>(
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: opts.actorType ?? "agent",
 		actorId: opts.actorId ?? opts.agentId,
@@ -395,18 +414,30 @@ export async function withAction<T>(
 	fn: () => Promise<T>,
 ): Promise<T> {
 	const parentContext = getActiveAgentContext();
-	const actionId = opts.actionId ?? createActionId();
+	const actionId = opts.actionId
+		? requireActionId(opts.actionId, "actionId")
+		: createActionId();
 	const context: AgentActionContext = {
 		actionId,
-		rootActionId: opts.rootActionId ?? parentContext?.rootActionId ?? actionId,
+		rootActionId: opts.rootActionId
+			? requireActionId(opts.rootActionId, "rootActionId")
+			: (parentContext?.rootActionId ?? actionId),
 		causedByActionId:
 			opts.causedByActionId === undefined
 				? (parentContext?.actionId ?? null)
-				: opts.causedByActionId,
+				: opts.causedByActionId
+					? requireActionId(opts.causedByActionId, "causedByActionId")
+					: null,
+		interactionId:
+			opts.interactionId === undefined
+				? (parentContext?.interactionId ?? null)
+				: opts.interactionId,
 		agentRunId:
 			opts.agentRunId === undefined
 				? (parentContext?.agentRunId ?? null)
-				: opts.agentRunId,
+				: opts.agentRunId
+					? requireActionId(opts.agentRunId, "agentRunId")
+					: null,
 		actorType: opts.actorType ?? parentContext?.actorType ?? "agent",
 		actorId:
 			opts.actorId === undefined
@@ -444,6 +475,7 @@ export async function step<T>(
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: parentContext?.actorType ?? "agent",
 		actorId: parentContext?.actorId ?? null,
@@ -486,6 +518,7 @@ export async function llm<T>(
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: parentContext?.actorType ?? "agent",
 		actorId: parentContext?.actorId ?? null,
@@ -493,7 +526,7 @@ export async function llm<T>(
 
 	return agentContextStorage.run(context, () =>
 		withChildSpan(opts.name ?? "llm", async (child) => {
-			setActionAttrs(child, context, "llm");
+			setActionAttrs(child, context, ActionKind.LlmCall);
 			child.setAttribute("openinference.span.kind", "LLM");
 			child.setAttribute("llm.model_name", opts.model);
 			child.setAttribute("llm.provider", opts.provider);
@@ -555,6 +588,7 @@ export async function tool<T>(
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: parentContext?.actorType ?? "agent",
 		actorId: parentContext?.actorId ?? null,
@@ -637,6 +671,7 @@ export async function recordRetrieval<T>(
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: parentContext?.actorType ?? "agent",
 		actorId: parentContext?.actorId ?? null,
@@ -681,6 +716,7 @@ export async function recordEvaluation(opts: EvalOptions): Promise<void> {
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: parentContext?.actorType ?? "agent",
 		actorId: parentContext?.actorId ?? null,
@@ -726,6 +762,7 @@ export async function recordArtifact(opts: ArtifactOptions): Promise<void> {
 		actionId,
 		rootActionId,
 		causedByActionId,
+		interactionId: parentContext?.interactionId ?? null,
 		agentRunId,
 		actorType: parentContext?.actorType ?? "agent",
 		actorId: parentContext?.actorId ?? null,

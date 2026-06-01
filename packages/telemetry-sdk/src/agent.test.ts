@@ -14,7 +14,12 @@ import {
 	withAction,
 	withSerializedActionContext,
 } from "./agent";
-import { createRequestSpan, runWithSpan } from "./span";
+import {
+	clearActiveActionContext,
+	createRequestSpan,
+	runWithSpan,
+	stampIdentityFromRequest,
+} from "./span";
 
 describe("Agent Action Graph SDK Context Propagation", () => {
 	it("creates RFC 0010 sortable action ids", () => {
@@ -188,7 +193,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 
 		// Find LLM span
 		const llmSpan = spanList.find((s) =>
-			hasStringAttr(s, "obs.action.kind", "llm"),
+			hasStringAttr(s, "obs.action.kind", "llm.call"),
 		);
 		expect(llmSpan).toBeDefined();
 		if (!llmSpan) {
@@ -325,6 +330,69 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 				(attr) => attr.key === "obs.action.caused_by_id",
 			)?.value?.stringValue,
 		).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+	});
+
+	it("rejects malformed explicit action context ids", async () => {
+		await expect(
+			withAction({ actionId: "not-an-action-id" }, async () => undefined),
+		).rejects.toThrow("actionId must satisfy RFC 0010 action id format");
+	});
+
+	it("mints a new agent root while carrying the triggering browser interaction", async () => {
+		clearActiveActionContext();
+		const requestSpan = createRequestSpan("test-service", "POST /agent");
+		const interactionId = "01HFXY2A3BKM5N7P9QRSTVWXYZ";
+
+		await runWithSpan(requestSpan, async () => {
+			stampIdentityFromRequest(
+				requestSpan,
+				new Request("https://example.com/agent", {
+					headers: {
+						"x-obs-interaction": interactionId,
+						"x-obs-root-action": interactionId,
+						"x-obs-action": interactionId,
+					},
+				}),
+			);
+
+			await startAgentRun(
+				{ agentId: "billing-agent", agentName: "Billing Agent" },
+				async (run) => {
+					const runCtx = getActiveAgentContext();
+					expect(runCtx?.actionId).toBe(run.runId);
+					expect(runCtx?.rootActionId).toBe(run.runId);
+					expect(runCtx?.causedByActionId).toBe(interactionId);
+					expect(runCtx?.interactionId).toBe(interactionId);
+
+					await run.step({ name: "triage" }, async () => {
+						const stepCtx = getActiveAgentContext();
+						expect(stepCtx?.rootActionId).toBe(run.runId);
+						expect(stepCtx?.causedByActionId).toBe(run.runId);
+						expect(stepCtx?.interactionId).toBe(interactionId);
+					});
+				},
+			);
+		});
+
+		const spans =
+			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
+				?.spans ?? [];
+		const runSpan = spans.find((s) => s.name === "Billing Agent");
+		const stepSpan = spans.find((s) => s.name === "triage");
+		const spanAttr = (span: (typeof spans)[number] | undefined, key: string) =>
+			span?.attributes?.find((attr) => attr.key === key)?.value?.stringValue;
+
+		expect(spanAttr(runSpan, "obs.action.root_id")).toBe(
+			spanAttr(runSpan, "obs.action.id"),
+		);
+		expect(spanAttr(runSpan, "obs.action.root_id")).not.toBe(interactionId);
+		expect(spanAttr(runSpan, "obs.action.caused_by_id")).toBe(interactionId);
+		expect(spanAttr(runSpan, "obs.interaction.id")).toBe(interactionId);
+		expect(spanAttr(stepSpan, "obs.action.root_id")).toBe(
+			spanAttr(runSpan, "obs.action.root_id"),
+		);
+		expect(spanAttr(stepSpan, "obs.interaction.id")).toBe(interactionId);
+		clearActiveActionContext();
 	});
 
 	it("keeps top-level helpers available for compatibility", async () => {
