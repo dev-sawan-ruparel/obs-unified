@@ -1,13 +1,15 @@
 import { EXAMPLES_URL, GETTING_STARTED_URL, SDK_DOCS_URL } from "../config";
 
 const FIRST_RUN = `# Fastest first run
-pnpm local:image
-pnpm local:run
+docker run --rm -p 5173:5173 -p 8790:8790 \\
+  ghcr.io/obs-unified/local:latest
 
 # Editable local repo
+git clone https://github.com/obs-unified/obs-unified.git
+cd obs-unified
 pnpm install
-pnpm run setup
-pnpm run dev`;
+pnpm local:image
+pnpm local:run`;
 
 const SDK_PATHS = `Backend:
   TypeScript  @obs-unified/* on GitHub Packages
@@ -61,8 +63,8 @@ export function renderPreview(): string {
     </header>
     <div class="preview-grid">
       <div class="preview-card">
-        <div class="preview-step"><span class="step-num">1</span> Run the pnpm image</div>
-        <p class="preview-step-note">The repo scripts build the local image and start the stack.</p>
+        <div class="preview-step"><span class="step-num">1</span> Run the GHCR image</div>
+        <p class="preview-step-note">Pull the all-in-one image from GHCR, or build the same image from a clone.</p>
         ${code("bash", FIRST_RUN)}
       </div>
       <div class="preview-card">

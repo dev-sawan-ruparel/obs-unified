@@ -544,6 +544,8 @@ section:nth-of-type(even) .preview-card { background: var(--color-sys-bg); }
   line-height: 1.6;
   color: var(--color-sys-on-surface);
   overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   flex: 1 1 auto;
   max-width: 100%;
 }
