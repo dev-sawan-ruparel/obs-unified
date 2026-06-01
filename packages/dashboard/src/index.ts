@@ -37,6 +37,14 @@ export { EmptyState, StateRow } from "./components/states";
 export type { TagTone } from "./components/Tag";
 export { Tag } from "./components/Tag";
 export { GlobalSearch, TimeRangePicker } from "./components/TopBar";
+export {
+	ActionDashboard,
+	type ActionDashboardProps,
+} from "./dashboards/ActionDashboard";
+export {
+	AgentRunDashboard,
+	type AgentRunDashboardProps,
+} from "./dashboards/AgentRunDashboard";
 export { AIDashboard } from "./dashboards/AIDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { HealthDashboard } from "./dashboards/HealthDashboard";
@@ -49,6 +57,10 @@ export { ResourcesDashboard } from "./dashboards/ResourcesDashboard";
 export { ServiceMapDashboard } from "./dashboards/ServiceMapDashboard";
 export { TelemetryDashboard } from "./dashboards/TelemetryDashboard";
 export { TimelineDashboard } from "./dashboards/TimelineDashboard";
+export {
+	ToolCallDashboard,
+	type ToolCallDashboardProps,
+} from "./dashboards/ToolCallDashboard";
 export { UsageDashboard } from "./dashboards/UsageDashboard";
 export {
 	UserDashboard,

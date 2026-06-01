@@ -434,6 +434,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 								emptyReason: `Tool: ${toolCall.toolName} (hash: ${toolCall.argsHash.slice(0, 8)})`,
 							},
 						];
+						manifest.rawManifest = actionManifest;
 					}
 				}
 			} else if (kind === "alert" || kind === "analysis") {

@@ -72,3 +72,18 @@ export const UserDashboard = lazy(() =>
 		(m) => ({ default: m.UserDashboard }),
 	),
 );
+export const AgentRunDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/AgentRunDashboard"
+	).then((m) => ({ default: m.AgentRunDashboard })),
+);
+export const ActionDashboard = lazy(() =>
+	import("../../../../packages/dashboard/src/dashboards/ActionDashboard").then(
+		(m) => ({ default: m.ActionDashboard }),
+	),
+);
+export const ToolCallDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/ToolCallDashboard"
+	).then((m) => ({ default: m.ToolCallDashboard })),
+);

@@ -7,6 +7,8 @@ import {
 	TimeRangePicker,
 } from "../../../packages/dashboard/src/components/TopBar";
 import {
+	ActionDashboard,
+	AgentRunDashboard,
 	AIDashboard,
 	AlertsDashboard,
 	HealthDashboard,
@@ -19,6 +21,7 @@ import {
 	ServiceMapDashboard,
 	TelemetryDashboard,
 	TimelineDashboard,
+	ToolCallDashboard,
 	UsageDashboard,
 	UserDashboard,
 } from "./app/dashboard-modules";
@@ -271,6 +274,30 @@ export function App() {
 							/>
 						)}
 						{route.tab === "users" && !route.userId && <ProjectsDashboard />}
+						{route.tab === "agent-runs" && route.agentRunId && (
+							<AgentRunDashboard
+								agentRunId={route.agentRunId}
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
+						{route.tab === "actions" && route.actionId && (
+							<ActionDashboard
+								actionId={route.actionId}
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
+						{route.tab === "tool-calls" && route.toolCallId && (
+							<ToolCallDashboard
+								toolCallId={route.toolCallId}
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
 						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}
 					</Suspense>
 				</main>

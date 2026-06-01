@@ -136,7 +136,7 @@ function ActionDetailPanel({
 								Duration
 							</span>
 							<span className="font-mono text-[0.875rem] font-bold mt-0.5">
-								{action.durationMs !== null
+								{action.durationMs != null
 									? `${action.durationMs.toFixed(1)}ms`
 									: "In progress"}
 							</span>
@@ -147,7 +147,7 @@ function ActionDetailPanel({
 							</span>
 							<span className="font-mono text-[0.875rem] font-bold mt-0.5 text-sys-accent">
 								$
-								{action.totalCostUsd
+								{action.totalCostUsd != null
 									? action.totalCostUsd.toFixed(4)
 									: "0.0000"}
 							</span>
@@ -232,7 +232,7 @@ function EvalList({ evals }: { evals: EvalResultRef[] }) {
 								{e.passed ? "PASSED" : "FAILED"}
 							</span>
 						</div>
-						{e.score !== null && (
+						{e.score != null && (
 							<div className="text-[0.625rem] font-mono">
 								Score: <span className="font-bold">{e.score.toFixed(2)}</span>
 							</div>
@@ -310,7 +310,7 @@ function RetrievalList({ retrievals }: { retrievals: RetrievalEventRef[] }) {
 							<div>
 								Docs Found: <span className="font-bold">{r.totalResults}</span>
 							</div>
-							{r.maxRelevanceScore !== null && (
+							{r.maxRelevanceScore != null && (
 								<div>
 									Max Score:{" "}
 									<span className="font-bold">

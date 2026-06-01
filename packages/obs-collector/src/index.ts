@@ -3,6 +3,7 @@ import {
 	createTelemetryCollectorApp,
 } from "./framework/collector";
 import { actionGraphProcessorPlugin } from "./plugins/action-graph-processor";
+import { actionRoutesPlugin } from "./plugins/action-routes";
 import { aiReceiverPlugin } from "./plugins/ai-receiver";
 import { aiSpanPayloadsProcessorPlugin } from "./plugins/ai-span-payloads-processor";
 import {
@@ -85,6 +86,7 @@ export {
 	type PostgresAdapterOptions,
 } from "./lib/sql-db-postgres";
 export {
+	actionRoutesPlugin,
 	aiReceiverPlugin,
 	aiSpanPayloadsProcessorPlugin,
 	alertsRoutesPlugin,
@@ -154,6 +156,7 @@ export const allPlugins = [
 	replayQueryRoutesPlugin,
 	alertsRoutesPlugin,
 	analysesRoutesPlugin,
+	actionRoutesPlugin,
 	askRoutesPlugin,
 	tailRoutesPlugin,
 	timelineRoutesPlugin,

@@ -400,3 +400,157 @@ test.describe("Playground", () => {
 		await expect(page.locator("pre")).toContainText("ok", { timeout: 5000 });
 	});
 });
+
+// ── Agent/Action/Tool Graph Dashboards ──
+
+test.describe("Agent / Action / Tool Graph Detail Pages", () => {
+	test("renders AgentRunDashboard with metadata and action graph", async ({
+		page,
+	}) => {
+		const runManifest = JSON.stringify({
+			entity: { kind: "agent_run", id: "run123", projectId: "p1" },
+			up: [],
+			across: [],
+			down: [],
+			related: [],
+			rawManifest: {
+				agentRuns: [
+					{
+						id: "run123",
+						agentId: "agent-1",
+						agentName: "Support Triage Agent",
+						agentVersion: "1.0.0",
+						goal: "Resolve invoice billing address discrepancy",
+						outcome: "success",
+						autonomyLevel: "autonomous_write",
+						totalCostUsd: 0.005,
+						totalDurationMs: 1500,
+					},
+				],
+				actions: [
+					{
+						id: "run123",
+						project_id: "p1",
+						root_action_id: "run123",
+						actor_type: "agent",
+						actionKind: "agent.run",
+						name: "Support Agent Exec",
+						status: "ok",
+						startedAt: "2026-05-31T21:00:00Z",
+					},
+				],
+			},
+		});
+
+		await mockApis(page, {
+			"/connected/agent_run/run123": (r) => json(r, runManifest),
+		});
+
+		await page.goto("/#/agent-runs/run123");
+		await expect(
+			page.locator("h1:has-text('Support Triage Agent')"),
+		).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(page.locator("text=run_id: run123")).toBeVisible();
+		await expect(
+			page.locator(
+				"dd:has-text('Resolve invoice billing address discrepancy')",
+			),
+		).toBeVisible();
+		await expect(page.locator("text=AUTONOMOUS WRITE").first()).toBeVisible();
+	});
+
+	test("renders ActionDashboard with metadata and action graph", async ({
+		page,
+	}) => {
+		const actionManifest = JSON.stringify({
+			entity: { kind: "action", id: "act123", projectId: "p1" },
+			up: [],
+			across: [],
+			down: [],
+			related: [],
+			rawManifest: {
+				actions: [
+					{
+						id: "act123",
+						project_id: "p1",
+						root_action_id: "run123",
+						actor_type: "agent",
+						actionKind: "llm",
+						name: "Billing Intent Classification",
+						status: "ok",
+						startedAt: "2026-05-31T21:00:00Z",
+						durationMs: 500,
+						traceId: "trace123",
+						spanId: "span123",
+						attrsJson: '{"model":"gpt-4o"}',
+					},
+				],
+			},
+		});
+
+		await mockApis(page, {
+			"/connected/action/act123": (r) => json(r, actionManifest),
+		});
+
+		await page.goto("/#/actions/act123");
+		await expect(
+			page.locator("h1:has-text('Billing Intent Classification')"),
+		).toBeVisible({ timeout: 10000 });
+		await expect(page.locator("text=action_id: act123")).toBeVisible();
+		await expect(page.locator("text=trace123")).toBeVisible();
+	});
+
+	test("renders ToolCallDashboard with metadata and action graph", async ({
+		page,
+	}) => {
+		const toolManifest = JSON.stringify({
+			entity: { kind: "tool_call", id: "tool123", projectId: "p1" },
+			up: [],
+			across: [],
+			down: [],
+			related: [],
+			rawManifest: {
+				toolCalls: [
+					{
+						id: "tool123",
+						actionId: "act123",
+						toolName: "stripe.charge_refund",
+						sideEffect: true,
+						approvalState: "bypassed",
+						argsHash: "argshash123",
+						resultHash: "resulthash123",
+					},
+				],
+				actions: [
+					{
+						id: "act123",
+						project_id: "p1",
+						root_action_id: "run123",
+						actor_type: "agent",
+						actionKind: "tool",
+						name: "Refund Action Tool",
+						status: "ok",
+						startedAt: "2026-05-31T21:00:00Z",
+					},
+				],
+			},
+		});
+
+		await mockApis(page, {
+			"/connected/tool_call/tool123": (r) => json(r, toolManifest),
+		});
+
+		await page.goto("/#/tool-calls/tool123");
+		await expect(
+			page.locator("h1:has-text('stripe.charge_refund')"),
+		).toBeVisible({
+			timeout: 10000,
+		});
+		await expect(page.locator("text=tool_call_id: tool123")).toBeVisible();
+		await expect(
+			page.getByText("Yes (Mutates External State)", { exact: true }),
+		).toBeVisible();
+	});
+});

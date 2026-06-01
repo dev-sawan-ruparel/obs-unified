@@ -12,6 +12,9 @@ export type Route = {
 	investigationId?: string;
 	/** RFC 0006 Scenario B: user_profiles.user_id from /#/users/<id>. */
 	userId?: string;
+	agentRunId?: string;
+	actionId?: string;
+	toolCallId?: string;
 };
 
 export const KNOWN_TABS = new Set([
@@ -30,6 +33,9 @@ export const KNOWN_TABS = new Set([
 	"resources",
 	"projects",
 	"users",
+	"agent-runs",
+	"actions",
+	"tool-calls",
 ]);
 
 export function parseHash(): Route {
@@ -46,6 +52,18 @@ export function parseHash(): Route {
 		tab === "users" && segments.length > 1
 			? decodeURIComponent(segments.slice(1).join("/"))
 			: undefined;
+	const agentRunId =
+		tab === "agent-runs" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
+	const actionId =
+		tab === "actions" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
+	const toolCallId =
+		tab === "tool-calls" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
 	return {
 		tab,
 		traceId: params.get("trace") ?? undefined,
@@ -54,6 +72,9 @@ export function parseHash(): Route {
 		service: params.get("service") ?? undefined,
 		investigationId,
 		userId,
+		agentRunId,
+		actionId,
+		toolCallId,
 	};
 }
 
@@ -66,6 +87,15 @@ export function navigate(route: Partial<Route>) {
 	}
 	if (next.tab === "users" && next.userId) {
 		hash += `/${encodeURIComponent(next.userId)}`;
+	}
+	if (next.tab === "agent-runs" && next.agentRunId) {
+		hash += `/${encodeURIComponent(next.agentRunId)}`;
+	}
+	if (next.tab === "actions" && next.actionId) {
+		hash += `/${encodeURIComponent(next.actionId)}`;
+	}
+	if (next.tab === "tool-calls" && next.toolCallId) {
+		hash += `/${encodeURIComponent(next.toolCallId)}`;
 	}
 	const params = new URLSearchParams();
 	if (next.traceId) params.set("trace", next.traceId);

@@ -149,10 +149,10 @@ export function TreeNodeComponent({
 
 						{/* Quick stats on card */}
 						<div className="flex items-center gap-2 text-[0.625rem] font-mono opacity-70">
-							{action.durationMs !== null && (
+							{action.durationMs != null && (
 								<span>{action.durationMs.toFixed(0)}ms</span>
 							)}
-							{action.totalCostUsd !== null && action.totalCostUsd > 0 && (
+							{action.totalCostUsd != null && action.totalCostUsd > 0 && (
 								<span className="text-sys-accent font-bold">
 									${action.totalCostUsd.toFixed(4)}
 								</span>
@@ -203,7 +203,7 @@ export function TreeNodeComponent({
 											? "border-sys-primary/40 bg-sys-primary/10 text-sys-primary font-bold"
 											: "border-sys-error/40 bg-sys-error/10 text-sys-error font-bold"
 									}`}
-									title={`evaluator: ${e.evaluatorName} (score: ${e.score !== null ? e.score.toFixed(2) : "N/A"})`}
+									title={`evaluator: ${e.evaluatorName} (score: ${e.score != null ? e.score.toFixed(2) : "N/A"})`}
 								>
 									🛡️ {e.evaluatorName}: {e.passed ? "PASS" : "FAIL"}
 								</span>
