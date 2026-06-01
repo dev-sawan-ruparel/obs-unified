@@ -1,8 +1,8 @@
 # obs-unified
 
 Self-hosted observability for your project. Traces, logs, usage analytics,
-session replay, profiles, AI call tracking, and Agent Action Graphs — no
-external telemetry services required.
+session replay, profiles, AI call tracking, Agent Action Graphs, and an MCP
+server for investigation agents — no external telemetry services required.
 
 [![obs-unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
 
@@ -23,9 +23,16 @@ Use it to answer which user action or background job started a run, which model
 step chose a side-effecting tool, whether the write was approved, and whether a
 production failure should become an eval case.
 
+The graph is also agent-readable. The `@obs-unified/mcp-server` package exposes
+read-only MCP tools for status, recent traces, trace detail, service maps, logs,
+AI sessions, users, replays, connected signals, agent runs, actions, and tool
+calls, so coding agents can traverse the same evidence a human sees in the
+dashboard without receiving ingest credentials.
+
 Start here:
 
 - [Product overview](docs/agent-action-graph.md)
+- [MCP server package](packages/mcp-server/README.md)
 - [Action ID wire spec](docs/spec/action-id.md)
 - [Framework plugin contract](docs/spec/agent-framework-plugins.md)
 - [Agent replay worked example](docs/ux/agent-run-replay.md)
@@ -158,7 +165,7 @@ Start by choosing your language and framework, then follow the matching example:
 | Python Flask API               | [Python Flask walkthrough](docs/howto/instrument-python-flask.md) |
 | Browser-only app               | [Analytics SDK README](packages/analytics-sdk/README.md)          |
 | TypeScript backend             | [Telemetry SDK README](packages/telemetry-sdk/README.md)          |
-| AI agents and tool-calling apps | [Agent Action Graph overview](docs/agent-action-graph.md)         |
+| AI agents and tool-calling apps | [Agent Action Graph overview](docs/agent-action-graph.md) and [MCP server](packages/mcp-server/README.md) |
 | Python, JVM, .NET, Go, Rust    | [Language recipes](docs/recipes/README.md)                        |
 
 The common wiring is: run a collector, add the browser/backend SDK package, set
