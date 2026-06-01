@@ -236,11 +236,15 @@ The core pipeline configuration is standard across app types:
    write-only ingest key.
 4. Ensure your API CORS policies allow the custom propagation header:
    `x-obs-interaction`.
-5. Run the validation tool to verify connectivity:
+5. Run the validation tool to verify connectivity. From the obs-unified repo
+   (no registry auth needed — builds and runs the workspace CLI):
 
    ```bash
-   obs-unified doctor http://localhost:8790 --origin http://localhost:5173
+   pnpm run doctor http://localhost:8790 --origin http://localhost:5173
    ```
+
+   Outside the repo, use `pnpm dlx @obs-unified/cli doctor …` instead (requires a
+   GitHub Packages login — see [github-packages.md](./github-packages.md)).
 
 ---
 
@@ -281,7 +285,7 @@ Access the interface at `http://localhost:5173`.
 | **Docker compose demo fails to launch**    | Execute `pnpm demo:preflight` and address the first reported system check failure.                  |
 | **Colima / VM memory resource depletion**  | Expand hardware allocation: `colima stop && colima start --memory 7 --cpu 4`.                       |
 | **Dashboard displays empty state**         | Run `pnpm run seed`, wait for Astronomy Shop traffic, or confirm your own app is sending telemetry. |
-| **Browser telemetry requests are blocked** | Verify CORS rules using: `obs-unified doctor <collector-url> --origin <app-origin>`.                |
+| **Browser telemetry requests are blocked** | Verify CORS rules using: `pnpm run doctor <collector-url> --origin <app-origin>` (from the repo).   |
 | **AI Calls table is empty**                | Verify the LLM provider key is defined in your active environment variables and trigger an AI span. |
 | **Replays table is empty**                 | Load the target application in the browser and perform a recording-eligible user action.            |
 

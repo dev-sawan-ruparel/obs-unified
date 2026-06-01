@@ -394,6 +394,18 @@ async function runDoctor(args: string[]) {
 	console.log();
 	if (failed > 0) {
 		console.log(kleur.red(`${failed} check(s) failed`));
+		// If every check failed, the collector is almost certainly unreachable
+		// (not running, wrong URL) rather than misconfigured — point the way out.
+		if (failed === checks.length) {
+			console.log(
+				kleur.yellow(
+					`\nCouldn't reach a collector at ${url}.\n` +
+						`  • Is it running? Start one locally with: ${kleur.cyan("pnpm dev:collector")}\n` +
+						`  • Or boot the all-in-one image: ${kleur.cyan("docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest")}\n` +
+						`  • Then re-run this check against ${url}.`,
+				),
+			);
+		}
 		process.exit(1);
 	}
 	console.log(kleur.green("all clear"));
