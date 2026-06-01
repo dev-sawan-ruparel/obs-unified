@@ -256,11 +256,11 @@ Reduce user instrumentation burden after the manual API is stable.
       [agent-plugin.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/agent-plugin.ts)
       and document the adapter/package contract in
       [agent-framework-plugins.md](file:///Users/sawan/projects/obs-unified/obs-unified/docs/spec/agent-framework-plugins.md).
-- [ ] **8.1** OpenAI Agents SDK wrapper.
-- [ ] **8.2** LangGraph wrapper.
-- [ ] **8.3** Vercel AI SDK wrapper.
+- [ ] **8.1** OpenAI Agents SDK wrapper (deferred).
+- [x] **8.2** LangGraph wrapper: Maps StateGraph node, chain, LLM, and tool events to the agent action graph via standard callbacks in `@obs-unified/agents-langgraph` (fully tested in `langgraph.test.ts`).
+- [x] **8.3** Vercel AI SDK wrapper: Instruments `generateText` and `streamText` function calls, pre-populating steps, tokens, prompts, and tool side-effects in `@obs-unified/agents-vercel-ai` (fully tested in `vercel-ai.test.ts`).
 - [x] **8.4** MCP client / server helpers in [mcp.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/mcp.ts). Client side: inject W3C `traceparent`, `tracestate`, `baggage`, and flat action keys (`obs.action.id`, `obs.action.root_id`) into MCP `params._meta` on outgoing requests and notifications. Server side: extract all flat action keys, `traceparent`, `tracestate`, and `baggage` from `params._meta` on inbound MCP spans, set as parent action, and map `tools/call`, `resources/read`, `prompts/get` to the corresponding action kinds (verified in [mcp.test.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/mcp.test.ts)).
-- [ ] **8.5** Demand-driven follow-ups: LlamaIndex, Mastra, AutoGen.
+- [ ] **8.5** Demand-driven follow-ups: LlamaIndex, Mastra, AutoGen (deferred).
 
 **Exit criteria:** at least two common agent stacks can emit high-quality action
 graphs with minimal manual instrumentation.

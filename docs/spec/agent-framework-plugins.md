@@ -119,3 +119,80 @@ produce:
 - dashboard visibility in `AgentRunDashboard`
 
 Phase 8 requires at least two wrappers to meet this bar.
+
+---
+
+## Implemented Framework Wrapper Packages
+
+### 1. Vercel AI SDK Wrapper (`@obs-unified/agents-vercel-ai`)
+
+This package provides helper wrappers and an adapter for tracking Vercel AI SDK
+graph steps, generation completions, and tool executions.
+
+#### Usage Example:
+
+```ts
+import { generateText } from "ai";
+import { wrapGenerateText, withVercelAIRun } from "@obs-unified/agents-vercel-ai";
+
+// Instrument generateText
+const trackedGenerateText = wrapGenerateText(generateText, {
+  capturePayloads: true,
+  classifyTool: (tool) => {
+    if (tool.toolName === "update_profile") {
+      return { sideEffect: true, approvalState: "human_approved" };
+    }
+    return { sideEffect: false };
+  }
+});
+
+// Run within an agent context
+await withVercelAIRun({
+  agentId: "triage-agent",
+  agentName: "Billing Triage Assistant",
+  goal: "Process invoice dispute",
+  autonomyLevel: "human_approved_write"
+}, async (run) => {
+  const response = await trackedGenerateText({
+    model: openai("gpt-4o"),
+    prompt: "Dispute invoice INV-2026",
+    tools: toolsByName,
+  });
+  run.setOutcome("Successfully disputed invoice");
+});
+```
+
+---
+
+### 2. LangGraph Wrapper (`@obs-unified/agents-langgraph`)
+
+This package integrates standard LangChain callbacks with the
+`@obs-unified/telemetry-sdk` runtime, mapping Node, Chain, Tool, and LLM
+lifecycle events to decision graph primitives.
+
+#### Usage Example:
+
+```ts
+import { CompiledStateGraph } from "@langchain/langgraph";
+import { instrumentLangGraph, wrapLangGraphRunnable } from "@obs-unified/agents-langgraph";
+
+const graph: CompiledStateGraph = compiledGraph;
+
+// Instrument the graph
+instrumentLangGraph(graph, {
+  defaultAgentId: "state-graph-agent",
+  defaultAgentName: "LangGraph Operations Agent",
+  capturePayloads: false,
+  classifyTool: (toolName) => {
+    if (toolName.startsWith("charge_")) {
+      return { sideEffect: true, approvalState: "human_approved" };
+    }
+    return { sideEffect: false };
+  }
+});
+
+// Invoking the graph automatically creates an agent.run segment and maps node steps
+const result = await graph.invoke({
+  query: "Resolve checkout error"
+});
+```

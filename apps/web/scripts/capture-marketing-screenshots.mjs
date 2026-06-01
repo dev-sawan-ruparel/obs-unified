@@ -495,21 +495,41 @@ async function openAgentGraph(page) {
 		.locator("main div.w-full.text-left")
 		.filter({ hasText: /agent-debugger|Debug Agent|gpt-4o/i })
 		.first();
-	if ((await agentRow.count()) > 0) {
-		const openButton = agentRow
-			.locator('button[aria-label^="Open span"]')
-			.first();
-		if ((await openButton.count()) > 0) {
-			await openButton.click({ timeout: 5000 }).catch(() => {});
-		} else {
-			await agentRow.click({ timeout: 5000 }).catch(() => {});
-		}
+	const openButton = agentRow
+		.locator('button[aria-label^="Open span"]')
+		.first();
+	const targetedAgentButton = page
+		.locator('button[aria-label="Open span openai.chat.completions"]')
+		.first();
+	if ((await targetedAgentButton.count()) > 0) {
+		await targetedAgentButton.click({ timeout: 5000 }).catch(() => {});
+		await page.waitForTimeout(900);
+	} else if ((await openButton.count()) > 0) {
+		await openButton.click({ timeout: 5000 }).catch(() => {});
+		await page.waitForTimeout(900);
+	} else if ((await agentRow.count()) > 0) {
+		await agentRow.click({ timeout: 5000 }).catch(() => {});
 		await page.waitForTimeout(900);
 	}
 	const tab = page.getByText("Action Graph", { exact: false }).first();
 	if ((await tab.count()) > 0) {
 		await tab.click({ timeout: 5000 }).catch(() => {});
-		await page.waitForTimeout(4000);
+		await page
+			.waitForFunction(
+				() => {
+					const text = document.body.innerText;
+					return (
+						!/Loading action graph/i.test(text) &&
+						/CAUSAL ACTION TREE|GOVERNANCE|PROMPT DIFF|Agent runs|Tool calls/i.test(
+							text,
+						)
+					);
+				},
+				undefined,
+				{ timeout: 30000 },
+			)
+			.catch(() => {});
+		await page.waitForTimeout(800);
 	}
 }
 
@@ -582,6 +602,7 @@ async function main() {
 	await seedAgentGraph().catch((err) => {
 		console.warn(`[warn] ${err.message}`);
 	});
+	await new Promise((resolve) => setTimeout(resolve, 5000));
 
 	const browser = await chromium.launch({ headless: true });
 	const page = await browser.newPage({

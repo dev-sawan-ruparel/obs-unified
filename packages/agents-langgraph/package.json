@@ -1,0 +1,39 @@
+{
+	"name": "@obs-unified/agents-langgraph",
+	"version": "1.0.0",
+	"description": "LangGraph/LangChain framework wrapper for obs-unified Agent Action Graph",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsup",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests"
+	},
+	"dependencies": {},
+	"peerDependencies": {
+		"@obs-unified/telemetry-sdk": "workspace:*"
+	},
+	"devDependencies": {
+		"@obs-unified/telemetry-sdk": "workspace:*",
+		"tsup": "^8.3.5",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.2"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	}
+}
