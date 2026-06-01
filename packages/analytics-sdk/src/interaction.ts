@@ -7,6 +7,11 @@
  *   - any rrweb events emitted while the context is active,
  *   - the `x-obs-interaction` header on outbound fetch/XHR.
  *
+ * RFC 0010 extends the browser context with action graph identity. For
+ * browser-originated work, action identity coalesces with interaction identity:
+ * `root_action_id = action_id = interaction_id` unless a caller explicitly
+ * re-enters with action IDs.
+ *
  * Two propagation modes (see RFC 0004 § Browser propagation scope):
  *
  *   Mode A — automatic. The SDK installs a global click/submit/keydown
@@ -68,21 +73,66 @@ export const generateInteractionId = (): string =>
 // Module-level stack so reads from anywhere in the page see the same
 // context. Sync push/pop at handler entry/exit.
 
-const stack: string[] = [];
+export interface InteractionActionContext {
+	interactionId: string;
+	rootActionId: string;
+	actionId: string;
+}
 
-export const currentInteractionId = (): string | undefined =>
+export interface InteractionContextOptions {
+	rootActionId?: string;
+	actionId?: string;
+}
+
+const coalesceActionContext = (
+	interactionId: string,
+	opts: InteractionContextOptions = {},
+): InteractionActionContext => ({
+	interactionId,
+	rootActionId: opts.rootActionId ?? interactionId,
+	actionId: opts.actionId ?? opts.rootActionId ?? interactionId,
+});
+
+const stack: InteractionActionContext[] = [];
+
+const currentContext = (): InteractionActionContext | undefined =>
 	stack.length === 0 ? undefined : stack[stack.length - 1];
 
-export const pushInteraction = (id: string): void => {
-	stack.push(id);
+export const currentInteractionId = (): string | undefined =>
+	currentContext()?.interactionId;
+
+export const currentRootActionId = (): string | undefined =>
+	currentContext()?.rootActionId;
+
+export const currentActionId = (): string | undefined =>
+	currentContext()?.actionId;
+
+export const currentInteractionContext = ():
+	| InteractionActionContext
+	| undefined => {
+	const ctx = currentContext();
+	return ctx === undefined ? undefined : { ...ctx };
+};
+
+export const pushInteraction = (
+	id: string,
+	opts: InteractionContextOptions = {},
+): void => {
+	stack.push(coalesceActionContext(id, opts));
 };
 
 export const popInteraction = (id?: string): void => {
-	if (id === undefined || stack[stack.length - 1] === id) {
+	if (id === undefined || stack[stack.length - 1]?.interactionId === id) {
 		stack.pop();
 		return;
 	}
-	const index = stack.lastIndexOf(id);
+	let index = -1;
+	for (let i = stack.length - 1; i >= 0; i -= 1) {
+		if (stack[i]?.interactionId === id) {
+			index = i;
+			break;
+		}
+	}
 	if (index !== -1) stack.splice(index, 1);
 };
 
@@ -96,8 +146,12 @@ export const popInteraction = (id?: string): void => {
  * Throws and rejections still pop the context — the `finally` runs
  * regardless of how the body returns.
  */
-export const withInteractionContext = <T>(id: string, fn: () => T): T => {
-	pushInteraction(id);
+export const withInteractionContext = <T>(
+	id: string,
+	fn: () => T,
+	opts: InteractionContextOptions = {},
+): T => {
+	pushInteraction(id, opts);
 	try {
 		return fn();
 	} finally {
@@ -115,8 +169,9 @@ export const withInteractionContext = <T>(id: string, fn: () => T): T => {
 export const withInteractionContextAsync = async <T>(
 	id: string,
 	fn: () => Promise<T>,
+	opts: InteractionContextOptions = {},
 ): Promise<T> => {
-	pushInteraction(id);
+	pushInteraction(id, opts);
 	try {
 		return await fn();
 	} finally {
@@ -160,14 +215,14 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
  */
 export const wrapInteraction = <F extends AnyHandler>(handler: F): F => {
 	return ((...args: Parameters<F>) => {
-		const id = currentInteractionId();
-		if (id === undefined) {
+		const ctx = currentInteractionContext();
+		if (ctx === undefined) {
 			// No interaction active at call time. Don't synthesize one —
 			// silent guessing produces wrong joins.
 			return handler(...args);
 		}
 
-		pushInteraction(id);
+		pushInteraction(ctx.interactionId, ctx);
 		try {
 			const result = handler(...args);
 			if (isThenable(result)) {

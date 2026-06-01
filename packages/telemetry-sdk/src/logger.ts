@@ -7,8 +7,16 @@
  */
 
 import type { JsonValue } from "@obs-unified/types";
+import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_ID_KEY,
+	ACTION_ROOT_ID_KEY,
+	ACTOR_ID_KEY,
+	ACTOR_TYPE_KEY,
+	AGENT_RUN_ID_KEY,
+} from "@obs-unified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
-import { getActiveSpan } from "./span";
+import { getActiveActionContext, getActiveSpan } from "./span";
 
 const SEVERITY_DEBUG = 5;
 const SEVERITY_INFO = 9;
@@ -215,6 +223,21 @@ const emitConsole = (record: StructuredLogRecord): void => {
 	}
 };
 
+const activeActionAttributes = (): Record<string, unknown> | undefined => {
+	const context = getActiveActionContext();
+	if (!context) return undefined;
+	return {
+		[ACTION_ID_KEY]: context.actionId,
+		[ACTION_ROOT_ID_KEY]: context.rootActionId,
+		...(context.causedByActionId
+			? { [ACTION_CAUSED_BY_ID_KEY]: context.causedByActionId }
+			: {}),
+		[ACTOR_TYPE_KEY]: context.actorType,
+		...(context.actorId ? { [ACTOR_ID_KEY]: context.actorId } : {}),
+		...(context.agentRunId ? { [AGENT_RUN_ID_KEY]: context.agentRunId } : {}),
+	};
+};
+
 export const errorMessage = (error: unknown): string => {
 	if (error instanceof Error) return error.message;
 	return String(error);
@@ -240,13 +263,20 @@ export function createLogger(name: string): Logger {
 		emitConsole(record);
 
 		const span = getActiveSpan();
+		const mergedAttributes = {
+			...activeActionAttributes(),
+			...(attributes ?? {}),
+		};
 
 		const logObj: BufferedLog = {
 			severity,
 			severityNumber,
 			loggerName: name,
 			message,
-			attributes: (attributes as Record<string, JsonValue>) || undefined,
+			attributes:
+				Object.keys(mergedAttributes).length > 0
+					? (mergedAttributes as Record<string, JsonValue>)
+					: undefined,
 			occurredAtNs: isoToNanoString(record.ts),
 			traceId: span?.traceId,
 			spanId: span?.spanId,
@@ -267,7 +297,7 @@ export function createLogger(name: string): Logger {
 				span.addEvent(`log.${severity.toLowerCase()}`, {
 					logger: name,
 					message,
-					...attributes,
+					...mergedAttributes,
 				});
 				if (
 					(severity === "ERROR" || severity === "FATAL") &&

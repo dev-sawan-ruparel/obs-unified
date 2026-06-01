@@ -6,6 +6,11 @@
 // any drift between the two copies is caught by
 // `packages/telemetry-sdk/src/interaction-fixture-parity.test.ts`.
 
+import {
+	ACTION_HEADER_NAME,
+	ACTION_ID_RE,
+	ACTION_ROOT_HEADER_NAME,
+} from "@obs-unified/types/constants";
 import { describe, expect, test } from "vitest";
 import {
 	currentInteractionId,
@@ -34,13 +39,11 @@ const INVALID_IDS = [
 	{ value: "01HZQ5W3K8M4P2X7N9B0!DEFGH", reason: "contains punctuation" },
 ];
 
-const REGEX = /^[0-9A-HJKMNP-TV-Z]{26}$/;
-
 describe("interaction_id conformance (browser)", () => {
 	test("Case 1 — 1,000 minted IDs all match the wire regex", () => {
 		for (let i = 0; i < 1000; i++) {
 			const id = generateInteractionId();
-			expect(REGEX.test(id), `${id} failed regex`).toBe(true);
+			expect(ACTION_ID_RE.test(id), `${id} failed regex`).toBe(true);
 		}
 	});
 
@@ -52,16 +55,22 @@ describe("interaction_id conformance (browser)", () => {
 
 	test("Case 2/3 — fixture's valid IDs all pass regex", () => {
 		for (const id of VALID_IDS) {
-			expect(REGEX.test(id), `${id} should be valid`).toBe(true);
+			expect(ACTION_ID_RE.test(id), `${id} should be valid`).toBe(true);
 		}
 	});
 
 	test("Case 4 — fixture's invalid IDs all fail regex", () => {
 		for (const { value, reason } of INVALID_IDS) {
-			expect(REGEX.test(value), `${value} rejected because: ${reason}`).toBe(
-				false,
-			);
+			expect(
+				ACTION_ID_RE.test(value),
+				`${value} rejected because: ${reason}`,
+			).toBe(false);
 		}
+	});
+
+	test("RFC 0010 action propagation header names are canonical", () => {
+		expect(ACTION_ROOT_HEADER_NAME).toBe("x-obs-root-action");
+		expect(ACTION_HEADER_NAME).toBe("x-obs-action");
 	});
 
 	test("context stack push/pop balanced", () => {

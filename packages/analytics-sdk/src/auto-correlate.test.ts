@@ -13,10 +13,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	__resetAutoCorrelateForTests,
+	ACTION_HEADER,
 	INTERACTION_HEADER,
 	injectInteractionHeader,
+	injectInteractionHeaders,
 	installAutoCorrelate,
 	installClickListeners,
+	ROOT_ACTION_HEADER,
+	wrapFetchWithActionCorrelation,
 	wrapFetchWithCorrelation,
 } from "./auto-correlate";
 import {
@@ -66,6 +70,41 @@ describe("injectInteractionHeader", () => {
 	});
 });
 
+describe("injectInteractionHeaders", () => {
+	it("sets interaction and action headers when init is undefined", () => {
+		const out = injectInteractionHeaders(undefined, {
+			interactionId: "click-1",
+			rootActionId: "click-1",
+			actionId: "click-1",
+		});
+		const h = new Headers(out.headers);
+		expect(h.get(INTERACTION_HEADER)).toBe("click-1");
+		expect(h.get(ROOT_ACTION_HEADER)).toBe("click-1");
+		expect(h.get(ACTION_HEADER)).toBe("click-1");
+	});
+
+	it("does NOT overwrite caller-specified action headers", () => {
+		const out = injectInteractionHeaders(
+			{
+				headers: {
+					[INTERACTION_HEADER]: "caller-interaction",
+					[ROOT_ACTION_HEADER]: "caller-root",
+					[ACTION_HEADER]: "caller-action",
+				},
+			},
+			{
+				interactionId: "sdk-interaction",
+				rootActionId: "sdk-root",
+				actionId: "sdk-action",
+			},
+		);
+		const h = new Headers(out.headers);
+		expect(h.get(INTERACTION_HEADER)).toBe("caller-interaction");
+		expect(h.get(ROOT_ACTION_HEADER)).toBe("caller-root");
+		expect(h.get(ACTION_HEADER)).toBe("caller-action");
+	});
+});
+
 // ── wrapFetchWithCorrelation ─────────────────────────────────────────
 
 describe("wrapFetchWithCorrelation", () => {
@@ -92,6 +131,8 @@ describe("wrapFetchWithCorrelation", () => {
 
 		const init = original.mock.calls[0][1] as RequestInit;
 		expect(new Headers(init.headers).get(INTERACTION_HEADER)).toBe("I1");
+		expect(new Headers(init.headers).get(ROOT_ACTION_HEADER)).toBe("I1");
+		expect(new Headers(init.headers).get(ACTION_HEADER)).toBe("I1");
 	});
 
 	it("reads id at call time, not install time", async () => {
@@ -114,6 +155,28 @@ describe("wrapFetchWithCorrelation", () => {
 		await wrapped("https://b.example", undefined);
 		const initB = original.mock.calls[1][1] as RequestInit;
 		expect(new Headers(initB.headers).get(INTERACTION_HEADER)).toBe("I2");
+		expect(new Headers(initB.headers).get(ROOT_ACTION_HEADER)).toBe("I2");
+		expect(new Headers(initB.headers).get(ACTION_HEADER)).toBe("I2");
+	});
+
+	it("injects divergent action context when available", async () => {
+		const original = vi.fn<typeof fetch>(async () => new Response("ok"));
+		const wrapped = wrapFetchWithActionCorrelation(
+			original as unknown as typeof fetch,
+			() => ({
+				interactionId: "click-1",
+				rootActionId: "run-1",
+				actionId: "step-1",
+			}),
+		);
+
+		await wrapped("https://example.com", { method: "POST" });
+
+		const init = original.mock.calls[0][1] as RequestInit;
+		const h = new Headers(init.headers);
+		expect(h.get(INTERACTION_HEADER)).toBe("click-1");
+		expect(h.get(ROOT_ACTION_HEADER)).toBe("run-1");
+		expect(h.get(ACTION_HEADER)).toBe("step-1");
 	});
 });
 
@@ -260,9 +323,58 @@ describe("installAutoCorrelate", () => {
 			expect(new Headers(init.headers).get(INTERACTION_HEADER)).toBe(
 				"INTEGRATION-ID",
 			);
+			expect(new Headers(init.headers).get(ROOT_ACTION_HEADER)).toBe(
+				"INTEGRATION-ID",
+			);
+			expect(new Headers(init.headers).get(ACTION_HEADER)).toBe(
+				"INTEGRATION-ID",
+			);
 		} finally {
 			cleanup();
 			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it("integrates: trusted click on target makes XHR carry all correlation headers", () => {
+		const originalXhr = globalThis.XMLHttpRequest;
+		const seenHeaders: Record<string, string> = {};
+
+		class FakeXhr {
+			open() {}
+			send() {}
+			setRequestHeader(name: string, value: string) {
+				seenHeaders[name] = value;
+			}
+		}
+
+		globalThis.XMLHttpRequest =
+			FakeXhr as unknown as typeof globalThis.XMLHttpRequest;
+
+		const target = new EventTarget();
+		const cleanup = installAutoCorrelate({
+			target,
+			mint: () => "XHR-INTEGRATION-ID",
+		});
+
+		try {
+			const e = new Event("click");
+			Object.defineProperty(e, "isTrusted", { value: true });
+			target.dispatchEvent(e);
+
+			const xhr = new XMLHttpRequest();
+			xhr.open("POST", "https://example.com/api");
+			xhr.send();
+
+			expect(seenHeaders[INTERACTION_HEADER]).toBe("XHR-INTEGRATION-ID");
+			expect(seenHeaders[ROOT_ACTION_HEADER]).toBe("XHR-INTEGRATION-ID");
+			expect(seenHeaders[ACTION_HEADER]).toBe("XHR-INTEGRATION-ID");
+		} finally {
+			cleanup();
+			if (originalXhr === undefined) {
+				Reflect.deleteProperty(globalThis, "XMLHttpRequest");
+			} else {
+				globalThis.XMLHttpRequest = originalXhr;
+			}
 		}
 	});
 });

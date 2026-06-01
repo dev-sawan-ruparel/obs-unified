@@ -1,6 +1,11 @@
 import type { AICallInput, AICallPayload } from "@obs-unified/types";
+import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_ID_KEY,
+	ACTION_ROOT_ID_KEY,
+} from "@obs-unified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
-import { getActiveSpan } from "./span";
+import { getActiveActionContext, getActiveSpan } from "./span";
 
 export interface AILoggerConfig {
 	collectorUrl: string;
@@ -18,9 +23,10 @@ export interface AILoggerConfig {
 
 const MAX_BUFFER_SIZE = 200;
 const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
+type BufferedAICall = AICallInput & Record<string, unknown>;
 
 let aiConfig: AILoggerConfig | null = null;
-const aiBuffer: AICallInput[] = [];
+const aiBuffer: BufferedAICall[] = [];
 let flushInProgress = false;
 let flushLifecycle: FlushLifecycle | null = null;
 
@@ -54,13 +60,25 @@ export function trackAICall(
 	call: Omit<AICallInput, "traceId" | "spanId" | "serviceName" | "occurredAt">,
 ) {
 	const span = getActiveSpan();
+	const actionContext = getActiveActionContext();
 
-	const fullCall: AICallInput = {
+	const fullCall: BufferedAICall = {
 		...call,
 		traceId: span?.traceId,
 		spanId: span?.spanId,
 		serviceName: aiConfig?.serviceName || "unknown-service",
 		occurredAt: new Date().toISOString(),
+		...(actionContext
+			? {
+					[ACTION_ID_KEY]: actionContext.actionId,
+					[ACTION_ROOT_ID_KEY]: actionContext.rootActionId,
+					...(actionContext.causedByActionId
+						? {
+								[ACTION_CAUSED_BY_ID_KEY]: actionContext.causedByActionId,
+							}
+						: {}),
+				}
+			: {}),
 	};
 
 	// Drop oldest entries if buffer is at hard cap (collector unreachable)
@@ -104,7 +122,7 @@ export async function flushAICalls() {
 	}
 }
 
-function requeueAICalls(batch: AICallInput[]): void {
+function requeueAICalls(batch: BufferedAICall[]): void {
 	if (batch.length === 0) return;
 	aiBuffer.unshift(...batch);
 	if (aiBuffer.length > MAX_BUFFER_SIZE) {

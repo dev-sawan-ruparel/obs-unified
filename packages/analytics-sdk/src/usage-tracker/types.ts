@@ -27,4 +27,11 @@ export interface UsageEventPayload {
 	 * page_view on initial mount).
 	 */
 	interactionId?: string;
+	/**
+	 * RFC 0010 — action graph identity. Browser-only interactions coalesce
+	 * these with `interactionId`; agent-triggered work may diverge while
+	 * preserving the original `interactionId` correlation.
+	 */
+	rootActionId?: string;
+	actionId?: string;
 }

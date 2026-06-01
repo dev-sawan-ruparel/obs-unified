@@ -10,7 +10,8 @@
  *      do NOT — that's the documented Mode A vs Mode B boundary.
  *   2. A global `fetch` wrapper that reads `currentInteractionId()` and
  *      injects the `x-obs-interaction` header when one is active. Does
- *      not overwrite a header the caller already set.
+ *      not overwrite a header the caller already set. RFC 0010 action
+ *      headers are injected from the same active context.
  *   3. An `XMLHttpRequest` wrapper that records the active id at
  *      `open()` time and applies it as a header inside `send()`. XHR is
  *      less common in modern apps but still ships in some libraries
@@ -24,13 +25,21 @@
  */
 
 import {
+	ACTION_HEADER_NAME,
+	ACTION_ROOT_HEADER_NAME,
+} from "@obs-unified/types/constants";
+import {
+	currentInteractionContext,
 	currentInteractionId,
 	generateInteractionId,
+	type InteractionActionContext,
 	popInteraction,
 	pushInteraction,
 } from "./interaction";
 
 export const INTERACTION_HEADER = "x-obs-interaction";
+export const ROOT_ACTION_HEADER = ACTION_ROOT_HEADER_NAME;
+export const ACTION_HEADER = ACTION_HEADER_NAME;
 
 const TRIGGER_EVENTS = ["click", "submit", "keydown"] as const;
 
@@ -52,6 +61,23 @@ export const injectInteractionHeader = (
 	return { ...init, headers };
 };
 
+export const injectInteractionHeaders = (
+	init: RequestInit | undefined,
+	ctx: InteractionActionContext,
+): RequestInit => {
+	const headers = new Headers(init?.headers);
+	if (!headers.has(INTERACTION_HEADER)) {
+		headers.set(INTERACTION_HEADER, ctx.interactionId);
+	}
+	if (!headers.has(ROOT_ACTION_HEADER)) {
+		headers.set(ROOT_ACTION_HEADER, ctx.rootActionId);
+	}
+	if (!headers.has(ACTION_HEADER)) {
+		headers.set(ACTION_HEADER, ctx.actionId);
+	}
+	return { ...init, headers };
+};
+
 /**
  * Build a `fetch`-shaped function that reads `getId()` at call time and
  * conditionally adds the header. Pure — doesn't mutate globals.
@@ -63,10 +89,28 @@ export const wrapFetchWithCorrelation = (
 	originalFetch: typeof fetch,
 	getId: () => string | undefined,
 ): typeof fetch => {
-	return ((input: RequestInfo | URL, init?: RequestInit) => {
+	const getContext = () => {
 		const id = getId();
-		if (id === undefined) return originalFetch(input, init);
-		return originalFetch(input, injectInteractionHeader(init, id));
+		if (id === undefined) return undefined;
+		const ctx = currentInteractionContext();
+		if (ctx?.interactionId === id) return ctx;
+		return {
+			interactionId: id,
+			rootActionId: id,
+			actionId: id,
+		};
+	};
+	return wrapFetchWithActionCorrelation(originalFetch, getContext);
+};
+
+export const wrapFetchWithActionCorrelation = (
+	originalFetch: typeof fetch,
+	getContext: () => InteractionActionContext | undefined,
+): typeof fetch => {
+	return ((input: RequestInfo | URL, init?: RequestInit) => {
+		const ctx = getContext();
+		if (ctx === undefined) return originalFetch(input, init);
+		return originalFetch(input, injectInteractionHeaders(init, ctx));
 	}) as typeof fetch;
 };
 
@@ -120,7 +164,7 @@ export const installClickListeners = (
 
 // ── XHR patching ─────────────────────────────────────────────────────
 
-const XHR_INTERACTION = new WeakMap<XMLHttpRequest, string>();
+const XHR_INTERACTION = new WeakMap<XMLHttpRequest, InteractionActionContext>();
 
 interface XhrPatchHandle {
 	cleanup: () => void;
@@ -128,7 +172,7 @@ interface XhrPatchHandle {
 
 const installXhrPatch = (
 	XHRClass: typeof XMLHttpRequest,
-	getId: () => string | undefined,
+	getContext: () => InteractionActionContext | undefined,
 ): XhrPatchHandle => {
 	const originalOpen = XHRClass.prototype.open;
 	const originalSend = XHRClass.prototype.send;
@@ -137,8 +181,8 @@ const installXhrPatch = (
 		this: XMLHttpRequest,
 		...args: Parameters<XMLHttpRequest["open"]>
 	) {
-		const id = getId();
-		if (id !== undefined) XHR_INTERACTION.set(this, id);
+		const ctx = getContext();
+		if (ctx !== undefined) XHR_INTERACTION.set(this, ctx);
 		return originalOpen.apply(this, args);
 	}
 
@@ -146,10 +190,12 @@ const installXhrPatch = (
 		this: XMLHttpRequest,
 		...args: Parameters<XMLHttpRequest["send"]>
 	) {
-		const id = XHR_INTERACTION.get(this);
-		if (id !== undefined) {
+		const ctx = XHR_INTERACTION.get(this);
+		if (ctx !== undefined) {
 			try {
-				this.setRequestHeader(INTERACTION_HEADER, id);
+				this.setRequestHeader(INTERACTION_HEADER, ctx.interactionId);
+				this.setRequestHeader(ROOT_ACTION_HEADER, ctx.rootActionId);
+				this.setRequestHeader(ACTION_HEADER, ctx.actionId);
 			} catch {
 				// setRequestHeader throws if state isn't OPENED. Either we
 				// raced an external open() or the caller used XHR oddly;
@@ -230,8 +276,11 @@ export const installAutoCorrelate = (
 	}
 
 	let xhrCleanup = () => {};
-	if (typeof XMLHttpRequest !== "undefined") {
-		xhrCleanup = installXhrPatch(XMLHttpRequest, currentInteractionId).cleanup;
+	if (typeof globalThis.XMLHttpRequest !== "undefined") {
+		xhrCleanup = installXhrPatch(
+			globalThis.XMLHttpRequest,
+			currentInteractionContext,
+		).cleanup;
 	}
 
 	activeCleanup = () => {

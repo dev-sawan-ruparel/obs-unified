@@ -8,7 +8,7 @@
  * - D's configurable secondary error endpoint
  */
 import { record } from "rrweb";
-import { currentInteractionId } from "./interaction";
+import { currentInteractionContext } from "./interaction";
 
 import type {
 	ReplayPrivacyOptions,
@@ -351,8 +351,12 @@ export class UsageTracker {
 				// event so the replay viewer can pivot from a click event
 				// to its caused trace. Namespaced field to avoid colliding
 				// with rrweb's reserved keys.
-				const id = currentInteractionId();
-				if (id !== undefined) ev.obsInteractionId = id;
+				const actionContext = currentInteractionContext();
+				if (actionContext !== undefined) {
+					ev.obsInteractionId = actionContext.interactionId;
+					ev.obsRootActionId = actionContext.rootActionId;
+					ev.obsActionId = actionContext.actionId;
+				}
 				this.replayEvents.push(ev);
 				if (this.replayEvents.length >= 50) {
 					this.flushReplays();
@@ -480,6 +484,7 @@ export class UsageTracker {
 				: undefined;
 
 		const sessionId = this.ensureSessionCurrent();
+		const actionContext = currentInteractionContext();
 		this.dispatch([
 			{
 				type: "page_view",
@@ -498,13 +503,16 @@ export class UsageTracker {
 						: {}),
 				},
 				context: getViewportContext(),
-				interactionId: currentInteractionId(),
+				interactionId: actionContext?.interactionId,
+				rootActionId: actionContext?.rootActionId,
+				actionId: actionContext?.actionId,
 			},
 		]);
 	}
 
 	trackInteraction(name: string, properties?: Record<string, unknown>): void {
 		const sessionId = this.ensureSessionCurrent();
+		const actionContext = currentInteractionContext();
 		this.dispatch([
 			{
 				type: "interaction",
@@ -520,7 +528,9 @@ export class UsageTracker {
 					this.config.maxMetadataLength,
 				),
 				context: getViewportContext(),
-				interactionId: currentInteractionId(),
+				interactionId: actionContext?.interactionId,
+				rootActionId: actionContext?.rootActionId,
+				actionId: actionContext?.actionId,
 			},
 		]);
 	}
@@ -557,6 +567,7 @@ export class UsageTracker {
 		// Error filter (from A)
 		if (this.config.errorFilter && !this.config.errorFilter(error)) return;
 		const sessionId = this.ensureSessionCurrent();
+		const actionContext = currentInteractionContext();
 
 		this.dispatch([
 			{
@@ -579,7 +590,9 @@ export class UsageTracker {
 					this.config.maxMetadataLength,
 				),
 				context: getViewportContext(),
-				interactionId: currentInteractionId(),
+				interactionId: actionContext?.interactionId,
+				rootActionId: actionContext?.rootActionId,
+				actionId: actionContext?.actionId,
 			},
 		]);
 

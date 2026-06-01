@@ -30,6 +30,12 @@
  * the distinct ids before the push and pass them here.
  */
 
+import {
+	ACTION_HEADER_NAME,
+	ACTION_ROOT_HEADER_NAME,
+} from "@obs-unified/types/constants";
+import { getActiveActionContext } from "./span";
+
 export interface PushProfileOptions {
 	/** Collector URL — same shape as initObservability. */
 	collectorUrl: string;
@@ -215,6 +221,7 @@ export async function pushProfile(
 	opts: PushProfileOptions,
 ): Promise<PushProfileResult> {
 	const url = `${opts.collectorUrl.replace(/\/$/, "")}/v1/profiles/pprof`;
+	const actionContext = getActiveActionContext();
 	const headers: Record<string, string> = {
 		"Content-Type": "application/octet-stream",
 		Authorization: `Bearer ${opts.apiKey}`,
@@ -229,6 +236,12 @@ export async function pushProfile(
 			: {}),
 		...(opts.traceIds && opts.traceIds.length > 0
 			? { "x-obs-trace-ids": opts.traceIds.join(",") }
+			: {}),
+		...(actionContext
+			? {
+					[ACTION_ROOT_HEADER_NAME]: actionContext.rootActionId,
+					[ACTION_HEADER_NAME]: actionContext.actionId,
+				}
 			: {}),
 		...(opts.extraHeaders ?? {}),
 	};

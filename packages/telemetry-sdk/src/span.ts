@@ -12,7 +12,10 @@ import type {
 } from "@obs-unified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_HEADER_NAME,
 	ACTION_ID_KEY,
+	ACTION_ID_RE,
+	ACTION_ROOT_HEADER_NAME,
 	ACTION_ROOT_ID_KEY,
 	ACTOR_ID_KEY,
 	ACTOR_TYPE_KEY,
@@ -236,6 +239,32 @@ export const parseInteractionHeader = (
 	return trimmed;
 };
 
+export interface IncomingActionContext {
+	actionId: string;
+	rootActionId: string;
+	causedByActionId: string | null;
+}
+
+export const parseActionHeader = (
+	header: string | null | undefined,
+): string | undefined => {
+	if (!header) return undefined;
+	const trimmed = header.trim();
+	if (!ACTION_ID_RE.test(trimmed)) return undefined;
+	return trimmed;
+};
+
+const headerValue = (
+	request:
+		| Request
+		| { headers: { get(name: string): string | null } | Headers },
+	name: string,
+): string | null => {
+	const headers =
+		"headers" in request ? request.headers : (request as Request).headers;
+	return typeof headers.get === "function" ? headers.get(name) : null;
+};
+
 /**
  * Convenience: stamp the interaction id from a request's headers onto a
  * span. No-op when the header is missing or invalid. Idempotent — safe
@@ -250,12 +279,7 @@ export const stampInteractionFromRequest = (
 		| Request
 		| { headers: { get(name: string): string | null } | Headers },
 ): string | undefined => {
-	const headers =
-		"headers" in request ? request.headers : (request as Request).headers;
-	const raw =
-		typeof headers.get === "function"
-			? headers.get(INTERACTION_HEADER_NAME)
-			: undefined;
+	const raw = headerValue(request, INTERACTION_HEADER_NAME);
 	const id = parseInteractionHeader(raw);
 	if (id !== undefined) span.setAttribute(INTERACTION_ATTRIBUTE_KEY, id);
 	return id;
@@ -271,6 +295,103 @@ export interface AgentActionContext {
 }
 
 export const agentContextStorage = new AsyncLocalStorage<AgentActionContext>();
+
+export function getActiveActionContext(): AgentActionContext | undefined {
+	return agentContextStorage.getStore();
+}
+
+export function runWithActionContext<T>(
+	context: AgentActionContext,
+	fn: () => T,
+): T {
+	return agentContextStorage.run(context, fn);
+}
+
+export function setActiveActionContext(
+	context: AgentActionContext,
+): () => void {
+	const previous = getActiveActionContext();
+	agentContextStorage.enterWith(context);
+	return () => {
+		if (previous) agentContextStorage.enterWith(previous);
+		else agentContextStorage.disable();
+	};
+}
+
+export function clearActiveActionContext(): void {
+	agentContextStorage.disable();
+}
+
+const anonymousInboundActionContext = (
+	context: IncomingActionContext,
+): AgentActionContext => ({
+	actionId: context.actionId,
+	rootActionId: context.rootActionId,
+	causedByActionId: context.causedByActionId,
+	agentRunId: null,
+	actorType: "unknown",
+	actorId: null,
+});
+
+export const parseActionHeadersFromRequest = (
+	request:
+		| Request
+		| { headers: { get(name: string): string | null } | Headers },
+): IncomingActionContext | undefined => {
+	const rootActionId = parseActionHeader(
+		headerValue(request, ACTION_ROOT_HEADER_NAME),
+	);
+	const actionId = parseActionHeader(headerValue(request, ACTION_HEADER_NAME));
+	if (!rootActionId && !actionId) return undefined;
+	return {
+		rootActionId: rootActionId ?? actionId ?? "",
+		actionId: actionId ?? rootActionId ?? "",
+		causedByActionId: null,
+	};
+};
+
+export const stampActionFromRequest = (
+	span: { setAttribute(key: string, value: unknown): void },
+	request:
+		| Request
+		| { headers: { get(name: string): string | null } | Headers },
+): IncomingActionContext | undefined => {
+	const explicitContext = parseActionHeadersFromRequest(request);
+	const interactionId = parseInteractionHeader(
+		headerValue(request, INTERACTION_HEADER_NAME),
+	);
+	const context =
+		explicitContext ??
+		(interactionId
+			? {
+					actionId: interactionId,
+					rootActionId: interactionId,
+					causedByActionId: null,
+				}
+			: undefined);
+	if (!context) return undefined;
+
+	span.setAttribute(ACTION_ID_KEY, context.actionId);
+	span.setAttribute(ACTION_ROOT_ID_KEY, context.rootActionId);
+	if (context.causedByActionId) {
+		span.setAttribute(ACTION_CAUSED_BY_ID_KEY, context.causedByActionId);
+	}
+	setActiveActionContext(anonymousInboundActionContext(context));
+	return context;
+};
+
+export const stampIdentityFromRequest = (
+	span: { setAttribute(key: string, value: unknown): void },
+	request:
+		| Request
+		| { headers: { get(name: string): string | null } | Headers },
+): {
+	interactionId?: string;
+	actionContext?: IncomingActionContext;
+} => ({
+	interactionId: stampInteractionFromRequest(span, request),
+	actionContext: stampActionFromRequest(span, request),
+});
 
 export function createRequestSpan(
 	serviceName: string,

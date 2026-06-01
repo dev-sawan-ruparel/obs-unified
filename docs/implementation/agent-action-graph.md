@@ -96,16 +96,16 @@ prompts.
 
 Make action identity flow through existing app boundaries.
 
-- [ ] **2.1** Browser analytics SDK emits explicit `root_action_id` and
+- [x] **2.1** Browser analytics SDK emits explicit `root_action_id` and
       `action_id` for user-originated events alongside existing
       `interaction_id`.
-- [ ] **2.2** Browser analytics SDK injects `x-obs-root-action` and
+- [x] **2.2** Browser analytics SDK injects `x-obs-root-action` and
       `x-obs-action` on patched `fetch` / XHR requests, in addition to
       `x-obs-interaction`.
-- [ ] **2.3** Telemetry SDK reads inbound action headers and stamps
+- [x] **2.3** Telemetry SDK reads inbound action headers and stamps
       `obs.action.root_id`, `obs.action.id`, and `obs.action.caused_by_id` onto
       the root span.
-- [ ] **2.4** Logger, AI call tracking, and profile helpers inherit the active
+- [x] **2.4** Logger, AI call tracking, and profile helpers inherit the active
       action context from the active span / async context.
 - [ ] **2.5** Add queue / workflow helpers to serialize and restore action
       context in job metadata.
@@ -119,25 +119,25 @@ explicit action fields, while old `interaction_id` behavior is unchanged.
 
 Give application authors a small manual API before framework wrappers.
 
-- [ ] **3.1** Add `@obs-unified/telemetry-sdk/agent` subpath.
-- [ ] **3.2** Implement `startAgentRun`, including `agent_run_id`, root action
+- [x] **3.1** Add `@obs-unified/telemetry-sdk/agent` subpath.
+- [x] **3.2** Implement `startAgentRun`, including `agent_run_id`, root action
       creation, actor fields, goal, autonomy level, and aggregate cost / latency
       rollup.
-- [ ] **3.3** Implement `run.step(name, fn)` and `withAction(action, fn)` using
+- [x] **3.3** Implement `run.step(name, fn)` and `withAction(action, fn)` using
       async context to set `caused_by_action_id`.
-- [ ] **3.4** Implement `run.llm` or `step.llm` helper that wraps the existing
+- [x] **3.4** Implement `run.llm` or `step.llm` helper that wraps the existing
       AI call tracking instead of duplicating AI payload storage.
-- [ ] **3.5** Implement `run.tool` / `recordToolCall`, recording tool name, args
+- [x] **3.5** Implement `run.tool` / `recordToolCall`, recording tool name, args
       hash, result hash, error type, side-effect marker, and approval state.
-- [ ] **3.6** Implement `recordRetrieval` and `recordEvaluation`.
-- [ ] **3.7** Define and emit the full obs-unified attribute set per RFC 0010
+- [x] **3.6** Implement `recordRetrieval` and `recordEvaluation`.
+- [x] **3.7** Define and emit the full obs-unified attribute set per RFC 0010
       Attribute conventions in one shared module: `obs.action.id`,
       `obs.action.root_id`, `obs.action.caused_by_id`, `obs.actor.type`,
       `obs.actor.id`, `obs.agent.run_id`, `obs.agent.step_id`,
       `obs.agent.autonomy_level`, `obs.tool.call_id`, `obs.tool.side_effect`,
       `obs.eval.id`, `obs.policy.id`. SDK emit paths and Phase 4 normalizers
       both consume this module — no duplicate string constants.
-- [ ] **3.8** Add examples for a manual TypeScript agent and a click-triggered
+- [x] **3.8** Add examples for a manual TypeScript agent and a click-triggered
       agent flow.
 
 **Exit criteria:** the wrong-invoice fixture can be produced by the native SDK

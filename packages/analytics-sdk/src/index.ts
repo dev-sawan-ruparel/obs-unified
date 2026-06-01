@@ -2,13 +2,22 @@
 // automatically when `autoCorrelate` is enabled (default). Exported here
 // for non-React hosts that want to wire it up themselves.
 export {
+	ACTION_HEADER,
 	INTERACTION_HEADER,
 	type InstallAutoCorrelateOptions,
 	installAutoCorrelate,
+	ROOT_ACTION_HEADER,
 } from "./auto-correlate";
+export type {
+	InteractionActionContext,
+	InteractionContextOptions,
+} from "./interaction";
 // RFC 0004 — interaction_id primitives. See interaction.ts for usage modes.
 export {
+	currentActionId,
+	currentInteractionContext,
 	currentInteractionId,
+	currentRootActionId,
 	generateInteractionId,
 	withInteractionContext,
 	withInteractionContextAsync,

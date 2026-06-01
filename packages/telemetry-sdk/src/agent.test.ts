@@ -1,16 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
+	createActionId,
 	getActiveAgentContext,
+	llm,
 	recordArtifact,
 	recordEvaluation,
 	recordRetrieval,
 	startAgentRun,
 	step,
 	tool,
+	withAction,
 } from "./agent";
 import { createRequestSpan, runWithSpan } from "./span";
 
 describe("Agent Action Graph SDK Context Propagation", () => {
+	it("creates RFC 0010 sortable action ids", () => {
+		const actionId = createActionId();
+		expect(actionId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+		expect(
+			createActionId(1_700_000_000_000) < createActionId(1_700_000_000_001),
+		).toBe(true);
+	});
+
 	it("should initialize agent runs and propagate context to child spans", async () => {
 		const requestSpan = createRequestSpan("test-service", "test-request");
 
@@ -29,9 +40,10 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 					expect(ctx?.agentRunId).toBe(run.runId);
 					expect(ctx?.actorType).toBe("agent");
 					expect(ctx?.actorId).toBe("test-agent-123");
+					expect(run.runId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
 
 					// Let's call step inside
-					const stepResult = await step(
+					const stepResult = await run.step(
 						{ name: "plan-next-action" },
 						async (_stepObj) => {
 							const stepCtx = getActiveAgentContext();
@@ -45,8 +57,26 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 
 					expect(stepResult).toBe("step-done");
 
+					await run.llm(
+						{
+							name: "classify-intent",
+							model: "gpt-4o-mini",
+							provider: "openai",
+							input: [{ role: "user", content: "Fix invoice address" }],
+							promptVersion: "billing-v3",
+						},
+						async (call) => {
+							const llmCtx = getActiveAgentContext();
+							expect(llmCtx?.causedByActionId).toBe(ctx?.actionId);
+							expect(call.actionId).toBe(llmCtx?.actionId);
+							call.setTokens({ prompt: 11, completion: 7, total: 18 });
+							call.setCost(0.0012);
+							call.setOutput({ intent: "billing_update" });
+						},
+					);
+
 					// Record a tool invocation
-					await tool(
+					await run.tool(
 						{
 							name: "execute-cmd",
 							arguments: { cmd: "ls" },
@@ -61,7 +91,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 					);
 
 					// Record a retrieval
-					await recordRetrieval(
+					await run.recordRetrieval(
 						{
 							retrieverName: "vector-db",
 							query: "agent concepts",
@@ -75,7 +105,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 					);
 
 					// Record evaluation
-					await recordEvaluation({
+					await run.recordEvaluation({
 						evaluatorName: "correctness-grader",
 						score: 1.0,
 						passed: true,
@@ -83,7 +113,7 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 					});
 
 					// Record artifact
-					await recordArtifact({
+					await run.recordArtifact({
 						name: "patch.diff",
 						type: "patch",
 						content: "diff --git a/file b/file",
@@ -152,6 +182,28 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 		);
 		expect(stepSpan).toBeDefined();
 		expect(stepSpan?.parentSpanId).toBe(runSpan?.spanId);
+
+		// Find LLM span
+		const llmSpan = spanList.find((s) =>
+			hasStringAttr(s, "obs.action.kind", "llm"),
+		);
+		expect(llmSpan).toBeDefined();
+		if (!llmSpan) {
+			throw new Error("Missing LLM span");
+		}
+		expect(llmSpan?.parentSpanId).toBe(runSpan?.spanId);
+		expect(attrValue(llmSpan, "openinference.span.kind").stringValue).toBe(
+			"LLM",
+		);
+		expect(attrValue(llmSpan, "llm.model_name").stringValue).toBe(
+			"gpt-4o-mini",
+		);
+		expect(attrValue(llmSpan, "llm.provider").stringValue).toBe("openai");
+		expect(attrValue(llmSpan, "gen_ai.request.model").stringValue).toBe(
+			"gpt-4o-mini",
+		);
+		expect(attrValue(llmSpan, "llm.token_count.total").intValue).toBe("18");
+		expect(attrValue(llmSpan, "llm.cost.total_usd").doubleValue).toBe(0.0012);
 
 		// Find tool span
 		const toolSpan = spanList.find((s) =>
@@ -231,5 +283,85 @@ describe("Agent Action Graph SDK Context Propagation", () => {
 		expect(attrValue(artifactSpan, "obs.artifact.size_bytes").intValue).toBe(
 			"120",
 		);
+	});
+
+	it("restores explicit action context for framework and queue wrappers", async () => {
+		const requestSpan = createRequestSpan("test-service", "queued-job");
+		await runWithSpan(requestSpan, async () => {
+			await withAction(
+				{
+					actionId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+					rootActionId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+					agentRunId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+					actorType: "agent",
+					actorId: "queue-agent",
+				},
+				async () => {
+					await step({ name: "queued-step" }, async () => undefined);
+				},
+			);
+		});
+
+		const spans =
+			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
+				?.spans ?? [];
+		const queuedStep = spans.find((s) =>
+			s.attributes?.some(
+				(attr) =>
+					attr.key === "obs.action.kind" &&
+					attr.value?.stringValue === "agent.step",
+			),
+		);
+		expect(queuedStep).toBeDefined();
+		expect(
+			queuedStep?.attributes?.find((attr) => attr.key === "obs.action.root_id")
+				?.value?.stringValue,
+		).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+		expect(
+			queuedStep?.attributes?.find(
+				(attr) => attr.key === "obs.action.caused_by_id",
+			)?.value?.stringValue,
+		).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+	});
+
+	it("keeps top-level helpers available for compatibility", async () => {
+		const requestSpan = createRequestSpan("test-service", "compat-request");
+		await runWithSpan(requestSpan, async () => {
+			await startAgentRun(
+				{ agentId: "agent-1", agentName: "Compat Agent" },
+				async () => {
+					await step({ name: "compat-step" }, async () => undefined);
+					await llm(
+						{ model: "claude-sonnet-4", provider: "anthropic" },
+						async (call) => call.setOutput("ok"),
+					);
+					await tool({ name: "compat-tool", arguments: {} }, async (toolCall) =>
+						toolCall.setResult({ ok: true }),
+					);
+					await recordRetrieval(
+						{ retrieverName: "compat-retriever", query: "q" },
+						async (retriever) => retriever.addDocuments([]),
+					);
+					await recordEvaluation({
+						evaluatorName: "compat-eval",
+						passed: true,
+					});
+					await recordArtifact({
+						name: "compat.txt",
+						type: "text",
+						content: "ok",
+					});
+				},
+			);
+		});
+
+		const spans =
+			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
+				?.spans ?? [];
+		expect(
+			spans.filter((s) =>
+				s.attributes?.some((attr) => attr.key === "obs.action.kind"),
+			),
+		).toHaveLength(7);
 	});
 });

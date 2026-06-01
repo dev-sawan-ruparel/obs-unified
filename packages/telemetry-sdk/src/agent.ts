@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_ID_KEY,
+	ACTION_ID_RE,
 	ACTION_KIND_KEY,
 	ACTION_ROOT_ID_KEY,
 	ACTOR_ID_KEY,
@@ -61,6 +62,19 @@ export interface AgentRunOptions {
 
 export interface AgentRun {
 	runId: string;
+	withAction<T>(opts: ActionContextOptions, fn: () => Promise<T>): Promise<T>;
+	step<T>(opts: StepOptions, fn: (step: AgentStep) => Promise<T>): Promise<T>;
+	llm<T>(opts: LLMOptions, fn: (llm: LLMCall) => Promise<T>): Promise<T>;
+	tool<T>(
+		opts: ToolOptions,
+		fn: (toolCall: ToolCall) => Promise<T>,
+	): Promise<T>;
+	recordRetrieval<T>(
+		opts: RetrievalOptions,
+		fn: (retriever: Retriever) => Promise<T>,
+	): Promise<T>;
+	recordEvaluation(opts: EvalOptions): Promise<void>;
+	recordArtifact(opts: ArtifactOptions): Promise<void>;
 	setOutcome(outcome: string): void;
 	setAttribute(key: string, value: unknown): void;
 }
@@ -72,6 +86,35 @@ export interface StepOptions {
 
 export interface AgentStep {
 	stepId: string;
+	setAttribute(key: string, value: unknown): void;
+}
+
+export interface ActionContextOptions {
+	actionId?: string;
+	rootActionId?: string;
+	causedByActionId?: string | null;
+	agentRunId?: string | null;
+	actorType?: string;
+	actorId?: string | null;
+}
+
+export interface LLMOptions {
+	model: string;
+	provider: string;
+	input?: unknown;
+	name?: string;
+	promptVersion?: string;
+}
+
+export interface LLMCall {
+	actionId: string;
+	setOutput(output: unknown): void;
+	setTokens(tokens: {
+		prompt?: number;
+		completion?: number;
+		total?: number;
+	}): void;
+	setCost(usd: number): void;
 	setAttribute(key: string, value: unknown): void;
 }
 
@@ -130,6 +173,39 @@ export function getActiveAgentContext(): AgentActionContext | undefined {
 	return agentContextStorage.getStore();
 }
 
+const CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/**
+ * Create a sortable 26-character Crockford base32 action id.
+ *
+ * This follows the ULID layout: 48 bits timestamp + 80 bits random entropy.
+ * The value is opaque to callers, but lexicographic order follows creation
+ * time closely enough for range scans and timeline queries.
+ */
+export function createActionId(now = Date.now()): string {
+	const time = Math.max(0, Math.min(now, 0xffffffffffff));
+	const bytes = new Uint8Array(16);
+	for (let i = 0; i < 6; i += 1) {
+		bytes[i] = Math.floor(time / 256 ** (5 - i)) & 0xff;
+	}
+	bytes.set(randomBytes(10), 6);
+
+	let value = 0n;
+	for (const byte of bytes) value = (value << 8n) | BigInt(byte);
+
+	let encoded = "";
+	for (let i = 0; i < 26; i += 1) {
+		const shift = BigInt((25 - i) * 5);
+		const index = Number((value >> shift) & 31n);
+		encoded += CROCKFORD_BASE32[index];
+	}
+
+	if (!ACTION_ID_RE.test(encoded)) {
+		throw new Error("Generated action id does not satisfy RFC 0010 format");
+	}
+	return encoded;
+}
+
 const setAttrWithAliases = (
 	child: { setAttribute(key: string, value: unknown): void },
 	key: string,
@@ -173,7 +249,7 @@ export async function startAgentRun<T>(
 	opts: AgentRunOptions,
 	fn: (run: AgentRun) => Promise<T>,
 ): Promise<T> {
-	const actionId = randomBytes(16).toString("hex");
+	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
 	const rootActionId = parentContext?.rootActionId ?? actionId;
@@ -217,6 +293,27 @@ export async function startAgentRun<T>(
 
 		const run: AgentRun = {
 			runId: agentRunId,
+			withAction(actionOpts, actionFn) {
+				return withAction(actionOpts, actionFn);
+			},
+			step(stepOpts, stepFn) {
+				return step(stepOpts, stepFn);
+			},
+			llm(llmOpts, llmFn) {
+				return llm(llmOpts, llmFn);
+			},
+			tool(toolOpts, toolFn) {
+				return tool(toolOpts, toolFn);
+			},
+			recordRetrieval(retrievalOpts, retrievalFn) {
+				return recordRetrieval(retrievalOpts, retrievalFn);
+			},
+			recordEvaluation(evalOpts) {
+				return recordEvaluation(evalOpts);
+			},
+			recordArtifact(artifactOpts) {
+				return recordArtifact(artifactOpts);
+			},
 			setOutcome(outcome: string) {
 				setAttrWithAliases(child, AGENT_OUTCOME_KEY, outcome, [
 					"obs.agent_run.outcome",
@@ -233,13 +330,47 @@ export async function startAgentRun<T>(
 }
 
 /**
+ * Run arbitrary code under an explicit action context.
+ *
+ * This is useful when queue/workflow glue or framework wrappers already have
+ * an action identity and only need to restore async-local context before
+ * creating child spans.
+ */
+export async function withAction<T>(
+	opts: ActionContextOptions,
+	fn: () => Promise<T>,
+): Promise<T> {
+	const parentContext = getActiveAgentContext();
+	const actionId = opts.actionId ?? createActionId();
+	const context: AgentActionContext = {
+		actionId,
+		rootActionId: opts.rootActionId ?? parentContext?.rootActionId ?? actionId,
+		causedByActionId:
+			opts.causedByActionId === undefined
+				? (parentContext?.actionId ?? null)
+				: opts.causedByActionId,
+		agentRunId:
+			opts.agentRunId === undefined
+				? (parentContext?.agentRunId ?? null)
+				: opts.agentRunId,
+		actorType: opts.actorType ?? parentContext?.actorType ?? "agent",
+		actorId:
+			opts.actorId === undefined
+				? (parentContext?.actorId ?? null)
+				: opts.actorId,
+	};
+
+	return agentContextStorage.run(context, fn);
+}
+
+/**
  * Record a discrete step in the agent's plan or reasoning cycle.
  */
 export async function step<T>(
 	opts: StepOptions,
 	fn: (stepObj: AgentStep) => Promise<T>,
 ): Promise<T> {
-	const actionId = randomBytes(16).toString("hex");
+	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
 	const rootActionId = parentContext?.rootActionId ?? actionId;
@@ -273,13 +404,80 @@ export async function step<T>(
 }
 
 /**
+ * Record an LLM call as its own action while preserving the active agent run.
+ */
+export async function llm<T>(
+	opts: LLMOptions,
+	fn: (llmCall: LLMCall) => Promise<T>,
+): Promise<T> {
+	const actionId = createActionId();
+	const parentContext = getActiveAgentContext();
+
+	const rootActionId = parentContext?.rootActionId ?? actionId;
+	const causedByActionId = parentContext?.actionId ?? null;
+	const agentRunId = parentContext?.agentRunId ?? null;
+
+	const context: AgentActionContext = {
+		actionId,
+		rootActionId,
+		causedByActionId,
+		agentRunId,
+		actorType: parentContext?.actorType ?? "agent",
+		actorId: parentContext?.actorId ?? null,
+	};
+
+	return withChildSpan(opts.name ?? "llm", async (child) => {
+		setActionAttrs(child, context, "llm");
+		child.setAttribute("openinference.span.kind", "LLM");
+		child.setAttribute("llm.model_name", opts.model);
+		child.setAttribute("llm.provider", opts.provider);
+		child.setAttribute("gen_ai.system", opts.provider);
+		child.setAttribute("gen_ai.request.model", opts.model);
+		child.setAttribute("gen_ai.operation.name", "chat");
+		child.setAttribute("ai.payload.input", stringify(opts.input));
+		if (opts.promptVersion) {
+			child.setAttribute("obs.prompt.version", opts.promptVersion);
+		}
+
+		const llmCall: LLMCall = {
+			actionId,
+			setOutput(output) {
+				child.setAttribute("ai.payload.output", stringify(output));
+			},
+			setTokens({ prompt, completion, total }) {
+				if (prompt !== undefined) {
+					child.setAttribute("llm.token_count.prompt", prompt);
+					child.setAttribute("gen_ai.usage.input_tokens", prompt);
+				}
+				if (completion !== undefined) {
+					child.setAttribute("llm.token_count.completion", completion);
+					child.setAttribute("gen_ai.usage.output_tokens", completion);
+				}
+				if (total !== undefined) {
+					child.setAttribute("llm.token_count.total", total);
+				}
+			},
+			setCost(usd) {
+				child.setAttribute("llm.cost.total_usd", usd);
+				child.setAttribute("gen_ai.usage.cost_usd", usd);
+			},
+			setAttribute(key, value) {
+				child.setAttribute(key, value);
+			},
+		};
+
+		return agentContextStorage.run(context, () => fn(llmCall));
+	});
+}
+
+/**
  * Record a tool invocation, creating a tool call span that auto-propagates causal parent links.
  */
 export async function tool<T>(
 	opts: ToolOptions,
 	fn: (toolCall: ToolCall) => Promise<T>,
 ): Promise<T> {
-	const actionId = randomBytes(16).toString("hex");
+	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
 	const rootActionId = parentContext?.rootActionId ?? actionId;
@@ -359,7 +557,7 @@ export async function recordRetrieval<T>(
 	opts: RetrievalOptions,
 	fn: (retriever: Retriever) => Promise<T>,
 ): Promise<T> {
-	const actionId = randomBytes(16).toString("hex");
+	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
 	const rootActionId = parentContext?.rootActionId ?? actionId;
@@ -402,7 +600,7 @@ export async function recordRetrieval<T>(
  * Record a guardrail or grader evaluation result.
  */
 export async function recordEvaluation(opts: EvalOptions): Promise<void> {
-	const actionId = randomBytes(16).toString("hex");
+	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
 	const rootActionId = parentContext?.rootActionId ?? actionId;
@@ -449,7 +647,7 @@ export async function recordEvaluation(opts: EvalOptions): Promise<void> {
  * Record a generated artifact (assets, generated code, templates, etc.).
  */
 export async function recordArtifact(opts: ArtifactOptions): Promise<void> {
-	const actionId = randomBytes(16).toString("hex");
+	const actionId = createActionId();
 	const parentContext = getActiveAgentContext();
 
 	const rootActionId = parentContext?.rootActionId ?? actionId;
@@ -482,3 +680,13 @@ export async function recordArtifact(opts: ArtifactOptions): Promise<void> {
 		}
 	});
 }
+
+const stringify = (value: unknown): string => {
+	if (value === undefined || value === null) return "";
+	if (typeof value === "string") return value;
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return String(value);
+	}
+};

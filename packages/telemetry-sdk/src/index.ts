@@ -72,12 +72,17 @@ export function initObservability(config: ObservabilityConfig): void {
 
 // ── Agentic Causal Graph (RFC 0010) ──
 export {
+	type ActionContextOptions,
 	type AgentRun,
 	type AgentRunOptions,
 	type AgentStep,
 	type ArtifactOptions,
+	createActionId,
 	type EvalOptions,
 	getActiveAgentContext,
+	type LLMCall,
+	type LLMOptions,
+	llm,
 	type RetrievalDocument,
 	type RetrievalOptions,
 	type Retriever,
@@ -90,6 +95,7 @@ export {
 	type ToolCall,
 	type ToolOptions,
 	tool,
+	withAction,
 } from "./agent";
 // ── AI tracking ──
 export {
@@ -158,19 +164,28 @@ export { type WrapR2Options, wrapR2 } from "./r2";
 // ── Span system ──
 export {
 	type ChildSpan,
+	clearActiveActionContext,
 	createRequestSpan,
 	flushSpans,
+	getActiveActionContext,
 	getActiveSpan,
 	INTERACTION_ATTRIBUTE_KEY,
 	INTERACTION_HEADER_NAME,
+	type IncomingActionContext,
 	type IncomingTraceContext,
 	initSpanExporter,
+	parseActionHeader,
+	parseActionHeadersFromRequest,
 	parseInteractionHeader,
 	parseTraceparent,
 	type RequestSpan,
+	runWithActionContext,
 	runWithSpan,
 	type SpanExporterConfig,
+	setActiveActionContext,
 	shutdownSpanExporter,
+	stampActionFromRequest,
+	stampIdentityFromRequest,
 	stampInteractionFromRequest,
 	withChildSpan,
 } from "./span";

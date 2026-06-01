@@ -8,13 +8,45 @@
  * rejected so a corrupted header doesn't seed wrong joins.
  */
 
+import {
+	ACTION_HEADER_NAME,
+	ACTION_ID_KEY,
+	ACTION_ROOT_HEADER_NAME,
+	ACTION_ROOT_ID_KEY,
+} from "@obs-unified/types/constants";
 import { describe, expect, it, vi } from "vitest";
 import {
+	clearActiveActionContext,
+	createRequestSpan,
+	getActiveActionContext,
 	INTERACTION_ATTRIBUTE_KEY,
 	INTERACTION_HEADER_NAME,
+	parseActionHeader,
 	parseInteractionHeader,
+	runWithSpan,
+	stampActionFromRequest,
+	stampIdentityFromRequest,
 	stampInteractionFromRequest,
+	withChildSpan,
 } from "./span";
+
+const attrValue = (
+	span: { attributes?: Array<unknown> },
+	key: string,
+): unknown => {
+	const attributes = span.attributes as
+		| Array<{ key: string; value?: Record<string, unknown> }>
+		| undefined;
+	const value = attributes?.find((attr) => attr.key === key)?.value;
+	if (!value) return undefined;
+	return (
+		value.stringValue ?? value.intValue ?? value.doubleValue ?? value.boolValue
+	);
+};
+
+const mockSpan = () => ({
+	setAttribute: vi.fn(),
+});
 
 describe("parseInteractionHeader", () => {
 	it("returns undefined for missing/empty values", () => {
@@ -63,10 +95,6 @@ describe("parseInteractionHeader", () => {
 
 describe("stampInteractionFromRequest", () => {
 	const id = "01HFXY2A3BKM5N7P9QRSTVWXYZ";
-
-	const mockSpan = () => ({
-		setAttribute: vi.fn(),
-	});
 
 	it("stamps the attribute when the header is valid", () => {
 		const span = mockSpan();
@@ -117,5 +145,166 @@ describe("stampInteractionFromRequest", () => {
 			INTERACTION_ATTRIBUTE_KEY,
 			id,
 		);
+	});
+});
+
+describe("parseActionHeader", () => {
+	it("accepts valid explicit action ids", () => {
+		expect(parseActionHeader("01HFXY2A3BKM5N7P9QRSTVWXYZ")).toBe(
+			"01HFXY2A3BKM5N7P9QRSTVWXYZ",
+		);
+	});
+
+	it("rejects invalid explicit action ids", () => {
+		expect(parseActionHeader("not-an-action")).toBeUndefined();
+		expect(parseActionHeader("01hfxy2a3bkm5n7p9qrstvwxyz")).toBeUndefined();
+	});
+});
+
+describe("stampActionFromRequest", () => {
+	const interactionId = "01HFXY2A3BKM5N7P9QRSTVWXYZ";
+	const rootActionId = "01HFXY2A3BKM5N7P9QRSTVWXY1";
+	const actionId = "01HFXY2A3BKM5N7P9QRSTVWXY2";
+
+	it("stamps explicit action headers on the root span", () => {
+		clearActiveActionContext();
+		const span = mockSpan();
+		const request = new Request("https://example.com", {
+			headers: {
+				[INTERACTION_HEADER_NAME]: interactionId,
+				[ACTION_ROOT_HEADER_NAME]: rootActionId,
+				[ACTION_HEADER_NAME]: actionId,
+			},
+		});
+
+		const out = stampActionFromRequest(span, request);
+
+		expect(out).toEqual({
+			rootActionId,
+			actionId,
+			causedByActionId: null,
+		});
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			ACTION_ROOT_ID_KEY,
+			rootActionId,
+		);
+		expect(span.setAttribute).toHaveBeenCalledWith(ACTION_ID_KEY, actionId);
+		expect(getActiveActionContext()).toMatchObject({
+			rootActionId,
+			actionId,
+			causedByActionId: null,
+		});
+		clearActiveActionContext();
+	});
+
+	it("projects legacy interaction-only requests into action ids", () => {
+		clearActiveActionContext();
+		const span = mockSpan();
+		const request = new Request("https://example.com", {
+			headers: { [INTERACTION_HEADER_NAME]: interactionId },
+		});
+
+		const out = stampActionFromRequest(span, request);
+
+		expect(out).toEqual({
+			rootActionId: interactionId,
+			actionId: interactionId,
+			causedByActionId: null,
+		});
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			ACTION_ROOT_ID_KEY,
+			interactionId,
+		);
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			ACTION_ID_KEY,
+			interactionId,
+		);
+		clearActiveActionContext();
+	});
+
+	it("ignores malformed action headers and preserves valid interaction stamping", () => {
+		clearActiveActionContext();
+		const span = mockSpan();
+		const request = new Request("https://example.com", {
+			headers: {
+				[INTERACTION_HEADER_NAME]: interactionId,
+				[ACTION_ROOT_HEADER_NAME]: "bad-root",
+				[ACTION_HEADER_NAME]: "bad-action",
+			},
+		});
+
+		const out = stampIdentityFromRequest(span, request);
+
+		expect(out.interactionId).toBe(interactionId);
+		expect(out.actionContext).toEqual({
+			rootActionId: interactionId,
+			actionId: interactionId,
+			causedByActionId: null,
+		});
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			INTERACTION_ATTRIBUTE_KEY,
+			interactionId,
+		);
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			ACTION_ID_KEY,
+			interactionId,
+		);
+		clearActiveActionContext();
+	});
+
+	it("does not let legacy interaction overwrite valid explicit action headers", () => {
+		clearActiveActionContext();
+		const span = mockSpan();
+		const request = new Request("https://example.com", {
+			headers: {
+				[INTERACTION_HEADER_NAME]: interactionId,
+				[ACTION_ROOT_HEADER_NAME]: rootActionId,
+				[ACTION_HEADER_NAME]: actionId,
+			},
+		});
+
+		const out = stampIdentityFromRequest(span, request);
+
+		expect(out.interactionId).toBe(interactionId);
+		expect(out.actionContext).toMatchObject({ rootActionId, actionId });
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			INTERACTION_ATTRIBUTE_KEY,
+			interactionId,
+		);
+		expect(span.setAttribute).toHaveBeenCalledWith(
+			ACTION_ROOT_ID_KEY,
+			rootActionId,
+		);
+		expect(span.setAttribute).toHaveBeenCalledWith(ACTION_ID_KEY, actionId);
+		clearActiveActionContext();
+	});
+
+	it("inherits stamped action context into child spans", async () => {
+		clearActiveActionContext();
+		const requestSpan = createRequestSpan("svc", "GET /agent");
+		runWithSpan(requestSpan, () => {
+			stampActionFromRequest(
+				requestSpan,
+				new Request("https://example.com", {
+					headers: {
+						[ACTION_ROOT_HEADER_NAME]: rootActionId,
+						[ACTION_HEADER_NAME]: actionId,
+					},
+				}),
+			);
+		});
+
+		await runWithSpan(requestSpan, async () => {
+			await withChildSpan("child", async () => undefined);
+		});
+
+		const exportRequest = requestSpan.toOtlpExportRequest();
+		const spans =
+			exportRequest.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
+		const child = spans.find((span) => span.name === "child");
+		expect(child).toBeDefined();
+		expect(attrValue(child ?? {}, ACTION_ROOT_ID_KEY)).toBe(rootActionId);
+		expect(attrValue(child ?? {}, ACTION_ID_KEY)).toBe(actionId);
+		clearActiveActionContext();
 	});
 });

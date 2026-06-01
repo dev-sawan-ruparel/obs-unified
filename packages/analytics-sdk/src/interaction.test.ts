@@ -11,10 +11,14 @@
  *     documents the limitation rather than working around it).
  */
 
+import { ACTION_ID_RE } from "@obs-unified/types/constants";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	__resetInteractionStackForTests,
+	currentActionId,
+	currentInteractionContext,
 	currentInteractionId,
+	currentRootActionId,
 	generateInteractionId,
 	popInteraction,
 	pushInteraction,
@@ -31,7 +35,7 @@ describe("generateInteractionId", () => {
 	it("produces 26-char Crockford-base32 strings", () => {
 		const id = generateInteractionId();
 		expect(id).toHaveLength(26);
-		expect(id).toMatch(/^[0-9A-HJKMNPQRSTVWXYZ]{26}$/);
+		expect(id).toMatch(ACTION_ID_RE);
 	});
 
 	it("is sortable by time when minted in order", async () => {
@@ -57,12 +61,42 @@ describe("currentInteractionId / push / pop", () => {
 	it("returns the top of the stack after push", () => {
 		pushInteraction("a");
 		expect(currentInteractionId()).toBe("a");
+		expect(currentRootActionId()).toBe("a");
+		expect(currentActionId()).toBe("a");
 		pushInteraction("b");
 		expect(currentInteractionId()).toBe("b");
 		popInteraction();
 		expect(currentInteractionId()).toBe("a");
 		popInteraction();
 		expect(currentInteractionId()).toBeUndefined();
+	});
+
+	it("coalesces browser action IDs with interaction ID by default", () => {
+		pushInteraction("click-1");
+		expect(currentInteractionContext()).toEqual({
+			interactionId: "click-1",
+			rootActionId: "click-1",
+			actionId: "click-1",
+		});
+		popInteraction();
+	});
+
+	it("allows callers to re-enter with explicit action IDs", () => {
+		withInteractionContext(
+			"click-1",
+			() => {
+				expect(currentInteractionId()).toBe("click-1");
+				expect(currentRootActionId()).toBe("run-1");
+				expect(currentActionId()).toBe("step-1");
+				expect(currentInteractionContext()).toEqual({
+					interactionId: "click-1",
+					rootActionId: "run-1",
+					actionId: "step-1",
+				});
+			},
+			{ rootActionId: "run-1", actionId: "step-1" },
+		);
+		expect(currentInteractionContext()).toBeUndefined();
 	});
 });
 
@@ -141,7 +175,7 @@ describe("wrapInteraction (Phase 1.4)", () => {
 	});
 
 	it("keeps the id active across awaits in async handlers", async () => {
-		pushInteraction("X");
+		pushInteraction("X", { rootActionId: "root-X", actionId: "action-X" });
 		// Simulate Mode A's microtask pop that would normally fire while
 		// the handler is still awaiting — the wrapper's own push must
 		// outlive that.
@@ -150,10 +184,16 @@ describe("wrapInteraction (Phase 1.4)", () => {
 		const observed: (string | undefined)[] = [];
 		const handler = async () => {
 			observed.push(currentInteractionId());
+			expect(currentRootActionId()).toBe("root-X");
+			expect(currentActionId()).toBe("action-X");
 			await new Promise((r) => setTimeout(r, 10));
 			observed.push(currentInteractionId());
+			expect(currentRootActionId()).toBe("root-X");
+			expect(currentActionId()).toBe("action-X");
 			await Promise.resolve();
 			observed.push(currentInteractionId());
+			expect(currentRootActionId()).toBe("root-X");
+			expect(currentActionId()).toBe("action-X");
 		};
 		const wrapped = wrapInteraction(handler);
 		await wrapped();
