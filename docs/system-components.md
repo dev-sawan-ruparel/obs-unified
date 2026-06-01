@@ -14,7 +14,8 @@ authenticates, stores, and serves that data to the dashboard.
 | Dashboard app               | [`apps/web`](../apps/web)                               | Standalone React dashboard shell used for local development and the local Docker image.                              |
 | Dashboard package           | [`packages/dashboard`](../packages/dashboard)           | Reusable React dashboard components.                                                                                 |
 | Browser SDK                 | [`packages/analytics-sdk`](../packages/analytics-sdk)   | Page views, interactions, browser errors, session replay, and click-to-trace correlation.                            |
-| TypeScript backend SDK      | [`packages/telemetry-sdk`](../packages/telemetry-sdk)   | Backend traces, logs, AI calls, and Cloudflare helper wrappers.                                                      |
+| TypeScript backend SDK      | [`packages/telemetry-sdk`](../packages/telemetry-sdk)   | Backend traces, logs, AI calls, Agent Action Graph primitives, MCP context propagation, and Cloudflare helper wrappers. |
+| Agent framework wrappers    | [`packages/agents-vercel-ai`](../packages/agents-vercel-ai), [`packages/agents-langgraph`](../packages/agents-langgraph) | Optional adapters that translate framework callbacks into `agent.run`, `agent.step`, `llm.call`, `tool.call`, retrieval, and eval actions. |
 | Polyglot SDKs               | [`sdks`](../sdks)                                       | Thin OpenTelemetry wrappers for non-Workers runtimes such as Node, Go, and Rust.                                     |
 | CLI                         | [`packages/cli`](../packages/cli)                       | Local project scaffolding and collector verification commands.                                                       |
 | Seed data                   | [`scripts/seed-everything`](../scripts/seed-everything) | Synthetic telemetry used to populate dashboard tabs for first-run and demos.                                         |
@@ -46,9 +47,11 @@ Keep them in parity when changing collector storage.
    endpoints using an ingest key.
 2. The collector normalizes and stores signals in SQL tables, with replay and
    profile payloads stored as blobs.
-3. Dashboard users authenticate with the dashboard password.
-4. The dashboard reads correlated data from `/internal/*` query endpoints.
-5. Retention jobs purge expired SQL rows and blob objects.
+3. GenAI, OpenInference, MCP, and native SDK spans are normalized into Agent
+   Action Graph records when action context is present or derivable.
+4. Dashboard users authenticate with the dashboard password.
+5. The dashboard reads correlated data from `/internal/*` query endpoints.
+6. Retention jobs purge expired SQL rows and blob objects.
 
 ## First-Run Verification
 

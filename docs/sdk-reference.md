@@ -185,7 +185,52 @@ const telemetryFetch = wrapFetch(globalThis.fetch);
 
 ---
 
-## 5. Cross-Language SDK Mapping Matrix
+## 5. Agent Action Graphs
+
+Use the TypeScript agent primitives to model autonomous workflows as causal
+graphs. Each run receives a `root_action_id`, each step/tool/LLM call receives
+an `action_id`, and each child action points at its parent through
+`caused_by_action_id`. Browser-triggered runs also carry the original
+`interaction_id` so replay and user/session pivots stay connected.
+
+```typescript
+import { startAgentRun } from "@obs-unified/telemetry-sdk/agent";
+
+await startAgentRun(
+  {
+    agentId: "support-agent",
+    agentName: "Support Agent",
+    autonomyLevel: "suggested_action",
+  },
+  async (run) => {
+    await run.step({ name: "classify intent" }, async () => {
+      await run.llm(
+        { model: "gpt-4o", provider: "openai" },
+        async (call) => call.setOutput({ intent: "billing_update" }),
+      );
+    });
+
+    await run.tool(
+      {
+        name: "invoice_lookup",
+        arguments: { invoiceId: "INV-2026-9912" },
+        sideEffect: false,
+      },
+      async (toolCall) => toolCall.setResult({ found: true }),
+    );
+  },
+);
+```
+
+For framework wrappers and MCP propagation, see:
+
+- [Agent Action Graph overview](agent-action-graph.md)
+- [Action ID wire spec](spec/action-id.md)
+- [Framework plugin contract](spec/agent-framework-plugins.md)
+
+---
+
+## 6. Cross-Language SDK Mapping Matrix
 
 The same observability concepts are exported across Go and Rust SDKs, named according to standard per-language casing and paradigms:
 

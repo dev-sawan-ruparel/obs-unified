@@ -1,8 +1,8 @@
 # obs-unified
 
 Self-hosted observability for your project. Traces, logs, usage analytics,
-session replay, profiles, and AI call tracking — no external telemetry services
-required.
+session replay, profiles, AI call tracking, and Agent Action Graphs — no
+external telemetry services required.
 
 [![obs-unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
 
@@ -10,6 +10,25 @@ required.
 [Unified timeline](https://obsunified.com/screenshots/app/timeline-unified.png) ·
 [Correlated logs](https://obsunified.com/screenshots/app/logs-correlated.png) ·
 see all on [obsunified.com](https://obsunified.com)</sub>
+
+## Agent Action Graphs
+
+obs-unified now includes an Agent Action Graph for debugging AI agents as
+causal workflows instead of loose LLM spans. Browser clicks, cron jobs, agent
+runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs,
+profiles, and eval cases are linked through `root_action_id`, `action_id`, and
+`caused_by_action_id`.
+
+Use it to answer which user action or background job started a run, which model
+step chose a side-effecting tool, whether the write was approved, and whether a
+production failure should become an eval case.
+
+Start here:
+
+- [Product overview](docs/agent-action-graph.md)
+- [Action ID wire spec](docs/spec/action-id.md)
+- [Framework plugin contract](docs/spec/agent-framework-plugins.md)
+- [Agent replay worked example](docs/ux/agent-run-replay.md)
 
 ## Try it
 
@@ -139,6 +158,7 @@ Start by choosing your language and framework, then follow the matching example:
 | Python Flask API               | [Python Flask walkthrough](docs/howto/instrument-python-flask.md) |
 | Browser-only app               | [Analytics SDK README](packages/analytics-sdk/README.md)          |
 | TypeScript backend             | [Telemetry SDK README](packages/telemetry-sdk/README.md)          |
+| AI agents and tool-calling apps | [Agent Action Graph overview](docs/agent-action-graph.md)         |
 | Python, JVM, .NET, Go, Rust    | [Language recipes](docs/recipes/README.md)                        |
 
 The common wiring is: run a collector, add the browser/backend SDK package, set

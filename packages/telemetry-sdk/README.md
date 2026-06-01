@@ -2,9 +2,9 @@
 
 Server-side telemetry SDK for
 [obs-unified](https://github.com/obs-unified/obs-unified). OTLP spans,
-structured logger, AI/LLM helpers, `interaction_id` stamping. Targets Cloudflare
-Workers, Node.js, Bun, and Deno; the Workers binding wrappers live under the
-`./cloudflare` subpath.
+structured logger, AI/LLM helpers, `interaction_id` stamping, and Agent Action
+Graph primitives. Targets Cloudflare Workers, Node.js, Bun, and Deno; the
+Workers binding wrappers live under the `./cloudflare` subpath.
 
 ```bash
 pnpm config set @obs-unified:registry https://npm.pkg.github.com
@@ -80,3 +80,57 @@ The interaction key flows browser → server through the `x-obs-interaction`
 header. Call `stampInteractionFromRequest(span, req)` once on the root span;
 child spans and logs inherit automatically. See
 [`docs/spec/interaction-id.md`](../../docs/spec/interaction-id.md).
+
+## Agent Action Graphs
+
+Use `@obs-unified/telemetry-sdk/agent` when your backend runs agents,
+tool-calling workflows, background jobs, or MCP hosts. The SDK creates RFC 0010
+action IDs, preserves browser `interaction_id` when a user action triggered the
+agent, and links each step through `caused_by_action_id`.
+
+```ts
+import { startAgentRun } from "@obs-unified/telemetry-sdk/agent";
+
+await startAgentRun(
+  {
+    agentId: "billing-agent",
+    agentName: "Billing Agent",
+    autonomyLevel: "human_approved_write",
+  },
+  async (run) => {
+    await run.llm(
+      { model: "gpt-4o", provider: "openai" },
+      async (call) => call.setTokens({ prompt: 320, completion: 84 }),
+    );
+
+    await run.tool(
+      {
+        name: "db.invoice_update",
+        arguments: { invoiceId: "INV-2026-9912" },
+        sideEffect: true,
+        approvalState: "human_approved",
+      },
+      async (toolCall) => toolCall.setResult({ updated: true }),
+    );
+  },
+);
+```
+
+MCP hosts can propagate the same graph context through JSON-RPC `params._meta`:
+
+```ts
+import { injectMcpContext, extractMcpContext } from "@obs-unified/telemetry-sdk/mcp";
+import { withAction } from "@obs-unified/telemetry-sdk/agent";
+
+injectMcpContext(params);
+
+const context = extractMcpContext(params);
+if (context?.actionContext) {
+  await withAction(context.actionContext, async () => {
+    await callTool();
+  });
+}
+```
+
+See [Agent Action Graph](../../docs/agent-action-graph.md) and the
+[action ID wire spec](../../docs/spec/action-id.md).
