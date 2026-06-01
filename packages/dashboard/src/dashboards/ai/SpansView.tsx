@@ -993,11 +993,6 @@ function orderSpansForGantt(spans: AISpanRecord[]): AISpanRecord[] {
 		}
 	};
 	// Roots = parent not in set, or parent null
-	for (const s of spans) {
-		if (s.parentSpanId === null || !known.has(s.parentSpanId)) {
-			// Walk from each root
-		}
-	}
 	walk(null);
 	// Walk any orphan roots (parent unknown)
 	const seen = new Set(out.map((s) => s.spanId));
