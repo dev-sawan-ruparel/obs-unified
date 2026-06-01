@@ -6,7 +6,11 @@ import type { View } from "./ai/Toolbar";
 
 // ── Entry ──────────────────────────────────────────────────────────────────
 
-export function AIDashboard() {
+export function AIDashboard({
+	onNavigate,
+}: {
+	onNavigate?: (href: string) => void;
+}) {
 	const [view, setView] = useState<View>("spans");
 	const hours = String(useTimeWindowHours());
 
@@ -15,7 +19,12 @@ export function AIDashboard() {
 			{view === "sessions" ? (
 				<SessionsView hours={hours} view={view} setView={setView} />
 			) : (
-				<SpansView hours={hours} view={view} setView={setView} />
+				<SpansView
+					hours={hours}
+					view={view}
+					setView={setView}
+					onNavigate={onNavigate}
+				/>
 			)}
 		</div>
 	);

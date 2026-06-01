@@ -249,8 +249,8 @@ export function ActionDashboard({
 				</Card>
 
 				<div className="flex-1 min-h-[400px] flex flex-col min-w-0">
-					<div className="flex-none px-3 py-1 bg-sys-surface border-[1px] border-b-0 border-sys-outline font-mono text-[0.75rem] font-bold uppercase tracking-[0.05em] opacity-80">
-						Decision & Action Graph Context
+					<div className="flex-none px-3 py-2 bg-sys-surface border-[1px] border-b-0 border-sys-outline text-[0.8125rem] font-semibold text-sys-on-surface">
+						Decision and action graph
 					</div>
 					<div className="flex-1 min-h-0 border-[1px] border-sys-outline overflow-hidden">
 						{manifest.rawManifest && (

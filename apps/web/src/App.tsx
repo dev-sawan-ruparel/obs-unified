@@ -253,7 +253,13 @@ export function App() {
 							/>
 						)}
 						{route.tab === "logs" && <LogsDashboard />}
-						{route.tab === "ai" && <AIDashboard />}
+						{route.tab === "ai" && (
+							<AIDashboard
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
 						{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
 						{route.tab === "replay" && (
 							<ReplayDashboard

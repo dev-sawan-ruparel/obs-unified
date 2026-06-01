@@ -6,9 +6,9 @@ interface ActionGraphTabHeaderProps {
 }
 
 const tabs: Array<{ id: ActiveActionGraphTab; label: string }> = [
-	{ id: "tree", label: "🌳 Causal Action Tree" },
-	{ id: "governance", label: "🛡️ Governance & Auditing" },
-	{ id: "diff", label: "📊 Prompt Diff & Evals" },
+	{ id: "tree", label: "Causal action tree" },
+	{ id: "governance", label: "Governance and auditing" },
+	{ id: "diff", label: "Prompt diff and evals" },
 ];
 
 export function ActionGraphTabHeader({
@@ -22,7 +22,7 @@ export function ActionGraphTabHeader({
 					key={tab.id}
 					type="button"
 					onClick={() => onTabChange(tab.id)}
-					className={`px-4 py-3 text-[0.6875rem] font-semibold tracking-[0.08em] uppercase border-b-2 transition-all cursor-pointer ${
+					className={`px-3 py-2 text-[0.8125rem] font-medium border-b-2 transition-none cursor-pointer ${
 						activeTab === tab.id
 							? "border-sys-primary text-sys-primary"
 							: "border-transparent text-sys-on-surface/60 hover:text-sys-on-surface hover:bg-sys-surface-low"

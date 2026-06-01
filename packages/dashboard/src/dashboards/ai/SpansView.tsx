@@ -11,10 +11,6 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import {
-	ActionGraphRenderer,
-	type EntityManifestExtended,
-} from "../../components/ActionGraphRenderer";
 import { Button } from "../../components/Button";
 import { ConnectedRail } from "../../components/ConnectedRail";
 import { MessageView } from "../../components/MessageView";
@@ -51,9 +47,15 @@ export interface SpansViewProps {
 	hours: string;
 	view: View;
 	setView: (v: View) => void;
+	onNavigate?: (href: string) => void;
 }
 
-export function SpansView({ hours, view, setView }: SpansViewProps) {
+export function SpansView({
+	hours,
+	view,
+	setView,
+	onNavigate,
+}: SpansViewProps) {
 	const api = useApi();
 	const [overview, setOverview] = useState<AISpansOverviewResponse | null>(
 		null,
@@ -437,6 +439,7 @@ export function SpansView({ hours, view, setView }: SpansViewProps) {
 								error={detailError}
 								onClose={() => setSelected(null)}
 								onJumpTo={(span) => setSelected(span)}
+								onNavigate={onNavigate}
 							/>
 						</div>
 						{/* RFC 0006 — connected rail next to the AI span detail */}
@@ -594,12 +597,7 @@ function SpanRow({
 
 // ── Detail pane (tabbed) ───────────────────────────────────────────────────
 
-type DetailTab =
-	| "messages"
-	| "attributes"
-	| "waterfall"
-	| "evaluations"
-	| "actionGraph";
+type DetailTab = "messages" | "attributes" | "waterfall" | "evaluations";
 
 const safeParseJson = (str: string | null | undefined) => {
 	if (!str) return null;
@@ -618,6 +616,7 @@ function SpanDetailPane({
 	error,
 	onClose,
 	onJumpTo,
+	onNavigate,
 }: {
 	span: AISpanRecord;
 	traceSpans: AISpanRecord[] | null;
@@ -626,11 +625,10 @@ function SpanDetailPane({
 	error: string | null;
 	onClose: () => void;
 	onJumpTo: (span: AISpanRecord) => void;
+	onNavigate?: (href: string) => void;
 }) {
 	const [tab, setTab] = useState<DetailTab>("messages");
 	const [showEvalModal, setShowEvalModal] = useState(false);
-	const [showGraphWorkspace, setShowGraphWorkspace] = useState(false);
-	const api = useApi();
 
 	const evalsForSpan = useMemo(
 		() => (evaluations ?? []).filter((e) => e.spanId === span.spanId),
@@ -701,56 +699,16 @@ function SpanDetailPane({
 		tt,
 		cost,
 	]);
-	const [graphData, setGraphData] = useState<EntityManifestExtended | null>(
-		null,
-	);
-	const [graphLoading, setGraphLoading] = useState(false);
-	const [graphError, setGraphError] = useState<string | null>(null);
 	const spanId = span.spanId;
 
 	useEffect(() => {
 		if (!spanId) return;
-		setGraphData(null);
-		setGraphLoading(false);
-		setGraphError(null);
-		setShowGraphWorkspace(false);
 		setTab("messages");
 	}, [spanId]);
-
-	useEffect(() => {
-		if (tab !== "actionGraph" || !actionId) {
-			return;
-		}
-		const controller = new AbortController();
-		setGraphLoading(true);
-		setGraphError(null);
-		(async () => {
-			try {
-				const res = await api<{ rawManifest?: EntityManifestExtended }>(
-					`/connected/action/${actionId}`,
-					{ signal: controller.signal },
-				);
-				if (res.rawManifest) {
-					setGraphData(res.rawManifest);
-				} else {
-					setGraphError("No action graph manifest returned from the server.");
-				}
-			} catch (err) {
-				if (isAbortError(err)) return;
-				setGraphError(err instanceof Error ? err.message : String(err));
-			} finally {
-				if (!controller.signal.aborted) {
-					setGraphLoading(false);
-				}
-			}
-		})();
-		return () => controller.abort();
-	}, [actionId, tab, api]);
 
 	return (
 		<>
 			<Card className="min-h-0 overflow-hidden flex flex-col">
-				{/* Header */}
 				<div className="flex items-start justify-between gap-2 border-b border-sys-outline/30 p-3">
 					<div className="flex flex-col gap-1 min-w-0">
 						<div className="flex items-center gap-2">
@@ -813,7 +771,6 @@ function SpanDetailPane({
 					</div>
 				</div>
 
-				{/* Tabs */}
 				<div className="flex-none flex items-center border-b border-sys-outline/30">
 					<DetailTabBtn
 						active={tab === "messages"}
@@ -841,10 +798,9 @@ function SpanDetailPane({
 					</DetailTabBtn>
 					{actionId && (
 						<DetailTabBtn
-							active={tab === "actionGraph"}
+							active={false}
 							onClick={() => {
-								setTab("actionGraph");
-								setShowGraphWorkspace(true);
+								onNavigate?.(`#/actions/${encodeURIComponent(actionId)}`);
 							}}
 						>
 							Action Graph
@@ -858,98 +814,49 @@ function SpanDetailPane({
 					</DetailTabBtn>
 				</div>
 
-				{/* Body */}
 				{error && (
 					<div className="flex-none p-3">
 						<ErrorState title="Failed to load trace context" message={error} />
 					</div>
 				)}
-				{tab === "actionGraph" ? (
-					<div className="flex-1 min-h-0 overflow-y-auto p-4">
-						{graphLoading && (
-							<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
-								Loading action graph...
-							</div>
-						)}
-						{graphError && (
-							<div className="p-6 text-center text-[0.75rem] text-sys-error font-mono">
-								Failed to load action graph: {graphError}
-							</div>
-						)}
-						{!graphLoading && !graphError && graphData && (
-							<div className="flex flex-col gap-3">
-								<SectionTitle
-									title="Action graph"
-									note={model ?? span.spanName}
-								/>
-								<Button
-									variant="primary"
-									size="sm"
-									onClick={() => setShowGraphWorkspace(true)}
-									className="self-start"
-								>
-									Open graph workspace
-								</Button>
-							</div>
-						)}
-						{!graphLoading && !graphError && !graphData && (
-							<div className="p-6 text-center text-[0.75rem] opacity-60 font-mono">
-								No action graph data found.
-							</div>
-						)}
-					</div>
-				) : (
-					<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-						{tab === "messages" && (
-							<div className="flex flex-col gap-3">
-								<MessageView
-									raw={span.inputJson}
-									label="Input"
-									defaultRole="user"
-								/>
-								<MessageView
-									raw={span.outputJson}
-									label="Output"
-									defaultRole="assistant"
-									accent={isError ? "error" : undefined}
-								/>
-							</div>
-						)}
-
-						{tab === "waterfall" && (
-							<TraceWaterfall
-								focusSpanId={span.spanId}
-								spans={traceSpans}
-								loading={loading}
-								onJumpTo={onJumpTo}
+				<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+					{tab === "messages" && (
+						<div className="flex flex-col gap-3">
+							<MessageView
+								raw={span.inputJson}
+								label="Input"
+								defaultRole="user"
 							/>
-						)}
-
-						{tab === "evaluations" && (
-							<EvaluationsList evaluations={evalsForSpan} />
-						)}
-
-						{tab === "attributes" && (
-							<JsonBlock
-								label="attributes"
-								value={JSON.stringify(span.attributes, null, 2)}
+							<MessageView
+								raw={span.outputJson}
+								label="Output"
+								defaultRole="assistant"
+								accent={isError ? "error" : undefined}
 							/>
-						)}
-					</div>
-				)}
+						</div>
+					)}
+
+					{tab === "waterfall" && (
+						<TraceWaterfall
+							focusSpanId={span.spanId}
+							spans={traceSpans}
+							loading={loading}
+							onJumpTo={onJumpTo}
+						/>
+					)}
+
+					{tab === "evaluations" && (
+						<EvaluationsList evaluations={evalsForSpan} />
+					)}
+
+					{tab === "attributes" && (
+						<JsonBlock
+							label="attributes"
+							value={JSON.stringify(span.attributes, null, 2)}
+						/>
+					)}
+				</div>
 			</Card>
-			{showGraphWorkspace && (
-				<ActionGraphWorkspace
-					span={span}
-					model={model}
-					provider={provider}
-					actionId={actionId}
-					graphData={graphData}
-					graphLoading={graphLoading}
-					graphError={graphError}
-					onClose={() => setShowGraphWorkspace(false)}
-				/>
-			)}
 			{showEvalModal && (
 				<SaveEvalCaseModal
 					sourceEntityType="ai_call"
@@ -970,84 +877,6 @@ function SpanDetailPane({
 	);
 }
 
-function ActionGraphWorkspace({
-	span,
-	model,
-	provider,
-	actionId,
-	graphData,
-	graphLoading,
-	graphError,
-	onClose,
-}: {
-	span: AISpanRecord;
-	model: string | undefined;
-	provider: string | undefined;
-	actionId: string | undefined;
-	graphData: EntityManifestExtended | null;
-	graphLoading: boolean;
-	graphError: string | null;
-	onClose: () => void;
-}) {
-	return (
-		<div
-			className="fixed inset-0 z-50 bg-black/30 p-3 md:p-6"
-			role="dialog"
-			aria-modal="true"
-			aria-label="Action graph workspace"
-			onKeyDown={(event) => {
-				if (event.key === "Escape") onClose();
-			}}
-		>
-			<div className="h-full min-h-0 bg-sys-surface border border-sys-outline shadow-2xl flex flex-col">
-				<div className="flex-none border-b border-sys-outline/40 px-4 py-3 flex items-start justify-between gap-4">
-					<div className="min-w-0 flex flex-col gap-1">
-						<div className="flex items-center gap-2 min-w-0">
-							<KindBadge kind={span.spanKind} />
-							<h2 className="font-mono font-bold text-[0.95rem] truncate">
-								Action graph
-							</h2>
-							<span className="font-mono text-[0.75rem] opacity-60 truncate">
-								{model ?? span.spanName}
-							</span>
-						</div>
-						<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.625rem] font-mono opacity-70">
-							{provider && <span>provider:{provider}</span>}
-							{span.serviceName && <span>svc:{span.serviceName}</span>}
-							<span>trace:{span.traceId.slice(0, 12)}...</span>
-							<span>span:{span.spanId.slice(0, 12)}...</span>
-						</div>
-					</div>
-					<Button variant="ghost" size="sm" onClick={onClose}>
-						Close
-					</Button>
-				</div>
-
-				<div className="flex-1 min-h-0 overflow-hidden">
-					{graphLoading && (
-						<div className="h-full flex items-center justify-center text-[0.75rem] opacity-60 font-mono">
-							Loading action graph...
-						</div>
-					)}
-					{graphError && (
-						<div className="h-full flex items-center justify-center p-6 text-center text-[0.75rem] text-sys-error font-mono">
-							Failed to load action graph: {graphError}
-						</div>
-					)}
-					{!graphLoading && !graphError && graphData && actionId && (
-						<ActionGraphRenderer actionId={actionId} rawManifest={graphData} />
-					)}
-					{!graphLoading && !graphError && !graphData && (
-						<div className="h-full flex items-center justify-center text-[0.75rem] opacity-60 font-mono">
-							No action graph data found.
-						</div>
-					)}
-				</div>
-			</div>
-		</div>
-	);
-}
-
 function DetailTabBtn({
 	active,
 	onClick,
@@ -1061,7 +890,7 @@ function DetailTabBtn({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`px-3 py-2 text-[0.6875rem] font-semibold tracking-[0.08em] cursor-pointer border-b-2 ${
+			className={`px-3 py-2 text-[0.8125rem] font-medium cursor-pointer border-b-2 ${
 				active
 					? "border-sys-primary text-sys-on-surface"
 					: "border-transparent text-sys-on-surface/60 hover:text-sys-on-surface hover:bg-sys-surface-low"
