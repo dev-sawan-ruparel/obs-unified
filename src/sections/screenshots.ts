@@ -1,8 +1,8 @@
 const screenshots = [
   {
     src: "/screenshots/app/agent-action-graph.png",
-    title: "Bookmarkable Agent Action Graph",
-    body: "A nested action page shows the agent run, plan, tool calls, evals, trace ID, and interaction ID in one graph.",
+    title: "Agent Action Graph",
+    body: "One action page shows the agent run, plan, tool calls, evals, trace ID, and interaction ID together.",
   },
   {
     src: "/screenshots/app/interaction-id-path.png",
@@ -38,7 +38,7 @@ export function renderScreenshots() {
         <div class="section-header">
           <p class="eyebrow">Product proof</p>
           <h2>The same demo, seen through every signal.</h2>
-          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through obs-unified, including the nested Agent Action Graph route, interaction ID path, connected trace evidence, AI cost, and profile join point.</p>
+          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through obs-unified, including the Agent Action Graph, interaction ID path, connected trace evidence, AI cost, and profile join point.</p>
         </div>
 
         <div class="screenshot-showcase">

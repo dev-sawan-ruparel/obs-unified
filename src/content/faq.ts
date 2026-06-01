@@ -3,15 +3,15 @@ export type QA = { q: string; a: string };
 export const FAQS: QA[] = [
   {
     q: "What is obs-unified?",
-    a: "obs-unified is an open-source unified observability platform built for agentic debugging. A single collector ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, analyses, and Agent Action Graph records, then connects them through one identity chain and one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+    a: "obs-unified is an open-source observability platform for agentic debugging. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard and MCP server connect those signals through one identity chain, from user action to backend trace, logs, replay, AI cost, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
   },
   {
     q: "What is the Agent Action Graph?",
-    a: "The Agent Action Graph is obs-unified's causal view of human and agent work. It links browser actions, cron jobs, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Each action, agent run, and tool call can open as a nested, bookmarkable dashboard route, so engineers and AI agents can inspect the same chain of cause and evidence.",
+    a: "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP.",
   },
   {
     q: "Can AI agents inspect obs-unified through MCP?",
-    a: "Yes. The obs-unified MCP server exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can start from a failing trace or action ID, traverse the same graph a human sees in the dashboard, and return with evidence without needing write access to telemetry ingest.",
+    a: "Yes. The obs-unified MCP server exposes read-only tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can start from a failing trace or action ID and gather evidence without needing write access to telemetry ingest.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",
