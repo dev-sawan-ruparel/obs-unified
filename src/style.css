@@ -691,6 +691,58 @@ section:nth-of-type(even) .arch-core {
   }
 }
 @media (max-width: 540px) {
+  .arch-map {
+    gap: 18px;
+  }
+  .arch-side,
+  .arch-core-map {
+    gap: 0;
+    position: relative;
+  }
+  .arch-side-label {
+    background: var(--color-sys-surface-low);
+    border-left: 4px solid var(--color-sys-primary);
+    margin-bottom: 0;
+    padding: 10px 14px;
+  }
+  .arch-mini-node,
+  .arch-boundary,
+  .arch-core {
+    position: relative;
+  }
+  .arch-mini-node,
+  .arch-boundary {
+    margin-top: 22px;
+  }
+  .arch-mini-node::before,
+  .arch-boundary::before,
+  .arch-core::before {
+    color: var(--color-sys-primary);
+    content: "↓";
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    left: 50%;
+    line-height: 1;
+    position: absolute;
+    top: -18px;
+    transform: translateX(-50%);
+  }
+  .arch-side-label + .arch-mini-node::before {
+    content: "";
+  }
+  .arch-side-left .arch-mini-node:not(:last-child)::before,
+  .arch-side-right .arch-mini-node:not(:last-child)::before {
+    color: var(--color-sys-on-surface-subtle);
+    content: "+";
+  }
+  .arch-side-left .arch-mini-node:nth-of-type(2)::before,
+  .arch-side-right .arch-mini-node:nth-of-type(2)::before {
+    content: "";
+  }
+  .arch-core {
+    margin-top: 22px;
+  }
   .arch-core-split {
     grid-template-columns: 1fr;
   }
