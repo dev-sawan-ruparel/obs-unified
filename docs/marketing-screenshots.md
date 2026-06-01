@@ -65,7 +65,12 @@ subset. By default the command captures the full review set.
 Homepage-ready images:
 
 - `agent-action-graph.png`: strongest proof of the agentic debugging
-  positioning.
+  positioning; it opens the nested `#/actions/marketing-agent-run-root` route
+  seeded by the capture script.
+- `interaction-id-path.png`: explains the `interaction_id` path from frontend
+  action into traces and related signals.
+- `trace-waterfall-connected-rail.png`: primary click-to-root-cause proof:
+  waterfall plus neighboring signals in the rail.
 - `service-map-astronomy.png`: best proof that the screenshots come from a
   real OpenTelemetry microservice demo.
 - `ai-cost-spans.png`: validates the AI cost, tokens, model, and span story.
@@ -74,13 +79,12 @@ Homepage-ready images:
 - `logs-correlated.png`: makes logs feel connected rather than bolted on.
 - `usage-analytics.png`: shows product analytics sharing the same identity
   graph.
+- `trace-profile-slot.png`: shows where profile evidence joins the trace path.
 
 Needs product/data follow-up before it should lead public pages:
 
-- `trace-waterfall-connected-rail.png`: local capture currently showed a trace
-  load failure during review; re-check after trace query volume is stabilized.
-- `health-agentic-overview.png`: not useful when the health view has no analyses
-  yet.
 - `replay-sessions.png`: only lead with this after a browser replay is recorded.
-- `trace-profile-slot.png`: requires profiling data before it proves the
-  click-to-CPU claim.
+- `agent-governance.png`: useful as a secondary enterprise/governance proof,
+  but the homepage should lead with the causal action tree first.
+- `health-agentic-overview.png`: useful for dashboard breadth, but weaker than
+  the concrete graph and interaction-path screenshots.

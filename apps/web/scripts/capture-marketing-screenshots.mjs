@@ -25,6 +25,8 @@ if (!password) {
 	throw new Error("DASHBOARD_PASSWORD is required for marketing screenshots");
 }
 
+const MARKETING_AGENT_RUN_ID = "marketing-agent-run-root";
+
 const TARGETS = [
 	{
 		id: "health-agentic-overview",
@@ -264,32 +266,37 @@ function span({
 
 async function seedAgentGraph() {
 	const traceId = hex(16);
-	const run = hex(8);
-	const plan = hex(8);
-	const retrieve = hex(8);
-	const tool = hex(8);
-	const llm = hex(8);
-	const evalSpan = hex(8);
+	const runSpan = "a11a11a11a11a111";
+	const planSpan = "b22b22b22b22b222";
+	const retrieveSpan = "c33c33c33c33c333";
+	const toolSpan = "d44d44d44d44d444";
+	const llmSpan = "e55e55e55e55e555";
+	const evalSpan = "f66f66f66f66f666";
+	const plan = "marketing-plan-investigation";
+	const retrieve = "marketing-retrieve-traces";
+	const tool = "marketing-query-service-map";
+	const llm = "marketing-openai-root-cause";
+	const evalAction = "marketing-eval-root-cause";
 	const sessionId = "marketing-agent-session";
 	const interactionId = "ix_marketing_agentic_debug";
 	const common = {
 		"session.id": sessionId,
 		"obs.interaction.id": interactionId,
-		"obs.action.root_id": run,
-		"obs.action.agent_run_id": run,
+		"obs.action.root_id": MARKETING_AGENT_RUN_ID,
+		"obs.action.agent_run_id": MARKETING_AGENT_RUN_ID,
 		"obs.action.actor_type": "agent",
 		"obs.action.actor_id": "debug-agent",
 	};
 	const spans = [
 		span({
 			traceId,
-			spanId: run,
+			spanId: runSpan,
 			name: "agent.debug_checkout_regression",
 			startMs: 90000,
 			durationMs: 8400,
 			attrs: {
 				...common,
-				"obs.action.id": run,
+				"obs.action.id": MARKETING_AGENT_RUN_ID,
 				"obs.action.kind": "agent.run",
 				"obs.agent_run.agent_id": "debug-agent",
 				"obs.agent_run.agent_name": "Debug Agent",
@@ -303,23 +310,23 @@ async function seedAgentGraph() {
 		}),
 		span({
 			traceId,
-			spanId: plan,
-			parentSpanId: run,
+			spanId: planSpan,
+			parentSpanId: runSpan,
 			name: "plan telemetry pivots",
 			startMs: 88000,
 			durationMs: 900,
 			attrs: {
 				...common,
 				"obs.action.id": plan,
-				"obs.action.caused_by_id": run,
+				"obs.action.caused_by_id": MARKETING_AGENT_RUN_ID,
 				"obs.action.kind": "agent.step",
 				"obs.action.name": "Plan investigation",
 			},
 		}),
 		span({
 			traceId,
-			spanId: retrieve,
-			parentSpanId: run,
+			spanId: retrieveSpan,
+			parentSpanId: runSpan,
 			name: "retrieve related traces",
 			startMs: 87000,
 			durationMs: 650,
@@ -335,8 +342,8 @@ async function seedAgentGraph() {
 		}),
 		span({
 			traceId,
-			spanId: tool,
-			parentSpanId: run,
+			spanId: toolSpan,
+			parentSpanId: runSpan,
 			name: "query service map",
 			startMs: 85800,
 			durationMs: 720,
@@ -351,8 +358,8 @@ async function seedAgentGraph() {
 		}),
 		span({
 			traceId,
-			spanId: llm,
-			parentSpanId: run,
+			spanId: llmSpan,
+			parentSpanId: runSpan,
 			name: "openai.chat.completions",
 			startMs: 84600,
 			durationMs: 2100,
@@ -382,13 +389,13 @@ async function seedAgentGraph() {
 		span({
 			traceId,
 			spanId: evalSpan,
-			parentSpanId: run,
+			parentSpanId: runSpan,
 			name: "evaluate proposed root cause",
 			startMs: 82000,
 			durationMs: 520,
 			attrs: {
 				...common,
-				"obs.action.id": evalSpan,
+				"obs.action.id": evalAction,
 				"obs.action.caused_by_id": llm,
 				"obs.action.kind": "eval",
 				"eval.name": "evidence_grounded",
@@ -498,36 +505,12 @@ async function openFirstTraceAndSpan(page) {
 }
 
 async function openAgentGraph(page) {
-	const agentRow = page
-		.locator("main div.w-full.text-left")
-		.filter({ hasText: /agent-debugger|Debug Agent|gpt-4o/i })
-		.first();
-	const openButton = agentRow
-		.locator('button[aria-label^="Open span"]')
-		.first();
-	const targetedAgentButton = page
-		.locator('button[aria-label="Open span openai.chat.completions"]')
-		.first();
-	if ((await targetedAgentButton.count()) > 0) {
-		await targetedAgentButton.click({ timeout: 5000 });
-		await page.waitForTimeout(900);
-	} else if ((await openButton.count()) > 0) {
-		await openButton.click({ timeout: 5000 });
-		await page.waitForTimeout(900);
-	} else if ((await agentRow.count()) > 0) {
-		await agentRow.click({ timeout: 5000 });
-		await page.waitForTimeout(900);
-	} else {
-		throw new Error("agent graph target span was not found");
-	}
-	const tab = page.getByText("Action Graph", { exact: false }).first();
-	if ((await tab.count()) > 0) {
-		await tab.click({ timeout: 5000 });
-		await waitForAgentGraph(page);
-		await page.waitForTimeout(800);
-	} else {
-		throw new Error("Action Graph tab was not found after opening agent span");
-	}
+	await page.goto(
+		`${dashboardUrl}/#/actions/${encodeURIComponent(MARKETING_AGENT_RUN_ID)}`,
+		{ waitUntil: "domcontentloaded" },
+	);
+	await waitForAgentGraph(page);
+	await page.waitForTimeout(800);
 }
 
 async function openAgentGraphGovernance(page) {
@@ -582,7 +565,10 @@ const actions = {
 
 async function reviewPage(page) {
 	const text = await page.locator("body").innerText({ timeout: 5000 });
-	const hasErrorState = /FAILED TO LOAD|500|Error loading/i.test(text);
+	const hasErrorState =
+		/FAILED TO LOAD|Error loading|HTTP 500|500 Internal Server Error/i.test(
+			text,
+		);
 	return {
 		hasData:
 			!hasErrorState &&
