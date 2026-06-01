@@ -13,6 +13,7 @@
 
 import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import {
+	ACTION_ID_KEY,
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
 	INTERACTION_ID_KEY,
@@ -83,7 +84,7 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 						sessionId: asString(attrs[SESSION_ID_KEY]),
 						userId: asString(attrs[USER_ID_KEY]),
 						interactionId: asString(attrs[INTERACTION_ID_KEY]),
-						actionId: asString(attrs["obs.action.id"]),
+						actionId: asString(attrs[ACTION_ID_KEY]),
 						receivedAt: span.receivedAt,
 						expiresAt: span.expiresAt,
 					});

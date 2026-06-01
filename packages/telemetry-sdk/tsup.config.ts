@@ -4,6 +4,7 @@ export default defineConfig({
 	entry: {
 		index: "src/index.ts",
 		cloudflare: "src/cloudflare.ts",
+		agent: "src/agent.ts",
 	},
 	format: ["esm"],
 	dts: true,

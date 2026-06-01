@@ -28,6 +28,10 @@
 		"./cloudflare": {
 			"types": "./dist/cloudflare.d.ts",
 			"import": "./dist/cloudflare.js"
+		},
+		"./agent": {
+			"types": "./dist/agent.d.ts",
+			"import": "./dist/agent.js"
 		}
 	},
 	"files": [

@@ -35,7 +35,7 @@ Impl phase numbers are the source of truth inside this document.
 Lock the shape before writing migrations. This phase is documentation and
 test-fixture work.
 
-- [ ] **0.1** Add `docs/spec/action-id.md` covering `root_action_id`,
+- [x] **0.1** Add `docs/spec/action-id.md` covering `root_action_id`,
       `action_id`, `caused_by_action_id`, and how the fields relate to
       `interaction_id`. Must pin: propagation header names (`x-obs-root-action`,
       `x-obs-action`); ID format and the sortability requirement (recommend ULID
@@ -44,13 +44,13 @@ test-fixture work.
       (`action_id = root_action_id = interaction_id` for legacy rows); and the
       rule for when `obs.tool.side_effect = true`. Phase 2.2 blocks on these
       decisions.
-- [ ] **0.2** Add three JSON fixtures under `tests/fixtures/actions/`: a
+- [x] **0.2** Add three JSON fixtures under `tests/fixtures/actions/`: a
       browser-only flow, a click-triggered agent run, and a cron-triggered agent
       run with no `interaction_id`.
-- [ ] **0.3** Add a synthetic "wrong invoice update" fixture matching RFC 0010's
+- [x] **0.3** Add a synthetic "wrong invoice update" fixture matching RFC 0010's
       end-user story: prompt, classification, retrieval, tool call, backend
       trace, side effect, eval, final answer.
-- [ ] **0.4** Add a markdown worked example at `docs/ux/agent-run-replay.md`
+- [x] **0.4** Add a markdown worked example at `docs/ux/agent-run-replay.md`
       showing the screens and Connected rail jumps for the wrong-invoice flow.
 
 **Exit criteria:** reviewers can understand the user journey without reading

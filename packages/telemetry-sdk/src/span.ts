@@ -10,6 +10,14 @@ import type {
 	OtlpKeyValue,
 	OtlpTraceExportRequest,
 } from "@obs-unified/types";
+import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_ID_KEY,
+	ACTION_ROOT_ID_KEY,
+	ACTOR_ID_KEY,
+	ACTOR_TYPE_KEY,
+	AGENT_RUN_ID_KEY,
+} from "@obs-unified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 
 const generateId = (bytes: number): string =>
@@ -319,22 +327,23 @@ export function createRequestSpan(
 
 			const agentCtx = agentContextStorage.getStore();
 			if (agentCtx) {
-				child.attributes.push(toKv("obs.action.id", agentCtx.actionId));
-				child.attributes.push(
-					toKv("obs.action.root_id", agentCtx.rootActionId),
-				);
+				child.attributes.push(toKv(ACTION_ID_KEY, agentCtx.actionId));
+				child.attributes.push(toKv(ACTION_ROOT_ID_KEY, agentCtx.rootActionId));
 				if (agentCtx.causedByActionId) {
 					child.attributes.push(
-						toKv("obs.action.caused_by_id", agentCtx.causedByActionId),
+						toKv(ACTION_CAUSED_BY_ID_KEY, agentCtx.causedByActionId),
 					);
 				}
+				child.attributes.push(toKv(ACTOR_TYPE_KEY, agentCtx.actorType));
 				child.attributes.push(
 					toKv("obs.action.actor_type", agentCtx.actorType),
 				);
 				if (agentCtx.actorId) {
+					child.attributes.push(toKv(ACTOR_ID_KEY, agentCtx.actorId));
 					child.attributes.push(toKv("obs.action.actor_id", agentCtx.actorId));
 				}
 				if (agentCtx.agentRunId) {
+					child.attributes.push(toKv(AGENT_RUN_ID_KEY, agentCtx.agentRunId));
 					child.attributes.push(
 						toKv("obs.action.agent_run_id", agentCtx.agentRunId),
 					);

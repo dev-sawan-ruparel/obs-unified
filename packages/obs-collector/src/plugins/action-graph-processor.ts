@@ -1,4 +1,50 @@
-import type { StoredSpan } from "@obs-unified/types";
+import type { JsonValue, StoredSpan } from "@obs-unified/types";
+import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_ID_KEY,
+	ACTION_KIND_KEY,
+	ACTION_MODEL_NAME_KEY,
+	ACTION_NAME_KEY,
+	ACTION_PROMPT_VERSION_KEY,
+	ACTION_PROVIDER_KEY,
+	ACTION_ROOT_ID_KEY,
+	ACTION_TOTAL_COST_USD_KEY,
+	ACTOR_ID_KEY,
+	ACTOR_TYPE_KEY,
+	AGENT_AUTONOMY_LEVEL_KEY,
+	AGENT_GOAL_KEY,
+	AGENT_ID_KEY,
+	AGENT_NAME_KEY,
+	AGENT_OUTCOME_KEY,
+	AGENT_RUN_ID_KEY,
+	AGENT_STEP_ID_KEY,
+	AGENT_VERSION_KEY,
+	ARTIFACT_CONTENT_KEY,
+	ARTIFACT_NAME_KEY,
+	ARTIFACT_SHA256_HASH_KEY,
+	ARTIFACT_SIZE_BYTES_KEY,
+	ARTIFACT_STORAGE_REF_KEY,
+	ARTIFACT_TYPE_KEY,
+	EVAL_EVALUATOR_NAME_KEY,
+	EVAL_EVALUATOR_VERSION_KEY,
+	EVAL_PASSED_KEY,
+	EVAL_REASONING_KEY,
+	EVAL_RUBRIC_KEY,
+	EVAL_SCORE_KEY,
+	OPENINFERENCE_SPAN_KIND_KEY,
+	RETRIEVAL_DOCUMENTS_KEY,
+	RETRIEVAL_MAX_RELEVANCE_SCORE_KEY,
+	RETRIEVAL_NAME_KEY,
+	RETRIEVAL_QUERY_KEY,
+	RETRIEVAL_TOTAL_RESULTS_KEY,
+	TOOL_APPROVAL_STATE_KEY,
+	TOOL_ARGS_KEY,
+	TOOL_CALL_ID_KEY,
+	TOOL_ERROR_TYPE_KEY,
+	TOOL_NAME_KEY,
+	TOOL_RESULT_KEY,
+	TOOL_SIDE_EFFECT_KEY,
+} from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { sha256Hex } from "../lib/hash";
 import { parseJsonRecord } from "../lib/json";
@@ -6,6 +52,46 @@ import { type SqlStatement, sqlDbFor } from "../lib/sql-db";
 
 import { enricherPlugins } from "./action-graph-processor/enrichers";
 import { runRedaction } from "./action-graph-processor/redaction";
+
+const firstAttr = (
+	attrs: Record<string, JsonValue>,
+	...keys: string[]
+): JsonValue | undefined => {
+	for (const key of keys) {
+		const value = attrs[key];
+		if (value !== undefined && value !== null) return value;
+	}
+	return undefined;
+};
+
+const firstStringAttr = (
+	attrs: Record<string, JsonValue>,
+	...keys: string[]
+): string | undefined => {
+	const value = firstAttr(attrs, ...keys);
+	return typeof value === "string" ? value : undefined;
+};
+
+const firstNumberAttr = (
+	attrs: Record<string, JsonValue>,
+	...keys: string[]
+): number | null => {
+	const value = firstAttr(attrs, ...keys);
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) return parsed;
+	}
+	return null;
+};
+
+const firstBoolLikeAttr = (
+	attrs: Record<string, JsonValue>,
+	...keys: string[]
+): boolean => {
+	const value = firstAttr(attrs, ...keys);
+	return value === true || value === 1 || value === "1" || value === "true";
+};
 
 export type { ActionEnricherPlugin } from "./action-graph-processor/enrichers";
 export {
@@ -41,8 +127,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 					spans.map(async (span): Promise<StoredSpan> => {
 						const attrs = parseJsonRecord(span.attributesJson);
 
-						const obsActionId = attrs["obs.action.id"];
-						const openInferenceKind = attrs["openinference.span.kind"];
+						const obsActionId = attrs[ACTION_ID_KEY];
+						const openInferenceKind = attrs[OPENINFERENCE_SPAN_KIND_KEY];
 						const genAiAgentId = attrs["gen_ai.agent.id"];
 
 						const isActionSpan =
@@ -53,24 +139,30 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 
 						const actionId = (obsActionId as string) ?? span.spanId;
 						const rootActionId =
-							(attrs["obs.action.root_id"] as string) ??
-							(attrs["obs.agent_run.id"] as string) ??
-							actionId;
+							firstStringAttr(
+								attrs,
+								ACTION_ROOT_ID_KEY,
+								AGENT_RUN_ID_KEY,
+								"obs.action.agent_run_id",
+								"obs.agent_run.id",
+							) ?? actionId;
 						const causedByActionId =
-							(attrs["obs.action.caused_by_id"] as string) ??
+							firstStringAttr(attrs, ACTION_CAUSED_BY_ID_KEY) ??
 							span.parentSpanId ??
 							null;
 						const actorType =
-							(attrs["obs.action.actor_type"] as string) ?? "agent";
+							firstStringAttr(attrs, ACTOR_TYPE_KEY, "obs.action.actor_type") ??
+							"agent";
 						const actorId =
-							(attrs["obs.action.actor_id"] as string) ??
+							firstStringAttr(attrs, ACTOR_ID_KEY, "obs.action.actor_id") ??
 							(genAiAgentId as string) ??
 							null;
 						const actionKind =
-							(attrs["obs.action.kind"] as string) ??
+							firstStringAttr(attrs, ACTION_KIND_KEY) ??
 							(openInferenceKind as string) ??
 							"agent.step";
-						const name = (attrs["obs.action.name"] as string) ?? span.spanName;
+						const name =
+							firstStringAttr(attrs, ACTION_NAME_KEY) ?? span.spanName;
 						const status = span.statusCode === 2 ? "error" : "ok";
 						const startedAt = span.startTime;
 						const endedAt = span.endTime;
@@ -88,31 +180,38 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							null;
 
 						const agentRunId =
-							(attrs["obs.action.agent_run_id"] as string) ??
-							(attrs["obs.agent_run.id"] as string) ??
+							firstStringAttr(
+								attrs,
+								AGENT_RUN_ID_KEY,
+								"obs.action.agent_run_id",
+								"obs.agent_run.id",
+							) ??
 							(actionKind === "agent.run" || actionKind === "agent"
 								? actionId
 								: null);
 
-						const stepId = (attrs["obs.action.step_id"] as string) ?? null;
+						const stepId =
+							firstStringAttr(attrs, AGENT_STEP_ID_KEY, "obs.action.step_id") ??
+							null;
 						const toolCallId =
-							(attrs["obs.action.tool_call_id"] as string) ?? null;
+							firstStringAttr(
+								attrs,
+								TOOL_CALL_ID_KEY,
+								"obs.action.tool_call_id",
+							) ?? null;
 						const promptVersion =
-							(attrs["obs.action.prompt_version"] as string) ?? null;
+							firstStringAttr(attrs, ACTION_PROMPT_VERSION_KEY) ?? null;
 						const modelName =
-							(attrs["obs.action.model_name"] as string) ??
+							firstStringAttr(attrs, ACTION_MODEL_NAME_KEY) ??
 							(attrs["llm.model_name"] as string) ??
 							null;
 						const provider =
-							(attrs["obs.action.provider"] as string) ??
+							firstStringAttr(attrs, ACTION_PROVIDER_KEY) ??
 							(attrs["llm.provider"] as string) ??
 							null;
 						const totalCostUsd =
-							attrs["obs.action.total_cost_usd"] !== undefined
-								? Number(attrs["obs.action.total_cost_usd"])
-								: attrs["llm.total_cost_usd"] !== undefined
-									? Number(attrs["llm.total_cost_usd"])
-									: null;
+							firstNumberAttr(attrs, ACTION_TOTAL_COST_USD_KEY) ??
+							firstNumberAttr(attrs, "llm.total_cost_usd");
 
 						const attrsJson = JSON.stringify(attrs);
 
@@ -163,31 +262,54 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						const isAgentRun =
 							actionKind === "agent.run" ||
 							actionKind === "agent" ||
-							attrs["obs.agent_run.agent_id"] !== undefined;
+							firstAttr(attrs, AGENT_ID_KEY, "obs.agent_run.agent_id") !==
+								undefined;
 						if (isAgentRun) {
 							const agentRunRecord = {
 								id: actionId,
 								projectId: span.projectId,
 								agentId:
-									(attrs["obs.agent_run.agent_id"] as string) ??
+									firstStringAttr(
+										attrs,
+										AGENT_ID_KEY,
+										"obs.agent_run.agent_id",
+									) ??
 									(genAiAgentId as string) ??
 									"default-agent",
 								agentName:
-									(attrs["obs.agent_run.agent_name"] as string) ??
-									span.spanName,
+									firstStringAttr(
+										attrs,
+										AGENT_NAME_KEY,
+										"obs.agent_run.agent_name",
+									) ?? span.spanName,
 								agentVersion:
-									(attrs["obs.agent_run.agent_version"] as string) ?? "1.0.0",
+									firstStringAttr(
+										attrs,
+										AGENT_VERSION_KEY,
+										"obs.agent_run.agent_version",
+									) ?? "1.0.0",
 								goal:
-									(attrs["obs.agent_run.goal"] as string) ??
+									firstStringAttr(
+										attrs,
+										AGENT_GOAL_KEY,
+										"obs.agent_run.goal",
+									) ??
 									(attrs["ai.payload.input"] as string) ??
 									null,
 								outcome:
-									(attrs["obs.agent_run.outcome"] as string) ??
+									firstStringAttr(
+										attrs,
+										AGENT_OUTCOME_KEY,
+										"obs.agent_run.outcome",
+									) ??
 									(attrs["ai.payload.output"] as string) ??
 									null,
 								autonomyLevel:
-									(attrs["obs.agent_run.autonomy_level"] as string) ??
-									"autonomous_write",
+									firstStringAttr(
+										attrs,
+										AGENT_AUTONOMY_LEVEL_KEY,
+										"obs.agent_run.autonomy_level",
+									) ?? "autonomous_write",
 								status: span.statusCode === 2 ? "failed" : "success",
 								errorMessage: span.statusMessage ?? null,
 								totalCostUsd: totalCostUsd ?? 0.0,
@@ -219,14 +341,19 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						const isToolCall =
 							actionKind === "tool" ||
 							actionKind === "tool.call" ||
-							attrs["obs.tool_call.tool_name"] !== undefined;
+							firstAttr(attrs, TOOL_NAME_KEY, "obs.tool_call.tool_name") !==
+								undefined;
 						if (isToolCall) {
 							const rawArgs =
-								(attrs["obs.tool_call.args"] as string) ??
+								firstStringAttr(attrs, TOOL_ARGS_KEY, "obs.tool_call.args") ??
 								(attrs["ai.payload.input"] as string) ??
 								"{}";
 							const rawResult =
-								(attrs["obs.tool_call.result"] as string) ??
+								firstStringAttr(
+									attrs,
+									TOOL_RESULT_KEY,
+									"obs.tool_call.result",
+								) ??
 								(attrs["ai.payload.output"] as string) ??
 								"{}";
 
@@ -255,17 +382,34 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								actionId,
 								projectId: span.projectId,
 								toolName:
-									(attrs["obs.tool_call.tool_name"] as string) ?? span.spanName,
+									firstStringAttr(
+										attrs,
+										TOOL_NAME_KEY,
+										"obs.tool_call.tool_name",
+									) ?? span.spanName,
 								argsHash,
 								resultHash,
 								errorType:
-									(attrs["obs.tool_call.error_type"] as string) ??
+									firstStringAttr(
+										attrs,
+										TOOL_ERROR_TYPE_KEY,
+										"obs.tool_call.error_type",
+									) ??
 									span.statusMessage ??
 									null,
-								sideEffect: attrs["obs.tool_call.side_effect"] ? 1 : 0,
+								sideEffect: firstBoolLikeAttr(
+									attrs,
+									TOOL_SIDE_EFFECT_KEY,
+									"obs.tool_call.side_effect",
+								)
+									? 1
+									: 0,
 								approvalState:
-									(attrs["obs.tool_call.approval_state"] as string) ??
-									"suggested",
+									firstStringAttr(
+										attrs,
+										TOOL_APPROVAL_STATE_KEY,
+										"obs.tool_call.approval_state",
+									) ?? "suggested",
 								argsRedacted:
 									typeof redactedArgs === "string"
 										? redactedArgs
@@ -300,14 +444,14 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						const isRetrieval =
 							actionKind === "retriever" ||
 							actionKind === "retrieval" ||
-							attrs["obs.retrieval.retriever_name"] !== undefined;
+							attrs[RETRIEVAL_NAME_KEY] !== undefined;
 						if (isRetrieval) {
 							const rawQuery =
-								(attrs["obs.retrieval.query"] as string) ??
+								firstStringAttr(attrs, RETRIEVAL_QUERY_KEY) ??
 								(attrs["ai.payload.input"] as string) ??
 								"";
 							const rawDocs =
-								(attrs["obs.retrieval.documents"] as string) ??
+								firstStringAttr(attrs, RETRIEVAL_DOCUMENTS_KEY) ??
 								(attrs["ai.payload.output"] as string) ??
 								"[]";
 
@@ -334,21 +478,18 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								actionId,
 								projectId: span.projectId,
 								retrieverName:
-									(attrs["obs.retrieval.retriever_name"] as string) ??
-									span.spanName,
+									firstStringAttr(attrs, RETRIEVAL_NAME_KEY) ?? span.spanName,
 								queryHash,
 								documentsJson:
 									typeof redactedDocs === "string"
 										? redactedDocs
 										: JSON.stringify(redactedDocs),
 								totalResults:
-									attrs["obs.retrieval.total_results"] !== undefined
-										? Number(attrs["obs.retrieval.total_results"])
-										: 0,
-								maxRelevanceScore:
-									attrs["obs.retrieval.max_relevance_score"] !== undefined
-										? Number(attrs["obs.retrieval.max_relevance_score"])
-										: null,
+									firstNumberAttr(attrs, RETRIEVAL_TOTAL_RESULTS_KEY) ?? 0,
+								maxRelevanceScore: firstNumberAttr(
+									attrs,
+									RETRIEVAL_MAX_RELEVANCE_SCORE_KEY,
+								),
 								durationMs: span.durationMs,
 							};
 
@@ -376,28 +517,26 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						const isEval =
 							actionKind === "evaluator" ||
 							actionKind === "eval" ||
-							attrs["obs.eval.evaluator_name"] !== undefined;
+							attrs[EVAL_EVALUATOR_NAME_KEY] !== undefined;
 						if (isEval) {
 							const evalRecord = {
 								id: span.spanId,
 								actionId,
 								projectId: span.projectId,
 								evaluatorName:
-									(attrs["obs.eval.evaluator_name"] as string) ?? span.spanName,
+									firstStringAttr(attrs, EVAL_EVALUATOR_NAME_KEY) ??
+									span.spanName,
 								evaluatorVersion:
-									(attrs["obs.eval.evaluator_version"] as string) ?? "1.0.0",
-								score:
-									attrs["obs.eval.score"] !== undefined
-										? Number(attrs["obs.eval.score"])
-										: null,
+									firstStringAttr(attrs, EVAL_EVALUATOR_VERSION_KEY) ?? "1.0.0",
+								score: firstNumberAttr(attrs, EVAL_SCORE_KEY),
 								passed:
-									attrs["obs.eval.passed"] !== undefined
-										? attrs["obs.eval.passed"]
+									attrs[EVAL_PASSED_KEY] !== undefined
+										? firstBoolLikeAttr(attrs, EVAL_PASSED_KEY)
 											? 1
 											: 0
 										: 1,
-								reasoning: (attrs["obs.eval.reasoning"] as string) ?? null,
-								rubricJson: (attrs["obs.eval.rubric"] as string) ?? null,
+								reasoning: firstStringAttr(attrs, EVAL_REASONING_KEY) ?? null,
+								rubricJson: firstStringAttr(attrs, EVAL_RUBRIC_KEY) ?? null,
 							};
 
 							for (const plugin of enricherPlugins) {
@@ -417,9 +556,10 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						}
 
 						// 5. Generated Artifacts
-						const hasArtifact = attrs["obs.artifact.name"] !== undefined;
+						const hasArtifact = attrs[ARTIFACT_NAME_KEY] !== undefined;
 						if (hasArtifact) {
-							const content = (attrs["obs.artifact.content"] as string) ?? "";
+							const content =
+								firstStringAttr(attrs, ARTIFACT_CONTENT_KEY) ?? "";
 							const redactedContent = await runRedaction(content, {
 								projectId: span.projectId,
 								actionId,
@@ -433,16 +573,14 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								id: span.spanId,
 								actionId,
 								projectId: span.projectId,
-								artifactName: attrs["obs.artifact.name"] as string,
-								artifactType: (attrs["obs.artifact.type"] as string) ?? "text",
+								artifactName: attrs[ARTIFACT_NAME_KEY] as string,
+								artifactType:
+									firstStringAttr(attrs, ARTIFACT_TYPE_KEY) ?? "text",
 								storageRef:
-									(attrs["obs.artifact.storage_ref"] as string) ?? null,
-								sizeBytes:
-									attrs["obs.artifact.size_bytes"] !== undefined
-										? Number(attrs["obs.artifact.size_bytes"])
-										: null,
+									firstStringAttr(attrs, ARTIFACT_STORAGE_REF_KEY) ?? null,
+								sizeBytes: firstNumberAttr(attrs, ARTIFACT_SIZE_BYTES_KEY),
 								sha256Hash:
-									(attrs["obs.artifact.sha256_hash"] as string) ??
+									firstStringAttr(attrs, ARTIFACT_SHA256_HASH_KEY) ??
 									(await sha256Hex(content)),
 								contentPreview:
 									typeof redactedContent === "string"
@@ -470,8 +608,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							artifactsToInsert.push(artifactRecord);
 						}
 
-						// Downstream compatibility: set obs.action.id ontransformed attributes
-						const updatedAttrs = { ...attrs, "obs.action.id": actionId };
+						// Downstream compatibility: ensure payload routing can join action_id.
+						const updatedAttrs = { ...attrs, [ACTION_ID_KEY]: actionId };
 						return {
 							...span,
 							attributesJson: JSON.stringify(updatedAttrs),
