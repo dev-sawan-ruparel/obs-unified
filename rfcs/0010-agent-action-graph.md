@@ -10,9 +10,9 @@
   [RFC 0006 — Connected rail](0006-connected-rail.md),
   [RFC 0008 — Storage interface refactor](0008-storage-interface.md)
 - **Companion:** [docs/spec/interaction-id.md](../docs/spec/interaction-id.md),
-  [docs/implementation/agent-action-graph.md](../docs/implementation/agent-action-graph.md),
-  future `docs/spec/action-id.md` (Phase 0.1), future
-  `docs/ux/agent-run-replay.md` (Phase 0.4)
+  [docs/agent-action-graph.md](../docs/agent-action-graph.md),
+  [docs/spec/action-id.md](../docs/spec/action-id.md),
+  [docs/ux/agent-run-replay.md](../docs/ux/agent-run-replay.md)
 - **Target:** `@obs-unified/collector`, `@obs-unified/telemetry-sdk`,
   `@obs-unified/dashboard`, docs
 
