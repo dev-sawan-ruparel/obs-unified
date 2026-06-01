@@ -95,7 +95,14 @@ export class UsageTracker {
 		// always resolves to the origin root.
 		let healthUrl: string;
 		try {
-			healthUrl = new URL("/health", this.config.endpoint).toString();
+			const baseHref =
+				typeof window !== "undefined" &&
+				window.location.protocol !== "about:" &&
+				window.location.href
+					? window.location.href
+					: "http://localhost/";
+			const endpointUrl = new URL(this.config.endpoint, baseHref);
+			healthUrl = new URL("/health", endpointUrl).toString();
 		} catch {
 			this.warnClockSyncOnce("invalid endpoint URL", this.config.endpoint);
 			return;

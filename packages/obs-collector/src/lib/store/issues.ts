@@ -15,11 +15,12 @@ export async function getTelemetryIssueOverview(
 		throw new Error("TelemetryStore.getIssueOverview: projectId is required");
 	const cutoff = cutoffIso(options.hours);
 	const issueLimit = options.limit ?? 50;
+	const candidateLimit = Math.min(issueLimit * 10, 500);
 	const candidates = await selectTraceCandidates(db, {
 		projectId: options.projectId,
 		cutoff,
 		service: options.service,
-		limit: issueLimit * 100,
+		limit: candidateLimit,
 	});
 	const spans = await fetchSpansForTraceIds(
 		db,

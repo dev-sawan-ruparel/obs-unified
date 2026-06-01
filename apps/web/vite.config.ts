@@ -34,6 +34,7 @@ export default defineConfig({
 			// Collector routes — dashboard queries, session auth, SDK ingest.
 			"/internal": collectorUrl,
 			"/auth": collectorUrl,
+			"/health": collectorUrl,
 			"/v1": collectorUrl,
 		},
 	},

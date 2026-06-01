@@ -15,11 +15,12 @@ if (!root) throw new Error("Missing #root element");
 createRoot(root).render(
 	<StrictMode>
 		<AnalyticsProvider
-			collectorUrl={
-				import.meta.env.VITE_OBS_COLLECTOR_URL ?? "http://localhost:8790"
-			}
+			collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL ?? "/"}
 			apiKey={import.meta.env.VITE_OBS_INGEST_KEY ?? ""}
-			debug={true}
+			debug={
+				import.meta.env.DEV &&
+				import.meta.env.VITE_OBS_ANALYTICS_DEBUG === "true"
+			}
 			trackPageViews={true}
 			captureErrors={true}
 			trackOutboundLinks={true}

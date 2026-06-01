@@ -8,6 +8,8 @@ import {
 	toParsedSpan,
 } from "./helpers";
 
+const MAX_TRACE_ID_BINDINGS = 99;
+
 export interface TraceCandidateOptions {
 	projectId: string;
 	cutoff: string;
@@ -68,15 +70,20 @@ export async function fetchSpansForTraceIds(
 ): Promise<ParsedSpan[]> {
 	if (traceIds.length === 0) return [];
 
-	const result = await db
-		.prepare(`
+	const rows: Record<string, unknown>[] = [];
+	for (let i = 0; i < traceIds.length; i += MAX_TRACE_ID_BINDINGS) {
+		const chunk = traceIds.slice(i, i + MAX_TRACE_ID_BINDINGS);
+		const result = await db
+			.prepare(`
 				SELECT ${spanSelectColumns}
 				FROM telemetry_spans
-				WHERE project_id = ? AND trace_id IN (${placeholders(traceIds.length)})
+				WHERE project_id = ? AND trace_id IN (${placeholders(chunk.length)})
 				ORDER BY received_at DESC, start_time ASC, span_id ASC
 			`)
-		.bind(projectId, ...traceIds)
-		.all<Record<string, unknown>>();
+			.bind(projectId, ...chunk)
+			.all<Record<string, unknown>>();
+		rows.push(...(result.results ?? []));
+	}
 
-	return (result.results ?? []).map(rowToSpan).map(toParsedSpan);
+	return rows.map(rowToSpan).map(toParsedSpan);
 }
