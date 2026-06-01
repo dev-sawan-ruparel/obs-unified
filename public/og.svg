@@ -32,18 +32,16 @@
     x="96" y="328"
     fill="#1A1C1C"
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
-    font-size="92"
+    font-size="76"
     font-weight="300"
-    letter-spacing="-2.2"
-  >Every signal,</text>
+  >Built for agentic</text>
   <text
     x="96" y="424"
     fill="#006B18"
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
-    font-size="92"
+    font-size="76"
     font-weight="300"
-    letter-spacing="-2.2"
-  >two clicks away.</text>
+  >debugging.</text>
 
   <text
     x="96" y="478"
@@ -51,7 +49,7 @@
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
     font-size="22"
     font-weight="400"
-  >Traces · Logs · AI calls · Replay · Usage · Alerts · Profiles</text>
+  >One telemetry graph for traces, logs, replay, AI cost, MCP, and CPU.</text>
 
   <rect x="40" y="540" width="1120" height="50" fill="#F3F3F3"/>
   <text
