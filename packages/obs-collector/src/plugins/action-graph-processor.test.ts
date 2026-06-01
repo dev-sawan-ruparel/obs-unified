@@ -339,4 +339,100 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			),
 		).toBe(false);
 	});
+
+	it("persists agent run cost and latency rollups from child LLM and tool actions", async () => {
+		const baseSpan = {
+			projectId: "proj-123",
+			parentSpanId: null,
+			traceId: "trace-rollup",
+			traceState: null,
+			serviceName: "test-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:05.000Z",
+			expiresAt: "2026-05-23T00:00:05.000Z",
+			sessionId: null,
+			interactionId: null,
+		} satisfies Partial<StoredSpan>;
+
+		const spans: StoredSpan[] = [
+			{
+				...baseSpan,
+				spanId: "span-run",
+				spanName: "agent-run",
+				startTime: "2026-05-22T00:00:00.000Z",
+				endTime: "2026-05-22T00:00:01.000Z",
+				durationMs: 1000,
+				attributesJson: JSON.stringify({
+					"obs.action.id": "run-rollup",
+					"obs.action.kind": "agent.run",
+					"obs.agent_run.agent_id": "agent-rollup",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-llm",
+				spanName: "classify",
+				startTime: "2026-05-22T00:00:01.000Z",
+				endTime: "2026-05-22T00:00:03.000Z",
+				durationMs: 2000,
+				attributesJson: JSON.stringify({
+					"obs.action.id": "action-llm",
+					"obs.action.root_id": "run-rollup",
+					"obs.action.kind": "llm.call",
+					"obs.agent_run.id": "run-rollup",
+					"llm.cost.total_usd": 0.015,
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-tool",
+				spanName: "mutate",
+				startTime: "2026-05-22T00:00:03.000Z",
+				endTime: "2026-05-22T00:00:05.500Z",
+				durationMs: 2500,
+				attributesJson: JSON.stringify({
+					"obs.action.id": "action-tool",
+					"obs.action.root_id": "run-rollup",
+					"obs.action.kind": "tool.call",
+					"obs.agent_run.id": "run-rollup",
+					"obs.tool_call.tool_name": "db.update_invoice",
+					"gen_ai.usage.cost_usd": 0.02,
+				}),
+			},
+		] as StoredSpan[];
+
+		const processors: SpanProcessorPlugin[] = [];
+		actionGraphProcessorPlugin.register(
+			{} as Parameters<typeof actionGraphProcessorPlugin.register>[0],
+			{
+				addSpanProcessor(p: SpanProcessorPlugin) {
+					processors.push(p);
+				},
+			} as unknown as CollectorRuntime,
+		);
+		const processFn = processors[0]?.process;
+		if (!processFn) throw new Error("span processor was not registered");
+		await processFn(spans, context);
+
+		const runInsert = db.callsMatching("INSERT INTO agent_runs")[0];
+		expect(runInsert.binds[10]).toBe(0.035);
+		expect(runInsert.binds[11]).toBe(5500);
+
+		const actionInserts = db.callsMatching("INSERT INTO actions");
+		expect(actionInserts.map((insert) => insert.binds[23])).toEqual([
+			null,
+			0.015,
+			0.02,
+		]);
+	});
 });

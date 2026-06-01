@@ -31,49 +31,91 @@ interface ToolReliabilityData {
 	timestamp: string;
 }
 
-// Robust mock fallback data for high-fidelity rendering
-const MOCK_RELIABILITY_DATA: ToolReliabilityData = {
-	summary: {
-		totalCalls: 1425,
-		p50LatencyMs: 340,
-		p95LatencyMs: 1250,
-		errorRate: 0.032, // 3.2%
-		sideEffectCount: 114,
-		timeoutCount: 22,
-		retryCount: 45,
-		malformedArgsCount: 8,
-	},
-	topAgents: [
-		{
-			agentName: "Billing Operations Assistant",
-			invocations: 620,
-			errorRate: 0.045,
-			avgLatencyMs: 410,
-			sideEffects: 82,
+interface ToolReliabilityAggregateResponse {
+	tools: Array<{
+		toolName: string;
+		callCount: number;
+		p50LatencyMs: number | null;
+		p95LatencyMs: number | null;
+		errorRate: number;
+		timeoutCount: number;
+		retryCount: number;
+		malformedArgumentCount: number;
+		sideEffectCount: number;
+		topCausingAgents: Array<{
+			id: string;
+			label: string | null;
+			count: number;
+		}>;
+	}>;
+	generatedAt: string;
+}
+
+const fromAggregateResponse = (
+	response: ToolReliabilityAggregateResponse,
+): ToolReliabilityData => {
+	const totalCalls = response.tools.reduce(
+		(sum, tool) => sum + tool.callCount,
+		0,
+	);
+	const weighted = (
+		value: (tool: ToolReliabilityAggregateResponse["tools"][number]) => number,
+	) =>
+		totalCalls === 0
+			? 0
+			: response.tools.reduce(
+					(sum, tool) => sum + value(tool) * tool.callCount,
+					0,
+				) / totalCalls;
+	const agents = new Map<string, ToolAgentBreakdown>();
+	for (const tool of response.tools) {
+		for (const agent of tool.topCausingAgents) {
+			const key = agent.label ?? agent.id;
+			const current = agents.get(key) ?? {
+				agentName: key,
+				invocations: 0,
+				errorRate: 0,
+				avgLatencyMs: 0,
+				sideEffects: 0,
+			};
+			current.invocations += agent.count;
+			current.errorRate = Math.max(current.errorRate, tool.errorRate);
+			current.avgLatencyMs = Math.max(
+				current.avgLatencyMs,
+				tool.p50LatencyMs ?? 0,
+			);
+			current.sideEffects += tool.sideEffectCount;
+			agents.set(key, current);
+		}
+	}
+	return {
+		summary: {
+			totalCalls,
+			p50LatencyMs: Math.round(weighted((tool) => tool.p50LatencyMs ?? 0)),
+			p95LatencyMs: Math.round(weighted((tool) => tool.p95LatencyMs ?? 0)),
+			errorRate: weighted((tool) => tool.errorRate),
+			sideEffectCount: response.tools.reduce(
+				(sum, tool) => sum + tool.sideEffectCount,
+				0,
+			),
+			timeoutCount: response.tools.reduce(
+				(sum, tool) => sum + tool.timeoutCount,
+				0,
+			),
+			retryCount: response.tools.reduce(
+				(sum, tool) => sum + tool.retryCount,
+				0,
+			),
+			malformedArgsCount: response.tools.reduce(
+				(sum, tool) => sum + tool.malformedArgumentCount,
+				0,
+			),
 		},
-		{
-			agentName: "Support Triage Agent",
-			invocations: 450,
-			errorRate: 0.012,
-			avgLatencyMs: 180,
-			sideEffects: 0,
-		},
-		{
-			agentName: "Database Sync Daemon",
-			invocations: 250,
-			errorRate: 0.052,
-			avgLatencyMs: 680,
-			sideEffects: 32,
-		},
-		{
-			agentName: "Notification Router",
-			invocations: 105,
-			errorRate: 0.0,
-			avgLatencyMs: 95,
-			sideEffects: 0,
-		},
-	],
-	timestamp: new Date().toISOString(),
+		topAgents: [...agents.values()]
+			.sort((a, b) => b.invocations - a.invocations)
+			.slice(0, 10),
+		timestamp: response.generatedAt,
+	};
 };
 
 export function ToolReliabilityDashboard() {
@@ -87,8 +129,10 @@ export function ToolReliabilityDashboard() {
 		let active = true;
 		async function fetchReliability() {
 			try {
-				const fetched = await api<ToolReliabilityData>(
-					"/connected/tool_reliability",
+				const fetched = fromAggregateResponse(
+					await api<ToolReliabilityAggregateResponse>(
+						"/actions/aggregates/tool-reliability",
+					),
 				);
 				if (active) {
 					if (!fetched || fetched.summary.totalCalls === 0) {
@@ -101,12 +145,10 @@ export function ToolReliabilityDashboard() {
 					setError(null);
 				}
 			} catch (_err) {
-				// Treat backend API as potentially not ready/not implemented.
-				// Gracefully fallback to high-fidelity mock data so the dashboard is immediately functional.
 				if (active) {
-					setData(MOCK_RELIABILITY_DATA);
-					setShowEmptyState(false);
-					setError(null);
+					setData(null);
+					setShowEmptyState(true);
+					setError("Failed to load tool reliability aggregates.");
 				}
 			} finally {
 				if (active) setLoading(false);

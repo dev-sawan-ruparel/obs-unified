@@ -30,76 +30,13 @@ interface AutonomousReviewData {
 	timestamp: string;
 }
 
-// Fallback high-fidelity mock data for reviews
-const MOCK_REVIEW_DATA: AutonomousReviewData = {
-	rows: [
-		{
-			id: "tc_refund_01",
-			toolName: "stripe.charge_refund",
-			actionId: "act_refund_921",
-			actionName: "Refund Customer Charge",
-			agentRunId: "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
-			agentName: "Billing Operations Assistant",
-			agentVersion: "v3.1.2",
-			autonomyLevel: "autonomous_write",
-			sideEffect: true,
-			approvalState: "pending",
-			status: "ok",
-			errorSnippet: null,
-			traceId: "8cf92f3577b34da6a3ce929d0e0e4739",
-			occurredAt: new Date(Date.now() - 300000).toISOString(),
-		},
-		{
-			id: "tc_db_update_02",
-			toolName: "db.invoice_update",
-			actionId: "act_invoice_502",
-			actionName: "Mutate Invoice Address Record",
-			agentRunId: "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
-			agentName: "Billing Operations Assistant",
-			agentVersion: "v3.1.2",
-			autonomyLevel: "autonomous_write",
-			sideEffect: true,
-			approvalState: "rejected",
-			status: "error",
-			errorSnippet:
-				"tenant guardrail policy violation: unauthorized address change requested",
-			traceId: "9df92f3577b34da6a3ce929d0e0e4741",
-			occurredAt: new Date(Date.now() - 600000).toISOString(),
-		},
-		{
-			id: "tc_slack_03",
-			toolName: "slack.post_message",
-			actionId: "act_notify_38",
-			actionName: "Post Alerts Notification",
-			agentRunId: "run_alert_sync_102",
-			agentName: "Notification Router",
-			agentVersion: "v1.1.0",
-			autonomyLevel: "autonomous_write",
-			sideEffect: true,
-			approvalState: "approved",
-			status: "ok",
-			errorSnippet: null,
-			traceId: "acf92f3577b34da6a3ce929d0e0e4743",
-			occurredAt: new Date(Date.now() - 1200000).toISOString(),
-		},
-		{
-			id: "tc_refund_04",
-			toolName: "stripe.charge_refund",
-			actionId: "act_refund_940",
-			actionName: "Refund Overcharged Subscription",
-			agentRunId: "run_sub_ops_55",
-			agentName: "Billing Operations Assistant",
-			agentVersion: "v3.1.2",
-			autonomyLevel: "autonomous_write",
-			sideEffect: true,
-			approvalState: "bypassed",
-			status: "ok",
-			errorSnippet: null,
-			traceId: "bcf92f3577b34da6a3ce929d0e0e4745",
-			occurredAt: new Date(Date.now() - 3600000).toISOString(),
-		},
-	],
-	timestamp: new Date().toISOString(),
+const normalizeApprovalState = (
+	state: string,
+): AutonomousWriteRow["approvalState"] => {
+	if (state === "human_approved" || state === "approved") return "approved";
+	if (state === "blocked" || state === "rejected") return "rejected";
+	if (state === "bypassed") return "bypassed";
+	return "pending";
 };
 
 interface Props {
@@ -125,15 +62,20 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 		async function fetchReviews() {
 			try {
 				const fetched = await api<AutonomousReviewData>(
-					"/connected/autonomous_review",
+					"/actions/aggregates/autonomous-review",
 				);
 				if (active && fetched) {
-					setData(fetched);
+					setData({
+						...fetched,
+						rows: fetched.rows.map((row) => ({
+							...row,
+							approvalState: normalizeApprovalState(row.approvalState),
+						})),
+					});
 				}
 			} catch (_err) {
-				// Backend not fully ready yet, fallback to local high-fidelity mock data.
 				if (active) {
-					setData(MOCK_REVIEW_DATA);
+					setData({ rows: [], timestamp: new Date().toISOString() });
 				}
 			} finally {
 				if (active) setLoading(false);

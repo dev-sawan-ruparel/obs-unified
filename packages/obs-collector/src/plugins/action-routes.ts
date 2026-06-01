@@ -4,8 +4,10 @@ import {
 } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import {
+	getAutonomousReviewAggregates,
 	getCostAttributionAggregates,
 	getToolReliabilityAggregates,
+	getVersionDiffAggregates,
 } from "../lib/action-aggregates";
 import { IdentityIndex } from "../lib/identity-index";
 import { sqlDbFor } from "../lib/sql-db";
@@ -61,6 +63,33 @@ export const actionRoutesPlugin: CollectorPlugin = {
 				projectId,
 				hours,
 				limit,
+			);
+			return c.json(result);
+		});
+
+		app.get("/internal/actions/aggregates/autonomous-review", async (c) => {
+			const projectId = getProjectId(c);
+			const hours = parseWindowHours(
+				c.req.query("hours"),
+				c.env.RETENTION_HOURS,
+			);
+			const limit = parsePositiveInt(c.req.query("limit"), 50, 1, 200);
+			const result = await getAutonomousReviewAggregates(
+				sqlDbFor(c.env),
+				projectId,
+				hours,
+				limit,
+			);
+			return c.json(result);
+		});
+
+		app.get("/internal/actions/aggregates/version-diff", async (c) => {
+			const projectId = getProjectId(c);
+			const result = await getVersionDiffAggregates(
+				sqlDbFor(c.env),
+				projectId,
+				c.req.query("baseline"),
+				c.req.query("target"),
 			);
 			return c.json(result);
 		});

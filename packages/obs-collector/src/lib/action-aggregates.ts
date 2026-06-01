@@ -57,6 +57,46 @@ export interface CostAttributionResult {
 	generatedAt: string;
 }
 
+export interface AutonomousReviewRow {
+	id: string;
+	toolName: string;
+	actionId: string;
+	actionName: string;
+	agentRunId: string;
+	agentName: string;
+	agentVersion: string;
+	autonomyLevel: string;
+	sideEffect: boolean;
+	approvalState: string;
+	status: "ok" | "error";
+	errorSnippet: string | null;
+	traceId: string;
+	occurredAt: string;
+}
+
+export interface AutonomousReviewResult {
+	projectId: string;
+	windowHours: number;
+	rows: AutonomousReviewRow[];
+	timestamp: string;
+}
+
+export interface VersionDiffMetric {
+	label: string;
+	baselineValue: string | number;
+	targetValue: string | number;
+	deltaValue: string | number | null;
+	deltaDirection: "positive" | "negative" | "neutral";
+}
+
+export interface VersionComparisonResult {
+	projectId: string;
+	baselineVersion: string;
+	targetVersion: string;
+	metrics: VersionDiffMetric[];
+	timestamp: string;
+}
+
 interface ToolAggregateRow {
 	tool_name: string;
 	call_count: number;
@@ -82,6 +122,36 @@ interface CostRow {
 	action_count: number | null;
 	agent_run_count: number | null;
 	tool_call_count: number | null;
+}
+
+interface AutonomousReviewSqlRow {
+	id: string;
+	tool_name: string;
+	action_id: string;
+	action_name: string | null;
+	agent_run_id: string | null;
+	agent_name: string | null;
+	agent_version: string | null;
+	autonomy_level: string | null;
+	side_effect: number | null;
+	approval_state: string | null;
+	status: string | null;
+	error_snippet: string | null;
+	trace_id: string | null;
+	occurred_at: string | null;
+}
+
+interface VersionStatsRow {
+	version: string;
+	run_count: number | null;
+	success_count: number | null;
+	avg_duration_ms: number | null;
+	avg_cost_usd: number | null;
+	eval_count: number | null;
+	passed_eval_count: number | null;
+	avg_eval_score: number | null;
+	tool_count: number | null;
+	tool_error_count: number | null;
 }
 
 const toNumber = (value: unknown): number => {
@@ -445,5 +515,213 @@ export const getCostAttributionAggregates = async (
 		byTenant,
 		byWorkflow,
 		generatedAt: new Date().toISOString(),
+	};
+};
+
+export const getAutonomousReviewAggregates = async (
+	db: SqlDb,
+	projectId: string,
+	windowHours: number,
+	limit: number,
+): Promise<AutonomousReviewResult> => {
+	const dialect = dialectFor(db);
+	const since = dialect.sinceHours("?");
+	const rows = await db
+		.prepare(`
+			SELECT
+				t.id,
+				t.tool_name,
+				t.action_id,
+				a.name AS action_name,
+				COALESCE(a.agent_run_id, a.root_action_id) AS agent_run_id,
+				ar.agent_name,
+				ar.agent_version,
+				COALESCE(ar.autonomy_level, 'autonomous_write') AS autonomy_level,
+				t.side_effect,
+				COALESCE(t.approval_state, 'suggested') AS approval_state,
+				COALESCE(a.status, 'ok') AS status,
+				t.error_type AS error_snippet,
+				COALESCE(a.trace_id, root.trace_id) AS trace_id,
+				COALESCE(a.started_at, root.started_at) AS occurred_at
+			FROM tool_calls t
+			LEFT JOIN actions a ON a.project_id = t.project_id AND a.id = t.action_id
+			LEFT JOIN actions root ON root.project_id = t.project_id AND root.id = a.root_action_id
+			LEFT JOIN agent_runs ar ON ar.project_id = t.project_id AND ar.id = COALESCE(a.agent_run_id, a.root_action_id)
+			WHERE t.project_id = ?
+				AND t.side_effect <> 0
+				AND COALESCE(ar.autonomy_level, '') = 'autonomous_write'
+				AND (a.started_at IS NULL OR a.started_at >= ${since})
+			ORDER BY occurred_at DESC
+			LIMIT ?
+		`)
+		.bind(projectId, windowHours, limit)
+		.all<AutonomousReviewSqlRow>();
+
+	return {
+		projectId,
+		windowHours,
+		rows: rows.results.map((row) => ({
+			id: row.id,
+			toolName: row.tool_name,
+			actionId: row.action_id,
+			actionName: row.action_name ?? row.tool_name,
+			agentRunId: row.agent_run_id ?? "",
+			agentName: row.agent_name ?? "Unknown agent",
+			agentVersion: row.agent_version ?? "unknown",
+			autonomyLevel: row.autonomy_level ?? "autonomous_write",
+			sideEffect: row.side_effect !== 0,
+			approvalState: row.approval_state ?? "suggested",
+			status: row.status === "error" ? "error" : "ok",
+			errorSnippet: row.error_snippet,
+			traceId: row.trace_id ?? "",
+			occurredAt: row.occurred_at ?? new Date(0).toISOString(),
+		})),
+		timestamp: new Date().toISOString(),
+	};
+};
+
+const formatPercent = (value: number): string => `${(value * 100).toFixed(1)}%`;
+const directionForHigherBetter = (
+	baseline: number,
+	target: number,
+): "positive" | "negative" | "neutral" =>
+	target === baseline ? "neutral" : target > baseline ? "positive" : "negative";
+const directionForLowerBetter = (
+	baseline: number,
+	target: number,
+): "positive" | "negative" | "neutral" =>
+	target === baseline ? "neutral" : target < baseline ? "positive" : "negative";
+
+export const getVersionDiffAggregates = async (
+	db: SqlDb,
+	projectId: string,
+	baselineVersion?: string,
+	targetVersion?: string,
+): Promise<VersionComparisonResult> => {
+	const rows = await db
+		.prepare(`
+			SELECT
+				ar.agent_version AS version,
+				COUNT(DISTINCT ar.id) AS run_count,
+				SUM(CASE WHEN ar.status = 'success' THEN 1 ELSE 0 END) AS success_count,
+				AVG(ar.total_duration_ms) AS avg_duration_ms,
+				AVG(ar.total_cost_usd) AS avg_cost_usd,
+				COUNT(er.id) AS eval_count,
+				SUM(CASE WHEN er.passed <> 0 THEN 1 ELSE 0 END) AS passed_eval_count,
+				AVG(er.score) AS avg_eval_score,
+				COUNT(t.id) AS tool_count,
+				SUM(CASE WHEN t.error_type IS NOT NULL AND t.error_type <> '' THEN 1 ELSE 0 END) AS tool_error_count
+			FROM agent_runs ar
+			LEFT JOIN actions a ON a.project_id = ar.project_id AND a.agent_run_id = ar.id
+			LEFT JOIN eval_results er ON er.project_id = ar.project_id AND er.action_id = a.id
+			LEFT JOIN tool_calls t ON t.project_id = ar.project_id AND t.action_id = a.id
+			WHERE ar.project_id = ?
+			GROUP BY ar.agent_version
+			ORDER BY MAX(COALESCE(a.started_at, '')) DESC, ar.agent_version DESC
+			LIMIT 20
+		`)
+		.bind(projectId)
+		.all<VersionStatsRow>();
+
+	const versions = rows.results.filter((row) => row.version);
+	const baseline =
+		versions.find((row) => row.version === baselineVersion) ??
+		versions[1] ??
+		versions[0];
+	const target =
+		versions.find((row) => row.version === targetVersion) ??
+		versions[0] ??
+		baseline;
+
+	const metric = (
+		label: string,
+		baselineValue: number,
+		targetValue: number,
+		format: (value: number) => string | number,
+		direction: "higher" | "lower",
+	): VersionDiffMetric => ({
+		label,
+		baselineValue: format(baselineValue),
+		targetValue: format(targetValue),
+		deltaValue:
+			typeof format(targetValue - baselineValue) === "number"
+				? format(targetValue - baselineValue)
+				: `${targetValue - baselineValue >= 0 ? "+" : ""}${format(targetValue - baselineValue)}`,
+		deltaDirection:
+			direction === "higher"
+				? directionForHigherBetter(baselineValue, targetValue)
+				: directionForLowerBetter(baselineValue, targetValue),
+	});
+
+	const empty = {
+		version: "unknown",
+		run_count: 0,
+		success_count: 0,
+		avg_duration_ms: 0,
+		avg_cost_usd: 0,
+		eval_count: 0,
+		passed_eval_count: 0,
+		avg_eval_score: 0,
+		tool_count: 0,
+		tool_error_count: 0,
+	} satisfies VersionStatsRow;
+	const b = baseline ?? empty;
+	const t = target ?? empty;
+	const bRuns = toNumber(b.run_count);
+	const tRuns = toNumber(t.run_count);
+	const bTools = toNumber(b.tool_count);
+	const tTools = toNumber(t.tool_count);
+	const bEvals = toNumber(b.eval_count);
+	const tEvals = toNumber(t.eval_count);
+
+	return {
+		projectId,
+		baselineVersion: b.version,
+		targetVersion: t.version,
+		metrics: [
+			metric(
+				"Success Rate",
+				bRuns > 0 ? toNumber(b.success_count) / bRuns : 0,
+				tRuns > 0 ? toNumber(t.success_count) / tRuns : 0,
+				formatPercent,
+				"higher",
+			),
+			metric(
+				"Evaluation Score",
+				toNumber(b.avg_eval_score),
+				toNumber(t.avg_eval_score),
+				(value) => value.toFixed(2),
+				"higher",
+			),
+			metric(
+				"Evaluation Pass Rate",
+				bEvals > 0 ? toNumber(b.passed_eval_count) / bEvals : 0,
+				tEvals > 0 ? toNumber(t.passed_eval_count) / tEvals : 0,
+				formatPercent,
+				"higher",
+			),
+			metric(
+				"Average Run Latency",
+				toNumber(b.avg_duration_ms),
+				toNumber(t.avg_duration_ms),
+				(value) => `${Math.round(value)}ms`,
+				"lower",
+			),
+			metric(
+				"Average Run Cost",
+				toNumber(b.avg_cost_usd),
+				toNumber(t.avg_cost_usd),
+				(value) => `$${value.toFixed(4)}`,
+				"lower",
+			),
+			metric(
+				"Tool Error Rate",
+				bTools > 0 ? toNumber(b.tool_error_count) / bTools : 0,
+				tTools > 0 ? toNumber(t.tool_error_count) / tTools : 0,
+				formatPercent,
+				"lower",
+			),
+		],
+		timestamp: new Date().toISOString(),
 	};
 };

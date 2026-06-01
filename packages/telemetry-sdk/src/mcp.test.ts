@@ -5,7 +5,11 @@ import {
 	step,
 	withAction,
 } from "./agent";
-import { extractMcpContext, injectMcpContext } from "./mcp";
+import {
+	extractMcpContext,
+	injectMcpContext,
+	injectMcpNotificationContext,
+} from "./mcp";
 import { createRequestSpan, runWithSpan } from "./span";
 
 describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation", () => {
@@ -42,6 +46,10 @@ describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation"
 							actionCtx?.rootActionId,
 						);
 						expect(params._meta.obs.action_id).toBe(actionCtx?.actionId);
+						expect(params._meta["obs.action.root_id"]).toBe(
+							actionCtx?.rootActionId,
+						);
+						expect(params._meta["obs.action.id"]).toBe(actionCtx?.actionId);
 					});
 				},
 			);
@@ -67,6 +75,7 @@ describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation"
 			"4bf92f3577b34da6a3ce929d0e0e4736",
 		);
 		expect(context?.traceContext?.parentSpanId).toBe("00f067aa0ba902b7");
+		expect(context?.tracestate).toBe("obs=high");
 
 		expect(context?.actionContext).toBeDefined();
 		expect(context?.actionContext?.rootActionId).toBe(
@@ -76,6 +85,49 @@ describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation"
 		expect(context?.actionContext?.causedByActionId).toBe(
 			"01J3Y4Z5A6B7C8D9E0F1G2H3K5",
 		);
+	});
+
+	it("extracts flat action keys and baggage from MCP JSON-RPC meta", () => {
+		const context = extractMcpContext({
+			_meta: {
+				traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+				tracestate: "vendor=value",
+				baggage: "tenant=acme",
+				"obs.action.root_id": "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+				"obs.action.id": "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+			},
+		});
+
+		expect(context?.actionContext?.rootActionId).toBe(
+			"01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+		);
+		expect(context?.actionContext?.actionId).toBe("01J3Y4Z5A6B7C8D9E0F1G2H3K5");
+		expect(context?.tracestate).toBe("vendor=value");
+		expect(context?.baggage).toBe("tenant=acme");
+	});
+
+	it("injects the same context shape for MCP notifications", async () => {
+		const requestSpan = createRequestSpan("mcp-client-service", "notify");
+
+		await runWithSpan(requestSpan, async () => {
+			await startAgentRun(
+				{
+					agentId: "mcp-client-agent",
+					agentName: "MCP Orchestrator",
+					goal: "Send MCP notification",
+				},
+				async (run) => {
+					await run.step({ name: "notify-progress" }, async () => {
+						// biome-ignore lint/suspicious/noExplicitAny: standard JSON-RPC params
+						const params: any = { level: "info" };
+						injectMcpNotificationContext(params);
+						expect(params._meta.traceparent).toContain(requestSpan.traceId);
+						expect(params._meta["obs.action.root_id"]).toBeDefined();
+						expect(params._meta["obs.action.id"]).toBeDefined();
+					});
+				},
+			);
+		});
 	});
 
 	it("correctly restores extracted context and registers causal offspring", async () => {

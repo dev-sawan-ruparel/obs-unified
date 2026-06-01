@@ -16,27 +16,119 @@ interface ConnectedManifest {
 	rawManifest?: EntityManifestExtended;
 }
 
+interface AgentRunResponse {
+	agentRun: { id: string };
+	manifest: EntityManifestExtended;
+}
+
+interface ProfileMatch {
+	id: string;
+	serviceName: string | null;
+	profileType: string;
+	durationMs: number;
+}
+
 export function AgentRunDashboard({
 	agentRunId,
 	onNavigate,
 }: AgentRunDashboardProps) {
 	const api = useApi();
 	const [manifest, setManifest] = useState<ConnectedManifest | null>(null);
+	const [profiles, setProfiles] = useState<ProfileMatch[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		setLoading(true);
 		setError(null);
-		api<ConnectedManifest>(
-			`/connected/agent_run/${encodeURIComponent(agentRunId)}`,
-		)
-			.then((data) => setManifest(data))
+		api<AgentRunResponse>(`/agent-runs/${encodeURIComponent(agentRunId)}`)
+			.then((data) =>
+				setManifest({
+					entity: {
+						kind: "agent_run",
+						id: data.agentRun.id,
+						projectId: data.manifest.agentRuns[0]?.projectId ?? "",
+					},
+					rawManifest: data.manifest,
+				}),
+			)
 			.catch((err) =>
 				setError(err instanceof Error ? err.message : String(err)),
 			)
 			.finally(() => setLoading(false));
 	}, [api, agentRunId]);
+
+	const run = manifest?.rawManifest?.agentRuns?.find(
+		(r) => r.id === agentRunId,
+	);
+	const rootAction = manifest?.rawManifest?.actions?.find(
+		(a) => a.id === agentRunId,
+	);
+	const totalCostUsd = run?.totalCostUsd ?? null;
+	const totalDurationMs = run?.totalDurationMs ?? null;
+	const evalsForRun =
+		manifest?.rawManifest?.evalResults?.filter(
+			(e) => e.actionId === agentRunId,
+		) ?? [];
+	const failedEval = evalsForRun.find((e) => !e.passed);
+	const evalStatus =
+		evalsForRun.length === 0 ? null : failedEval ? "failed" : "passed";
+
+	const autonomyBadgeColor: Record<string, string> = {
+		read_only: "border-sys-outline bg-sys-outline/10 text-sys-on-surface-muted",
+		suggested_action: "border-sys-accent bg-sys-accent/10 text-sys-accent",
+		human_approved_write:
+			"border-sys-primary bg-sys-primary/10 text-sys-primary",
+		autonomous_write:
+			"border-sys-warning bg-sys-warning/10 text-sys-warning font-bold animate-pulse",
+		blocked_by_policy:
+			"border-sys-error bg-sys-error/10 text-sys-error font-bold",
+	};
+
+	const actions = manifest?.rawManifest?.actions ?? [];
+	const toolCalls = manifest?.rawManifest?.toolCalls ?? [];
+	const retrievalEvents = manifest?.rawManifest?.retrievalEvents ?? [];
+	const evalResults = manifest?.rawManifest?.evalResults ?? [];
+	const artifacts = manifest?.rawManifest?.artifacts ?? [];
+	const guardrailActions = actions.filter(
+		(a) =>
+			a.actionKind?.toUpperCase() === "GUARDRAIL" ||
+			a.name?.toLowerCase().includes("guardrail"),
+	);
+	const guardrailEvals = evalResults.filter(
+		(e) =>
+			e.evaluatorName.toLowerCase().includes("guardrail") ||
+			e.rubricJson?.toLowerCase().includes("guardrail"),
+	);
+
+	const llmCallsCount = actions.filter(
+		(a) => a.actionKind?.toUpperCase() === "LLM",
+	).length;
+	const toolCallsCount = toolCalls.length;
+	const retrievalsCount = retrievalEvents.length;
+	const evalsCount = evalResults.length;
+	const artifactsCount = artifacts.length;
+
+	useEffect(() => {
+		const traceId = rootAction?.traceId;
+		if (!traceId) {
+			setProfiles([]);
+			return;
+		}
+		let active = true;
+		api<{ profiles: ProfileMatch[] }>(
+			`/profiles?trace_id=${encodeURIComponent(traceId)}`,
+		)
+			.then((data) => {
+				if (active) setProfiles(data.profiles ?? []);
+			})
+			.catch(() => {
+				if (active) setProfiles([]);
+			});
+		return () => {
+			active = false;
+		};
+	}, [api, rootAction?.traceId]);
 
 	if (loading) {
 		return (
@@ -66,45 +158,6 @@ export function AgentRunDashboard({
 			</div>
 		);
 	}
-
-	const run = manifest.rawManifest?.agentRuns?.find((r) => r.id === agentRunId);
-	const rootAction = manifest.rawManifest?.actions?.find(
-		(a) => a.id === agentRunId,
-	);
-	const totalCostUsd = run?.totalCostUsd ?? null;
-	const totalDurationMs = run?.totalDurationMs ?? null;
-	const evalsForRun =
-		manifest.rawManifest?.evalResults?.filter(
-			(e) => e.actionId === agentRunId,
-		) ?? [];
-	const failedEval = evalsForRun.find((e) => !e.passed);
-	const evalStatus =
-		evalsForRun.length === 0 ? null : failedEval ? "failed" : "passed";
-
-	const autonomyBadgeColor: Record<string, string> = {
-		read_only: "border-sys-outline bg-sys-outline/10 text-sys-on-surface-muted",
-		suggested_action: "border-sys-accent bg-sys-accent/10 text-sys-accent",
-		human_approved_write:
-			"border-sys-primary bg-sys-primary/10 text-sys-primary",
-		autonomous_write:
-			"border-sys-warning bg-sys-warning/10 text-sys-warning font-bold animate-pulse",
-		blocked_by_policy:
-			"border-sys-error bg-sys-error/10 text-sys-error font-bold",
-	};
-
-	const actions = manifest.rawManifest?.actions ?? [];
-	const toolCalls = manifest.rawManifest?.toolCalls ?? [];
-	const retrievalEvents = manifest.rawManifest?.retrievalEvents ?? [];
-	const evalResults = manifest.rawManifest?.evalResults ?? [];
-	const artifacts = manifest.rawManifest?.artifacts ?? [];
-
-	const llmCallsCount = actions.filter(
-		(a) => a.actionKind?.toUpperCase() === "LLM",
-	).length;
-	const toolCallsCount = toolCalls.length;
-	const retrievalsCount = retrievalEvents.length;
-	const evalsCount = evalResults.length;
-	const artifactsCount = artifacts.length;
 
 	return (
 		<div className="flex h-full bg-sys-bg">
@@ -399,6 +452,92 @@ export function AgentRunDashboard({
 									</>
 								)}
 							</dl>
+						</Card>
+
+						<Card className="p-3">
+							<SectionTitle title="Profiles & Guardrails" />
+							<div className="mt-2 flex flex-col gap-3 font-mono text-[0.75rem]">
+								<div>
+									<div className="mb-1 text-[0.625rem] font-bold uppercase opacity-60">
+										Profiles
+									</div>
+									{profiles.length > 0 ? (
+										<div className="flex flex-col gap-1">
+											{profiles.slice(0, 5).map((profile) => (
+												<button
+													key={profile.id}
+													type="button"
+													onClick={() =>
+														onNavigate?.(
+															`#/profiles/${profile.id}?trace_id=${encodeURIComponent(
+																rootAction?.traceId ?? "",
+															)}`,
+														)
+													}
+													className="text-left text-sys-primary hover:underline"
+												>
+													{profile.serviceName ?? "unknown"} ·{" "}
+													{profile.profileType} · {profile.durationMs}ms
+												</button>
+											))}
+										</div>
+									) : (
+										<div className="border border-dashed border-sys-outline/30 bg-sys-surface-low/30 p-2 opacity-70">
+											No linked runtime profiles for this run trace.
+										</div>
+									)}
+								</div>
+
+								<div>
+									<div className="mb-1 text-[0.625rem] font-bold uppercase opacity-60">
+										Guardrails
+									</div>
+									{guardrailActions.length > 0 || guardrailEvals.length > 0 ? (
+										<div className="flex flex-col gap-1">
+											{guardrailActions.map((action) => (
+												<div
+													key={action.id}
+													className="flex items-center justify-between gap-2 border border-sys-outline/20 bg-sys-surface-low/30 px-2 py-1"
+												>
+													<span className="truncate">{action.name}</span>
+													<span
+														className={
+															action.status === "error"
+																? "text-sys-error"
+																: "text-sys-primary"
+														}
+													>
+														{action.status}
+													</span>
+												</div>
+											))}
+											{guardrailEvals.map((result) => (
+												<div
+													key={result.id}
+													className="flex items-center justify-between gap-2 border border-sys-outline/20 bg-sys-surface-low/30 px-2 py-1"
+												>
+													<span className="truncate">
+														{result.evaluatorName}
+													</span>
+													<span
+														className={
+															result.passed
+																? "text-sys-primary"
+																: "text-sys-error"
+														}
+													>
+														{result.passed ? "passed" : "blocked"}
+													</span>
+												</div>
+											))}
+										</div>
+									) : (
+										<div className="border border-dashed border-sys-outline/30 bg-sys-surface-low/30 p-2 opacity-70">
+											No guardrail actions or evaluations recorded.
+										</div>
+									)}
+								</div>
+							</div>
 						</Card>
 					</div>
 

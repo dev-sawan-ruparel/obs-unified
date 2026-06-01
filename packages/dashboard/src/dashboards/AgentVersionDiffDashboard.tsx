@@ -18,71 +18,6 @@ interface VersionComparison {
 	timestamp: string;
 }
 
-// Fallback high-fidelity mock data for version comparisons
-const MOCK_COMPARISON_DATA: VersionComparison = {
-	baselineVersion: "v2.0.4",
-	targetVersion: "v3.1.2",
-	metrics: [
-		{
-			label: "Success Rate",
-			baselineValue: "92.5%",
-			targetValue: "96.8%",
-			deltaValue: "+4.3%",
-			deltaDirection: "positive",
-		},
-		{
-			label: "Evaluation Score",
-			baselineValue: "88.2/100",
-			targetValue: "94.5/100",
-			deltaValue: "+6.3",
-			deltaDirection: "positive",
-		},
-		{
-			label: "p50 Latency",
-			baselineValue: "480ms",
-			targetValue: "340ms",
-			deltaValue: "-140ms",
-			deltaDirection: "positive", // lower latency is positive!
-		},
-		{
-			label: "p95 Latency",
-			baselineValue: "1850ms",
-			targetValue: "1250ms",
-			deltaValue: "-600ms",
-			deltaDirection: "positive",
-		},
-		{
-			label: "Average Run Cost",
-			baselineValue: "$0.185",
-			targetValue: "$0.129",
-			deltaValue: "-$0.056",
-			deltaDirection: "positive", // lower cost is positive!
-		},
-		{
-			label: "Tool Error Rate",
-			baselineValue: "5.2%",
-			targetValue: "3.2%",
-			deltaValue: "-2.0%",
-			deltaDirection: "positive",
-		},
-		{
-			label: "Visible Failure Rate",
-			baselineValue: "1.8%",
-			targetValue: "0.4%",
-			deltaValue: "-1.4%",
-			deltaDirection: "positive",
-		},
-		{
-			label: "Downstream Errors",
-			baselineValue: "24",
-			targetValue: "8",
-			deltaValue: "-16",
-			deltaDirection: "positive",
-		},
-	],
-	timestamp: new Date().toISOString(),
-};
-
 export function AgentVersionDiffDashboard() {
 	const api = useApi();
 	const [data, setData] = useState<VersionComparison | null>(null);
@@ -95,14 +30,18 @@ export function AgentVersionDiffDashboard() {
 		let active = true;
 		async function fetchComparison() {
 			try {
-				const fetched = await api<VersionComparison>("/connected/version_diff");
+				const fetched = await api<VersionComparison>(
+					`/actions/aggregates/version-diff?baseline=${encodeURIComponent(
+						baseline,
+					)}&target=${encodeURIComponent(target)}`,
+				);
 				if (active && fetched) {
 					setData(fetched);
 				}
 			} catch (_err) {
-				// Backend API not fully ready, fallback to local high-fidelity mock data.
 				if (active) {
-					setData(MOCK_COMPARISON_DATA);
+					setData(null);
+					setShowEmptyState(true);
 				}
 			} finally {
 				if (active) setLoading(false);
@@ -113,7 +52,7 @@ export function AgentVersionDiffDashboard() {
 		return () => {
 			active = false;
 		};
-	}, [api]);
+	}, [api, baseline, target]);
 
 	if (loading) {
 		return (
@@ -135,15 +74,6 @@ export function AgentVersionDiffDashboard() {
 					<EmptyState
 						title="No Evaluation Comparison Records Found"
 						description="No evaluation-case test suites or side-by-side run comparisons are currently available for the selected prompt/agent versions."
-						action={
-							<button
-								type="button"
-								onClick={() => setShowEmptyState(false)}
-								className="mt-2 bg-sys-primary text-white font-semibold text-[0.8125rem] px-3 py-1.5 rounded hover:bg-sys-primary/95 transition-none"
-							>
-								Load Simulated Comparison Dataset
-							</button>
-						}
 					/>
 				</Card>
 			</div>

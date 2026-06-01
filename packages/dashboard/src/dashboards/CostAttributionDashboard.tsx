@@ -21,57 +21,63 @@ interface CostAttributionData {
 	timestamp: string;
 }
 
-// High-fidelity fallback cost mock data
-const MOCK_COST_DATA: CostAttributionData = {
-	summary: {
-		totalCostUsd: 184.25,
-		totalRuns: 1420,
-		avgCostPerRunUsd: 0.129,
-	},
-	breakdowns: {
-		agents: [
-			["Billing Operations Assistant", 88.42],
-			["Support Triage Agent", 45.18],
-			["Database Sync Daemon", 32.1],
-			["Notification Router", 18.55],
-		],
-		runs: [
-			["run_wrong_invoice_01", 12.45],
-			["run_address_update_92", 8.2],
-			["run_auth_check_102", 5.6],
-			["run_stripe_charge_44", 4.15],
-		],
-		models: [
-			["gpt-4o", 112.5],
-			["gpt-4o-mini", 35.8],
-			["claude-3-5-sonnet", 24.15],
-			["gemini-1.5-pro", 11.8],
-		],
-		providers: [
-			["openai", 148.3],
-			["anthropic", 24.15],
-			["google", 11.8],
-		],
-		promptVersions: [
-			["v3.1.2", 88.42],
-			["v2.0.4", 45.18],
-			["v1.0.0", 32.1],
-			["v1.1.0", 18.55],
-		],
-		tools: [
-			["db.invoice_update", 42.1],
-			["stripe.charge_refund", 32.4],
-			["slack.post_message", 12.05],
-			["sendgrid.send_email", 6.2],
-		],
-		users: [
-			["tenant_acme_corp", 74.2],
-			["tenant_globex_corp", 48.9],
-			["tenant_umbrella_corp", 32.15],
-			["tenant_hooli", 29.0],
-		],
-	},
-	timestamp: new Date().toISOString(),
+interface CostAttributionAggregateRow {
+	key: string | null;
+	label: string | null;
+	totalCostUsd: number;
+	agentRunCount: number;
+}
+
+interface CostAttributionAggregateResponse {
+	byAgent: CostAttributionAggregateRow[];
+	byRun: CostAttributionAggregateRow[];
+	byModel: CostAttributionAggregateRow[];
+	byProvider: CostAttributionAggregateRow[];
+	byPromptVersion: CostAttributionAggregateRow[];
+	byTool: CostAttributionAggregateRow[];
+	byUser: CostAttributionAggregateRow[];
+	byTenant: CostAttributionAggregateRow[];
+	byWorkflow: CostAttributionAggregateRow[];
+	generatedAt: string;
+}
+
+const asBarItems = (
+	rows: CostAttributionAggregateRow[],
+): Array<[string, number]> =>
+	rows.map((row) => [row.label ?? row.key ?? "unknown", row.totalCostUsd]);
+
+const fromAggregateResponse = (
+	response: CostAttributionAggregateResponse,
+): CostAttributionData => {
+	const totalCostUsd = response.byRun.reduce(
+		(sum, row) => sum + row.totalCostUsd,
+		0,
+	);
+	const totalRuns = response.byRun.reduce(
+		(sum, row) => sum + row.agentRunCount,
+		0,
+	);
+	return {
+		summary: {
+			totalCostUsd,
+			totalRuns,
+			avgCostPerRunUsd: totalRuns > 0 ? totalCostUsd / totalRuns : 0,
+		},
+		breakdowns: {
+			agents: asBarItems(response.byAgent),
+			runs: asBarItems(response.byRun),
+			models: asBarItems(response.byModel),
+			providers: asBarItems(response.byProvider),
+			promptVersions: asBarItems(response.byPromptVersion),
+			tools: asBarItems(response.byTool),
+			users: [
+				...asBarItems(response.byUser),
+				...asBarItems(response.byTenant),
+				...asBarItems(response.byWorkflow),
+			],
+		},
+		timestamp: response.generatedAt,
+	};
 };
 
 export function CostAttributionDashboard() {
@@ -84,8 +90,10 @@ export function CostAttributionDashboard() {
 		let active = true;
 		async function fetchCosts() {
 			try {
-				const fetched = await api<CostAttributionData>(
-					"/connected/cost_attribution",
+				const fetched = fromAggregateResponse(
+					await api<CostAttributionAggregateResponse>(
+						"/actions/aggregates/cost-attribution",
+					),
 				);
 				if (active) {
 					if (!fetched || fetched.summary.totalCostUsd === 0) {
@@ -97,10 +105,9 @@ export function CostAttributionDashboard() {
 					}
 				}
 			} catch (_err) {
-				// Backend not fully ready yet, fallback to local high-fidelity mock data.
 				if (active) {
-					setData(MOCK_COST_DATA);
-					setShowEmptyState(false);
+					setData(null);
+					setShowEmptyState(true);
 				}
 			} finally {
 				if (active) setLoading(false);
