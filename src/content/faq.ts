@@ -43,6 +43,6 @@ export const FAQS: QA[] = [
   },
   {
     q: "Is it free and open source?",
-    a: "Yes. obs-unified is MIT-licensed. You pay only for the infrastructure you run it on: Cloudflare Workers plus D1 and R2, or the Node collector with Postgres plus S3-compatible storage.",
+    a: "Yes. obs-unified is MIT-licensed. You pay only for the infrastructure you run it on. For production, use Cloudflare Workers with D1 and R2, or run the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage.",
   },
 ];
