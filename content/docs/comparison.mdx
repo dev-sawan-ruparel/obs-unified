@@ -5,8 +5,8 @@ description: Vendor comparison with citations to Datadog, Sentry, PostHog, Honey
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-<Callout type="info" title="Reviewed 2026-05-19 · Next review 2026-08-19">
-Every claim about a third-party product on this page is anchored to a public vendor page (URL + quoted phrase). Vendor pricing and feature scope change frequently; the [obsunified.com comparison table](https://obsunified.com#compare) on the landing page footnote-references the anchors in this document, so updating this page updates the linked footnotes.
+<Callout type="info" title="Reviewed 2026-05-31 · Next review 2026-08-31">
+Every claim about a third-party product on this page is anchored to a public vendor page (URL + quoted phrase). Vendor pricing and feature scope change frequently; the [obsunified.com comparison table](https://obsunified.com#compare) on the landing page footnote-references the anchors in this document, so updating this page updates the linked footnotes. This date is the single source of truth for when the table was last verified. We build obs-unified — see [How we arrived at this](#provenance) for how we keep an interested comparison honest, and [Corrections](#corrections) for what we've changed.
 </Callout>
 
 ## What this page is
@@ -35,13 +35,39 @@ We deliberately excluded **performance benchmarks** (ingest throughput, query la
 4. Negative claims ("vendor does not have X") are flagged when the evidence is absence-of-marketing-page rather than an explicit denial — see vendor sections for which negatives are inferential.
 5. Capability scoping is **non-judgmental**: a vendor scoring "—" on session replay isn't worse than one scoring "✓" — it just doesn't sell that capability.
 
+## How we arrived at this — provenance <a id="provenance" />
+
+We build obs-unified, so this comparison is inherently interested. Rather than ask you to trust it, we make it checkable:
+
+- **Every claim is cited and quoted.** Each cell on the [landing-page table](https://obsunified.com#compare) footnotes into a `src-*` anchor on this page, and each anchor carries the vendor's own URL plus a verbatim quote. If the quote no longer matches the source, the claim is wrong — by construction.
+- **The audit is reproducible.** The quarterly refresh is a published harness, not a private spreadsheet: a runbook and a workflow script live in [`obs-unified-docs/scripts/`](https://github.com/obs-unified/obs-unified-docs/tree/main/scripts) (`COMPARISON_AUDIT.md` + `comparison-audit.workflow.js`). It parses this page into structured claims, re-fetches every vendor source, and assigns each claim a verdict (TRUE / PARTIALLY TRUE / OUTDATED / FALSE / UNVERIFIABLE). obs-unified is MIT-licensed, so anyone can run it and dispute a cell.
+- **The method is AI-assisted and human-verified.** Claims are extracted and re-checked against live vendor pages by automated agents; a maintainer reviews the verdicts and signs off before anything on this page changes. We disclose this rather than imply a human hand-checked all ~90 cells unaided.
+- **Scoring is non-judgmental, and we score ourselves too.** A "—" is not a demerit — it means the vendor doesn't sell that capability. obs-unified is held to the same axes, including [where it falls short](#where-obs-unified-fits).
+
+### Right of reply <a id="right-of-reply" />
+
+If you work on one of these products — or you're a reader who spots a stale or wrong cell — please tell us and we'll fix it. Open a **[Comparison correction](https://github.com/obs-unified/obs-unified/issues/new?template=comparison_correction.yml)** issue; the template asks for the cell, the current vs. correct claim, and a vendor source URL. We aim to respond within five working days, and every accepted correction is logged below.
+
+### Corrections <a id="corrections" />
+
+A running log of changes to this comparison — including ones that were wrong in obs-unified's favor.
+
+| Date | Vendor · cell | Was | Now & why |
+|------|---------------|-----|-----------|
+| 2026-05-31 | Grafana · AI/LLM observability | "Assistant only" | **"AI Observability (preview)"** — Grafana shipped a dedicated AI-agent observability product (public preview, GrafanaCON 2026-04-21). Our negative was outdated. |
+| 2026-05-31 | Grafana · session replay | "—" (not offered) | **"Yes · Frontend Obs"** — Session Replay shipped inside Frontend Observability. Our negative was wrong. |
+| 2026-05-31 | Sentry · hosting | "OSS self-host" | **"Fair Source self-host"** — self-host is FSL-1.1, which is not OSI-approved open source. Wording tightened. |
+| 2026-05-31 | PostHog · hosting | "OSS self-host" | **"OSS self-host (hobby)"** — self-host is a deprecated hobby build with no paid features; wording no longer implies a first-class option. |
+
+Both Grafana edits moved a competitor *up* — we had understated it. We log these in the open because a comparison you can't watch us correct isn't one you should trust.
+
 ## TL;DR
 
 > The nine vendors split into three clusters:
 >
 > - **SaaS-only full-stack** (Datadog, New Relic) — comprehensive coverage, opaque cost model, no data-residency option beyond region choice.
 > - **Single-signal-led** (Sentry on errors, PostHog on product analytics, Honeycomb on traces, Uptrace on traces) — strong in one area, partial elsewhere, all now growing into adjacent signals (Sentry has logs + AI agents; PostHog has logs + LLM analytics; Honeycomb has agent observability EA).
-> - **OSS-first OTel-native** (Grafana, SigNoz, Uptrace, HyperDX) — self-host friendly, OTLP-native; HyperDX is the only one in this cluster that ships session replay. Product analytics is absent across all four.
+> - **OSS-first OTel-native** (Grafana, SigNoz, Uptrace, HyperDX) — self-host friendly, OTLP-native; HyperDX ships session replay, and Grafana Cloud added it via Frontend Observability in 2026. Product analytics is absent across all four.
 >
 > obs-unified sits in the **OSS-first** cluster, and is the only tool in the whole comparison that ships **session replay (rrweb), LLM observability, *and* product analytics** alongside traces/logs/metrics — i.e. the only tool here that doesn't force you to bolt on PostHog or LogRocket on the side.
 
@@ -149,6 +175,7 @@ SaaS (sentry.io) plus a Docker-Compose self-hosted distribution explicitly scope
 
 - Source: [getsentry/self-hosted](https://github.com/getsentry/self-hosted)
 - > *"Sentry, feature-complete and packaged up for low-volume deployments and proofs-of-concept."*
+- Note: Sentry's source is **Fair Source (FSL-1.1)**, not OSI-approved open source — it converts to Apache-2.0 only after two years, so the landing-table cell reads "Fair Source self-host," not "OSS." Source: [Sentry licensing](https://open.sentry.io/licensing/).
 
 ### Pricing model <a id="src-se-pricing" />
 
@@ -442,16 +469,19 @@ Free tier + Pro from $19/mo + usage-based per-unit charges: Metrics $6.50 per 1k
 
 ### AI / LLM observability <a id="src-gr-llm" />
 
-**Inferential negative.** Grafana Cloud ships **Grafana Assistant** ($20/active AI user) — but Assistant is a GenAI-powered helper for navigating Grafana itself, not an LLM observability product for tracing customers' LLM applications. We could not find a dedicated Grafana LLM-observability product page; mark as "Assistant only."
+Grafana shipped a dedicated **AI Observability** product for Grafana Cloud (public preview, announced at GrafanaCON on 2026-04-21) that traces LLM agents and conversations as first-class telemetry, with SDKs for Go/Python/TS/Java/.NET and LangChain/OpenAI integrations. This is distinct from **Grafana Assistant** ($20/active AI user), a GenAI helper for navigating Grafana itself.
 
-- Source (for Assistant pricing existence): [Grafana Cloud Pricing](https://grafana.com/pricing/)
+- Source: [AI Observability for agents in Grafana Cloud](https://grafana.com/blog/ai-observability-for-agents-in-grafana-cloud/)
+- > *"monitor, debug, and improve their AI agents"* — public preview, GrafanaCON 2026.
+- Corrected **2026-05-31** — previously scored "Assistant only" (inferential negative); see [Corrections](#corrections).
 
 ### Session replay <a id="src-gr-replay" />
 
-Not offered. **Faro** (Frontend Observability) captures Core Web Vitals, errors, logs, and client-side traces — but not session replay.
+Offered. Grafana Cloud **Frontend Observability** (Faro) now includes **Session Replay**, which recreates user sessions and correlates them to errors and backend requests.
 
-- Source: [Frontend Observability](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/)
-- > *"automatically captures real user performance metrics, errors, logs, and client-side traces."* (No mention of session replay.)
+- Source: [Frontend Observability — Sessions](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/sessions/)
+- > *"replay user sessions"* and correlate them to errors and backend requests.
+- Corrected **2026-05-31** — previously scored "—" (not offered); see [Corrections](#corrections).
 
 ### Product analytics <a id="src-gr-pa" />
 
@@ -731,7 +761,7 @@ obs-unified is the only tool in this comparison that is **simultaneously self-ho
 - **HyperDX** — closest in *graph shape*: OSS, OTel-native, auto-linked replay + logs + traces. Differs in backend (ClickHouse vs. SQLite/D1), in LLM coverage (HyperDX inherits via OpenLLMetry rather than shipping LLM eval first-party), and in product analytics (absent).
 - **PostHog** — same multi-signal breadth (now that they ship logs + LLM analytics), but Cloud-only for paid features; primary scaffolding is product-analytics-shaped, not trace-shaped.
 - **SigNoz** — same OSS + OTel-native posture, but no session replay, no product analytics, no LLM cost tracking with eval (LLM observability is trace-shaped only).
-- **Grafana Cloud** — same OSS-friendly multi-component posture, but no session replay, no product analytics, no LLM observability for customer apps.
+- **Grafana Cloud** — same OSS-friendly multi-component posture; as of 2026 it added session replay (Frontend Observability) and a dedicated AI Observability product (public preview), so the remaining gap versus obs-unified is product analytics and a single correlated store rather than per-data-source plumbing.
 
 The trade-offs working against obs-unified versus this set:
 
@@ -745,4 +775,6 @@ These are the right axes to weigh obs-unified on. If any of the above are blocke
 
 ## Refresh schedule
 
-Last full review: **2026-05-19** (this document). Next scheduled review: **2026-08-19** (quarterly). On each refresh, every cited URL is re-fetched and updated; any claim where the cited evidence has changed is updated or removed.
+The current review date lives in the callout at the top of this page — that is the **single source of truth** (the landing-page footnotes inherit it). Reviews are quarterly. On each refresh, every cited URL is re-fetched; any claim whose cited evidence has changed is updated, downgraded, or removed, and the change is logged under [Corrections](#corrections).
+
+The refresh is run with the reproducible audit harness in [`obs-unified-docs/scripts/`](https://github.com/obs-unified/obs-unified-docs/tree/main/scripts) (`COMPARISON_AUDIT.md` runbook + `comparison-audit.workflow.js`). Because obs-unified is open source, anyone can run it and dispute a cell.
