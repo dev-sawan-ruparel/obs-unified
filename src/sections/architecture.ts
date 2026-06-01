@@ -6,72 +6,77 @@ export function renderArchitecture(): string {
       <p class="eyebrow">Architecture</p>
       <h2 id="arch-title">One collector. Your telemetry graph.</h2>
       <p class="section-lead">
-        obs-unified keeps ingest, storage, and investigation in your infrastructure,
-        with separate write and read boundaries so no external telemetry vendor sits in the data path.
+        Instrumented services write telemetry into obs-unified. Humans and agents
+        read the same connected graph through a separate investigation boundary.
       </p>
     </header>
 
-    <figure class="arch-diagram" aria-label="obs-unified architecture diagram">
-      <div class="arch-lane">
-        <div class="arch-lane-label">Instrumented services</div>
-        <div class="arch-node arch-node-source">
-          <span class="arch-node-kicker">Runtime sources</span>
-          <strong>Frontend, backend, workers</strong>
-          <span>Browser interactions, server spans, structured logs, errors, and replay.</span>
+    <figure class="arch-map" aria-label="obs-unified product architecture map">
+      <div class="arch-side arch-side-left">
+        <div class="arch-side-label">Instrumented systems</div>
+        <div class="arch-mini-node">
+          <span>Frontend app</span>
+          <p>interactions, replay, errors</p>
         </div>
-        <div class="arch-arrow arch-join" aria-hidden="true">+</div>
-        <div class="arch-node arch-node-source">
-          <span class="arch-node-kicker">AI services</span>
-          <strong>LLM calls and tools</strong>
-          <span>Model, token, latency, cost, prompt, and tool-call spans.</span>
+        <div class="arch-mini-node">
+          <span>Backend services</span>
+          <p>traces, logs, profiles</p>
         </div>
-        <div class="arch-arrow" aria-hidden="true">-></div>
-        <div class="arch-node arch-node-boundary">
-          <span class="arch-node-kicker">SDK / OTLP</span>
-          <strong>Write-only ingest</strong>
-          <span>Ingest keys send telemetry without read access.</span>
+        <div class="arch-mini-node">
+          <span>Workers</span>
+          <p>edge requests, jobs</p>
         </div>
-      </div>
-
-      <div class="arch-lane arch-lane-core">
-        <div class="arch-lane-label">obs-unified core</div>
-        <div class="arch-node arch-node-collector">
-          <span class="arch-node-kicker">Collector</span>
-          <strong>Normalize and correlate</strong>
-          <span>Every signal joins one identity chain from interaction ID to trace and profile evidence.</span>
-        </div>
-        <div class="arch-arrow" aria-hidden="true">-></div>
-        <div class="arch-node arch-node-storage">
-          <span class="arch-node-kicker">Owned storage</span>
-          <strong>D1/R2 or Postgres/S3</strong>
-          <span>Data stays in your Cloudflare or Node deployment.</span>
-        </div>
-        <div class="arch-arrow" aria-hidden="true">-></div>
-        <div class="arch-node arch-node-graph">
-          <span class="arch-node-kicker">Connected graph</span>
-          <strong>Trace, logs, replay, AI cost, CPU</strong>
-          <span>One graph links the evidence humans and agents need.</span>
+        <div class="arch-mini-node">
+          <span>AI / LLM calls</span>
+          <p>tokens, cost, tool spans</p>
         </div>
       </div>
 
-      <div class="arch-lane arch-lane-read">
-        <div class="arch-lane-label">Investigation clients</div>
-        <div class="arch-node arch-node-source">
-          <span class="arch-node-kicker">Humans</span>
-          <strong>Dashboard users</strong>
-          <span>Engineers inspect sessions, traces, logs, replay, alerts, and costs.</span>
+      <div class="arch-core-map">
+        <div class="arch-boundary arch-boundary-write">
+          <span class="arch-node-kicker">Write boundary</span>
+          <strong>SDKs + OTLP ingest</strong>
+          <p>Write-only keys send telemetry without read access.</p>
         </div>
-        <div class="arch-arrow arch-join" aria-hidden="true">+</div>
-        <div class="arch-node arch-node-source">
-          <span class="arch-node-kicker">Agents</span>
-          <strong>Debugging agents</strong>
-          <span>Agents traverse the same connected graph through read APIs and stable IDs.</span>
+
+        <div class="arch-core">
+          <div class="arch-core-label">obs-unified</div>
+          <div class="arch-core-step">
+            <span>Collector</span>
+            <p>Normalizes every signal into one identity chain.</p>
+          </div>
+          <div class="arch-core-split">
+            <div>
+              <span>Owned storage</span>
+              <p>D1/R2 or Postgres/S3</p>
+            </div>
+            <div>
+              <span>Connected graph</span>
+              <p>interaction ID, traces, logs, replay, AI cost, CPU</p>
+            </div>
+          </div>
         </div>
-        <div class="arch-arrow" aria-hidden="true">-></div>
-        <div class="arch-node arch-node-boundary">
+
+        <div class="arch-boundary arch-boundary-read">
           <span class="arch-node-kicker">Read boundary</span>
-          <strong>Dashboard login + API keys</strong>
-          <span>Read access is separate from write-only ingest credentials.</span>
+          <strong>Dashboard + APIs</strong>
+          <p>Read access is separate from ingest credentials.</p>
+        </div>
+      </div>
+
+      <div class="arch-side arch-side-right">
+        <div class="arch-side-label">Investigation clients</div>
+        <div class="arch-mini-node">
+          <span>Dashboard users</span>
+          <p>inspect sessions, traces, logs, replay, alerts, costs</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>Debugging agents</span>
+          <p>traverse read APIs using stable IDs</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>Incident workflows</span>
+          <p>follow evidence from action to root cause</p>
         </div>
       </div>
     </figure>
