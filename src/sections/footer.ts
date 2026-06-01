@@ -23,8 +23,8 @@ export function renderFooter(): string {
         <span class="brand-name">Observability Unified</span>
       </div>
       <p class="muted small footer-brand-copy">
-        Unified observability for traces, logs, AI calls, product events,
-        replay, alerts, and profiles. Keep the telemetry plane in your infrastructure.
+        Unified observability for traces, logs, AI calls, agent action graphs,
+        MCP tools, replay, alerts, and profiles. Keep the telemetry plane in your infrastructure.
       </p>
       <div class="footer-cta-row" aria-label="Primary project links">
         <a href="${GETTING_STARTED_URL}">Start locally</a>

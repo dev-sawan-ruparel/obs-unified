@@ -1,7 +1,7 @@
 {
 	"name": "obs-unified",
 	"short_name": "obs-unified",
-	"description": "Unified observability for traces, logs, AI calls, session replay, usage analytics, alerts, and profiles.",
+	"description": "Unified observability for agent action graphs, MCP tools, traces, logs, AI calls, session replay, usage analytics, alerts, and profiles.",
 	"icons": [
 		{
 			"src": "/icon-192.png",

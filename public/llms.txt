@@ -2,8 +2,9 @@
 
 > obs-unified is an open-source unified observability platform. A single
 > collector ingests OpenTelemetry traces, structured logs, LLM/AI call records,
-> frontend usage events, rrweb session replays, alerts, profiles, and analyses.
-> Every signal is connected through one dashboard and one identity chain:
+> frontend usage events, rrweb session replays, alerts, profiles, analyses, and
+> Agent Action Graph records. Every signal is connected through one dashboard,
+> one MCP server for investigation agents, and one identity chain:
 > user_id → session_id → interaction_id → trace_id → span_id.
 
 ## What it is
@@ -12,6 +13,11 @@ obs-unified replaces the patchwork of APM (Datadog, New Relic), error tracking
 (Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
 LogRocket), LLM observability (Langfuse, Helicone), and alerting with one
 unified stack. MIT-licensed and self-hostable.
+
+It is built for agentic debugging: humans use the dashboard, while AI agents can
+use the obs-unified MCP server to inspect the same connected telemetry graph
+across traces, logs, replay, AI cost, agent runs, actions, tool calls, and CPU
+profile evidence.
 
 - Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://docs.obsunified.com/docs
@@ -26,6 +32,12 @@ unified stack. MIT-licensed and self-hostable.
   per-module loggers.
 - **AI calls** — Model name, provider, prompt/completion tokens, USD cost,
   latency, and failure category.
+- **Agent Action Graph** — Browser actions, cron jobs, agent runs, LLM calls,
+  retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval
+  cases linked through stable action IDs.
+- **MCP server** — Read-only investigation tools for AI agents: status, traces,
+  logs, service map, users, replays, connected signals, agent runs, actions, and
+  tool calls.
 - **Usage** — Page views, interactions, frontend errors, UTM parameters.
 - **Session replay** — DOM-mutation recording via rrweb, chunked into R2.
 - **Alerts** — Rules engine over any signal, one notification surface.
@@ -39,6 +51,9 @@ A single collector service:
 - `/dashboard/*` — embedded dashboard (password authentication)
 - `/health` — liveness probe
 
+The `@obs-unified/mcp-server` package exposes those investigation surfaces to
+MCP-compatible AI agents without granting write access to telemetry ingest.
+
 Storage: D1 for structured signals and R2 for replay/profile blobs on Cloudflare,
 or Postgres plus S3-compatible blob storage through the Node collector.
 
@@ -50,6 +65,7 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 | TypeScript / browser | `@obs-unified/analytics-sdk` | GitHub Packages; vanilla + React provider |
 | Go | `sdks/go` | OpenTelemetry-compatible wrapper |
 | Rust | `sdks/rust` | OpenTelemetry-compatible wrapper |
+| MCP | `packages/mcp-server` | Stdio MCP server for agent investigations |
 
 ## Install
 
@@ -88,15 +104,22 @@ initObservability({
 
 - **What is obs-unified?** An open-source unified observability platform
   connecting traces, logs, AI calls, usage, replays, alerts, profiles, and
-  analyses through one collector, one dashboard, and one identity chain. The
+  analyses through one collector, one dashboard, one MCP server, and one identity chain. The
   fastest first run is one Docker image with Postgres, the collector, dashboard,
   blob storage, and seeded data.
+- **What is the Agent Action Graph?** A causal graph that connects browser
+  actions, background jobs, agent runs, LLM calls, retrievals, tool calls,
+  guardrails, backend traces, logs, profiles, and eval cases through stable
+  action IDs.
+- **Can AI agents use obs-unified directly?** Yes. The MCP server exposes
+  read-only tools for recent traces, trace details, logs, service maps, users,
+  replays, connected signals, agent runs, actions, and tool calls.
 - **How is it different from Datadog/Sentry/PostHog?** Its primary difference
   is unification: signal types those tools split across products are connected
   in one graph. It also runs on your own infrastructure with no vendor in the
   data path. It is built for agentic debugging: one telemetry graph agents can
-  traverse from user action to backend trace, logs, replay, AI cost, and CPU
-  profile.
+  traverse from user action to backend trace, logs, replay, AI cost, MCP tool
+  context, and CPU profile.
 - **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
   you run it on (Cloudflare Workers + D1 + R2, or Node with Postgres + S3).
 - **What's the data retention model?** Configurable via RETENTION_HOURS

@@ -16,8 +16,8 @@ const FEATURES: Feature[] = [
     icon: `<path d="M4 6h16M4 12h16M4 18h10"/>`,
   },
   {
-    title: "AI / LLM calls",
-    body: "First-class observability for model calls: provider, model, prompt and completion tokens, USD cost, latency, and failure category — across Anthropic, OpenAI, and OpenRouter.",
+    title: "AI and agent actions",
+    body: "LLM calls, retrievals, tool calls, agent runs, eval cases, provider, model, tokens, USD cost, latency, and failure category — all linked into one action graph.",
     icon: `<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/>`,
   },
   {
@@ -32,7 +32,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: "Interaction ID to CPU",
-    body: "A click mints one interaction_id, fetch carries x-obs-interaction, backend spans/logs/AI calls inherit it, and CPU profiles join through the resulting trace_id.",
+    body: "A click mints one interaction_id, fetch carries x-obs-interaction, backend spans/logs/AI calls inherit it, and MCP tools plus CPU profiles join through the resulting trace_id.",
     icon: `<path d="M4 12h4l2-6 4 12 2-6h4"/><path d="M4 20h16M4 4h16"/>`,
   },
   {
@@ -46,8 +46,8 @@ const FEATURES: Feature[] = [
     icon: `<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>`,
   },
   {
-    title: "Polyglot SDKs",
-    body: "First-party SDKs for TypeScript, Go, and Rust — same API surface, same identity chain, all feeding one collector. Any OpenTelemetry SDK works as a fallback.",
+    title: "SDKs and MCP server",
+    body: "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that exposes traces, logs, replays, agent runs, actions, and tool calls to AI agents.",
     icon: `<polyline points="8 18 2 12 8 6"/><polyline points="16 6 22 12 16 18"/><line x1="14" y1="4" x2="10" y2="20"/>`,
   },
 ];
@@ -69,12 +69,12 @@ export function renderFeatures(): string {
 <section id="features" class="features" aria-labelledby="features-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">One collector · one identity chain · one dashboard</p>
+      <p class="eyebrow">One collector · one identity chain · dashboard + MCP</p>
       <h2 id="features-title">Unified observability means every signal knows its neighbors.</h2>
       <p class="section-lead">
         obs-unified replaces the patchwork of APM + logging + product analytics + session replay
         + LLM observability + alerting with one unified stack, correlated through a single
-        identity chain and explorable through the same dashboard.
+        identity chain and explorable through the dashboard or MCP tools.
       </p>
     </header>
     <div class="feature-grid">${FEATURES.map(card).join("")}</div>

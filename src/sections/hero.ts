@@ -13,9 +13,10 @@ export function renderHero(): string {
       <p class="hero-lead">
         <strong>Built for agentic debugging:</strong> one telemetry graph agents
         can traverse from user action to backend trace, logs, replay, AI cost,
-        and CPU profile. <strong>obs-unified</strong> puts every signal into
-        <strong>one collector</strong>, <strong>one identity chain</strong>, and
-        <strong>one dashboard</strong>, so humans and agents discover root cause
+        CPU profile, and MCP tool context. <strong>obs-unified</strong> puts
+        every signal into <strong>one collector</strong>, <strong>one identity
+        chain</strong>, <strong>one dashboard</strong>, and an <strong>MCP
+        server for agents</strong>, so humans and agents discover root cause
         faster. Start locally with one Docker image, then run on Cloudflare
         Workers + D1 + R2 or Node + Postgres + S3.
       </p>
@@ -30,14 +31,15 @@ export function renderHero(): string {
         </a>
       </div>
       <div class="hero-meta">
-        <span><strong>Unified SDKs</strong> TypeScript · Go · Rust · browser</span>
+        <span><strong>SDKs + MCP</strong> TypeScript · Go · Rust · browser · agents</span>
         <a class="hero-meta-langs" href="${SDK_DOCS_URL}">SDK docs</a>
       </div>
       <p class="hero-chain">
         Identity propagated end-to-end:
         <code>user_id → session_id → interaction_id → trace_id → span_id</code>
         <span>The interaction ID follows a frontend action into backend spans, logs,
-        and AI calls; CPU/off-CPU profiles join through the trace it caused.</span>
+        AI calls, and MCP tools; CPU/off-CPU profiles join through the trace it
+        caused.</span>
       </p>
     </div>
     <figure class="hero-product-shot">
@@ -46,7 +48,7 @@ export function renderHero(): string {
       </div>
       <figcaption>
         <span>Agent action graph</span>
-        <p>One interaction ID ties the user action to the backend trace, logs, replay, AI cost, and profile evidence an agent needs to inspect.</p>
+        <p>One action graph ties the user action to backend traces, logs, replay, AI cost, MCP tool calls, and profile evidence an agent needs to inspect.</p>
       </figcaption>
     </figure>
   </div>

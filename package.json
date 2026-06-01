@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Landing page for obs-unified — self-hosted observability for traces, logs, AI calls, and session replay.",
+  "description": "Landing page for obs-unified — self-hosted observability for agent action graphs, MCP, traces, logs, AI calls, and session replay.",
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=10.0.0"

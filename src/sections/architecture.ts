@@ -7,7 +7,8 @@ export function renderArchitecture(): string {
       <h2 id="arch-title">One collector. Your telemetry graph.</h2>
       <p class="section-lead">
         Instrumented services write telemetry into obs-unified. Humans and agents
-        read the same connected graph through a separate investigation boundary.
+        read the same connected graph through dashboard APIs and MCP tools, while
+        ingest credentials stay separate from investigation access.
       </p>
     </header>
 
@@ -28,7 +29,7 @@ export function renderArchitecture(): string {
         </div>
         <div class="arch-mini-node">
           <span>AI / LLM calls</span>
-          <p>tokens, cost, tool spans</p>
+          <p>agent runs, tokens, cost, tools</p>
         </div>
       </div>
 
@@ -59,8 +60,8 @@ export function renderArchitecture(): string {
 
         <div class="arch-boundary arch-boundary-read">
           <span class="arch-node-kicker">Read boundary</span>
-          <strong>Dashboard + APIs</strong>
-          <p>Read access is separate from ingest credentials.</p>
+          <strong>Dashboard + APIs + MCP</strong>
+          <p>Agents inspect telemetry with read-only investigation tools.</p>
         </div>
       </div>
 
@@ -72,7 +73,7 @@ export function renderArchitecture(): string {
         </div>
         <div class="arch-mini-node">
           <span>Debugging agents</span>
-          <p>traverse read APIs using stable IDs</p>
+          <p>traverse MCP tools using stable IDs</p>
         </div>
         <div class="arch-mini-node">
           <span>Incident workflows</span>

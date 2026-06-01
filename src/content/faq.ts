@@ -3,11 +3,19 @@ export type QA = { q: string; a: string };
 export const FAQS: QA[] = [
   {
     q: "What is obs-unified?",
-    a: "obs-unified is an open-source unified observability platform built for agentic debugging. A single collector ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, and analyses, then connects them through one identity chain and one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+    a: "obs-unified is an open-source unified observability platform built for agentic debugging. A single collector ingests OpenTelemetry traces, structured logs, LLM/AI call records, frontend usage events, rrweb session replays, alerts, profiles, analyses, and Agent Action Graph records, then connects them through one identity chain and one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data.",
+  },
+  {
+    q: "What is the Agent Action Graph?",
+    a: "The Agent Action Graph is obs-unified's causal view of agent work. It links browser actions, cron jobs, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs, so engineers and AI agents can see which step caused which downstream effect.",
+  },
+  {
+    q: "Can AI agents inspect obs-unified through MCP?",
+    a: "Yes. The obs-unified MCP server exposes investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls. Agents can use those tools to traverse the same graph a human sees in the dashboard without needing write access to telemetry ingest.",
   },
   {
     q: "How is it different from Datadog, Sentry, or PostHog?",
-    a: "Its primary difference is unification. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, and analyses live in one collector and one dashboard, correlated through a single identity chain. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path.",
+    a: "Its primary difference is unification. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path.",
   },
   {
     q: "What's the data retention model?",
