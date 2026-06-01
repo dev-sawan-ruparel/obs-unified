@@ -44,7 +44,7 @@ export function renderHero(): string {
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">
-        <img src="/screenshots/app/agent-action-graph.png" alt="Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1440" height="1000" />
+        <img src="/screenshots/app/agent-action-graph.png" alt="Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1180" height="900" />
       </div>
       <figcaption>
         <span>Agent Action Graph</span>

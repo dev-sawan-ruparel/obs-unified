@@ -48,7 +48,7 @@ export function renderScreenshots() {
                 (shot) => `
                   <figure class="screenshot-card">
                     <div class="screenshot-frame">
-                      <img src="${shot.src}" alt="${shot.title} in the Observability Unified dashboard" loading="lazy" width="1440" height="1000" />
+                      <img src="${shot.src}" alt="${shot.title} in the Observability Unified dashboard" loading="lazy" width="${shot.src.includes("agent-action-graph") ? "1180" : "1440"}" height="900" />
                     </div>
                     <figcaption>
                       <span>${shot.title}</span>
