@@ -229,7 +229,7 @@ installed the native agent SDK:
 - OpenTelemetry GenAI spans
 - OpenInference spans for agent, LLM, tool, retriever, guardrail, evaluator,
   prompt, chain, embedding, and reranker operations
-- MCP tool, resource, and prompt calls
+- OTel MCP tool, resource, and prompt call spans
 
 When explicit action IDs are present, the graph is high confidence. When they
 are absent, the collector derives deterministic fallback IDs from trace/span
@@ -240,7 +240,11 @@ normalizer replaces them with deterministic fallback IDs and marks the action
 confidence as `fallback`, preserving graph navigability without trusting invalid
 identity data.
 
-## MCP Propagation
+## MCP Context Propagation
+
+See [MCP in obs-unified](mcp.md) for the distinction between the read-only
+investigation MCP server, SDK context propagation helpers, and collector
+normalization of OTel MCP spans.
 
 MCP calls do not always have per-request HTTP headers, so obs-unified propagates
 trace and action context through JSON-RPC `params._meta`.

@@ -1,10 +1,19 @@
 # @obs-unified/mcp-server
 
-MCP server for AI agents that need read access to an obs-unified collector.
+Read-only investigation MCP server for AI agents that need access to an
+obs-unified collector.
 
 It exposes collector investigation endpoints as Model Context Protocol tools:
 recent traces, trace detail, service operations, service map, logs, AI sessions,
 users, replays, connected signals, agent runs, actions, and tool calls.
+
+This package is distinct from:
+
+- SDK MCP context propagation helpers in `@obs-unified/telemetry-sdk/mcp`.
+- Collector normalization of OpenTelemetry MCP span attributes such as
+  `mcp.method.name`.
+
+See [MCP in obs-unified](../../docs/mcp.md) for the terminology split.
 
 ## Install
 

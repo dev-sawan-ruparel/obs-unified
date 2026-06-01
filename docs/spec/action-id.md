@@ -246,7 +246,7 @@ Model Context Protocol (MCP) clients call tools over persistent JSON-RPC pipes. 
   "id": 42
 }
 ```
-The MCP server extracts these values, mounts them to its local trace/span context, and ensures child database or downstream calls retain the exact graph causality keys.
+The receiving MCP host or tool server extracts these values, mounts them to its local trace/span context, and ensures child database or downstream calls retain the exact graph causality keys. This propagation path is separate from the read-only obs-unified investigation MCP server documented in [MCP in obs-unified](../mcp.md).
 
 ---
 

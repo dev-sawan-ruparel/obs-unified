@@ -222,9 +222,10 @@ await startAgentRun(
 );
 ```
 
-For framework wrappers and MCP propagation, see:
+For framework wrappers and MCP context propagation, see:
 
 - [Agent Action Graph overview](agent-action-graph.md)
+- [MCP terminology](mcp.md)
 - [Action ID wire spec](spec/action-id.md)
 - [Framework plugin contract](spec/agent-framework-plugins.md)
 
