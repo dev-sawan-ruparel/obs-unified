@@ -124,8 +124,8 @@ initObservability({
   traverse from user action to backend trace, logs, replay, AI cost, MCP tool
   context, and CPU profile.
 - **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
-  you run it on. Production can use Cloudflare Workers + D1 + R2, or the Node
-  collector on any cloud with Postgres + S3-compatible object storage.
+  you run it on. Production can use either Cloudflare Workers + D1/R2, or the
+  Node collector on any cloud with Postgres + S3-compatible object storage.
 - **What's the data retention model?** Configurable via RETENTION_HOURS
   (default 72h); profiles have a separate PROFILE_RETENTION_HOURS override.
 - **When do I outgrow D1?** D1 is the default low-ops hosted path for small and

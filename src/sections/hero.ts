@@ -17,8 +17,8 @@ export function renderHero(): string {
         those signals into <strong>one collector</strong>, <strong>one identity
         chain</strong>, <strong>one dashboard</strong>, and a read-only
         <strong>MCP server for agents</strong>. Start locally with one Docker
-        image, then run on any cloud with Cloudflare Workers + D1 + R2 or the
-        Node collector with Postgres + S3-compatible storage.
+        image. For production, choose Cloudflare Workers with D1/R2, or run the
+        Node collector on any cloud with Postgres and S3-compatible storage.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
