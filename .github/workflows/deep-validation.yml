@@ -1,0 +1,107 @@
+name: Deep validation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  docker-collector:
+    name: Docker — collector-node image
+    runs-on: [self-hosted, obs-unified]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/collector-node/Dockerfile
+          push: false
+          tags: obs-unified/collector-node:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  integration:
+    name: Integration — Postgres+MinIO+collector
+    runs-on: [self-hosted, obs-unified]
+    needs: [docker-collector]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --sort --filter "./packages/*" --filter @obs-demo/collector-node run build
+      - name: Start Postgres
+        run: |
+          docker rm -f obs-unified-ci-postgres || true
+          docker run -d \
+            --name obs-unified-ci-postgres \
+            -e POSTGRES_USER=obs \
+            -e POSTGRES_PASSWORD=obs \
+            -e POSTGRES_DB=obs_unified \
+            -p 55432:5432 \
+            postgres:16-alpine
+          for i in $(seq 1 30); do
+            if docker exec obs-unified-ci-postgres pg_isready -U obs -d obs_unified; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs obs-unified-ci-postgres
+          exit 1
+      - name: Run Postgres migrations
+        env:
+          DATABASE_URL: postgres://obs:obs@127.0.0.1:55432/obs_unified
+        run: node apps/collector-node/scripts/migrate-pg.mjs
+      - name: Smoke-test collector
+        env:
+          DATABASE_URL: postgres://obs:obs@127.0.0.1:55432/obs_unified
+          # Smoke runs without S3 — wire-format tests don't need blob storage.
+          S3_BUCKET: skip
+          S3_ACCESS_KEY_ID: skip
+          S3_SECRET_ACCESS_KEY: skip
+          INGEST_KEY: dev-ingest-key
+          DASHBOARD_PASSWORD: dev-pass
+        run: |
+          pnpm --filter @obs-demo/collector-node run start &
+          SERVER_PID=$!
+          # Wait up to 30s for /health
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8790/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8790/health
+          kill $SERVER_PID || true
+      - name: Stop Postgres
+        if: always()
+        run: docker rm -f obs-unified-ci-postgres || true
+
+  conformance-interaction-id:
+    name: Conformance — interaction_id
+    runs-on: [self-hosted, obs-unified]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.3"
+          cache-dependency-path: sdks/go/go.sum
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --sort --filter "@obs-unified/*" run build
+      # The conformance runner reads cases.json once and dispatches to
+      # each SDK's native runner. Today each SDK runs its own vitest /
+      # go test / cargo test against the same fixture file.
+      - run: pnpm -r --filter "@obs-unified/*" run test
+      - run: go test ./...
+        working-directory: sdks/go
+      - run: cargo test --all-features
+        working-directory: sdks/rust
