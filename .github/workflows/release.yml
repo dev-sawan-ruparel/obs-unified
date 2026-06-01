@@ -33,8 +33,7 @@ jobs:
           scope: "@obs-unified"
 
       - run: pnpm install --frozen-lockfile
-
-      - run: pnpm -r run build
+      - run: pnpm -r --sort run build
 
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
