@@ -1,6 +1,6 @@
 import type { SqlDb } from "../sql-db";
 import { FETCH_LIMIT } from "./constants";
-import { mapAi, mapLog, mapSpan, mapUsage } from "./mappers";
+import { mapAi, mapLog, mapMetricExemplar, mapSpan, mapUsage } from "./mappers";
 import type { EntityManifest } from "./types";
 
 export async function manifestBySession(
@@ -69,6 +69,7 @@ export async function manifestBySession(
 		logs: logs.results.map(mapLog),
 		usageEvents: usage.results.map(mapUsage),
 		aiCalls: aiCalls.results.map(mapAi),
+		metricExemplars: [],
 		replay: replay
 			? {
 					sessionId,
@@ -86,7 +87,7 @@ export async function manifestByTrace(
 	projectId: string,
 	traceId: string,
 ): Promise<EntityManifest> {
-	const [spans, logs, aiCalls] = await Promise.all([
+	const [spans, logs, aiCalls, metricExemplars] = await Promise.all([
 		db
 			.prepare(
 				`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
@@ -117,6 +118,16 @@ export async function manifestByTrace(
 			)
 			.bind(projectId, traceId, FETCH_LIMIT)
 			.all<Parameters<typeof mapAi>[0]>(),
+		db
+			.prepare(
+				`SELECT id, point_id, series_id, metric_name, service_name,
+						trace_id, span_id, ts_ns, value, received_at
+					FROM metric_exemplars
+					WHERE project_id = ? AND trace_id = ?
+					ORDER BY ts_ns DESC LIMIT ?`,
+			)
+			.bind(projectId, traceId, FETCH_LIMIT)
+			.all<Parameters<typeof mapMetricExemplar>[0]>(),
 	]);
 
 	return {
@@ -124,6 +135,7 @@ export async function manifestByTrace(
 		logs: logs.results.map(mapLog),
 		usageEvents: [],
 		aiCalls: aiCalls.results.map(mapAi),
+		metricExemplars: metricExemplars.results.map(mapMetricExemplar),
 		replay: null,
 	};
 }
@@ -181,6 +193,7 @@ export async function manifestByInteraction(
 		logs: logs.results.map(mapLog),
 		usageEvents: usage.results.map(mapUsage),
 		aiCalls: aiCalls.results.map(mapAi),
+		metricExemplars: [],
 		replay: null,
 	};
 }

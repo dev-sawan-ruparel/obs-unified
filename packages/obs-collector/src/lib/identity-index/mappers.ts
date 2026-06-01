@@ -5,6 +5,7 @@ import type {
 	ArtifactRef,
 	EvalResultRef,
 	LogRef,
+	MetricExemplarRef,
 	RetrievalEventRef,
 	SpanRef,
 	ToolCallRef,
@@ -93,6 +94,30 @@ export const mapAi = (r: {
 	totalCostUsd: r.total_cost_usd,
 	occurredAt: r.occurred_at,
 	interactionId: r.interaction_id,
+});
+
+export const mapMetricExemplar = (r: {
+	id: string;
+	point_id: string;
+	series_id: string;
+	metric_name: string;
+	service_name: string | null;
+	trace_id: string | null;
+	span_id: string | null;
+	ts_ns: string;
+	value: number;
+	received_at: string;
+}): MetricExemplarRef => ({
+	id: r.id,
+	pointId: r.point_id,
+	seriesId: r.series_id,
+	metricName: r.metric_name,
+	serviceName: r.service_name,
+	traceId: r.trace_id,
+	spanId: r.span_id,
+	tsNs: r.ts_ns,
+	value: r.value,
+	receivedAt: r.received_at,
 });
 
 export const mapAction = (r: {

@@ -277,6 +277,62 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 		expect(profilesSection?.links).toEqual([]);
 		expect(profilesSection?.emptyReason).toContain("startProfiler");
 	});
+
+	it("surfaces metric exemplars indexed for the selected trace", async () => {
+		const db = new MemSqlDb({
+			all: (sql, binds) => {
+				if (
+					sql.includes("FROM telemetry_spans") &&
+					sql.includes("trace_id = ?") &&
+					binds.includes("trace-metric")
+				) {
+					return [
+						{
+							trace_id: "trace-metric",
+							span_id: "span-hot",
+							parent_span_id: null,
+							service_name: "checkout",
+							span_name: "checkout.submit",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("FROM metric_exemplars")) {
+					return [
+						{
+							id: "ex-1",
+							point_id: "point-1",
+							series_id: "series-1",
+							metric_name: "http.server.duration",
+							service_name: "checkout",
+							trace_id: "trace-metric",
+							span_id: "span-hot",
+							ts_ns: "1777908000000000000",
+							value: 923.4,
+							received_at: "2026-05-04T10:00:01Z",
+						},
+					];
+				}
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/span/trace-metric:span-hot");
+
+		const exemplarSection = m.down.find((s) =>
+			s.label.toLowerCase().includes("metric exemplar"),
+		);
+		expect(exemplarSection).toBeDefined();
+		expect(exemplarSection?.links[0].label).toContain("http.server.duration");
+		expect(exemplarSection?.links[0].href).toBe(
+			"#/traces/trace-metric#span=span-hot",
+		);
+	});
 });
 
 describe("ConnectedRail manifest — kind validation", () => {

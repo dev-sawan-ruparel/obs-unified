@@ -24,6 +24,7 @@ export async function manifestByUser(
 			logs: [],
 			usageEvents: [],
 			aiCalls: [],
+			metricExemplars: [],
 			replay: null,
 		};
 	}
@@ -49,6 +50,7 @@ export async function manifestByUser(
 			logs: [],
 			usageEvents: [],
 			aiCalls: [],
+			metricExemplars: [],
 			replay: null,
 		};
 	}
@@ -121,6 +123,7 @@ export async function manifestByUser(
 		logs: logs.results.map(mapLog),
 		usageEvents: usage.results.map(mapUsage),
 		aiCalls: aiCalls.results.map(mapAi),
+		metricExemplars: [],
 		replay: replay
 			? {
 					sessionId: replay.session_id,

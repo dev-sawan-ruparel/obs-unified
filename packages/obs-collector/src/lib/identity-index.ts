@@ -24,6 +24,7 @@ export type {
 	EntityManifestExtended,
 	EvalResultRef,
 	LogRef,
+	MetricExemplarRef,
 	ReplayRef,
 	RetrievalEventRef,
 	SpanRef,

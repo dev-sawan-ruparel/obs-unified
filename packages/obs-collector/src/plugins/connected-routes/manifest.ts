@@ -5,6 +5,7 @@ import type {
 	EntityManifestExtended,
 	EvalResultRef,
 	LogRef,
+	MetricExemplarRef,
 	RetrievalEventRef,
 	SpanRef,
 	ToolCallRef,
@@ -185,6 +186,49 @@ export const linksFromUsage = (
 		links: events.map((e) => ({
 			label: `${e.eventType} · ${truncate(e.eventName, 50)}`,
 			href: `#/usage?id=${e.eventId}`,
+		})),
+	};
+};
+
+export const linksFromMetricExemplars = (
+	exemplars: MetricExemplarRef[],
+	prefix: string,
+): ConnectedSection => {
+	if (exemplars.length === 0) {
+		return {
+			label: prefix,
+			links: [],
+			emptyReason: "No metric exemplars share this trace.",
+		};
+	}
+	if (exemplars.length > MAX_LINKS_INLINE) {
+		const sample = exemplars[0];
+		return {
+			label: prefix,
+			links: [
+				{
+					label: `${exemplars.length} metric exemplars`,
+					href: sample.traceId
+						? `#/traces/${sample.traceId}`
+						: `#/traces?q=${encodeURIComponent(sample.metricName)}`,
+					count: exemplars.length,
+					sample: truncate(
+						`${sample.serviceName ?? "?"} · ${sample.metricName}=${sample.value}`,
+					),
+				},
+			],
+		};
+	}
+	return {
+		label: prefix,
+		links: exemplars.map((e) => ({
+			label: `${e.serviceName ?? "?"} · ${truncate(e.metricName, 40)}=${e.value}`,
+			href: e.traceId
+				? e.spanId
+					? `#/traces/${e.traceId}#span=${e.spanId}`
+					: `#/traces/${e.traceId}`
+				: `#/traces?q=${encodeURIComponent(e.metricName)}`,
+			sample: e.tsNs,
 		})),
 	};
 };

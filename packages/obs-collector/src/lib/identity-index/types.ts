@@ -44,6 +44,19 @@ export interface AICallRef {
 	interactionId: string | null;
 }
 
+export interface MetricExemplarRef {
+	id: string;
+	pointId: string;
+	seriesId: string;
+	metricName: string;
+	serviceName: string | null;
+	traceId: string | null;
+	spanId: string | null;
+	tsNs: string;
+	value: number;
+	receivedAt: string;
+}
+
 export interface ReplayRef {
 	sessionId: string;
 	firstChunkAt: string;
@@ -65,6 +78,7 @@ export interface EntityManifest {
 	logs: LogRef[];
 	usageEvents: UsageEventRef[];
 	aiCalls: AICallRef[];
+	metricExemplars: MetricExemplarRef[];
 	replay: ReplayRef | null;
 }
 

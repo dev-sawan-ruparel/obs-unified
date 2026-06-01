@@ -29,6 +29,7 @@ import {
 	linksFromArtifacts,
 	linksFromEvalResults,
 	linksFromLogs,
+	linksFromMetricExemplars,
 	linksFromRetrievalEvents,
 	linksFromSpans,
 	linksFromToolCalls,
@@ -113,11 +114,19 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					// rail's Down section. Each profile_type renders as
 					// its own link so a viewer can see at a glance whether
 					// only CPU was sampled or off-CPU is present too.
-					manifest.down = await profileLinksForTrace(
-						sqlDbFor(c.env),
-						projectId,
-						span.traceId,
-					);
+					manifest.down = [
+						...(await profileLinksForTrace(
+							sqlDbFor(c.env),
+							projectId,
+							span.traceId,
+						)),
+						linksFromMetricExemplars(
+							traceManifest.metricExemplars.filter(
+								(e) => !e.spanId || e.spanId === span.spanId,
+							),
+							"Metric exemplars in this trace",
+						),
+					];
 					if (span.interactionId) {
 						const interactionManifest = await index.byInteraction(
 							projectId,
@@ -221,6 +230,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						linksFromAi(
 							traceManifest.aiCalls.filter((a) => a.callId !== id),
 							"Other AI calls in this trace",
+						),
+						linksFromMetricExemplars(
+							traceManifest.metricExemplars,
+							"Metric exemplars in this trace",
 						),
 					];
 				}

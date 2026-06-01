@@ -121,7 +121,7 @@ const SectionGroup = ({
 					<button
 						type="button"
 						key={`${link.href}-${link.label}-${link.sample ?? ""}`}
-						onClick={() => onNavigate?.(link.href)}
+						onClick={() => navigateConnectedHref(link.href, onNavigate)}
 						className="text-left text-[0.75rem] font-mono px-2 py-1 border-[1px] border-sys-outline hover:bg-sys-surface-high cursor-pointer transition-none truncate"
 						title={link.sample ?? link.label}
 					>
@@ -171,6 +171,49 @@ const dedupeAdjacent = (sections: ConnectedSection[]): ConnectedSection[] => {
 		out.push(section);
 	}
 	return out;
+};
+
+export const normalizeConnectedHref = (href: string): string => {
+	if (!href.startsWith("#/")) return href;
+	const [pathPart, spanFragment] = href.split("#span=");
+
+	if (pathPart.startsWith("#/traces/")) {
+		const traceId = pathPart.slice("#/traces/".length);
+		const params = new URLSearchParams();
+		if (traceId) params.set("trace", decodeURIComponent(traceId));
+		if (spanFragment) params.set("span", decodeURIComponent(spanFragment));
+		const qs = params.toString();
+		return qs ? `#/traces?${qs}` : "#/traces";
+	}
+
+	if (pathPart.startsWith("#/traces?q=")) {
+		const params = new URLSearchParams(pathPart.slice("#/traces?".length));
+		const traceId = params.get("q");
+		return traceId
+			? `#/traces?trace=${encodeURIComponent(traceId)}`
+			: "#/traces";
+	}
+
+	if (pathPart.startsWith("#/ai?")) return "#/ai";
+	if (pathPart.startsWith("#/logs?")) return "#/logs";
+	if (pathPart.startsWith("#/usage?")) return "#/usage";
+	return href;
+};
+
+const navigateConnectedHref = (
+	href: string,
+	onNavigate?: (href: string) => void,
+) => {
+	const normalizedHref = normalizeConnectedHref(href);
+	if (onNavigate) {
+		onNavigate(normalizedHref);
+		return;
+	}
+	if (normalizedHref.startsWith("#")) {
+		location.hash = normalizedHref.slice(1);
+		return;
+	}
+	location.href = normalizedHref;
 };
 
 export function ConnectedRail({

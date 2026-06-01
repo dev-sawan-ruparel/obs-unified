@@ -8,6 +8,7 @@ import {
 	mapArtifact,
 	mapEvalResult,
 	mapLog,
+	mapMetricExemplar,
 	mapRetrievalEvent,
 	mapSpan,
 	mapToolCall,
@@ -19,6 +20,7 @@ const emptyExtendedManifest = (): EntityManifestExtended => ({
 	logs: [],
 	usageEvents: [],
 	aiCalls: [],
+	metricExemplars: [],
 	replay: null,
 	actions: [],
 	agentRuns: [],
@@ -248,11 +250,14 @@ export async function manifestByAction(
 	let spansRes = { results: [] as Parameters<typeof mapSpan>[0][] };
 	let logsRes = { results: [] as Parameters<typeof mapLog>[0][] };
 	let aiCallsRes = { results: [] as Parameters<typeof mapAi>[0][] };
+	let metricExemplarsRes = {
+		results: [] as Parameters<typeof mapMetricExemplar>[0][],
+	};
 	let replayRes: ReplayRow | null = null;
 
 	if (traceIds.length > 0) {
 		const tracePlaceholders = traceIds.map(() => "?").join(", ");
-		const [s, l, a] = await Promise.all([
+		const [s, l, a, e] = await Promise.all([
 			db
 				.prepare(
 					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
@@ -283,10 +288,21 @@ export async function manifestByAction(
 				)
 				.bind(projectId, ...traceIds, FETCH_LIMIT)
 				.all<Parameters<typeof mapAi>[0]>(),
+			db
+				.prepare(
+					`SELECT id, point_id, series_id, metric_name, service_name,
+							trace_id, span_id, ts_ns, value, received_at
+						FROM metric_exemplars
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY ts_ns DESC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapMetricExemplar>[0]>(),
 		]);
 		spansRes = s;
 		logsRes = l;
 		aiCallsRes = a;
+		metricExemplarsRes = e;
 	}
 
 	if (sessionIds.length > 0) {
@@ -335,6 +351,7 @@ export async function manifestByAction(
 		logs: logsRes.results.map(mapLog),
 		usageEvents: [],
 		aiCalls: aiCallsRes.results.map(mapAi),
+		metricExemplars: metricExemplarsRes.results.map(mapMetricExemplar),
 		replay: replayRes
 			? {
 					sessionId: replayRes.session_id,
@@ -466,11 +483,14 @@ export async function manifestByAgentRun(
 	let spansRes = { results: [] as Parameters<typeof mapSpan>[0][] };
 	let logsRes = { results: [] as Parameters<typeof mapLog>[0][] };
 	let aiCallsRes = { results: [] as Parameters<typeof mapAi>[0][] };
+	let metricExemplarsRes = {
+		results: [] as Parameters<typeof mapMetricExemplar>[0][],
+	};
 	let replayRes: ReplayRow | null = null;
 
 	if (traceIds.length > 0) {
 		const tracePlaceholders = traceIds.map(() => "?").join(", ");
-		const [s, l, a] = await Promise.all([
+		const [s, l, a, e] = await Promise.all([
 			db
 				.prepare(
 					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
@@ -501,10 +521,21 @@ export async function manifestByAgentRun(
 				)
 				.bind(projectId, ...traceIds, FETCH_LIMIT)
 				.all<Parameters<typeof mapAi>[0]>(),
+			db
+				.prepare(
+					`SELECT id, point_id, series_id, metric_name, service_name,
+							trace_id, span_id, ts_ns, value, received_at
+						FROM metric_exemplars
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY ts_ns DESC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapMetricExemplar>[0]>(),
 		]);
 		spansRes = s;
 		logsRes = l;
 		aiCallsRes = a;
+		metricExemplarsRes = e;
 	}
 
 	if (sessionIds.length > 0) {
@@ -553,6 +584,7 @@ export async function manifestByAgentRun(
 		logs: logsRes.results.map(mapLog),
 		usageEvents: [],
 		aiCalls: aiCallsRes.results.map(mapAi),
+		metricExemplars: metricExemplarsRes.results.map(mapMetricExemplar),
 		replay: replayRes
 			? {
 					sessionId: replayRes.session_id,
@@ -672,11 +704,14 @@ export async function manifestByActor(
 	let spansRes = { results: [] as Parameters<typeof mapSpan>[0][] };
 	let logsRes = { results: [] as Parameters<typeof mapLog>[0][] };
 	let aiCallsRes = { results: [] as Parameters<typeof mapAi>[0][] };
+	let metricExemplarsRes = {
+		results: [] as Parameters<typeof mapMetricExemplar>[0][],
+	};
 	let replayRes: ReplayRow | null = null;
 
 	if (traceIds.length > 0) {
 		const tracePlaceholders = traceIds.map(() => "?").join(", ");
-		const [s, l, a] = await Promise.all([
+		const [s, l, a, e] = await Promise.all([
 			db
 				.prepare(
 					`SELECT trace_id, span_id, parent_span_id, service_name, span_name,
@@ -707,10 +742,21 @@ export async function manifestByActor(
 				)
 				.bind(projectId, ...traceIds, FETCH_LIMIT)
 				.all<Parameters<typeof mapAi>[0]>(),
+			db
+				.prepare(
+					`SELECT id, point_id, series_id, metric_name, service_name,
+							trace_id, span_id, ts_ns, value, received_at
+						FROM metric_exemplars
+						WHERE project_id = ? AND trace_id IN (${tracePlaceholders})
+						ORDER BY ts_ns DESC LIMIT ?`,
+				)
+				.bind(projectId, ...traceIds, FETCH_LIMIT)
+				.all<Parameters<typeof mapMetricExemplar>[0]>(),
 		]);
 		spansRes = s;
 		logsRes = l;
 		aiCallsRes = a;
+		metricExemplarsRes = e;
 	}
 
 	if (sessionIds.length > 0) {
@@ -737,6 +783,7 @@ export async function manifestByActor(
 		logs: logsRes.results.map(mapLog),
 		usageEvents: [],
 		aiCalls: aiCallsRes.results.map(mapAi),
+		metricExemplars: metricExemplarsRes.results.map(mapMetricExemplar),
 		replay: replayRes
 			? {
 					sessionId: replayRes.session_id,
