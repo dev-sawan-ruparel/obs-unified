@@ -88,6 +88,15 @@ const firstNumberAttr = (
 	return null;
 };
 
+const toFiniteNumber = (value: unknown): number | null => {
+	if (typeof value === "number") return Number.isFinite(value) ? value : null;
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+};
+
 const firstBoolLikeAttr = (
 	attrs: Record<string, JsonValue>,
 	...keys: string[]
@@ -255,7 +264,12 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							null;
 						const totalCostUsd =
 							firstNumberAttr(attrs, ACTION_TOTAL_COST_USD_KEY) ??
-							firstNumberAttr(attrs, "llm.total_cost_usd");
+							firstNumberAttr(
+								attrs,
+								"llm.cost.total_usd",
+								"gen_ai.usage.cost_usd",
+								"llm.total_cost_usd",
+							);
 
 						const persistedAttrs = capturePayloads
 							? attrs
@@ -675,6 +689,57 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 				);
 
 				const statements: SqlStatement[] = [];
+
+				if (agentRunsToInsert.length > 0 && actionsToInsert.length > 0) {
+					for (const run of agentRunsToInsert) {
+						const runId = String(run.id);
+						const childActions = actionsToInsert.filter(
+							(action) =>
+								action.rootActionId === runId ||
+								action.agentRunId === runId ||
+								action.id === runId,
+						);
+						const childCost = childActions
+							.filter((action) => action.id !== runId)
+							.reduce(
+								(sum, action) =>
+									sum + (toFiniteNumber(action.totalCostUsd) ?? 0),
+								0,
+							);
+						const runOwnCost = toFiniteNumber(run.totalCostUsd) ?? 0;
+						run.totalCostUsd = Math.max(runOwnCost, childCost);
+
+						const starts = childActions
+							.map((action) =>
+								typeof action.startedAt === "string"
+									? Date.parse(action.startedAt)
+									: NaN,
+							)
+							.filter(Number.isFinite);
+						const ends = childActions
+							.map((action) =>
+								typeof action.endedAt === "string"
+									? Date.parse(action.endedAt)
+									: NaN,
+							)
+							.filter(Number.isFinite);
+						const wallClockMs =
+							starts.length > 0 && ends.length > 0
+								? Math.max(...ends) - Math.min(...starts)
+								: null;
+						const maxActionDuration = childActions.reduce(
+							(max, action) =>
+								Math.max(max, toFiniteNumber(action.durationMs) ?? 0),
+							0,
+						);
+						const existingDuration = toFiniteNumber(run.totalDurationMs) ?? 0;
+						run.totalDurationMs = Math.max(
+							existingDuration,
+							wallClockMs ?? 0,
+							maxActionDuration,
+						);
+					}
+				}
 
 				if (actionsToInsert.length > 0) {
 					const stmt = db.prepare(`

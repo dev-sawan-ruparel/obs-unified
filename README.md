@@ -4,17 +4,79 @@ Self-hosted observability for your project. Traces, logs, usage analytics,
 session replay, profiles, and AI call tracking — no external telemetry services
 required.
 
-The TypeScript packages publish to GitHub Packages. Configure the `@obs-unified`
-scope once, then install the SDKs:
+[![obs-unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
+
+<sub>More views: [AI cost & LLM spans](https://obsunified.com/screenshots/app/ai-cost-spans.png) ·
+[Unified timeline](https://obsunified.com/screenshots/app/timeline-unified.png) ·
+[Correlated logs](https://obsunified.com/screenshots/app/logs-correlated.png) ·
+see all on [obsunified.com](https://obsunified.com)</sub>
+
+## Try it
+
+No clone, no accounts, no registry auth — pull the prebuilt all-in-one image
+(Postgres, collector, dashboard, and seed data in one container):
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
-pnpm add @obs-unified/telemetry-sdk @obs-unified/analytics-sdk
+docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
+# → http://localhost:5173   (dashboard password: e2e-test-pass)
 ```
 
-See [docs/github-packages.md](docs/github-packages.md) for GitHub Packages
-authentication details and the Go/Rust install paths.
+Working from a clone instead? Build it locally: `pnpm local:image && pnpm local:run`.
+Prefer to run from source? See [docs/getting-started.md](docs/getting-started.md).
+
+> Installing the SDKs into **your own** app needs a one-time GitHub Packages
+> login — covered in [Instrument your app](#instrument-your-app) below and in
+> [docs/github-packages.md](docs/github-packages.md).
+
+## See it with sample data
+
+Two paths, depending on whether you have Docker.
+
+#### Recommended — point the OpenTelemetry Astronomy Shop at the collector
+
+> Requires Docker + docker-compose v2. ~6 GB RAM. First run pulls ~3 GB of
+> images. No Docker or a smaller machine? Use the synthetic seeder below
+> (~70 spans, no images to pull).
+
+The canonical OSS observability demo (~15 microservices in Go / Java / .NET /
+Node / Python / Rust, all emitting OTLP natively) becomes our data source. It
+includes a Locust load generator that drives the React frontend continuously,
+and built-in feature flags for failure injection that exercise Service Map +
+Issues realistically.
+
+```bash
+pnpm dev:collector   # in one terminal
+pnpm demo:setup      # one-time: clones the demo into demo/upstream/
+pnpm demo:up         # docker compose up; ~30 s to first traffic
+```
+
+Open `http://localhost:5173` — Traces, Service Map, Issues, Logs, and Metrics
+all populate from real microservice traffic. Tear down with `pnpm demo:down`.
+Full details: [demo/README.md](demo/README.md).
+
+#### Fallback — synthetic seeder (no Docker)
+
+Faster but less realistic — writes ~70 spans, 20 logs, 12 AI calls, 49 usage
+events, and 3 alert rules straight to the collector:
+
+```bash
+pnpm run dev      # start collector + demo + dashboard (in separate panes works too)
+pnpm run seed
+```
+
+The synthetic seeder doesn't generate Service Map edges or sustained load; use
+it when you want to iterate on UI without booting Docker.
+
+```bash
+# overrides
+node scripts/seed-everything/run.mjs \
+  --collector http://localhost:8790 \
+  --rounds 10
+```
+
+The only tab that needs a real browser regardless is **Replays** — rrweb chunks
+are captured client-side, so visit the Playground tab and click "Start replay"
+once.
 
 ## Architecture
 
@@ -64,11 +126,7 @@ graph TD
 - **SDK to Collector** — write-only API key (like PostHog/Sentry)
 - **Dashboard** — password login (like Grafana)
 
-## Quick Start
-
-If this is your first run, start with the **[Getting Started Guide](docs/getting-started.md)**. For production scaling setups, see the **[Production Operations Guide](docs/ops/production.md)**. For standard integration codes across languages, see the **[SDK API Reference Cheat Sheet](docs/sdk-reference.md)**.
-
-### Instrument an existing app
+## Instrument your app
 
 Start by choosing your language and framework, then follow the matching example:
 
@@ -84,9 +142,122 @@ Start by choosing your language and framework, then follow the matching example:
 The common wiring is: run a collector, add the browser/backend SDK package, set
 `OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction` CORS
 header for browser calls, and verify the collector path with
-`obs-unified doctor`.
+`pnpm dlx @obs-unified/cli doctor` (after the GitHub Packages login below).
 
-### 1. Deploy the Collector
+### Install the SDKs
+
+The TypeScript packages publish to GitHub Packages. Configure the `@obs-unified`
+scope once (GitHub Packages requires authentication even for public packages —
+see [docs/github-packages.md](docs/github-packages.md) for token setup and the
+Go/Rust install paths):
+
+```bash
+pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
+```
+
+### 1. Instrument Your Backend
+
+```bash
+pnpm add @obs-unified/telemetry-sdk
+```
+
+```typescript
+import {
+  initObservability,
+  createLogger,
+  trackAICall,
+} from "@obs-unified/telemetry-sdk";
+
+// Initialize once at startup
+initObservability({
+  collectorUrl: "https://obs.my-app.com",
+  apiKey: process.env.OBS_INGEST_KEY!,
+  serviceName: "my-api",
+});
+
+// Create loggers per module
+const logger = createLogger("users");
+
+// Use in your routes
+app.get("/users", async (c) => {
+  logger.info("Listing users");
+  const users = await db.users.findMany();
+  return c.json(users);
+});
+
+// Track AI calls
+trackAICall({
+  modelName: "claude-sonnet-4-20250514",
+  provider: "anthropic",
+  callType: "chat",
+  promptTokens: 150,
+  completionTokens: 80,
+  latencyMs: 1200,
+  totalCostUsd: 0.003,
+});
+```
+
+### 2. Instrument Your Frontend
+
+```bash
+pnpm add @obs-unified/analytics-sdk
+```
+
+```tsx
+import {
+  AnalyticsProvider,
+  useAnalytics,
+} from "@obs-unified/analytics-sdk/react";
+
+// Wrap your app
+function App() {
+  return (
+    <AnalyticsProvider
+      collectorUrl="https://obs.my-app.com"
+      apiKey="your-public-ingest-key"
+      trackPageViews
+      captureErrors
+    >
+      <YourApp />
+    </AnalyticsProvider>
+  );
+}
+
+// Use in components
+function CheckoutButton() {
+  const { trackInteraction, identify } = useAnalytics();
+
+  return (
+    <button
+      onClick={() => {
+        trackInteraction("checkout_click", { plan: "pro" });
+        identify("user-123", { email: "user@example.com" });
+      }}
+    >
+      Checkout
+    </button>
+  );
+}
+```
+
+### 3. Open the Dashboard
+
+Visit your collector URL in a browser. Enter the dashboard password. Done.
+
+```
+https://obs.my-app.com/dashboard
+```
+
+## Production Deployment
+
+If this is your first run, start with the
+**[Getting Started Guide](docs/getting-started.md)**. For production scaling
+setups, see the **[Production Operations Guide](docs/ops/production.md)**. For
+standard integration codes across languages, see the
+**[SDK API Reference Cheat Sheet](docs/sdk-reference.md)**.
+
+### Deploy the Collector
 
 The collector is a standalone service that receives telemetry and serves the
 dashboard.
@@ -131,148 +302,6 @@ Set environment variables:
 | `ALLOWED_ORIGINS`       | Recommended | Comma-separated CORS origins      |
 | `RETENTION_HOURS`       | No          | Data retention window, default 72 |
 | `ALLOW_UNAUTHENTICATED` | No          | Set `"true"` for local dev        |
-
-### 2. Instrument Your Backend
-
-```bash
-pnpm add @obs-unified/telemetry-sdk
-```
-
-```typescript
-import {
-  initObservability,
-  createLogger,
-  trackAICall,
-} from "@obs-unified/telemetry-sdk";
-
-// Initialize once at startup
-initObservability({
-  collectorUrl: "https://obs.my-app.com",
-  apiKey: process.env.OBS_INGEST_KEY!,
-  serviceName: "my-api",
-});
-
-// Create loggers per module
-const logger = createLogger("users");
-
-// Use in your routes
-app.get("/users", async (c) => {
-  logger.info("Listing users");
-  const users = await db.users.findMany();
-  return c.json(users);
-});
-
-// Track AI calls
-trackAICall({
-  modelName: "claude-sonnet-4-20250514",
-  provider: "anthropic",
-  callType: "chat",
-  promptTokens: 150,
-  completionTokens: 80,
-  latencyMs: 1200,
-  totalCostUsd: 0.003,
-});
-```
-
-### 3. Instrument Your Frontend
-
-```bash
-pnpm add @obs-unified/analytics-sdk
-```
-
-```tsx
-import {
-  AnalyticsProvider,
-  useAnalytics,
-} from "@obs-unified/analytics-sdk/react";
-
-// Wrap your app
-function App() {
-  return (
-    <AnalyticsProvider
-      collectorUrl="https://obs.my-app.com"
-      apiKey="your-public-ingest-key"
-      trackPageViews
-      captureErrors
-    >
-      <YourApp />
-    </AnalyticsProvider>
-  );
-}
-
-// Use in components
-function CheckoutButton() {
-  const { trackInteraction, identify } = useAnalytics();
-
-  return (
-    <button
-      onClick={() => {
-        trackInteraction("checkout_click", { plan: "pro" });
-        identify("user-123", { email: "user@example.com" });
-      }}
-    >
-      Checkout
-    </button>
-  );
-}
-```
-
-### 4. Open the Dashboard
-
-Visit your collector URL in a browser. Enter the dashboard password. Done.
-
-```
-https://obs.my-app.com/dashboard
-```
-
-### Populate dashboards with realistic data
-
-Two paths, depending on whether you have Docker.
-
-#### Recommended — point the OpenTelemetry Astronomy Shop at the collector
-
-The canonical OSS observability demo (~15 microservices in Go / Java / .NET /
-Node / Python / Rust, all emitting OTLP natively) becomes our data source. It
-includes a Locust load generator that drives the React frontend continuously,
-and built-in feature flags for failure injection that exercise Service Map +
-Issues realistically.
-
-```bash
-pnpm dev:collector   # in one terminal
-pnpm demo:setup      # one-time: clones the demo into demo/upstream/
-pnpm demo:up         # docker compose up; ~30 s to first traffic
-```
-
-Open `http://localhost:5173` — Traces, Service Map, Issues, Logs, and Metrics
-all populate from real microservice traffic. Tear down with `pnpm demo:down`.
-Full details: [demo/README.md](demo/README.md).
-
-> Requires Docker + docker-compose v2. ~6 GB RAM. First run pulls ~3 GB of
-> images.
-
-#### Fallback — synthetic seeder (no Docker)
-
-Faster but less realistic — writes ~70 spans, 20 logs, 12 AI calls, 49 usage
-events, and 3 alert rules straight to the collector:
-
-```bash
-pnpm run dev      # start collector + demo + dashboard (in separate panes works too)
-pnpm run seed
-```
-
-The synthetic seeder doesn't generate Service Map edges or sustained load; use
-it when you want to iterate on UI without booting Docker.
-
-```bash
-# overrides
-node scripts/seed-everything/run.mjs \
-  --collector http://localhost:8790 \
-  --rounds 10
-```
-
-The only tab that needs a real browser regardless is **Replays** — rrweb chunks
-are captured client-side, so visit the Playground tab and click "Start replay"
-once.
 
 ## Packages
 

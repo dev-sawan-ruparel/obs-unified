@@ -9,6 +9,8 @@ import {
 export interface McpContext {
 	traceContext?: IncomingTraceContext;
 	actionContext?: ActionContextOptions;
+	tracestate?: string;
+	baggage?: string;
 }
 
 /**
@@ -27,12 +29,23 @@ export function injectMcpContext(params: any): void {
 
 	const activeAction = getActiveActionContext();
 	if (activeAction) {
+		params._meta["obs.action.root_id"] = activeAction.rootActionId;
+		params._meta["obs.action.id"] = activeAction.actionId;
 		params._meta.obs = {
 			root_action_id: activeAction.rootActionId,
 			action_id: activeAction.actionId,
 		};
 	}
 }
+
+// Explicit aliases make request and notification JSON-RPC call sites readable.
+// biome-ignore lint/suspicious/noExplicitAny: MCP JSON-RPC parameters have arbitrary structure
+export const injectMcpRequestContext = (params: any): void =>
+	injectMcpContext(params);
+
+// biome-ignore lint/suspicious/noExplicitAny: MCP JSON-RPC parameters have arbitrary structure
+export const injectMcpNotificationContext = (params: any): void =>
+	injectMcpContext(params);
 
 /**
  * Server side: extract trace context and obs-unified action context
@@ -50,24 +63,43 @@ export function extractMcpContext(params: any): McpContext | undefined {
 	if (typeof meta.traceparent === "string") {
 		context.traceContext = parseTraceparent(meta.traceparent);
 	}
-
-	const obs = meta.obs;
-	if (obs && typeof obs === "object") {
-		const rootActionId = obs.root_action_id;
-		const actionId = obs.action_id;
-		if (typeof rootActionId === "string" && typeof actionId === "string") {
-			context.actionContext = {
-				rootActionId,
-				actionId,
-				causedByActionId: actionId, // Direct causal parent
-				agentRunId: rootActionId,
-				actorType: "agent",
-				actorId: null,
-			};
-		}
+	if (typeof meta.tracestate === "string") {
+		context.tracestate = meta.tracestate;
+	}
+	if (typeof meta.baggage === "string") {
+		context.baggage = meta.baggage;
 	}
 
-	if (!context.traceContext && !context.actionContext) {
+	const obs = meta.obs;
+	const rootActionId =
+		typeof meta["obs.action.root_id"] === "string"
+			? meta["obs.action.root_id"]
+			: obs && typeof obs === "object"
+				? obs.root_action_id
+				: undefined;
+	const actionId =
+		typeof meta["obs.action.id"] === "string"
+			? meta["obs.action.id"]
+			: obs && typeof obs === "object"
+				? obs.action_id
+				: undefined;
+	if (typeof rootActionId === "string" && typeof actionId === "string") {
+		context.actionContext = {
+			rootActionId,
+			actionId,
+			causedByActionId: actionId, // Direct causal parent
+			agentRunId: rootActionId,
+			actorType: "agent",
+			actorId: null,
+		};
+	}
+
+	if (
+		!context.traceContext &&
+		!context.actionContext &&
+		!context.tracestate &&
+		!context.baggage
+	) {
 		return undefined;
 	}
 

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { CollectorRuntime } from "../framework/collector";
 import type { CollectorEnv } from "../framework/env";
 import type {
+	AutonomousReviewResult,
 	CostAttributionResult,
 	ToolReliabilityResult,
+	VersionComparisonResult,
 } from "../lib/action-aggregates";
 import type { EntityManifestExtended } from "../lib/identity-index";
 import { MemSqlDb } from "../lib/test-utils/mem-sql-db";
@@ -437,5 +439,93 @@ describe("actionRoutesPlugin", () => {
 		expect(body.byUser[0].key).toBe("user-123");
 		expect(body.byTenant[0].key).toBe("acme_corp");
 		expect(body.byWorkflow[0].key).toBe("invoice-workflow");
+	});
+
+	it("returns autonomous-write review rows for side-effecting autonomous tools", async () => {
+		const fetch = setup(
+			new MemSqlDb({
+				all: () => [
+					{
+						id: "tool-1",
+						tool_name: "update_invoice",
+						action_id: "action-tool",
+						action_name: "Update invoice",
+						agent_run_id: "run-123",
+						agent_name: "Billing Agent",
+						agent_version: "2.0.0",
+						autonomy_level: "autonomous_write",
+						side_effect: 1,
+						approval_state: "bypassed",
+						status: "error",
+						error_snippet: "policy violation",
+						trace_id: "trace-123",
+						occurred_at: "2026-05-22T00:00:01.000Z",
+					},
+				],
+			}),
+		);
+
+		const res = await fetch(
+			"/internal/actions/aggregates/autonomous-review?hours=24&limit=10",
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as AutonomousReviewResult;
+		expect(body.rows[0]).toMatchObject({
+			id: "tool-1",
+			toolName: "update_invoice",
+			agentRunId: "run-123",
+			approvalState: "bypassed",
+			status: "error",
+		});
+	});
+
+	it("returns prompt and agent version diff metrics", async () => {
+		const fetch = setup(
+			new MemSqlDb({
+				all: () => [
+					{
+						version: "v3",
+						run_count: 10,
+						success_count: 9,
+						avg_duration_ms: 300,
+						avg_cost_usd: 0.02,
+						eval_count: 8,
+						passed_eval_count: 7,
+						avg_eval_score: 0.92,
+						tool_count: 20,
+						tool_error_count: 1,
+					},
+					{
+						version: "v2",
+						run_count: 10,
+						success_count: 8,
+						avg_duration_ms: 500,
+						avg_cost_usd: 0.04,
+						eval_count: 8,
+						passed_eval_count: 6,
+						avg_eval_score: 0.82,
+						tool_count: 20,
+						tool_error_count: 3,
+					},
+				],
+			}),
+		);
+
+		const res = await fetch(
+			"/internal/actions/aggregates/version-diff?baseline=v2&target=v3",
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as VersionComparisonResult;
+		expect(body.baselineVersion).toBe("v2");
+		expect(body.targetVersion).toBe("v3");
+		expect(body.metrics.map((metric) => metric.label)).toContain(
+			"Success Rate",
+		);
+		expect(
+			body.metrics.find((metric) => metric.label === "Average Run Cost")
+				?.deltaDirection,
+		).toBe("positive");
 	});
 });

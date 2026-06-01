@@ -460,6 +460,87 @@ describe("genAiNormalizerPlugin - OpenInference span kinds and Phase 0 fixtures"
 				expect(firstAction.project_id).toBeDefined();
 				expect(firstAction.root_action_id).toBeDefined();
 			}
+
+			const fixtureSpans: StoredSpan[] = json.actions.map(
+				(action: Record<string, unknown>) => {
+					const attrs =
+						typeof action.attrs_json === "string"
+							? parseJsonRecord(action.attrs_json)
+							: {};
+					const actionKind = String(action.action_kind ?? "agent.step");
+					const openInferenceKind = actionKind.includes("tool")
+						? OpenInferenceSpanKind.TOOL
+						: actionKind.includes("llm")
+							? OpenInferenceSpanKind.LLM
+							: actionKind.includes("retriev")
+								? OpenInferenceSpanKind.RETRIEVER
+								: actionKind.includes("eval") ||
+										actionKind.includes("guardrail")
+									? OpenInferenceSpanKind.EVALUATOR
+									: OpenInferenceSpanKind.CHAIN;
+					return {
+						projectId: String(action.project_id),
+						spanId: String(action.span_id),
+						parentSpanId:
+							typeof action.caused_by_action_id === "string"
+								? String(action.caused_by_action_id).slice(0, 16)
+								: null,
+						traceId: String(action.trace_id),
+						traceState: null,
+						serviceName: "fixture",
+						scopeName: null,
+						scopeVersion: null,
+						spanName: String(action.name ?? action.id),
+						spanKind: 1,
+						statusCode: action.status === "error" ? 2 : 1,
+						statusMessage: null,
+						startTime: String(action.started_at),
+						endTime:
+							typeof action.ended_at === "string"
+								? String(action.ended_at)
+								: String(action.started_at),
+						durationMs: Number(action.duration_ms ?? 0),
+						attributesJson: JSON.stringify({
+							...attrs,
+							[OPENINFERENCE_SPAN_KIND_KEY]: openInferenceKind,
+							[ACTION_ID_KEY]: action.id,
+							[ACTION_ROOT_ID_KEY]: action.root_action_id,
+							[ACTION_CAUSED_BY_ID_KEY]: action.caused_by_action_id,
+							[ACTION_KIND_KEY]: action.action_kind,
+							[AGENT_RUN_ID_KEY]: action.agent_run_id,
+						}),
+						droppedAttributesCount: 0,
+						resourceAttributesJson: "{}",
+						eventsJson: "[]",
+						droppedEventsCount: 0,
+						linksJson: "[]",
+						droppedLinksCount: 0,
+						receivedAt: String(action.ended_at ?? action.started_at),
+						expiresAt: "2026-06-01T00:00:00.000Z",
+						sessionId:
+							typeof action.session_id === "string"
+								? String(action.session_id)
+								: null,
+						interactionId:
+							typeof action.interaction_id === "string"
+								? String(action.interaction_id)
+								: null,
+					};
+				},
+			);
+
+			const processed = await registerNormalizer()(fixtureSpans, context);
+			for (let i = 0; i < processed.length; i++) {
+				const attrs = parseJsonRecord(processed[i].attributesJson);
+				const action = json.actions[i];
+				expect(attrs[ACTION_ID_KEY]).toBe(action.id);
+				expect(attrs[ACTION_ROOT_ID_KEY]).toBe(action.root_action_id);
+				expect(attrs[ACTION_KIND_KEY]).toBe(action.action_kind);
+				expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Explicit);
+				if (action.agent_run_id) {
+					expect(attrs[AGENT_RUN_ID_KEY]).toBe(action.agent_run_id);
+				}
+			}
 		}
 	});
 });
