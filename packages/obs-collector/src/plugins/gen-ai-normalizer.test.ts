@@ -348,3 +348,118 @@ describe("genAiNormalizerPlugin - OTel MCP normalization", () => {
 		expect(attrsPrompt[ACTION_KIND_KEY]).toBe(ActionKind.AgentStep);
 	});
 });
+
+describe("genAiNormalizerPlugin - OpenInference span kinds and Phase 0 fixtures", () => {
+	const context = {
+		env: {},
+		now: new Date(),
+		logger: console,
+	} as unknown as CollectorRouteContext;
+
+	const registerNormalizer = () => {
+		const processors: SpanProcessorPlugin[] = [];
+		const app = {};
+		const runtime = {
+			addSpanProcessor(p: SpanProcessorPlugin) {
+				processors.push(p);
+			},
+		};
+
+		genAiNormalizerPlugin.register(
+			app as Parameters<typeof genAiNormalizerPlugin.register>[0],
+			runtime as unknown as CollectorRuntime,
+		);
+		return processors[0].process;
+	};
+
+	it("should map EMBEDDING, RERANKER, GUARDRAIL, EVALUATOR, AGENT, CHAIN to canonical action kinds", async () => {
+		const processFn = registerNormalizer();
+
+		const testSpans = [
+			"EMBEDDING",
+			"RERANKER",
+			"GUARDRAIL",
+			"EVALUATOR",
+			"AGENT",
+			"CHAIN",
+		].map((oiKind, idx) => ({
+			projectId: "proj-123",
+			spanId: `span-oi-${idx}`,
+			parentSpanId: null,
+			traceId: "trace-oi",
+			traceState: null,
+			serviceName: "oi-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: `test-${oiKind.toLowerCase()}`,
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				[OPENINFERENCE_SPAN_KIND_KEY]: oiKind,
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		}));
+
+		const processed = await processFn(testSpans, context);
+		const kinds = processed.map(
+			(p) => parseJsonRecord(p.attributesJson)[ACTION_KIND_KEY],
+		);
+
+		expect(kinds[0]).toBe(ActionKind.AgentStep); // EMBEDDING
+		expect(kinds[1]).toBe(ActionKind.AgentStep); // RERANKER
+		expect(kinds[2]).toBe(ActionKind.AgentStep); // GUARDRAIL
+		expect(kinds[3]).toBe(ActionKind.Eval); // EVALUATOR
+		expect(kinds[4]).toBe(ActionKind.AgentStep); // AGENT
+		expect(kinds[5]).toBe(ActionKind.AgentStep); // CHAIN
+	});
+
+	it("verifies and loads Phase 0 action fixtures as conformance baseline", async () => {
+		const fs = await import("node:fs");
+		const path = await import("node:path");
+
+		let fixturesDir = path.resolve(process.cwd(), "tests/fixtures/actions");
+		if (!fs.existsSync(fixturesDir)) {
+			fixturesDir = path.resolve(process.cwd(), "../../tests/fixtures/actions");
+		}
+		const files = [
+			"browser-only-flow.json",
+			"click-triggered-agent-run.json",
+			"cron-triggered-agent-run.json",
+			"wrong-invoice-update.json",
+		];
+
+		for (const file of files) {
+			const filePath = path.join(fixturesDir, file);
+			expect(fs.existsSync(filePath)).toBe(true);
+
+			const raw = fs.readFileSync(filePath, "utf8");
+			const json = JSON.parse(raw);
+
+			// Assert minimum required Action Graph envelope keys
+			expect(json.actions).toBeDefined();
+			expect(Array.isArray(json.actions)).toBe(true);
+			expect(json.agent_runs).toBeDefined();
+			expect(json.tool_calls).toBeDefined();
+
+			if (json.actions.length > 0) {
+				const firstAction = json.actions[0];
+				expect(firstAction.id).toBeDefined();
+				expect(firstAction.project_id).toBeDefined();
+				expect(firstAction.root_action_id).toBeDefined();
+			}
+		}
+	});
+});

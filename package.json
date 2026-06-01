@@ -30,6 +30,7 @@
 		"smoke:local-image": "bash scripts/smoke-local-image/run.sh",
 		"smoke:collector-node": "pnpm --filter @obs-demo/collector-node run smoke:docker",
 		"seed": "node scripts/seed-everything/run.mjs",
+		"doctor": "bash scripts/doctor.sh",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",

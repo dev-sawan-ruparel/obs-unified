@@ -308,6 +308,28 @@ export async function manifestByAction(
 			}>();
 	}
 
+	const sumAiCost = aiCallsRes.results.reduce(
+		(sum, a) => sum + (a.total_cost_usd ?? 0),
+		0,
+	);
+	const startTimes = matchedActions.map((a) => a.started_at).filter(Boolean);
+	const endTimes = matchedActions.map((a) => a.ended_at).filter(Boolean);
+	const earliestStart = startTimes.sort()[0] ?? null;
+	const latestEnd = endTimes.sort()[endTimes.length - 1] ?? null;
+	const totalDurationMs =
+		earliestStart && latestEnd
+			? Date.parse(latestEnd) - Date.parse(earliestStart)
+			: null;
+
+	const mappedRuns = agentRuns.results.map((r) => {
+		const mapped = mapAgentRun(r);
+		return {
+			...mapped,
+			totalCostUsd: sumAiCost || mapped.totalCostUsd || 0.0,
+			totalDurationMs: totalDurationMs || mapped.totalDurationMs,
+		};
+	});
+
 	return {
 		spans: spansRes.results.map(mapSpan),
 		logs: logsRes.results.map(mapLog),
@@ -323,7 +345,7 @@ export async function manifestByAction(
 				}
 			: null,
 		actions: matchedActions.map(mapAction),
-		agentRuns: agentRuns.results.map(mapAgentRun),
+		agentRuns: mappedRuns,
 		toolCalls: toolCalls.results.map(mapToolCall),
 		retrievalEvents: retrievalEvents.results.map(mapRetrievalEvent),
 		evalResults: evalResults.results.map(mapEvalResult),
@@ -504,6 +526,28 @@ export async function manifestByAgentRun(
 			}>();
 	}
 
+	const sumAiCost = aiCallsRes.results.reduce(
+		(sum, a) => sum + (a.total_cost_usd ?? 0),
+		0,
+	);
+	const startTimes = matchedActions.map((a) => a.started_at).filter(Boolean);
+	const endTimes = matchedActions.map((a) => a.ended_at).filter(Boolean);
+	const earliestStart = startTimes.sort()[0] ?? null;
+	const latestEnd = endTimes.sort()[endTimes.length - 1] ?? null;
+	const totalDurationMs =
+		earliestStart && latestEnd
+			? Date.parse(latestEnd) - Date.parse(earliestStart)
+			: null;
+
+	const mappedRuns = agentRuns.results.map((r) => {
+		const mapped = mapAgentRun(r);
+		return {
+			...mapped,
+			totalCostUsd: sumAiCost || mapped.totalCostUsd || 0.0,
+			totalDurationMs: totalDurationMs || mapped.totalDurationMs,
+		};
+	});
+
 	return {
 		spans: spansRes.results.map(mapSpan),
 		logs: logsRes.results.map(mapLog),
@@ -519,7 +563,7 @@ export async function manifestByAgentRun(
 				}
 			: null,
 		actions: matchedActions.map(mapAction),
-		agentRuns: agentRuns.results.map(mapAgentRun),
+		agentRuns: mappedRuns,
 		toolCalls: toolCalls.results.map(mapToolCall),
 		retrievalEvents: retrievalEvents.results.map(mapRetrievalEvent),
 		evalResults: evalResults.results.map(mapEvalResult),
