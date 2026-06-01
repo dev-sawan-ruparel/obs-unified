@@ -1,5 +1,15 @@
 const screenshots = [
   {
+    src: "/screenshots/app/agent-action-graph.png",
+    title: "Bookmarkable Agent Action Graph",
+    body: "A nested action page shows the agent run, plan, tool calls, evals, trace ID, and interaction ID in one graph.",
+  },
+  {
+    src: "/screenshots/app/interaction-id-path.png",
+    title: "Interaction ID path",
+    body: "The same interaction_id follows a frontend action into backend traces, logs, replay, AI spans, and profiles.",
+  },
+  {
     src: "/screenshots/app/service-map-astronomy.png",
     title: "Astronomy Shop service map",
     body: "Real demo traffic across 21 services, edge volume, latency, and errors.",
@@ -14,6 +24,11 @@ const screenshots = [
     title: "Unified timeline",
     body: "User, trace, log, replay, and usage events line up in one incident story.",
   },
+  {
+    src: "/screenshots/app/trace-profile-slot.png",
+    title: "Trace to CPU profile",
+    body: "Trace detail keeps the profile join point visible so agents can carry a root-cause path down to CPU evidence.",
+  },
 ];
 
 export function renderScreenshots() {
@@ -23,7 +38,7 @@ export function renderScreenshots() {
         <div class="section-header">
           <p class="eyebrow">Product proof</p>
           <h2>The same demo, seen through every signal.</h2>
-          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through obs-unified, with the interaction ID seeded into the local telemetry store.</p>
+          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through obs-unified, including the nested Agent Action Graph route, interaction ID path, connected trace evidence, AI cost, and profile join point.</p>
         </div>
 
         <div class="screenshot-showcase">
