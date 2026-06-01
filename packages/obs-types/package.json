@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/types",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"description": "Shared types, constants, and API client for observability",
 	"license": "MIT",
 	"repository": {

@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/telemetry-sdk",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"description": "Server-side telemetry SDK — OTLP spans, structured logger, AI/LLM helpers, interaction_id stamping. Workers wrappers under ./cloudflare.",
 	"license": "MIT",
 	"repository": {
