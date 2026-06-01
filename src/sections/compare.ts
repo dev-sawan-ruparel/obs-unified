@@ -17,6 +17,11 @@ type Row = {
 
 const COMPARISON_URL = `${DOCS_URL}/comparison`;
 
+// Keep in sync with the Callout "Reviewed …" date at the top of
+// obs-unified-docs/content/docs/comparison.mdx — that doc is the single source
+// of truth for when the comparison was last verified.
+const LAST_REVIEWED = "2026-05-31";
+
 // Anchor ids match `<a id="src-..." />` headings in
 // obs-unified-docs/content/docs/comparison.mdx. Updating that doc updates
 // the destination of these footnote links.
@@ -25,8 +30,8 @@ const ROWS: Row[] = [
     label: "Hosting model",
     obs:       { v: "Self-host on your infra",  tone: "yes" },
     datadog:   { v: "SaaS only",                tone: "no",      ref: "dd-hosting" },
-    sentry:    { v: "SaaS or OSS self-host",    tone: "partial", ref: "se-hosting" },
-    posthog:   { v: "Cloud or OSS self-host",   tone: "partial", ref: "ph-hosting" },
+    sentry:    { v: "SaaS or Fair Source self-host", tone: "partial", ref: "se-hosting" },
+    posthog:   { v: "Cloud-first · OSS self-host (hobby)", tone: "partial", ref: "ph-hosting" },
     honeycomb: { v: "SaaS · Private Cloud AWS", tone: "partial", ref: "hc-hosting" },
     newrelic:  { v: "SaaS only",                tone: "no",      ref: "nr-hosting" },
     grafana:   { v: "Cloud or self-host LGTM",  tone: "partial", ref: "gr-hosting" },
@@ -81,7 +86,7 @@ const ROWS: Row[] = [
     posthog:   { v: "LLM Analytics",             tone: "yes",     ref: "ph-llm" },
     honeycomb: { v: "Agent Obs (Early Access)",  tone: "partial", ref: "hc-llm" },
     newrelic:  { v: "AI Monitoring",             tone: "yes",     ref: "nr-llm" },
-    grafana:   { v: "Assistant only",            tone: "partial", ref: "gr-llm" },
+    grafana:   { v: "AI Observability (preview)", tone: "yes",     ref: "gr-llm" },
     signoz:    { v: "LLM Observability",         tone: "yes",     ref: "sn-llm" },
     uptrace:   { v: "—",                         tone: "no",      ref: "up-llm" },
     hyperdx:   { v: "Via OpenLLMetry",           tone: "partial", ref: "hx-llm" },
@@ -94,7 +99,7 @@ const ROWS: Row[] = [
     posthog:   { v: "rrweb",                     tone: "yes",     ref: "ph-replay" },
     honeycomb: { v: "—",                         tone: "no",      ref: "hc-replay" },
     newrelic:  { v: "Yes · DOM-based",           tone: "yes",     ref: "nr-replay" },
-    grafana:   { v: "—",                         tone: "no",      ref: "gr-replay" },
+    grafana:   { v: "Yes · Frontend Obs",        tone: "yes",     ref: "gr-replay" },
     signoz:    { v: "—",                         tone: "no",      ref: "sn-replay" },
     uptrace:   { v: "—",                         tone: "no",      ref: "up-replay" },
     hyperdx:   { v: "Yes · auto-linked",         tone: "yes",     ref: "hx-replay" },
@@ -234,7 +239,7 @@ export function renderCompare(): string {
       Numbered superscripts link to the underlying vendor source.
       Full methodology, vendor profiles, and quoted citations live in
       <a href="${COMPARISON_URL}" rel="noopener">the comparison research doc</a>
-      (last reviewed 2026-05-19 · re-reviewed quarterly).
+      (last reviewed ${LAST_REVIEWED} · re-reviewed quarterly).
     </p>
   </div>
 </section>
