@@ -30,3 +30,23 @@ if (!root.innerHTML.trim()) {
     renderFooter(),
   ].join("");
 }
+
+document.addEventListener("click", async (event) => {
+  const button = (event.target as Element).closest<HTMLButtonElement>("[data-copy]");
+  if (!button) return;
+
+  const value = button.dataset.copy;
+  if (!value) return;
+
+  try {
+    await navigator.clipboard.writeText(value);
+    button.dataset.copied = "true";
+    button.textContent = "Copied";
+    window.setTimeout(() => {
+      button.dataset.copied = "false";
+      button.textContent = "Copy";
+    }, 1600);
+  } catch {
+    button.textContent = "Select";
+  }
+});

@@ -40,11 +40,6 @@ if (!APP_DIV.test(html)) {
 let next = html.replace(APP_DIV, `<div id="app">${body}</div>`);
 next = next.replace("</head>", `    ${renderJsonLdScript()}\n  </head>`);
 
-// All content is static — drop the bundle script so the prod page ships pure HTML + CSS.
-// The CSS link remains intact.
-const SCRIPT_TAG = /\s*<script type="module"[^>]*src="[^"]*\/assets\/[^"]+\.js"[^>]*><\/script>/;
-next = next.replace(SCRIPT_TAG, "");
-
 await writeFile(distHtml, next, "utf8");
 
 const before = html.length;
