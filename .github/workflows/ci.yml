@@ -97,7 +97,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r --filter "./packages/*" run build
+      - run: pnpm -r --sort --filter "./packages/*" --filter @obs-demo/collector-node run build
       - name: Start Postgres
         run: |
           docker rm -f obs-unified-ci-postgres || true
@@ -162,6 +162,7 @@ jobs:
         with:
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --sort --filter "@obs-unified/*" run build
       # The conformance runner reads cases.json once and dispatches to
       # each SDK's native runner. Today each SDK runs its own vitest /
       # go test / cargo test against the same fixture file.
