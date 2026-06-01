@@ -1,0 +1,350 @@
+import type { StoredSpan } from "@obs-unified/types";
+import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_CONFIDENCE_KEY,
+	ACTION_ID_KEY,
+	ACTION_KIND_KEY,
+	ACTION_ROOT_ID_KEY,
+	ACTOR_TYPE_KEY,
+	ActionConfidence,
+	ActionKind,
+	AGENT_RUN_ID_KEY,
+	OPENINFERENCE_SPAN_KIND_KEY,
+	OpenInferenceSpanKind,
+	TOOL_ARGS_KEY,
+	TOOL_CALL_ID_KEY,
+	TOOL_NAME_KEY,
+	TOOL_SIDE_EFFECT_KEY,
+} from "@obs-unified/types/constants";
+import { describe, expect, it } from "vitest";
+import type {
+	CollectorRuntime,
+	SpanProcessorPlugin,
+} from "../framework/collector";
+import type { CollectorRouteContext } from "../framework/env";
+import { parseJsonRecord } from "../lib/json";
+import { deriveActionId, genAiNormalizerPlugin } from "./gen-ai-normalizer";
+
+describe("deriveActionId deterministic fallback ID hashing", () => {
+	it("should generate a stable 26-character Crockford base32 action ID", async () => {
+		const actionId1 = await deriveActionId("proj-123", "trace-abc", "span-xyz");
+		const actionId2 = await deriveActionId("proj-123", "trace-abc", "span-xyz");
+
+		expect(actionId1).toBe(actionId2);
+		expect(actionId1).toHaveLength(26);
+		expect(actionId1).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+
+		const actionId3 = await deriveActionId(
+			"proj-123",
+			"trace-abc",
+			"span-different",
+		);
+		expect(actionId1).not.toBe(actionId3);
+	});
+});
+
+describe("genAiNormalizerPlugin - OTel GenAI normalization", () => {
+	const context = {
+		env: {},
+		now: new Date(),
+		logger: console,
+	} as unknown as CollectorRouteContext;
+
+	const registerNormalizer = () => {
+		const processors: SpanProcessorPlugin[] = [];
+		const app = {};
+		const runtime = {
+			addSpanProcessor(p: SpanProcessorPlugin) {
+				processors.push(p);
+			},
+		};
+
+		genAiNormalizerPlugin.register(
+			app as Parameters<typeof genAiNormalizerPlugin.register>[0],
+			runtime as unknown as CollectorRuntime,
+		);
+		return processors[0].process;
+	};
+
+	it("should normalize raw gen_ai.* spans and derive canonical Action Graph attributes", async () => {
+		const processFn = registerNormalizer();
+
+		const rawSpan: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-456",
+			parentSpanId: "span-parent",
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "my-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "chat",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				"gen_ai.operation.name": "chat",
+				"gen_ai.system": "openai",
+				"gen_ai.request.model": "gpt-4o",
+				"gen_ai.usage.input_tokens": 120,
+				"gen_ai.usage.output_tokens": 80,
+				"gen_ai.prompt": "Hello normalizer",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const [processed] = await processFn([rawSpan], context);
+		const attrs = parseJsonRecord(processed.attributesJson);
+
+		// OpenInference conversions
+		expect(attrs[OPENINFERENCE_SPAN_KIND_KEY]).toBe(OpenInferenceSpanKind.LLM);
+		expect(attrs["llm.model_name"]).toBe("gpt-4o");
+		expect(attrs["llm.provider"]).toBe("openai");
+		expect(attrs["llm.token_count.prompt"]).toBe(120);
+		expect(attrs["llm.token_count.completion"]).toBe(80);
+		expect(attrs["llm.token_count.total"]).toBe(200);
+
+		// Action Graph Schema attributes
+		expect(attrs[ACTION_ID_KEY]).toBeDefined();
+		expect(attrs[ACTION_ID_KEY]).toHaveLength(26);
+		expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Fallback);
+
+		// Derived root and causal parent relationships
+		const derivedRoot = await deriveActionId(
+			"proj-123",
+			"trace-789",
+			"trace-789".substring(0, 16),
+		);
+		const derivedCausedBy = await deriveActionId(
+			"proj-123",
+			"trace-789",
+			"span-parent",
+		);
+
+		expect(attrs[ACTION_ROOT_ID_KEY]).toBe(derivedRoot);
+		expect(attrs[ACTION_CAUSED_BY_ID_KEY]).toBe(derivedCausedBy);
+		expect(attrs[ACTOR_TYPE_KEY]).toBe("agent");
+		expect(attrs[AGENT_RUN_ID_KEY]).toBe(derivedRoot);
+		expect(attrs[ACTION_KIND_KEY]).toBe(ActionKind.LlmCall);
+	});
+
+	it("should preserve explicitly passed Action Graph attributes", async () => {
+		const processFn = registerNormalizer();
+
+		const explicitSpan: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-456",
+			parentSpanId: null,
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "my-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "chat",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				"gen_ai.operation.name": "chat",
+				[ACTION_ID_KEY]: "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+				[ACTION_ROOT_ID_KEY]: "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+				[ACTION_CAUSED_BY_ID_KEY]: "01HZQ5W3K8M4P2X7N9B0CDEFGH",
+				[ACTOR_TYPE_KEY]: "system",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const [processed] = await processFn([explicitSpan], context);
+		const attrs = parseJsonRecord(processed.attributesJson);
+
+		expect(attrs[ACTION_ID_KEY]).toBe("01J3Y4Z5A6B7C8D9E0F1G2H3J4");
+		expect(attrs[ACTION_ROOT_ID_KEY]).toBe("01J3Y4Z5A6B7C8D9E0F1G2H3J4");
+		expect(attrs[ACTION_CAUSED_BY_ID_KEY]).toBe("01HZQ5W3K8M4P2X7N9B0CDEFGH");
+		expect(attrs[ACTOR_TYPE_KEY]).toBe("system");
+		expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Explicit);
+	});
+});
+
+describe("genAiNormalizerPlugin - OTel MCP normalization", () => {
+	const context = {
+		env: {},
+		now: new Date(),
+		logger: console,
+	} as unknown as CollectorRouteContext;
+
+	const registerNormalizer = () => {
+		const processors: SpanProcessorPlugin[] = [];
+		const app = {};
+		const runtime = {
+			addSpanProcessor(p: SpanProcessorPlugin) {
+				processors.push(p);
+			},
+		};
+
+		genAiNormalizerPlugin.register(
+			app as Parameters<typeof genAiNormalizerPlugin.register>[0],
+			runtime as unknown as CollectorRuntime,
+		);
+		return processors[0].process;
+	};
+
+	it("should normalize mcp tools/call spans to TOOL kind and Action kind tool.call", async () => {
+		const processFn = registerNormalizer();
+
+		const mcpSpan: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-456",
+			parentSpanId: null,
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "mcp-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "update_invoice_status",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				"mcp.method.name": "tools/call",
+				"mcp.tool.name": "update_invoice_status",
+				"mcp.tool.arguments": { invoice_id: "INV-2026", status: "paid" },
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const [processed] = await processFn([mcpSpan], context);
+		const attrs = parseJsonRecord(processed.attributesJson);
+
+		expect(attrs[OPENINFERENCE_SPAN_KIND_KEY]).toBe(OpenInferenceSpanKind.TOOL);
+		expect(attrs[ACTION_KIND_KEY]).toBe(ActionKind.ToolCall);
+		expect(attrs[TOOL_CALL_ID_KEY]).toBe(attrs[ACTION_ID_KEY]);
+		expect(attrs[TOOL_NAME_KEY]).toBe("update_invoice_status");
+		expect(attrs["obs.tool_call.tool_name"]).toBe("update_invoice_status");
+		expect(attrs[TOOL_ARGS_KEY]).toBe(
+			JSON.stringify({ invoice_id: "INV-2026", status: "paid" }),
+		);
+		expect(attrs["obs.tool_call.args"]).toBe(
+			JSON.stringify({ invoice_id: "INV-2026", status: "paid" }),
+		);
+		expect(attrs[TOOL_SIDE_EFFECT_KEY]).toBe(1); // Auto-detected from "update_invoice_status"
+	});
+
+	it("should normalize mcp resources/read and prompts/get spans to RETRIEVER and PROMPT kinds", async () => {
+		const processFn = registerNormalizer();
+
+		const resourceSpan: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-456",
+			parentSpanId: null,
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "mcp-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "read_logs",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				"mcp.method.name": "resources/read",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const promptSpan: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-789",
+			parentSpanId: null,
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "mcp-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "summarize_doc",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			attributesJson: JSON.stringify({
+				"mcp.method.name": "prompts/get",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const [processedRes, processedPrompt] = await processFn(
+			[resourceSpan, promptSpan],
+			context,
+		);
+
+		const attrsRes = parseJsonRecord(processedRes.attributesJson);
+		expect(attrsRes[OPENINFERENCE_SPAN_KIND_KEY]).toBe(
+			OpenInferenceSpanKind.RETRIEVER,
+		);
+		expect(attrsRes[ACTION_KIND_KEY]).toBe(ActionKind.Retrieval);
+
+		const attrsPrompt = parseJsonRecord(processedPrompt.attributesJson);
+		expect(attrsPrompt[OPENINFERENCE_SPAN_KIND_KEY]).toBe(
+			OpenInferenceSpanKind.PROMPT,
+		);
+		expect(attrsPrompt[ACTION_KIND_KEY]).toBe(ActionKind.AgentStep);
+	});
+});

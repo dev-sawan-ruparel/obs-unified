@@ -242,3 +242,40 @@ Model Context Protocol (MCP) clients call tools over persistent JSON-RPC pipes. 
 }
 ```
 The MCP server extracts these values, mounts them to its local trace/span context, and ensures child database or downstream calls retain the exact graph causality keys.
+
+---
+
+## Collector Normalizers (Ingress)
+
+To bring third-party and ecosystem telemetry into the canonical Agent Action Graph, the obs-collector automatically normalizes raw spans during ingest using the `gen-ai-normalizer` plugin.
+
+### 1. OpenTelemetry GenAI Normalization
+Spans carrying standard `gen_ai.*` attributes (e.g., from vendor auto-instrumentation like Vercel AI SDK or OpenAI SDK) are mapped as follows:
+* **OpenInference Kind Conversion**: Maps `gen_ai.operation.name` (like chat, completion, embed, or tool) to `openinference.span.kind`.
+* **Token Usage**: Denormalizes prompt/completion token count attributes to standard `llm.token_count.*`.
+* **Action Graph Schema**:
+  * If explicit action attributes are absent, derives `obs.action.id`, `obs.action.root_id`, and `obs.action.caused_by_id` using the deterministic fallback hashing algorithm. Sets `obs.action.confidence = "fallback"`.
+  * If parent span context exists, maps `obs.action.caused_by_id` to the derived action ID of the parent span.
+
+### 2. Model Context Protocol (MCP) Normalization
+Spans containing `mcp.method.name` or starting with `mcp.*` attributes represent Model Context Protocol JSON-RPC operations and are normalized accordingly:
+* **`tools/call`**:
+  * Set `openinference.span.kind = "TOOL"` and `obs.action.kind = "tool.call"`.
+  * Map `mcp.tool.name` to `obs.tool.name`.
+  * Map `mcp.tool.arguments` to `obs.tool.args` (and serialize as string).
+  * Auto-detect `obs.tool.side_effect` based on write/mutate naming patterns or explicit side-effect markers.
+* **`resources/read`**:
+  * Set `openinference.span.kind = "RETRIEVER"` and `obs.action.kind = "retrieval"`.
+* **`prompts/get`**:
+  * Set `openinference.span.kind = "PROMPT"` and `obs.action.kind = "agent.step"`.
+
+### 3. OpenInference Span Kind Normalization
+Incoming spans containing `openinference.span.kind` are enriched with action graph schema fields:
+* **Span Kinds Mapping**:
+  * `AGENT` -> `ActionKind.AgentStep` (`agent.step`)
+  * `LLM` -> `ActionKind.LlmCall` (`llm.call`)
+  * `TOOL` -> `ActionKind.ToolCall` (`tool.call`)
+  * `RETRIEVER` -> `ActionKind.Retrieval` (`retrieval`)
+  * `EVALUATOR` -> `ActionKind.Eval` (`eval`)
+  * `EMBEDDING`, `RERANKER`, `GUARDRAIL`, `PROMPT`, `CHAIN` -> `ActionKind.AgentStep` (`agent.step`)
+* **Context Fallback**: Enables complete decision graph traversal for native AI ecosystems without manual SDK wrapping.

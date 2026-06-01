@@ -149,24 +149,25 @@ without hand-writing action rows.
 
 Map existing ecosystem traces into the same graph.
 
-- [ ] **4.1** Add OTel GenAI normalizer processor that derives action rows from
+- [x] **4.1** Add OTel GenAI normalizer processor that derives action rows from
       `gen_ai.*` spans in the existing `/v1/traces` pipeline.
-- [ ] **4.2** Add OTel MCP normalizer for `mcp.method.name`,
+- [x] **4.2** Add OTel MCP normalizer for `mcp.method.name`,
       `jsonrpc.request.id`, and MCP tool / resource / prompt operations.
-- [ ] **4.3** Add OpenInference normalizer for all ten span kinds: `AGENT`,
+- [x] **4.3** Add OpenInference normalizer for all ten span kinds: `AGENT`,
       `LLM`, `TOOL`, `RETRIEVER`, `EMBEDDING`, `RERANKER`, `GUARDRAIL`,
-      `EVALUATOR`, `PROMPT`, `CHAIN`. (`EMBEDDING`, `RERANKER`, and `CHAIN` may
-      map to a generic `action.step` kind in the first pass; document the
+      `EVALUATOR`, `PROMPT`, `CHAIN`. (`EMBEDDING`, `RERANKER`, and `CHAIN` map
+      to a generic `action.step` kind in the first pass; documented the
       mapping in `docs/spec/action-id.md`.)
-- [ ] **4.4** Update `ai-span-payloads-processor.ts` to stamp `action_id` on
+- [x] **4.4** Update `ai-span-payloads-processor.ts` to stamp `action_id` on
       each payload row from the same span's derived or inherited action context.
       Without this, `ai_span_payloads.action_id` added in 1.2 stays null for new
       ingest.
-- [ ] **4.5** Add conformance tests for all three normalizers using the fixtures
+- [x] **4.5** Add conformance tests for all three normalizers using the fixtures
       from Phase 0.
-- [ ] **4.6** Document quality levels: explicit native action IDs are
+- [x] **4.6** Document quality levels: explicit native action IDs are
       high-confidence; collector-derived `(trace_id, span_id)` action IDs are
       navigation fallback.
+
 
 **Exit criteria:** an app emitting OTel GenAI or OpenInference spans gets useful
 action graph records without installing the native agent SDK.
@@ -241,7 +242,7 @@ Reduce user instrumentation burden after the manual API is stable.
 - [ ] **8.1** OpenAI Agents SDK wrapper.
 - [ ] **8.2** LangGraph wrapper.
 - [ ] **8.3** Vercel AI SDK wrapper.
-- [ ] **8.4** MCP client / server helpers. Client side: inject `traceparent`,
+- [x] **8.4** MCP client / server helpers. Client side: inject `traceparent`,
       `tracestate`, `baggage`, `obs.action.id`, and `obs.action.root_id` into
       MCP `params._meta` on outgoing requests and notifications. Server side:
       extract those values on inbound MCP spans, set as parent action, and map

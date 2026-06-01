@@ -141,6 +141,12 @@ export {
 	type LogSeverity,
 	shutdownLogger,
 } from "./logger";
+// ── MCP Context Helpers ──
+export {
+	extractMcpContext,
+	injectMcpContext,
+	type McpContext,
+} from "./mcp";
 // ── OTEL config ──
 export { annotateErrorSpan, createResolveConfig } from "./otel-config";
 // ── High-level plugin ──

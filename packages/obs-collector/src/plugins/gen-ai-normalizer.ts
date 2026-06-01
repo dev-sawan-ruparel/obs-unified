@@ -1,8 +1,6 @@
 /**
- * Normalize OpenTelemetry `gen_ai.*` semantic-convention attributes into
- * OpenInference equivalents, so spans emitted by vendor auto-instrumentation
- * (OpenAI SDK, Anthropic SDK, Vercel AI SDK, LangChain, …) flow through the
- * same AI pipeline as spans from our typed SDK helpers.
+ * Normalize OpenTelemetry `gen_ai.*` semantic-convention attributes, OTel MCP attributes,
+ * and OpenInference span kinds into the canonical obs-unified Agent Action Graph schema.
  *
  * References:
  *   https://opentelemetry.io/docs/specs/semconv/gen-ai/
@@ -14,15 +12,54 @@
 
 import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_CONFIDENCE_KEY,
+	ACTION_ID_KEY,
+	ACTION_KIND_KEY,
+	ACTION_ROOT_ID_KEY,
+	ACTOR_TYPE_KEY,
+	ActionConfidence,
+	ActionKind,
+	AGENT_RUN_ID_KEY,
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
 	OPENINFERENCE_SPAN_KIND_KEY,
 	OpenInferenceSpanKind,
+	TOOL_ARGS_KEY,
+	TOOL_CALL_ID_KEY,
+	TOOL_NAME_KEY,
+	TOOL_SIDE_EFFECT_KEY,
 } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { sha256Hex } from "../lib/hash";
 import { parseJsonRecord } from "../lib/json";
 
 const GEN_AI_PREFIX = "gen_ai.";
+const MCP_PREFIX = "mcp.";
+
+/**
+ * Generate a deterministic 26-character Crockford base32 action ID from project, trace, and span IDs.
+ * Matches standard action ID format: /^[0-9A-HJKMNP-TV-Z]{26}$/.
+ */
+export async function deriveActionId(
+	projectId: string,
+	traceId: string,
+	spanId: string,
+): Promise<string> {
+	const input = `${projectId}:${traceId}:${spanId}`;
+	const hash = await sha256Hex(input);
+	// Take first 32 hex chars (128 bits of SHA-256)
+	const hex = hash.substring(0, 32);
+	let num = BigInt(`0x${hex}`);
+	const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+	let encoded = "";
+	for (let i = 0; i < 26; i++) {
+		const remainder = Number(num % 32n);
+		encoded = alphabet[remainder] + encoded;
+		num = num / 32n;
+	}
+	return encoded;
+}
 
 // Map gen_ai operation.name → OpenInference span kind.
 const operationToKind = (op: unknown): string => {
@@ -31,7 +68,6 @@ const operationToKind = (op: unknown): string => {
 	if (lower.includes("embed")) return OpenInferenceSpanKind.EMBEDDING;
 	if (lower.includes("tool")) return OpenInferenceSpanKind.TOOL;
 	if (lower.includes("agent")) return OpenInferenceSpanKind.AGENT;
-	// chat, text_completion, completion, responses — all LLM
 	return OpenInferenceSpanKind.LLM;
 };
 
@@ -54,14 +90,6 @@ const toJsonString = (value: unknown): string | null => {
 	}
 };
 
-/**
- * Collect prompt/completion blobs emitted under various `gen_ai.prompt*` or
- * `gen_ai.completion*` keys. Different vendors serialize differently:
- *  - `gen_ai.prompt` (single string or JSON)
- *  - `gen_ai.prompt.0.role` + `gen_ai.prompt.0.content` (indexed messages)
- *  - `gen_ai.completion` (single string)
- *  - `gen_ai.completion.0.role` + `gen_ai.completion.0.content`
- */
 const collectIndexed = (
 	attrs: Record<string, JsonValue>,
 	prefix: string,
@@ -74,10 +102,8 @@ const collectIndexed = (
 	if (indexed.length === 0) return undefined;
 
 	for (const key of indexed) {
-		// prefix.<index>.<field>
 		const rest = key.slice(prefix.length + 1);
 		const dot = rest.indexOf(".");
-		if (dot < 0) continue;
 		const idx = Number.parseInt(rest.slice(0, dot), 10);
 		if (!Number.isFinite(idx)) continue;
 		const field = rest.slice(dot + 1);
@@ -96,75 +122,209 @@ export const genAiNormalizerPlugin: CollectorPlugin = {
 	register(_app, runtime) {
 		runtime.addSpanProcessor({
 			name: "gen-ai-normalizer",
-			process(spans) {
-				return spans.map((span): StoredSpan => {
-					const attrs = parseJsonRecord(span.attributesJson);
+			async process(spans) {
+				return Promise.all(
+					spans.map(async (span): Promise<StoredSpan> => {
+						const attrs = parseJsonRecord(span.attributesJson);
 
-					// Skip spans that already carry OpenInference metadata.
-					if (attrs[OPENINFERENCE_SPAN_KIND_KEY] !== undefined) return span;
+						const mcpMethod = attrs["mcp.method.name"] || attrs["mcp.method"];
+						const jsonRpcId =
+							attrs["jsonrpc.request.id"] || attrs["jsonrpc.id"];
+						const hasMcp =
+							mcpMethod !== undefined ||
+							jsonRpcId !== undefined ||
+							Object.keys(attrs).some((k) => k.startsWith(MCP_PREFIX));
 
-					// Only normalize if at least one gen_ai.* attribute is present.
-					const hasGenAi = Object.keys(attrs).some((k) =>
-						k.startsWith(GEN_AI_PREFIX),
-					);
-					if (!hasGenAi) return span;
+						const hasGenAi = Object.keys(attrs).some((k) =>
+							k.startsWith(GEN_AI_PREFIX),
+						);
 
-					const normalized: Record<string, JsonValue> = { ...attrs };
-					const kind = operationToKind(attrs["gen_ai.operation.name"]);
-					normalized[OPENINFERENCE_SPAN_KIND_KEY] = kind;
+						const openInferenceKind = attrs[OPENINFERENCE_SPAN_KIND_KEY];
+						const hasOpenInference = openInferenceKind !== undefined;
 
-					// Model + provider
-					const model =
-						(attrs["gen_ai.response.model"] as string | undefined) ||
-						(attrs["gen_ai.request.model"] as string | undefined);
-					const provider = attrs["gen_ai.system"];
-					if (kind === OpenInferenceSpanKind.LLM) {
-						if (typeof model === "string") normalized["llm.model_name"] = model;
-						if (typeof provider === "string")
-							normalized["llm.provider"] = provider;
-					} else if (kind === OpenInferenceSpanKind.EMBEDDING) {
-						if (typeof model === "string")
-							normalized["embedding.model_name"] = model;
-						if (typeof provider === "string")
-							normalized["embedding.provider"] = provider;
-					}
-
-					// Token usage (both singular + plural variants seen in the wild).
-					const promptTokens =
-						asNumber(attrs["gen_ai.usage.input_tokens"]) ??
-						asNumber(attrs["gen_ai.usage.prompt_tokens"]);
-					const completionTokens =
-						asNumber(attrs["gen_ai.usage.output_tokens"]) ??
-						asNumber(attrs["gen_ai.usage.completion_tokens"]);
-					if (promptTokens !== undefined)
-						normalized["llm.token_count.prompt"] = promptTokens;
-					if (completionTokens !== undefined)
-						normalized["llm.token_count.completion"] = completionTokens;
-					if (promptTokens !== undefined && completionTokens !== undefined) {
-						normalized["llm.token_count.total"] =
-							promptTokens + completionTokens;
-					}
-
-					// Payloads — let ai-span-payloads-processor route these to the
-					// side table. We only set the keys if we find prompts/completions.
-					if (normalized[AI_PAYLOAD_INPUT_KEY] === undefined) {
-						const input = collectIndexed(attrs, "gen_ai.prompt");
-						if (input !== undefined) {
-							normalized[AI_PAYLOAD_INPUT_KEY] = toJsonString(input) ?? "";
+						// If it's not a GenAI, MCP, or OpenInference span, keep it as is.
+						if (!hasGenAi && !hasMcp && !hasOpenInference) {
+							return span;
 						}
-					}
-					if (normalized[AI_PAYLOAD_OUTPUT_KEY] === undefined) {
-						const output = collectIndexed(attrs, "gen_ai.completion");
-						if (output !== undefined) {
-							normalized[AI_PAYLOAD_OUTPUT_KEY] = toJsonString(output) ?? "";
-						}
-					}
 
-					return {
-						...span,
-						attributesJson: JSON.stringify(normalized),
-					};
-				});
+						const normalized: Record<string, JsonValue> = { ...attrs };
+
+						// 1. Determine OpenInference Span Kind
+						let kind = openInferenceKind as string | undefined;
+						if (hasMcp && !kind) {
+							if (mcpMethod === "tools/call") {
+								kind = OpenInferenceSpanKind.TOOL;
+							} else if (mcpMethod === "resources/read") {
+								kind = OpenInferenceSpanKind.RETRIEVER;
+							} else if (mcpMethod === "prompts/get") {
+								kind = OpenInferenceSpanKind.PROMPT;
+							} else {
+								kind = OpenInferenceSpanKind.CHAIN;
+							}
+						} else if (hasGenAi && !kind) {
+							kind = operationToKind(attrs["gen_ai.operation.name"]);
+						}
+						if (kind) {
+							normalized[OPENINFERENCE_SPAN_KIND_KEY] = kind;
+						}
+
+						// 2. Set Action Graph Schema Attributes
+						const hasExplicitActionId = attrs[ACTION_ID_KEY] !== undefined;
+						const actionId = hasExplicitActionId
+							? (attrs[ACTION_ID_KEY] as string)
+							: await deriveActionId(span.projectId, span.traceId, span.spanId);
+
+						normalized[ACTION_ID_KEY] = actionId;
+						normalized[ACTION_CONFIDENCE_KEY] = hasExplicitActionId
+							? ActionConfidence.Explicit
+							: ActionConfidence.Fallback;
+
+						if (normalized[ACTION_ROOT_ID_KEY] === undefined) {
+							normalized[ACTION_ROOT_ID_KEY] =
+								attrs[AGENT_RUN_ID_KEY] ??
+								attrs["obs.action.agent_run_id"] ??
+								attrs["obs.agent_run.id"] ??
+								(await deriveActionId(
+									span.projectId,
+									span.traceId,
+									span.traceId.substring(0, 16),
+								));
+						}
+
+						if (normalized[ACTION_CAUSED_BY_ID_KEY] === undefined) {
+							normalized[ACTION_CAUSED_BY_ID_KEY] =
+								span.parentSpanId !== null && span.parentSpanId !== undefined
+									? await deriveActionId(
+											span.projectId,
+											span.traceId,
+											span.parentSpanId,
+										)
+									: null;
+						}
+
+						if (normalized[ACTOR_TYPE_KEY] === undefined) {
+							normalized[ACTOR_TYPE_KEY] = "agent";
+						}
+
+						if (normalized[AGENT_RUN_ID_KEY] === undefined) {
+							normalized[AGENT_RUN_ID_KEY] = normalized[ACTION_ROOT_ID_KEY];
+						}
+
+						// Determine Action Kind
+						let actionKind = attrs[ACTION_KIND_KEY] as string | undefined;
+						if (!actionKind && kind) {
+							if (kind === OpenInferenceSpanKind.AGENT) {
+								actionKind = ActionKind.AgentStep;
+							} else if (kind === OpenInferenceSpanKind.LLM) {
+								actionKind = ActionKind.LlmCall;
+							} else if (kind === OpenInferenceSpanKind.TOOL) {
+								actionKind = ActionKind.ToolCall;
+							} else if (kind === OpenInferenceSpanKind.RETRIEVER) {
+								actionKind = ActionKind.Retrieval;
+							} else if (kind === OpenInferenceSpanKind.EVALUATOR) {
+								actionKind = ActionKind.Eval;
+							} else {
+								actionKind = ActionKind.AgentStep;
+							}
+						}
+						if (actionKind) {
+							normalized[ACTION_KIND_KEY] = actionKind;
+						}
+
+						// 3. MCP Specific Mapping Details
+						if (hasMcp) {
+							if (kind === OpenInferenceSpanKind.TOOL) {
+								if (normalized[TOOL_CALL_ID_KEY] === undefined) {
+									normalized[TOOL_CALL_ID_KEY] = actionId;
+								}
+								if (normalized[TOOL_NAME_KEY] === undefined) {
+									const tName =
+										attrs["mcp.tool.name"] ??
+										attrs["mcp.operation.name"] ??
+										attrs["mcp.name"] ??
+										span.spanName;
+									normalized[TOOL_NAME_KEY] = tName;
+									normalized["obs.tool_call.tool_name"] = tName;
+								}
+								if (normalized[TOOL_ARGS_KEY] === undefined) {
+									const rawArgs =
+										attrs["mcp.tool.arguments"] ??
+										attrs["mcp.operation.arguments"] ??
+										attrs["mcp.arguments"];
+									const tArgs = toJsonString(rawArgs) ?? "{}";
+									normalized[TOOL_ARGS_KEY] = tArgs;
+									normalized["obs.tool_call.args"] = tArgs;
+									normalized[AI_PAYLOAD_INPUT_KEY] = tArgs;
+								}
+								if (normalized[TOOL_SIDE_EFFECT_KEY] === undefined) {
+									const sideEffect =
+										attrs["mcp.tool.side_effect"] ??
+										attrs["mcp.side_effect"] ??
+										(attrs["mcp.tool.name"] === "update_invoice_status" ||
+										attrs["mcp.tool.name"]?.toString().includes("write") ||
+										attrs["mcp.tool.name"]?.toString().includes("update") ||
+										attrs["mcp.tool.name"]?.toString().includes("delete")
+											? 1
+											: 0);
+									normalized[TOOL_SIDE_EFFECT_KEY] = sideEffect;
+									normalized["obs.tool_call.side_effect"] = sideEffect;
+								}
+							}
+						}
+
+						// 4. GenAI Model + provider normalization
+						const model =
+							(attrs["gen_ai.response.model"] as string | undefined) ||
+							(attrs["gen_ai.request.model"] as string | undefined);
+						const provider = attrs["gen_ai.system"];
+						if (kind === OpenInferenceSpanKind.LLM) {
+							if (typeof model === "string")
+								normalized["llm.model_name"] = model;
+							if (typeof provider === "string")
+								normalized["llm.provider"] = provider;
+						} else if (kind === OpenInferenceSpanKind.EMBEDDING) {
+							if (typeof model === "string")
+								normalized["embedding.model_name"] = model;
+							if (typeof provider === "string")
+								normalized["embedding.provider"] = provider;
+						}
+
+						// GenAI Token Usage
+						const promptTokens =
+							asNumber(attrs["gen_ai.usage.input_tokens"]) ??
+							asNumber(attrs["gen_ai.usage.prompt_tokens"]);
+						const completionTokens =
+							asNumber(attrs["gen_ai.usage.output_tokens"]) ??
+							asNumber(attrs["gen_ai.usage.completion_tokens"]);
+						if (promptTokens !== undefined)
+							normalized["llm.token_count.prompt"] = promptTokens;
+						if (completionTokens !== undefined)
+							normalized["llm.token_count.completion"] = completionTokens;
+						if (promptTokens !== undefined && completionTokens !== undefined) {
+							normalized["llm.token_count.total"] =
+								promptTokens + completionTokens;
+						}
+
+						// GenAI Inputs/Outputs
+						if (normalized[AI_PAYLOAD_INPUT_KEY] === undefined) {
+							const input = collectIndexed(attrs, "gen_ai.prompt");
+							if (input !== undefined) {
+								normalized[AI_PAYLOAD_INPUT_KEY] = toJsonString(input) ?? "";
+							}
+						}
+						if (normalized[AI_PAYLOAD_OUTPUT_KEY] === undefined) {
+							const output = collectIndexed(attrs, "gen_ai.completion");
+							if (output !== undefined) {
+								normalized[AI_PAYLOAD_OUTPUT_KEY] = toJsonString(output) ?? "";
+							}
+						}
+
+						return {
+							...span,
+							attributesJson: JSON.stringify(normalized),
+						};
+					}),
+				);
 			},
 		});
 	},
