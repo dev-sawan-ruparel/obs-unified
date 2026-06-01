@@ -252,6 +252,10 @@ linked to its original production telemetry.
 
 Reduce user instrumentation burden after the manual API is stable.
 
+- [x] **8.0** Define the shared framework-wrapper plugin contract in
+      [agent-plugin.ts](file:///Users/sawan/projects/obs-unified/obs-unified/packages/telemetry-sdk/src/agent-plugin.ts)
+      and document the adapter/package contract in
+      [agent-framework-plugins.md](file:///Users/sawan/projects/obs-unified/obs-unified/docs/spec/agent-framework-plugins.md).
 - [ ] **8.1** OpenAI Agents SDK wrapper.
 - [ ] **8.2** LangGraph wrapper.
 - [ ] **8.3** Vercel AI SDK wrapper.

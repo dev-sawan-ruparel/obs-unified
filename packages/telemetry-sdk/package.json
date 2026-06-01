@@ -32,6 +32,10 @@
 		"./agent": {
 			"types": "./dist/agent.d.ts",
 			"import": "./dist/agent.js"
+		},
+		"./agent-plugin": {
+			"types": "./dist/agent-plugin.d.ts",
+			"import": "./dist/agent-plugin.js"
 		}
 	},
 	"files": [

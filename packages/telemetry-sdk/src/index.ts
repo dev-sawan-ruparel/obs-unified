@@ -101,6 +101,21 @@ export {
 	withAction,
 	withSerializedActionContext,
 } from "./agent";
+// ── Agent framework wrapper/plugin contract ──
+export {
+	type AgentFrameworkAdapter,
+	type AgentFrameworkEvaluationInput,
+	type AgentFrameworkLLMInput,
+	type AgentFrameworkPluginHooks,
+	type AgentFrameworkPluginOptions,
+	type AgentFrameworkRetrievalInput,
+	type AgentFrameworkRunInput,
+	type AgentFrameworkRuntime,
+	type AgentFrameworkStepInput,
+	type AgentFrameworkToolClassification,
+	type AgentFrameworkToolInput,
+	agentFrameworkPluginContractVersion,
+} from "./agent-plugin";
 // ── AI tracking ──
 export {
 	type AILoggerConfig,
