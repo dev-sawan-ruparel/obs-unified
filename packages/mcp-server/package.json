@@ -1,0 +1,59 @@
+{
+	"name": "@obs-unified/mcp-server",
+	"version": "1.0.0",
+	"description": "MCP server for AI agents to investigate obs-unified collector telemetry.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/obs-unified/obs-unified.git",
+		"directory": "packages/mcp-server"
+	},
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"observability",
+		"opentelemetry",
+		"ai-agents",
+		"obs-unified"
+	],
+	"type": "module",
+	"bin": {
+		"obs-unified-mcp": "./dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsup",
+		"start": "node ./dist/index.js",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"zod": "^3.25.76"
+	},
+	"devDependencies": {
+		"@types/node": "^25.5.2",
+		"tsup": "^8.3.5",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.2"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	}
+}
