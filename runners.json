@@ -12,6 +12,14 @@
     "presence": {
       "repo": "obs-unified/presence",
       "labels": ["self-hosted", "macOS", "arm64", "presence"]
+    },
+    "ci": {
+      "repo": "obs-unified/ci",
+      "labels": ["self-hosted", "macOS", "arm64", "ci"]
+    },
+    "obs-unified-skills": {
+      "repo": "obs-unified/obs-unified-skills",
+      "labels": ["self-hosted", "macOS", "arm64", "skills"]
     }
   }
 }
