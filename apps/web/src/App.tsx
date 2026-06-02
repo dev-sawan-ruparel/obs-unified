@@ -19,6 +19,7 @@ import {
 	InvestigationPage,
 	InvestigationsDashboard,
 	LogsDashboard,
+	ProfileDashboard,
 	ProjectsDashboard,
 	ReplayDashboard,
 	ResourcesDashboard,
@@ -300,6 +301,15 @@ export function App() {
 						{route.tab === "tool-calls" && route.toolCallId && (
 							<ToolCallDashboard
 								toolCallId={route.toolCallId}
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
+						{route.tab === "profiles" && route.profileId && (
+							<ProfileDashboard
+								profileId={route.profileId}
+								traceIdFilter={route.traceId}
 								onNavigate={(href) => {
 									location.hash = href.startsWith("#") ? href.slice(1) : href;
 								}}

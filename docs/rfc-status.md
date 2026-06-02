@@ -39,8 +39,12 @@ Status legend:
 - [x] Narrative-aware investigation pages.
 - [x] AskBox analysis citations and auto-pinned health panels.
 - [x] Alerts can bind to analyses and use analysis narrative/result context.
+- [x] Analysis and Ask responses expose machine-readable `EvidenceReference`
+      pivots with routes, confidence, source, citations, and suggested next
+      steps.
 - [~] Rich sidecar-style analysis runtime, advanced cohort comparisons, and
-      notebook-shaped investigations remain future/deeper intelligence work.
+      alert/evaluation-specific evidence references remain future/deeper
+      intelligence work.
 
 ## RFC 0003 — Unified Stack
 
@@ -77,7 +81,8 @@ Status legend:
 - [x] Wired into span, log, usage/replay, AI, alert, analysis, user, action,
       agent-run, and tool-call details.
 - [x] Span and AI trace rails include profile and metric exemplar evidence.
-- [~] Profile as a first-class source entity is not fully wired.
+- [x] Profile is a first-class connected source: backend manifest, dashboard
+      route, sampled trace/span/action pivots, and focused Playwright proof.
 - [~] Live any-to-any Playwright matrix remains mostly scaffolded/skipped.
 
 ## RFC 0007 — pprof Profiling Receiver
@@ -89,8 +94,8 @@ Status legend:
 - [x] Browser flame graph viewer.
 - [x] `pushProfile()` and `startProfiler()` SDK helpers.
 - [x] Retention sweep handles profile blobs and indexed rows.
-- [~] Profile detail as a graph starting point and live proof artifacts remain
-      incomplete.
+- [x] Profile detail can start a connected graph from the dashboard and pivot
+      through sampled traces/spans/action context.
 
 ## RFC 0008 — Storage Interface
 

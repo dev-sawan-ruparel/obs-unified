@@ -17,6 +17,15 @@ describe("normalizeConnectedHref", () => {
 		);
 	});
 
+	it("keeps profile detail routes and normalizes trace filters", () => {
+		expect(normalizeConnectedHref("#/profiles/prof-1?trace_id=trace-1")).toBe(
+			"#/profiles/prof-1?trace_id=trace-1",
+		);
+		expect(normalizeConnectedHref("#/profiles/prof%2Fencoded?trace=tr-A")).toBe(
+			"#/profiles/prof%2Fencoded?trace_id=tr-A",
+		);
+	});
+
 	it("keeps supported entity routes intact and downgrades unsupported query-only tabs", () => {
 		expect(normalizeConnectedHref("#/agent-runs/run-1")).toBe(
 			"#/agent-runs/run-1",

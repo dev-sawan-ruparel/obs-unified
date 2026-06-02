@@ -200,6 +200,68 @@ test.describe("Traces Dashboard", () => {
 	});
 });
 
+// ── Profile Dashboard ──
+
+test.describe("Profile Dashboard", () => {
+	test("renders profile as a primary connected entity and pivots to sampled trace", async ({
+		page,
+	}) => {
+		const now = new Date().toISOString();
+		const profileMeta = JSON.stringify({
+			profile: {
+				id: "prof-e2e",
+				serviceName: "payment",
+				profileType: "cpu",
+				startTs: now,
+				endTs: now,
+				durationMs: 60_000,
+				blobSizeBytes: 1024,
+				sampleCount: 120,
+				agent: "datadog-pprof",
+			},
+			traceIds: ["trace-prof"],
+			traceIdRequested: "trace-prof",
+		});
+		const profileManifest = JSON.stringify({
+			entity: { kind: "profile", id: "prof-e2e", projectId: "p1" },
+			up: [
+				{
+					label: "Profile window",
+					links: [],
+					emptyReason: "payment · cpu · 60000ms · 120 samples",
+				},
+			],
+			across: [
+				{
+					label: "Sampled traces",
+					links: [
+						{
+							label: "trace trace-prof",
+							href: "#/traces/trace-prof",
+						},
+					],
+				},
+			],
+			down: [],
+			related: [],
+		});
+
+		await mockApis(page, {
+			"/profiles/prof-e2e": (r) => json(r, profileMeta),
+			"/connected/profile/prof-e2e": (r) => json(r, profileManifest),
+		});
+
+		await page.goto("/#/profiles/prof-e2e?trace_id=trace-prof");
+		await page.waitForLoadState("domcontentloaded");
+
+		await expect(page.getByText(/Connected — profile/i)).toBeVisible();
+		await expect(page.getByText("Sampled traces")).toBeVisible();
+
+		await page.getByRole("button", { name: "trace trace-prof" }).click();
+		await expect(page).toHaveURL(/\/#\/traces\?trace=trace-prof/);
+	});
+});
+
 // ── Issues Dashboard ──
 
 test.describe("Issues Dashboard", () => {

@@ -52,6 +52,10 @@ export { HealthDashboard } from "./dashboards/HealthDashboard";
 export { InvestigationPage } from "./dashboards/InvestigationPage";
 export { InvestigationsDashboard } from "./dashboards/InvestigationsDashboard";
 export { LogsDashboard } from "./dashboards/LogsDashboard";
+export {
+	ProfileDashboard,
+	type ProfileDashboardProps,
+} from "./dashboards/ProfileDashboard";
 export { ProjectsDashboard } from "./dashboards/ProjectsDashboard";
 export { ReplayDashboard } from "./dashboards/ReplayDashboard";
 export { ResourcesDashboard } from "./dashboards/ResourcesDashboard";

@@ -335,6 +335,153 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 	});
 });
 
+describe("ConnectedRail manifest — profile source entity", () => {
+	it("surfaces sampled traces plus action/tool/agent context for a profile", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM profile_blobs")) {
+					return {
+						id: "prof-1",
+						service_name: "payment",
+						profile_type: "cpu",
+						start_ts: "2026-05-04T10:00:00Z",
+						end_ts: "2026-05-04T10:01:00Z",
+						duration_ms: 60_000,
+						sample_count: 1200,
+						agent: "datadog-pprof",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (
+					sql.includes("FROM profile_trace_index") &&
+					sql.includes("profile_id = ?")
+				) {
+					return [{ trace_id: "trace-prof" }];
+				}
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "trace-prof",
+							span_id: "span-hot",
+							parent_span_id: null,
+							service_name: "payment",
+							span_name: "charge",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("agent_runs")) {
+					return [
+						{
+							id: "run-hot",
+							agent_name: "billing-agent",
+							agent_version: "2",
+						},
+					];
+				}
+				if (sql.includes("FROM actions")) {
+					return [
+						{
+							id: "action-hot",
+							action_kind: "tool",
+							name: "charge card",
+						},
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					return [{ id: "tool-hot", tool_name: "stripe.charge" }];
+				}
+				return [];
+			},
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/profile/prof-1");
+
+		expect(m.entity.kind).toBe("profile");
+		expect(m.up[0].emptyReason).toContain("payment · cpu");
+
+		const traceSection = m.across.find((s) => s.label === "Sampled traces");
+		expect(traceSection?.links[0]).toMatchObject({
+			label: "trace trace-prof",
+			href: "#/traces/trace-prof",
+		});
+
+		const spanSection = m.across.find((s) => s.label === "Sampled spans");
+		expect(spanSection?.links[0].href).toBe(
+			"#/traces/trace-prof#span=span-hot",
+		);
+
+		const actionSection = m.down.find((s) =>
+			s.label.includes("Causal actions"),
+		);
+		expect(actionSection?.links[0]).toMatchObject({
+			label: "[tool] charge card",
+			href: "#/actions/action-hot",
+		});
+
+		const toolSection = m.down.find((s) => s.label.includes("Tool calls"));
+		expect(toolSection?.links[0]).toMatchObject({
+			label: "tool: stripe.charge",
+			href: "#/tool-calls/tool-hot",
+		});
+
+		const runSection = m.related.find((s) => s.label === "Agent runs");
+		expect(runSection?.links[0]).toMatchObject({
+			label: "billing-agent (v2)",
+			href: "#/agent-runs/run-hot",
+		});
+	});
+
+	it("rejects unknown kinds while accepting profile as a known kind", async () => {
+		const db = new MemSqlDb({ all: () => [], first: () => null });
+		const raw = setupRaw(db);
+
+		const profileRes = await raw("/internal/connected/profile/missing-profile");
+		expect(profileRes.status).toBe(200);
+
+		const unknownRes = await raw("/internal/connected/not-a-kind/x");
+		expect(unknownRes.status).toBe(400);
+	});
+
+	it("explains when a profile has no indexed trace labels", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM profile_blobs")) {
+					return {
+						id: "prof-empty",
+						service_name: "worker",
+						profile_type: "offcpu",
+						start_ts: "2026-05-04T10:00:00Z",
+						end_ts: "2026-05-04T10:01:00Z",
+						duration_ms: 60_000,
+						sample_count: null,
+						agent: "otel-ebpf",
+					};
+				}
+				return null;
+			},
+			all: () => [],
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/profile/prof-empty");
+
+		const traceSection = m.across.find((s) => s.label === "Sampled traces");
+		expect(traceSection?.links).toEqual([]);
+		expect(traceSection?.emptyReason).toMatch(/trace_id labels/i);
+
+		const actionSection = m.down.find((s) =>
+			s.label.includes("Causal actions"),
+		);
+		expect(actionSection?.emptyReason).toMatch(/No action graph records/i);
+	});
+});
+
 describe("ConnectedRail manifest — kind validation", () => {
 	it("returns 400 on unknown entity kind instead of 200 + empty sections", async () => {
 		const db = new MemSqlDb({ all: () => [], first: () => null });

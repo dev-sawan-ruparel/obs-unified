@@ -94,6 +94,7 @@ export interface AnalysisResult {
 	narrative: string | null;
 	narrativeSignature: string | null;
 	durationMs: number;
+	evidenceReferences?: EvidenceReference[];
 }
 
 export interface AnalysesListResponse {

@@ -15,6 +15,7 @@ export type Route = {
 	agentRunId?: string;
 	actionId?: string;
 	toolCallId?: string;
+	profileId?: string;
 };
 
 export const KNOWN_TABS = new Set([
@@ -36,6 +37,7 @@ export const KNOWN_TABS = new Set([
 	"agent-runs",
 	"actions",
 	"tool-calls",
+	"profiles",
 	"tool-reliability",
 	"cost-attribution",
 	"autonomous-review",
@@ -69,9 +71,13 @@ export function parseHash(): Route {
 		tab === "tool-calls" && segments.length > 1
 			? decodeURIComponent(segments.slice(1).join("/"))
 			: undefined;
+	const profileId =
+		tab === "profiles" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
 	return {
 		tab,
-		traceId: params.get("trace") ?? undefined,
+		traceId: params.get("trace") ?? params.get("trace_id") ?? undefined,
 		issueId: params.get("issue") ?? undefined,
 		sessionId: params.get("session") ?? undefined,
 		service: params.get("service") ?? undefined,
@@ -80,6 +86,7 @@ export function parseHash(): Route {
 		agentRunId,
 		actionId,
 		toolCallId,
+		profileId,
 	};
 }
 
@@ -102,8 +109,13 @@ export function navigate(route: Partial<Route>) {
 	if (next.tab === "tool-calls" && next.toolCallId) {
 		hash += `/${encodeURIComponent(next.toolCallId)}`;
 	}
+	if (next.tab === "profiles" && next.profileId) {
+		hash += `/${encodeURIComponent(next.profileId)}`;
+	}
 	const params = new URLSearchParams();
-	if (next.traceId) params.set("trace", next.traceId);
+	if (next.traceId) {
+		params.set(next.tab === "profiles" ? "trace_id" : "trace", next.traceId);
+	}
 	if (next.issueId) params.set("issue", next.issueId);
 	if (next.sessionId) params.set("session", next.sessionId);
 	if (next.service) params.set("service", next.service);

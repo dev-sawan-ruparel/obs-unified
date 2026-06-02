@@ -37,6 +37,11 @@ export const ProjectsDashboard = lazy(() =>
 		"../../../../packages/dashboard/src/dashboards/ProjectsDashboard"
 	).then((m) => ({ default: m.ProjectsDashboard })),
 );
+export const ProfileDashboard = lazy(() =>
+	import("../../../../packages/dashboard/src/dashboards/ProfileDashboard").then(
+		(m) => ({ default: m.ProfileDashboard }),
+	),
+);
 export const ReplayDashboard = lazy(() =>
 	import("../../../../packages/dashboard/src/dashboards/ReplayDashboard").then(
 		(m) => ({ default: m.ReplayDashboard }),

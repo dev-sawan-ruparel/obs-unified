@@ -149,6 +149,225 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						];
 					}
 				}
+			} else if (kind === "profile") {
+				const db = sqlDbFor(c.env);
+				const profile = await db
+					.prepare(
+						`SELECT id, service_name, profile_type, start_ts, end_ts,
+								duration_ms, sample_count, agent
+						 FROM profile_blobs
+						 WHERE project_id = ? AND id = ?
+						 LIMIT 1`,
+					)
+					.bind(projectId, id)
+					.first<{
+						id: string;
+						service_name: string | null;
+						profile_type: string;
+						start_ts: string;
+						end_ts: string;
+						duration_ms: number;
+						sample_count: number | null;
+						agent: string | null;
+					}>();
+
+				if (profile) {
+					const traceRows = await db
+						.prepare(
+							`SELECT trace_id
+							 FROM profile_trace_index
+							 WHERE project_id = ? AND profile_id = ?
+							 ORDER BY trace_id ASC
+							 LIMIT 50`,
+						)
+						.bind(projectId, id)
+						.all<{ trace_id: string }>();
+					const traceIds = traceRows.results.map((row) => row.trace_id);
+					const sampledTraceIds = traceIds.slice(0, MAX_LINKS_INLINE);
+					const traceManifests = await Promise.all(
+						sampledTraceIds.map((traceId) => index.byTrace(projectId, traceId)),
+					);
+					const spans = traceManifests.flatMap((m) => m.spans);
+					const logs = traceManifests.flatMap((m) => m.logs);
+					const aiCalls = traceManifests.flatMap((m) => m.aiCalls);
+					const metricExemplars = traceManifests.flatMap(
+						(m) => m.metricExemplars,
+					);
+
+					manifest.up = [
+						{
+							label: "Profile window",
+							links: [],
+							emptyReason: `${profile.service_name ?? "unknown service"} · ${profile.profile_type} · ${profile.duration_ms}ms · ${profile.sample_count ?? "unknown"} samples`,
+						},
+					];
+					manifest.across = [
+						traceIds.length > 0
+							? {
+									label: "Sampled traces",
+									links:
+										traceIds.length > MAX_LINKS_INLINE
+											? [
+													{
+														label: `${traceIds.length} sampled traces`,
+														href: `#/traces?trace=${encodeURIComponent(traceIds[0])}`,
+														count: traceIds.length,
+														sample: traceIds[0],
+													},
+												]
+											: traceIds.map((traceId) => linkToTrace(traceId)),
+								}
+							: {
+									label: "Sampled traces",
+									links: [],
+									emptyReason:
+										"No trace_id labels were indexed for this profile. Push pprof samples with trace_id labels or x-obs-trace-ids to enable trace pivots.",
+								},
+						linksFromSpans(spans, "Sampled spans"),
+						linksFromLogs(logs, "Logs in sampled traces"),
+						linksFromAi(aiCalls, "AI calls in sampled traces"),
+						linksFromMetricExemplars(
+							metricExemplars,
+							"Metric exemplars in sampled traces",
+						),
+					];
+
+					if (traceIds.length > 0) {
+						const placeholders = traceIds.map(() => "?").join(", ");
+						const actions = await db
+							.prepare(
+								`SELECT id, action_kind, name
+								 FROM actions
+								 WHERE project_id = ? AND trace_id IN (${placeholders})
+								 ORDER BY started_at ASC
+								 LIMIT 20`,
+							)
+							.bind(projectId, ...traceIds)
+							.all<{
+								id: string;
+								action_kind: string;
+								name: string | null;
+							}>();
+						const actionIds = actions.results.map((action) => action.id);
+						const actionPlaceholders = actionIds.map(() => "?").join(", ");
+
+						const toolCalls =
+							actionIds.length > 0
+								? await db
+										.prepare(
+											`SELECT id, tool_name
+											 FROM tool_calls
+											 WHERE project_id = ? AND action_id IN (${actionPlaceholders})
+											 ORDER BY id ASC
+											 LIMIT 20`,
+										)
+										.bind(projectId, ...actionIds)
+										.all<{ id: string; tool_name: string }>()
+								: { results: [] as Array<{ id: string; tool_name: string }> };
+
+						const agentRuns = await db
+							.prepare(
+								`SELECT DISTINCT ar.id, ar.agent_name, ar.agent_version
+								 FROM actions a
+								 JOIN agent_runs ar
+								   ON ar.project_id = a.project_id
+								  AND ar.id = COALESCE(a.agent_run_id, a.root_action_id)
+								 WHERE a.project_id = ? AND a.trace_id IN (${placeholders})
+								 ORDER BY ar.id ASC
+								 LIMIT 20`,
+							)
+							.bind(projectId, ...traceIds)
+							.all<{
+								id: string;
+								agent_name: string;
+								agent_version: string;
+							}>();
+
+						manifest.down = [
+							actions.results.length > 0
+								? {
+										label: "Causal actions in sampled traces",
+										links: actions.results
+											.slice(0, MAX_LINKS_INLINE)
+											.map((action) =>
+												linkToAction(
+													action.id,
+													`[${action.action_kind}] ${action.name ?? action.id}`,
+												),
+											),
+									}
+								: {
+										label: "Causal actions in sampled traces",
+										links: [],
+										emptyReason:
+											"No action graph records share this profile's sampled trace IDs.",
+									},
+							toolCalls.results.length > 0
+								? {
+										label: "Tool calls in sampled traces",
+										links: toolCalls.results
+											.slice(0, MAX_LINKS_INLINE)
+											.map((toolCall) => ({
+												label: `tool: ${toolCall.tool_name}`,
+												href: `#/tool-calls/${toolCall.id}`,
+											})),
+									}
+								: {
+										label: "Tool calls in sampled traces",
+										links: [],
+										emptyReason:
+											"No tool calls were attached to actions in this profile.",
+									},
+						];
+
+						manifest.related =
+							agentRuns.results.length > 0
+								? [
+										{
+											label: "Agent runs",
+											links: agentRuns.results
+												.slice(0, MAX_LINKS_INLINE)
+												.map((run) =>
+													linkToAgentRun(
+														run.id,
+														`${run.agent_name} (v${run.agent_version})`,
+													),
+												),
+										},
+									]
+								: [
+										{
+											label: "Agent runs",
+											links: [],
+											emptyReason:
+												"No agent runs were attached to actions in this profile.",
+										},
+									];
+					} else {
+						manifest.down = [
+							{
+								label: "Causal actions in sampled traces",
+								links: [],
+								emptyReason:
+									"No action graph records can be joined because this profile has no indexed trace IDs.",
+							},
+							{
+								label: "Tool calls in sampled traces",
+								links: [],
+								emptyReason:
+									"No tool calls can be joined because this profile has no indexed trace IDs.",
+							},
+						];
+						manifest.related = [
+							{
+								label: "Agent runs",
+								links: [],
+								emptyReason:
+									"No agent runs can be joined because this profile has no indexed trace IDs.",
+							},
+						];
+					}
+				}
 			} else if (kind === "log") {
 				// Log: load by trace_id (parent trace) + session.
 				// id is the log_id, but we need to resolve the trace_id first.

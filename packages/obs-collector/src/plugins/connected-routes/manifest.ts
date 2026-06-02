@@ -15,6 +15,7 @@ import type { SqlDb } from "../../lib/sql-db";
 
 export type ConnectedEntityKind =
 	| "span"
+	| "profile"
 	| "log"
 	| "usage"
 	| "ai_call"
@@ -28,6 +29,7 @@ export type ConnectedEntityKind =
 
 export const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"span",
+	"profile",
 	"log",
 	"usage",
 	"ai_call",

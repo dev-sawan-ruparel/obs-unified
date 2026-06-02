@@ -21,6 +21,7 @@ import { useApi } from "../use-api";
 // the dashboard package doesn't import from @obs-unified/collector at runtime.
 export type ConnectedEntityKind =
 	| "span"
+	| "profile"
 	| "log"
 	| "usage"
 	| "ai_call"
@@ -192,6 +193,15 @@ export const normalizeConnectedHref = (href: string): string => {
 		return traceId
 			? `#/traces?trace=${encodeURIComponent(traceId)}`
 			: "#/traces";
+	}
+
+	if (pathPart.startsWith("#/profiles/")) {
+		const profilePath = pathPart.slice("#/profiles/".length);
+		const [profileId, query = ""] = profilePath.split("?");
+		const params = new URLSearchParams(query);
+		const traceId = params.get("trace_id") ?? params.get("trace");
+		const qs = traceId ? `?trace_id=${encodeURIComponent(traceId)}` : "";
+		return `#/profiles/${encodeURIComponent(decodeURIComponent(profileId))}${qs}`;
 	}
 
 	if (pathPart.startsWith("#/ai?")) return "#/ai";

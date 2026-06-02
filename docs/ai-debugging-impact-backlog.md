@@ -292,7 +292,7 @@ call. This converts raw telemetry into causal context.
 
 ## 2. Profile as a First-Class Connected Rail Source
 
-**Status:** [~] Partial.
+**Status:** [x] Implemented.
 
 **Why it matters:** A profile/flame graph often contains the deepest root cause.
 Agents need to pivot from hot code back to traces, spans, actions, agent runs,
@@ -307,11 +307,13 @@ and tools.
 
 **Acceptance checklist:**
 
-- [ ] `profile` is a valid connected entity kind.
-- [ ] Profile rail surfaces sampled traces.
-- [ ] Profile rail surfaces likely spans/actions when trace context exists.
-- [ ] Empty states explain profiles without trace labels.
-- [ ] Playwright or collector tests cover profile -> trace/span pivots.
+- [x] `profile` is a valid connected entity kind.
+- [x] Profile rail surfaces sampled traces.
+- [x] Profile rail surfaces likely spans/actions when trace context exists.
+- [x] Empty states explain profiles without trace labels.
+- [x] Collector tests cover profile -> trace/span pivots.
+- [x] Dashboard route/rail affordance opens a profile as the primary entity.
+- [x] Playwright coverage proves profile -> trace/span pivots.
 
 **Suggested owner:** Codex primary or frontend/backend paired sub-agent.
 
@@ -341,7 +343,8 @@ verification.
 
 ## 4. Structured Analysis Evidence for Agents
 
-**Status:** [~] Partial.
+**Status:** [~] Analysis/Ask evidence implemented; alert/evaluation-specific
+evidence references remain.
 
 **Why it matters:** Agents should start from ranked hypotheses, evidence IDs,
 confidence, and suggested next pivots rather than parsing narrative text.
@@ -355,13 +358,16 @@ confidence, and suggested next pivots rather than parsing narrative text.
 
 **Acceptance checklist:**
 
-- [ ] Analysis results expose structured evidence references.
-- [ ] Each evidence item includes entity kind, ID, route, and confidence/source.
-- [ ] Alerts, investigations, evaluations, and AskBox all use a compatible
-      `EvidenceReference` shape.
-- [ ] Narratives remain human-readable but are not the only machine context.
-- [ ] AskBox output can drive deterministic Connected Rail pivots.
-- [ ] Tests cover evidence shape and backward compatibility.
+- [x] Analysis results expose structured evidence references.
+- [x] Each evidence item includes entity kind, ID, route, confidence, source,
+      reason, citations, and suggested next pivots.
+- [x] Investigations and AskBox use a compatible `EvidenceReference` shape.
+- [ ] Alert and evaluation-specific payloads expose first-class
+      `EvidenceReference` objects instead of relying on embedded query context.
+- [x] Narratives remain human-readable but are not the only machine context.
+- [x] AskBox output can drive deterministic Connected Rail pivots.
+- [x] Tests cover analysis evidence shape and legacy payload backward
+      compatibility.
 
 **Suggested owner:** Gemini for UX copy/shape proposal; Codex for backend API
 and tests.

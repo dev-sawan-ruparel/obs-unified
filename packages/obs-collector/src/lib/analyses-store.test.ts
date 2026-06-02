@@ -76,3 +76,94 @@ describe("AnalysesStore.releaseClaim", () => {
 		expect(call.binds).toEqual(["proj-1", "analysis-1"]);
 	});
 });
+
+describe("AnalysesStore.getLatestResult evidence references", () => {
+	it("derives machine-readable pivots from structured evidence tables", async () => {
+		const db = new MemSqlDb({
+			first: () => ({
+				id: 1,
+				project_id: "proj-1",
+				analysis_id: "investigate.latency",
+				generated_at: Date.parse("2026-05-01T12:00:00.000Z"),
+				params_hash: null,
+				status: "warn",
+				primary_value: 1234,
+				baseline_value: null,
+				delta_pct: null,
+				payload_json: JSON.stringify({
+					evidence: {
+						tail_offenders: {
+							title: "Tail offenders",
+							headers: ["trace_id", "span_id", "service", "max_ms"],
+							rows: [
+								["trace-1", "span-1", "checkout", 1234],
+								[null, null, "api", 400],
+							],
+						},
+					},
+				}),
+				narrative: "Latency is elevated.",
+				narrative_signature: "sig-1",
+				duration_ms: 12,
+				expires_at: Date.parse("2026-05-02T12:00:00.000Z"),
+			}),
+		});
+		const store = new AnalysesStore(db);
+
+		const result = await store.getLatestResult("proj-1", "investigate.latency");
+
+		expect(result?.evidenceReferences).toEqual([
+			expect.objectContaining({
+				evidenceId:
+					"analysis:investigate.latency:tail_offenders:0:span:trace-1:span-1",
+				entityKind: "span",
+				entityId: "trace-1:span-1",
+				route: "#/traces/trace-1#span=span-1",
+				source: "analysis.payload.evidence.tail_offenders",
+				confidence: 0.95,
+				citations: [
+					{
+						label: "trace trace-1",
+						entityKind: "trace",
+						entityId: "trace-1",
+						route: "#/traces/trace-1",
+					},
+				],
+			}),
+			expect.objectContaining({
+				evidenceId: "analysis:investigate.latency:tail_offenders:1:service:api",
+				entityKind: "service",
+				entityId: "api",
+				route: "#/traces?service=api",
+				source: "analysis.payload.evidence.tail_offenders",
+				confidence: 0.7,
+			}),
+		]);
+	});
+
+	it("omits evidenceReferences for legacy payloads without evidence tables", async () => {
+		const db = new MemSqlDb({
+			first: () => ({
+				id: 1,
+				project_id: "proj-1",
+				analysis_id: "legacy.panel",
+				generated_at: Date.parse("2026-05-01T12:00:00.000Z"),
+				params_hash: null,
+				status: "ok",
+				primary_value: null,
+				baseline_value: null,
+				delta_pct: null,
+				payload_json: JSON.stringify({ rows: [{ service: "api" }] }),
+				narrative: null,
+				narrative_signature: null,
+				duration_ms: 4,
+				expires_at: Date.parse("2026-05-02T12:00:00.000Z"),
+			}),
+		});
+		const store = new AnalysesStore(db);
+
+		const result = await store.getLatestResult("proj-1", "legacy.panel");
+
+		expect(result?.evidenceReferences).toBeUndefined();
+	});
+});

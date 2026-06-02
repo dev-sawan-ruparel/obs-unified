@@ -19,7 +19,7 @@ import type {
 	AnalysisStatus,
 	AnalysisView,
 } from "@obs-unified/types";
-
+import { analysisResultEvidenceReferences } from "./evidence-references";
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";
 
@@ -75,20 +75,27 @@ const rowToDefinition = (row: DefinitionRow): AnalysisDefinition => {
 	return def;
 };
 
-const rowToResult = (row: ResultRow): AnalysisResult => ({
-	analysisId: row.analysis_id,
-	projectId: row.project_id,
-	generatedAt: new Date(row.generated_at).toISOString(),
-	paramsHash: row.params_hash,
-	status: row.status as AnalysisStatus,
-	primaryValue: row.primary_value,
-	baselineValue: row.baseline_value,
-	deltaPct: row.delta_pct,
-	payload: row.payload_json ? parseJsonRecord(row.payload_json) : {},
-	narrative: row.narrative,
-	narrativeSignature: row.narrative_signature,
-	durationMs: row.duration_ms,
-});
+const rowToResult = (row: ResultRow): AnalysisResult => {
+	const result: AnalysisResult = {
+		analysisId: row.analysis_id,
+		projectId: row.project_id,
+		generatedAt: new Date(row.generated_at).toISOString(),
+		paramsHash: row.params_hash,
+		status: row.status as AnalysisStatus,
+		primaryValue: row.primary_value,
+		baselineValue: row.baseline_value,
+		deltaPct: row.delta_pct,
+		payload: row.payload_json ? parseJsonRecord(row.payload_json) : {},
+		narrative: row.narrative,
+		narrativeSignature: row.narrative_signature,
+		durationMs: row.duration_ms,
+	};
+	const evidenceReferences = analysisResultEvidenceReferences(result);
+	if (evidenceReferences.length > 0) {
+		result.evidenceReferences = evidenceReferences;
+	}
+	return result;
+};
 
 export class AnalysesStore {
 	constructor(private readonly db: SqlDb) {}
