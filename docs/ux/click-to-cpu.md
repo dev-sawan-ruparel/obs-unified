@@ -11,14 +11,16 @@ satisfy, and a testable user journey to validate them against.
 
 Layout convention used in the mockups:
 
-```
-URL: /current/route                                  ┌─ Connected rail ──┐
-                                                     │                   │
-   Page content                                      │  Up: ...          │
-   ──────────────────                                │  Across: ...      │
-   ...                                               │  Down: ...        │
-                                                     │  Related: ...     │
-                                                     └───────────────────┘
+```mermaid
+flowchart LR
+  page["Page content\nURL: /current/route"]
+  subgraph rail["Connected rail"]
+    up["Up"]
+    across["Across"]
+    down["Down"]
+    related["Related"]
+  end
+  page --- rail
 ```
 
 The rail sits on every detail surface (RFC 0006). Empty sections render `—` with
@@ -38,62 +40,40 @@ it.
 
 ### Step 1 — Open the alert
 
-```
-URL: /alerts/al-checkout-p95                         ┌─ Connected rail ──────────────┐
-                                                     │                                │
-  ⚠ p95 /checkout doubled                            │  Up: —                         │
-  Currently 1.41s · was 700ms                        │                                │
-  Firing since 10:43 UTC                             │  Across:                       │
-                                                     │   ▸ Bound Analysis             │
-  Narrative                                          │     "p95 /checkout"           │
-  ────────────                                       │   ▸ Recent narratives (3)      │
-  Started ~10:42 UTC. payment-svc latency went       │                                │
-  200ms → 700ms in the same window. There was a      │  Down:                         │
-  deploy at 10:42:17 to payment-svc/main:7c9f.       │   ▸ Exemplar traces (5)       │
-  Affected ~ 18% of /checkout traffic.               │     · trace a3b4… (1.41s) ←   │
-                                                     │     · trace 9f2c… (1.18s)    │
-  Conditions                                         │     · trace b771… (980ms)    │
-  ──────────                                         │     · …                        │
-  • metric: span.duration.p95                        │                                │
-  • selector: service.name=api, route=/checkout      │  Related:                      │
-  • threshold: > 1000ms for 5 minutes                │   ▸ payment-svc deploy at      │
-  • current: 1410ms                                  │     10:42:17                  │
-                                                     │   ▸ 2 firing alerts in svc    │
-                                                     └────────────────────────────────┘
+```mermaid
+flowchart LR
+  alert["Alert\np95 /checkout doubled\ncurrent 1.41s, was 700ms\nfiring since 10:43 UTC"]
+  narrative["Narrative\npayment-svc latency rose 200ms to 700ms\ndeploy at 10:42:17\n18% of /checkout traffic affected"]
+  conditions["Conditions\nspan.duration.p95\nservice.name=api, route=/checkout\nthreshold > 1000ms for 5 minutes"]
+  analysis["Bound Analysis\np95 /checkout"]
+  exemplar["Exemplar traces\ntrace a3b4... (1.41s)"]
+  deploy["Related deploy\npayment-svc/main:7c9f"]
 
-  ◀ Click on "trace a3b4…" — slowest exemplar in window.
+  alert --> narrative --> conditions
+  alert --> analysis
+  alert --> exemplar
+  alert --> deploy
+  exemplar --> next["Click trace a3b4..."]
 ```
 
 **RFCs exercised:** 0002 (narrative + alert binding), 0006 (connected rail).
 
 ### Step 2 — Trace waterfall
 
-```
-URL: /traces/a3b4c2…                                 ┌─ Connected rail ──────────────┐
-                                                     │                                │
-  POST /checkout · trace a3b4c2…                     │  Up:                           │
-  Total wall: 1.41s · 14 spans · self-time 280ms     │   ▸ User session sess-7f3e    │
-                                                     │   ▸ User user-44ab            │
-  ┌─────────────────────────────────────────────┐    │                                │
-  │ POST /checkout      ████████████████ 1410ms │    │  Across:                       │
-  │  ├ db.query users   █ 32ms                  │    │   ▸ 23 logs in this trace     │
-  │  ├ payment.charge   ████████████ 720ms 🔥   │    │   ▸ 1 AI call (fraud check)   │
-  │  │  ├ stripe.api    ███████ 480ms           │    │   ▸ 5 services involved       │
-  │  │  └ db.write pmts ██ 60ms                 │    │   ▸ Replay — none (no         │
-  │  ├ db.write order   ██ 80ms                 │    │     interaction_id)           │
-  │  └ events.publish   ███ 180ms               │    │                                │
-  └─────────────────────────────────────────────┘    │  Down:                         │
-                                                     │   ▸ 🔥 Profile (cpu, 60s)     │
-  ⚠ payment.charge — self_ms 220ms / 720ms (30%)     │     covering this trace ←     │
-     children may be missing instrumentation         │   ▸ Off-CPU profile —         │
-                                                     │     (none for this window)    │
-  🔥 profile available for this span                 │                                │
-                                                     │  Related:                      │
-                                                     │   ▸ Triggered alert            │
-                                                     │     "p95 /checkout"           │
-                                                     └────────────────────────────────┘
-
-  ◀ Click on 🔥 profile badge on payment.charge.
+```mermaid
+flowchart TB
+  trace["Trace a3b4c2...\nPOST /checkout\n1.41s wall, 14 spans, 280ms self-time"]
+  trace --> users["Up\nsession sess-7f3e\nuser user-44ab"]
+  trace --> logs["Across\n23 logs\n1 AI call\n5 services\nReplay absent: no interaction_id"]
+  trace --> root["POST /checkout 1410ms"]
+  root --> dbUsers["db.query users 32ms"]
+  root --> payment["payment.charge 720ms\nself_ms 220ms / 720ms\nprofile available"]
+  payment --> stripe["stripe.api 480ms"]
+  payment --> dbPmts["db.write pmts 60ms"]
+  root --> order["db.write order 80ms"]
+  root --> publish["events.publish 180ms"]
+  payment --> profile["Click CPU profile covering this trace"]
+  trace --> alert["Related\nTriggered alert p95 /checkout"]
 ```
 
 **Note:** "Replay — none (no interaction_id)" surfaces the honest empty state
@@ -106,32 +86,19 @@ _why_ the absence is informative.
 
 ### Step 3 — Flame graph (scoped to this trace)
 
-```
-URL: /profiles/prof-9a8f?trace=a3b4c2…               ┌─ Connected rail ──────────────┐
-                                                     │                                │
-  Profile prof-9a8f · cpu · payment-svc              │  Up:                           │
-  Window: 10:43:00 — 10:44:00                        │   ▸ Span payment.charge        │
-  Filter: trace_id = a3b4c2… (74 of 12,403 samples)  │   ▸ Trace a3b4c2…             │
-                                                     │                                │
-  ┌─────────────────────────────────────────────┐    │  Across:                       │
-  │  payment.charge → server.handle → …        │    │   ▸ Other profiles in window:  │
-  │  └ chargeCard()                       72%  │    │     · cpu (4 prior, 2 newer)  │
-  │    └ validateCardCvv()                68%  │    │     · off-cpu (none)          │
-  │      └ crypto.pbkdf2Sync              62% ⚑│    │   ▸ Other traces sampled in   │
-  │        └ pbkdf2Internal               62%  │    │     this profile (243) ←      │
-  │  └ writeAuditLog()                    12%  │    │                                │
-  │  └ (others)                           16%  │    │  Down: —                       │
-  └─────────────────────────────────────────────┘    │                                │
-                                                     │  Related:                      │
-  ⚑ pbkdf2 iteration count: dynamic from config —    │   ▸ Same flame graph for     │
-     last config change at 10:42:14.                 │     full profile (no filter)  │
-                                                     │                                │
-                                                     └────────────────────────────────┘
-
-  Insight: pbkdf2 iterations bumped 2 minutes before the deploy.
-           62% of payment-svc CPU in one function.
-
-  ◀ Click "Other traces sampled in this profile (243)" — how widespread?
+```mermaid
+flowchart TB
+  profile["Profile prof-9a8f\ncpu, payment-svc\ntrace filter a3b4c2...\n74 of 12,403 samples"]
+  profile --> up["Up\nspan payment.charge\ntrace a3b4c2..."]
+  profile --> stack["payment.charge -> server.handle"]
+  stack --> charge["chargeCard() 72%"]
+  charge --> validate["validateCardCvv() 68%"]
+  validate --> pbkdf2["crypto.pbkdf2Sync 62%\niteration count changed at 10:42:14"]
+  stack --> audit["writeAuditLog() 12%"]
+  stack --> other["others 16%"]
+  profile --> sampled["Across\nOther traces sampled in this profile: 243"]
+  sampled --> next["Click sampled traces to measure spread"]
+  profile --> full["Related\nsame flame graph without trace filter"]
 ```
 
 **RFCs exercised:** 0007 (flame graph + trace_id-scoped filter via
@@ -139,65 +106,36 @@ URL: /profiles/prof-9a8f?trace=a3b4c2…               ┌─ Connected rail ─
 
 ### Step 4 — Cohort view: who else hit this?
 
-```
-URL: /profiles/prof-9a8f/traces                      ┌─ Connected rail ──────────────┐
-                                                     │                                │
-  243 traces sampled in prof-9a8f                    │  Up:                           │
-  payment-svc · 10:43:00 — 10:44:00                  │   ▸ Profile prof-9a8f         │
-                                                     │                                │
-  Trace          Duration  /checkout?  User          │  Across:                       │
-  ────────────── ────────  ──────────  ──────────    │   ▸ All payment-svc spans in  │
-  a3b4c2…  1.41s     ✓     user-44ab   (current)     │     window (1,841)            │
-  9f2c11…        1.18s     ✓     user-91dd   ←       │   ▸ Logs in window            │
-  b77140…         980ms    ✓     user-2c4f           │                                │
-  f88301…         920ms    ✓     user-91dd           │  Down: —                       │
-  …             …       …    …                      │                                │
-                                                     │  Related:                      │
-  ▸ ~80% of traces have payment.charge > 500ms.      │   ▸ Triggered alert            │
-     Broad impact across users.                      │     "p95 /checkout"           │
-                                                     │                                │
-                                                     └────────────────────────────────┘
-
-  ◀ Click user-91dd on row 2 — they have 2 of the 5 worst.
+```mermaid
+flowchart TB
+  cohort["243 traces sampled in prof-9a8f\npayment-svc, 10:43-10:44"]
+  cohort --> current["a3b4c2...\n1.41s\nuser-44ab\ncurrent"]
+  cohort --> user91["9f2c11...\n1.18s\nuser-91dd"]
+  cohort --> user2["b77140...\n980ms\nuser-2c4f"]
+  cohort --> user91b["f88301...\n920ms\nuser-91dd"]
+  cohort --> spans["Across\n1,841 payment-svc spans in window\nlogs in window"]
+  cohort --> finding["~80% of traces have payment.charge > 500ms\nBroad user impact"]
+  user91 --> next["Click user-91dd"]
 ```
 
 **RFCs exercised:** 0007 (per-profile trace listing — phase 2), 0006.
 
 ### Step 5 — User session timeline
 
-```
-URL: /sessions/sess-91dd-9k3                         ┌─ Connected rail ──────────────┐
-                                                     │                                │
-  Session sess-91dd-9k3                              │  Up:                           │
-  user-91dd · 10:42:15 — 10:46:02 · 3m 47s          │   ▸ User user-91dd             │
-  4 page views · 12 interactions · 8 traces          │     (12 sessions in last week)│
-                                                     │                                │
-  Replay scrubber                                    │  Across:                       │
-  ┌─────────────────────────────────────────────┐    │   ▸ 8 traces in this session  │
-  │ ▶▶▶▶▶▶▶▶▶▶▶▶█▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶ │    │   ▸ 47 logs                    │
-  │ 10:42         10:44 (clicked)         10:46 │    │   ▸ Replay (rrweb,             │
-  └─────────────────────────────────────────────┘    │     312 events)               │
-                                                     │   ▸ 0 AI calls                 │
-  Event lane                                         │                                │
-  ┌─────────────────────────────────────────────┐    │  Down: —                       │
-  │ usage:page_view  /cart                      │    │                                │
-  │ usage:click      add to cart                │    │  Related:                      │
-  │ usage:page_view  /checkout                  │    │   ▸ Other slow sessions for   │
-  │ usage:click      [Place order] ← 10:43:42  │    │     user-91dd today (3)       │
-  │   trace 9f2c11… 1.18s ⚠                    │    │                                │
-  │ usage:click      [Place order] ← 10:43:48  │    │                                │
-  │   trace f88301… 0.92s                       │    │                                │
-  │ usage:click      [Place order] ← 10:43:55  │    │                                │
-  │   trace c4d2a8… 0.84s                       │    │                                │
-  │ usage:page_view  /confirm                   │    │                                │
-  └─────────────────────────────────────────────┘    │                                │
-                                                     │                                │
-  Pattern: user clicked Place Order three times      │                                │
-          before it succeeded.                       │                                │
-                                                     │                                │
-                                                     └────────────────────────────────┘
-
-  ◀ Click the rrweb event for the first "Place order" click at 10:43:42.
+```mermaid
+flowchart TB
+  session["Session sess-91dd-9k3\nuser-91dd, 10:42:15-10:46:02\n4 page views, 12 interactions, 8 traces"]
+  session --> up["Up\nuser user-91dd\n12 sessions in last week"]
+  session --> across["Across\n8 traces\n47 logs\nrrweb replay: 312 events\n0 AI calls"]
+  session --> cart["page_view /cart"]
+  cart --> add["click add to cart"]
+  add --> checkout["page_view /checkout"]
+  checkout --> click1["click Place order 10:43:42\ntrace 9f2c11... 1.18s"]
+  click1 --> click2["click Place order 10:43:48\ntrace f88301... 0.92s"]
+  click2 --> click3["click Place order 10:43:55\ntrace c4d2a8... 0.84s"]
+  click3 --> confirm["page_view /confirm"]
+  session --> related["Related\n3 other slow sessions for user-91dd today"]
+  click1 --> next["Click rrweb event at 10:43:42"]
 ```
 
 **RFCs exercised:** 0004 (session timeline grouped by `interaction_id`), 0006,
@@ -205,32 +143,17 @@ RFC 0002 Stage 6 (session-level analyses).
 
 ### Step 6 — Replay event detail
 
-```
-URL: /sessions/sess-91dd-9k3/replay?ts=10:43:42      ┌─ Connected rail ──────────────┐
-                                                     │                                │
-  Replay scrubbed to interaction int_01HFXY…         │  Up:                           │
-                                                     │   ▸ Session sess-91dd-9k3     │
-  ┌─────────────────────────────────────────────┐    │   ▸ User user-91dd             │
-  │                                             │    │                                │
-  │   [DOM render of the user's page]          │    │  Across:                       │
-  │                                             │    │   ▸ Trace caused by this       │
-  │   • Cart: 2 items, $84.00                  │    │     click → 9f2c11… ←         │
-  │   • [Place order] ← user clicked here      │    │   ▸ Logs from this trace      │
-  │                                             │    │     (in trace context)        │
-  └─────────────────────────────────────────────┘    │   ▸ Other interactions in      │
-                                                     │     this session (11)         │
-  Event detail                                       │                                │
-  ────────────                                       │  Down:                         │
-  type: click                                        │   ▸ rrweb chunk (74 events)   │
-  target: button#checkout-submit                     │     this is part of           │
-  interaction_id: int_01HFXY…                        │                                │
-  ts: 2026-05-02T10:43:42.118Z                       │  Related:                      │
-                                                     │   ▸ Other Place-order clicks  │
-                                                     │     in this session (2 more)  │
-                                                     └────────────────────────────────┘
-
-  ◀ Click "Trace caused by this click → 9f2c11…"
-    Closes the loop — back to a trace waterfall (Step 2 shape) for trace 9f2c11.
+```mermaid
+flowchart TB
+  replay["Replay at interaction int_01HFXY...\nDOM: cart has 2 items, $84.00\nuser clicked Place order"]
+  replay --> event["Event detail\nclick\nbutton#checkout-submit\n2026-05-02T10:43:42.118Z"]
+  event --> interaction["interaction_id int_01HFXY..."]
+  replay --> up["Up\nsession sess-91dd-9k3\nuser user-91dd"]
+  replay --> trace["Across\ntrace caused by this click: 9f2c11..."]
+  replay --> logs["Logs from this trace"]
+  replay --> other["Other interactions in this session: 11"]
+  replay --> chunk["Down\nrrweb chunk: 74 events"]
+  trace --> next["Click trace 9f2c11...\nreturns to trace waterfall"]
 ```
 
 **RFCs exercised:** 0004 (interaction_id propagation closes the click→trace
@@ -259,39 +182,12 @@ iterations too high; revert it.
 A different starting point exercising the same shape — proving the "any-to-any"
 property.
 
-```
-                     ┌──────────────────────┐
-                     │  AI cost dashboard   │
-                     │  spike at 11:14 UTC  │
-                     └──────────┬───────────┘
-                                │ click: top users by spend in window
-                                ▼
-                     ┌──────────────────────┐
-                     │  user-3a91 — $42 in  │
-                     │  10 minutes (50× avg)│
-                     └──────────┬───────────┘
-                                │ click: latest session
-                                ▼
-                     ┌──────────────────────┐
-                     │  Session timeline    │
-                     │  47 AI calls in 3min │
-                     └──────────┬───────────┘
-                                │ click: replay
-                                ▼
-                     ┌──────────────────────┐
-                     │  Replay shows the    │
-                     │  user stuck in a     │
-                     │  retry-loop modal    │
-                     │  spamming submit     │
-                     └──────────┬───────────┘
-                                │ click: trace from one of the clicks
-                                ▼
-                     ┌──────────────────────┐
-                     │  Trace shows app     │
-                     │  doesn't debounce —  │
-                     │  every click fires   │
-                     │  a new LLM request   │
-                     └──────────────────────┘
+```mermaid
+flowchart TB
+  cost["AI cost dashboard\nspike at 11:14 UTC"] -->|click top users by spend| user["user-3a91\n$42 in 10 minutes\n50x average"]
+  user -->|click latest session| session["Session timeline\n47 AI calls in 3 minutes"]
+  session -->|click replay| replay["Replay\nuser stuck in retry-loop modal\nspamming submit"]
+  replay -->|click trace from one click| trace["Trace\napp does not debounce\nevery click fires a new LLM request"]
 ```
 
 5 clicks from cost dashboard to root cause. Same rail, different entry point.
@@ -313,53 +209,35 @@ p95 has crept up but no service-level alert has fired.
 
 ### Step 1 — Trace waterfall, the suspicious span
 
-```
-URL: /traces/c8d3f1…                                  ┌─ Connected rail ──────────────┐
-                                                      │                                │
-  POST /api/checkout · trace c8d3f1…                  │  Up:                           │
-  Total wall: 540ms · 8 spans · self-time 220ms       │   ▸ User session sess-3a91     │
-  ⚠ UNINSTRUMENTED 1   🔥 PROFILES 2                  │                                │
-                                                      │  Across:                       │
-  ┌─────────────────────────────────────────────┐     │   ▸ 12 logs in this trace     │
-  │ POST /api/checkout    ████ 540ms            │     │                                │
-  │  ├ db.query users     █ 12ms                │     │  Down:                         │
-  │  ├ inventory.reserve  ████████ 320ms 🔥 ⚠  │     │   ▸ 🔥 cpu profile            │
-  │  └ db.write order     █ 18ms                │     │   ▸ 🔥 off-cpu profile ←      │
-  └─────────────────────────────────────────────┘     │                                │
-                                                      │  Related:                      │
-  ⚠ inventory.reserve — self_ms 280ms / 320ms (87%)   │   ▸ Originating click          │
-     children may be missing instrumentation          │     (rrweb event)             │
-                                                      └────────────────────────────────┘
-
-  ◀ Click "🔥 off-cpu profile" — the suspicious span has no children
-    accounting for the time, but on-CPU profiling shows almost no
-    activity either. Off-CPU is the next layer.
+```mermaid
+flowchart TB
+  trace["Trace c8d3f1...\nPOST /api/checkout\n540ms wall, 8 spans, 220ms self-time\n1 uninstrumented span, 2 profiles"]
+  trace --> up["Up\nsession sess-3a91"]
+  trace --> logs["Across\n12 logs in this trace"]
+  trace --> root["POST /api/checkout 540ms"]
+  root --> dbUsers["db.query users 12ms"]
+  root --> inventory["inventory.reserve 320ms\nself_ms 280ms / 320ms\nmissing children"]
+  root --> order["db.write order 18ms"]
+  inventory --> cpu["CPU profile"]
+  inventory --> offcpu["Click off-CPU profile"]
+  trace --> related["Related\noriginating click rrweb event"]
 ```
 
 ### Step 2 — Off-CPU flame graph
 
-```
-URL: /profiles/prof-7e44?trace=c8d3f1…&type=offcpu      ┌─ Connected rail ──────────────┐
-                                                        │                                │
-  Off-CPU profile prof-7e44 · inventory-svc             │  Up:                           │
-  Window: 12:05:00 — 12:06:00                           │   ▸ Span inventory.reserve    │
-  Filter: trace_id = c8d3f1… (28 of 14,200 samples)     │   ▸ Trace c8d3f1…             │
-                                                        │                                │
-  ┌─────────────────────────────────────────────┐       │  Across:                       │
-  │  inventory.reserve → grpc.call → …          │       │   ▸ Other off-cpu profiles    │
-  │  └ futex_wait_queue                  84%  ⚑│       │     in this 5-min window      │
-  │    └ pthread_mutex_lock              84%   │       │                                │
-  │      └ inventory_pool::checkout      84%   │       │  Down: —                       │
-  │  └ epoll_wait                         12%  │       │                                │
-  │  └ (others)                            4%  │       │  Related:                      │
-  └─────────────────────────────────────────────┘       │   ▸ Same flame graph for     │
-                                                        │     full profile (no filter)  │
-  ⚑ inventory_pool::checkout holds a global mutex.      │                                │
-     280ms of off-CPU time waiting for it to release.   │                                │
-                                                        └────────────────────────────────┘
-
-  Insight: a single pool-wide mutex serializes every checkout. Split
-  the pool into shards or move to lock-free reservation.
+```mermaid
+flowchart TB
+  profile["Off-CPU profile prof-7e44\ninventory-svc\ntrace filter c8d3f1...\n28 of 14,200 samples"]
+  profile --> up["Up\nspan inventory.reserve\ntrace c8d3f1..."]
+  profile --> stack["inventory.reserve -> grpc.call"]
+  stack --> futex["futex_wait_queue 84%"]
+  futex --> mutex["pthread_mutex_lock 84%"]
+  mutex --> pool["inventory_pool::checkout 84%\nglobal mutex"]
+  stack --> epoll["epoll_wait 12%"]
+  stack --> other["others 4%"]
+  profile --> across["Across\nother off-CPU profiles in this 5-minute window"]
+  profile --> related["Related\nsame flame graph without trace filter"]
+  pool --> insight["Insight\n280ms waiting for global mutex\nshard pool or move to lock-free reservation"]
 ```
 
 ### Step 3 — Confirming with concurrent traces

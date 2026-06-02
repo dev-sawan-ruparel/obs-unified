@@ -62,13 +62,14 @@ The engineer expands the **Decision Graph** panel next to the timeline. It rende
 
 Unlike a flat list of spans, this shows why the agent branched. The engineer sees that `mutate_invoice_address` was directly spawned by `lookup_invoice_record`, which itself was triggered because the prompt triage successfully located the invoice ID.
 
-```
-billing_refund_processing_flow (Agent Run Root)
- ├── classify_billing_intent (LLM Intent Triage)
- └── retrieve_invoice_rules (Retrieval)
-      └── lookup_invoice_record (Read Tool Call)
-           └── mutate_invoice_address (Write Tool Call)
-                └── validate_invoice_permissions (Guardrail Check) ❌ FAIL
+```mermaid
+flowchart TB
+  root["billing_refund_processing_flow\nAgent Run Root"]
+  root --> classify["classify_billing_intent\nLLM Intent Triage"]
+  root --> retrieve["retrieve_invoice_rules\nRetrieval"]
+  retrieve --> lookup["lookup_invoice_record\nRead Tool Call"]
+  lookup --> mutate["mutate_invoice_address\nWrite Tool Call"]
+  mutate --> guardrail["validate_invoice_permissions\nGuardrail Check: FAIL"]
 ```
 
 ---

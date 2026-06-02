@@ -39,7 +39,11 @@ const tinyProfile = (): PprofProfile => {
 	const functions = new Map();
 	functions.set(1, { id: 1, nameIdx: 3, filenameIdx: 4 });
 	const locations = new Map();
-	locations.set(1, { id: 1, functionIds: [1] });
+	locations.set(1, {
+		id: 1,
+		lines: [{ functionId: 1, line: 42 }],
+		functionIds: [1],
+	});
 	return {
 		sampleTypes: [{ typeIdx: 1, unitIdx: 2 }],
 		samples: [
@@ -83,7 +87,11 @@ describe("pprof-decoder round-trip", () => {
 			nameIdx: 3,
 			filenameIdx: 4,
 		});
-		expect(decoded.locations.get(1)).toEqual({ id: 1, functionIds: [1] });
+		expect(decoded.locations.get(1)).toEqual({
+			id: 1,
+			lines: [{ functionId: 1, line: 42 }],
+			functionIds: [1],
+		});
 	});
 
 	it("round-trips an empty profile to a non-throwing decode", () => {

@@ -1,5 +1,6 @@
 interface ImportMetaEnv {
 	readonly DEV: boolean;
+	readonly VITE_IDE_URL_TEMPLATE?: string;
 }
 
 interface ImportMeta {

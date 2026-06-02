@@ -162,9 +162,15 @@ export {
 } from "./logger";
 // ── MCP Context Helpers ──
 export {
+	buildMcpAuditEnvelope,
 	extractMcpContext,
 	injectMcpContext,
+	injectMcpNotificationContext,
+	injectMcpRequestContext,
+	type McpAuditEnvelope,
+	type McpAuditOptions,
 	type McpContext,
+	type McpContextInjectionOptions,
 } from "./mcp";
 // ── OTEL config ──
 export { annotateErrorSpan, createResolveConfig } from "./otel-config";

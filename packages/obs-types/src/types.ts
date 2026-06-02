@@ -56,6 +56,12 @@ export type {
 	NarrativeSpec,
 } from "./types/analyses";
 export type {
+	EvidenceCitation,
+	EvidenceEntityKind,
+	EvidenceNextPivot,
+	EvidenceReference,
+} from "./types/evidence";
+export type {
 	IdentifyInput,
 	UserProfileDetail,
 	UserProfileRow,
@@ -96,6 +102,9 @@ export type {
 	ServiceSummaryRow,
 	SpanDetailRow,
 	StoredSpan,
+	TelemetryCodeReference,
+	TelemetryInstrumentationGap,
+	TelemetryInstrumentationGapsResponse,
 	TelemetryIssueCategory,
 	TelemetryIssueDetailResponse,
 	TelemetryIssueOptions,

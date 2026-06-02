@@ -6,6 +6,7 @@ import {
 	withAction,
 } from "./agent";
 import {
+	buildMcpAuditEnvelope,
 	extractMcpContext,
 	injectMcpContext,
 	injectMcpNotificationContext,
@@ -215,5 +216,73 @@ describe("Model Context Protocol (MCP) Trace + Action Graph Context Propagation"
 
 		const noMeta = { arguments: {} };
 		expect(extractMcpContext(noMeta)).toBeUndefined();
+	});
+
+	it("builds a privacy-safe MCP audit envelope with raw meta disabled by default", async () => {
+		const envelope = await buildMcpAuditEnvelope({
+			_meta: {
+				traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+				tracestate: "vendor=private-route",
+				baggage: "tenant=acme,obs.interaction.id=01HZQ5W3K8M4P2X7N9B0CDEFGH",
+				"obs.action.root_id": "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+				"obs.action.id": "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+				authorization: "Bearer secret",
+				vendor: { requestId: "req-1", token: "secret-token" },
+			},
+		});
+
+		expect(envelope).toBeDefined();
+		expect(envelope?.hasRawMeta).toBe(false);
+		expect(envelope?.rawMetaRedacted).toBeUndefined();
+		expect(envelope?.allowedFields).toMatchObject({
+			traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+			"obs.action.root_id": "01J3Y4Z5A6B7C8D9E0F1G2H3J4",
+			"obs.action.id": "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+			"baggage.obs.interaction.id": "01HZQ5W3K8M4P2X7N9B0CDEFGH",
+		});
+		expect(envelope?.hashedFields.authorization).toMatch(/^[a-f0-9]{64}$/);
+		expect(envelope?.hashedFields.vendor).toMatch(/^[a-f0-9]{64}$/);
+		expect(envelope?.hashedFields.baggage).toMatch(/^[a-f0-9]{64}$/);
+		expect(envelope?.hashedFields.tracestate).toMatch(/^[a-f0-9]{64}$/);
+		expect(envelope?.droppedFields).toEqual([
+			"authorization",
+			"tracestate",
+			"vendor",
+		]);
+		expect(envelope?.redactedFields).toEqual(["baggage"]);
+	});
+
+	it("redacts sensitive keys when raw MCP audit meta is explicitly enabled", async () => {
+		const envelope = await buildMcpAuditEnvelope(
+			{
+				_meta: {
+					"obs.action.id": "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+					nested: {
+						email: "person@example.com",
+						"api-key": "private",
+						harmless: "kept",
+					},
+				},
+			},
+			{ captureRawMeta: true },
+		);
+
+		expect(envelope?.hasRawMeta).toBe(true);
+		expect(envelope?.rawMetaRedacted).toEqual({
+			"obs.action.id": "01J3Y4Z5A6B7C8D9E0F1G2H3K5",
+			nested: {
+				email: "[REDACTED]",
+				"api-key": "[REDACTED]",
+				harmless: "kept",
+			},
+		});
+	});
+
+	it("returns undefined for invalid MCP audit inputs", async () => {
+		await expect(buildMcpAuditEnvelope(undefined)).resolves.toBeUndefined();
+		await expect(buildMcpAuditEnvelope({})).resolves.toBeUndefined();
+		await expect(
+			buildMcpAuditEnvelope({ _meta: ["not", "an", "object"] }),
+		).resolves.toBeUndefined();
 	});
 });

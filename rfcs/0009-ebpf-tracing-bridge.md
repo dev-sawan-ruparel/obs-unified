@@ -98,20 +98,29 @@ and documentation, plus a few targeted UI surfaces**.
 
 ### Architecture
 
-```
-┌─────────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│ Linux node          │     │ OTel Collector   │     │ obs-unified      │
-│                     │     │ (optional, but   │     │                  │
-│  Beyla              │────▶│  recommended for │────▶│  /v1/traces      │
-│   (eBPF→OTLP        │     │  k8s metadata    │     │  /v1/metrics     │
-│   auto-instrument)  │     │  enrichment +    │     │  /v1/logs        │
-│                     │     │  batching)       │     │                  │
-│  hostmetricsreceiver│────▶│                  │     │                  │
-│                     │     │                  │     │                  │
-│  Parca-Agent /      │─────────────────────────────▶│  /v1/profiles/   │
-│  OTel-eBPF-Profiler │                              │   pprof          │
-│  (pprof, RFC 0007)  │                              │                  │
-└─────────────────────┘     └──────────────────┘     └──────────────────┘
+```mermaid
+flowchart LR
+  subgraph linux["Linux node"]
+    beyla["Beyla\neBPF to OTLP auto-instrumentation"]
+    hostmetrics["hostmetricsreceiver"]
+    profiler["Parca-Agent / OTel-eBPF-Profiler\npprof, RFC 0007"]
+  end
+
+  collector["OTel Collector\noptional; k8s metadata enrichment + batching"]
+
+  subgraph obs["obs-unified"]
+    traces["/v1/traces"]
+    metrics["/v1/metrics"]
+    logs["/v1/logs"]
+    profiles["/v1/profiles/pprof"]
+  end
+
+  beyla --> collector
+  hostmetrics --> collector
+  collector --> traces
+  collector --> metrics
+  collector --> logs
+  profiler --> profiles
 ```
 
 We are the right-most box. Beyla and the OTel `hostmetricsreceiver` already

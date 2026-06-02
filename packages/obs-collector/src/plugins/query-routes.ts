@@ -119,6 +119,18 @@ export const queryRoutesPlugin: CollectorPlugin = {
 			return c.json({ ...detail, plugins: runtime.getRegisteredPluginNames() });
 		});
 
+		app.get("/internal/telemetry/traces/:traceId/gaps", async (c) => {
+			const projectId = getProjectId(c);
+			const store = runtime.createStore(c.env);
+			const gaps = await store.getTraceGaps(c.req.param("traceId"), projectId);
+			if (!gaps)
+				return c.json(
+					{ error: "Not Found", message: "Trace gaps not found" },
+					404,
+				);
+			return c.json(gaps);
+		});
+
 		// NDJSON export (from D)
 		app.get("/internal/telemetry/export", async (c) => {
 			const projectId = getProjectId(c);

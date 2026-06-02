@@ -1,5 +1,6 @@
 import type {
 	StoredSpan,
+	TelemetryInstrumentationGapsResponse,
 	TelemetryIssueDetailResponse,
 	TelemetryIssueOptions,
 	TelemetryIssueOverviewResponse,
@@ -22,7 +23,10 @@ import {
 	type ServiceMapOptions,
 	type ServiceOperationsOptions,
 } from "./store/service-map";
-import { getTelemetryTraceDetail } from "./store/trace-detail";
+import {
+	getTelemetryTraceDetail,
+	getTelemetryTraceGaps,
+} from "./store/trace-detail";
 
 export class TelemetryStore {
 	constructor(private readonly db: SqlDb) {}
@@ -44,6 +48,13 @@ export class TelemetryStore {
 		projectId: string,
 	): Promise<TelemetryTraceDetailResponse | null> {
 		return getTelemetryTraceDetail(this.db, traceId, projectId);
+	}
+
+	async getTraceGaps(
+		traceId: string,
+		projectId: string,
+	): Promise<TelemetryInstrumentationGapsResponse | null> {
+		return getTelemetryTraceGaps(this.db, traceId, projectId);
 	}
 
 	async getIssueOverview(

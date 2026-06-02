@@ -11,14 +11,40 @@ interface VersionDiffMetric {
 	deltaDirection: "positive" | "negative" | "neutral";
 }
 
+interface AggregateExemplar {
+	actionId: string;
+	agentRunId: string | null;
+	traceId: string | null;
+	toolCallId: string | null;
+	evalId: string | null;
+	label: string | null;
+	status: string | null;
+	occurredAt: string | null;
+}
+
 interface VersionComparison {
 	baselineVersion: string;
 	targetVersion: string;
 	metrics: VersionDiffMetric[];
+	baselineExemplars?: AggregateExemplar[];
+	targetExemplars?: AggregateExemplar[];
 	timestamp: string;
 }
 
-export function AgentVersionDiffDashboard() {
+interface Props {
+	onNavigate?: (href: string) => void;
+}
+
+const openExemplar = (
+	onNavigate: Props["onNavigate"],
+	ex: AggregateExemplar,
+) => {
+	if (ex.agentRunId) onNavigate?.(`#/agent-runs/${ex.agentRunId}`);
+	else if (ex.actionId) onNavigate?.(`#/actions/${ex.actionId}`);
+	else if (ex.traceId) onNavigate?.(`#/traces?trace=${ex.traceId}`);
+};
+
+export function AgentVersionDiffDashboard({ onNavigate }: Props) {
 	const api = useApi();
 	const [data, setData] = useState<VersionComparison | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -190,6 +216,66 @@ export function AgentVersionDiffDashboard() {
 							</div>
 						);
 					})}
+				</div>
+			</Card>
+
+			<Card className="mt-2 p-3 flex flex-col min-w-0">
+				<SectionTitle
+					title="Version Exemplars"
+					note="Concrete runs behind the aggregate comparison"
+				/>
+				<div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+					{[
+						{
+							label: data.baselineVersion,
+							rows: data.baselineExemplars ?? [],
+						},
+						{
+							label: data.targetVersion,
+							rows: data.targetExemplars ?? [],
+						},
+					].map((group) => (
+						<div
+							key={group.label}
+							className="border border-sys-outline-soft bg-sys-surface-low p-2"
+						>
+							<div className="mb-2 font-mono text-[0.6875rem] font-bold uppercase tracking-[0.05em] opacity-70">
+								{group.label}
+							</div>
+							{group.rows.length === 0 ? (
+								<div className="text-[0.75rem] text-sys-on-surface-muted">
+									No exemplar run captured.
+								</div>
+							) : (
+								<div className="flex flex-col gap-1.5">
+									{group.rows.map((row) => (
+										<div
+											key={row.actionId}
+											className="flex items-center justify-between gap-2"
+										>
+											<div className="min-w-0">
+												<div className="truncate text-[0.75rem] font-semibold">
+													{row.label ?? row.agentRunId ?? row.actionId}
+												</div>
+												<div className="font-mono text-[0.625rem] opacity-60">
+													{row.status ?? "unknown"} -{" "}
+													{row.agentRunId?.slice(0, 8) ??
+														row.actionId.slice(0, 8)}
+												</div>
+											</div>
+											<button
+												type="button"
+												onClick={() => openExemplar(onNavigate, row)}
+												className="flex-none underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft font-mono text-[0.75rem]"
+											>
+												Inspect
+											</button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					))}
 				</div>
 			</Card>
 		</div>

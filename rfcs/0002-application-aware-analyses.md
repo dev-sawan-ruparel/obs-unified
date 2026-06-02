@@ -79,8 +79,11 @@ Explicitly out of scope for this RFC:
 
 Every Analysis has the same lifecycle:
 
-```
-fetch → analyze → narrate → render
+```mermaid
+flowchart LR
+  fetch["fetch"] --> analyze["analyze"]
+  analyze --> narrate["narrate"]
+  narrate --> render["render"]
 ```
 
 The differences between a panel, an investigation, and an alert are _properties_
@@ -173,38 +176,35 @@ We need two runtimes, distinguished by capability:
   Probably FastAPI + Marimo, with each Analysis as a Python file exporting
   `def run(params) -> AnalysisResult`.
 
-```
-┌──────────────────────────────────────────────────────┐
-│ Worker (collector)                                   │
-│  /v1/* ingest          (unchanged)                   │
-│  /internal/* queries   (unchanged + new analyses ep) │
-│  scheduled handler     (existing)                    │
-│    foreach Analysis with Cron schedule:              │
-│      if analysis.handler == "sql":                   │
-│        run SQL → write analysis_results              │
-│      else:                                           │
-│        POST http://stats:8000/run { analysis_id }    │
-│        (sidecar writes back via /internal API)       │
-│  /internal/analyses                                  │
-│    GET   list active Analyses                        │
-│    GET   :id/result      → latest cached row         │
-│    POST  :id/run         → trigger now (OnDemand)    │
-└──────────────────────────────────────────────────────┘
-                              ↓ analyses needing analyze/narrate
-┌──────────────────────────────────────────────────────┐
-│ Python sidecar (@obs-unified/stats)                          │
-│  POST /run { analysis_id, params }                   │
-│    1. import analyses[analysis_id]                   │
-│    2. fetch raw data via collector /internal API     │
-│    3. run analyze() — Polars, sklearn, embeddings    │
-│    4. run narrate() — LLM call if gate triggers      │
-│    5. POST result back to /internal/analyses/:id     │
-│  Stateless. The collector remains source of truth.   │
-└──────────────────────────────────────────────────────┘
-                              ↓ all results
-                        D1 / SQLite
-                              ↓
-                        Dashboard
+```mermaid
+flowchart TB
+  subgraph worker["Worker collector"]
+    ingest["/v1/* ingest\nunchanged"]
+    queries["/internal/* queries\nunchanged + new analyses endpoint"]
+    scheduler["scheduled handler\nforeach Analysis with Cron schedule"]
+    sql{"analysis.handler == sql?"}
+    runSql["run SQL\nwrite analysis_results"]
+    postStats["POST stats:8000/run\n{ analysis_id }"]
+    analyses["/internal/analyses\nGET list active\nGET :id/result\nPOST :id/run"]
+    scheduler --> sql
+    sql -->|yes| runSql
+    sql -->|no| postStats
+  end
+
+  subgraph stats["Python sidecar @obs-unified/stats"]
+    run["POST /run { analysis_id, params }"]
+    importAnalysis["import analyses[analysis_id]"]
+    fetchRaw["fetch raw data via collector /internal API"]
+    analyzeStep["run analyze()\nPolars, sklearn, embeddings"]
+    narrateStep["run narrate()\nLLM call if gate triggers"]
+    writeBack["POST result back to /internal/analyses/:id"]
+    run --> importAnalysis --> fetchRaw --> analyzeStep --> narrateStep --> writeBack
+  end
+
+  postStats --> run
+  writeBack --> results["D1 / SQLite"]
+  runSql --> results
+  results --> dashboard["Dashboard"]
 ```
 
 The Worker doesn't need to know what language ran the Analysis. It just knows
@@ -444,28 +444,21 @@ plumbing into a useless interface.
 The whole proposition is "open the dashboard, see answers." That has to be true
 before any user customization. The default progression on a fresh install:
 
-```
-T+0     Install. Collector running. Dashboard at /health.
-        ──────────────────────────────────────────────────
-        empty state: "Send your first telemetry to see panels populate."
-        Includes a copy-pasteable SDK init snippet and a curl example.
-
-T+1m    First /v1/traces lands.
-        ──────────────────────────────────────────────────
-        Tier 0 panels start populating. Panel cards show a skeleton
-        placeholder with "computing..." until the first scheduled run
-        completes (within 60s).
-
-T+5m    Derivation runs.
-        ──────────────────────────────────────────────────
-        Tier 1 panels appear — one per detected service/edge/topic. The
-        Health tab now has populated groups (Services, Dependencies, etc.).
-
-T+steady state
-        ──────────────────────────────────────────────────
-        Panels refresh on their cadences. Most stay green and silent.
-        When something deviates, narrative appears under the affected
-        panel. Status pills sort warns/criticals to the top of each group.
+```mermaid
+timeline
+  title First-run analysis experience
+  T+0 : Install
+      : Collector running
+      : Dashboard at /health shows empty state and SDK snippet
+  T+1m : First /v1/traces lands
+       : Tier 0 panels populate
+       : Skeleton cards show computing until scheduled run completes
+  T+5m : Derivation runs
+       : Tier 1 panels appear per detected service, edge, or topic
+       : Health tab groups populate
+  Steady state : Panels refresh on their cadences
+               : Most stay green and silent
+               : Deviations show narrative and sort warning or critical panels first
 ```
 
 The empty state does _not_ show a generic "no data yet" — it shows exactly what
@@ -493,18 +486,15 @@ Default panel size is 1 column (~280px wide). Two-column variant
 (`size: "wide"`) for panels that benefit from more space (sparklines,
 multi-series compare). Panels never grow taller than ~140px in the grid.
 
-```
-┌──────────────────────────────────────────────┐
-│ Are checkouts working?       [● critical]    │  ← title + status pill
-├──────────────────────────────────────────────┤
-│ 12.4% errors                                 │  ← primary value, large
-│ vs 0.8% baseline (1h)         ↑ +1450%        │  ← baseline + delta arrow
-│                                              │
-│ ───────▁▂▁▁▂▆█████          ↗               │  ← sparkline (if applicable)
-│                                              │
-│ payment-svc errored on 89% of requests       │  ← narrative (if gate fired)
-│ starting 8 min ago. → View trace             │  ← inline action
-└──────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  tile["Analysis tile: Are checkouts working?\nstatus: critical"]
+  value["Primary value\n12.4% errors"]
+  baseline["Baseline + delta\nvs 0.8% baseline (1h), +1450%"]
+  sparkline["Sparkline\nif applicable"]
+  narrative["Narrative\npayment-svc errored on 89% of requests"]
+  action["Inline action\nView trace"]
+  tile --> value --> baseline --> sparkline --> narrative --> action
 ```
 
 Panels with `narrate: None` or gate-skipped renders simply omit the narrative
@@ -520,35 +510,23 @@ Analysis's scope) as a fallback.
 
 Investigations are full-width pages, not tiles. Three sections, top to bottom:
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  ← Back     IDE vs Web — decision logging delta     [Re-run]    │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Narrative (the answer):                                         │
-│  IDE users log 3.2× more decisions per session than web users.  │
-│  Web users disproportionately log "blocked-by-X" type decisions │
-│  but only 28% complete the form (vs 81% on IDE). The drop-off   │
-│  is at the submit step, where 14 distinct error events fired    │
-│  in the past 24h — all from a Stripe 3DS validation regression. │
-│                                                                  │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Evidence:                                                       │
-│  ┌─────────────────────┐  ┌─────────────────────┐               │
-│  │ Cohort summary      │  │ Decision categories │               │
-│  │ (table)             │  │ (bar chart)         │               │
-│  └─────────────────────┘  └─────────────────────┘               │
-│  ┌────────────────────────────────────────────┐                 │
-│  │ Web cohort funnel                          │                 │
-│  │ start → form open → submit → success       │                 │
-│  │ 1842 →   1450    →  410   → 287            │                 │
-│  └────────────────────────────────────────────┘                 │
-│  Recent web submit errors: [→ View 14 events]                   │
-│                                                                  │
-├──────────────────────────────────────────────────────────────────┤
-│  [Save as panel]  [Share link]  [Re-run with different params] │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  page["Investigation page\nIDE vs Web decision logging delta"]
+  narrative["Narrative\nIDE users log 3.2x more decisions per session\nWeb form completion drops at submit"]
+  evidence["Evidence"]
+  cohort["Cohort summary table"]
+  categories["Decision categories bar chart"]
+  funnel["Web cohort funnel\nstart -> form open -> submit -> success\n1842 -> 1450 -> 410 -> 287"]
+  errors["Recent web submit errors\nView 14 events"]
+  actions["Actions\nSave as panel | Share link | Re-run"]
+
+  page --> narrative --> evidence
+  evidence --> cohort
+  evidence --> categories
+  evidence --> funnel
+  evidence --> errors
+  page --> actions
 ```
 
 The narrative is the lede. Evidence is below for users who want to verify.

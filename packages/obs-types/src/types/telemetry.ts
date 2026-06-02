@@ -194,11 +194,45 @@ export interface TelemetrySpanDetail {
 	resourceAttributes: Record<string, JsonValue>;
 	events: unknown[];
 	links: unknown[];
+	codeReference?: TelemetryCodeReference;
+}
+
+export interface TelemetryCodeReference {
+	repoName?: string;
+	relativePath?: string;
+	absolutePath?: string;
+	originalPath?: string;
+	symbolName?: string;
+	lineNumber?: number;
+	columnNumber?: number;
+}
+
+export interface TelemetryInstrumentationGap {
+	traceId: string;
+	parentSpanId: string;
+	parentServiceName: string;
+	parentSpanName: string;
+	offsetMs: number;
+	durationMs: number;
+	ratioOfParent: number;
+	childSpanCount: number;
+	asyncParent: boolean;
+	recommendation: string;
+}
+
+export interface TelemetryInstrumentationGapsResponse {
+	traceId: string;
+	totalDurationMs: number;
+	uninstrumentedTimeMs: number;
+	ratio: number;
+	blindspots: TelemetryInstrumentationGap[];
+	timestamp: string;
 }
 
 export interface TelemetryTraceDetailResponse {
 	trace: TelemetryTraceSummary;
 	spans: TelemetrySpanDetail[];
+	instrumentationGaps?: TelemetryInstrumentationGapsResponse;
 	timestamp: string;
 }
 

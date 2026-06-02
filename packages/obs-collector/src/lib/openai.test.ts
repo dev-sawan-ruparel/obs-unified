@@ -176,6 +176,16 @@ describe("runAsk (openai)", () => {
 		]);
 		expect(out.evidence).toHaveLength(1);
 		expect(out.evidence[0]?.analysisId).toBe("overall_error_rate");
+		expect(out.evidenceReferences).toEqual([
+			expect.objectContaining({
+				evidenceId: "ask:analysis:overall_error_rate",
+				entityKind: "analysis",
+				entityId: "overall_error_rate",
+				route: "#/investigate/overall_error_rate",
+				source: "ask.run_analysis",
+				confidence: 1,
+			}),
+		]);
 	});
 
 	it("tolerates malformed tool arguments (parses to empty object)", async () => {

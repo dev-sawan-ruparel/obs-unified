@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "../../provider";
 import { useApi } from "../../use-api";
+import { buildIdeUrl } from "../ide-link";
 import {
 	aggregateFlameTree,
 	type FlameNode,
@@ -320,6 +321,8 @@ export function FlameGraph({
 									>
 										<title>
 											{frame.name}
+											{frame.codeRef &&
+												`\n${frame.codeRef.relativePath || frame.codeRef.originalPath}:${frame.codeRef.lineNumber || 1}`}
 											{"\n"}
 											{frame.value} samples (
 											{((frame.value / total) * 100).toFixed(1)}% of total)
@@ -348,14 +351,25 @@ export function FlameGraph({
 			</div>
 
 			{hovered && hovered.name !== "__root__" && (
-				<div className="font-mono text-[0.75rem] bg-sys-surface-low px-2 py-1 border border-sys-outline">
+				<div className="font-mono text-[0.75rem] bg-sys-surface-low px-2 py-1 border border-sys-outline flex flex-wrap items-center gap-x-3">
 					<span className="font-bold">{hovered.name}</span>
-					<span className="ml-2 opacity-60">
+					{hovered.codeRef && (
+						<a
+							href={buildIdeUrl(hovered.codeRef)}
+							target="_blank"
+							rel="noreferrer"
+							className="text-sys-primary underline hover:text-sys-primary-high font-bold"
+						>
+							{hovered.codeRef.relativePath || hovered.codeRef.originalPath}:
+							{hovered.codeRef.lineNumber || 1}
+						</a>
+					)}
+					<span className="opacity-60">
 						{hovered.value.toLocaleString()} samples ·{" "}
 						{((hovered.value / total) * 100).toFixed(1)}% of total · depth{" "}
 						{hovered.depth}
 					</span>
-					<span className="ml-3 opacity-50">click to zoom</span>
+					<span className="opacity-50">click to zoom</span>
 				</div>
 			)}
 

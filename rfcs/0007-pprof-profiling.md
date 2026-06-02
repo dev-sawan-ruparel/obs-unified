@@ -174,10 +174,11 @@ client-side, scoped to that trace_id.
 
 Two paths depending on profile size, with a single endpoint shape:
 
-```
-GET /internal/profiles/:id                       → full pprof blob
-GET /internal/profiles/:id?trace_id=…            → filtered pprof blob (samples whose labels match)
-GET /internal/profiles/:id?service=…&since=…    → filtered/merged blob (Phase 2)
+```mermaid
+flowchart LR
+  full["GET /internal/profiles/:id"] --> fullBlob["full pprof blob"]
+  trace["GET /internal/profiles/:id?trace_id=..."] --> traceBlob["filtered pprof blob\nsamples whose labels match"]
+  service["GET /internal/profiles/:id?service=...&since=..."] --> merged["filtered/merged blob\nPhase 2"]
 ```
 
 **Client-side path (default).** For blobs ≤ 500 KB, fetch the full blob, parse

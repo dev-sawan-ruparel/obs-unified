@@ -305,13 +305,29 @@ export function App() {
 								}}
 							/>
 						)}
-						{route.tab === "tool-reliability" && <ToolReliabilityDashboard />}
-						{route.tab === "cost-attribution" && <CostAttributionDashboard />}
+						{route.tab === "tool-reliability" && (
+							<ToolReliabilityDashboard
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
+						{route.tab === "cost-attribution" && (
+							<CostAttributionDashboard
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
 						{route.tab === "autonomous-review" && (
 							<AutonomousReviewDashboard onNavigate={navigate} />
 						)}
 						{route.tab === "agent-version-diff" && (
-							<AgentVersionDiffDashboard />
+							<AgentVersionDiffDashboard
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
 						)}
 						{route.tab === "evaluations" && <EvaluationsDashboard />}
 						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}

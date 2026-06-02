@@ -18,14 +18,28 @@ interface CostAttributionData {
 		tools: Array<[string, number]>;
 		users: Array<[string, number]>;
 	};
+	rows: CostAttributionAggregateRow[];
 	timestamp: string;
 }
 
+interface AggregateExemplar {
+	actionId: string;
+	agentRunId: string | null;
+	traceId: string | null;
+	toolCallId: string | null;
+	evalId: string | null;
+	label: string | null;
+	status: string | null;
+	occurredAt: string | null;
+}
+
 interface CostAttributionAggregateRow {
+	dimension?: string;
 	key: string | null;
 	label: string | null;
 	totalCostUsd: number;
 	agentRunCount: number;
+	exemplars?: AggregateExemplar[];
 }
 
 interface CostAttributionAggregateResponse {
@@ -76,11 +90,39 @@ const fromAggregateResponse = (
 				...asBarItems(response.byWorkflow),
 			],
 		},
+		rows: [
+			...response.byAgent,
+			...response.byRun,
+			...response.byTool,
+			...response.byPromptVersion,
+			...response.byModel,
+			...response.byProvider,
+			...response.byUser,
+			...response.byTenant,
+			...response.byWorkflow,
+		].filter((row) => (row.exemplars?.length ?? 0) > 0),
 		timestamp: response.generatedAt,
 	};
 };
 
-export function CostAttributionDashboard() {
+interface Props {
+	onNavigate?: (href: string) => void;
+}
+
+const openExemplar = (
+	onNavigate: Props["onNavigate"],
+	row: CostAttributionAggregateRow,
+	ex: AggregateExemplar,
+) => {
+	if (row.dimension === "tool" && ex.toolCallId) {
+		onNavigate?.(`#/tool-calls/${ex.toolCallId}`);
+	} else if (ex.agentRunId) onNavigate?.(`#/agent-runs/${ex.agentRunId}`);
+	else if (ex.actionId) onNavigate?.(`#/actions/${ex.actionId}`);
+	else if (ex.toolCallId) onNavigate?.(`#/tool-calls/${ex.toolCallId}`);
+	else if (ex.traceId) onNavigate?.(`#/traces?trace=${ex.traceId}`);
+};
+
+export function CostAttributionDashboard({ onNavigate }: Props) {
 	const api = useApi();
 	const [data, setData] = useState<CostAttributionData | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -245,6 +287,47 @@ export function CostAttributionDashboard() {
 						items={b.runs}
 						color="var(--color-sys-primary)"
 					/>
+				)}
+				{data.rows.length > 0 && (
+					<Card className="flex flex-col p-3 min-w-0">
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-[0.8125rem] font-semibold">
+								Cost Exemplars
+							</span>
+							<span className="font-mono text-[0.625rem] uppercase tracking-[0.05em] opacity-60">
+								{data.rows.length} pivots
+							</span>
+						</div>
+						<div className="mt-2 flex flex-col gap-2">
+							{data.rows.slice(0, 8).map((row) => {
+								const exemplar = row.exemplars?.[0];
+								if (!exemplar) return null;
+								return (
+									<div
+										key={`${row.dimension ?? "cost"}-${row.key ?? row.label}`}
+										className="flex items-center justify-between gap-3 border-b border-sys-outline-soft/40 pb-2 last:border-0"
+									>
+										<div className="min-w-0">
+											<div className="truncate text-[0.75rem] font-bold">
+												{row.label ?? row.key ?? "unknown"}
+											</div>
+											<div className="font-mono text-[0.625rem] opacity-60">
+												${row.totalCostUsd.toFixed(4)} -{" "}
+												{exemplar.label ?? exemplar.actionId}
+											</div>
+										</div>
+										<button
+											type="button"
+											onClick={() => openExemplar(onNavigate, row, exemplar)}
+											className="flex-none underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft font-mono text-[0.75rem]"
+										>
+											Inspect
+										</button>
+									</div>
+								);
+							})}
+						</div>
+					</Card>
 				)}
 			</div>
 		</div>

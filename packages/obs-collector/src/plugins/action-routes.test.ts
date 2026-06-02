@@ -206,6 +206,14 @@ describe("actionRoutesPlugin", () => {
 								agent_label: "Billing Agent",
 								workflow_id: "invoice-workflow",
 								workflow_label: "invoice-workflow",
+								action_id: "action-tool",
+								agent_run_id: "run-123",
+								trace_id: "trace-123",
+								tool_call_id: "tool-1",
+								eval_id: "eval-1",
+								action_label: "Update invoice",
+								status: "error",
+								occurred_at: "2026-05-22T00:00:01.000Z",
 							},
 							{
 								tool_name: "update_invoice",
@@ -277,6 +285,15 @@ describe("actionRoutesPlugin", () => {
 			label: "invoice-workflow",
 			count: 3,
 		});
+		expect(body.tools[0].exemplars[0]).toMatchObject({
+			actionId: "action-tool",
+			agentRunId: "run-123",
+			traceId: "trace-123",
+			toolCallId: "tool-1",
+			evalId: "eval-1",
+			label: "Update invoice",
+			status: "error",
+		});
 		expect(body.tools[1]).toMatchObject({
 			toolName: "lookup_customer",
 			p50LatencyMs: null,
@@ -290,6 +307,51 @@ describe("actionRoutesPlugin", () => {
 		const fetch = setup(
 			new MemSqlDb({
 				all: (sql) => {
+					if (sql.includes("ar.agent_id AS dimension_key")) {
+						return [
+							{
+								dimension_key: "billing-agent",
+								action_id: "run-1",
+								agent_run_id: "run-1",
+								trace_id: "trace-agent-cost",
+								tool_call_id: null,
+								eval_id: "eval-agent-cost",
+								label: "Billing Agent",
+								status: "success",
+								occurred_at: "2026-05-22T00:00:00.000Z",
+							},
+						];
+					}
+					if (sql.includes("ar.id AS dimension_key")) {
+						return [
+							{
+								dimension_key: "run-1",
+								action_id: "run-1",
+								agent_run_id: "run-1",
+								trace_id: "trace-run-cost",
+								tool_call_id: null,
+								eval_id: null,
+								label: "Billing Agent",
+								status: "success",
+								occurred_at: "2026-05-22T00:00:00.000Z",
+							},
+						];
+					}
+					if (sql.includes("t.tool_name AS dimension_key")) {
+						return [
+							{
+								dimension_key: "update_invoice",
+								action_id: "action-tool",
+								agent_run_id: "run-1",
+								trace_id: "trace-tool-cost",
+								tool_call_id: "tool-1",
+								eval_id: null,
+								label: "Update invoice",
+								status: "ok",
+								occurred_at: "2026-05-22T00:00:01.000Z",
+							},
+						];
+					}
 					if (sql.includes("FROM agent_runs ar")) {
 						if (sql.includes("GROUP BY ar.agent_id")) {
 							return [
@@ -436,6 +498,23 @@ describe("actionRoutesPlugin", () => {
 			key: "update_invoice",
 			toolCallCount: 4,
 		});
+		expect(body.byAgent[0].exemplars[0]).toMatchObject({
+			actionId: "run-1",
+			agentRunId: "run-1",
+			traceId: "trace-agent-cost",
+			evalId: "eval-agent-cost",
+		});
+		expect(body.byRun[0].exemplars[0]).toMatchObject({
+			actionId: "run-1",
+			agentRunId: "run-1",
+			traceId: "trace-run-cost",
+		});
+		expect(body.byTool[0].exemplars[0]).toMatchObject({
+			actionId: "action-tool",
+			agentRunId: "run-1",
+			traceId: "trace-tool-cost",
+			toolCallId: "tool-1",
+		});
 		expect(body.byUser[0].key).toBe("user-123");
 		expect(body.byTenant[0].key).toBe("acme_corp");
 		expect(body.byWorkflow[0].key).toBe("invoice-workflow");
@@ -483,32 +562,48 @@ describe("actionRoutesPlugin", () => {
 	it("returns prompt and agent version diff metrics", async () => {
 		const fetch = setup(
 			new MemSqlDb({
-				all: () => [
-					{
-						version: "v3",
-						run_count: 10,
-						success_count: 9,
-						avg_duration_ms: 300,
-						avg_cost_usd: 0.02,
-						eval_count: 8,
-						passed_eval_count: 7,
-						avg_eval_score: 0.92,
-						tool_count: 20,
-						tool_error_count: 1,
-					},
-					{
-						version: "v2",
-						run_count: 10,
-						success_count: 8,
-						avg_duration_ms: 500,
-						avg_cost_usd: 0.04,
-						eval_count: 8,
-						passed_eval_count: 6,
-						avg_eval_score: 0.82,
-						tool_count: 20,
-						tool_error_count: 3,
-					},
-				],
+				all: (sql) => {
+					if (sql.includes("root.id AS action_id")) {
+						return [
+							{
+								action_id: "run-version",
+								agent_run_id: "run-version",
+								trace_id: "trace-version",
+								tool_call_id: null,
+								eval_id: "eval-version",
+								label: "Billing Agent",
+								status: "failed",
+								occurred_at: "2026-05-22T00:00:00.000Z",
+							},
+						];
+					}
+					return [
+						{
+							version: "v3",
+							run_count: 10,
+							success_count: 9,
+							avg_duration_ms: 300,
+							avg_cost_usd: 0.02,
+							eval_count: 8,
+							passed_eval_count: 7,
+							avg_eval_score: 0.92,
+							tool_count: 20,
+							tool_error_count: 1,
+						},
+						{
+							version: "v2",
+							run_count: 10,
+							success_count: 8,
+							avg_duration_ms: 500,
+							avg_cost_usd: 0.04,
+							eval_count: 8,
+							passed_eval_count: 6,
+							avg_eval_score: 0.82,
+							tool_count: 20,
+							tool_error_count: 3,
+						},
+					];
+				},
 			}),
 		);
 
@@ -527,5 +622,17 @@ describe("actionRoutesPlugin", () => {
 			body.metrics.find((metric) => metric.label === "Average Run Cost")
 				?.deltaDirection,
 		).toBe("positive");
+		expect(body.baselineExemplars[0]).toMatchObject({
+			actionId: "run-version",
+			agentRunId: "run-version",
+			traceId: "trace-version",
+			evalId: "eval-version",
+		});
+		expect(body.targetExemplars[0]).toMatchObject({
+			actionId: "run-version",
+			agentRunId: "run-version",
+			traceId: "trace-version",
+			evalId: "eval-version",
+		});
 	});
 });

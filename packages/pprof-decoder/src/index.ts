@@ -110,8 +110,14 @@ export interface PprofSample {
 	labels: PprofLabel[];
 }
 
+export interface PprofLine {
+	functionId: number;
+	line: number;
+}
+
 export interface PprofLocation {
 	id: number;
+	lines: PprofLine[];
 	functionIds: number[];
 }
 
@@ -194,22 +200,24 @@ const decodeSample = (r: Reader, len: number): PprofSample => {
 	return sample;
 };
 
-const decodeLine = (r: Reader, len: number): number => {
+const decodeLine = (r: Reader, len: number): PprofLine => {
 	const end = r.position + len;
 	let functionId = 0;
+	let line = 0;
 	while (r.position < end) {
 		const tag = r.readVarint();
 		const fieldNum = tag >>> 3;
 		const wire = tag & 7;
 		if (fieldNum === 1 && wire === WIRE_VARINT) functionId = r.readVarint();
+		else if (fieldNum === 2 && wire === WIRE_VARINT) line = r.readVarint();
 		else r.skipField(wire);
 	}
-	return functionId;
+	return { functionId, line };
 };
 
 const decodeLocation = (r: Reader, len: number): PprofLocation => {
 	const end = r.position + len;
-	const loc: PprofLocation = { id: 0, functionIds: [] };
+	const loc: PprofLocation = { id: 0, lines: [], functionIds: [] };
 	while (r.position < end) {
 		const tag = r.readVarint();
 		const fieldNum = tag >>> 3;
@@ -217,7 +225,9 @@ const decodeLocation = (r: Reader, len: number): PprofLocation => {
 		if (fieldNum === 1 && wire === WIRE_VARINT) loc.id = r.readVarint();
 		else if (fieldNum === 4 && wire === WIRE_LENGTH_DELIMITED) {
 			const subLen = r.readVarint();
-			loc.functionIds.push(decodeLine(r, subLen));
+			const line = decodeLine(r, subLen);
+			loc.lines.push(line);
+			loc.functionIds.push(line.functionId);
 		} else r.skipField(wire);
 	}
 	return loc;
@@ -438,11 +448,18 @@ const encodeLocation = (loc: PprofLocation): number[] => {
 		writeTag(out, 1, WIRE_VARINT);
 		writeVarint(out, loc.id);
 	}
-	for (const fid of loc.functionIds) {
+	const lines =
+		loc.lines ||
+		(loc.functionIds || []).map((fid) => ({ functionId: fid, line: 0 }));
+	for (const line of lines) {
 		const lineBytes: number[] = [];
-		if (fid) {
+		if (line.functionId) {
 			writeTag(lineBytes, 1, WIRE_VARINT);
-			writeVarint(lineBytes, fid);
+			writeVarint(lineBytes, line.functionId);
+		}
+		if (line.line) {
+			writeTag(lineBytes, 2, WIRE_VARINT);
+			writeVarint(lineBytes, line.line);
 		}
 		writeLengthDelimited(out, 4, lineBytes);
 	}

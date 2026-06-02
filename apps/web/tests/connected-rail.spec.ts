@@ -10,8 +10,7 @@ import { expect, test } from "@playwright/test";
  * docker-compose demo SDK overlay (Phase 6.1-6.3) populates real
  * interaction_id / pprof / Beyla data — the synthetic seed in
  * `scripts/seed-everything/` can't exercise the happy paths these cells
- * assert. See docs/implementation/shortcuts.md § "Live verification" for
- * which rails are currently exercised manually.
+ * assert. Current implementation status lives in docs/rfc-status.md.
  *
  * Today's coverage of the same contract:
  *   - Server-side (manifest shape, count-collapse, informative-absence,
@@ -25,7 +24,7 @@ import { expect, test } from "@playwright/test";
  *
  * Prerequisite for live cells:
  *   - `make run-with-demo` running with SDKs wired per
- *     docs/implementation/demo-integration.md
+ *     docs/archive/implementation/demo-integration.md
  *   - dashboard at http://localhost:5173 with password e2e-test-pass
  */
 

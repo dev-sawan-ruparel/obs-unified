@@ -6,6 +6,7 @@ export default defineConfig({
 		cloudflare: "src/cloudflare.ts",
 		agent: "src/agent.ts",
 		"agent-plugin": "src/agent-plugin.ts",
+		mcp: "src/mcp.ts",
 	},
 	format: ["esm"],
 	dts: true,

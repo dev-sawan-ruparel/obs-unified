@@ -137,6 +137,82 @@ describe("runAsk", () => {
 		]);
 		expect(out.evidence).toHaveLength(1);
 		expect(out.evidence[0]?.analysisId).toBe("overall_error_rate");
+		expect(out.evidenceReferences).toEqual([
+			expect.objectContaining({
+				evidenceId: "ask:analysis:overall_error_rate",
+				entityKind: "analysis",
+				entityId: "overall_error_rate",
+				route: "#/investigate/overall_error_rate",
+				source: "ask.run_analysis",
+				confidence: 1,
+				reason: expect.stringContaining("Overall error rate"),
+				citations: [
+					expect.objectContaining({
+						label: "Overall error rate",
+						entityKind: "analysis",
+						entityId: "overall_error_rate",
+					}),
+				],
+				suggestedNextPivots: [
+					expect.objectContaining({
+						label: "Open investigation",
+						entityKind: "analysis",
+						entityId: "overall_error_rate",
+						route: "#/investigate/overall_error_rate",
+					}),
+				],
+			}),
+		]);
+	});
+
+	it("keeps legacy evidence while adding a fallback evidence reference for analyses without results", async () => {
+		globalThis.fetch = mockFetchSequence([
+			{
+				stop_reason: "tool_use",
+				content: [
+					{
+						type: "tool_use",
+						id: "tu_1",
+						name: "run_analysis",
+						input: { id: "overall_error_rate" },
+					},
+				],
+			},
+			{
+				stop_reason: "end_turn",
+				content: [
+					{
+						type: "text",
+						text: "overall error rate has no recent result (overall_error_rate)",
+					},
+				],
+			},
+		]) as typeof fetch;
+
+		const def0 = def();
+		const out = await runAsk("any errors?", {
+			llm,
+			listAnalyses: async () => [def0],
+			getLatestResult: async (id) =>
+				id === def0.id ? { definition: def0, result: null } : null,
+		});
+
+		expect(out.evidence).toEqual([
+			expect.objectContaining({
+				analysisId: "overall_error_rate",
+				definition: def0,
+				result: null,
+			}),
+		]);
+		expect(out.evidenceReferences).toEqual([
+			expect.objectContaining({
+				evidenceId: "ask:analysis:overall_error_rate",
+				entityKind: "analysis",
+				entityId: "overall_error_rate",
+				confidence: 0.55,
+				reason: expect.stringContaining("no latest result"),
+			}),
+		]);
 	});
 
 	it("surfaces tool errors back to the model rather than throwing", async () => {

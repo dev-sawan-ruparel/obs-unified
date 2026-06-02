@@ -159,22 +159,22 @@ await runWithSpan(rootSpan, async () => {
 
 Produces:
 
-```
-ROOT
-└── ask.runAsk
-    ├── d1.select
-    └── post-process
-        └── d1.update
+```mermaid
+flowchart TB
+  root["ROOT"] --> ask["ask.runAsk"]
+  ask --> select["d1.select"]
+  ask --> post["post-process"]
+  post --> update["d1.update"]
 ```
 
 Not:
 
-```
-ROOT
-├── ask.runAsk
-├── d1.select
-├── post-process
-└── d1.update
+```mermaid
+flowchart TB
+  root["ROOT"] --> ask["ask.runAsk"]
+  root --> select["d1.select"]
+  root --> post["post-process"]
+  root --> update["d1.update"]
 ```
 
 ## `wrapR2` — Cloudflare R2 binding wrapper

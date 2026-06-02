@@ -1,3 +1,5 @@
+import type { EvidenceReference } from "./evidence";
+
 export type AnalysisStatus = "ok" | "warn" | "critical" | "unknown";
 export type AnalysisView = "tile" | "page" | "alert";
 export type AnalysisSource = "tier0" | "tier1" | "user" | "llm-suggested";
@@ -148,6 +150,7 @@ export interface AskRequest {
 export interface AskResponse {
 	answer: string | null;
 	evidence: AskEvidence[];
+	evidenceReferences?: EvidenceReference[];
 	queries: AskQuery[];
 	error: string | null;
 	timestamp: string;

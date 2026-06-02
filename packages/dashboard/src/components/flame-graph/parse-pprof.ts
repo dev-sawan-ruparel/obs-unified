@@ -48,6 +48,12 @@ export interface FlameNode {
 	children: Map<string, FlameNode>;
 	/** Runtime-only — set by `flatten` for rendering. */
 	depth?: number;
+	codeRef?: {
+		relativePath?: string;
+		absolutePath?: string;
+		originalPath?: string;
+		lineNumber?: number;
+	};
 }
 
 export interface AggregateOptions {
@@ -115,13 +121,27 @@ export const aggregateFlameTree = (
 			if (!loc) continue;
 			// Inlined functions: a Location has multiple Lines, each pointing
 			// at a Function. Iterate root-to-leaf for inlines too.
-			for (let j = loc.functionIds.length - 1; j >= 0; j--) {
-				const fn = profile.functions.get(loc.functionIds[j]);
+			const lines =
+				loc.lines ||
+				(loc.functionIds || []).map((fid) => ({ functionId: fid, line: 0 }));
+			for (let j = lines.length - 1; j >= 0; j--) {
+				const line = lines[j];
+				const fn = profile.functions.get(line.functionId);
 				if (!fn) continue;
 				const name = profile.stringTable[fn.nameIdx] ?? "?";
+				const filename = profile.stringTable[fn.filenameIdx] ?? "";
+				const codeRef = filename
+					? {
+							originalPath: filename,
+							relativePath: filename.startsWith("/") ? undefined : filename,
+							absolutePath: filename.startsWith("/") ? filename : undefined,
+							lineNumber: line.line || undefined,
+						}
+					: undefined;
+
 				let child = cursor.children.get(name);
 				if (!child) {
-					child = { name, value: 0, children: new Map() };
+					child = { name, value: 0, children: new Map(), codeRef };
 					cursor.children.set(name, child);
 				}
 				child.value += value;

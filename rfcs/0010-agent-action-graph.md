@@ -314,28 +314,27 @@ Browser click
 
 obs-unified becomes a causal action graph.
 
-```
-Human path
-──────────
-user click
-  -> browser usage event
-  -> fetch / XHR
-  -> backend root span
-  -> child spans / logs / AI calls
-  -> replay chunk
-  -> profile
+```mermaid
+flowchart TB
+  subgraph human["Human path"]
+    click["user click"] --> usage["browser usage event"]
+    usage --> fetch["fetch / XHR"]
+    fetch --> rootSpan["backend root span"]
+    rootSpan --> childSignals["child spans / logs / AI calls"]
+    childSignals --> replay["replay chunk"]
+    replay --> profile["profile"]
+  end
 
-Agent path
-──────────
-user prompt / webhook / cron / queue
-  -> agent run
-  -> plan step
-  -> LLM call
-  -> retrieval / memory read
-  -> tool call
-  -> side effect
-  -> guardrail / eval
-  -> backend spans / logs / profiles
+  subgraph agent["Agent path"]
+    prompt["user prompt / webhook / cron / queue"] --> run["agent run"]
+    run --> step["plan step"]
+    step --> llm["LLM call"]
+    llm --> retrieval["retrieval / memory read"]
+    retrieval --> tool["tool call"]
+    tool --> sideEffect["side effect"]
+    sideEffect --> eval["guardrail / eval"]
+    eval --> backendSignals["backend spans / logs / profiles"]
+  end
 ```
 
 The important move is that both paths share a graph vocabulary:

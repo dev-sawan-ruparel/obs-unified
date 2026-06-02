@@ -346,5 +346,5 @@ propagation delay, alert if the expected spans are missing.
   [packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md](../../packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md)
 - Interaction-id spec: [docs/spec/interaction-id.md](../spec/interaction-id.md)
 - Non-Node / non-browser runtimes: [docs/recipes/](../recipes/)
-- Full working example: the planned shop-demo repo, see
-  [docs/implementation/shop-demo.md](../implementation/shop-demo.md)
+- Historical shop-demo implementation plan:
+  [docs/archive/implementation/shop-demo.md](../archive/implementation/shop-demo.md)

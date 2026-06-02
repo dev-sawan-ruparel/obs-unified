@@ -6,9 +6,9 @@ The active architecture lives in
 [rfcs/0003-unified-stack.md](rfcs/0003-unified-stack.md) and its child RFCs
 (0004–0009). Read the umbrella before proposing structural changes.
 
-The implementation sequencing plan lives in
-[docs/implementation/sequencing.md](docs/implementation/sequencing.md). Phase
-status there is the source of truth.
+Implementation status lives in [docs/rfc-status.md](docs/rfc-status.md). RFCs
+are design records; use the status file for current done / partial / pending
+state.
 
 ## Required practices
 

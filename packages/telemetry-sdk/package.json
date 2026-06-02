@@ -36,6 +36,10 @@
 		"./agent-plugin": {
 			"types": "./dist/agent-plugin.d.ts",
 			"import": "./dist/agent-plugin.js"
+		},
+		"./mcp": {
+			"types": "./dist/mcp.d.ts",
+			"import": "./dist/mcp.js"
 		}
 	},
 	"files": [

@@ -303,6 +303,18 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 															type="button"
 															onClick={() =>
 																onNavigate({
+																	tab: "tool-calls",
+																	toolCallId: row.id,
+																})
+															}
+															className="underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft"
+														>
+															Tool Call
+														</button>
+														<button
+															type="button"
+															onClick={() =>
+																onNavigate({
 																	tab: "traces",
 																	traceId: row.traceId,
 																})

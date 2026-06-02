@@ -146,11 +146,15 @@ the rail's contract.
 When a section's neighbor count is high (≥ 5), the rail renders a **count link**
 that opens a filtered list view rather than dumping every item inline. Pattern:
 
-```
-Across:
-  ▸ 23 logs in this trace        →  /logs?trace_id=…
-  ▸ 47 spans across 5 services   →  /traces/…   (already-open trace, scroll)
-  ▸ 243 traces sampled in profile →  /profiles/prof-…/traces
+```mermaid
+flowchart LR
+  across["Across"]
+  logs["23 logs in this trace"] --> logsRoute["/logs?trace_id=..."]
+  spans["47 spans across 5 services"] --> tracesRoute["/traces/..."]
+  sampled["243 traces sampled in profile"] --> profileRoute["/profiles/prof-.../traces"]
+  across --> logs
+  across --> spans
+  across --> sampled
 ```
 
 Each count is a single one-click jump to a list scoped by the same identity key.

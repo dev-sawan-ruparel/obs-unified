@@ -1,5 +1,6 @@
 import type { StoredSpan } from "@obs-unified/types";
 import type { SqlDb } from "../sql-db";
+import { updateTraceInstrumentationGaps } from "./trace-detail";
 
 export async function ingestTelemetrySpans(
 	db: SqlDb,
@@ -54,8 +55,29 @@ export async function ingestTelemetrySpans(
 	});
 
 	await db.batch(statements);
+
+	const uniqueTraces = Array.from(
+		new Map(
+			spans.map((s) => [
+				`${s.projectId}:${s.traceId}`,
+				{ projectId: s.projectId, traceId: s.traceId },
+			]),
+		).values(),
+	);
+
+	await Promise.all(
+		uniqueTraces.map(({ projectId, traceId }) =>
+			updateTraceInstrumentationGaps(db, projectId, traceId).catch((err) => {
+				console.error(
+					`Error updating trace instrumentation gaps for trace ${traceId}:`,
+					err,
+				);
+			}),
+		),
+	);
+
 	return {
 		inserted: spans.length,
-		traceCount: new Set(spans.map((span) => span.traceId)).size,
+		traceCount: uniqueTraces.length,
 	};
 }

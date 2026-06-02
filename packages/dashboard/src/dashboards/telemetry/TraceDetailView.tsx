@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ConnectedRail } from "../../components/ConnectedRail";
 import { FlameGraph } from "../../components/flame-graph/FlameGraph";
+import { buildIdeUrl } from "../../components/ide-link";
 import { SaveEvalCaseModal } from "../../components/SaveEvalCaseModal";
 import { useApi } from "../../use-api";
 import { AttrTable, copy, fmtTs } from "./shared";
@@ -445,6 +446,26 @@ function SpanView({
 				<span className="opacity-60">
 					END <span className="opacity-100">{fmtTs(span.endTime)}</span>
 				</span>
+				{span.codeReference && (
+					<span className="opacity-60">
+						CODE{" "}
+						<a
+							href={buildIdeUrl(span.codeReference)}
+							target="_blank"
+							rel="noreferrer"
+							className="opacity-100 text-sys-primary underline hover:text-sys-primary-high font-bold"
+						>
+							{span.codeReference.relativePath ||
+								span.codeReference.originalPath}
+							:{span.codeReference.lineNumber || 1}
+						</a>
+						{span.codeReference.symbolName && (
+							<span className="opacity-100 ml-1 font-normal">
+								({span.codeReference.symbolName})
+							</span>
+						)}
+					</span>
+				)}
 			</div>
 			{span.statusMessage && (
 				<div className="mt-2 bg-sys-error p-3 font-mono text-[0.75rem] text-sys-on-error font-bold">

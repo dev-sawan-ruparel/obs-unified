@@ -83,23 +83,20 @@ slice.
 
 ### The vertical: layers a click traverses
 
-```
-                    SIGNAL                    NATURAL FORMAT
-┌────────────────────────────────────────────────────────────┐
-│  Intent              │ inferred              │ replay+LLM  │
-│  Click event         │ DOM mutation          │ rrweb       │
-│  Frontend handler    │ JS function call      │ usage event │
-│  XHR / fetch         │ network timing        │ usage event │
-│  ─── network ───     │                       │             │
-│  Backend handler     │ root span             │ span        │
-│  Business logic      │ child spans           │ span tree   │
-│  DB / cache / RPC    │ child spans           │ span        │
-│  External (LLM, API) │ call record           │ span + AI   │
-│  ─── runtime ───     │                       │             │
-│  CPU execution       │ stack samples         │ pprof       │
-│  Off-CPU / blocked   │ scheduler events      │ pprof off-cpu│
-│  Kernel              │ syscall / network obs │ eBPF→OTLP   │
-└────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  intent["Intent\nsignal: inferred\nformat: replay + LLM"] --> click["Click event\nsignal: DOM mutation\nformat: rrweb"]
+  click --> frontend["Frontend handler\nsignal: JS function call\nformat: usage event"]
+  frontend --> xhr["XHR / fetch\nsignal: network timing\nformat: usage event"]
+  xhr --> network["network boundary"]
+  network --> backend["Backend handler\nsignal: root span\nformat: span"]
+  backend --> business["Business logic\nsignal: child spans\nformat: span tree"]
+  business --> datastore["DB / cache / RPC\nsignal: child spans\nformat: span"]
+  datastore --> external["External LLM / API\nsignal: call record\nformat: span + AI"]
+  external --> runtime["runtime boundary"]
+  runtime --> cpu["CPU execution\nsignal: stack samples\nformat: pprof"]
+  cpu --> offcpu["Off-CPU / blocked\nsignal: scheduler events\nformat: pprof off-cpu"]
+  offcpu --> kernel["Kernel\nsignal: syscall / network obs\nformat: eBPF to OTLP"]
 ```
 
 (Edge / CDN access logs are not in scope for this RFC tree — they would be a
@@ -137,22 +134,14 @@ to, but not the specific click that caused it. RFC 0004 specifies it.
 
 ### The capability layers
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  7. Action      │ alerts → analyses → suggested fixes    │  future Analyses RFCs
-├──────────────────────────────────────────────────────────┤
-│  6. Present     │ navigation graph, not tabs             │  RFC 0006
-├──────────────────────────────────────────────────────────┤
-│  5. Synthesize  │ narrative answers (Analyses, AskBox)   │  RFC 0002
-├──────────────────────────────────────────────────────────┤
-│  4. Correlate   │ given any ID, materialize the chain    │  RFC 0004 + 0006
-├──────────────────────────────────────────────────────────┤
-│  3. Store       │ time-series + blob + correlated index  │  RFC 0008
-├──────────────────────────────────────────────────────────┤
-│  2. Ingest      │ one collector, many receivers, IDs     │  RFC 0007 + 0009
-├──────────────────────────────────────────────────────────┤
-│  1. Capture     │ SDKs + agents that propagate IDs       │  RFC 0004 + 0007
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart BT
+  capture["1. Capture\nSDKs + agents that propagate IDs\nRFC 0004 + 0007"] --> ingest["2. Ingest\none collector, many receivers, IDs\nRFC 0007 + 0009"]
+  ingest --> store["3. Store\ntime-series + blob + correlated index\nRFC 0008"]
+  store --> correlate["4. Correlate\ngiven any ID, materialize the chain\nRFC 0004 + 0006"]
+  correlate --> synthesize["5. Synthesize\nnarrative answers (Analyses, AskBox)\nRFC 0002"]
+  synthesize --> present["6. Present\nnavigation graph, not tabs\nRFC 0006"]
+  present --> action["7. Action\nalerts to analyses to suggested fixes\nfuture Analyses RFCs"]
 ```
 
 Layers 1, 2, 5 are mostly done. **The work this RFC tree drives is concentrated

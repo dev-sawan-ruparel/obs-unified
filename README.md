@@ -15,8 +15,13 @@ stacks split evidence across APM, logs, product analytics, session replay, LLM
 observability, profiling, and alerting. obs-unified keeps those signals together
 so a person or agent can follow one chain:
 
-```text
-user_id -> session_id -> interaction_id -> trace_id -> span_id -> action_id
+```mermaid
+flowchart LR
+  user["user_id"] --> session["session_id"]
+  session --> interaction["interaction_id"]
+  interaction --> trace["trace_id"]
+  trace --> span["span_id"]
+  span --> action["action_id"]
 ```
 
 That means a checkout click can lead to the backend trace, related logs, replay,

@@ -65,11 +65,45 @@ export interface SpanDetail {
 		attributes?: Record<string, unknown>;
 	}>;
 	links: unknown[];
+	codeReference?: CodeReference;
+}
+
+export interface CodeReference {
+	repoName?: string;
+	relativePath?: string;
+	absolutePath?: string;
+	originalPath?: string;
+	symbolName?: string;
+	lineNumber?: number;
+	columnNumber?: number;
+}
+
+export interface InstrumentationGap {
+	traceId: string;
+	parentSpanId: string;
+	parentServiceName: string;
+	parentSpanName: string;
+	offsetMs: number;
+	durationMs: number;
+	ratioOfParent: number;
+	childSpanCount: number;
+	asyncParent: boolean;
+	recommendation: string;
+}
+
+export interface InstrumentationGapsResponse {
+	traceId: string;
+	totalDurationMs: number;
+	uninstrumentedTimeMs: number;
+	ratio: number;
+	blindspots: InstrumentationGap[];
+	timestamp: string;
 }
 
 export interface TraceDetail {
 	trace: TraceSummary;
 	spans: SpanDetail[];
+	instrumentationGaps?: InstrumentationGapsResponse;
 }
 
 export interface IssueSummary {

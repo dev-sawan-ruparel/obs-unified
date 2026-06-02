@@ -16,6 +16,17 @@ interface ToolAgentBreakdown {
 	sideEffects: number;
 }
 
+interface AggregateExemplar {
+	actionId: string;
+	agentRunId: string | null;
+	traceId: string | null;
+	toolCallId: string | null;
+	evalId: string | null;
+	label: string | null;
+	status: string | null;
+	occurredAt: string | null;
+}
+
 interface ToolReliabilityData {
 	summary: {
 		totalCalls: number;
@@ -27,6 +38,7 @@ interface ToolReliabilityData {
 		retryCount: number;
 		malformedArgsCount: number;
 	};
+	tools: ToolReliabilityAggregateResponse["tools"];
 	topAgents: ToolAgentBreakdown[];
 	timestamp: string;
 }
@@ -47,6 +59,7 @@ interface ToolReliabilityAggregateResponse {
 			label: string | null;
 			count: number;
 		}>;
+		exemplars?: AggregateExemplar[];
 	}>;
 	generatedAt: string;
 }
@@ -111,6 +124,7 @@ const fromAggregateResponse = (
 				0,
 			),
 		},
+		tools: response.tools,
 		topAgents: [...agents.values()]
 			.sort((a, b) => b.invocations - a.invocations)
 			.slice(0, 10),
@@ -118,7 +132,21 @@ const fromAggregateResponse = (
 	};
 };
 
-export function ToolReliabilityDashboard() {
+interface Props {
+	onNavigate?: (href: string) => void;
+}
+
+const openExemplar = (
+	onNavigate: Props["onNavigate"],
+	ex: AggregateExemplar,
+) => {
+	if (ex.toolCallId) onNavigate?.(`#/tool-calls/${ex.toolCallId}`);
+	else if (ex.actionId) onNavigate?.(`#/actions/${ex.actionId}`);
+	else if (ex.agentRunId) onNavigate?.(`#/agent-runs/${ex.agentRunId}`);
+	else if (ex.traceId) onNavigate?.(`#/traces?trace=${ex.traceId}`);
+};
+
+export function ToolReliabilityDashboard({ onNavigate }: Props) {
 	const api = useApi();
 	const [data, setData] = useState<ToolReliabilityData | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -282,6 +310,66 @@ export function ToolReliabilityDashboard() {
 									{s.malformedArgsCount}
 								</div>
 							</div>
+						</div>
+					</Card>
+
+					<Card className="p-3 flex flex-col">
+						<SectionTitle title="Tool Exemplars" />
+						<div className="mt-2 overflow-x-auto">
+							<table className="w-full text-left text-[0.8125rem]">
+								<thead>
+									<tr className="border-b border-[#E5E7E3]">
+										<th className="pb-2 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+											Tool
+										</th>
+										<th className="pb-2 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+											Exemplar
+										</th>
+										<th className="pb-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+											Inspect
+										</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-sys-outline-soft/40">
+									{data.tools.map((tool) => {
+										const exemplar = tool.exemplars?.[0];
+										return (
+											<tr
+												key={tool.toolName}
+												className="hover:bg-sys-surface-low/50"
+											>
+												<td className="py-2.5 font-bold font-mono text-[0.75rem]">
+													{tool.toolName}
+												</td>
+												<td className="py-2.5 min-w-0">
+													<div className="flex flex-col gap-0.5">
+														<span className="font-semibold truncate max-w-[260px]">
+															{exemplar?.label ?? "No exemplar captured"}
+														</span>
+														<span className="font-mono text-[0.625rem] opacity-60">
+															{exemplar?.agentRunId
+																? `run ${exemplar.agentRunId.slice(0, 8)}...`
+																: "aggregate only"}
+														</span>
+													</div>
+												</td>
+												<td className="py-2.5 text-right font-mono text-[0.75rem]">
+													<button
+														type="button"
+														disabled={!exemplar}
+														onClick={() =>
+															exemplar && openExemplar(onNavigate, exemplar)
+														}
+														className="underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-current"
+													>
+														Open Exemplar
+													</button>
+												</td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
 						</div>
 					</Card>
 

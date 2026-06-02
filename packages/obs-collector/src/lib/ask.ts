@@ -27,6 +27,7 @@ import type {
 	AskQuery,
 	AskResponse,
 } from "@obs-unified/types";
+import { askEvidenceReferences } from "./evidence-references";
 import type { LlmConfig } from "./llm";
 
 const DEFAULT_API_URL = "https://api.anthropic.com/v1/messages";
@@ -189,6 +190,7 @@ async function runAskAnthropic(
 			return {
 				answer: null,
 				evidence: [...evidence.values()],
+				evidenceReferences: askEvidenceReferences(evidence.values()),
 				queries,
 				error: "model response was truncated by max_tokens",
 				timestamp: startedAt,
@@ -199,6 +201,7 @@ async function runAskAnthropic(
 			return {
 				answer: finalText.length > 0 ? finalText : null,
 				evidence: [...evidence.values()],
+				evidenceReferences: askEvidenceReferences(evidence.values()),
 				queries,
 				error: finalText.length > 0 ? null : "model returned no text",
 				timestamp: startedAt,
@@ -310,6 +313,7 @@ async function runAskAnthropic(
 	return {
 		answer: null,
 		evidence: [...evidence.values()],
+		evidenceReferences: askEvidenceReferences(evidence.values()),
 		queries,
 		error: `iteration cap (${MAX_ITERATIONS}) reached without final answer`,
 		timestamp: startedAt,

@@ -2,6 +2,18 @@ import type { SqlDb } from "./sql-db";
 import { dialectFor } from "./sql-db";
 
 const TOP_CAUSERS_LIMIT = 5;
+const EXEMPLAR_LIMIT = 3;
+
+export interface ActionAggregateExemplar {
+	actionId: string;
+	agentRunId: string | null;
+	traceId: string | null;
+	toolCallId: string | null;
+	evalId: string | null;
+	label: string | null;
+	status: string | null;
+	occurredAt: string | null;
+}
 
 export interface ToolReliabilityCauser {
 	id: string;
@@ -23,6 +35,7 @@ export interface ToolReliabilityAggregate {
 	sideEffectCount: number;
 	topCausingAgents: ToolReliabilityCauser[];
 	topCausingWorkflows: ToolReliabilityCauser[];
+	exemplars: ActionAggregateExemplar[];
 }
 
 export interface ToolReliabilityResult {
@@ -40,6 +53,7 @@ export interface CostAttributionRow {
 	actionCount: number;
 	agentRunCount: number;
 	toolCallCount: number;
+	exemplars: ActionAggregateExemplar[];
 }
 
 export interface CostAttributionResult {
@@ -94,6 +108,8 @@ export interface VersionComparisonResult {
 	baselineVersion: string;
 	targetVersion: string;
 	metrics: VersionDiffMetric[];
+	baselineExemplars: ActionAggregateExemplar[];
+	targetExemplars: ActionAggregateExemplar[];
 	timestamp: string;
 }
 
@@ -113,6 +129,14 @@ interface ToolDetailRow {
 	agent_label: string | null;
 	workflow_id: string | null;
 	workflow_label: string | null;
+	action_id: string | null;
+	agent_run_id: string | null;
+	trace_id: string | null;
+	tool_call_id: string | null;
+	eval_id: string | null;
+	action_label: string | null;
+	status: string | null;
+	occurred_at: string | null;
 }
 
 interface CostRow {
@@ -122,6 +146,18 @@ interface CostRow {
 	action_count: number | null;
 	agent_run_count: number | null;
 	tool_call_count: number | null;
+}
+
+interface ExemplarSqlRow {
+	dimension_key?: string | null;
+	action_id: string | null;
+	agent_run_id: string | null;
+	trace_id: string | null;
+	tool_call_id: string | null;
+	eval_id: string | null;
+	label: string | null;
+	status: string | null;
+	occurred_at: string | null;
 }
 
 interface AutonomousReviewSqlRow {
@@ -188,7 +224,40 @@ const topCausers = (
 		.slice(0, TOP_CAUSERS_LIMIT);
 };
 
-const costRows = (dimension: string, rows: CostRow[]): CostAttributionRow[] =>
+const exemplarFromRow = (row: ExemplarSqlRow): ActionAggregateExemplar => ({
+	actionId: row.action_id ?? "",
+	agentRunId: row.agent_run_id ?? null,
+	traceId: row.trace_id ?? null,
+	toolCallId: row.tool_call_id ?? null,
+	evalId: row.eval_id ?? null,
+	label: row.label ?? null,
+	status: row.status ?? null,
+	occurredAt: row.occurred_at ?? null,
+});
+
+const exemplarsFromRows = (rows: ExemplarSqlRow[]): ActionAggregateExemplar[] =>
+	rows
+		.filter((row) => row.action_id)
+		.map(exemplarFromRow)
+		.slice(0, EXEMPLAR_LIMIT);
+
+const appendExemplar = (
+	map: Map<string, ActionAggregateExemplar[]>,
+	key: string | null,
+	row: ExemplarSqlRow,
+) => {
+	if (key === null || key === undefined || !row.action_id) return;
+	const current = map.get(key) ?? [];
+	if (current.length >= EXEMPLAR_LIMIT) return;
+	current.push(exemplarFromRow(row));
+	map.set(key, current);
+};
+
+const costRows = (
+	dimension: string,
+	rows: CostRow[],
+	exemplars = new Map<string, ActionAggregateExemplar[]>(),
+): CostAttributionRow[] =>
 	rows.map((row) => ({
 		dimension,
 		key: row.key,
@@ -197,6 +266,7 @@ const costRows = (dimension: string, rows: CostRow[]): CostAttributionRow[] =>
 		actionCount: toNumber(row.action_count),
 		agentRunCount: toNumber(row.agent_run_count),
 		toolCallCount: toNumber(row.tool_call_count),
+		exemplars: row.key ? (exemplars.get(row.key) ?? []) : [],
 	}));
 
 const inClause = (values: string[]): string => values.map(() => "?").join(", ");
@@ -292,14 +362,26 @@ export const getToolReliabilityAggregates = async (
 					CASE WHEN root.actor_type = 'agent' THEN root.name ELSE NULL END
 				) AS agent_label,
 				${workflowIdExpr} AS workflow_id,
-				${workflowIdExpr} AS workflow_label
+				${workflowIdExpr} AS workflow_label,
+				a.id AS action_id,
+				COALESCE(a.agent_run_id, a.root_action_id) AS agent_run_id,
+				COALESCE(a.trace_id, root.trace_id) AS trace_id,
+				t.id AS tool_call_id,
+				er.id AS eval_id,
+				COALESCE(a.name, t.tool_name) AS action_label,
+				a.status,
+				a.started_at AS occurred_at
 			FROM tool_calls t
 			LEFT JOIN actions a ON a.project_id = t.project_id AND a.id = t.action_id
 			LEFT JOIN actions root ON root.project_id = t.project_id AND root.id = a.root_action_id
 			LEFT JOIN agent_runs ar ON ar.project_id = t.project_id AND ar.id = COALESCE(a.agent_run_id, a.root_action_id)
+			LEFT JOIN eval_results er ON er.project_id = t.project_id AND er.action_id = a.id
 			WHERE t.project_id = ?
 				AND (a.started_at IS NULL OR a.started_at >= ${since})
 				AND t.tool_name IN (${inClause(toolNames)})
+			ORDER BY
+				CASE WHEN a.status = 'error' OR t.error_type IS NOT NULL THEN 0 ELSE 1 END,
+				a.started_at DESC
 		`)
 		.bind(projectId, windowHours, ...toolNames)
 		.all<ToolDetailRow>();
@@ -340,6 +422,18 @@ export const getToolReliabilityAggregates = async (
 					"workflow_id",
 					"workflow_label",
 				),
+				exemplars: exemplarsFromRows(
+					details.map((detail) => ({
+						action_id: detail.action_id,
+						agent_run_id: detail.agent_run_id,
+						trace_id: detail.trace_id,
+						tool_call_id: detail.tool_call_id,
+						eval_id: detail.eval_id,
+						label: detail.action_label,
+						status: detail.status,
+						occurred_at: detail.occurred_at,
+					})),
+				),
 			};
 		}),
 		generatedAt: new Date().toISOString(),
@@ -374,7 +468,152 @@ const groupByActionDimension = async (
 		`)
 		.bind(projectId, windowHours, limit)
 		.all<CostRow>();
-	return costRows(dimension, rows.results);
+	const keys = rows.results
+		.map((row) => row.key)
+		.filter((key): key is string => !!key);
+	if (keys.length === 0) return costRows(dimension, rows.results);
+
+	const exemplarRows = await db
+		.prepare(`
+			SELECT
+				${keyExpr} AS dimension_key,
+				a.id AS action_id,
+				COALESCE(a.agent_run_id, a.root_action_id) AS agent_run_id,
+				a.trace_id,
+				a.tool_call_id,
+				er.id AS eval_id,
+				a.name AS label,
+				a.status,
+				a.started_at AS occurred_at
+			FROM actions a
+			LEFT JOIN eval_results er ON er.project_id = a.project_id AND er.action_id = a.id
+			WHERE a.project_id = ?
+				AND a.started_at >= ${since}
+				AND ${keyExpr} IN (${inClause(keys)})
+			ORDER BY COALESCE(a.total_cost_usd, 0) DESC, a.started_at DESC
+		`)
+		.bind(projectId, windowHours, ...keys)
+		.all<ExemplarSqlRow>();
+	const exemplars = new Map<string, ActionAggregateExemplar[]>();
+	for (const row of exemplarRows.results) {
+		appendExemplar(exemplars, row.dimension_key ?? null, row);
+	}
+	return costRows(dimension, rows.results, exemplars);
+};
+
+const getAgentCostExemplars = async (
+	db: SqlDb,
+	projectId: string,
+	windowHours: number,
+	keys: string[],
+): Promise<Map<string, ActionAggregateExemplar[]>> => {
+	if (keys.length === 0) return new Map();
+	const dialect = dialectFor(db);
+	const since = dialect.sinceHours("?");
+	const rows = await db
+		.prepare(`
+			SELECT
+				ar.agent_id AS dimension_key,
+				root.id AS action_id,
+				ar.id AS agent_run_id,
+				root.trace_id,
+				root.tool_call_id,
+				er.id AS eval_id,
+				ar.agent_name AS label,
+				ar.status,
+				root.started_at AS occurred_at
+			FROM agent_runs ar
+			LEFT JOIN actions root ON root.project_id = ar.project_id AND root.id = ar.id
+			LEFT JOIN eval_results er ON er.project_id = ar.project_id AND er.action_id = root.id
+			WHERE ar.project_id = ?
+				AND (root.started_at IS NULL OR root.started_at >= ${since})
+				AND ar.agent_id IN (${inClause(keys)})
+			ORDER BY COALESCE(ar.total_cost_usd, 0) DESC, root.started_at DESC
+		`)
+		.bind(projectId, windowHours, ...keys)
+		.all<ExemplarSqlRow>();
+	const exemplars = new Map<string, ActionAggregateExemplar[]>();
+	for (const row of rows.results) {
+		appendExemplar(exemplars, row.dimension_key ?? null, row);
+	}
+	return exemplars;
+};
+
+const getRunCostExemplars = async (
+	db: SqlDb,
+	projectId: string,
+	windowHours: number,
+	keys: string[],
+): Promise<Map<string, ActionAggregateExemplar[]>> => {
+	if (keys.length === 0) return new Map();
+	const dialect = dialectFor(db);
+	const since = dialect.sinceHours("?");
+	const rows = await db
+		.prepare(`
+			SELECT
+				ar.id AS dimension_key,
+				root.id AS action_id,
+				ar.id AS agent_run_id,
+				root.trace_id,
+				root.tool_call_id,
+				er.id AS eval_id,
+				ar.agent_name AS label,
+				ar.status,
+				root.started_at AS occurred_at
+			FROM agent_runs ar
+			LEFT JOIN actions root ON root.project_id = ar.project_id AND root.id = ar.id
+			LEFT JOIN eval_results er ON er.project_id = ar.project_id AND er.action_id = root.id
+			WHERE ar.project_id = ?
+				AND (root.started_at IS NULL OR root.started_at >= ${since})
+				AND ar.id IN (${inClause(keys)})
+			ORDER BY COALESCE(ar.total_cost_usd, 0) DESC, root.started_at DESC
+		`)
+		.bind(projectId, windowHours, ...keys)
+		.all<ExemplarSqlRow>();
+	const exemplars = new Map<string, ActionAggregateExemplar[]>();
+	for (const row of rows.results) {
+		appendExemplar(exemplars, row.dimension_key ?? null, row);
+	}
+	return exemplars;
+};
+
+const getToolCostExemplars = async (
+	db: SqlDb,
+	projectId: string,
+	windowHours: number,
+	keys: string[],
+): Promise<Map<string, ActionAggregateExemplar[]>> => {
+	if (keys.length === 0) return new Map();
+	const dialect = dialectFor(db);
+	const since = dialect.sinceHours("?");
+	const rows = await db
+		.prepare(`
+			SELECT
+				t.tool_name AS dimension_key,
+				a.id AS action_id,
+				COALESCE(a.agent_run_id, a.root_action_id) AS agent_run_id,
+				COALESCE(a.trace_id, root.trace_id) AS trace_id,
+				t.id AS tool_call_id,
+				er.id AS eval_id,
+				COALESCE(a.name, t.tool_name) AS label,
+				a.status,
+				a.started_at AS occurred_at
+			FROM tool_calls t
+			LEFT JOIN actions a ON a.project_id = t.project_id AND a.id = t.action_id
+			LEFT JOIN actions root ON root.project_id = t.project_id AND root.id = a.root_action_id
+			LEFT JOIN eval_results er ON er.project_id = t.project_id AND er.action_id = a.id
+			WHERE t.project_id = ?
+				AND (a.started_at IS NULL OR a.started_at >= ${since})
+				AND t.tool_name IN (${inClause(keys)})
+			ORDER BY COALESCE(a.total_cost_usd, 0) DESC, a.started_at DESC
+		`)
+		.bind(projectId, windowHours, ...keys)
+		.all<ExemplarSqlRow>();
+	const exemplars = new Map<string, ActionAggregateExemplar[]>();
+	for (const row of rows.results) {
+		appendExemplar(exemplars, row.dimension_key ?? null, row);
+	}
+	return exemplars;
 };
 
 export const getCostAttributionAggregates = async (
@@ -501,16 +740,30 @@ export const getCostAttributionAggregates = async (
 			workflowExpr,
 		),
 	]);
+	const agentKeys = agentRows.results
+		.map((row) => row.key)
+		.filter((key): key is string => !!key);
+	const runKeys = runRows.results
+		.map((row) => row.key)
+		.filter((key): key is string => !!key);
+	const toolKeys = toolRows.results
+		.map((row) => row.key)
+		.filter((key): key is string => !!key);
+	const [agentExemplars, runExemplars, toolExemplars] = await Promise.all([
+		getAgentCostExemplars(db, projectId, windowHours, agentKeys),
+		getRunCostExemplars(db, projectId, windowHours, runKeys),
+		getToolCostExemplars(db, projectId, windowHours, toolKeys),
+	]);
 
 	return {
 		projectId,
 		windowHours,
-		byAgent: costRows("agent", agentRows.results),
-		byRun: costRows("run", runRows.results),
+		byAgent: costRows("agent", agentRows.results, agentExemplars),
+		byRun: costRows("run", runRows.results, runExemplars),
 		byModel,
 		byProvider,
 		byPromptVersion,
-		byTool: costRows("tool", toolRows.results),
+		byTool: costRows("tool", toolRows.results, toolExemplars),
 		byUser,
 		byTenant,
 		byWorkflow,
@@ -591,6 +844,37 @@ const directionForLowerBetter = (
 	target: number,
 ): "positive" | "negative" | "neutral" =>
 	target === baseline ? "neutral" : target < baseline ? "positive" : "negative";
+
+const getVersionExemplars = async (
+	db: SqlDb,
+	projectId: string,
+	version: string,
+): Promise<ActionAggregateExemplar[]> => {
+	if (!version || version === "unknown") return [];
+	const rows = await db
+		.prepare(`
+			SELECT
+				root.id AS action_id,
+				ar.id AS agent_run_id,
+				root.trace_id,
+				root.tool_call_id,
+				er.id AS eval_id,
+				ar.agent_name AS label,
+				ar.status,
+				root.started_at AS occurred_at
+			FROM agent_runs ar
+			LEFT JOIN actions root ON root.project_id = ar.project_id AND root.id = ar.id
+			LEFT JOIN eval_results er ON er.project_id = ar.project_id AND er.action_id = root.id
+			WHERE ar.project_id = ? AND ar.agent_version = ?
+			ORDER BY
+				CASE WHEN ar.status <> 'success' THEN 0 ELSE 1 END,
+				root.started_at DESC
+			LIMIT ?
+		`)
+		.bind(projectId, version, EXEMPLAR_LIMIT)
+		.all<ExemplarSqlRow>();
+	return exemplarsFromRows(rows.results);
+};
 
 export const getVersionDiffAggregates = async (
 	db: SqlDb,
@@ -673,6 +957,10 @@ export const getVersionDiffAggregates = async (
 	const tTools = toNumber(t.tool_count);
 	const bEvals = toNumber(b.eval_count);
 	const tEvals = toNumber(t.eval_count);
+	const [baselineExemplars, targetExemplars] = await Promise.all([
+		getVersionExemplars(db, projectId, b.version),
+		getVersionExemplars(db, projectId, t.version),
+	]);
 
 	return {
 		projectId,
@@ -722,6 +1010,8 @@ export const getVersionDiffAggregates = async (
 				"lower",
 			),
 		],
+		baselineExemplars,
+		targetExemplars,
 		timestamp: new Date().toISOString(),
 	};
 };
