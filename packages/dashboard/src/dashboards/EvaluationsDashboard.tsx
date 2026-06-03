@@ -1,5 +1,5 @@
 import type { JsonValue } from "@obs-unified/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { type Column, DataTable } from "../components/DataTable";
 import { Card, SectionTitle } from "../components/primitives";
@@ -39,6 +39,58 @@ export interface EvalCaseResult {
 	actualOutcome: string | null;
 	details: JsonValue | null;
 	createdAt: string;
+}
+
+interface EvalRun {
+	id: string;
+	evalCaseId: string | null;
+	status: string;
+	candidate: {
+		agentId: string | null;
+		agentVersion: string | null;
+		promptId: string | null;
+		promptVersion: string | null;
+		modelProvider: string | null;
+		model: string | null;
+		modelVersion: string | null;
+	};
+	metadata: Record<string, JsonValue>;
+	totalCount: number;
+	passCount: number;
+	failCount: number;
+	averageScore: number | null;
+}
+
+interface CompareStep {
+	key: string;
+	actionId: string;
+	parentActionId: string | null;
+	actionKind: string;
+	name: string | null;
+	status: string;
+	durationMs: number | null;
+	totalCostUsd: number | null;
+	toolName: string | null;
+	toolCallId: string | null;
+	evalPassed: boolean | null;
+	evalScore: number | null;
+	traceId: string | null;
+	spanId: string | null;
+}
+
+interface StepComparison {
+	key: string;
+	changeType: "same" | "changed" | "added" | "removed";
+	changedFields: string[];
+	left: CompareStep | null;
+	right: CompareStep | null;
+}
+
+interface ActionCompareResponse {
+	leftId: string;
+	rightId: string;
+	stepComparisons: StepComparison[];
+	generatedAt: string;
 }
 
 type JsonRecord = Record<string, JsonValue>;
@@ -93,6 +145,15 @@ const textAt = (
 	return typeof found === "string" && found.trim() ? found : null;
 };
 
+const firstText = (
+	...values: Array<JsonValue | string | null | undefined>
+): string | null => {
+	for (const value of values) {
+		if (typeof value === "string" && value.trim()) return value;
+	}
+	return null;
+};
+
 const sourceHref = (evalCase: EvalCase): string => {
 	switch (evalCase.sourceEntityType) {
 		case "agent_run":
@@ -118,12 +179,63 @@ const formatCount = (value: number | null): string =>
 const formatMoney = (value: number | null): string =>
 	value === null ? "n/a" : `$${value.toFixed(value >= 1 ? 2 : 4)}`;
 
+const productionCompareId = (evalCase: EvalCase): string | null =>
+	firstText(
+		evalCase.sourceAgentRunId,
+		evalCase.sourceActionId,
+		evalCase.sourceEntityType === "agent_run" ||
+			evalCase.sourceEntityType === "action"
+			? evalCase.sourceEntityId
+			: null,
+	);
+
+const candidateCompareId = (
+	result: EvalCaseResult | null,
+	evalRun: EvalRun | null,
+): string | null => {
+	if (!result) return null;
+	return firstText(
+		textAt(result.details, [
+			["candidate", "agentRunId"],
+			["candidate", "actionId"],
+			["candidateAgentRunId"],
+			["candidateActionId"],
+			["agentRunId"],
+			["actionId"],
+			["run", "agentRunId"],
+			["run", "actionId"],
+		]),
+		textAt(evalRun?.metadata, [
+			["candidateAgentRunId"],
+			["candidateActionId"],
+			["agentRunId"],
+			["actionId"],
+			["candidate", "agentRunId"],
+			["candidate", "actionId"],
+		]),
+		result.runId,
+	);
+};
+
+const compareHref = (step: CompareStep): string =>
+	step.toolCallId
+		? `#/tool-calls/${encodeURIComponent(step.toolCallId)}`
+		: `#/actions/${encodeURIComponent(step.actionId)}`;
+
 function ProductionEvalComparison({
 	evalCase,
 	result,
+	evalRun,
+	compareData,
+	compareLoading,
+	compareError,
 }: {
 	evalCase: EvalCase;
 	result: EvalCaseResult | null;
+	evalRun: EvalRun | null;
+	compareData: ActionCompareResponse | null;
+	compareLoading: boolean;
+	compareError: string | null;
 }) {
 	const productionSteps =
 		arrayCount(evalCase.referencePayload, [
@@ -268,6 +380,20 @@ function ProductionEvalComparison({
 				<div className="grid grid-cols-2 gap-2 text-[0.75rem]">
 					<Metric label="Run" value={result?.runId ?? "n/a"} mono />
 					<Metric
+						label="Candidate"
+						value={
+							evalRun
+								? [
+										evalRun.candidate.agentVersion,
+										evalRun.candidate.promptVersion,
+										evalRun.candidate.model,
+									]
+										.filter(Boolean)
+										.join(" / ") || evalRun.status
+								: "n/a"
+						}
+					/>
+					<Metric
 						label="Score"
 						value={
 							result?.score === null || result?.score === undefined
@@ -310,6 +436,111 @@ function ProductionEvalComparison({
 						</div>
 					</div>
 				))}
+			</div>
+
+			<div className="xl:col-span-2 border border-sys-outline-soft rounded-sm overflow-hidden min-w-0">
+				<div className="flex items-center justify-between gap-2 bg-sys-surface-low px-2 py-1.5">
+					<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+						Action tree diff
+					</div>
+					<div className="font-mono text-[0.625rem] text-sys-on-surface-muted truncate">
+						{productionCompareId(evalCase) ?? "missing source"} {"->"}{" "}
+						{candidateCompareId(result, evalRun) ?? "missing candidate"}
+					</div>
+				</div>
+				{compareLoading ? (
+					<div className="p-2 text-[0.75rem] text-sys-on-surface-muted font-mono">
+						Loading comparable action trees...
+					</div>
+				) : compareData ? (
+					<div className="overflow-x-auto">
+						<table className="w-full text-left text-[0.75rem]">
+							<thead>
+								<tr className="border-t border-sys-outline-soft bg-sys-surface">
+									<th className="px-2 py-1.5 font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+										Change
+									</th>
+									<th className="px-2 py-1.5 font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+										Production step
+									</th>
+									<th className="px-2 py-1.5 font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+										Eval step
+									</th>
+									<th className="px-2 py-1.5 font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+										Fields
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-sys-outline-soft/40">
+								{compareData.stepComparisons.slice(0, 40).map((row) => (
+									<tr key={row.key} className="align-top">
+										<td className="px-2 py-2">
+											<span
+												className={`inline-block border px-1.5 py-0.5 font-mono text-[0.625rem] uppercase ${
+													row.changeType === "changed"
+														? "border-sys-warning/40 bg-sys-warning/10 text-sys-warning"
+														: row.changeType === "added"
+															? "border-sys-primary/40 bg-sys-primary/10 text-sys-primary"
+															: row.changeType === "removed"
+																? "border-sys-error/40 bg-sys-error/10 text-sys-error"
+																: "border-sys-outline-soft text-sys-on-surface-muted"
+												}`}
+											>
+												{row.changeType}
+											</span>
+										</td>
+										<td className="px-2 py-2">
+											<CompareStepCell step={row.left} />
+										</td>
+										<td className="px-2 py-2">
+											<CompareStepCell step={row.right} />
+										</td>
+										<td className="px-2 py-2 font-mono text-[0.6875rem] text-sys-on-surface-muted">
+											{row.changedFields.length > 0
+												? row.changedFields.join(", ")
+												: "step presence"}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				) : (
+					<div className="p-2 text-[0.75rem] text-sys-on-surface-muted">
+						{compareError ??
+							"Comparable production and eval action graph IDs were not found for this case/result."}
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
+
+function CompareStepCell({ step }: { step: CompareStep | null }) {
+	if (!step) {
+		return <span className="text-sys-on-surface-muted">absent</span>;
+	}
+	return (
+		<div className="flex min-w-[12rem] flex-col gap-0.5">
+			<a
+				href={compareHref(step)}
+				className="font-semibold text-sys-primary hover:underline"
+			>
+				{step.name ?? step.toolName ?? step.actionKind}
+			</a>
+			<div className="font-mono text-[0.625rem] text-sys-on-surface-muted">
+				{step.actionKind} - {step.status}
+				{step.durationMs != null ? ` - ${step.durationMs}ms` : ""}
+				{step.totalCostUsd != null ? ` - $${step.totalCostUsd.toFixed(4)}` : ""}
+			</div>
+			<div className="font-mono text-[0.625rem] text-sys-on-surface-subtle">
+				{step.evalPassed == null
+					? "eval n/a"
+					: step.evalPassed
+						? "eval pass"
+						: "eval fail"}
+				{step.evalScore != null ? ` (${step.evalScore.toFixed(2)})` : ""}
+				{step.traceId ? ` - trace ${step.traceId.slice(0, 8)}` : ""}
 			</div>
 		</div>
 	);
@@ -370,9 +601,15 @@ export function EvaluationsDashboard() {
 
 	const [selectedCase, setSelectedCase] = useState<EvalCase | null>(null);
 	const [results, setResults] = useState<EvalCaseResult[]>([]);
+	const [evalRuns, setEvalRuns] = useState<EvalRun[]>([]);
 	const [selectedResult, setSelectedResult] = useState<EvalCaseResult | null>(
 		null,
 	);
+	const [compareData, setCompareData] = useState<ActionCompareResponse | null>(
+		null,
+	);
+	const [compareLoading, setCompareLoading] = useState(false);
+	const [compareError, setCompareError] = useState<string | null>(null);
 
 	const [loadingCases, setLoadingCases] = useState(true);
 	const [loadingResults, setLoadingResults] = useState(false);
@@ -452,18 +689,23 @@ export function EvaluationsDashboard() {
 		if (!selectedCaseId) {
 			setSelectedCase(null);
 			setResults([]);
+			setEvalRuns([]);
 			setSelectedResult(null);
 			return;
 		}
 
 		let active = true;
+		const caseId = selectedCaseId;
 		async function loadDetails() {
 			setLoadingResults(true);
 			try {
-				const [caseData, resultsData] = await Promise.all([
-					api<{ evalCase: EvalCase }>(`/eval-cases/${selectedCaseId}`),
+				const [caseData, resultsData, runsData] = await Promise.all([
+					api<{ evalCase: EvalCase }>(`/eval-cases/${caseId}`),
 					api<{ evalCaseResults: EvalCaseResult[] }>(
-						`/eval-cases/${selectedCaseId}/results`,
+						`/eval-cases/${caseId}/results`,
+					),
+					api<{ evalRuns: EvalRun[] }>(
+						`/eval-runs?evalCaseId=${encodeURIComponent(caseId)}`,
 					),
 				]);
 
@@ -480,6 +722,7 @@ export function EvaluationsDashboard() {
 					} else {
 						setSelectedResult(null);
 					}
+					setEvalRuns(runsData.evalRuns ?? []);
 					setError(null);
 				}
 			} catch (err) {
@@ -496,6 +739,56 @@ export function EvaluationsDashboard() {
 			active = false;
 		};
 	}, [selectedCaseId, api]);
+
+	const selectedEvalRun = useMemo(
+		() => evalRuns.find((run) => run.id === selectedResult?.runId) ?? null,
+		[evalRuns, selectedResult],
+	);
+
+	useEffect(() => {
+		if (!selectedCase || !selectedResult) {
+			setCompareData(null);
+			setCompareError(null);
+			setCompareLoading(false);
+			return;
+		}
+		const left = productionCompareId(selectedCase);
+		const right = candidateCompareId(selectedResult, selectedEvalRun);
+		if (!left || !right) {
+			setCompareData(null);
+			setCompareError(
+				"Comparable production and eval action graph IDs were not found for this case/result.",
+			);
+			setCompareLoading(false);
+			return;
+		}
+
+		let active = true;
+		setCompareLoading(true);
+		setCompareError(null);
+		api<ActionCompareResponse>(
+			`/actions/compare?left=${encodeURIComponent(left)}&right=${encodeURIComponent(right)}`,
+		)
+			.then((comparison) => {
+				if (active) {
+					setCompareData(comparison);
+					setCompareError(null);
+				}
+			})
+			.catch((err) => {
+				if (active) {
+					setCompareData(null);
+					setCompareError(err instanceof Error ? err.message : String(err));
+				}
+			})
+			.finally(() => {
+				if (active) setCompareLoading(false);
+			});
+
+		return () => {
+			active = false;
+		};
+	}, [api, selectedCase, selectedResult, selectedEvalRun]);
 
 	const columns: Column<EvalCase>[] = [
 		{
@@ -729,13 +1022,17 @@ export function EvaluationsDashboard() {
 								<ProductionEvalComparison
 									evalCase={selectedCase}
 									result={selectedResult}
+									evalRun={selectedEvalRun}
+									compareData={compareData}
+									compareLoading={compareLoading}
+									compareError={compareError}
 								/>
 
 								<div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto min-h-0 min-w-0 pr-1">
 									{/* Production Source context */}
 									<div className="flex flex-col gap-2 min-w-0">
 										<div className="text-[0.6875rem] font-bold uppercase tracking-[0.05em] opacity-80 border-b border-sys-outline-soft pb-1">
-											📁 Saved Production Context
+											Saved Production Context
 										</div>
 
 										<div className="flex flex-col gap-2.5">
@@ -823,7 +1120,7 @@ export function EvaluationsDashboard() {
 									{/* Test Run result context */}
 									<div className="flex flex-col gap-2 min-w-0">
 										<div className="text-[0.6875rem] font-bold uppercase tracking-[0.05em] opacity-80 border-b border-sys-outline-soft pb-1">
-											🧪 Test Run Evaluation Result
+											Test Run Evaluation Result
 										</div>
 
 										{!selectedResult ? (

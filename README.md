@@ -151,9 +151,10 @@ docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
 # → http://localhost:5173   (dashboard password: e2e-test-pass)
 ```
 
-If GitHub Container Registry returns an authentication error, the package has
-not been made public yet. Working from a clone instead? Build it locally:
-`pnpm local:image && pnpm local:run`.
+If GitHub Container Registry returns an authentication error, the `Publish
+all-in-one image` workflow has not completed public visibility for the package
+yet. Working from a clone instead? Build it locally: `pnpm local:image && pnpm
+local:run`.
 Prefer to run from source? See [docs/getting-started.md](docs/getting-started.md).
 
 > Installing the SDKs into **your own** app needs a one-time GitHub Packages

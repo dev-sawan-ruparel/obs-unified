@@ -60,10 +60,13 @@ be reported as inferred rather than definitive.
 
 ```bash
 pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add -g @obs-unified/mcp-server
 ```
 
-The package is published to the obs-unified GitHub Packages registry.
+The package publishes to the obs-unified GitHub Packages registry. GitHub
+Packages requires authentication for installs, including public packages; use a
+token with `read:packages` for local installs.
 
 ## Configure
 

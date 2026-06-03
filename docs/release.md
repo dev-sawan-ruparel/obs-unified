@@ -48,17 +48,28 @@ Packages publish through GitHub Packages from the `Release` workflow on pushes
 to `main`. The workflow runs Changesets, opens or updates the release PR, and
 publishes after the generated release PR is merged.
 
+The all-in-one local image publishes from the `Publish all-in-one image`
+workflow on pushes to `main`, tags, and manual dispatch. It requires
+`packages: write` and should use the `OBS_UNIFIED_PACKAGES_TOKEN` secret when
+the default repo token cannot administer org packages. The workflow verifies
+anonymous `docker manifest inspect ghcr.io/obs-unified/local:latest` after
+setting visibility to public.
+
 Before merging the release PR:
 
 - Confirm the generated changelogs describe the user-visible changes.
 - Confirm the package versions are intentional.
 - Confirm the workflow has `packages: write` and Node is configured for
   `https://npm.pkg.github.com` with scope `@obs-unified`.
+- Confirm `OBS_UNIFIED_PACKAGES_TOKEN` is available when publishing or making
+  org-scoped GitHub Packages public requires a token beyond `GITHUB_TOKEN`.
 
 ## Post-release
 
 - Install the public packages from a clean project using the documented GitHub
   Packages `.npmrc` configuration.
+- Pull the all-in-one image anonymously:
+  `docker manifest inspect ghcr.io/obs-unified/local:latest`.
 - Smoke-test the collector health endpoint, dashboard login, and at least one
   SDK ingest path.
 - Check the GitHub Packages page for each published package.

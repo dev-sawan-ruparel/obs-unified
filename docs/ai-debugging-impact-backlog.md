@@ -241,7 +241,7 @@ high-confidence action graphs instead of relying on fallback IDs.
 
 ## 10. Production-to-Eval Runner Depth
 
-**Status:** [~] Baseline implemented; deeper runner loop pending.
+**Status:** [x] Implemented for production-to-eval case comparisons.
 
 **Why it matters:** Saving a production incident as an eval case is only the
 first half of the improvement loop. Agents become more useful when they can
@@ -254,7 +254,8 @@ agent versions.
 - [x] Eval case routes and result ingestion exist.
 - [x] Durable eval run records capture batch execution metadata and candidate
       dimensions.
-- [~] Dashboard candidate comparison is not fully productized.
+- [x] Dashboard candidate comparison is productized for per-case before/after
+      action tree diffs.
 
 **Acceptance checklist:**
 
@@ -262,7 +263,7 @@ agent versions.
 - [x] Results expose source production links beside durable candidate run
       context.
 - [x] Agent/prompt/model version dimensions are first-class in eval run output.
-- [ ] Dashboard shows before/after evidence and links back to production source.
+- [x] Dashboard shows before/after evidence and links back to production source.
 
 ## 11. Trace/Profile to Workspace Code References
 

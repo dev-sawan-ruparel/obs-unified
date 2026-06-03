@@ -49,7 +49,9 @@ Run the prebuilt image:
 docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
 ```
 
-Or build and start it from a checkout:
+Anonymous pulls require the `Publish all-in-one image` workflow to complete and
+set the GHCR package visibility to public. If GHCR returns an authentication
+error, build and start the same image from a checkout:
 
 ```bash
 pnpm local:image

@@ -43,7 +43,7 @@ jobs:
 
       - name: Publish if version is new
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
           NPM_CONFIG_REGISTRY: https://npm.pkg.github.com
         run: |
           set -euo pipefail

@@ -6,15 +6,14 @@ name: Publish all-in-one image
 #
 # Triggers:
 #   - workflow_dispatch: publish on demand (use this for the first publish)
+#   - push to main: keep :latest aligned with the documented one-command path
 #   - tag push (v*): publish a versioned image alongside :latest on release
-#
-# One-time manual step after the first successful run: set the GHCR package
-# visibility to Public (org → Packages → "local" → Package settings →
-# Change visibility). Until then `docker pull` returns 401 for anonymous users.
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -43,7 +42,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Derive tags
         id: tags
@@ -71,9 +70,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Make GHCR package public
-        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
@@ -83,6 +81,6 @@ jobs:
           else
             endpoint="/user/packages/container/local/visibility"
           fi
-          gh api --method PATCH "$endpoint" -f visibility=public || {
-            echo "::warning::Could not set GHCR package visibility automatically. Set ghcr.io/${OWNER}/local to Public from GitHub Packages settings."
-          }
+          gh api --method PATCH "$endpoint" -f visibility=public
+          docker logout ghcr.io
+          docker manifest inspect "ghcr.io/${OWNER}/local:latest" >/dev/null
