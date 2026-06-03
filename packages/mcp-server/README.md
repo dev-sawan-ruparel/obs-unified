@@ -31,6 +31,11 @@ See [MCP in obs-unified](../../docs/mcp.md) for the terminology split.
 obs-unified exposes a connected telemetry graph. The MCP server lets an agent
 walk that graph through read-only tools:
 
+![Investigation model](https://mermaid.ink/svg/Zmxvd2NoYXJ0IExSCiAgc3ltcHRvbVsic3ltcHRvbSBvciBhZ2dyZWdhdGUiXSAtLT4gZXZpZGVuY2VbIkV2aWRlbmNlUmVmZXJlbmNlIl0KICBldmlkZW5jZSAtLT4gcmFpbFsiY29ubmVjdGVkX3NpZ25hbHMiXQogIHJhaWwgLS0-IHRyYWNlWyJ0cmFjZS9zcGFuL2xvZy9wcm9maWxlIl0KICByYWlsIC0tPiBhY3Rpb25bImFjdGlvbi9ydW4vdG9vbC9ldmFsIl0KICBhY3Rpb24gLS0-IGZpeFsiY29kZSByZWZzL2V2YWwgY2FzZS9zdGVwIGNvbXBhcmlzb24iXQ)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart LR
   symptom["symptom or aggregate"] --> evidence["EvidenceReference"]
@@ -39,6 +44,8 @@ flowchart LR
   rail --> action["action/run/tool/eval"]
   action --> fix["code refs/eval case/step comparison"]
 ```
+
+</details>
 
 Use `connected_signals` whenever one entity should lead to its neighbors. For
 example:
