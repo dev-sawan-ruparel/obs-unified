@@ -1,0 +1,127 @@
+---
+title: Evidence reference
+description: Machine-readable evidence references with entity IDs, routes, confidence, citations, and suggested pivots for AI agents and automated investigations.
+---
+
+When AI agents query the telemetry graph or when human SREs view automated alerts and analyses, obs-unified provides structured, machine-readable evidence packages. These packages let agents traverse the causal graph programmatically without parsing narrative prose.
+
+The canonical schema is written in TypeScript and matches the published JSON Schema version `obs-unified.evidence-reference.v1`.
+
+## EvidenceReference schema
+
+The `EvidenceReference` is a Zod schema defined in [`packages/obs-types/src/types/evidence.ts`](https://github.com/obs-unified/obs-unified/blob/main/packages/obs-types/src/types/evidence.ts).
+
+### Fields
+
+- **`evidenceId`** (string): A unique identifier for this specific evidence entry.
+- **`entityKind`** (EvidenceEntityKind): The type of entity being referenced. Must be one of:
+  - `"analysis"` (automated analysis results/notebooks)
+  - `"alert"` (firing system/business alert rules)
+  - `"agent_run"` (causal workflow run of an AI agent)
+  - `"action"` (specific step or LLM execution in the Agent Action Graph)
+  - `"trace"` (OpenTelemetry distributed trace)
+  - `"span"` (individual OpenTelemetry span)
+  - `"tool_call"` (MCP or GenAI tool execution record)
+  - `"eval"` (automated model evaluation run or case)
+  - `"profile"` (pprof CPU or off-CPU profile blob)
+  - `"service"` (logical service/system node)
+  - `"log"` (individual log line record)
+  - `"docs"` (documentation page or reference file)
+- **`entityId`** (string): The stable database key or identifier of the referenced entity.
+- **`route`** (string): The dashboard deep-link path for the entity (e.g. `"/dashboard/traces/trace-123"`).
+- **`source`** (string): Description of the engine or rule that generated this evidence (e.g. `"collector.analyses.self_time"`).
+- **`confidence`** (number): A float strictly bounded between `0.0` (no confidence) and `1.0` (absolute certainty/explicit propagation).
+- **`reason`** (string): Human-readable summary explaining why this evidence is relevant.
+- **`citations`** (array of citations): Supporting files, traces, or documentation that support this evidence.
+- **`suggestedNextPivots`** (array of pivots): Recommended exploration routes to help investigate from this anchor.
+
+### Citations structure
+
+Each item in the `citations` array contains:
+- `label` (string): Text describing the cited reference.
+- `entityKind` (EvidenceEntityKind): Kind of cited entity.
+- `entityId` (string): Stable identifier.
+- `route` (string, nullable/optional): Deep-link route.
+
+### Suggested next pivots structure
+
+Each item in the `suggestedNextPivots` array contains:
+- `label` (string): Text describing the suggested action (e.g., `"Inspect CPU profile for checkout-service"`).
+- `entityKind` (EvidenceEntityKind): Kind of target entity.
+- `entityId` (string): Stable identifier.
+- `route` (string): Deep-link target route.
+- `reason` (string, optional): Context explaining why this pivot is suggested.
+
+---
+
+## JSON schema definition
+
+The JSON Schema definition is exported by `@obs-unified/types` and served at `https://obs-unified.dev/schemas/obs-unified.evidence-reference.v1.json`:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obs-unified.dev/schemas/obs-unified.evidence-reference.v1.json",
+  "title": "EvidenceReference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidenceId",
+    "entityKind",
+    "entityId",
+    "route",
+    "source",
+    "confidence",
+    "reason",
+    "citations",
+    "suggestedNextPivots"
+  ],
+  "properties": {
+    "evidenceId": { "type": "string" },
+    "entityKind": {
+      "type": "string",
+      "enum": ["analysis", "alert", "agent_run", "action", "trace", "span", "tool_call", "eval", "profile", "service", "log", "docs"]
+    },
+    "entityId": { "type": "string" },
+    "route": { "type": "string" },
+    "source": { "type": "string" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "reason": { "type": "string" },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "entityKind", "entityId"],
+        "properties": {
+          "label": { "type": "string" },
+          "entityKind": {
+            "type": "string",
+            "enum": ["analysis", "alert", "agent_run", "action", "trace", "span", "tool_call", "eval", "profile", "service", "log", "docs"]
+          },
+          "entityId": { "type": "string" },
+          "route": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "suggestedNextPivots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "entityKind", "entityId", "route"],
+        "properties": {
+          "label": { "type": "string" },
+          "entityKind": {
+            "type": "string",
+            "enum": ["analysis", "alert", "agent_run", "action", "trace", "span", "tool_call", "eval", "profile", "service", "log", "docs"]
+          },
+          "entityId": { "type": "string" },
+          "route": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```

@@ -34,7 +34,7 @@ flowchart LR
   export --> traceIngest["/v1/traces collector"]
 ```
 
-Every signal that flows out of the server while that request is in flight carries the same `interaction_id`. The dashboard's [Connected rail](/docs/what-to-expect) reads that column to surface "the click that caused this trace" in one click.
+Every signal that flows out of the server while that request is in flight carries the same `interaction_id`. The dashboard's [Connected Rail](/docs/what-to-expect) reads that column to surface "the click that caused this trace" in one click.
 
 ## Frontend (React + Vite)
 
@@ -233,7 +233,7 @@ const response = await openai.chat.completions.create({ /* ... */ });
 // with openinference.span.kind=LLM, llm.cost_usd, llm.token_count.*, etc.
 ```
 
-AI calls also land in the `ai_calls` denormalized table that the dashboard's AI tab and the Connected rail's "AI calls in this trace" section both read.
+AI calls also land in the `ai_calls` denormalized table that the dashboard's AI tab and the Connected Rail's "AI calls in this trace" section both read.
 
 ## What you should see
 

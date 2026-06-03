@@ -1,11 +1,11 @@
 ---
 title: What to expect
-description: How unified observability appears in the dashboard through the Connected rail.
+description: How unified observability appears in the dashboard through the Connected Rail.
 ---
 
-obs-unified is designed around one promise: **built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile**. The dashboard's Connected rail is the human-facing version of that same graph; the [MCP server](/docs/mcp-server) is the agent-facing version. This page walks through what the dashboard actually surfaces once instrumentation is in place.
+obs-unified is designed around one promise: **built for agentic debugging: one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile**. The dashboard's Connected Rail is the human-facing version of that same graph; the [MCP server](/docs/mcp-server) is the agent-facing version. This page walks through what the dashboard actually surfaces once instrumentation is in place.
 
-## The Connected rail
+## The Connected Rail
 
 Every detail page in the dashboard mounts a right-side rail with four sections:
 
@@ -52,7 +52,7 @@ The headline product test. From a paged alert:
 | 3 | Flame graph filtered to this trace's samples (server-side filter, smaller blob) | "Other traces sampled in this profile (243)" | 0007 |
 | 4 | Cohort: all traces touched by this profile, with user attribution | A user from the cohort | 0007, 0006 |
 | 5 | Session timeline: user's page views, clicks, traces side-by-side | An rrweb event | 0004, 0006 |
-| 6 | Replay scrubbed to the click + Connected rail: "Trace caused by this click" | Closes the loop back to step 2's trace | 0004, 0006 |
+| 6 | Replay scrubbed to the click + Connected Rail: "Trace caused by this click" | Closes the loop back to step 2's trace | 0004, 0006 |
 
 Six clicks across the entire platform. The platform's claim is that every neighbor at every step is on the rail.
 
@@ -78,9 +78,9 @@ A different entry point exercising the same identity skeleton:
 
 1. **AI dashboard** shows a cost spike (`SPANS OVER TIME` chart peaks). The Sessions view ranks the heavy spender at the top by cost.
 2. **Click the `👤 user-id` chip** on the heavy spender's row → user detail page.
-3. **User detail page** shows the user's `Identity` card + a Connected rail with "Latest session", "Recent traces", "Recent AI calls". The rail surfaces the count-collapsed link for a session with N traces / M AI calls.
+3. **User detail page** shows the user's `Identity` card + a Connected Rail with "Latest session", "Recent traces", "Recent AI calls". The rail surfaces the count-collapsed link for a session with N traces / M AI calls.
 4. **Click "Latest session"** → Replay tab scoped to that session, showing the session's interactions linked to their traces.
-5. **Click an interaction** → trace waterfall for the trace that click caused. Connected rail's "Click that caused this trace" closes the loop back to the originating click.
+5. **Click an interaction** → trace waterfall for the trace that click caused. Connected Rail's "Click that caused this trace" closes the loop back to the originating click.
 
 The seed (`pnpm seed`) plants a "Heavy Spender (seed)" user with 8–9 high-cost claude-3-5-haiku calls so this walkthrough is reproducible without writing real AI traffic.
 
@@ -118,7 +118,7 @@ This scenario currently runs only against the docker-compose demo with [Beyla](h
 | **Timeline** | Per-session lane of usage / span / log events, grouped by `interaction_id` | Click an event → trace or replay |
 | **Service Map** | Service-to-service edges with SDK / eBPF source filter | Click an edge → traces between those services |
 | **Logs** | Histogram + by-service / by-severity breakdown, filterable | Click a log → log detail with rail surfacing parent trace |
-| **Investigations** | List of analyses + per-analysis detail page with narrative + evidence + connected rail | Rail's "Cited traces" → trace detail |
+| **Investigations** | List of analyses + per-analysis detail page with narrative + evidence + Connected Rail | Rail's "Cited traces" → trace detail |
 | **Traces** | Trace list with inline waterfall expansion, self-time visualization, ⚠ + 🔥 badges, span detail drawer | Click a span row → rail with "Click that caused this trace" |
 | **Issues** | Trace-level issue grouping by error fingerprint | Click an issue → trace |
 | **AI Calls** | Two views — Spans (typed LLM/TOOL/RETRIEVER spans) and Sessions (multi-turn conversation rendering with cost + tokens). User chips are clickable. | Click `👤 user-id` → user detail page; action graph links open `#/actions/:actionId` |
@@ -153,6 +153,6 @@ The May 31, 2026 updates tightened several user-visible dashboard paths:
 - Telemetry and AI dashboards abort stale loaders, so quick filter/tab changes do not let older responses overwrite newer views.
 - Replay chunk loading is paginated, so long sessions load progressively instead of depending on one large response.
 - Live-tail streams enforce project isolation end-to-end.
-- Connected rail scenario tests now cover trace, replay, and service-map pivots more directly.
+- Connected Rail scenario tests now cover trace, replay, and service-map pivots more directly.
 
 These are not new navigation concepts, but they make the rail and dashboard flows behave more predictably under realistic traffic.

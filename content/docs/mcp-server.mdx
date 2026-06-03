@@ -3,7 +3,7 @@ title: MCP server
 description: Give AI agents read-only investigation tools for obs-unified traces, logs, replays, profiles, evals, agent runs, actions, and tool calls.
 ---
 
-`@obs-unified/mcp-server` is a stdio Model Context Protocol server for agents
+`@obsunified/mcp-server` is a stdio Model Context Protocol server for agents
 that need to inspect an obs-unified collector.
 
 It exposes the same investigation graph that humans use in the dashboard:
@@ -32,12 +32,14 @@ granting write access to telemetry ingest.
 
 ## Install
 
-The MCP server is published to the obs-unified GitHub Packages registry:
+The MCP server is published to the public npm registry:
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm add -g @obs-unified/mcp-server
+pnpm add -g @obsunified/mcp-server
 ```
+
+> [!NOTE]
+> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`). The first-party SDKs use the hyphenated `@obs-unified` scope on the GitHub Packages registry (`@obs-unified/*`).
 
 For local development from a checkout:
 
@@ -45,7 +47,7 @@ For local development from a checkout:
 git clone https://github.com/obs-unified/obs-unified.git
 cd obs-unified
 pnpm install
-pnpm --filter @obs-unified/mcp-server build
+pnpm --filter @obsunified/mcp-server build
 ```
 
 ## Configure
@@ -98,7 +100,7 @@ For local development from the monorepo:
         "--dir",
         "/absolute/path/to/obs-unified",
         "--filter",
-        "@obs-unified/mcp-server",
+        "@obsunified/mcp-server",
         "start"
       ],
       "env": {
@@ -113,7 +115,7 @@ For local development from the monorepo:
 Build the package first with:
 
 ```bash
-pnpm --filter @obs-unified/mcp-server build
+pnpm --filter @obsunified/mcp-server build
 ```
 
 ## Tools

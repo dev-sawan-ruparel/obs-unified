@@ -8,6 +8,7 @@
 		"examples",
 		"sdks",
 		"sdk-reference",
+		"evidence-reference",
 		"agent-action-graph",
 		"mcp-server",
 		"instrumenting",
