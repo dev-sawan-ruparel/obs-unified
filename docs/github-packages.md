@@ -1,6 +1,6 @@
 # GitHub Packages
 
-The TypeScript packages publish to GitHub Packages under the `@obs-unified`
+Most TypeScript SDK packages publish to GitHub Packages under the `@obs-unified`
 scope:
 
 ```bash
@@ -11,6 +11,13 @@ scope:
 GitHub Packages requires authentication for installing public packages. Use a
 classic personal access token with `read:packages` for local installs. GitHub
 Actions can use `GITHUB_TOKEN` when the workflow repository has package access.
+
+Exception: `@obs-unified/mcp-server` publishes to the public npm registry so
+agents can install it without GitHub Packages authentication:
+
+```bash
+pnpm add -g @obs-unified/mcp-server
+```
 
 Install examples:
 

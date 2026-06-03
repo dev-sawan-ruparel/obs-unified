@@ -309,13 +309,13 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
-      '@obs-unified/types':
-        specifier: workspace:*
-        version: link:../obs-types
       zod:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@obs-unified/types':
+        specifier: workspace:*
+        version: link:../obs-types
       '@types/node':
         specifier: ^25.5.2
         version: 25.5.2

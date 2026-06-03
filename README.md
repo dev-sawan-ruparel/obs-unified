@@ -159,7 +159,8 @@ Prefer to run from source? See [docs/getting-started.md](docs/getting-started.md
 
 > Installing the SDKs into **your own** app needs a one-time GitHub Packages
 > login — covered in [Instrument your app](#instrument-your-app) below and in
-> [docs/github-packages.md](docs/github-packages.md).
+> [docs/github-packages.md](docs/github-packages.md). The MCP server publishes
+> to npmjs and does not need that login.
 
 ## See it with sample data
 
@@ -277,12 +278,18 @@ The common wiring is: run a collector, add the browser/backend SDK package, set
 `OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction` CORS
 header for browser calls, and verify the collector path with
 `pnpm dlx @obs-unified/cli doctor` (after the GitHub Packages login below).
+For agents, install the MCP server from npmjs without registry auth:
+
+```bash
+pnpm add -g @obs-unified/mcp-server
+```
 
 ### Install the SDKs
 
-The TypeScript packages publish to GitHub Packages. Configure the `@obs-unified`
-scope once (GitHub Packages requires authentication even for public packages —
-see [docs/github-packages.md](docs/github-packages.md) for token setup and the
+The TypeScript SDK packages publish to GitHub Packages. Configure the
+`@obs-unified` scope once for SDK installs (GitHub Packages requires
+authentication even for public packages — see
+[docs/github-packages.md](docs/github-packages.md) for token setup and the
 Go/Rust install paths):
 
 ```bash

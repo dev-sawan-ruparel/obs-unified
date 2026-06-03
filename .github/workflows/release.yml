@@ -40,6 +40,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --sort run build
 
+      - name: Configure package registries
+        env:
+          NPMJS_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NPMJS_TOKEN:-}" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPMJS_TOKEN}" >> ~/.npmrc
+          fi
+          echo "@obs-unified:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
@@ -50,4 +62,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

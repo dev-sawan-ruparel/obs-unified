@@ -4,5 +4,5 @@
 ---
 
 Productize production-to-eval per-case action tree comparisons in the
-Evaluations dashboard and clarify authenticated GitHub Packages install steps
-for the MCP server.
+Evaluations dashboard and publish the MCP server through npmjs for no-auth
+agent installs.
