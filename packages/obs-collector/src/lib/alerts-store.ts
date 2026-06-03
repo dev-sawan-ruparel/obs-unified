@@ -3,6 +3,7 @@ import type {
 	AlertComparison,
 	AlertEvaluation,
 	AlertEvaluationRow,
+	AlertEvaluationsListResponse,
 	AlertQuery,
 	AlertQueryAI,
 	AlertQueryLogs,
@@ -43,24 +44,15 @@ const rowToRule = (row: AlertRuleRow, state?: AlertStateRow): AlertRule => ({
 	lastStateChange: state?.last_state_change ?? null,
 });
 
-const rowToEvaluation = (
-	row: AlertEvaluationRow,
-	rule?: AlertRule | null,
-): AlertEvaluation => {
-	const evaluation: AlertEvaluation = {
-		id: row.id,
-		ruleId: row.rule_id,
-		projectId: row.project_id,
-		evaluatedAt: row.evaluated_at,
-		value: row.value,
-		state: row.state,
-		notified: row.notified === 1,
-	};
-	if (rule) {
-		evaluation.evidenceReferences = alertEvidenceReferences(rule, evaluation);
-	}
-	return evaluation;
-};
+const rowToEvaluation = (row: AlertEvaluationRow): AlertEvaluation => ({
+	id: row.id,
+	ruleId: row.rule_id,
+	projectId: row.project_id,
+	evaluatedAt: row.evaluated_at,
+	value: row.value,
+	state: row.state,
+	notified: row.notified === 1,
+});
 
 const windowCutoffIso = (windowMins: number): string =>
 	new Date(Date.now() - windowMins * 60 * 1000).toISOString();
@@ -302,7 +294,7 @@ export class AlertsStore {
 		projectId?: string;
 		hours: number;
 		limit?: number;
-	}): Promise<AlertEvaluation[]> {
+	}): Promise<AlertEvaluationsListResponse> {
 		const cutoff = new Date(
 			Date.now() - params.hours * 60 * 60 * 1000,
 		).toISOString();
@@ -317,7 +309,13 @@ export class AlertsStore {
 		const rule = projectId
 			? await this.getRule(params.ruleId, projectId)
 			: null;
-		return rows.map((row) => rowToEvaluation(row, rule));
+		const response: AlertEvaluationsListResponse = {
+			evaluations: rows.map(rowToEvaluation),
+		};
+		if (rule) {
+			response.evidenceReferences = alertEvidenceReferences(rule);
+		}
+		return response;
 	}
 
 	// ── Evaluators (count-over-window per signal) ──

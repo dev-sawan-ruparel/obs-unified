@@ -318,7 +318,85 @@ describe("genAiNormalizerPlugin - OTel MCP normalization", () => {
 		expect(attrs["obs.tool_call.args"]).toBe(
 			JSON.stringify({ invoice_id: "INV-2026", status: "paid" }),
 		);
-		expect(attrs[TOOL_SIDE_EFFECT_KEY]).toBe(1); // Auto-detected from "update_invoice_status"
+		expect(attrs[TOOL_SIDE_EFFECT_KEY]).toBe(1);
+	});
+
+	it("infers MCP side effects only from leading mutation verbs", async () => {
+		const processFn = registerNormalizer();
+
+		const baseSpan = {
+			projectId: "proj-123",
+			parentSpanId: null,
+			traceId: "trace-789",
+			traceState: null,
+			serviceName: "mcp-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-31T22:00:00.000Z",
+			endTime: "2026-05-31T22:00:02.000Z",
+			durationMs: 2000,
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-31T22:00:02.000Z",
+			expiresAt: "2026-06-01T22:00:02.000Z",
+			sessionId: null,
+			interactionId: null,
+		} satisfies Partial<StoredSpan>;
+
+		const spans: StoredSpan[] = [
+			{
+				...baseSpan,
+				spanId: "span-write",
+				spanName: "write_file",
+				attributesJson: JSON.stringify({
+					"mcp.method.name": "tools/call",
+					"mcp.tool.name": "write_file",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-list",
+				spanName: "list_updates",
+				attributesJson: JSON.stringify({
+					"mcp.method.name": "tools/call",
+					"mcp.tool.name": "list_updates",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-status",
+				spanName: "get_write_status",
+				attributesJson: JSON.stringify({
+					"mcp.method.name": "tools/call",
+					"mcp.tool.name": "get_write_status",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-explicit",
+				spanName: "read_with_explicit_side_effect",
+				attributesJson: JSON.stringify({
+					"mcp.method.name": "tools/call",
+					"mcp.tool.name": "read_status",
+					"mcp.tool.side_effect": 1,
+				}),
+			},
+		] as StoredSpan[];
+
+		const processed = await processFn(spans, context);
+		const attrs = processed.map((span) => parseJsonRecord(span.attributesJson));
+
+		expect(attrs[0][TOOL_SIDE_EFFECT_KEY]).toBe(1);
+		expect(attrs[1][TOOL_SIDE_EFFECT_KEY]).toBe(0);
+		expect(attrs[2][TOOL_SIDE_EFFECT_KEY]).toBe(0);
+		expect(attrs[3][TOOL_SIDE_EFFECT_KEY]).toBe(1);
 	});
 
 	it("should normalize mcp resources/read and prompts/get spans to RETRIEVER and PROMPT kinds", async () => {

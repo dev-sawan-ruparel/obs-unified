@@ -1,5 +1,6 @@
 import type {
 	AlertEvaluation,
+	AlertEvaluationsListResponse,
 	AlertRule,
 	AlertRuleInput,
 	AlertTestResponse,
@@ -346,7 +347,7 @@ function AlertDetail({
 		if (!ruleId) return;
 		setLoading(true);
 		try {
-			const data = await api<{ evaluations: AlertEvaluation[] }>(
+			const data = await api<AlertEvaluationsListResponse>(
 				`/alerts/evaluations?ruleId=${encodeURIComponent(ruleId)}&hours=24`,
 			);
 			setEvaluations(data.evaluations ?? []);

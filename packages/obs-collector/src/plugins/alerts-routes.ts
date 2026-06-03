@@ -71,12 +71,12 @@ export const alertsRoutesPlugin: CollectorPlugin = {
 				Math.min(720, Number.parseInt(c.req.query("hours") || "24", 10) || 24),
 			);
 			const store = new AlertsStore(sqlDbFor(c.env));
-			const evaluations = await store.listEvaluations({
+			const response = await store.listEvaluations({
 				ruleId,
 				projectId,
 				hours,
 			});
-			return c.json({ evaluations });
+			return c.json(response);
 		});
 
 		app.post("/internal/alerts/rules/:id/test", async (c) => {

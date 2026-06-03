@@ -15,11 +15,9 @@ import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
 	ACTION_ID_KEY,
-	ACTION_ID_RE,
 	ACTION_KIND_KEY,
 	ACTION_ROOT_ID_KEY,
 	ACTOR_TYPE_KEY,
-	ActionConfidence,
 	ActionKind,
 	AGENT_RUN_ID_KEY,
 	AI_PAYLOAD_INPUT_KEY,
@@ -32,35 +30,13 @@ import {
 	TOOL_SIDE_EFFECT_KEY,
 } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
-import { sha256Hex } from "../lib/hash";
+import { deriveActionId, resolveActionIdentity } from "../lib/action-identity";
 import { parseJsonRecord } from "../lib/json";
 
 const GEN_AI_PREFIX = "gen_ai.";
 const MCP_PREFIX = "mcp.";
 
-/**
- * Generate a deterministic 26-character Crockford base32 action ID from project, trace, and span IDs.
- * Matches standard action ID format: /^[0-9A-HJKMNP-TV-Z]{26}$/.
- */
-export async function deriveActionId(
-	projectId: string,
-	traceId: string,
-	spanId: string,
-): Promise<string> {
-	const input = `${projectId}:${traceId}:${spanId}`;
-	const hash = await sha256Hex(input);
-	// Take first 32 hex chars (128 bits of SHA-256)
-	const hex = hash.substring(0, 32);
-	let num = BigInt(`0x${hex}`);
-	const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-	let encoded = "";
-	for (let i = 0; i < 26; i++) {
-		const remainder = Number(num % 32n);
-		encoded = alphabet[remainder] + encoded;
-		num = num / 32n;
-	}
-	return encoded;
-}
+export { deriveActionId };
 
 // Map gen_ai operation.name → OpenInference span kind.
 const operationToKind = (op: unknown): string => {
@@ -91,10 +67,27 @@ const toJsonString = (value: unknown): string | null => {
 	}
 };
 
-const asValidActionId = (value: unknown): string | undefined => {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return ACTION_ID_RE.test(trimmed) ? trimmed : undefined;
+const SIDE_EFFECT_VERBS = new Set([
+	"create",
+	"delete",
+	"insert",
+	"mutate",
+	"patch",
+	"remove",
+	"set",
+	"update",
+	"upsert",
+	"write",
+]);
+
+const inferToolSideEffect = (toolName: unknown): 0 | 1 => {
+	if (typeof toolName !== "string") return 0;
+	const [firstToken] = toolName
+		.trim()
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter(Boolean);
+	return firstToken && SIDE_EFFECT_VERBS.has(firstToken) ? 1 : 0;
 };
 
 const collectIndexed = (
@@ -176,59 +169,21 @@ export const genAiNormalizerPlugin: CollectorPlugin = {
 						}
 
 						// 2. Set Action Graph Schema Attributes
-						const explicitActionId = asValidActionId(attrs[ACTION_ID_KEY]);
-						const hasExplicitActionId = explicitActionId !== undefined;
-						const actionId =
-							explicitActionId ??
-							(await deriveActionId(span.projectId, span.traceId, span.spanId));
+						const identity = await resolveActionIdentity(span, attrs);
+						const actionId = identity.actionId;
 
 						normalized[ACTION_ID_KEY] = actionId;
-						normalized[ACTION_CONFIDENCE_KEY] = hasExplicitActionId
-							? ActionConfidence.Explicit
-							: ActionConfidence.Fallback;
-
-						const explicitRootActionId =
-							asValidActionId(attrs[ACTION_ROOT_ID_KEY]) ??
-							asValidActionId(attrs[AGENT_RUN_ID_KEY]) ??
-							asValidActionId(attrs["obs.action.agent_run_id"]) ??
-							asValidActionId(attrs["obs.agent_run.id"]);
-						normalized[ACTION_ROOT_ID_KEY] =
-							explicitRootActionId ??
-							(await deriveActionId(
-								span.projectId,
-								span.traceId,
-								span.traceId.substring(0, 16),
-							));
-
-						const explicitCausedByActionId = asValidActionId(
-							attrs[ACTION_CAUSED_BY_ID_KEY],
-						);
-						if (explicitCausedByActionId) {
-							normalized[ACTION_CAUSED_BY_ID_KEY] = explicitCausedByActionId;
-						} else if (attrs[ACTION_CAUSED_BY_ID_KEY] !== null) {
-							normalized[ACTION_CAUSED_BY_ID_KEY] =
-								span.parentSpanId !== null && span.parentSpanId !== undefined
-									? await deriveActionId(
-											span.projectId,
-											span.traceId,
-											span.parentSpanId,
-										)
-									: null;
-						}
-
-						if (
-							normalized[ACTION_CAUSED_BY_ID_KEY] === undefined &&
-							attrs[ACTION_CAUSED_BY_ID_KEY] === null
-						) {
-							normalized[ACTION_CAUSED_BY_ID_KEY] = null;
-						}
+						normalized[ACTION_CONFIDENCE_KEY] = identity.confidence;
+						normalized[ACTION_ROOT_ID_KEY] = identity.rootActionId;
+						normalized[ACTION_CAUSED_BY_ID_KEY] = identity.causedByActionId;
 
 						if (normalized[ACTOR_TYPE_KEY] === undefined) {
 							normalized[ACTOR_TYPE_KEY] = "agent";
 						}
 
 						if (normalized[AGENT_RUN_ID_KEY] === undefined) {
-							normalized[AGENT_RUN_ID_KEY] = normalized[ACTION_ROOT_ID_KEY];
+							normalized[AGENT_RUN_ID_KEY] =
+								identity.agentRunId ?? identity.rootActionId;
 						}
 
 						// Determine Action Kind
@@ -281,12 +236,7 @@ export const genAiNormalizerPlugin: CollectorPlugin = {
 									const sideEffect =
 										attrs["mcp.tool.side_effect"] ??
 										attrs["mcp.side_effect"] ??
-										(attrs["mcp.tool.name"] === "update_invoice_status" ||
-										attrs["mcp.tool.name"]?.toString().includes("write") ||
-										attrs["mcp.tool.name"]?.toString().includes("update") ||
-										attrs["mcp.tool.name"]?.toString().includes("delete")
-											? 1
-											: 0);
+										inferToolSideEffect(attrs["mcp.tool.name"]);
 									normalized[TOOL_SIDE_EFFECT_KEY] = sideEffect;
 									normalized["obs.tool_call.side_effect"] = sideEffect;
 								}

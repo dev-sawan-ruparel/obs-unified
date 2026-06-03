@@ -141,7 +141,7 @@ describe("AlertsStore.getAnalysisNarrative", () => {
 });
 
 describe("AlertsStore.listEvaluations evidence references", () => {
-	it("adds alert and bound-analysis evidence references to evaluation rows", async () => {
+	it("hoists alert and bound-analysis evidence references to the list response", async () => {
 		const db = new MemSqlDb({
 			first: (sql) => {
 				if (sql.includes("FROM alert_rules")) {
@@ -182,22 +182,30 @@ describe("AlertsStore.listEvaluations evidence references", () => {
 		});
 		const store = new AlertsStore(db);
 
-		const evaluations = await store.listEvaluations({
+		const response = await store.listEvaluations({
 			ruleId: "rule-1",
 			projectId: "default",
 			hours: 24,
 		});
 
-		expect(evaluations[0].evidenceReferences).toEqual([
+		expect(response.evaluations).toEqual([
 			expect.objectContaining({
-				evidenceId: "alert:rule-1:evaluation:eval-1",
+				id: "eval-1",
+				value: 320,
+				state: "firing",
+			}),
+		]);
+		expect(response.evaluations[0].evidenceReferences).toBeUndefined();
+		expect(response.evidenceReferences).toEqual([
+			expect.objectContaining({
+				evidenceId: "alert:rule-1:rule",
 				entityKind: "alert",
 				entityId: "rule-1",
 				route: "#/alerts?alert=rule-1",
-				source: "alert_evaluations",
+				source: "alerts.rule_evaluation_preview",
 			}),
 			expect.objectContaining({
-				evidenceId: "alert:rule-1:evaluation:eval-1:analysis:latency.p95",
+				evidenceId: "alert:rule-1:analysis:latency.p95",
 				entityKind: "analysis",
 				entityId: "latency.p95",
 				route: "#/investigate/latency.p95",

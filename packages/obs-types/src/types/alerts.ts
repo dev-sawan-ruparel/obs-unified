@@ -96,6 +96,11 @@ export interface AlertEvaluation {
 	evidenceReferences?: EvidenceReference[];
 }
 
+export interface AlertEvaluationsListResponse {
+	evaluations: AlertEvaluation[];
+	evidenceReferences?: EvidenceReference[];
+}
+
 export interface AlertEvaluationRow {
 	id: string;
 	rule_id: string;

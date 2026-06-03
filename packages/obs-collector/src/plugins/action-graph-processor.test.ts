@@ -8,6 +8,7 @@ import {
 } from "@obs-unified/types/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
+	CollectorPlugin,
 	CollectorRuntime,
 	SpanProcessorPlugin,
 } from "../framework/collector";
@@ -22,13 +23,35 @@ import {
 	registerActionEnricherPlugin,
 	registerRedactionPlugin,
 } from "./action-graph-processor";
-import { deriveActionId } from "./gen-ai-normalizer";
+import { deriveActionId, genAiNormalizerPlugin } from "./gen-ai-normalizer";
 
 const ACTION_ID_1 = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
 const ACTION_ID_2 = "01J3Y4Z5A6B7C8D9E0F1G2H3K5";
 const RUN_ROLLUP_ID = "01HZQ5W3K8M4P2X7N9B0CDEFGH";
 const LLM_ACTION_ID = "01J4A6B7C8D9E0F1G2H3J4K5M6";
 const TOOL_ACTION_ID = "01J4A6B7C8D9E0F1G2H3J4K5M7";
+
+const registerSpanProcessors = (...plugins: CollectorPlugin[]) => {
+	const processors: SpanProcessorPlugin[] = [];
+	const runtime = {
+		addSpanProcessor(p: SpanProcessorPlugin) {
+			processors.push(p);
+		},
+	};
+	for (const plugin of plugins) {
+		plugin.register(
+			{} as Parameters<typeof plugin.register>[0],
+			runtime as unknown as CollectorRuntime,
+		);
+	}
+	return async (spans: StoredSpan[], context: CollectorRouteContext) => {
+		let next = spans;
+		for (const processor of processors) {
+			next = await processor.process(next, context);
+		}
+		return next;
+	};
+};
 
 describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 	let db: MemSqlDb;
@@ -451,6 +474,14 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 	});
 
 	it("rejects malformed explicit action IDs and persists deterministic fallback context", async () => {
+		let enricherAttrs: Record<string, unknown> | null = null;
+		registerActionEnricherPlugin({
+			name: "trust-boundary-test",
+			enrichActionRecord(_record, _span, attrs) {
+				enricherAttrs = attrs;
+			},
+		});
+
 		const span: StoredSpan = {
 			projectId: "proj-123",
 			spanId: "span-malformed",
@@ -535,6 +566,18 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			ActionConfidence.Fallback,
 		);
 		expect(transformedAttrs["obs.agent_run.id"]).toBeUndefined();
+		expect(enricherAttrs).toMatchObject({
+			[ACTION_ID_KEY]: expectedActionId,
+			[ACTION_ROOT_ID_KEY]: expectedRootId,
+			[ACTION_CAUSED_BY_ID_KEY]: null,
+			[ACTION_CONFIDENCE_KEY]: ActionConfidence.Fallback,
+		});
+		expect(JSON.stringify(enricherAttrs)).not.toContain("not-an-action-id");
+		expect(JSON.stringify(enricherAttrs)).not.toContain(
+			"also-not-an-action-id",
+		);
+		expect(JSON.stringify(enricherAttrs)).not.toContain("bad-parent-id");
+		expect(JSON.stringify(enricherAttrs)).not.toContain("bad-run-id");
 	});
 
 	it("derives queue continuation parent links when explicit async IDs are absent", async () => {
@@ -599,5 +642,118 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 		const attrs = JSON.parse(String(actionInsert.binds[24]));
 		expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Fallback);
 		expect(attrs[ACTION_CAUSED_BY_ID_KEY]).toBe(expectedParentActionId);
+	});
+
+	it("preserves action identity confidence across the normalizer-to-processor pipeline", async () => {
+		const baseSpan = {
+			projectId: "proj-123",
+			parentSpanId: null,
+			traceId: "trace-pipeline",
+			traceState: null,
+			serviceName: "pipeline-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-22T00:00:00.000Z",
+			endTime: "2026-05-22T00:00:01.000Z",
+			durationMs: 1000,
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:01.000Z",
+			expiresAt: "2026-05-23T00:00:01.000Z",
+			sessionId: null,
+			interactionId: null,
+		} satisfies Partial<StoredSpan>;
+
+		const explicitId = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
+		const spans: StoredSpan[] = [
+			{
+				...baseSpan,
+				spanId: "span-fallback",
+				spanName: "fallback llm",
+				attributesJson: JSON.stringify({
+					"gen_ai.operation.name": "chat",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-explicit",
+				spanName: "explicit llm",
+				attributesJson: JSON.stringify({
+					"gen_ai.operation.name": "chat",
+					[ACTION_ID_KEY]: explicitId,
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-malformed-pipeline",
+				spanName: "malformed llm",
+				attributesJson: JSON.stringify({
+					"gen_ai.operation.name": "chat",
+					[ACTION_ID_KEY]: "not-an-action-id",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-mcp",
+				spanName: "write_file",
+				attributesJson: JSON.stringify({
+					"mcp.method.name": "tools/call",
+					"mcp.tool.name": "write_file",
+				}),
+			},
+			{
+				...baseSpan,
+				spanId: "span-queue-child",
+				parentSpanId: "span-queue-parent",
+				spanName: "queued continuation",
+				attributesJson: JSON.stringify({
+					"openinference.span.kind": "CHAIN",
+				}),
+			},
+		] as StoredSpan[];
+
+		const runPipeline = registerSpanProcessors(
+			genAiNormalizerPlugin,
+			actionGraphProcessorPlugin,
+		);
+		await runPipeline(spans, context);
+
+		const actionBySpan = new Map(
+			db
+				.callsMatching("INSERT INTO actions")
+				.map((insert) => [String(insert.binds[13]), insert]),
+		);
+		const attrsFor = (spanId: string) =>
+			JSON.parse(String(actionBySpan.get(spanId)?.binds[24] ?? "{}"));
+
+		expect(attrsFor("span-fallback")[ACTION_CONFIDENCE_KEY]).toBe(
+			ActionConfidence.Fallback,
+		);
+		expect(attrsFor("span-explicit")).toMatchObject({
+			[ACTION_ID_KEY]: explicitId,
+			[ACTION_CONFIDENCE_KEY]: ActionConfidence.Explicit,
+		});
+		expect(attrsFor("span-malformed-pipeline")).toMatchObject({
+			[ACTION_ID_KEY]: await deriveActionId(
+				"proj-123",
+				"trace-pipeline",
+				"span-malformed-pipeline",
+			),
+			[ACTION_CONFIDENCE_KEY]: ActionConfidence.Fallback,
+		});
+		expect(attrsFor("span-mcp")[ACTION_CONFIDENCE_KEY]).toBe(
+			ActionConfidence.Fallback,
+		);
+		expect(db.callsMatching("INSERT INTO tool_calls")).toHaveLength(1);
+		expect(actionBySpan.get("span-queue-child")?.binds[3]).toBe(
+			await deriveActionId("proj-123", "trace-pipeline", "span-queue-parent"),
+		);
 	});
 });

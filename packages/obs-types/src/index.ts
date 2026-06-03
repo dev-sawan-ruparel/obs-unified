@@ -40,6 +40,7 @@ export type {
 	AlertComparison,
 	AlertEvaluation,
 	AlertEvaluationRow,
+	AlertEvaluationsListResponse,
 	AlertQuery,
 	AlertQueryAI,
 	AlertQueryLogs,

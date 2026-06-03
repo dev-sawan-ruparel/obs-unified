@@ -114,6 +114,8 @@ export const evidenceRouteFor = (
 	traceId?: string | null,
 ) => {
 	switch (entityKind) {
+		case "analysis":
+			return analysisRoute(entityId);
 		case "action":
 			return `#/actions/${encodeURIComponent(entityId)}`;
 		case "alert":
@@ -138,9 +140,9 @@ export const evidenceRouteFor = (
 			return `#/tool-calls/${encodeURIComponent(entityId)}`;
 		case "trace":
 			return traceRoute(entityId);
-		default:
-			return `#/${entityKind}/${encodeURIComponent(entityId)}`;
 	}
+	const exhaustive: never = entityKind;
+	return exhaustive;
 };
 
 const parseEvidenceTables = (

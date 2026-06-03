@@ -3,7 +3,6 @@ import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
 	ACTION_ID_KEY,
-	ACTION_ID_RE,
 	ACTION_KIND_KEY,
 	ACTION_MODEL_NAME_KEY,
 	ACTION_NAME_KEY,
@@ -13,7 +12,6 @@ import {
 	ACTION_TOTAL_COST_USD_KEY,
 	ACTOR_ID_KEY,
 	ACTOR_TYPE_KEY,
-	ActionConfidence,
 	AGENT_AUTONOMY_LEVEL_KEY,
 	AGENT_GOAL_KEY,
 	AGENT_ID_KEY,
@@ -51,6 +49,7 @@ import {
 	TOOL_SIDE_EFFECT_KEY,
 } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { resolveActionIdentity } from "../lib/action-identity";
 import { sha256Hex } from "../lib/hash";
 import { parseJsonRecord } from "../lib/json";
 import { isPayloadCaptureEnabled } from "../lib/payload-capture";
@@ -58,7 +57,6 @@ import { type SqlStatement, sqlDbFor } from "../lib/sql-db";
 
 import { enricherPlugins } from "./action-graph-processor/enrichers";
 import { runRedaction } from "./action-graph-processor/redaction";
-import { deriveActionId } from "./gen-ai-normalizer";
 
 const firstAttr = (
 	attrs: Record<string, JsonValue>,
@@ -77,16 +75,6 @@ const firstStringAttr = (
 ): string | undefined => {
 	const value = firstAttr(attrs, ...keys);
 	return typeof value === "string" ? value : undefined;
-};
-
-const firstActionIdAttr = (
-	attrs: Record<string, JsonValue>,
-	...keys: string[]
-): string | undefined => {
-	const value = firstStringAttr(attrs, ...keys);
-	if (value === undefined) return undefined;
-	const trimmed = value.trim();
-	return ACTION_ID_RE.test(trimmed) ? trimmed : undefined;
 };
 
 const firstNumberAttr = (
@@ -208,42 +196,18 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							firstStringAttr(attrs, ACTION_KIND_KEY) ??
 							(openInferenceKind as string) ??
 							"agent.step";
-						const explicitActionId = firstActionIdAttr(attrs, ACTION_ID_KEY);
-						const actionId =
-							explicitActionId ??
-							(await deriveActionId(span.projectId, span.traceId, span.spanId));
-						const actionConfidence = explicitActionId
-							? ActionConfidence.Explicit
-							: ActionConfidence.Fallback;
-						const rootActionId =
-							firstActionIdAttr(
-								attrs,
-								ACTION_ROOT_ID_KEY,
-								AGENT_RUN_ID_KEY,
-								"obs.action.agent_run_id",
-								"obs.agent_run.id",
-							) ??
-							(actionKind === "agent.run" || actionKind === "agent"
-								? actionId
-								: await deriveActionId(
-										span.projectId,
-										span.traceId,
-										span.traceId.substring(0, 16),
-									));
-						const causedByActionId =
-							firstActionIdAttr(attrs, ACTION_CAUSED_BY_ID_KEY) ??
-							(span.parentSpanId
-								? await deriveActionId(
-										span.projectId,
-										span.traceId,
-										span.parentSpanId,
-									)
-								: null);
+						const identity = await resolveActionIdentity(span, {
+							...attrs,
+							[ACTION_KIND_KEY]: actionKind,
+						});
+						const actionId = identity.actionId;
+						const rootActionId = identity.rootActionId;
+						const causedByActionId = identity.causedByActionId;
 						const trustedAttrs: Record<string, JsonValue> = {
 							...attrs,
 							[ACTION_ID_KEY]: actionId,
 							[ACTION_ROOT_ID_KEY]: rootActionId,
-							[ACTION_CONFIDENCE_KEY]: actionConfidence,
+							[ACTION_CONFIDENCE_KEY]: identity.confidence,
 						};
 						delete trustedAttrs["obs.action.agent_run_id"];
 						delete trustedAttrs["obs.agent_run.id"];
@@ -276,12 +240,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							null;
 
 						const agentRunId =
-							firstActionIdAttr(
-								attrs,
-								AGENT_RUN_ID_KEY,
-								"obs.action.agent_run_id",
-								"obs.agent_run.id",
-							) ??
+							identity.agentRunId ??
 							(actionKind === "agent.run" || actionKind === "agent"
 								? actionId
 								: null);
@@ -355,7 +314,11 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						for (const plugin of enricherPlugins) {
 							if (plugin.enrichActionRecord) {
 								try {
-									await plugin.enrichActionRecord(actionRecord, span, attrs);
+									await plugin.enrichActionRecord(
+										actionRecord,
+										span,
+										trustedAttrs,
+									);
 								} catch (err) {
 									console.error(
 										`[action-enricher-plugin:${plugin.name}] enrichActionRecord failed`,
@@ -434,7 +397,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										await plugin.enrichAgentRunRecord(
 											agentRunRecord,
 											span,
-											attrs,
+											trustedAttrs,
 										);
 									} catch (err) {
 										console.error(
@@ -545,7 +508,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										await plugin.enrichToolCallRecord(
 											toolCallRecord,
 											span,
-											attrs,
+											trustedAttrs,
 										);
 									} catch (err) {
 										console.error(
@@ -614,7 +577,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										await plugin.enrichRetrievalRecord(
 											retrievalRecord,
 											span,
-											attrs,
+											trustedAttrs,
 										);
 									} catch (err) {
 										console.error(
@@ -657,7 +620,11 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							for (const plugin of enricherPlugins) {
 								if (plugin.enrichEvalRecord) {
 									try {
-										await plugin.enrichEvalRecord(evalRecord, span, attrs);
+										await plugin.enrichEvalRecord(
+											evalRecord,
+											span,
+											trustedAttrs,
+										);
 									} catch (err) {
 										console.error(
 											`[action-enricher-plugin:${plugin.name}] enrichEvalRecord failed`,
@@ -713,7 +680,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										await plugin.enrichArtifactRecord(
 											artifactRecord,
 											span,
-											attrs,
+											trustedAttrs,
 										);
 									} catch (err) {
 										console.error(
