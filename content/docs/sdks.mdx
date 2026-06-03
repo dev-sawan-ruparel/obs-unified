@@ -45,7 +45,7 @@ All four packages live in the obs-unified monorepo. The TypeScript packages publ
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| `@obs-unified/mcp-server` | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, connected signals, agent runs, actions, and tool calls |
+| `@obs-unified/mcp-server` | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
 
 The MCP server is intentionally a **read boundary**. Agents can inspect the same graph a human sees in the dashboard, but they do not need the write-only telemetry ingest key used by app SDKs. Configure it with a dashboard token, a compatible read bearer, or a local `obs_session` cookie for development.
 
@@ -62,8 +62,12 @@ Use your GitHub username and a classic personal access token with `read:packages
 
 ## The identity skeleton
 
-```text
-user_id → session_id → interaction_id → trace_id → span_id
+```mermaid
+flowchart LR
+  user["user_id"] --> session["session_id"]
+  session --> interaction["interaction_id"]
+  interaction --> trace["trace_id"]
+  trace --> span["span_id"]
 ```
 
 The browser SDK owns the left half (user / session / interaction). The server SDK owns the right half (trace / span). Agent helpers and MCP context propagation extend that same skeleton across agent runs, actions, and tool calls. They meet at the **`x-obs-interaction` request header** that the browser sets on outbound fetches and the server stamps onto the resulting span.
@@ -72,8 +76,11 @@ Once a signal carries `interaction_id`, the dashboard's [Connected rail](/docs/w
 
 For CPU and off-CPU work, `interaction_id` is the entry key, not the profiler's storage key. Profiles are indexed by `trace_id`; when a profiled service labels samples with trace IDs, the path becomes:
 
-```text
-interaction_id → trace_id → profile_trace_index → CPU/off-CPU profile
+```mermaid
+flowchart LR
+  interaction["interaction_id"] --> trace["trace_id"]
+  trace --> profileIndex["profile_trace_index"]
+  profileIndex --> profile["CPU/off-CPU profile"]
 ```
 
 ## @obs-unified/analytics-sdk

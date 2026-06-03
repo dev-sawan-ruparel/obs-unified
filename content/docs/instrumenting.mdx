@@ -7,22 +7,31 @@ This page walks through wiring `@obs-unified/analytics-sdk` and `@obs-unified/te
 
 ## What "end-to-end correlation" means here
 
-```text
-[Browser]                                  [Server]
-─────────                                  ────────
-click button
-  → mint interaction_id
-  → push usage event ─────────────────────→  /v1/usage  (collector)
-  → fetch("/api/checkout")
-       headers["x-obs-interaction"] = id
-                  │
-                  ▼
-                                          stampInteractionFromRequest(span, req)
-                                          span.attributes["obs.interaction.id"] = id
-                                          → child spans inherit
-                                          → logs from this handler inherit
-                                          → AI calls in this handler inherit
-                                          → export span ─────→ /v1/traces (collector)
+```mermaid
+flowchart LR
+  subgraph Browser
+    click["click button"] --> mint["mint interaction_id"]
+    mint --> usage["push usage event"]
+    mint --> fetch["fetch /api/checkout<br/>x-obs-interaction = id"]
+  end
+
+  subgraph Server
+    stamp["stampInteractionFromRequest(span, req)"]
+    attrs["span.attributes['obs.interaction.id'] = id"]
+    child["child spans inherit"]
+    logs["logs from this handler inherit"]
+    ai["AI calls in this handler inherit"]
+    export["export span"]
+    stamp --> attrs
+    attrs --> child
+    attrs --> logs
+    attrs --> ai
+    attrs --> export
+  end
+
+  usage --> usageIngest["/v1/usage collector"]
+  fetch --> stamp
+  export --> traceIngest["/v1/traces collector"]
 ```
 
 Every signal that flows out of the server while that request is in flight carries the same `interaction_id`. The dashboard's [Connected rail](/docs/what-to-expect) reads that column to surface "the click that caused this trace" in one click.

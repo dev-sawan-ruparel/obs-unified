@@ -20,19 +20,29 @@ Self-hosting is the deployment model, not the whole pitch: the default hosted pa
 - [Python Flask instrumentation](/docs/instrument-python-flask) — OpenTelemetry setup for a Flask service.
 - [What to expect](/docs/what-to-expect) — the click-to-CPU scenarios the platform was built around, with the rail's role at every hop.
 - [Production operations](/docs/ops/production) — reverse proxy, Postgres tuning, storage retention, and Kubernetes notes.
+- [Vendor comparison](/docs/comparison) — side-by-side feature comparison with Datadog, Sentry, and PostHog.
 
 ## The unified-stack promise
 
-```text
-user_id → session_id → interaction_id → trace_id → span_id
+```mermaid
+flowchart LR
+  user["user_id"] --> session["session_id"]
+  session --> interaction["interaction_id"]
+  interaction --> trace["trace_id"]
+  trace --> span["span_id"]
+  span --> action["action_id"]
 ```
 
 That identity skeleton is the unifying layer. The SDKs propagate it, the collector stores it, and the dashboard plus MCP server use it to connect product behavior, backend execution, agent actions, AI cost, logs, replay, alerts, profiles, and analyses. Read the [SDKs](/docs/sdks) page for which ID is minted where, [Agent Action Graph](/docs/agent-action-graph) for agent causality, and [What to expect](/docs/what-to-expect) for the journeys it makes possible.
 
 The click-to-CPU path is deliberately precise: the browser mints `interaction_id`, the backend stamps it onto spans/logs/AI calls/MCP tool context, and profiles join through the `trace_id` those spans belong to. In shorthand:
 
-```text
-frontend action → interaction_id → trace_id → profile_trace_index → CPU/off-CPU profile
+```mermaid
+flowchart LR
+  action["frontend action"] --> interaction["interaction_id"]
+  interaction --> trace["trace_id"]
+  trace --> profileIndex["profile_trace_index"]
+  profileIndex --> profile["CPU/off-CPU profile"]
 ```
 
 <Callout type="info">

@@ -9,28 +9,29 @@ obs-unified is designed around one promise: **built for agentic debugging: one t
 
 Every detail page in the dashboard mounts a right-side rail with four sections:
 
-```text
-┌─ Connected — span ─┐
-│                    │
-│  Up:               │
-│    Trace           │
-│      Parent trace  │
-│                    │
-│  Across:           │
-│    Other spans     │
-│    Logs in trace   │
-│    AI calls        │
-│                    │
-│  Down:             │
-│    Profiles        │
-│                    │
-│  Related:          │
-│    Click that      │
-│      caused this   │
-│      trace         │
-│      → click_5     │
-│                    │
-└────────────────────┘
+```mermaid
+flowchart TB
+  subgraph Rail["Connected — span"]
+    direction TB
+    subgraph Up["Up"]
+      trace["Trace"]
+      parent["Parent trace"]
+      trace --> parent
+    end
+    subgraph Across["Across"]
+      spans["Other spans"]
+      logs["Logs in trace"]
+      ai["AI calls"]
+    end
+    subgraph Down["Down"]
+      profiles["Profiles"]
+    end
+    subgraph Related["Related"]
+      click["Click that caused this trace"]
+      clickId["click_5"]
+      click --> clickId
+    end
+  end
 ```
 
 - **Up** — the parent entity (trace ← span, session ← usage event, etc.)
@@ -61,8 +62,12 @@ The browser SDK mints a single `interaction_id` for a frontend action and inject
 
 CPU and off-CPU profiles are joined through traces rather than storing `interaction_id` directly on every sample. If profiling is enabled and samples are labeled with trace IDs, the dashboard can follow:
 
-```text
-frontend click → interaction_id → backend trace_id → profile_trace_index → CPU/off-CPU profile
+```mermaid
+flowchart LR
+  click["frontend click"] --> interaction["interaction_id"]
+  interaction --> trace["backend trace_id"]
+  trace --> profileIndex["profile_trace_index"]
+  profileIndex --> profile["CPU/off-CPU profile"]
 ```
 
 That is the accurate version of "one ID from frontend to CPU": one interaction ID anchors the user action, and the trace it caused carries the investigation into profiling data.

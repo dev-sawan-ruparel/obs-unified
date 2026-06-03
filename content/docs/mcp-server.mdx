@@ -1,6 +1,6 @@
 ---
 title: MCP server
-description: Give AI agents read-only investigation tools for obs-unified traces, logs, replays, agent runs, actions, and tool calls.
+description: Give AI agents read-only investigation tools for obs-unified traces, logs, replays, profiles, evals, agent runs, actions, and tool calls.
 ---
 
 `@obs-unified/mcp-server` is a stdio Model Context Protocol server for agents
@@ -8,8 +8,8 @@ that need to inspect an obs-unified collector.
 
 It exposes the same investigation graph that humans use in the dashboard:
 status, recent traces, trace detail, service operations, service map, logs, AI
-sessions, users, replays, connected signals, agent runs, actions, and tool
-calls.
+sessions, users, replays, profiles, evals, connected signals, agent runs,
+actions, and tool calls.
 
 ## Why it exists
 
@@ -17,8 +17,14 @@ Modern debugging is increasingly agent-assisted. Instead of asking an agent to
 guess from screenshots or copy-pasted log snippets, obs-unified gives it
 structured tools over the telemetry graph:
 
-```text
-user action → trace → logs → replay → AI cost → action graph → CPU profile
+```mermaid
+flowchart LR
+  action["user action"] --> trace["trace"]
+  trace --> logs["logs"]
+  logs --> replay["replay"]
+  replay --> cost["AI cost"]
+  cost --> actionGraph["action graph"]
+  actionGraph --> profile["CPU profile"]
 ```
 
 The MCP server is a **read boundary**. It lets agents traverse evidence without
@@ -26,23 +32,20 @@ granting write access to telemetry ingest.
 
 ## Install
 
-The MCP server lives in the obs-unified monorepo at
-`packages/mcp-server`. GitHub Packages publishing is pending a package-write
-token, so use a local checkout today:
+The MCP server is published to the obs-unified GitHub Packages registry:
+
+```bash
+pnpm config set @obs-unified:registry https://npm.pkg.github.com
+pnpm add -g @obs-unified/mcp-server
+```
+
+For local development from a checkout:
 
 ```bash
 git clone https://github.com/obs-unified/obs-unified.git
 cd obs-unified
 pnpm install
 pnpm --filter @obs-unified/mcp-server build
-```
-
-Once the package is published to the obs-unified GitHub Packages registry, it
-can be installed globally:
-
-```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm add -g @obs-unified/mcp-server
 ```
 
 ## Configure
@@ -125,6 +128,8 @@ pnpm --filter @obs-unified/mcp-server build
 - `get_ai_session`
 - `get_user`
 - `get_replay`
+- `get_profile`
+- `get_eval`
 - `connected_signals`
 - `get_agent_run`
 - `get_action`

@@ -20,14 +20,20 @@ Use it when you need to answer:
 
 The graph extends the normal interaction chain:
 
-```text
-user_id → session_id → interaction_id → trace_id → span_id
+```mermaid
+flowchart LR
+  user["user_id"] --> session["session_id"]
+  session --> interaction["interaction_id"]
+  interaction --> trace["trace_id"]
+  trace --> span["span_id"]
 ```
 
 with action-level causality:
 
-```text
-root_action_id → action_id → caused_by_action_id
+```mermaid
+flowchart LR
+  root["root_action_id"] --> action["action_id"]
+  action --> cause["caused_by_action_id"]
 ```
 
 Browser-triggered agents create a fresh `root_action_id` while retaining the
