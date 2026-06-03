@@ -109,10 +109,21 @@ export const queryRoutesPlugin: CollectorPlugin = {
 
 		app.get("/internal/telemetry/traces/:traceId", async (c) => {
 			const projectId = getProjectId(c);
+			const traceId = c.req.param("traceId");
 			const store = runtime.createStore(c.env);
-			const detail = await store.getTraceDetail(
-				c.req.param("traceId"),
-				projectId,
+			// A `query.trace_detail` span = a trace was viewed. Counting these
+			// against `traces.ingest`'s trace_count gives the read/write ratio
+			// (Q3); span duration captures end-to-end read latency (Q1).
+			const detail = await runtime.withChildSpan(
+				"query.trace_detail",
+				async (span) => {
+					span.setAttribute("project.id", projectId);
+					span.setAttribute("trace.id", traceId);
+					const result = await store.getTraceDetail(traceId, projectId);
+					span.setAttribute("query.found", result !== null);
+					span.setAttribute("query.span_count", result?.spans.length ?? 0);
+					return result;
+				},
 			);
 			if (!detail)
 				return c.json({ error: "Not Found", message: "Trace not found" }, 404);
@@ -121,8 +132,25 @@ export const queryRoutesPlugin: CollectorPlugin = {
 
 		app.get("/internal/telemetry/traces/:traceId/gaps", async (c) => {
 			const projectId = getProjectId(c);
+			const traceId = c.req.param("traceId");
 			const store = runtime.createStore(c.env);
-			const gaps = await store.getTraceGaps(c.req.param("traceId"), projectId);
+			// `query.trace_gaps` span duration is the read-time gap computation
+			// cost end-to-end (project-scoped span SELECT + compute) — the
+			// DB-inclusive half of Q1 that the pure-compute benchmark omits.
+			const gaps = await runtime.withChildSpan(
+				"query.trace_gaps",
+				async (span) => {
+					span.setAttribute("project.id", projectId);
+					span.setAttribute("trace.id", traceId);
+					const result = await store.getTraceGaps(traceId, projectId);
+					span.setAttribute("query.found", result !== null);
+					span.setAttribute(
+						"query.blindspot_count",
+						result?.blindspots.length ?? 0,
+					);
+					return result;
+				},
+			);
 			if (!gaps)
 				return c.json(
 					{ error: "Not Found", message: "Trace gaps not found" },

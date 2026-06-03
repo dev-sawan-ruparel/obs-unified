@@ -85,7 +85,10 @@ export const otlpReceiverPlugin: CollectorPlugin = {
 					span.setAttribute("traces.spans_rejected", totalRejected);
 					span.setAttribute("traces.spans_inserted", spans.length);
 					span.setAttribute("project.id", projectId);
-					await store.ingest(spans);
+					const result = await store.ingest(spans);
+					// Distinct traces touched by this batch — the write-side
+					// denominator for the gap/trace-detail read-rate ratio (Q3).
+					span.setAttribute("traces.trace_count", result.traceCount);
 				});
 			} catch (err) {
 				runtime.logger.error("[/v1/traces] storage error", {
