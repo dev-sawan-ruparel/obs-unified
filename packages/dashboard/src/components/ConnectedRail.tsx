@@ -38,6 +38,8 @@ interface ConnectedLink {
 	href: string;
 	count?: number;
 	sample?: string;
+	confidence?: number;
+	causalConfidence?: "explicit" | "fallback" | string;
 }
 
 export interface ConnectedSection {
@@ -118,20 +120,36 @@ const SectionGroup = ({
 				{section.label}
 			</div>
 			<div className="flex flex-col gap-1">
-				{section.links.map((link) => (
-					<button
-						type="button"
-						key={`${link.href}-${link.label}-${link.sample ?? ""}`}
-						onClick={() => navigateConnectedHref(link.href, onNavigate)}
-						className="text-left text-[0.75rem] font-mono px-2 py-1 border-[1px] border-sys-outline hover:bg-sys-surface-high cursor-pointer transition-none truncate"
-						title={link.sample ?? link.label}
-					>
-						{link.count !== undefined && (
-							<span className="font-bold mr-1.5">{link.count}×</span>
-						)}
-						{link.label}
-					</button>
-				))}
+				{section.links.map((link) => {
+					const conf = link.causalConfidence;
+					return (
+						<button
+							type="button"
+							key={`${link.href}-${link.label}-${link.sample ?? ""}`}
+							onClick={() => navigateConnectedHref(link.href, onNavigate)}
+							className="text-left text-[0.75rem] font-mono px-2 py-1 border-[1px] border-sys-outline hover:bg-sys-surface-high cursor-pointer transition-none truncate flex items-center justify-between gap-1.5"
+							title={link.sample ?? link.label}
+						>
+							<span className="truncate flex-1">
+								{link.count !== undefined && (
+									<span className="font-bold mr-1.5">{link.count}×</span>
+								)}
+								{link.label}
+							</span>
+							{conf && (
+								<span
+									className={`px-1 py-0 text-[0.5625rem] font-bold uppercase rounded-sm border flex-none ${
+										conf === "explicit"
+											? "bg-sys-primary/10 border-sys-primary/20 text-sys-primary"
+											: "bg-sys-outline/10 border-sys-outline/20 text-sys-on-surface-muted"
+									}`}
+								>
+									{conf}
+								</span>
+							)}
+						</button>
+					);
+				})}
 			</div>
 		</div>
 	);

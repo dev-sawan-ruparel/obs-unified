@@ -127,7 +127,7 @@ Status legend:
 - [x] Agent run replay, decision graph, profiles/guardrails section.
 - [x] Tool reliability, cost attribution, autonomous review, and version diff
       aggregate routes and dashboards.
-- [x] Production-to-eval storage and dashboard loop.
+- [x] Production-to-eval storage, durable eval run records, and dashboard loop.
 - [x] Raw span, log, AI-call, and profile signals link back to exact or
       trace-derived action, tool-call, eval, and agent-run context.
 - [x] Action graph ingestion rejects malformed explicit action IDs, persists

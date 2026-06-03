@@ -96,7 +96,14 @@ export {
 	EvalCaseSourceNotFoundError,
 	type EvalCaseSourceType,
 	EvalCasesStore,
+	type EvalRun,
+	type EvalRunCandidate,
+	type EvalRunInput,
+	type EvalRunSourceCase,
+	type EvalRunStatus,
+	type EvalRunsListOptions,
 	isEvalCaseSourceType,
+	isEvalRunStatus,
 } from "./lib/eval-cases-store";
 export { MetricsStore } from "./lib/metrics-store";
 export { ProjectsStore } from "./lib/projects-store";

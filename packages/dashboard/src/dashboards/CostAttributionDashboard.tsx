@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BarList, Card, Stat, UpdatedChip } from "../components/primitives";
+import { resolveExemplarLink } from "../components/resolver";
 import { EmptyState } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -111,15 +112,12 @@ interface Props {
 
 const openExemplar = (
 	onNavigate: Props["onNavigate"],
-	row: CostAttributionAggregateRow,
 	ex: AggregateExemplar,
 ) => {
-	if (row.dimension === "tool" && ex.toolCallId) {
-		onNavigate?.(`#/tool-calls/${ex.toolCallId}`);
-	} else if (ex.agentRunId) onNavigate?.(`#/agent-runs/${ex.agentRunId}`);
-	else if (ex.actionId) onNavigate?.(`#/actions/${ex.actionId}`);
-	else if (ex.toolCallId) onNavigate?.(`#/tool-calls/${ex.toolCallId}`);
-	else if (ex.traceId) onNavigate?.(`#/traces?trace=${ex.traceId}`);
+	const link = resolveExemplarLink(ex);
+	if (link) {
+		onNavigate?.(link);
+	}
 };
 
 export function CostAttributionDashboard({ onNavigate }: Props) {
@@ -298,31 +296,57 @@ export function CostAttributionDashboard({ onNavigate }: Props) {
 								{data.rows.length} pivots
 							</span>
 						</div>
-						<div className="mt-2 flex flex-col gap-2">
+						<div className="mt-2 flex flex-col gap-2 overflow-y-auto max-h-[350px]">
 							{data.rows.slice(0, 8).map((row) => {
-								const exemplar = row.exemplars?.[0];
-								if (!exemplar) return null;
+								if (!row.exemplars || row.exemplars.length === 0) return null;
 								return (
 									<div
 										key={`${row.dimension ?? "cost"}-${row.key ?? row.label}`}
-										className="flex items-center justify-between gap-3 border-b border-sys-outline-soft/40 pb-2 last:border-0"
+										className="flex flex-col gap-1 border-b border-sys-outline-soft/40 pb-2 last:border-0"
 									>
-										<div className="min-w-0">
-											<div className="truncate text-[0.75rem] font-bold">
+										<div className="flex items-baseline justify-between gap-2">
+											<span className="truncate text-[0.75rem] font-bold">
 												{row.label ?? row.key ?? "unknown"}
-											</div>
-											<div className="font-mono text-[0.625rem] opacity-60">
-												${row.totalCostUsd.toFixed(4)} -{" "}
-												{exemplar.label ?? exemplar.actionId}
-											</div>
+											</span>
+											<span className="font-mono text-[0.6875rem] opacity-70">
+												${row.totalCostUsd.toFixed(4)}
+											</span>
 										</div>
-										<button
-											type="button"
-											onClick={() => openExemplar(onNavigate, row, exemplar)}
-											className="flex-none underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft font-mono text-[0.75rem]"
-										>
-											Inspect
-										</button>
+										<div className="flex flex-col gap-1.5 pl-2">
+											{row.exemplars.map((ex, idx) => {
+												const link = resolveExemplarLink(ex);
+												return (
+													<div
+														key={ex.actionId || idx}
+														className="flex items-center justify-between gap-2 text-[0.6875rem]"
+													>
+														<div className="flex flex-col min-w-0">
+															<span
+																className="font-semibold truncate max-w-[200px]"
+																title={ex.label || ex.actionId}
+															>
+																{ex.label ?? `Exemplar ${idx + 1}`}
+															</span>
+															<span className="font-mono text-[0.5625rem] opacity-60">
+																{ex.agentRunId
+																	? `run: ${ex.agentRunId.slice(0, 8)}`
+																	: "aggregate"}
+															</span>
+														</div>
+														<button
+															type="button"
+															disabled={!link}
+															onClick={() =>
+																link && openExemplar(onNavigate, ex)
+															}
+															className="underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft font-mono text-[0.625rem] disabled:opacity-40 flex-none cursor-pointer"
+														>
+															Open
+														</button>
+													</div>
+												);
+											})}
+										</div>
 									</div>
 								);
 							})}

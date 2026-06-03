@@ -351,25 +351,70 @@ export function FlameGraph({
 			</div>
 
 			{hovered && hovered.name !== "__root__" && (
-				<div className="font-mono text-[0.75rem] bg-sys-surface-low px-2 py-1 border border-sys-outline flex flex-wrap items-center gap-x-3">
-					<span className="font-bold">{hovered.name}</span>
-					{hovered.codeRef && (
-						<a
-							href={buildIdeUrl(hovered.codeRef)}
-							target="_blank"
-							rel="noreferrer"
-							className="text-sys-primary underline hover:text-sys-primary-high font-bold"
-						>
-							{hovered.codeRef.relativePath || hovered.codeRef.originalPath}:
-							{hovered.codeRef.lineNumber || 1}
-						</a>
-					)}
-					<span className="opacity-60">
+				<div className="font-mono text-[0.75rem] bg-sys-surface-low px-2 py-1.5 border border-sys-outline flex flex-col gap-1 md:flex-row md:items-center md:flex-wrap md:gap-x-3">
+					<span
+						className="font-bold text-sys-on-surface truncate max-w-[300px]"
+						title={hovered.name}
+					>
+						{hovered.name}
+					</span>
+					{hovered.codeRef &&
+						(() => {
+							const path =
+								hovered.codeRef.relativePath ||
+								hovered.codeRef.absolutePath ||
+								hovered.codeRef.originalPath;
+							const isPathRedacted =
+								!path || path.includes("redacted") || path === "<redacted>";
+							const displayPath = isPathRedacted ? "[path redacted]" : path;
+							const suffix = hovered.codeRef.lineNumber
+								? `:${hovered.codeRef.lineNumber}`
+								: "";
+							const ideUrl = buildIdeUrl(hovered.codeRef);
+							const copyPath = () => {
+								if (path) {
+									void navigator.clipboard.writeText(path);
+								}
+							};
+
+							return (
+								<div className="flex flex-wrap items-center gap-1.5">
+									<span
+										className={`opacity-80 truncate max-w-[250px] ${isPathRedacted ? "italic opacity-50" : ""}`}
+										title={displayPath + suffix}
+									>
+										{displayPath}
+										{!isPathRedacted && suffix}
+									</span>
+									{ideUrl && !isPathRedacted && (
+										<a
+											href={ideUrl}
+											target="_blank"
+											rel="noreferrer"
+											className="text-sys-primary underline hover:text-sys-primary-high font-bold text-[0.6875rem] px-1 border border-sys-primary/20 bg-sys-primary/5 hover:bg-sys-primary/10 flex-none"
+										>
+											Open IDE
+										</a>
+									)}
+									{path && !isPathRedacted && (
+										<button
+											type="button"
+											onClick={copyPath}
+											className="text-sys-on-surface-muted hover:text-sys-on-surface text-[0.625rem] px-1 border border-sys-outline-soft cursor-pointer flex-none"
+											title="Copy File Path"
+										>
+											Copy
+										</button>
+									)}
+								</div>
+							);
+						})()}
+					<span className="opacity-60 text-[0.6875rem]">
 						{hovered.value.toLocaleString()} samples ·{" "}
 						{((hovered.value / total) * 100).toFixed(1)}% of total · depth{" "}
 						{hovered.depth}
 					</span>
-					<span className="opacity-50">click to zoom</span>
+					<span className="opacity-50 text-[0.625rem]">click to zoom</span>
 				</div>
 			)}
 

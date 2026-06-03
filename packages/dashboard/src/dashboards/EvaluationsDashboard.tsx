@@ -44,7 +44,32 @@ export interface EvalCaseResult {
 export function EvaluationsDashboard() {
 	const api = useApi();
 	const [cases, setCases] = useState<EvalCase[]>([]);
-	const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+	const [selectedCaseId, setSelectedCaseId] = useState<string | null>(() => {
+		if (typeof window !== "undefined") {
+			const query = window.location.hash.split("?")[1];
+			if (query) {
+				const params = new URLSearchParams(query);
+				return params.get("case") || params.get("eval_case_id") || null;
+			}
+		}
+		return null;
+	});
+
+	useEffect(() => {
+		const handleHashChange = () => {
+			const query = window.location.hash.split("?")[1];
+			if (query) {
+				const params = new URLSearchParams(query);
+				const caseId = params.get("case") || params.get("eval_case_id");
+				if (caseId) {
+					setSelectedCaseId(caseId);
+				}
+			}
+		};
+		window.addEventListener("hashchange", handleHashChange);
+		return () => window.removeEventListener("hashchange", handleHashChange);
+	}, []);
+
 	const [selectedCase, setSelectedCase] = useState<EvalCase | null>(null);
 	const [results, setResults] = useState<EvalCaseResult[]>([]);
 	const [selectedResult, setSelectedResult] = useState<EvalCaseResult | null>(

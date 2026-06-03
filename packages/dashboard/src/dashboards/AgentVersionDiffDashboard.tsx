@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
+import { resolveExemplarLink } from "../components/resolver";
 import { EmptyState } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -39,9 +40,10 @@ const openExemplar = (
 	onNavigate: Props["onNavigate"],
 	ex: AggregateExemplar,
 ) => {
-	if (ex.agentRunId) onNavigate?.(`#/agent-runs/${ex.agentRunId}`);
-	else if (ex.actionId) onNavigate?.(`#/actions/${ex.actionId}`);
-	else if (ex.traceId) onNavigate?.(`#/traces?trace=${ex.traceId}`);
+	const link = resolveExemplarLink(ex);
+	if (link) {
+		onNavigate?.(link);
+	}
 };
 
 export function AgentVersionDiffDashboard({ onNavigate }: Props) {

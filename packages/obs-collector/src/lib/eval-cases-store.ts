@@ -55,6 +55,108 @@ export interface EvalCaseListOptions {
 	limit?: number;
 }
 
+export type EvalRunStatus =
+	| "pending"
+	| "running"
+	| "completed"
+	| "failed"
+	| "canceled";
+
+export interface EvalRunCandidate {
+	agentId: string | null;
+	agentVersion: string | null;
+	promptId: string | null;
+	promptVersion: string | null;
+	modelProvider: string | null;
+	model: string | null;
+	modelVersion: string | null;
+}
+
+export interface EvalRunSourceCase {
+	id: string;
+	name: string;
+	sourceEntityType: string;
+	sourceEntityId: string;
+	sourceAgentRunId: string | null;
+	sourceActionId: string | null;
+	sourceAiCallId: string | null;
+	sourceToolCallId: string | null;
+	sourceTraceId: string | null;
+	sourceSpanId: string | null;
+	evidenceReferences?: EvidenceReference[];
+}
+
+export interface EvalRun {
+	id: string;
+	projectId: string;
+	evalCaseId: string | null;
+	status: EvalRunStatus;
+	candidate: EvalRunCandidate;
+	startedAt: string | null;
+	endedAt: string | null;
+	totalCount: number;
+	passCount: number;
+	failCount: number;
+	averageScore: number | null;
+	metadata: Record<string, JsonValue>;
+	createdAt: string;
+	sourceEvalCase?: EvalRunSourceCase | null;
+	evidenceReferences?: EvidenceReference[];
+}
+
+export interface EvalRunInput {
+	id?: string;
+	evalCaseId?: string | null;
+	status?: EvalRunStatus;
+	candidate?: Partial<EvalRunCandidate>;
+	startedAt?: string | null;
+	endedAt?: string | null;
+	totalCount?: number;
+	passCount?: number;
+	failCount?: number;
+	averageScore?: number | null;
+	metadata?: Record<string, JsonValue>;
+}
+
+export interface EvalRunsListOptions {
+	projectId: string;
+	evalCaseId?: string;
+	status?: EvalRunStatus;
+	limit?: number;
+}
+
+interface EvalRunRow {
+	id: string;
+	project_id: string;
+	eval_case_id: string | null;
+	candidate_agent_id: string | null;
+	candidate_agent_version: string | null;
+	candidate_prompt_id: string | null;
+	candidate_prompt_version: string | null;
+	candidate_model_provider: string | null;
+	candidate_model: string | null;
+	candidate_model_version: string | null;
+	status: string;
+	started_at: string | null;
+	ended_at: string | null;
+	total_count: number;
+	pass_count: number;
+	fail_count: number;
+	average_score: number | null;
+	metadata_json: unknown;
+	created_at: string;
+	case_id?: string | null;
+	case_name?: string | null;
+	case_source_entity_type?: string | null;
+	case_source_entity_id?: string | null;
+	case_source_agent_run_id?: string | null;
+	case_source_action_id?: string | null;
+	case_source_ai_call_id?: string | null;
+	case_source_tool_call_id?: string | null;
+	case_source_trace_id?: string | null;
+	case_source_span_id?: string | null;
+}
+
 interface EvalCaseRow {
 	id: string;
 	project_id: string;
@@ -135,11 +237,23 @@ const SOURCE_TYPES: EvalCaseSourceType[] = [
 	"trace",
 ];
 
+const EVAL_RUN_STATUSES: EvalRunStatus[] = [
+	"pending",
+	"running",
+	"completed",
+	"failed",
+	"canceled",
+];
+
 export const isEvalCaseSourceType = (
 	value: unknown,
 ): value is EvalCaseSourceType =>
 	typeof value === "string" &&
 	SOURCE_TYPES.includes(value as EvalCaseSourceType);
+
+export const isEvalRunStatus = (value: unknown): value is EvalRunStatus =>
+	typeof value === "string" &&
+	EVAL_RUN_STATUSES.includes(value as EvalRunStatus);
 
 const parseJsonField = (value: unknown): JsonValue | null => {
 	if (value === null || value === undefined) return null;
@@ -176,6 +290,20 @@ const clampLimit = (limit: number | undefined): number =>
 		Math.max(1, Number.isFinite(limit ?? NaN) ? (limit ?? 50) : 50),
 	);
 
+const nonNegativeInteger = (value: number | undefined): number => {
+	if (value === undefined) return 0;
+	if (!Number.isFinite(value) || value < 0) {
+		throw new Error("summary counters must be non-negative numbers");
+	}
+	return Math.floor(value);
+};
+
+const optionalScore = (value: number | null | undefined): number | null => {
+	if (value === undefined || value === null) return null;
+	if (!Number.isFinite(value)) throw new Error("averageScore must be a number");
+	return value;
+};
+
 const evalCaseEvidenceReferences = (evalCase: EvalCase): EvidenceReference[] =>
 	sourceLinkEvidenceReferences(
 		{
@@ -211,6 +339,77 @@ export const rowToEvalCase = (row: EvalCaseRow): EvalCase => {
 	};
 	evalCase.evidenceReferences = evalCaseEvidenceReferences(evalCase);
 	return evalCase;
+};
+
+const evalRunEvidenceReferences = (run: EvalRun): EvidenceReference[] => {
+	if (!run.sourceEvalCase) return [];
+	return sourceLinkEvidenceReferences(
+		{
+			sourceLabel: `Eval run "${run.id}"`,
+			sourceId: run.id,
+			sourceKind: "eval_run",
+			sourceRoute: `#/evaluations?run=${encodeURIComponent(run.id)}`,
+			sourceName: run.sourceEvalCase.name,
+		},
+		run.sourceEvalCase,
+	);
+};
+
+const rowToEvalRun = (row: EvalRunRow): EvalRun => {
+	const sourceEvalCase: EvalRunSourceCase | null =
+		row.case_id && row.case_name
+			? {
+					id: row.case_id,
+					name: row.case_name,
+					sourceEntityType: row.case_source_entity_type ?? "",
+					sourceEntityId: row.case_source_entity_id ?? "",
+					sourceAgentRunId: row.case_source_agent_run_id ?? null,
+					sourceActionId: row.case_source_action_id ?? null,
+					sourceAiCallId: row.case_source_ai_call_id ?? null,
+					sourceToolCallId: row.case_source_tool_call_id ?? null,
+					sourceTraceId: row.case_source_trace_id ?? null,
+					sourceSpanId: row.case_source_span_id ?? null,
+				}
+			: null;
+	if (sourceEvalCase) {
+		sourceEvalCase.evidenceReferences = sourceLinkEvidenceReferences(
+			{
+				sourceLabel: `Eval case "${sourceEvalCase.name}"`,
+				sourceId: sourceEvalCase.id,
+				sourceKind: "eval_case",
+				sourceRoute: `#/evaluations?case=${encodeURIComponent(sourceEvalCase.id)}`,
+				sourceName: sourceEvalCase.name,
+			},
+			sourceEvalCase,
+		);
+	}
+
+	const run: EvalRun = {
+		id: row.id,
+		projectId: row.project_id,
+		evalCaseId: row.eval_case_id ?? null,
+		status: isEvalRunStatus(row.status) ? row.status : "pending",
+		candidate: {
+			agentId: row.candidate_agent_id ?? null,
+			agentVersion: row.candidate_agent_version ?? null,
+			promptId: row.candidate_prompt_id ?? null,
+			promptVersion: row.candidate_prompt_version ?? null,
+			modelProvider: row.candidate_model_provider ?? null,
+			model: row.candidate_model ?? null,
+			modelVersion: row.candidate_model_version ?? null,
+		},
+		startedAt: row.started_at ?? null,
+		endedAt: row.ended_at ?? null,
+		totalCount: row.total_count ?? 0,
+		passCount: row.pass_count ?? 0,
+		failCount: row.fail_count ?? 0,
+		averageScore: row.average_score ?? null,
+		metadata: parseJsonRecordField(row.metadata_json),
+		createdAt: row.created_at,
+		sourceEvalCase,
+	};
+	run.evidenceReferences = evalRunEvidenceReferences(run);
+	return run;
 };
 
 export class EvalCasesStore {
@@ -330,6 +529,174 @@ export class EvalCasesStore {
 			.bind(...params)
 			.all<EvalCaseRow>();
 		return rows.results.map(rowToEvalCase);
+	}
+
+	async createRun(projectId: string, input: EvalRunInput): Promise<EvalRun> {
+		if (!projectId)
+			throw new Error("EvalCasesStore.createRun: projectId is required");
+		const id = input.id?.trim() || `run_${randomHex(8)}`;
+		const evalCaseId = input.evalCaseId?.trim() || null;
+		const status = input.status ?? "running";
+		if (!isEvalRunStatus(status)) throw new Error("status is invalid");
+		if (evalCaseId) {
+			const evalCase = await this.getCase(projectId, evalCaseId);
+			if (!evalCase) throw new Error("evalCaseId does not reference a case");
+		}
+
+		const candidate = input.candidate ?? {};
+		const totalCount = nonNegativeInteger(input.totalCount);
+		const passCount = nonNegativeInteger(input.passCount);
+		const failCount = nonNegativeInteger(input.failCount);
+		const averageScore = optionalScore(input.averageScore);
+		const now = new Date().toISOString();
+		const startedAt =
+			input.startedAt === undefined
+				? status === "pending"
+					? null
+					: now
+				: input.startedAt;
+		const endedAt = input.endedAt ?? null;
+
+		await this.db
+			.prepare(
+				`INSERT INTO eval_runs (
+					id, project_id, eval_case_id,
+					candidate_agent_id, candidate_agent_version,
+					candidate_prompt_id, candidate_prompt_version,
+					candidate_model_provider, candidate_model, candidate_model_version,
+					status, started_at, ended_at,
+					total_count, pass_count, fail_count, average_score,
+					metadata_json, created_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			)
+			.bind(
+				id,
+				projectId,
+				evalCaseId,
+				candidate.agentId ?? null,
+				candidate.agentVersion ?? null,
+				candidate.promptId ?? null,
+				candidate.promptVersion ?? null,
+				candidate.modelProvider ?? null,
+				candidate.model ?? null,
+				candidate.modelVersion ?? null,
+				status,
+				startedAt,
+				endedAt,
+				totalCount,
+				passCount,
+				failCount,
+				averageScore,
+				JSON.stringify(input.metadata ?? {}),
+				now,
+			)
+			.run();
+
+		const run = await this.getRun(projectId, id);
+		if (!run) throw new Error("EvalCasesStore.createRun: insert failed");
+		return run;
+	}
+
+	async getRun(projectId: string, id: string): Promise<EvalRun | null> {
+		const row = await this.db
+			.prepare(
+				`${this.evalRunSelectSql()}
+				WHERE r.project_id = ? AND r.id = ?
+				LIMIT 1`,
+			)
+			.bind(projectId, id)
+			.first<EvalRunRow>();
+		return row ? rowToEvalRun(row) : null;
+	}
+
+	async listRuns(options: EvalRunsListOptions): Promise<EvalRun[]> {
+		if (!options.projectId)
+			throw new Error("EvalCasesStore.listRuns: projectId is required");
+		if (options.status && !isEvalRunStatus(options.status)) {
+			throw new Error("status is invalid");
+		}
+		const limit = clampLimit(options.limit);
+		let sql = `${this.evalRunSelectSql()} WHERE r.project_id = ?`;
+		const params: unknown[] = [options.projectId];
+		if (options.evalCaseId) {
+			sql += ` AND r.eval_case_id = ?`;
+			params.push(options.evalCaseId);
+		}
+		if (options.status) {
+			sql += ` AND r.status = ?`;
+			params.push(options.status);
+		}
+		sql += ` ORDER BY r.created_at DESC LIMIT ?`;
+		params.push(limit);
+
+		const rows = await this.db
+			.prepare(sql)
+			.bind(...params)
+			.all<EvalRunRow>();
+		return rows.results.map(rowToEvalRun);
+	}
+
+	async refreshRunSummary(projectId: string, id: string): Promise<void> {
+		const found = await this.db
+			.prepare(
+				`SELECT id FROM eval_runs WHERE project_id = ? AND id = ? LIMIT 1`,
+			)
+			.bind(projectId, id)
+			.first<{ id: string }>();
+		if (!found) return;
+
+		await this.db
+			.prepare(
+				`UPDATE eval_runs
+				SET total_count = (
+						SELECT COUNT(*) FROM eval_case_results
+						WHERE project_id = ? AND run_id = ?
+					),
+					pass_count = (
+						SELECT COUNT(*) FROM eval_case_results
+						WHERE project_id = ? AND run_id = ? AND passed = 1
+					),
+					fail_count = (
+						SELECT COUNT(*) FROM eval_case_results
+						WHERE project_id = ? AND run_id = ? AND passed = 0
+					),
+					average_score = (
+						SELECT AVG(score) FROM eval_case_results
+						WHERE project_id = ? AND run_id = ? AND score IS NOT NULL
+					)
+				WHERE project_id = ? AND id = ?`,
+			)
+			.bind(
+				projectId,
+				id,
+				projectId,
+				id,
+				projectId,
+				id,
+				projectId,
+				id,
+				projectId,
+				id,
+			)
+			.run();
+	}
+
+	private evalRunSelectSql(): string {
+		return `SELECT
+			r.*,
+			c.id AS case_id,
+			c.name AS case_name,
+			c.source_entity_type AS case_source_entity_type,
+			c.source_entity_id AS case_source_entity_id,
+			c.source_agent_run_id AS case_source_agent_run_id,
+			c.source_action_id AS case_source_action_id,
+			c.source_ai_call_id AS case_source_ai_call_id,
+			c.source_tool_call_id AS case_source_tool_call_id,
+			c.source_trace_id AS case_source_trace_id,
+			c.source_span_id AS case_source_span_id
+		FROM eval_runs r
+		LEFT JOIN eval_cases c
+			ON c.project_id = r.project_id AND c.id = r.eval_case_id`;
 	}
 
 	private async hydrateSource(

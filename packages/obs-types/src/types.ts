@@ -57,6 +57,14 @@ export type {
 	NarrativeSpec,
 } from "./types/analyses";
 export type {
+	EvalRun,
+	EvalRunCandidate,
+	EvalRunInput,
+	EvalRunSourceCase,
+	EvalRunStatus,
+	EvalRunsListOptions,
+} from "./types/eval-runner";
+export type {
 	EvidenceCitation,
 	EvidenceEntityKind,
 	EvidenceNextPivot,

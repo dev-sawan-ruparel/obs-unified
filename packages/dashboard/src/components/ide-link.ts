@@ -13,10 +13,17 @@ export function buildIdeUrl(codeRef: {
 		"vscode://file/{absolutePath}:{lineNumber}";
 
 	const line = codeRef.lineNumber || 1;
-	const path =
+	let path =
 		codeRef.absolutePath || codeRef.relativePath || codeRef.originalPath || "";
+	if (path.startsWith("file://")) {
+		path = path.slice(7);
+	}
+	let relPath = codeRef.relativePath || "";
+	if (relPath.startsWith("file://")) {
+		relPath = relPath.slice(7);
+	}
 	return template
 		.replace("{absolutePath}", path)
-		.replace("{relativePath}", codeRef.relativePath || "")
+		.replace("{relativePath}", relPath)
 		.replace("{lineNumber}", String(line));
 }

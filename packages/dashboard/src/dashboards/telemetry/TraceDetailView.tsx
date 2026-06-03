@@ -446,27 +446,132 @@ function SpanView({
 				<span className="opacity-60">
 					END <span className="opacity-100">{fmtTs(span.endTime)}</span>
 				</span>
-				{span.codeReference && (
-					<span className="opacity-60">
-						CODE{" "}
-						<a
-							href={buildIdeUrl(span.codeReference)}
-							target="_blank"
-							rel="noreferrer"
-							className="opacity-100 text-sys-primary underline hover:text-sys-primary-high font-bold"
-						>
-							{span.codeReference.relativePath ||
-								span.codeReference.originalPath}
-							:{span.codeReference.lineNumber || 1}
-						</a>
-						{span.codeReference.symbolName && (
-							<span className="opacity-100 ml-1 font-normal">
-								({span.codeReference.symbolName})
-							</span>
-						)}
-					</span>
-				)}
 			</div>
+			{span.codeReference &&
+				(() => {
+					const rel = span.codeReference.relativePath;
+					const abs = span.codeReference.absolutePath;
+					const orig = span.codeReference.originalPath;
+					const isRedacted = (path?: string) =>
+						!path || path.includes("redacted") || path === "<redacted>";
+					const isRelRedacted = isRedacted(rel);
+					const isAbsRedacted = isRedacted(abs);
+					const isOrigRedacted = isRedacted(orig);
+
+					const lineCol = [
+						span.codeReference.lineNumber,
+						span.codeReference.columnNumber,
+					]
+						.filter((x): x is number => typeof x === "number" && x > 0)
+						.join(":");
+
+					const suffix = lineCol ? `:${lineCol}` : "";
+					const ideUrl = buildIdeUrl(span.codeReference);
+
+					return (
+						<div className="mt-2 bg-sys-surface-low border border-sys-outline-soft p-2 text-[0.75rem] flex flex-col gap-1.5 md:flex-row md:items-center">
+							<span className="font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle flex-none mr-2">
+								Code Reference
+							</span>
+							<div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 min-w-0">
+								{span.codeReference.symbolName && (
+									<span
+										className="font-mono bg-sys-surface px-1.5 py-0.5 border border-sys-outline-soft font-semibold text-sys-on-surface select-all truncate max-w-[200px]"
+										title={span.codeReference.symbolName}
+									>
+										{span.codeReference.symbolName}
+									</span>
+								)}
+								{rel && (
+									<div className="flex items-center gap-1.5 min-w-0 font-mono">
+										<span className="opacity-60 text-[0.6875rem] uppercase">
+											rel:
+										</span>
+										<span
+											className={`select-all truncate max-w-[250px] ${isRelRedacted ? "italic opacity-50" : ""}`}
+											title={rel + suffix}
+										>
+											{isRelRedacted ? "[redacted]" : rel + suffix}
+										</span>
+										{!isRelRedacted && (
+											<button
+												type="button"
+												onClick={() => copy(rel)}
+												className="text-sys-on-surface-muted hover:text-sys-on-surface text-[0.625rem] px-1 border border-sys-outline-soft cursor-pointer flex-none"
+												title="Copy Relative Path"
+											>
+												Copy
+											</button>
+										)}
+									</div>
+								)}
+								{abs && (
+									<div className="flex items-center gap-1.5 min-w-0 font-mono">
+										<span className="opacity-60 text-[0.6875rem] uppercase">
+											abs:
+										</span>
+										<span
+											className={`select-all truncate max-w-[250px] ${isAbsRedacted ? "italic opacity-50" : ""}`}
+											title={abs + suffix}
+										>
+											{isAbsRedacted ? "[redacted]" : abs + suffix}
+										</span>
+										{!isAbsRedacted && (
+											<button
+												type="button"
+												onClick={() => copy(abs)}
+												className="text-sys-on-surface-muted hover:text-sys-on-surface text-[0.625rem] px-1 border border-sys-outline-soft cursor-pointer flex-none"
+												title="Copy Absolute Path"
+											>
+												Copy
+											</button>
+										)}
+									</div>
+								)}
+								{!rel && !abs && orig && (
+									<div className="flex items-center gap-1.5 min-w-0 font-mono">
+										<span className="opacity-60 text-[0.6875rem] uppercase">
+											path:
+										</span>
+										<span
+											className={`select-all truncate max-w-[250px] ${isOrigRedacted ? "italic opacity-50" : ""}`}
+											title={orig + suffix}
+										>
+											{isOrigRedacted ? "[redacted]" : orig + suffix}
+										</span>
+										{!isOrigRedacted && (
+											<button
+												type="button"
+												onClick={() => copy(orig)}
+												className="text-sys-on-surface-muted hover:text-sys-on-surface text-[0.625rem] px-1 border border-sys-outline-soft cursor-pointer flex-none"
+												title="Copy Path"
+											>
+												Copy
+											</button>
+										)}
+									</div>
+								)}
+								{!rel && !abs && !orig && (
+									<span className="italic text-sys-on-surface-muted font-mono">
+										[no path reference]
+									</span>
+								)}
+								{ideUrl &&
+									(!isRelRedacted || !isAbsRedacted || !isOrigRedacted) && (
+										<a
+											href={ideUrl}
+											target="_blank"
+											rel="noreferrer"
+											className="underline text-sys-primary hover:text-sys-primary-high font-bold font-mono text-[0.6875rem] px-1 border border-sys-primary/20 bg-sys-primary/5 hover:bg-sys-primary/10 transition-all flex-none"
+											title="Open in Local IDE"
+										>
+											Open IDE
+										</a>
+									)}
+							</div>
+						</div>
+					);
+				})()}
 			{span.statusMessage && (
 				<div className="mt-2 bg-sys-error p-3 font-mono text-[0.75rem] text-sys-on-error font-bold">
 					{span.statusMessage}

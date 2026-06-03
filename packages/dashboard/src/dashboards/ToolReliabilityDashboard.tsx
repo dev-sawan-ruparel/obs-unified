@@ -5,6 +5,7 @@ import {
 	Stat,
 	UpdatedChip,
 } from "../components/primitives";
+import { resolveExemplarLink } from "../components/resolver";
 import { EmptyState } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -140,10 +141,10 @@ const openExemplar = (
 	onNavigate: Props["onNavigate"],
 	ex: AggregateExemplar,
 ) => {
-	if (ex.toolCallId) onNavigate?.(`#/tool-calls/${ex.toolCallId}`);
-	else if (ex.actionId) onNavigate?.(`#/actions/${ex.actionId}`);
-	else if (ex.agentRunId) onNavigate?.(`#/agent-runs/${ex.agentRunId}`);
-	else if (ex.traceId) onNavigate?.(`#/traces?trace=${ex.traceId}`);
+	const link = resolveExemplarLink(ex);
+	if (link) {
+		onNavigate?.(link);
+	}
 };
 
 export function ToolReliabilityDashboard({ onNavigate }: Props) {
@@ -323,47 +324,64 @@ export function ToolReliabilityDashboard({ onNavigate }: Props) {
 											Tool
 										</th>
 										<th className="pb-2 font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
-											Exemplar
-										</th>
-										<th className="pb-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
-											Inspect
+											Exemplars
 										</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-sys-outline-soft/40">
 									{data.tools.map((tool) => {
-										const exemplar = tool.exemplars?.[0];
 										return (
 											<tr
 												key={tool.toolName}
 												className="hover:bg-sys-surface-low/50"
 											>
-												<td className="py-2.5 font-bold font-mono text-[0.75rem]">
+												<td className="py-2.5 font-bold font-mono text-[0.75rem] align-top">
 													{tool.toolName}
 												</td>
 												<td className="py-2.5 min-w-0">
-													<div className="flex flex-col gap-0.5">
-														<span className="font-semibold truncate max-w-[260px]">
-															{exemplar?.label ?? "No exemplar captured"}
+													{tool.exemplars && tool.exemplars.length > 0 ? (
+														<div className="flex flex-col gap-2">
+															{tool.exemplars.map((ex, idx) => {
+																const label = ex.label || `Exemplar ${idx + 1}`;
+																const sub = ex.agentRunId
+																	? `run ${ex.agentRunId.slice(0, 8)}...`
+																	: "aggregate only";
+																const link = resolveExemplarLink(ex);
+																return (
+																	<div
+																		key={ex.actionId || idx}
+																		className="flex items-center justify-between gap-3 border-b border-sys-outline-soft/20 pb-1.5 last:border-b-0 last:pb-0"
+																	>
+																		<div className="flex flex-col gap-0.5 min-w-0">
+																			<span
+																				className="font-semibold truncate max-w-[260px]"
+																				title={label}
+																			>
+																				{label}
+																			</span>
+																			<span className="font-mono text-[0.625rem] opacity-60">
+																				{sub}
+																			</span>
+																		</div>
+																		<button
+																			type="button"
+																			disabled={!link}
+																			onClick={() =>
+																				link && openExemplar(onNavigate, ex)
+																			}
+																			className="underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft font-mono text-[0.75rem] flex-none disabled:opacity-40 cursor-pointer"
+																		>
+																			Open
+																		</button>
+																	</div>
+																);
+															})}
+														</div>
+													) : (
+														<span className="text-sys-on-surface-muted italic text-[0.75rem]">
+															— None
 														</span>
-														<span className="font-mono text-[0.625rem] opacity-60">
-															{exemplar?.agentRunId
-																? `run ${exemplar.agentRunId.slice(0, 8)}...`
-																: "aggregate only"}
-														</span>
-													</div>
-												</td>
-												<td className="py-2.5 text-right font-mono text-[0.75rem]">
-													<button
-														type="button"
-														disabled={!exemplar}
-														onClick={() =>
-															exemplar && openExemplar(onNavigate, exemplar)
-														}
-														className="underline hover:bg-sys-primary hover:text-white px-1.5 py-0.5 border border-sys-outline-soft disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-current"
-													>
-														Open Exemplar
-													</button>
+													)}
 												</td>
 											</tr>
 										);

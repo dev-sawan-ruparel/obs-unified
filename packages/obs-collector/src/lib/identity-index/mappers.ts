@@ -1,3 +1,9 @@
+import {
+	ACTION_CONFIDENCE_KEY,
+	ACTION_ID_KEY,
+	ACTION_ID_RE,
+	ActionConfidence,
+} from "@obs-unified/types/constants";
 import type {
 	ActionRef,
 	AgentRunRef,
@@ -11,6 +17,41 @@ import type {
 	ToolCallRef,
 	UsageEventRef,
 } from "./types";
+
+const parseAttrs = (attrsJson: string | null): Record<string, unknown> => {
+	if (!attrsJson) return {};
+	try {
+		const parsed = JSON.parse(attrsJson);
+		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+			? (parsed as Record<string, unknown>)
+			: {};
+	} catch {
+		return {};
+	}
+};
+
+const mapCausalConfidence = (action: {
+	id: string;
+	attrs_json: string | null;
+}): ActionRef["causalConfidence"] => {
+	const attrs = parseAttrs(action.attrs_json);
+	const attrConfidence = attrs[ACTION_CONFIDENCE_KEY];
+	const attrActionId = attrs[ACTION_ID_KEY];
+	const hasTrustedExplicitId =
+		typeof attrActionId === "string" &&
+		attrActionId === action.id &&
+		ACTION_ID_RE.test(attrActionId);
+
+	if (attrConfidence === ActionConfidence.Fallback) {
+		return ActionConfidence.Fallback;
+	}
+	if (attrConfidence === ActionConfidence.Explicit && hasTrustedExplicitId) {
+		return ActionConfidence.Explicit;
+	}
+	return hasTrustedExplicitId
+		? ActionConfidence.Explicit
+		: ActionConfidence.Fallback;
+};
 
 export const mapSpan = (r: {
 	trace_id: string;
@@ -171,6 +212,7 @@ export const mapAction = (r: {
 	modelName: r.model_name,
 	provider: r.provider,
 	totalCostUsd: r.total_cost_usd,
+	causalConfidence: mapCausalConfidence(r),
 	attrsJson: r.attrs_json,
 });
 

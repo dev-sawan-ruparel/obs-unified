@@ -95,6 +95,12 @@ and tools.
 **Why it matters:** Reproducible scenarios become canonical eval fixtures for
 AI debugging agents. They prove the graph can be traversed end-to-end.
 
+**Proof format:** Use
+[AI Debugging Scenario Proof Format](ai-debugging-scenario-proof.md) for
+scenario IDs, seed commands, environment assumptions, stable lookup anchors,
+expected agent-debugging paths, artifacts, freshness criteria, and pass/fail
+criteria.
+
 **Target scenarios:**
 
 - Scenario A: click/root-cause/CPU profile.
@@ -105,7 +111,8 @@ AI debugging agents. They prove the graph can be traversed end-to-end.
 
 - [ ] Fresh setup can reproduce each scenario.
 - [ ] Each scenario has stable seed data or a repeatable script.
-- [ ] Each scenario has an agent-debugging expected path.
+- [x] Each Scenario A/B path has an audited agent-debugging expected path and
+      reusable proof artifact schema.
 - [ ] Live Playwright cells are unskipped where data is reproducible.
 - [ ] Proof artifact is captured or documented.
 
@@ -239,14 +246,16 @@ agent versions.
 
 - [x] Eval cases can be saved from production entities.
 - [x] Eval case routes and result ingestion exist.
-- [~] Batch execution metadata, candidate comparison, and reusable runner
-      records are not fully productized.
+- [x] Durable eval run records capture batch execution metadata and candidate
+      dimensions.
+- [~] Dashboard candidate comparison is not fully productized.
 
 **Acceptance checklist:**
 
-- [ ] Eval runs have durable run records separate from individual results.
-- [ ] Results compare source production behavior to candidate behavior.
-- [ ] Agent/prompt/model version dimensions are first-class in eval run output.
+- [x] Eval runs have durable run records separate from individual results.
+- [x] Results expose source production links beside durable candidate run
+      context.
+- [x] Agent/prompt/model version dimensions are first-class in eval run output.
 - [ ] Dashboard shows before/after evidence and links back to production source.
 
 ## 11. Trace/Profile to Workspace Code References

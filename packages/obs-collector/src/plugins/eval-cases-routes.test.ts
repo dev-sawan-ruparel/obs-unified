@@ -36,6 +36,38 @@ const evalCaseRow = {
 	updated_at: "2026-05-31T00:00:00.000Z",
 };
 
+const evalRunRow = {
+	id: "run-123",
+	project_id: "default",
+	eval_case_id: "case-1",
+	candidate_agent_id: "billing-agent",
+	candidate_agent_version: "2026.05.31",
+	candidate_prompt_id: "invoice-safety",
+	candidate_prompt_version: "v7",
+	candidate_model_provider: "openai",
+	candidate_model: "gpt-4.1",
+	candidate_model_version: "2026-04-14",
+	status: "running",
+	started_at: "2026-05-31T01:00:00.000Z",
+	ended_at: null,
+	total_count: 1,
+	pass_count: 1,
+	fail_count: 0,
+	average_score: 0.95,
+	metadata_json: '{"branch":"fix/invoice-safety"}',
+	created_at: "2026-05-31T01:00:00.000Z",
+	case_id: "case-1",
+	case_name: "Wrong invoice update",
+	case_source_entity_type: "action",
+	case_source_entity_id: "action-1",
+	case_source_agent_run_id: "run-1",
+	case_source_action_id: "action-1",
+	case_source_ai_call_id: null,
+	case_source_tool_call_id: "tool-1",
+	case_source_trace_id: "trace-1",
+	case_source_span_id: "span-1",
+};
+
 describe("evalCasesRoutesPlugin", () => {
 	it("saves an eval case from a production action source", async () => {
 		const db = new MemSqlDb({
@@ -167,6 +199,93 @@ describe("evalCasesRoutesPlugin", () => {
 		expect(missing.status).toBe(404);
 	});
 
+	it("creates, fetches, and lists durable eval runs", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM eval_cases")) return evalCaseRow;
+				if (sql.includes("FROM eval_runs")) return evalRunRow;
+				return null;
+			},
+			all: (sql) => (sql.includes("FROM eval_runs") ? [evalRunRow] : []),
+		});
+		const app = setup();
+
+		const createRes = await app.request(
+			"/internal/eval-runs",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					id: "run-123",
+					evalCaseId: "case-1",
+					status: "running",
+					candidate: {
+						agentId: "billing-agent",
+						agentVersion: "2026.05.31",
+						promptId: "invoice-safety",
+						promptVersion: "v7",
+						modelProvider: "openai",
+						model: "gpt-4.1",
+						modelVersion: "2026-04-14",
+					},
+					metadata: { branch: "fix/invoice-safety" },
+				}),
+			},
+			env(db),
+		);
+		const getRes = await app.request(
+			"/internal/eval-runs/run-123",
+			{ method: "GET" },
+			env(db),
+		);
+		const listRes = await app.request(
+			"/internal/eval-runs?evalCaseId=case-1&status=running",
+			{ method: "GET" },
+			env(db),
+		);
+
+		expect(createRes.status).toBe(201);
+		expect(getRes.status).toBe(200);
+		expect(listRes.status).toBe(200);
+		const createBody = (await createRes.json()) as {
+			evalRun: {
+				id: string;
+				evalCaseId: string;
+				candidate: { agentVersion: string; promptVersion: string };
+				sourceEvalCase: { sourceActionId: string };
+				averageScore: number;
+			};
+		};
+		expect(createBody.evalRun.id).toBe("run-123");
+		expect(createBody.evalRun.candidate.agentVersion).toBe("2026.05.31");
+		expect(createBody.evalRun.candidate.promptVersion).toBe("v7");
+		expect(createBody.evalRun.sourceEvalCase.sourceActionId).toBe("action-1");
+		expect(createBody.evalRun.averageScore).toBe(0.95);
+		const listBody = (await listRes.json()) as {
+			evalRuns: Array<{ id: string }>;
+		};
+		expect(listBody.evalRuns[0].id).toBe("run-123");
+		expect(db.callsMatching("INSERT INTO eval_runs")).toHaveLength(1);
+	});
+
+	it("rejects invalid eval run input", async () => {
+		const res = await setup().request(
+			"/internal/eval-runs",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					id: "",
+					status: "done",
+					candidate: [],
+				}),
+			},
+			env(new MemSqlDb()),
+		);
+
+		expect(res.status).toBe(400);
+	});
+
 	it("ingests and lists eval case results", async () => {
 		const db = new MemSqlDb({
 			first: (sql) => {
@@ -229,5 +348,44 @@ describe("evalCasesRoutesPlugin", () => {
 		expect(getBody.evalCaseResults).toHaveLength(1);
 		expect(getBody.evalCaseResults[0].runId).toBe("run-123");
 		expect(getBody.evalCaseResults[0].passed).toBe(true);
+		expect(db.callsMatching("UPDATE eval_runs")).toHaveLength(0);
+	});
+
+	it("attaches eval case results to durable eval runs", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM eval_cases")) return evalCaseRow;
+				if (sql.includes("FROM eval_runs")) return evalRunRow;
+				return null;
+			},
+		});
+		const app = setup();
+
+		const postRes = await app.request(
+			"/internal/eval-cases/case-1/results",
+			{
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					runId: "run-123",
+					passed: true,
+					score: 0.95,
+					actualOutcome: "Correctly updated address",
+					details: { diff: "none" },
+				}),
+			},
+			env(db),
+		);
+
+		expect(postRes.status).toBe(201);
+		const postBody = (await postRes.json()) as {
+			evalCaseResult: { runId: string };
+			evalRun: { id: string; passCount: number } | null;
+		};
+		expect(postBody.evalCaseResult.runId).toBe("run-123");
+		expect(postBody.evalRun?.id).toBe("run-123");
+		expect(postBody.evalRun?.passCount).toBe(1);
+		expect(db.callsMatching("INSERT INTO eval_case_results")).toHaveLength(1);
+		expect(db.callsMatching("UPDATE eval_runs")).toHaveLength(1);
 	});
 });

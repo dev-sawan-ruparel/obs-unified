@@ -465,7 +465,7 @@ export const sourceLinkEvidenceReferences = (
 	source: {
 		sourceLabel: string;
 		sourceId: string;
-		sourceKind: "eval_case" | "eval_case_result";
+		sourceKind: "eval_case" | "eval_case_result" | "eval_run";
 		sourceRoute?: string | null;
 		sourceName?: string | null;
 	},

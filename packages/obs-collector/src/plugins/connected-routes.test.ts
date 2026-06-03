@@ -11,6 +11,11 @@
  * shape decisions only.
  */
 
+import {
+	ACTION_CONFIDENCE_KEY,
+	ACTION_ID_KEY,
+	ActionConfidence,
+} from "@obs-unified/types/constants";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { CollectorRuntime } from "../framework/collector";
@@ -475,6 +480,140 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 		});
 	});
 
+	it("span action-context links expose trusted explicit causal confidence metadata", async () => {
+		const explicitActionId = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "trace-explicit-confidence",
+							span_id: "span-explicit-confidence",
+							parent_span_id: null,
+							service_name: "checkout",
+							span_name: "checkout.submit",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("FROM actions")) {
+					return [
+						actionRow({
+							id: explicitActionId,
+							root_action_id: explicitActionId,
+							agent_run_id: null,
+							trace_id: "trace-explicit-confidence",
+							span_id: "span-explicit-confidence",
+							name: "Explicit action",
+							attrs_json: JSON.stringify({
+								[ACTION_ID_KEY]: explicitActionId,
+								[ACTION_CONFIDENCE_KEY]: ActionConfidence.Explicit,
+							}),
+						}),
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					return [toolRow({ action_id: explicitActionId })];
+				}
+				if (sql.includes("FROM eval_results")) {
+					return [evalRow({ action_id: explicitActionId })];
+				}
+				if (sql.includes("FROM agent_runs")) return [];
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+
+		const m = await fetch(
+			"/internal/connected/span/trace-explicit-confidence:span-explicit-confidence",
+		);
+
+		const actionLink = m.down.find(
+			(s) => s.label === "Causal actions for this span",
+		)?.links[0];
+		expect(actionLink).toMatchObject({
+			entityKind: "action",
+			entityId: explicitActionId,
+			source: "trace_id+span_id",
+			causalConfidence: ActionConfidence.Explicit,
+			confidence: 0.95,
+		});
+
+		const toolLink = m.down.find((s) => s.label === "Tool calls for this span")
+			?.links[0];
+		expect(toolLink).toMatchObject({
+			entityKind: "tool_call",
+			source: "trace_id+span_id",
+			causalConfidence: ActionConfidence.Explicit,
+		});
+
+		expect(m.rawManifest).toBeUndefined();
+	});
+
+	it("malformed explicit action ids are exposed as fallback confidence", async () => {
+		const derivedActionId = "01J3Y4Z5A6B7C8D9E0F1G2H3J5";
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "trace-malformed-confidence",
+							span_id: "span-malformed-confidence",
+							parent_span_id: null,
+							service_name: "checkout",
+							span_name: "checkout.submit",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("FROM actions")) {
+					return [
+						actionRow({
+							id: derivedActionId,
+							root_action_id: derivedActionId,
+							agent_run_id: null,
+							trace_id: "trace-malformed-confidence",
+							span_id: "span-malformed-confidence",
+							name: "Malformed explicit action",
+							attrs_json: JSON.stringify({
+								[ACTION_ID_KEY]: "not-an-action-id",
+								[ACTION_CONFIDENCE_KEY]: ActionConfidence.Explicit,
+							}),
+						}),
+					];
+				}
+				if (sql.includes("FROM tool_calls")) return [];
+				if (sql.includes("FROM eval_results")) return [];
+				if (sql.includes("FROM agent_runs")) return [];
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+
+		const m = await fetch(
+			"/internal/connected/span/trace-malformed-confidence:span-malformed-confidence",
+		);
+
+		const actionLink = m.down.find(
+			(s) => s.label === "Causal actions for this span",
+		)?.links[0];
+		expect(actionLink).toMatchObject({
+			entityId: derivedActionId,
+			causalConfidence: ActionConfidence.Fallback,
+			source: "trace_id+span_id",
+		});
+	});
+
 	it("log entity resolves direct log id and falls back to deterministic trace action context", async () => {
 		const db = new MemSqlDb({
 			first: (sql) => {
@@ -535,12 +674,21 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 		).toMatchObject({
 			label: "[agent.step] Fallback normalized action",
 			href: "#/actions/fallback:trace-fallback:agent.step:1",
+			causalConfidence: ActionConfidence.Fallback,
+			source: "trace_id",
+			confidence: 0.55,
 		});
+		expect(
+			m.down.find((s) => s.label === "Trace-level actions for this log")
+				?.links[0].reason,
+		).toMatch(/shared trace_id/i);
 		expect(
 			m.down.find((s) => s.label === "Trace-level tool calls for this log")
 				?.links[0],
 		).toMatchObject({
 			href: "#/tool-calls/tool-fallback",
+			causalConfidence: ActionConfidence.Fallback,
+			source: "trace_id",
 		});
 		expect(
 			m.related.find((s) => s.label === "Trace-level agent runs for this log")
@@ -1317,6 +1465,87 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		const relatedTrace = m.related.find((s) => s.label === "OTel Trace");
 		expect(relatedTrace).toBeDefined();
 		expect(relatedTrace?.links[0].href).toBe("#/traces/tx-789");
+	});
+
+	it("action detail raw manifest exposes causal confidence on action refs", async () => {
+		const explicitActionId = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
+		const fallbackActionId = "01J3Y4Z5A6B7C8D9E0F1G2H3J5";
+		const explicitRow = {
+			id: explicitActionId,
+			project_id: "p1",
+			root_action_id: explicitActionId,
+			caused_by_action_id: null,
+			actor_type: "agent",
+			actor_id: "my-agent",
+			action_kind: "agent.step",
+			name: "Explicit Task",
+			status: "ok",
+			started_at: "2026-05-04T12:00:00Z",
+			ended_at: "2026-05-04T12:00:05Z",
+			duration_ms: 5000,
+			trace_id: "tx-789",
+			span_id: "sp-789",
+			session_id: "sess-1",
+			interaction_id: null,
+			user_id: "user-1",
+			agent_run_id: null,
+			step_id: explicitActionId,
+			tool_call_id: null,
+			prompt_version: null,
+			model_name: null,
+			provider: null,
+			total_cost_usd: 0,
+			attrs_json: JSON.stringify({
+				[ACTION_ID_KEY]: explicitActionId,
+				[ACTION_CONFIDENCE_KEY]: ActionConfidence.Explicit,
+			}),
+		};
+		const fallbackRow = {
+			...explicitRow,
+			id: fallbackActionId,
+			root_action_id: explicitActionId,
+			name: "Fallback Task",
+			step_id: fallbackActionId,
+			attrs_json: JSON.stringify({
+				[ACTION_ID_KEY]: "bad-explicit-id",
+				[ACTION_CONFIDENCE_KEY]: ActionConfidence.Explicit,
+			}),
+		};
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM actions") && sql.includes("id = ?")) {
+					return explicitRow;
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (
+					sql.includes("FROM actions") &&
+					sql.includes("root_action_id = ?")
+				) {
+					return [explicitRow, fallbackRow];
+				}
+				return [];
+			},
+		});
+
+		const fetch = setup(db);
+		const m = await fetch(
+			`/internal/connected/action/${explicitActionId}?project_id=p1`,
+		);
+
+		expect(m.rawManifest?.actions).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: explicitActionId,
+					causalConfidence: ActionConfidence.Explicit,
+				}),
+				expect.objectContaining({
+					id: fallbackActionId,
+					causalConfidence: ActionConfidence.Fallback,
+				}),
+			]),
+		);
 	});
 
 	it("agent_run entity returns Agent, Traces, Decision Spine, and Tool Calls", async () => {

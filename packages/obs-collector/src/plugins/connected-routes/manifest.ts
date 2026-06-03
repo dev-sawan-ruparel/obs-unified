@@ -11,6 +11,7 @@ import type {
 	ToolCallRef,
 	UsageEventRef,
 } from "../../lib/identity-index";
+import type { CausalConfidence } from "../../lib/identity-index/types";
 import type { SqlDb } from "../../lib/sql-db";
 
 export type ConnectedEntityKind =
@@ -47,6 +48,12 @@ export interface ConnectedLink {
 	href: string;
 	count?: number;
 	sample?: string;
+	entityKind?: ConnectedEntityKind | "trace" | "eval";
+	entityId?: string;
+	source?: string;
+	confidence?: number;
+	reason?: string;
+	causalConfidence?: CausalConfidence;
 }
 
 export interface ConnectedSection {
@@ -75,6 +82,8 @@ export const linkToTrace = (
 ): ConnectedLink => ({
 	label: label ?? `trace ${traceId.slice(0, 12)}`,
 	href: `#/traces/${traceId}`,
+	entityKind: "trace",
+	entityId: traceId,
 });
 
 // Show the LAST 12 characters of the session id. ULIDs / UUIDs have most
@@ -88,6 +97,8 @@ export const linkToSession = (sessionId: string): ConnectedLink => ({
 			: `session ${sessionId}`,
 	href: `#/replay?session=${encodeURIComponent(sessionId)}`,
 	sample: sessionId,
+	entityKind: "replay",
+	entityId: sessionId,
 });
 
 export const linksFromSpans = (
@@ -335,6 +346,8 @@ export const linkToAction = (
 ): ConnectedLink => ({
 	label: label ?? `action ${actionId.slice(0, 12)}`,
 	href: `#/actions/${actionId}`,
+	entityKind: "action",
+	entityId: actionId,
 });
 
 export const linkToAgentRun = (
@@ -343,11 +356,34 @@ export const linkToAgentRun = (
 ): ConnectedLink => ({
 	label: label ?? `agent run ${runId.slice(0, 12)}`,
 	href: `#/agent-runs/${runId}`,
+	entityKind: "agent_run",
+	entityId: runId,
+});
+
+export interface ActionContextLinkMetadata {
+	source: string;
+	causalConfidence?: CausalConfidence;
+	confidence?: number;
+	reason: string;
+}
+
+const actionContextMetadata = (
+	action: Pick<ActionRef, "causalConfidence">,
+	metadata?: ActionContextLinkMetadata,
+): Pick<
+	ConnectedLink,
+	"source" | "confidence" | "reason" | "causalConfidence"
+> => ({
+	source: metadata?.source,
+	confidence: metadata?.confidence,
+	reason: metadata?.reason,
+	causalConfidence: metadata?.causalConfidence ?? action.causalConfidence,
 });
 
 export const linksFromActions = (
 	actions: ActionRef[],
 	prefix: string,
+	metadata?: ActionContextLinkMetadata,
 ): ConnectedSection => {
 	if (actions.length === 0) {
 		return {
@@ -367,6 +403,9 @@ export const linksFromActions = (
 					sample: truncate(
 						`${actions[0].actionKind} · ${actions[0].name ?? "unnamed"}`,
 					),
+					entityKind: "action",
+					entityId: actions[0].id,
+					...actionContextMetadata(actions[0], metadata),
 				},
 			],
 		};
@@ -376,6 +415,9 @@ export const linksFromActions = (
 		links: actions.map((a) => ({
 			label: `[${a.actionKind}] ${truncate(a.name ?? "unnamed", 40)}`,
 			href: `#/actions/${a.id}`,
+			entityKind: "action",
+			entityId: a.id,
+			...actionContextMetadata(a, metadata),
 		})),
 	};
 };
@@ -383,6 +425,9 @@ export const linksFromActions = (
 export const linksFromToolCalls = (
 	calls: ToolCallRef[],
 	prefix: string,
+	metadataForAction?: (
+		actionId: string,
+	) => ActionContextLinkMetadata | undefined,
 ): ConnectedSection => {
 	if (calls.length === 0) {
 		return {
@@ -400,6 +445,9 @@ export const linksFromToolCalls = (
 					href: `#/tools`,
 					count: calls.length,
 					sample: truncate(calls[0].toolName),
+					entityKind: "tool_call",
+					entityId: calls[0].id,
+					...metadataForAction?.(calls[0].actionId),
 				},
 			],
 		};
@@ -409,6 +457,9 @@ export const linksFromToolCalls = (
 		links: calls.map((t) => ({
 			label: `tool: ${t.toolName}`,
 			href: `#/tool-calls/${t.id}`,
+			entityKind: "tool_call",
+			entityId: t.id,
+			...metadataForAction?.(t.actionId),
 		})),
 	};
 };
@@ -436,6 +487,9 @@ export const linksFromRetrievalEvents = (
 export const linksFromEvalResults = (
 	results: EvalResultRef[],
 	prefix: string,
+	metadataForAction?: (
+		actionId: string,
+	) => ActionContextLinkMetadata | undefined,
 ): ConnectedSection => {
 	if (results.length === 0) {
 		return {
@@ -449,6 +503,9 @@ export const linksFromEvalResults = (
 		links: results.map((e) => ({
 			label: `eval: ${e.evaluatorName} (${e.passed ? "passed" : "failed"})`,
 			href: `#/evals/${e.id}`,
+			entityKind: "eval",
+			entityId: e.id,
+			...metadataForAction?.(e.actionId),
 		})),
 	};
 };

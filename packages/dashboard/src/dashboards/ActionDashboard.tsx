@@ -80,6 +80,12 @@ export function ActionDashboard({
 		}
 	})();
 
+	const confidence =
+		(action as unknown as Record<string, unknown>)?.confidence ??
+		(action as unknown as Record<string, unknown>)?.causalConfidence ??
+		parsedAttrs?.confidence ??
+		parsedAttrs?.causalConfidence;
+
 	return (
 		<div className="flex h-full bg-sys-bg">
 			<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
@@ -233,6 +239,23 @@ export function ActionDashboard({
 							<>
 								<dt className="opacity-60">User ID</dt>
 								<dd>{action.userId}</dd>
+							</>
+						)}
+
+						{confidence && (
+							<>
+								<dt className="opacity-60 font-semibold">Causal Confidence</dt>
+								<dd>
+									<span
+										className={`px-1.5 py-0.5 text-[0.625rem] font-bold uppercase border rounded-sm ${
+											confidence === "explicit"
+												? "bg-sys-primary/10 border-sys-primary/20 text-sys-primary"
+												: "bg-sys-outline/10 border-sys-outline/20 text-sys-on-surface-muted"
+										}`}
+									>
+										{confidence}
+									</span>
+								</dd>
 							</>
 						)}
 

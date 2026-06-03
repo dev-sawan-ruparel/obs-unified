@@ -6,7 +6,9 @@ import {
 	EvalCaseSourceNotFoundError,
 	type EvalCaseSourceType,
 	EvalCasesStore,
+	type EvalRunInput,
 	isEvalCaseSourceType,
+	isEvalRunStatus,
 } from "../lib/eval-cases-store";
 import { sourceLinkEvidenceReferences } from "../lib/evidence-references";
 import { randomHex } from "../lib/hash";
@@ -47,6 +49,21 @@ interface EvalCaseResultResponse {
 	evidenceReferences?: EvidenceReference[];
 }
 
+interface EvalRunRequestBody {
+	id?: unknown;
+	runId?: unknown;
+	evalCaseId?: unknown;
+	status?: unknown;
+	candidate?: unknown;
+	startedAt?: unknown;
+	endedAt?: unknown;
+	totalCount?: unknown;
+	passCount?: unknown;
+	failCount?: unknown;
+	averageScore?: unknown;
+	metadata?: unknown;
+}
+
 const asOptionalString = (value: unknown): string | null => {
 	if (value === undefined || value === null) return null;
 	return typeof value === "string" ? value : null;
@@ -58,6 +75,13 @@ const asRecord = (value: unknown): Record<string, JsonValue> | null => {
 	return value as Record<string, JsonValue>;
 };
 
+const asNonNegativeNumber = (value: unknown): number | undefined | null => {
+	if (value === undefined) return undefined;
+	return typeof value === "number" && Number.isFinite(value) && value >= 0
+		? value
+		: null;
+};
+
 const badRequest = (message: string) => ({
 	error: "Bad Request",
 	message,
@@ -67,6 +91,11 @@ const parseLimit = (value: string | undefined): number => {
 	const parsed = Number.parseInt(value ?? "50", 10);
 	if (!Number.isFinite(parsed)) return 50;
 	return Math.min(200, Math.max(1, parsed));
+};
+
+const parseJsonMaybe = (value: unknown): unknown => {
+	if (value === null || value === undefined) return null;
+	return typeof value === "string" ? JSON.parse(value) : value;
 };
 
 const evalCaseResultEvidenceReferences = (
@@ -200,6 +229,138 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 			return c.json({ evalCase });
 		});
 
+		app.post("/internal/eval-runs", async (c) => {
+			let body: EvalRunRequestBody;
+			try {
+				body = (await c.req.json()) as EvalRunRequestBody;
+			} catch {
+				return c.json(badRequest("body must be JSON"), 400);
+			}
+
+			const id = asOptionalString(body.id ?? body.runId)?.trim();
+			if ((body.id ?? body.runId) !== undefined && !id) {
+				return c.json(badRequest("id must be a non-empty string"), 400);
+			}
+			const evalCaseId = asOptionalString(body.evalCaseId)?.trim() || null;
+			if (
+				body.evalCaseId !== undefined &&
+				body.evalCaseId !== null &&
+				!evalCaseId
+			) {
+				return c.json(badRequest("evalCaseId must be a string"), 400);
+			}
+			const status = body.status ?? "running";
+			if (!isEvalRunStatus(status)) {
+				return c.json(badRequest("status is invalid"), 400);
+			}
+			const metadata = asRecord(body.metadata);
+			if (metadata === null) {
+				return c.json(badRequest("metadata must be a JSON object"), 400);
+			}
+			const candidate = asRecord(body.candidate);
+			if (candidate === null) {
+				return c.json(badRequest("candidate must be a JSON object"), 400);
+			}
+
+			const totalCount = asNonNegativeNumber(body.totalCount);
+			const passCount = asNonNegativeNumber(body.passCount);
+			const failCount = asNonNegativeNumber(body.failCount);
+			const averageScore = asNonNegativeNumber(body.averageScore);
+			if (totalCount === null) {
+				return c.json(
+					badRequest("totalCount must be a non-negative number"),
+					400,
+				);
+			}
+			if (passCount === null) {
+				return c.json(
+					badRequest("passCount must be a non-negative number"),
+					400,
+				);
+			}
+			if (failCount === null) {
+				return c.json(
+					badRequest("failCount must be a non-negative number"),
+					400,
+				);
+			}
+			if (averageScore === null && body.averageScore !== null) {
+				return c.json(
+					badRequest("averageScore must be a non-negative number"),
+					400,
+				);
+			}
+
+			const input: EvalRunInput = {
+				id: id ?? undefined,
+				evalCaseId,
+				status,
+				candidate: {
+					agentId: asOptionalString(candidate.agentId),
+					agentVersion: asOptionalString(candidate.agentVersion),
+					promptId: asOptionalString(candidate.promptId),
+					promptVersion: asOptionalString(candidate.promptVersion),
+					modelProvider: asOptionalString(candidate.modelProvider),
+					model: asOptionalString(candidate.model),
+					modelVersion: asOptionalString(candidate.modelVersion),
+				},
+				startedAt: asOptionalString(body.startedAt),
+				endedAt: asOptionalString(body.endedAt),
+				totalCount: totalCount ?? undefined,
+				passCount: passCount ?? undefined,
+				failCount: failCount ?? undefined,
+				averageScore: averageScore ?? null,
+				metadata,
+			};
+
+			const store = new EvalCasesStore(sqlDbFor(c.env));
+			try {
+				const evalRun = await store.createRun(getProjectId(c), input);
+				return c.json({ evalRun }, 201);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				if (message.includes("does not reference a case")) {
+					return c.json({ error: "Not Found", message }, 404);
+				}
+				return c.json(badRequest(message), 400);
+			}
+		});
+
+		app.get("/internal/eval-runs", async (c) => {
+			const rawStatus = c.req.query("status");
+			const status =
+				rawStatus === undefined
+					? undefined
+					: isEvalRunStatus(rawStatus)
+						? rawStatus
+						: null;
+			if (status === null) {
+				return c.json(badRequest("status is invalid"), 400);
+			}
+			const store = new EvalCasesStore(sqlDbFor(c.env));
+			const evalRuns = await store.listRuns({
+				projectId: getProjectId(c),
+				evalCaseId: c.req.query("evalCaseId"),
+				status,
+				limit: parseLimit(c.req.query("limit")),
+			});
+			return c.json({ evalRuns });
+		});
+
+		app.get("/internal/eval-runs/:id", async (c) => {
+			const id = c.req.param("id");
+			if (!id) return c.json(badRequest("id is required"), 400);
+			const store = new EvalCasesStore(sqlDbFor(c.env));
+			const evalRun = await store.getRun(getProjectId(c), id);
+			if (!evalRun) {
+				return c.json(
+					{ error: "Not Found", message: "Eval run not found" },
+					404,
+				);
+			}
+			return c.json({ evalRun });
+		});
+
 		app.post("/internal/eval-cases/:id/results", async (c) => {
 			const evalCaseId = c.req.param("id");
 			if (!evalCaseId) return c.json(badRequest("id is required"), 400);
@@ -225,6 +386,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 
 			// Verify case exists
 			const store = new EvalCasesStore(db);
+			const projectId = getProjectId(c);
 			const evalCase = await store.getCase(getProjectId(c), evalCaseId);
 			if (!evalCase) {
 				return c.json(
@@ -235,12 +397,25 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 
 			const id = randomHex(16);
 			const runId =
-				typeof body.runId === "string" ? body.runId : `run_${randomHex(8)}`;
+				typeof body.runId === "string" && body.runId.trim()
+					? body.runId.trim()
+					: `run_${randomHex(8)}`;
+			const evalRun = await store.getRun(projectId, runId);
+			if (evalRun?.evalCaseId && evalRun.evalCaseId !== evalCaseId) {
+				return c.json(
+					badRequest("runId belongs to a different eval case"),
+					400,
+				);
+			}
 			const passed = body.passed ? 1 : 0;
-			const score = typeof body.score === "number" ? body.score : null;
+			const score =
+				typeof body.score === "number" && Number.isFinite(body.score)
+					? body.score
+					: null;
 			const actualOutcome =
 				typeof body.actualOutcome === "string" ? body.actualOutcome : null;
-			const details_json = body.details ? JSON.stringify(body.details) : null;
+			const details_json =
+				body.details === undefined ? null : JSON.stringify(body.details);
 			const now = new Date().toISOString();
 
 			await db
@@ -251,7 +426,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				)
 				.bind(
 					id,
-					getProjectId(c),
+					projectId,
 					evalCaseId,
 					runId,
 					passed,
@@ -262,9 +437,13 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				)
 				.run();
 
+			if (evalRun) await store.refreshRunSummary(projectId, runId);
+			const refreshedRun = evalRun
+				? await store.getRun(projectId, runId)
+				: null;
 			const evalCaseResult: EvalCaseResultResponse = {
 				id,
-				projectId: getProjectId(c),
+				projectId,
 				evalCaseId,
 				runId,
 				passed: body.passed,
@@ -275,7 +454,13 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				evidenceReferences: evalCaseResultEvidenceReferences(evalCase, id),
 			};
 
-			return c.json({ evalCaseResult }, 201);
+			return c.json(
+				{
+					evalCaseResult,
+					evalRun: refreshedRun,
+				},
+				201,
+			);
 		});
 
 		app.get("/internal/eval-cases/:id/results", async (c) => {
@@ -321,7 +506,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					passed: row.passed === 1,
 					score: row.score,
 					actualOutcome: row.actual_outcome,
-					details: row.details_json ? JSON.parse(row.details_json) : null,
+					details: parseJsonMaybe(row.details_json),
 					createdAt: row.created_at,
 					evidenceReferences: evalCaseResultEvidenceReferences(
 						evalCase,

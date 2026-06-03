@@ -1,3 +1,4 @@
+import { ActionConfidence } from "@obs-unified/types/constants";
 import type { SqlDb } from "../sql-db";
 import { FETCH_LIMIT } from "./constants";
 import { manifestByInteraction } from "./key-lookups";
@@ -110,6 +111,7 @@ const projectLegacyInteraction = async (
 						0,
 					)
 				: null,
+		causalConfidence: ActionConfidence.Fallback,
 		attrsJson: JSON.stringify({ projectedFrom: "interaction_id" }),
 	};
 

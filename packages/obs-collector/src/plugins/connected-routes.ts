@@ -15,6 +15,7 @@
  * RFC 0006 § Connected rail / Empty-state.
  */
 
+import { ActionConfidence } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { IdentityIndex } from "../lib/identity-index";
 import {
@@ -34,6 +35,7 @@ import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
 import {
+	type ActionContextLinkMetadata,
 	type ConnectedEntityKind,
 	type ConnectedManifest,
 	KNOWN_KINDS,
@@ -176,6 +178,62 @@ const actionMatchEmptyReason = (context: SignalActionContext): string =>
 		? "No exact span-level action existed, so these links use trace-level action context."
 		: "No action graph records share this signal's trace/span identity.";
 
+const actionContextLinkMetadata = (
+	context: SignalActionContext,
+	entityLabel: string,
+): ActionContextLinkMetadata => {
+	if (context.matchLevel === "trace") {
+		return {
+			source: "trace_id",
+			causalConfidence: ActionConfidence.Fallback,
+			confidence: 0.55,
+			reason: `No exact span-level action matched this ${entityLabel}; linked by shared trace_id instead.`,
+		};
+	}
+	return {
+		source: "trace_id+span_id",
+		confidence: 0.95,
+		reason: `Action context matched this ${entityLabel} by exact trace_id and span_id.`,
+	};
+};
+
+const metadataForSignalActions = (
+	context: SignalActionContext,
+	entityLabel: string,
+): ((actionId: string) => ActionContextLinkMetadata | undefined) => {
+	const byActionId = new Map(
+		context.actions.map((action) => {
+			const metadata = actionContextLinkMetadata(context, entityLabel);
+			return [
+				action.id,
+				context.matchLevel === "span"
+					? { ...metadata, causalConfidence: action.causalConfidence }
+					: metadata,
+			] as const;
+		}),
+	);
+	return (actionId) => byActionId.get(actionId);
+};
+
+const traceLevelMetadata = (
+	entityLabel: string,
+): ActionContextLinkMetadata => ({
+	source: "trace_id",
+	causalConfidence: ActionConfidence.Fallback,
+	confidence: 0.55,
+	reason: `Linked ${entityLabel} through sampled trace_id context; no exact span-level causal edge is implied.`,
+});
+
+const linksForAgentRuns = (
+	runs: AgentRunRef[],
+	context: SignalActionContext,
+	entityLabel: string,
+) =>
+	runs.slice(0, MAX_LINKS_INLINE).map((run) => ({
+		...linkToAgentRun(run.id, `${run.agentName} (v${run.agentVersion})`),
+		...actionContextLinkMetadata(context, entityLabel),
+	}));
+
 export const connectedRoutesPlugin: CollectorPlugin = {
 	name: "connected-routes",
 	register(app) {
@@ -258,18 +316,21 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							actionContext.matchLevel === "span"
 								? "Causal actions for this span"
 								: "Trace-level actions for this span",
+							actionContextLinkMetadata(actionContext, "span"),
 						),
 						linksFromToolCalls(
 							actionContext.toolCalls,
 							actionContext.matchLevel === "span"
 								? "Tool calls for this span"
 								: "Trace-level tool calls for this span",
+							metadataForSignalActions(actionContext, "span"),
 						),
 						linksFromEvalResults(
 							actionContext.evalResults,
 							actionContext.matchLevel === "span"
 								? "Evaluations for this span"
 								: "Trace-level evaluations for this span",
+							metadataForSignalActions(actionContext, "span"),
 						),
 						linksFromMetricExemplars(
 							traceManifest.metricExemplars.filter(
@@ -305,14 +366,11 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 								actionContext.matchLevel === "span"
 									? "Agent runs for this span"
 									: "Trace-level agent runs for this span",
-							links: actionContext.agentRuns
-								.slice(0, MAX_LINKS_INLINE)
-								.map((run) =>
-									linkToAgentRun(
-										run.id,
-										`${run.agentName} (v${run.agentVersion})`,
-									),
-								),
+							links: linksForAgentRuns(
+								actionContext.agentRuns,
+								actionContext,
+								"span",
+							),
 						});
 					} else {
 						manifest.related.push({
@@ -462,12 +520,13 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 										label: "Causal actions in sampled traces",
 										links: actions.results
 											.slice(0, MAX_LINKS_INLINE)
-											.map((action) =>
-												linkToAction(
+											.map((action) => ({
+												...linkToAction(
 													action.id,
 													`[${action.action_kind}] ${action.name ?? action.id}`,
 												),
-											),
+												...traceLevelMetadata("profile action"),
+											})),
 									}
 								: {
 										label: "Causal actions in sampled traces",
@@ -483,6 +542,9 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 											.map((toolCall) => ({
 												label: `tool: ${toolCall.tool_name}`,
 												href: `#/tool-calls/${toolCall.id}`,
+												entityKind: "tool_call",
+												entityId: toolCall.id,
+												...traceLevelMetadata("profile tool call"),
 											})),
 									}
 								: {
@@ -500,12 +562,13 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 											label: "Agent runs",
 											links: agentRuns.results
 												.slice(0, MAX_LINKS_INLINE)
-												.map((run) =>
-													linkToAgentRun(
+												.map((run) => ({
+													...linkToAgentRun(
 														run.id,
 														`${run.agent_name} (v${run.agent_version})`,
 													),
-												),
+													...traceLevelMetadata("profile agent run"),
+												})),
 										},
 									]
 								: [
@@ -589,18 +652,21 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							actionContext.matchLevel === "span"
 								? "Causal actions for this log"
 								: "Trace-level actions for this log",
+							actionContextLinkMetadata(actionContext, "log"),
 						),
 						linksFromToolCalls(
 							actionContext.toolCalls,
 							actionContext.matchLevel === "span"
 								? "Tool calls for this log"
 								: "Trace-level tool calls for this log",
+							metadataForSignalActions(actionContext, "log"),
 						),
 						linksFromEvalResults(
 							actionContext.evalResults,
 							actionContext.matchLevel === "span"
 								? "Evaluations for this log"
 								: "Trace-level evaluations for this log",
+							metadataForSignalActions(actionContext, "log"),
 						),
 					];
 					manifest.related = [
@@ -612,12 +678,13 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 											: "Trace-level agent runs for this log",
 									links: actionContext.agentRuns
 										.slice(0, MAX_LINKS_INLINE)
-										.map((run) =>
-											linkToAgentRun(
+										.map((run) => ({
+											...linkToAgentRun(
 												run.id,
 												`${run.agentName} (v${run.agentVersion})`,
 											),
-										),
+											...actionContextLinkMetadata(actionContext, "log"),
+										})),
 								}
 							: {
 									label: "Agent runs for this log",
@@ -718,18 +785,21 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							actionContext.matchLevel === "span"
 								? "Causal actions for this AI call"
 								: "Trace-level actions for this AI call",
+							actionContextLinkMetadata(actionContext, "AI call"),
 						),
 						linksFromToolCalls(
 							actionContext.toolCalls,
 							actionContext.matchLevel === "span"
 								? "Tool calls for this AI call"
 								: "Trace-level tool calls for this AI call",
+							metadataForSignalActions(actionContext, "AI call"),
 						),
 						linksFromEvalResults(
 							actionContext.evalResults,
 							actionContext.matchLevel === "span"
 								? "Evaluations for this AI call"
 								: "Trace-level evaluations for this AI call",
+							metadataForSignalActions(actionContext, "AI call"),
 						),
 					];
 					manifest.related = [
@@ -741,12 +811,13 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 											: "Trace-level agent runs for this AI call",
 									links: actionContext.agentRuns
 										.slice(0, MAX_LINKS_INLINE)
-										.map((run) =>
-											linkToAgentRun(
+										.map((run) => ({
+											...linkToAgentRun(
 												run.id,
 												`${run.agentName} (v${run.agentVersion})`,
 											),
-										),
+											...actionContextLinkMetadata(actionContext, "AI call"),
+										})),
 								}
 							: {
 									label: "Agent runs for this AI call",

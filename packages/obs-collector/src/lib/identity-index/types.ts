@@ -1,3 +1,7 @@
+import type { ActionConfidence } from "@obs-unified/types/constants";
+
+export type CausalConfidence = ActionConfidence;
+
 export interface SpanRef {
 	traceId: string;
 	spanId: string;
@@ -107,6 +111,7 @@ export interface ActionRef {
 	modelName: string | null;
 	provider: string | null;
 	totalCostUsd: number | null;
+	causalConfidence: CausalConfidence;
 	attrsJson: string | null;
 }
 
