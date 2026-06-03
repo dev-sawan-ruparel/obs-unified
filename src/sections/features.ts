@@ -1,56 +1,4 @@
-type Feature = {
-  title: string;
-  body: string;
-  icon: string;
-};
-
-const FEATURES: Feature[] = [
-  {
-    title: "Distributed tracing",
-    body: "OTLP-native ingest. Spans, baggage, and propagation work with first-party Node, Go, and Rust SDKs — and any OpenTelemetry SDK over OTLP.",
-    icon: `<path d="M3 6h6M3 12h12M3 18h9"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>`,
-  },
-  {
-    title: "Structured logs",
-    body: "JSON logs with severity, automatic trace correlation, and per-module loggers. Auto-attached to the active span — no copy-paste IDs.",
-    icon: `<path d="M4 6h16M4 12h16M4 18h10"/>`,
-  },
-  {
-    title: "AI and agent actions",
-    body: "LLM calls, retrievals, tool calls, agent runs, eval cases, tokens, USD cost, latency, and failure category — all linked into one action graph.",
-    icon: `<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/>`,
-  },
-  {
-    title: "Session replay",
-    body: "Browser sessions recorded with rrweb, stored as DOM-mutation chunks in R2, and replayed inline next to the trace they belong to.",
-    icon: `<polygon points="6 4 20 12 6 20 6 4"/>`,
-  },
-  {
-    title: "Usage analytics",
-    body: "Page views, interactions, errors, UTM parameters, and identity stitching — the product-analytics layer, in the same store as your traces.",
-    icon: `<path d="M3 20h18M6 16v-6M11 16V8M16 16v-3M21 16v-9"/>`,
-  },
-  {
-    title: "Interaction ID to CPU",
-    body: "A click mints one interaction_id. Backend spans, logs, AI calls, action graphs, MCP tools, and CPU profiles join through the resulting trace.",
-    icon: `<path d="M4 12h4l2-6 4 12 2-6h4"/><path d="M4 20h16M4 4h16"/>`,
-  },
-  {
-    title: "Alerts",
-    body: "Alert rules over any signal — latency, error rate, AI spend, custom usage events. One rules engine and one notification surface across the stack.",
-    icon: `<path d="M12 2a7 7 0 0 0-7 7v4l-2 3h18l-2-3V9a7 7 0 0 0-7-7z"/><path d="M9 18a3 3 0 0 0 6 0"/>`,
-  },
-  {
-    title: "User profiles",
-    body: "Identity linking from anonymous visitor to logged-in user, with traits and event history. Every signal can be filtered by user and replayed from their perspective.",
-    icon: `<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>`,
-  },
-  {
-    title: "SDKs and MCP server",
-    body: "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, agent runs, actions, and tool calls.",
-    icon: `<polyline points="8 18 2 12 8 6"/><polyline points="16 6 22 12 16 18"/><line x1="14" y1="4" x2="10" y2="20"/>`,
-  },
-];
+import { siteContent, type Feature } from "../content/site";
 
 function card({ title, body, icon }: Feature): string {
   return `
@@ -65,20 +13,18 @@ function card({ title, body, icon }: Feature): string {
 }
 
 export function renderFeatures(): string {
+  const { features } = siteContent;
   return `
 <section id="features" class="features" aria-labelledby="features-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">One collector · one identity chain · dashboard + MCP</p>
-      <h2 id="features-title">Unified observability means every signal knows its neighbors.</h2>
+      <p class="eyebrow">${features.eyebrow}</p>
+      <h2 id="features-title">${features.title}</h2>
       <p class="section-lead">
-        Observability Unified replaces the patchwork of APM + logging + product analytics + session replay
-        + LLM observability + alerting with one unified stack, correlated through a single
-        identity chain and explorable through the dashboard, action graph, or
-        MCP tools.
+        ${features.lead}
       </p>
     </header>
-    <div class="feature-grid">${FEATURES.map(card).join("")}</div>
+    <div class="feature-grid">${features.items.map(card).join("")}</div>
   </div>
 </section>
 `;

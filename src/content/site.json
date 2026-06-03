@@ -1,0 +1,157 @@
+{
+  "hero": {
+    "eyebrow": "Open source · MIT licensed",
+    "titleLine": "A telemetry graph",
+    "accent": "agents can actually debug with.",
+    "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. Humans use the dashboard; agents use the <strong>MCP server</strong> to follow structured IDs, confidence, citations, and next pivots from symptom to root cause. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
+    "metaLabelHtml": "<strong>SDKs + MCP</strong> TypeScript · Go · Rust · browser · agents",
+    "metaLinkLabel": "SDK docs",
+    "identityLabel": "Identity propagated end-to-end:",
+    "identityChain": "user_id → session_id → interaction_id → trace_id → span_id → action_id",
+    "identityBody": "The interaction ID follows a frontend action into backend spans, logs, AI calls, actions, evals, and MCP tools; CPU/off-CPU profiles join through the trace it caused.",
+    "imageAlt": "Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence",
+    "figcaptionTitle": "Agent Action Graph",
+    "figcaptionBody": "See what an agent did, what each step caused, which evidence is explicit or inferred, and which trace, log, replay, AI cost, tool, eval, or profile explains the result."
+  },
+  "features": {
+    "eyebrow": "One collector · one identity chain · dashboard + MCP",
+    "title": "Unified observability means every signal knows its neighbors.",
+    "lead": "Observability Unified replaces the patchwork of APM + logging + product analytics + session replay + LLM observability + alerting with one unified stack, correlated through a single identity chain and explorable through the dashboard, action graph, structured evidence references, or MCP tools.",
+    "items": [
+      {
+        "title": "Distributed tracing",
+        "body": "OTLP-native ingest. Spans, baggage, and propagation work with first-party Node, Go, and Rust SDKs — and any OpenTelemetry SDK over OTLP.",
+        "icon": "<path d=\"M3 6h6M3 12h12M3 18h9\"/><circle cx=\"18\" cy=\"6\" r=\"2\"/><circle cx=\"18\" cy=\"12\" r=\"2\"/><circle cx=\"18\" cy=\"18\" r=\"2\"/>"
+      },
+      {
+        "title": "Structured logs",
+        "body": "JSON logs with severity, automatic trace correlation, and per-module loggers. Auto-attached to the active span — no copy-paste IDs.",
+        "icon": "<path d=\"M4 6h16M4 12h16M4 18h10\"/>"
+      },
+      {
+        "title": "AI and agent actions",
+        "body": "LLM calls, retrievals, tool calls, agent runs, eval cases, tokens, USD cost, latency, and failure category — all linked into one causal action graph.",
+        "icon": "<path d=\"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>"
+      },
+      {
+        "title": "Agent-readable evidence",
+        "body": "Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete entity IDs, routes, confidence, citations, and suggested pivots.",
+        "icon": "<path d=\"M4 5h16M4 12h10M4 19h7\"/><path d=\"M16 15l2 2 4-5\"/>"
+      },
+      {
+        "title": "Session replay",
+        "body": "Browser sessions recorded with rrweb, stored as DOM-mutation chunks in R2, and replayed inline next to the trace they belong to.",
+        "icon": "<polygon points=\"6 4 20 12 6 20 6 4\"/>"
+      },
+      {
+        "title": "Usage analytics",
+        "body": "Page views, interactions, errors, UTM parameters, and identity stitching — the product-analytics layer, in the same store as your traces.",
+        "icon": "<path d=\"M3 20h18M6 16v-6M11 16V8M16 16v-3M21 16v-9\"/>"
+      },
+      {
+        "title": "Interaction ID to CPU",
+        "body": "A click mints one interaction_id. Backend spans, logs, AI calls, action graphs, MCP tools, and CPU profiles join through the resulting trace.",
+        "icon": "<path d=\"M4 12h4l2-6 4 12 2-6h4\"/><path d=\"M4 20h16M4 4h16\"/>"
+      },
+      {
+        "title": "Alerts",
+        "body": "Alert rules over any signal — latency, error rate, AI spend, custom usage events. One rules engine and one notification surface across the stack.",
+        "icon": "<path d=\"M12 2a7 7 0 0 0-7 7v4l-2 3h18l-2-3V9a7 7 0 0 0-7-7z\"/><path d=\"M9 18a3 3 0 0 0 6 0\"/>"
+      },
+      {
+        "title": "User profiles",
+        "body": "Identity linking from anonymous visitor to logged-in user, with traits and event history. Every signal can be filtered by user and replayed from their perspective.",
+        "icon": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/>"
+      },
+      {
+        "title": "SDKs and MCP server",
+        "body": "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, profiles, agent runs, actions, tools, and evals.",
+        "icon": "<polyline points=\"8 18 2 12 8 6\"/><polyline points=\"16 6 22 12 16 18\"/><line x1=\"14\" y1=\"4\" x2=\"10\" y2=\"20\"/>"
+      }
+    ]
+  },
+  "architecture": {
+    "eyebrow": "Architecture",
+    "title": "One collector. Your telemetry graph.",
+    "lead": "Instrumented services write telemetry into Observability Unified. Humans and agents read the same connected graph through dashboard APIs, structured evidence references, and MCP tools, while ingest credentials stay separate from investigation access.",
+    "connectedGraphBody": "evidence IDs, traces, logs, replay, AI cost, actions, CPU",
+    "debuggingAgentsBody": "follow evidence, confidence, and pivots"
+  },
+  "faq": [
+    {
+      "q": "What is Observability Unified?",
+      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with stable IDs, confidence, citations, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
+    },
+    {
+      "q": "What is the Agent Action Graph?",
+      "a": "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP."
+    },
+    {
+      "q": "Is this for debugging AI agents or for agents debugging software?",
+      "a": "Both. Observability Unified debugs AI agents by showing LLM calls, retrievals, tool calls, agent runs, evals, costs, latency, and failures in an Agent Action Graph. It also helps AI agents debug software by exposing MCP tools for traces, logs, service maps, users, replays, connected signals, agent runs, actions, and tool calls."
+    },
+    {
+      "q": "Can AI agents inspect Observability Unified through MCP?",
+      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, and tool calls. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
+    },
+    {
+      "q": "How is it different from Datadog, Sentry, or PostHog?",
+      "a": "Its primary difference is unification for debugging. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. Instead of leaving agents to scrape dashboards or prose, the platform returns concrete evidence references, confidence, exemplar pivots, and connected signals. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path."
+    },
+    {
+      "q": "What's the data retention model?",
+      "a": "Retention is controlled by the RETENTION_HOURS environment variable on the collector and defaults to 72 hours. Profile blobs have a separate PROFILE_RETENTION_HOURS override because they're larger per record. Because everything lives in your storage account, you set the policy and pay the storage directly; there's no per-event retention tier to negotiate."
+    },
+    {
+      "q": "When do I outgrow D1, and what's the upgrade path?",
+      "a": "D1 is the default low-ops hosted path for small and medium deployments. The practical ceiling depends on event volume, cardinality, and retention, so heavy installs should move to the Node collector with Postgres plus S3-compatible blob storage before D1 becomes the bottleneck."
+    },
+    {
+      "q": "How does it handle PII and GDPR?",
+      "a": "Self-hosting is the headline answer: data never leaves your infrastructure, so residency and processor questions reduce to where you deploy. On top of that, the usage-event pipeline applies default-redact scrubbing on ingest; fields named like email, token, password, authorization, or cookie are stripped from context and properties JSON before storage. Session replays use rrweb, which masks input fields by default and supports per-element block/mask attributes."
+    },
+    {
+      "q": "Does it support SSO or multi-user dashboards?",
+      "a": "Not today. Two auth boundaries ship: a write-only ingest API key for SDKs and a single password for the dashboard. Multi-user, RBAC, and SSO are out of scope and tracked separately. Most teams put the dashboard behind their existing identity proxy, such as Cloudflare Access or Tailscale, in the meantime."
+    },
+    {
+      "q": "Can I migrate from Datadog, Sentry, or PostHog?",
+      "a": "Sentry, PostHog, Honeycomb, and older @obs/* package migrations are covered in the docs. For Datadog, OTLP-native ingest accepts the standard OpenTelemetry SDK over OTLP HTTP, so traces and logs are usually a configuration change; a dedicated walkthrough is tracked separately."
+    },
+    {
+      "q": "Does it work with my existing OpenTelemetry SDK?",
+      "a": "Yes. The collector accepts OTLP over HTTP using JSON or protobuf, with gzip. gRPC is intentionally not supported because Cloudflare Workers cannot host it, and OTLP HTTP covers every official SDK. The first-party SDKs are thin wrappers that point the standard OpenTelemetry SDK at the collector and add OpenInference helpers for LLM and tool spans."
+    },
+    {
+      "q": "Is it free and open source?",
+      "a": "Yes. Observability Unified is MIT-licensed. You pay only for the infrastructure you run it on. For production, choose either Cloudflare Workers with D1/R2, or the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage."
+    }
+  ],
+  "seo": {
+    "siteUrl": "https://obsunified.com/",
+    "docsUrl": "https://docs.obsunified.com/docs",
+    "githubUrl": "https://github.com/obs-unified/obs-unified",
+    "title": "Observability Unified — a telemetry graph agents can debug with",
+    "description": "Self-hosted observability for debugging AI agents and helping AI agents debug software with structured evidence across traces, logs, replay, AI cost, action graphs, MCP tools, evals, and CPU profiles.",
+    "ogImageAlt": "Observability Unified telemetry graph for debugging AI agents and helping agents debug software",
+    "ogCaption": "Observability Unified telemetry graph for debugging AI agents and helping AI agents debug software"
+  },
+  "schema": {
+    "reviewBody": "Designed as one self-hosted telemetry graph for debugging AI agents and helping AI agents debug software, connecting frontend interactions to structured evidence, action graphs, backend traces, logs, replay, AI cost, tool and eval context, MCP context, and CPU profiling evidence.",
+    "featureList": [
+      "One telemetry graph for humans and AI agents debugging software",
+      "Structured evidence references with entity IDs, routes, confidence, citations, and suggested pivots",
+      "Agent Action Graph for debugging AI agent runs, LLM calls, retrievals, tool calls, guardrails, and eval cases",
+      "MCP server for AI agents to inspect traces, logs, replays, connected signals, profiles, evals, agent runs, actions, and tool calls",
+      "OpenTelemetry trace ingest over OTLP HTTP",
+      "Structured logging with trace correlation",
+      "LLM and AI call tracking for tokens, cost, latency, and errors",
+      "Session replay via rrweb",
+      "Frontend product analytics and usage events",
+      "Alert rules and notifications",
+      "User profiles and identity stitching",
+      "Self-hosted on Cloudflare Workers with D1 and R2",
+      "Node collector with Postgres and S3-compatible storage"
+    ]
+  }
+}

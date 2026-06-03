@@ -1,14 +1,15 @@
+import { siteContent } from "../content/site";
+
 export function renderArchitecture(): string {
+  const { architecture } = siteContent;
   return `
 <section id="architecture" class="architecture" aria-labelledby="arch-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">Architecture</p>
-      <h2 id="arch-title">One collector. Your telemetry graph.</h2>
+      <p class="eyebrow">${architecture.eyebrow}</p>
+      <h2 id="arch-title">${architecture.title}</h2>
       <p class="section-lead">
-        Instrumented services write telemetry into Observability Unified. Humans and agents
-        read the same connected graph through dashboard APIs and MCP tools, while
-        ingest credentials stay separate from investigation access.
+        ${architecture.lead}
       </p>
     </header>
 
@@ -53,7 +54,7 @@ export function renderArchitecture(): string {
             </div>
             <div>
               <span>Connected graph</span>
-              <p>interaction ID, traces, logs, replay, AI cost, CPU</p>
+              <p>${architecture.connectedGraphBody}</p>
             </div>
           </div>
         </div>
@@ -73,7 +74,7 @@ export function renderArchitecture(): string {
         </div>
         <div class="arch-mini-node">
           <span>Debugging agents</span>
-          <p>traverse MCP tools using stable IDs</p>
+          <p>${architecture.debuggingAgentsBody}</p>
         </div>
         <div class="arch-mini-node">
           <span>Incident workflows</span>

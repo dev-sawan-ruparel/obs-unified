@@ -1,24 +1,19 @@
 import { GETTING_STARTED_URL, GITHUB_URL, SDK_DOCS_URL } from "../config";
+import { siteContent } from "../content/site";
 
 export function renderHero(): string {
+  const { hero } = siteContent;
   return `
 <section class="hero" aria-labelledby="hero-title">
   <div class="container hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Open source · MIT licensed</p>
+      <p class="eyebrow">${hero.eyebrow}</p>
       <h1 id="hero-title" class="hero-title">
-        <span class="hero-title-line">Unified observability</span>
-        <span class="accent">for humans and agents.</span>
+        <span class="hero-title-line">${hero.titleLine}</span>
+        <span class="accent">${hero.accent}</span>
       </h1>
       <p class="hero-lead">
-        <strong>Debug AI agents, and help AI agents debug software.</strong>
-        <strong>Observability Unified</strong> connects a user action to agent
-        steps, backend traces, logs, replay, AI cost, CPU profiles, and MCP
-        context in <strong>one telemetry graph</strong>. Humans use the
-        dashboard; agents use the <strong>MCP server</strong> to inspect the
-        same evidence. Start locally with one Docker image. For production,
-        choose Cloudflare Workers with D1/R2, or run the Node collector on any
-        cloud with Postgres and S3-compatible storage.
+        ${hero.leadHtml}
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
@@ -31,24 +26,22 @@ export function renderHero(): string {
         </a>
       </div>
       <div class="hero-meta">
-        <span><strong>SDKs + MCP</strong> TypeScript · Go · Rust · browser · agents</span>
-        <a class="hero-meta-langs" href="${SDK_DOCS_URL}">SDK docs</a>
+        <span>${hero.metaLabelHtml}</span>
+        <a class="hero-meta-langs" href="${SDK_DOCS_URL}">${hero.metaLinkLabel}</a>
       </div>
       <p class="hero-chain">
-        Identity propagated end-to-end:
-        <code>user_id → session_id → interaction_id → trace_id → span_id</code>
-        <span>The interaction ID follows a frontend action into backend spans, logs,
-        AI calls, and MCP tools; CPU/off-CPU profiles join through the trace it
-        caused.</span>
+        ${hero.identityLabel}
+        <code>${hero.identityChain}</code>
+        <span>${hero.identityBody}</span>
       </p>
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">
-        <img src="/screenshots/app/agent-action-graph.png" alt="Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence" width="1180" height="900" />
+        <img src="/screenshots/app/agent-action-graph.png" alt="${hero.imageAlt}" width="1180" height="900" />
       </div>
       <figcaption>
-        <span>Agent Action Graph</span>
-        <p>See what an agent did, what each step caused, and which traces, logs, replay, AI cost, MCP context, and profiles explain the result.</p>
+        <span>${hero.figcaptionTitle}</span>
+        <p>${hero.figcaptionBody}</p>
       </figcaption>
     </figure>
   </div>
