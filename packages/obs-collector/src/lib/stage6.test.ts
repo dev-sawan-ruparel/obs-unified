@@ -139,3 +139,70 @@ describe("AlertsStore.getAnalysisNarrative", () => {
 		expect(out).toBeNull();
 	});
 });
+
+describe("AlertsStore.listEvaluations evidence references", () => {
+	it("adds alert and bound-analysis evidence references to evaluation rows", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM alert_rules")) {
+					return {
+						id: "rule-1",
+						project_id: "default",
+						name: "Checkout latency",
+						signal: "spans",
+						query_json: "{}",
+						threshold: 100,
+						window_mins: 5,
+						comparison: ">",
+						channels_json: "[]",
+						enabled: 1,
+						created_at: "2026-05-01T00:00:00.000Z",
+						updated_at: "2026-05-01T00:00:00.000Z",
+						analysis_id: "latency.p95",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("FROM alert_evaluations")) {
+					return [
+						{
+							id: "eval-1",
+							rule_id: "rule-1",
+							project_id: "default",
+							evaluated_at: "2026-05-01T00:05:00.000Z",
+							value: 320,
+							state: "firing",
+							notified: 1,
+						},
+					];
+				}
+				return [];
+			},
+		});
+		const store = new AlertsStore(db);
+
+		const evaluations = await store.listEvaluations({
+			ruleId: "rule-1",
+			projectId: "default",
+			hours: 24,
+		});
+
+		expect(evaluations[0].evidenceReferences).toEqual([
+			expect.objectContaining({
+				evidenceId: "alert:rule-1:evaluation:eval-1",
+				entityKind: "alert",
+				entityId: "rule-1",
+				route: "#/alerts?alert=rule-1",
+				source: "alert_evaluations",
+			}),
+			expect.objectContaining({
+				evidenceId: "alert:rule-1:evaluation:eval-1:analysis:latency.p95",
+				entityKind: "analysis",
+				entityId: "latency.p95",
+				route: "#/investigate/latency.p95",
+				source: "alert_rules.analysis_id",
+			}),
+		]);
+	});
+});

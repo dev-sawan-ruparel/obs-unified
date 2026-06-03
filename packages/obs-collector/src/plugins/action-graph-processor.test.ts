@@ -1,4 +1,11 @@
 import type { StoredSpan } from "@obs-unified/types";
+import {
+	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_CONFIDENCE_KEY,
+	ACTION_ID_KEY,
+	ACTION_ROOT_ID_KEY,
+	ActionConfidence,
+} from "@obs-unified/types/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
 	CollectorRuntime,
@@ -15,6 +22,13 @@ import {
 	registerActionEnricherPlugin,
 	registerRedactionPlugin,
 } from "./action-graph-processor";
+import { deriveActionId } from "./gen-ai-normalizer";
+
+const ACTION_ID_1 = "01J3Y4Z5A6B7C8D9E0F1G2H3J4";
+const ACTION_ID_2 = "01J3Y4Z5A6B7C8D9E0F1G2H3K5";
+const RUN_ROLLUP_ID = "01HZQ5W3K8M4P2X7N9B0CDEFGH";
+const LLM_ACTION_ID = "01J4A6B7C8D9E0F1G2H3J4K5M6";
+const TOOL_ACTION_ID = "01J4A6B7C8D9E0F1G2H3J4K5M7";
 
 describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 	let db: MemSqlDb;
@@ -90,7 +104,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			endTime: "2026-05-22T00:00:05.000Z",
 			durationMs: 5000,
 			attributesJson: JSON.stringify({
-				"obs.action.id": "action-1",
+				"obs.action.id": ACTION_ID_1,
 				"obs.action.kind": "agent.run",
 				"obs.agent_run.agent_id": "agent-1",
 				"obs.agent_run.goal": "original-goal",
@@ -208,7 +222,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			endTime: "2026-05-22T00:00:05.000Z",
 			durationMs: 5000,
 			attributesJson: JSON.stringify({
-				"obs.action.id": "action-1",
+				"obs.action.id": ACTION_ID_1,
 				"obs.action.kind": "tool.call",
 				"obs.tool_call.tool_name": "some-tool",
 				"obs.tool_call.args": JSON.stringify({
@@ -290,7 +304,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			endTime: "2026-05-22T00:00:01.000Z",
 			durationMs: 1000,
 			attributesJson: JSON.stringify({
-				"obs.action.id": "action-privacy",
+				"obs.action.id": ACTION_ID_2,
 				"obs.action.kind": "tool.call",
 				"obs.tool_call.tool_name": "update_invoice",
 				"obs.tool_call.args": JSON.stringify({
@@ -373,7 +387,7 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 				endTime: "2026-05-22T00:00:01.000Z",
 				durationMs: 1000,
 				attributesJson: JSON.stringify({
-					"obs.action.id": "run-rollup",
+					"obs.action.id": RUN_ROLLUP_ID,
 					"obs.action.kind": "agent.run",
 					"obs.agent_run.agent_id": "agent-rollup",
 				}),
@@ -386,10 +400,10 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 				endTime: "2026-05-22T00:00:03.000Z",
 				durationMs: 2000,
 				attributesJson: JSON.stringify({
-					"obs.action.id": "action-llm",
-					"obs.action.root_id": "run-rollup",
+					"obs.action.id": LLM_ACTION_ID,
+					"obs.action.root_id": RUN_ROLLUP_ID,
 					"obs.action.kind": "llm.call",
-					"obs.agent_run.id": "run-rollup",
+					"obs.agent_run.id": RUN_ROLLUP_ID,
 					"llm.cost.total_usd": 0.015,
 				}),
 			},
@@ -401,10 +415,10 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 				endTime: "2026-05-22T00:00:05.500Z",
 				durationMs: 2500,
 				attributesJson: JSON.stringify({
-					"obs.action.id": "action-tool",
-					"obs.action.root_id": "run-rollup",
+					"obs.action.id": TOOL_ACTION_ID,
+					"obs.action.root_id": RUN_ROLLUP_ID,
 					"obs.action.kind": "tool.call",
-					"obs.agent_run.id": "run-rollup",
+					"obs.agent_run.id": RUN_ROLLUP_ID,
 					"obs.tool_call.tool_name": "db.update_invoice",
 					"gen_ai.usage.cost_usd": 0.02,
 				}),
@@ -434,5 +448,156 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			0.015,
 			0.02,
 		]);
+	});
+
+	it("rejects malformed explicit action IDs and persists deterministic fallback context", async () => {
+		const span: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "span-malformed",
+			parentSpanId: null,
+			traceId: "trace-malformed",
+			traceState: null,
+			serviceName: "test-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "malformed-tool",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-22T00:00:00.000Z",
+			endTime: "2026-05-22T00:00:01.000Z",
+			durationMs: 1000,
+			attributesJson: JSON.stringify({
+				[ACTION_ID_KEY]: "not-an-action-id",
+				[ACTION_ROOT_ID_KEY]: "also-not-an-action-id",
+				[ACTION_CAUSED_BY_ID_KEY]: "bad-parent-id",
+				"obs.agent_run.id": "bad-run-id",
+				"obs.action.kind": "tool.call",
+				"obs.tool_call.tool_name": "unsafe_tool",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:01.000Z",
+			expiresAt: "2026-05-23T00:00:01.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const processors: SpanProcessorPlugin[] = [];
+		actionGraphProcessorPlugin.register(
+			{} as Parameters<typeof actionGraphProcessorPlugin.register>[0],
+			{
+				addSpanProcessor(p: SpanProcessorPlugin) {
+					processors.push(p);
+				},
+			} as unknown as CollectorRuntime,
+		);
+		const processFn = processors[0]?.process;
+		if (!processFn) throw new Error("span processor was not registered");
+
+		const [transformed] = await processFn([span], context);
+		const expectedActionId = await deriveActionId(
+			span.projectId,
+			span.traceId,
+			span.spanId,
+		);
+		const expectedRootId = await deriveActionId(
+			span.projectId,
+			span.traceId,
+			span.traceId.substring(0, 16),
+		);
+
+		const actionInsert = db.callsMatching("INSERT INTO actions")[0];
+		expect(actionInsert.binds[0]).toBe(expectedActionId);
+		expect(actionInsert.binds[2]).toBe(expectedRootId);
+		expect(actionInsert.binds[3]).toBeNull();
+		expect(actionInsert.binds[17]).toBeNull();
+
+		const attrsJson = String(actionInsert.binds[24]);
+		expect(attrsJson).not.toContain("not-an-action-id");
+		expect(attrsJson).not.toContain("also-not-an-action-id");
+		expect(attrsJson).not.toContain("bad-parent-id");
+		expect(attrsJson).not.toContain("bad-run-id");
+		expect(JSON.parse(attrsJson)).toMatchObject({
+			[ACTION_ID_KEY]: expectedActionId,
+			[ACTION_ROOT_ID_KEY]: expectedRootId,
+			[ACTION_CAUSED_BY_ID_KEY]: null,
+			[ACTION_CONFIDENCE_KEY]: ActionConfidence.Fallback,
+		});
+
+		const transformedAttrs = JSON.parse(transformed?.attributesJson ?? "{}");
+		expect(transformedAttrs[ACTION_ID_KEY]).toBe(expectedActionId);
+		expect(transformedAttrs[ACTION_CONFIDENCE_KEY]).toBe(
+			ActionConfidence.Fallback,
+		);
+		expect(transformedAttrs["obs.agent_run.id"]).toBeUndefined();
+	});
+
+	it("derives queue continuation parent links when explicit async IDs are absent", async () => {
+		const span: StoredSpan = {
+			projectId: "proj-123",
+			spanId: "queue-child-span",
+			parentSpanId: "queue-parent-span",
+			traceId: "trace-queue",
+			traceState: null,
+			serviceName: "worker-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanName: "continue queued job",
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-22T00:00:00.000Z",
+			endTime: "2026-05-22T00:00:01.000Z",
+			durationMs: 1000,
+			attributesJson: JSON.stringify({
+				"openinference.span.kind": "CHAIN",
+			}),
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:01.000Z",
+			expiresAt: "2026-05-23T00:00:01.000Z",
+			sessionId: null,
+			interactionId: null,
+		};
+
+		const processors: SpanProcessorPlugin[] = [];
+		actionGraphProcessorPlugin.register(
+			{} as Parameters<typeof actionGraphProcessorPlugin.register>[0],
+			{
+				addSpanProcessor(p: SpanProcessorPlugin) {
+					processors.push(p);
+				},
+			} as unknown as CollectorRuntime,
+		);
+		const processFn = processors[0]?.process;
+		if (!processFn) throw new Error("span processor was not registered");
+
+		await processFn([span], context);
+		const expectedActionId = await deriveActionId(
+			span.projectId,
+			span.traceId,
+			span.spanId,
+		);
+		const expectedParentActionId = await deriveActionId(
+			span.projectId,
+			span.traceId,
+			span.parentSpanId ?? "",
+		);
+
+		const actionInsert = db.callsMatching("INSERT INTO actions")[0];
+		expect(actionInsert.binds[0]).toBe(expectedActionId);
+		expect(actionInsert.binds[3]).toBe(expectedParentActionId);
+		const attrs = JSON.parse(String(actionInsert.binds[24]));
+		expect(attrs[ACTION_CONFIDENCE_KEY]).toBe(ActionConfidence.Fallback);
+		expect(attrs[ACTION_CAUSED_BY_ID_KEY]).toBe(expectedParentActionId);
 	});
 });

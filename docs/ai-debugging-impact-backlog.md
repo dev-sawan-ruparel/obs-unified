@@ -265,7 +265,7 @@ the work into five PR-sized execution slices:
 
 ## 1. Raw Signal to Exact Action / Tool / Agent Back-Links
 
-**Status:** [~] Highest-impact partial.
+**Status:** [x] Implemented.
 
 **Why it matters:** An AI debugger looking at a trace, span, log, AI call, or
 profile should immediately know the causing agent run, action step, and tool
@@ -280,13 +280,13 @@ call. This converts raw telemetry into causal context.
 
 **Acceptance checklist:**
 
-- [ ] Span rail shows causing action, agent run, and tool call when action IDs
+- [x] Span rail shows causing action, agent run, and tool call when action IDs
       or derived IDs exist.
-- [ ] Log rail shows action context active when the log was emitted.
-- [ ] AI call rail shows agent run, sibling actions, evals, and tool context.
-- [ ] Profile evidence links back to sampled action/agent context where trace
+- [x] Log rail shows action context active when the log was emitted.
+- [x] AI call rail shows agent run, sibling actions, evals, and tool context.
+- [x] Profile evidence links back to sampled action/agent context where trace
       joins exist.
-- [ ] Tests cover explicit action IDs and deterministic fallback IDs.
+- [x] Tests cover explicit action IDs and deterministic fallback IDs.
 
 **Suggested owner:** Codex primary or backend sub-agent.
 
@@ -343,8 +343,7 @@ verification.
 
 ## 4. Structured Analysis Evidence for Agents
 
-**Status:** [~] Analysis/Ask evidence implemented; alert/evaluation-specific
-evidence references remain.
+**Status:** [x] Implemented.
 
 **Why it matters:** Agents should start from ranked hypotheses, evidence IDs,
 confidence, and suggested next pivots rather than parsing narrative text.
@@ -362,29 +361,29 @@ confidence, and suggested next pivots rather than parsing narrative text.
 - [x] Each evidence item includes entity kind, ID, route, confidence, source,
       reason, citations, and suggested next pivots.
 - [x] Investigations and AskBox use a compatible `EvidenceReference` shape.
-- [ ] Alert and evaluation-specific payloads expose first-class
+- [x] Alert and evaluation-specific payloads expose first-class
       `EvidenceReference` objects instead of relying on embedded query context.
 - [x] Narratives remain human-readable but are not the only machine context.
 - [x] AskBox output can drive deterministic Connected Rail pivots.
-- [x] Tests cover analysis evidence shape and legacy payload backward
-      compatibility.
+- [x] Tests cover analysis, alert, AI evaluation, eval-case source, and legacy
+      payload backward compatibility.
 
 **Suggested owner:** Gemini for UX copy/shape proposal; Codex for backend API
 and tests.
 
 ## 5. Agent Action Graph Core Hardening
 
-**Status:** [x] Mostly implemented; [~] hardening/audit remains.
+**Status:** [x] Implemented.
 
 **Why it matters:** This is the backbone that lets agents debug a story instead
 of disconnected spans.
 
 **Hardening checklist:**
 
-- [ ] Audit raw-signal back-links against RFC 0010 acceptance criteria.
-- [ ] Verify derived fallback action IDs are consistently marked as fallback.
-- [ ] Verify malformed explicit IDs never enter trusted async context.
-- [ ] Add regression tests for queue/async continuation if missing.
+- [x] Audit raw-signal back-links against RFC 0010 acceptance criteria.
+- [x] Verify derived fallback action IDs are consistently marked as fallback.
+- [x] Verify malformed explicit IDs never enter trusted async context.
+- [x] Add regression tests for queue/async continuation if missing.
 
 **Suggested owner:** Backend sub-agent.
 

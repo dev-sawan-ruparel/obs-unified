@@ -17,6 +17,19 @@
 
 import type { CollectorPlugin } from "../framework/collector";
 import { IdentityIndex } from "../lib/identity-index";
+import {
+	mapAction,
+	mapAgentRun,
+	mapEvalResult,
+	mapToolCall,
+} from "../lib/identity-index/mappers";
+import type {
+	ActionRef,
+	AgentRunRef,
+	EvalResultRef,
+	ToolCallRef,
+} from "../lib/identity-index/types";
+import type { SqlDb } from "../lib/sql-db";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -48,6 +61,120 @@ export type {
 	ConnectedManifest,
 	ConnectedSection,
 } from "./connected-routes/manifest";
+
+interface SignalActionContext {
+	actions: ActionRef[];
+	agentRuns: AgentRunRef[];
+	toolCalls: ToolCallRef[];
+	evalResults: EvalResultRef[];
+	matchLevel: "span" | "trace" | "none";
+}
+
+const emptySignalActionContext = (): SignalActionContext => ({
+	actions: [],
+	agentRuns: [],
+	toolCalls: [],
+	evalResults: [],
+	matchLevel: "none",
+});
+
+const loadSignalActionContext = async (
+	db: SqlDb,
+	projectId: string,
+	traceId: string | null | undefined,
+	spanId?: string | null,
+): Promise<SignalActionContext> => {
+	if (!traceId) return emptySignalActionContext();
+
+	const exactRows = spanId
+		? await db
+				.prepare(
+					`SELECT *
+					 FROM actions
+					 WHERE project_id = ? AND trace_id = ? AND span_id = ?
+					 ORDER BY started_at ASC
+					 LIMIT 20`,
+				)
+				.bind(projectId, traceId, spanId)
+				.all<Parameters<typeof mapAction>[0]>()
+		: { results: [] as Parameters<typeof mapAction>[0][] };
+
+	const traceRows =
+		exactRows.results.length > 0
+			? exactRows
+			: await db
+					.prepare(
+						`SELECT *
+						 FROM actions
+						 WHERE project_id = ? AND trace_id = ?
+						 ORDER BY started_at ASC
+						 LIMIT 20`,
+					)
+					.bind(projectId, traceId)
+					.all<Parameters<typeof mapAction>[0]>();
+
+	const actionRows = traceRows.results;
+	if (actionRows.length === 0) return emptySignalActionContext();
+
+	const actionIds = actionRows.map((action) => action.id);
+	const rootActionIds = Array.from(
+		new Set(
+			actionRows
+				.map((action) => action.agent_run_id ?? action.root_action_id)
+				.filter((id): id is string => Boolean(id)),
+		),
+	);
+	const actionPlaceholders = actionIds.map(() => "?").join(", ");
+	const rootPlaceholders = rootActionIds.map(() => "?").join(", ");
+
+	const [toolCalls, evalResults, agentRuns] = await Promise.all([
+		db
+			.prepare(
+				`SELECT *
+				 FROM tool_calls
+				 WHERE project_id = ? AND action_id IN (${actionPlaceholders})
+				 ORDER BY id ASC
+				 LIMIT 20`,
+			)
+			.bind(projectId, ...actionIds)
+			.all<Parameters<typeof mapToolCall>[0]>(),
+		db
+			.prepare(
+				`SELECT *
+				 FROM eval_results
+				 WHERE project_id = ? AND action_id IN (${actionPlaceholders})
+				 ORDER BY id ASC
+				 LIMIT 20`,
+			)
+			.bind(projectId, ...actionIds)
+			.all<Parameters<typeof mapEvalResult>[0]>(),
+		rootActionIds.length > 0
+			? db
+					.prepare(
+						`SELECT *
+						 FROM agent_runs
+						 WHERE project_id = ? AND id IN (${rootPlaceholders})
+						 ORDER BY id ASC
+						 LIMIT 20`,
+					)
+					.bind(projectId, ...rootActionIds)
+					.all<Parameters<typeof mapAgentRun>[0]>()
+			: { results: [] as Parameters<typeof mapAgentRun>[0][] },
+	]);
+
+	return {
+		actions: actionRows.map(mapAction),
+		agentRuns: agentRuns.results.map(mapAgentRun),
+		toolCalls: toolCalls.results.map(mapToolCall),
+		evalResults: evalResults.results.map(mapEvalResult),
+		matchLevel: exactRows.results.length > 0 ? "span" : "trace",
+	};
+};
+
+const actionMatchEmptyReason = (context: SignalActionContext): string =>
+	context.matchLevel === "trace"
+		? "No exact span-level action existed, so these links use trace-level action context."
+		: "No action graph records share this signal's trace/span identity.";
 
 export const connectedRoutesPlugin: CollectorPlugin = {
 	name: "connected-routes",
@@ -95,6 +222,12 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					(s) => `${s.traceId}:${s.spanId}` === id,
 				);
 				if (span) {
+					const actionContext = await loadSignalActionContext(
+						sqlDbFor(c.env),
+						projectId,
+						span.traceId,
+						span.spanId,
+					);
 					const otherSpans = traceManifest.spans.filter(
 						(s) => s.spanId !== span.spanId,
 					);
@@ -120,6 +253,24 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							projectId,
 							span.traceId,
 						)),
+						linksFromActions(
+							actionContext.actions,
+							actionContext.matchLevel === "span"
+								? "Causal actions for this span"
+								: "Trace-level actions for this span",
+						),
+						linksFromToolCalls(
+							actionContext.toolCalls,
+							actionContext.matchLevel === "span"
+								? "Tool calls for this span"
+								: "Trace-level tool calls for this span",
+						),
+						linksFromEvalResults(
+							actionContext.evalResults,
+							actionContext.matchLevel === "span"
+								? "Evaluations for this span"
+								: "Trace-level evaluations for this span",
+						),
 						linksFromMetricExemplars(
 							traceManifest.metricExemplars.filter(
 								(e) => !e.spanId || e.spanId === span.spanId,
@@ -147,6 +298,28 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 									"Server-originated work (cron, retry, queue consumer) — not bound to a user click.",
 							},
 						];
+					}
+					if (actionContext.agentRuns.length > 0) {
+						manifest.related.push({
+							label:
+								actionContext.matchLevel === "span"
+									? "Agent runs for this span"
+									: "Trace-level agent runs for this span",
+							links: actionContext.agentRuns
+								.slice(0, MAX_LINKS_INLINE)
+								.map((run) =>
+									linkToAgentRun(
+										run.id,
+										`${run.agentName} (v${run.agentVersion})`,
+									),
+								),
+						});
+					} else {
+						manifest.related.push({
+							label: "Agent runs for this span",
+							links: [],
+							emptyReason: actionMatchEmptyReason(actionContext),
+						});
 					}
 				}
 			} else if (kind === "profile") {
@@ -369,15 +542,35 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					}
 				}
 			} else if (kind === "log") {
-				// Log: load by trace_id (parent trace) + session.
-				// id is the log_id, but we need to resolve the trace_id first.
-				// Quick lookup: use the IdentityIndex by trace if we have it
-				// in a query string, otherwise note that direct log→neighbor
-				// requires upstream knowledge of the trace_id.
-				const traceId = c.req.query("trace_id");
-				const sessionId = c.req.query("session_id");
+				// Log: resolve direct log ids when the caller did not already carry
+				// trace/session params, then add exact action graph pivots.
+				const db = sqlDbFor(c.env);
+				const logRow = await db
+					.prepare(
+						`SELECT trace_id, span_id, session_id
+						 FROM logs
+						 WHERE project_id = ? AND log_id = ?
+						 LIMIT 1`,
+					)
+					.bind(projectId, id)
+					.first<{
+						trace_id: string | null;
+						span_id: string | null;
+						session_id: string | null;
+					}>();
+				const traceId =
+					c.req.query("trace_id") ?? logRow?.trace_id ?? undefined;
+				const spanId = c.req.query("span_id") ?? logRow?.span_id ?? undefined;
+				const sessionId =
+					c.req.query("session_id") ?? logRow?.session_id ?? undefined;
 				if (traceId) {
 					const traceManifest = await index.byTrace(projectId, traceId);
+					const actionContext = await loadSignalActionContext(
+						db,
+						projectId,
+						traceId,
+						spanId,
+					);
 					manifest.up = [
 						{
 							label: "Trace",
@@ -389,6 +582,48 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							traceManifest.logs.filter((l) => l.logId !== id),
 							"Other logs in this trace",
 						),
+					];
+					manifest.down = [
+						linksFromActions(
+							actionContext.actions,
+							actionContext.matchLevel === "span"
+								? "Causal actions for this log"
+								: "Trace-level actions for this log",
+						),
+						linksFromToolCalls(
+							actionContext.toolCalls,
+							actionContext.matchLevel === "span"
+								? "Tool calls for this log"
+								: "Trace-level tool calls for this log",
+						),
+						linksFromEvalResults(
+							actionContext.evalResults,
+							actionContext.matchLevel === "span"
+								? "Evaluations for this log"
+								: "Trace-level evaluations for this log",
+						),
+					];
+					manifest.related = [
+						actionContext.agentRuns.length > 0
+							? {
+									label:
+										actionContext.matchLevel === "span"
+											? "Agent runs for this log"
+											: "Trace-level agent runs for this log",
+									links: actionContext.agentRuns
+										.slice(0, MAX_LINKS_INLINE)
+										.map((run) =>
+											linkToAgentRun(
+												run.id,
+												`${run.agentName} (v${run.agentVersion})`,
+											),
+										),
+								}
+							: {
+									label: "Agent runs for this log",
+									links: [],
+									emptyReason: actionMatchEmptyReason(actionContext),
+								},
 					];
 				}
 				if (sessionId) {
@@ -435,9 +670,31 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							},
 				];
 			} else if (kind === "ai_call") {
-				const traceId = c.req.query("trace_id");
+				const db = sqlDbFor(c.env);
+				const callRow = await db
+					.prepare(
+						`SELECT trace_id, span_id, session_id
+						 FROM ai_calls
+						 WHERE project_id = ? AND call_id = ?
+						 LIMIT 1`,
+					)
+					.bind(projectId, id)
+					.first<{
+						trace_id: string | null;
+						span_id: string | null;
+						session_id: string | null;
+					}>();
+				const traceId =
+					c.req.query("trace_id") ?? callRow?.trace_id ?? undefined;
+				const spanId = c.req.query("span_id") ?? callRow?.span_id ?? undefined;
 				if (traceId) {
 					const traceManifest = await index.byTrace(projectId, traceId);
+					const actionContext = await loadSignalActionContext(
+						db,
+						projectId,
+						traceId,
+						spanId,
+					);
 					manifest.up = [
 						{
 							label: "Trace",
@@ -455,8 +712,51 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							"Metric exemplars in this trace",
 						),
 					];
+					manifest.down = [
+						linksFromActions(
+							actionContext.actions,
+							actionContext.matchLevel === "span"
+								? "Causal actions for this AI call"
+								: "Trace-level actions for this AI call",
+						),
+						linksFromToolCalls(
+							actionContext.toolCalls,
+							actionContext.matchLevel === "span"
+								? "Tool calls for this AI call"
+								: "Trace-level tool calls for this AI call",
+						),
+						linksFromEvalResults(
+							actionContext.evalResults,
+							actionContext.matchLevel === "span"
+								? "Evaluations for this AI call"
+								: "Trace-level evaluations for this AI call",
+						),
+					];
+					manifest.related = [
+						actionContext.agentRuns.length > 0
+							? {
+									label:
+										actionContext.matchLevel === "span"
+											? "Agent runs for this AI call"
+											: "Trace-level agent runs for this AI call",
+									links: actionContext.agentRuns
+										.slice(0, MAX_LINKS_INLINE)
+										.map((run) =>
+											linkToAgentRun(
+												run.id,
+												`${run.agentName} (v${run.agentVersion})`,
+											),
+										),
+								}
+							: {
+									label: "Agent runs for this AI call",
+									links: [],
+									emptyReason: actionMatchEmptyReason(actionContext),
+								},
+					];
 				}
-				const sessionId = c.req.query("session_id");
+				const sessionId =
+					c.req.query("session_id") ?? callRow?.session_id ?? undefined;
 				if (sessionId) {
 					manifest.across.push({
 						label: "Session",

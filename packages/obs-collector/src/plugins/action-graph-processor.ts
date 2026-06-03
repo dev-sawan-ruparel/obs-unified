@@ -1,7 +1,9 @@
 import type { JsonValue, StoredSpan } from "@obs-unified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
+	ACTION_CONFIDENCE_KEY,
 	ACTION_ID_KEY,
+	ACTION_ID_RE,
 	ACTION_KIND_KEY,
 	ACTION_MODEL_NAME_KEY,
 	ACTION_NAME_KEY,
@@ -11,6 +13,7 @@ import {
 	ACTION_TOTAL_COST_USD_KEY,
 	ACTOR_ID_KEY,
 	ACTOR_TYPE_KEY,
+	ActionConfidence,
 	AGENT_AUTONOMY_LEVEL_KEY,
 	AGENT_GOAL_KEY,
 	AGENT_ID_KEY,
@@ -55,6 +58,7 @@ import { type SqlStatement, sqlDbFor } from "../lib/sql-db";
 
 import { enricherPlugins } from "./action-graph-processor/enrichers";
 import { runRedaction } from "./action-graph-processor/redaction";
+import { deriveActionId } from "./gen-ai-normalizer";
 
 const firstAttr = (
 	attrs: Record<string, JsonValue>,
@@ -73,6 +77,16 @@ const firstStringAttr = (
 ): string | undefined => {
 	const value = firstAttr(attrs, ...keys);
 	return typeof value === "string" ? value : undefined;
+};
+
+const firstActionIdAttr = (
+	attrs: Record<string, JsonValue>,
+	...keys: string[]
+): string | undefined => {
+	const value = firstStringAttr(attrs, ...keys);
+	if (value === undefined) return undefined;
+	const trimmed = value.trim();
+	return ACTION_ID_RE.test(trimmed) ? trimmed : undefined;
 };
 
 const firstNumberAttr = (
@@ -190,19 +204,52 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							genAiAgentId !== undefined;
 						if (!isActionSpan) return span;
 
-						const actionId = (obsActionId as string) ?? span.spanId;
+						const actionKind =
+							firstStringAttr(attrs, ACTION_KIND_KEY) ??
+							(openInferenceKind as string) ??
+							"agent.step";
+						const explicitActionId = firstActionIdAttr(attrs, ACTION_ID_KEY);
+						const actionId =
+							explicitActionId ??
+							(await deriveActionId(span.projectId, span.traceId, span.spanId));
+						const actionConfidence = explicitActionId
+							? ActionConfidence.Explicit
+							: ActionConfidence.Fallback;
 						const rootActionId =
-							firstStringAttr(
+							firstActionIdAttr(
 								attrs,
 								ACTION_ROOT_ID_KEY,
 								AGENT_RUN_ID_KEY,
 								"obs.action.agent_run_id",
 								"obs.agent_run.id",
-							) ?? actionId;
+							) ??
+							(actionKind === "agent.run" || actionKind === "agent"
+								? actionId
+								: await deriveActionId(
+										span.projectId,
+										span.traceId,
+										span.traceId.substring(0, 16),
+									));
 						const causedByActionId =
-							firstStringAttr(attrs, ACTION_CAUSED_BY_ID_KEY) ??
-							span.parentSpanId ??
-							null;
+							firstActionIdAttr(attrs, ACTION_CAUSED_BY_ID_KEY) ??
+							(span.parentSpanId
+								? await deriveActionId(
+										span.projectId,
+										span.traceId,
+										span.parentSpanId,
+									)
+								: null);
+						const trustedAttrs: Record<string, JsonValue> = {
+							...attrs,
+							[ACTION_ID_KEY]: actionId,
+							[ACTION_ROOT_ID_KEY]: rootActionId,
+							[ACTION_CONFIDENCE_KEY]: actionConfidence,
+						};
+						delete trustedAttrs["obs.action.agent_run_id"];
+						delete trustedAttrs["obs.agent_run.id"];
+						if (causedByActionId !== undefined) {
+							trustedAttrs[ACTION_CAUSED_BY_ID_KEY] = causedByActionId;
+						}
 						const actorType =
 							firstStringAttr(attrs, ACTOR_TYPE_KEY, "obs.action.actor_type") ??
 							"agent";
@@ -210,10 +257,6 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							firstStringAttr(attrs, ACTOR_ID_KEY, "obs.action.actor_id") ??
 							(genAiAgentId as string) ??
 							null;
-						const actionKind =
-							firstStringAttr(attrs, ACTION_KIND_KEY) ??
-							(openInferenceKind as string) ??
-							"agent.step";
 						const name =
 							firstStringAttr(attrs, ACTION_NAME_KEY) ?? span.spanName;
 						const status = span.statusCode === 2 ? "error" : "ok";
@@ -233,7 +276,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							null;
 
 						const agentRunId =
-							firstStringAttr(
+							firstActionIdAttr(
 								attrs,
 								AGENT_RUN_ID_KEY,
 								"obs.action.agent_run_id",
@@ -242,6 +285,11 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							(actionKind === "agent.run" || actionKind === "agent"
 								? actionId
 								: null);
+						if (agentRunId !== null) {
+							trustedAttrs[AGENT_RUN_ID_KEY] = agentRunId;
+						} else {
+							delete trustedAttrs[AGENT_RUN_ID_KEY];
+						}
 
 						const stepId =
 							firstStringAttr(attrs, AGENT_STEP_ID_KEY, "obs.action.step_id") ??
@@ -272,8 +320,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							);
 
 						const persistedAttrs = capturePayloads
-							? attrs
-							: stripPayloadAttrs(attrs);
+							? trustedAttrs
+							: stripPayloadAttrs(trustedAttrs);
 						const attrsJson = JSON.stringify(persistedAttrs);
 
 						const actionRecord = {
@@ -680,10 +728,9 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 						}
 
 						// Downstream compatibility: ensure payload routing can join action_id.
-						const updatedAttrs = { ...attrs, [ACTION_ID_KEY]: actionId };
 						return {
 							...span,
-							attributesJson: JSON.stringify(updatedAttrs),
+							attributesJson: JSON.stringify(trustedAttrs),
 						};
 					}),
 				);

@@ -335,6 +335,280 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 	});
 });
 
+describe("ConnectedRail manifest — raw signal action back-links", () => {
+	const actionRow = (
+		overrides: Partial<Record<string, unknown>> = {},
+	): Record<string, unknown> => ({
+		id: "action-explicit",
+		project_id: "default",
+		root_action_id: "run-explicit",
+		caused_by_action_id: null,
+		actor_type: "agent",
+		actor_id: "agent-1",
+		action_kind: "agent.step",
+		name: "Investigate checkout",
+		status: "ok",
+		started_at: "2026-05-04T10:00:00Z",
+		ended_at: "2026-05-04T10:00:01Z",
+		duration_ms: 1000,
+		trace_id: "trace-action",
+		span_id: "span-action",
+		session_id: null,
+		interaction_id: null,
+		user_id: null,
+		agent_run_id: "run-explicit",
+		step_id: null,
+		tool_call_id: null,
+		prompt_version: null,
+		model_name: null,
+		provider: null,
+		total_cost_usd: null,
+		attrs_json: null,
+		...overrides,
+	});
+
+	const toolRow = (
+		overrides: Partial<Record<string, unknown>> = {},
+	): Record<string, unknown> => ({
+		id: "tool-explicit",
+		action_id: "action-explicit",
+		project_id: "default",
+		tool_name: "search_docs",
+		args_hash: "args-hash",
+		result_hash: "result-hash",
+		error_type: null,
+		side_effect: 0,
+		approval_state: null,
+		args_redacted: null,
+		result_redacted: null,
+		...overrides,
+	});
+
+	const evalRow = (
+		overrides: Partial<Record<string, unknown>> = {},
+	): Record<string, unknown> => ({
+		id: "eval-explicit",
+		action_id: "action-explicit",
+		project_id: "default",
+		evaluator_name: "groundedness",
+		evaluator_version: "1",
+		score: 0.92,
+		passed: 1,
+		reasoning: null,
+		rubric_json: null,
+		...overrides,
+	});
+
+	const runRow = (
+		overrides: Partial<Record<string, unknown>> = {},
+	): Record<string, unknown> => ({
+		id: "run-explicit",
+		project_id: "default",
+		agent_id: "agent-1",
+		agent_name: "Debug Agent",
+		agent_version: "1.0.0",
+		goal: "Debug checkout",
+		outcome: null,
+		autonomy_level: "supervised",
+		status: "ok",
+		error_message: null,
+		total_cost_usd: null,
+		total_duration_ms: null,
+		metadata_json: null,
+		...overrides,
+	});
+
+	it("span entity surfaces exact action, tool call, eval, and agent run links", async () => {
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "trace-action",
+							span_id: "span-action",
+							parent_span_id: null,
+							service_name: "checkout",
+							span_name: "checkout.submit",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("FROM actions")) return [actionRow()];
+				if (sql.includes("FROM tool_calls")) return [toolRow()];
+				if (sql.includes("FROM eval_results")) return [evalRow()];
+				if (sql.includes("FROM agent_runs")) return [runRow()];
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+
+		const m = await fetch("/internal/connected/span/trace-action:span-action");
+
+		expect(
+			m.down.find((s) => s.label === "Causal actions for this span")?.links[0],
+		).toMatchObject({
+			label: "[agent.step] Investigate checkout",
+			href: "#/actions/action-explicit",
+		});
+		expect(
+			m.down.find((s) => s.label === "Tool calls for this span")?.links[0],
+		).toMatchObject({
+			label: "tool: search_docs",
+			href: "#/tool-calls/tool-explicit",
+		});
+		expect(
+			m.down.find((s) => s.label === "Evaluations for this span")?.links[0],
+		).toMatchObject({
+			label: "eval: groundedness (passed)",
+			href: "#/evals/eval-explicit",
+		});
+		expect(
+			m.related.find((s) => s.label === "Agent runs for this span")?.links[0],
+		).toMatchObject({
+			label: "Debug Agent (v1.0.0)",
+			href: "#/agent-runs/run-explicit",
+		});
+	});
+
+	it("log entity resolves direct log id and falls back to deterministic trace action context", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM logs")) {
+					return {
+						trace_id: "trace-fallback",
+						span_id: "span-log",
+						session_id: null,
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("FROM logs")) return [];
+				if (sql.includes("FROM telemetry_spans")) return [];
+				if (sql.includes("FROM actions") && sql.includes("span_id = ?")) {
+					return [];
+				}
+				if (sql.includes("FROM actions") && sql.includes("trace_id = ?")) {
+					return [
+						actionRow({
+							id: "fallback:trace-fallback:agent.step:1",
+							root_action_id: "run-fallback",
+							agent_run_id: "run-fallback",
+							trace_id: "trace-fallback",
+							span_id: null,
+							name: "Fallback normalized action",
+						}),
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					return [
+						toolRow({
+							id: "tool-fallback",
+							action_id: "fallback:trace-fallback:agent.step:1",
+						}),
+					];
+				}
+				if (sql.includes("FROM eval_results")) return [];
+				if (sql.includes("FROM agent_runs")) {
+					return [
+						runRow({
+							id: "run-fallback",
+							agent_name: "Fallback Agent",
+						}),
+					];
+				}
+				return [];
+			},
+		});
+		const fetch = setup(db);
+
+		const m = await fetch("/internal/connected/log/log-1");
+
+		expect(
+			m.down.find((s) => s.label === "Trace-level actions for this log")
+				?.links[0],
+		).toMatchObject({
+			label: "[agent.step] Fallback normalized action",
+			href: "#/actions/fallback:trace-fallback:agent.step:1",
+		});
+		expect(
+			m.down.find((s) => s.label === "Trace-level tool calls for this log")
+				?.links[0],
+		).toMatchObject({
+			href: "#/tool-calls/tool-fallback",
+		});
+		expect(
+			m.related.find((s) => s.label === "Trace-level agent runs for this log")
+				?.links[0],
+		).toMatchObject({
+			label: "Fallback Agent (v1.0.0)",
+			href: "#/agent-runs/run-fallback",
+		});
+	});
+
+	it("AI call entity resolves call id to span-level action context", async () => {
+		const db = new MemSqlDb({
+			first: (sql) => {
+				if (sql.includes("FROM ai_calls")) {
+					return {
+						trace_id: "trace-action",
+						span_id: "span-action",
+						session_id: "sess-ai",
+					};
+				}
+				return null;
+			},
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "trace-action",
+							span_id: "span-action",
+							parent_span_id: null,
+							service_name: "ai",
+							span_name: "openai.chat",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: null,
+						},
+					];
+				}
+				if (sql.includes("FROM ai_calls")) return [];
+				if (sql.includes("FROM actions")) return [actionRow()];
+				if (sql.includes("FROM tool_calls")) return [toolRow()];
+				if (sql.includes("FROM eval_results")) return [evalRow()];
+				if (sql.includes("FROM agent_runs")) return [runRow()];
+				return [];
+			},
+		});
+		const fetch = setup(db);
+
+		const m = await fetch("/internal/connected/ai_call/ai-1");
+
+		expect(
+			m.down.find((s) => s.label === "Causal actions for this AI call")
+				?.links[0],
+		).toMatchObject({ href: "#/actions/action-explicit" });
+		expect(
+			m.down.find((s) => s.label === "Tool calls for this AI call")?.links[0],
+		).toMatchObject({ href: "#/tool-calls/tool-explicit" });
+		expect(
+			m.down.find((s) => s.label === "Evaluations for this AI call")?.links[0],
+		).toMatchObject({ href: "#/evals/eval-explicit" });
+		expect(
+			m.related.find((s) => s.label === "Agent runs for this AI call")
+				?.links[0],
+		).toMatchObject({ href: "#/agent-runs/run-explicit" });
+	});
+});
+
 describe("ConnectedRail manifest — profile source entity", () => {
 	it("surfaces sampled traces plus action/tool/agent context for a profile", async () => {
 		const db = new MemSqlDb({

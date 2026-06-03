@@ -1,4 +1,7 @@
 import type {
+	AIEvaluationRecord,
+	AlertEvaluation,
+	AlertRule,
 	AnalysisResult,
 	AskEvidence,
 	EvidenceCitation,
@@ -105,7 +108,7 @@ const traceRoute = (traceId: string) =>
 const spanRoute = (traceId: string, spanId: string) =>
 	`${traceRoute(traceId)}#span=${encodeURIComponent(spanId)}`;
 
-const routeFor = (
+export const evidenceRouteFor = (
 	entityKind: EvidenceEntityKind,
 	entityId: string,
 	traceId?: string | null,
@@ -113,6 +116,8 @@ const routeFor = (
 	switch (entityKind) {
 		case "action":
 			return `#/actions/${encodeURIComponent(entityId)}`;
+		case "alert":
+			return `#/alerts?alert=${encodeURIComponent(entityId)}`;
 		case "agent_run":
 			return `#/agent-runs/${encodeURIComponent(entityId)}`;
 		case "eval":
@@ -295,7 +300,11 @@ const entityFromRow = (
 	const candidate = candidates.find((item) => item.entityId);
 	if (!candidate?.entityId) return null;
 
-	const route = routeFor(candidate.entityKind, candidate.entityId, traceId);
+	const route = evidenceRouteFor(
+		candidate.entityKind,
+		candidate.entityId,
+		traceId,
+	);
 	return {
 		entityKind: candidate.entityKind,
 		entityId: candidate.entityId,
@@ -317,6 +326,231 @@ const entityFromRow = (
 			},
 		],
 	};
+};
+
+export const alertEvidenceReferences = (
+	rule: AlertRule,
+	evaluation?: AlertEvaluation | null,
+): EvidenceReference[] => {
+	const route = evidenceRouteFor("alert", rule.id);
+	const references: EvidenceReference[] = [
+		{
+			evidenceId: evaluation
+				? `alert:${rule.id}:evaluation:${evaluation.id}`
+				: `alert:${rule.id}:rule`,
+			entityKind: "alert",
+			entityId: rule.id,
+			route,
+			source: evaluation
+				? "alert_evaluations"
+				: "alerts.rule_evaluation_preview",
+			confidence: evaluation ? 1 : 0.8,
+			reason: evaluation
+				? `Alert "${rule.name}" evaluated to ${evaluation.value} and state ${evaluation.state}.`
+				: `Alert "${rule.name}" was evaluated against its configured threshold.`,
+			citations: [
+				{
+					label: rule.name,
+					entityKind: "alert",
+					entityId: rule.id,
+					route,
+				},
+			],
+			suggestedNextPivots: [
+				{
+					label: "Open alert",
+					entityKind: "alert",
+					entityId: rule.id,
+					route,
+					reason: "Inspect the alert rule, threshold, and recent evaluations.",
+				},
+			],
+		},
+	];
+
+	if (rule.analysisId) {
+		const analysisRouteValue = analysisRoute(rule.analysisId);
+		references.push({
+			evidenceId: evaluation
+				? `alert:${rule.id}:evaluation:${evaluation.id}:analysis:${rule.analysisId}`
+				: `alert:${rule.id}:analysis:${rule.analysisId}`,
+			entityKind: "analysis",
+			entityId: rule.analysisId,
+			route: analysisRouteValue,
+			source: "alert_rules.analysis_id",
+			confidence: 0.9,
+			reason: `Alert "${rule.name}" is bound to analysis "${rule.analysisId}".`,
+			citations: [
+				{
+					label: rule.name,
+					entityKind: "alert",
+					entityId: rule.id,
+					route,
+				},
+			],
+			suggestedNextPivots: [
+				{
+					label: "Open investigation",
+					entityKind: "analysis",
+					entityId: rule.analysisId,
+					route: analysisRouteValue,
+					reason: "Review the analysis result that drives this alert.",
+				},
+			],
+		});
+	}
+
+	return references;
+};
+
+export const aiEvaluationEvidenceReferences = (
+	evaluation: Pick<
+		AIEvaluationRecord,
+		"evaluationId" | "traceId" | "spanId" | "name" | "source"
+	>,
+): EvidenceReference[] => {
+	const spanEntityId = `${evaluation.traceId}:${evaluation.spanId}`;
+	const spanRouteValue = evidenceRouteFor(
+		"span",
+		spanEntityId,
+		evaluation.traceId,
+	);
+	return [
+		{
+			evidenceId: `ai-evaluation:${evaluation.evaluationId}`,
+			entityKind: "eval",
+			entityId: evaluation.evaluationId,
+			route: evidenceRouteFor("eval", evaluation.evaluationId),
+			source: `ai_span_evaluations.${evaluation.source}`,
+			confidence: 0.95,
+			reason: `AI evaluation "${evaluation.name}" graded span "${evaluation.spanId}".`,
+			citations: [
+				{
+					label: `span ${evaluation.spanId}`,
+					entityKind: "span",
+					entityId: spanEntityId,
+					route: spanRouteValue,
+				},
+				{
+					label: `trace ${evaluation.traceId}`,
+					entityKind: "trace",
+					entityId: evaluation.traceId,
+					route: evidenceRouteFor("trace", evaluation.traceId),
+				},
+			],
+			suggestedNextPivots: [
+				{
+					label: "Open span",
+					entityKind: "span",
+					entityId: spanEntityId,
+					route: spanRouteValue,
+					reason: "Inspect the evaluated AI span and its surrounding trace.",
+				},
+			],
+		},
+	];
+};
+
+export interface SourceEvidenceLinks {
+	sourceAgentRunId?: string | null;
+	sourceActionId?: string | null;
+	sourceToolCallId?: string | null;
+	sourceTraceId?: string | null;
+	sourceSpanId?: string | null;
+}
+
+export const sourceLinkEvidenceReferences = (
+	source: {
+		sourceLabel: string;
+		sourceId: string;
+		sourceKind: "eval_case" | "eval_case_result";
+		sourceRoute?: string | null;
+		sourceName?: string | null;
+	},
+	links: SourceEvidenceLinks,
+): EvidenceReference[] => {
+	const citations: EvidenceCitation[] = [];
+	if (source.sourceRoute) {
+		citations.push({
+			label: source.sourceName ?? source.sourceId,
+			entityKind: "eval",
+			entityId: source.sourceId,
+			route: source.sourceRoute,
+		});
+	}
+
+	const candidates: Array<{
+		kind: EvidenceEntityKind;
+		id: string | null | undefined;
+		label: string;
+		confidence: number;
+	}> = [
+		{
+			kind: "action",
+			id: links.sourceActionId,
+			label: "source action",
+			confidence: 0.92,
+		},
+		{
+			kind: "tool_call",
+			id: links.sourceToolCallId,
+			label: "source tool call",
+			confidence: 0.9,
+		},
+		{
+			kind: "agent_run",
+			id: links.sourceAgentRunId,
+			label: "source agent run",
+			confidence: 0.9,
+		},
+		{
+			kind: "span",
+			id:
+				links.sourceTraceId && links.sourceSpanId
+					? `${links.sourceTraceId}:${links.sourceSpanId}`
+					: null,
+			label: "source span",
+			confidence: 0.9,
+		},
+		{
+			kind: "trace",
+			id: links.sourceTraceId,
+			label: "source trace",
+			confidence: 0.88,
+		},
+	];
+
+	return candidates
+		.filter((candidate): candidate is typeof candidate & { id: string } =>
+			Boolean(candidate.id),
+		)
+		.map((candidate) => {
+			const route = evidenceRouteFor(
+				candidate.kind,
+				candidate.id,
+				links.sourceTraceId,
+			);
+			return {
+				evidenceId: `${source.sourceKind}:${source.sourceId}:${candidate.kind}:${candidate.id}`,
+				entityKind: candidate.kind,
+				entityId: candidate.id,
+				route,
+				source: `${source.sourceKind}.source_links`,
+				confidence: candidate.confidence,
+				reason: `${source.sourceLabel} links to ${candidate.label} "${candidate.id}".`,
+				citations,
+				suggestedNextPivots: [
+					{
+						label: `Open ${candidate.label}`,
+						entityKind: candidate.kind,
+						entityId: candidate.id,
+						route,
+						reason:
+							"Inspect the production evidence behind this evaluation item.",
+					},
+				],
+			} satisfies EvidenceReference;
+		});
 };
 
 export const analysisResultEvidenceReferences = (

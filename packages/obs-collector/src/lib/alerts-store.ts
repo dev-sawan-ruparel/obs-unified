@@ -16,6 +16,7 @@ import type {
 	AlertStateRow,
 	LogSeverity,
 } from "@obs-unified/types";
+import { alertEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import type { SqlDb } from "./sql-db";
 
@@ -42,15 +43,24 @@ const rowToRule = (row: AlertRuleRow, state?: AlertStateRow): AlertRule => ({
 	lastStateChange: state?.last_state_change ?? null,
 });
 
-const rowToEvaluation = (row: AlertEvaluationRow): AlertEvaluation => ({
-	id: row.id,
-	ruleId: row.rule_id,
-	projectId: row.project_id,
-	evaluatedAt: row.evaluated_at,
-	value: row.value,
-	state: row.state,
-	notified: row.notified === 1,
-});
+const rowToEvaluation = (
+	row: AlertEvaluationRow,
+	rule?: AlertRule | null,
+): AlertEvaluation => {
+	const evaluation: AlertEvaluation = {
+		id: row.id,
+		ruleId: row.rule_id,
+		projectId: row.project_id,
+		evaluatedAt: row.evaluated_at,
+		value: row.value,
+		state: row.state,
+		notified: row.notified === 1,
+	};
+	if (rule) {
+		evaluation.evidenceReferences = alertEvidenceReferences(rule, evaluation);
+	}
+	return evaluation;
+};
 
 const windowCutoffIso = (windowMins: number): string =>
 	new Date(Date.now() - windowMins * 60 * 1000).toISOString();
@@ -289,6 +299,7 @@ export class AlertsStore {
 
 	async listEvaluations(params: {
 		ruleId: string;
+		projectId?: string;
 		hours: number;
 		limit?: number;
 	}): Promise<AlertEvaluation[]> {
@@ -301,7 +312,12 @@ export class AlertsStore {
 			)
 			.bind(params.ruleId, cutoff, Math.min(params.limit ?? 500, 1000))
 			.all<AlertEvaluationRow>();
-		return (rs.results ?? []).map(rowToEvaluation);
+		const rows = rs.results ?? [];
+		const projectId = params.projectId ?? rows[0]?.project_id;
+		const rule = projectId
+			? await this.getRule(params.ruleId, projectId)
+			: null;
+		return rows.map((row) => rowToEvaluation(row, rule));
 	}
 
 	// ── Evaluators (count-over-window per signal) ──

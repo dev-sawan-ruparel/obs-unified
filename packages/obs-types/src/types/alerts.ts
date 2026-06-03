@@ -1,3 +1,4 @@
+import type { EvidenceReference } from "./evidence";
 import type { LogSeverity } from "./logs";
 
 export type AlertSignal = "spans" | "logs" | "usage" | "ai";
@@ -92,6 +93,7 @@ export interface AlertEvaluation {
 	value: number;
 	state: AlertState;
 	notified: boolean;
+	evidenceReferences?: EvidenceReference[];
 }
 
 export interface AlertEvaluationRow {
@@ -116,6 +118,7 @@ export interface AlertTestResponse {
 	wouldFire: boolean;
 	comparison: AlertComparison;
 	threshold: number;
+	evidenceReferences?: EvidenceReference[];
 }
 
 /** Input shape for creating/updating an alert rule */

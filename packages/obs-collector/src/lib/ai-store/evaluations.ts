@@ -4,6 +4,7 @@ import type {
 	AIEvaluationsListOptions,
 	AIEvaluationsListResponse,
 } from "@obs-unified/types";
+import { aiEvaluationEvidenceReferences } from "../evidence-references";
 import { parseJsonRecord } from "../json";
 import type { SqlDb } from "../sql-db";
 import type { AIEvaluationRow, IngestEvaluation } from "./types";
@@ -82,18 +83,22 @@ export async function listAIEvaluations(
 export function mapEvaluationRows(
 	rows: AIEvaluationRow[],
 ): AIEvaluationRecord[] {
-	return rows.map((row) => ({
-		evaluationId: row.evaluation_id,
-		projectId: row.project_id,
-		traceId: row.trace_id,
-		spanId: row.span_id,
-		name: row.name,
-		score: row.score,
-		label: row.label,
-		explanation: row.explanation,
-		source: row.source as AIEvaluationSource,
-		metadata: parseJsonRecord(row.metadata_json),
-		createdAt: row.created_at,
-		expiresAt: row.expires_at,
-	}));
+	return rows.map((row) => {
+		const evaluation: AIEvaluationRecord = {
+			evaluationId: row.evaluation_id,
+			projectId: row.project_id,
+			traceId: row.trace_id,
+			spanId: row.span_id,
+			name: row.name,
+			score: row.score,
+			label: row.label,
+			explanation: row.explanation,
+			source: row.source as AIEvaluationSource,
+			metadata: parseJsonRecord(row.metadata_json),
+			createdAt: row.created_at,
+			expiresAt: row.expires_at,
+		};
+		evaluation.evidenceReferences = aiEvaluationEvidenceReferences(evaluation);
+		return evaluation;
+	});
 }

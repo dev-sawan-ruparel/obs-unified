@@ -1,4 +1,5 @@
-import type { JsonValue } from "@obs-unified/types";
+import type { EvidenceReference, JsonValue } from "@obs-unified/types";
+import { sourceLinkEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonValue } from "./json";
 import type { SqlDb } from "./sql-db";
@@ -44,6 +45,7 @@ export interface EvalCase extends Required<EvalCaseSourceLinks> {
 	metadata: Record<string, JsonValue>;
 	createdAt: string;
 	updatedAt: string;
+	evidenceReferences?: EvidenceReference[];
 }
 
 export interface EvalCaseListOptions {
@@ -174,26 +176,42 @@ const clampLimit = (limit: number | undefined): number =>
 		Math.max(1, Number.isFinite(limit ?? NaN) ? (limit ?? 50) : 50),
 	);
 
-const rowToEvalCase = (row: EvalCaseRow): EvalCase => ({
-	id: row.id,
-	projectId: row.project_id,
-	sourceEntityType: row.source_entity_type as EvalCaseSourceType,
-	sourceEntityId: row.source_entity_id,
-	sourceAgentRunId: row.source_agent_run_id ?? null,
-	sourceActionId: row.source_action_id ?? null,
-	sourceAiCallId: row.source_ai_call_id ?? null,
-	sourceToolCallId: row.source_tool_call_id ?? null,
-	sourceTraceId: row.source_trace_id ?? null,
-	sourceSpanId: row.source_span_id ?? null,
-	name: row.name,
-	expectedOutcome: row.expected_outcome ?? null,
-	rubric: parseJsonField(row.rubric_json),
-	redactedPrompt: parseJsonField(row.redacted_prompt_json),
-	referencePayload: parseJsonField(row.reference_payload_json),
-	metadata: parseJsonRecordField(row.metadata_json),
-	createdAt: row.created_at,
-	updatedAt: row.updated_at,
-});
+const evalCaseEvidenceReferences = (evalCase: EvalCase): EvidenceReference[] =>
+	sourceLinkEvidenceReferences(
+		{
+			sourceLabel: `Eval case "${evalCase.name}"`,
+			sourceId: evalCase.id,
+			sourceKind: "eval_case",
+			sourceRoute: `#/evaluations?case=${encodeURIComponent(evalCase.id)}`,
+			sourceName: evalCase.name,
+		},
+		evalCase,
+	);
+
+export const rowToEvalCase = (row: EvalCaseRow): EvalCase => {
+	const evalCase: EvalCase = {
+		id: row.id,
+		projectId: row.project_id,
+		sourceEntityType: row.source_entity_type as EvalCaseSourceType,
+		sourceEntityId: row.source_entity_id,
+		sourceAgentRunId: row.source_agent_run_id ?? null,
+		sourceActionId: row.source_action_id ?? null,
+		sourceAiCallId: row.source_ai_call_id ?? null,
+		sourceToolCallId: row.source_tool_call_id ?? null,
+		sourceTraceId: row.source_trace_id ?? null,
+		sourceSpanId: row.source_span_id ?? null,
+		name: row.name,
+		expectedOutcome: row.expected_outcome ?? null,
+		rubric: parseJsonField(row.rubric_json),
+		redactedPrompt: parseJsonField(row.redacted_prompt_json),
+		referencePayload: parseJsonField(row.reference_payload_json),
+		metadata: parseJsonRecordField(row.metadata_json),
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+	evalCase.evidenceReferences = evalCaseEvidenceReferences(evalCase);
+	return evalCase;
+};
 
 export class EvalCasesStore {
 	constructor(private readonly db: SqlDb) {}
@@ -243,6 +261,7 @@ export class EvalCasesStore {
 			createdAt: now,
 			updatedAt: now,
 		};
+		evalCase.evidenceReferences = evalCaseEvidenceReferences(evalCase);
 
 		await this.db
 			.prepare(

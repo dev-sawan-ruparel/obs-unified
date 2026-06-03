@@ -80,6 +80,21 @@ describe("EvalCasesStore", () => {
 		expect(evalCase.metadata.documentRefs).toEqual([
 			{ docId: "doc-1", sourceId: "kb", score: 0.91 },
 		]);
+		expect(evalCase.evidenceReferences).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					entityKind: "action",
+					entityId: "action-1",
+					route: "#/actions/action-1",
+					source: "eval_case.source_links",
+				}),
+				expect.objectContaining({
+					entityKind: "span",
+					entityId: "trace-1:span-1",
+					route: "#/traces/trace-1#span=span-1",
+				}),
+			]),
+		);
 
 		const insert = db.callsMatching("INSERT INTO eval_cases")[0];
 		expect(insert.binds).toContain("default");
@@ -127,6 +142,13 @@ describe("EvalCasesStore", () => {
 
 		expect(found?.id).toBe("case-1");
 		expect(found?.rubric).toEqual({ score: 1 });
+		expect(found?.evidenceReferences?.[0]).toEqual(
+			expect.objectContaining({
+				evidenceId: "eval_case:case-1:action:action-1",
+				entityKind: "action",
+				entityId: "action-1",
+			}),
+		);
 		expect(listed).toHaveLength(1);
 		expect(listed[0].sourceToolCallId).toBe("tool-1");
 		const listCall = db.callsMatching(

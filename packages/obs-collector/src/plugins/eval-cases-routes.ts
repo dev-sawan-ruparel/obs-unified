@@ -1,12 +1,14 @@
-import type { JsonValue } from "@obs-unified/types";
+import type { EvidenceReference, JsonValue } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import {
+	type EvalCase,
 	type EvalCaseInput,
 	EvalCaseSourceNotFoundError,
 	type EvalCaseSourceType,
 	EvalCasesStore,
 	isEvalCaseSourceType,
 } from "../lib/eval-cases-store";
+import { sourceLinkEvidenceReferences } from "../lib/evidence-references";
 import { randomHex } from "../lib/hash";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
@@ -32,6 +34,19 @@ interface EvalCaseRequestBody {
 	metadata?: unknown;
 }
 
+interface EvalCaseResultResponse {
+	id: string;
+	projectId: string;
+	evalCaseId: string;
+	runId: string;
+	passed: boolean;
+	score: number | null;
+	actualOutcome: string | null;
+	details: unknown;
+	createdAt: string;
+	evidenceReferences?: EvidenceReference[];
+}
+
 const asOptionalString = (value: unknown): string | null => {
 	if (value === undefined || value === null) return null;
 	return typeof value === "string" ? value : null;
@@ -53,6 +68,21 @@ const parseLimit = (value: string | undefined): number => {
 	if (!Number.isFinite(parsed)) return 50;
 	return Math.min(200, Math.max(1, parsed));
 };
+
+const evalCaseResultEvidenceReferences = (
+	evalCase: EvalCase,
+	resultId: string,
+): EvidenceReference[] =>
+	sourceLinkEvidenceReferences(
+		{
+			sourceLabel: `Eval case result "${resultId}"`,
+			sourceId: resultId,
+			sourceKind: "eval_case_result",
+			sourceRoute: `#/evaluations?case=${encodeURIComponent(evalCase.id)}&result=${encodeURIComponent(resultId)}`,
+			sourceName: evalCase.name,
+		},
+		evalCase,
+	);
 
 export const evalCasesRoutesPlugin: CollectorPlugin = {
 	name: "eval-cases-routes",
@@ -232,22 +262,20 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				)
 				.run();
 
-			return c.json(
-				{
-					evalCaseResult: {
-						id,
-						projectId: getProjectId(c),
-						evalCaseId,
-						runId,
-						passed: body.passed,
-						score,
-						actualOutcome,
-						details: body.details ?? null,
-						createdAt: now,
-					},
-				},
-				201,
-			);
+			const evalCaseResult: EvalCaseResultResponse = {
+				id,
+				projectId: getProjectId(c),
+				evalCaseId,
+				runId,
+				passed: body.passed,
+				score,
+				actualOutcome,
+				details: body.details ?? null,
+				createdAt: now,
+				evidenceReferences: evalCaseResultEvidenceReferences(evalCase, id),
+			};
+
+			return c.json({ evalCaseResult }, 201);
 		});
 
 		app.get("/internal/eval-cases/:id/results", async (c) => {
@@ -275,17 +303,32 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					created_at: string;
 				}>();
 
-			const evalCaseResults = rows.results.map((row) => ({
-				id: row.id,
-				projectId: row.project_id,
-				evalCaseId: row.eval_case_id,
-				runId: row.run_id,
-				passed: row.passed === 1,
-				score: row.score,
-				actualOutcome: row.actual_outcome,
-				details: row.details_json ? JSON.parse(row.details_json) : null,
-				createdAt: row.created_at,
-			}));
+			const store = new EvalCasesStore(db);
+			const evalCase = await store.getCase(getProjectId(c), evalCaseId);
+			if (!evalCase) {
+				return c.json(
+					{ error: "Not Found", message: "Eval case not found" },
+					404,
+				);
+			}
+
+			const evalCaseResults: EvalCaseResultResponse[] = rows.results.map(
+				(row) => ({
+					id: row.id,
+					projectId: row.project_id,
+					evalCaseId: row.eval_case_id,
+					runId: row.run_id,
+					passed: row.passed === 1,
+					score: row.score,
+					actualOutcome: row.actual_outcome,
+					details: row.details_json ? JSON.parse(row.details_json) : null,
+					createdAt: row.created_at,
+					evidenceReferences: evalCaseResultEvidenceReferences(
+						evalCase,
+						row.id,
+					),
+				}),
+			);
 
 			return c.json({ evalCaseResults });
 		});

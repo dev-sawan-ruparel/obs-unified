@@ -39,12 +39,11 @@ Status legend:
 - [x] Narrative-aware investigation pages.
 - [x] AskBox analysis citations and auto-pinned health panels.
 - [x] Alerts can bind to analyses and use analysis narrative/result context.
-- [x] Analysis and Ask responses expose machine-readable `EvidenceReference`
-      pivots with routes, confidence, source, citations, and suggested next
-      steps.
+- [x] Analysis, Ask, alert, AI evaluation, and eval-case responses expose
+      machine-readable `EvidenceReference` pivots with routes, confidence,
+      source, citations, and suggested next steps.
 - [~] Rich sidecar-style analysis runtime, advanced cohort comparisons, and
-      alert/evaluation-specific evidence references remain future/deeper
-      intelligence work.
+      notebook-shaped investigations remain future/deeper intelligence work.
 
 ## RFC 0003 — Unified Stack
 
@@ -129,6 +128,9 @@ Status legend:
 - [x] Tool reliability, cost attribution, autonomous review, and version diff
       aggregate routes and dashboards.
 - [x] Production-to-eval storage and dashboard loop.
+- [x] Raw span, log, AI-call, and profile signals link back to exact or
+      trace-derived action, tool-call, eval, and agent-run context.
+- [x] Action graph ingestion rejects malformed explicit action IDs, persists
+      deterministic fallback IDs with fallback confidence, and preserves
+      queue/async continuation parent links.
 - [~] OpenAI Agents SDK wrapper remains a likely pending framework integration.
-- [~] Raw signal to exact causing action/tool-call back-links need a focused
-      completeness audit.
