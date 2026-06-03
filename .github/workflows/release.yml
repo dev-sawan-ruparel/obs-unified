@@ -25,6 +25,10 @@ jobs:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
+        with:
+          # Unique per-runner dir avoids the ENOTEMPTY race when concurrent
+          # self-hosted runner instances share the default ~/setup-pnpm.
+          dest: ${{ runner.temp }}/setup-pnpm
 
       - uses: actions/setup-node@v4
         with:
