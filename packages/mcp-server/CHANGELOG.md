@@ -1,5 +1,13 @@
 # @obs-unified/mcp-server
 
+## 2.0.1
+
+### Patch Changes
+
+- eec7b07: Productize production-to-eval per-case action tree comparisons in the
+  Evaluations dashboard and publish the MCP server through npmjs for no-auth
+  agent installs.
+
 ## 2.0.0
 
 ### Major Changes

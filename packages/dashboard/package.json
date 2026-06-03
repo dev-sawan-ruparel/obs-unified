@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/dashboard",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Observability dashboard UI — React components for embedding telemetry views in your own admin panel.",
 	"license": "MIT",
 	"repository": {

@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/mcp-server",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Read-only investigation MCP server for AI agents to query obs-unified collector telemetry.",
 	"license": "MIT",
 	"repository": {
