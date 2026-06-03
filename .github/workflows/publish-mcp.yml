@@ -42,18 +42,22 @@ jobs:
       - name: Publish if version is new
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/npmjs.npmrc
         run: |
           set -euo pipefail
           if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
             echo "NPM_TOKEN is required to publish @obs-unified/mcp-server to npmjs." >&2
             exit 1
           fi
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          {
+            echo "registry=https://registry.npmjs.org/"
+            echo "@obs-unified:registry=https://registry.npmjs.org/"
+            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+          } > "${NPM_CONFIG_USERCONFIG}"
           version="$(node -p "require('./packages/mcp-server/package.json').version")"
           if npm view "@obs-unified/mcp-server@${version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
             echo "@obs-unified/mcp-server@${version} is already published; skipping."
             exit 0
           fi
-          pnpm --filter @obs-unified/mcp-server publish --no-git-checks
+          pnpm --filter @obs-unified/mcp-server publish --no-git-checks --access public --registry=https://registry.npmjs.org
           npm view "@obs-unified/mcp-server@${version}" version --registry=https://registry.npmjs.org
