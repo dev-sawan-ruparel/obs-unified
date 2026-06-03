@@ -166,4 +166,78 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 
 		expect(result?.evidenceReferences).toBeUndefined();
 	});
+
+	it("derives machine-readable pivots from instrumentation gap payloads", async () => {
+		const db = new MemSqlDb({
+			first: () => ({
+				id: 1,
+				project_id: "proj-1",
+				analysis_id: "trace.instrumentation_gaps",
+				generated_at: Date.parse("2026-05-01T12:00:00.000Z"),
+				params_hash: null,
+				status: "warn",
+				primary_value: 500,
+				baseline_value: null,
+				delta_pct: null,
+				payload_json: JSON.stringify({
+					instrumentationGaps: {
+						traceId: "trace-gap",
+						totalDurationMs: 1000,
+						uninstrumentedTimeMs: 500,
+						ratio: 0.5,
+						blindspots: [
+							{
+								traceId: "trace-gap",
+								parentSpanId: "span-root",
+								parentServiceName: "checkout",
+								parentSpanName: "POST /checkout",
+								offsetMs: 100,
+								durationMs: 500,
+								ratioOfParent: 0.5,
+								childSpanCount: 1,
+								asyncParent: false,
+								recommendation: "Instrument child operations.",
+							},
+						],
+					},
+				}),
+				narrative: "Checkout has missing instrumentation.",
+				narrative_signature: "sig-gap",
+				duration_ms: 12,
+				expires_at: Date.parse("2026-05-02T12:00:00.000Z"),
+			}),
+		});
+		const store = new AnalysesStore(db);
+
+		const result = await store.getLatestResult(
+			"proj-1",
+			"trace.instrumentation_gaps",
+		);
+
+		expect(result?.evidenceReferences?.[0]).toMatchObject({
+			evidenceId:
+				"analysis:trace.instrumentation_gaps:instrumentation-gap:0:span:trace-gap:span-root",
+			entityKind: "span",
+			entityId: "trace-gap:span-root",
+			route: "#/traces/trace-gap#span=span-root",
+			source: "analysis.payload.instrumentationGaps",
+			confidence: 0.9,
+			citations: [
+				{
+					label: "trace trace-gap",
+					entityKind: "trace",
+					entityId: "trace-gap",
+					route: "#/traces/trace-gap",
+				},
+			],
+			suggestedNextPivots: expect.arrayContaining([
+				expect.objectContaining({
+					label: "Open profiler setup docs",
+					entityKind: "docs",
+					entityId: "howto/ebpf",
+					route: "#/docs/howto/ebpf",
+				}),
+			]),
+		});
+	});
 });

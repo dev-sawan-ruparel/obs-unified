@@ -871,4 +871,153 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 		});
 		expect(resourceAttrs["obs.mcp.audit"]).toBeUndefined();
 	});
+
+	it("persists Scenario B heavy-spender proof chain from seeded span attributes", async () => {
+		const scenario = {
+			traceId: "0b000000000000000000000000000001",
+			runSpanId: "0b00000000000001",
+			llmSpanId: "0b00000000000002",
+			toolSpanId: "0b00000000000003",
+			evalSpanId: "0b00000000000004",
+			runActionId: "01K00000000000000000000001",
+			llmActionId: "01K00000000000000000000002",
+			toolActionId: "01K00000000000000000000003",
+			evalActionId: "01K00000000000000000000004",
+		};
+		const baseSpan = {
+			projectId: "default",
+			traceId: scenario.traceId,
+			traceState: null,
+			serviceName: "obs-demo",
+			scopeName: "seed-ai",
+			scopeVersion: null,
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-22T00:00:00.000Z",
+			endTime: "2026-05-22T00:00:01.000Z",
+			durationMs: 1000,
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:01.000Z",
+			expiresAt: "2026-05-23T00:00:01.000Z",
+			sessionId: "sess-heavy",
+			interactionId: "ix-ai",
+		} satisfies Partial<StoredSpan>;
+
+		const runPipeline = registerSpanProcessors(actionGraphProcessorPlugin);
+		await runPipeline(
+			[
+				{
+					...baseSpan,
+					spanId: scenario.runSpanId,
+					parentSpanId: null,
+					spanName: "agent.run.recommendation-cost-spike",
+					attributesJson: JSON.stringify({
+						"obs.action.id": scenario.runActionId,
+						"obs.action.kind": "agent.run",
+						"obs.action.name": "Seed recommendation agent run",
+						"obs.actor.type": "agent",
+						"obs.actor.id": "seed-recommendation-agent",
+						"obs.agent.id": "seed-recommendation-agent",
+						"obs.agent.name": "Seed Recommendation Agent",
+						"obs.agent.version": "scenario-b-v1",
+						"obs.agent.goal":
+							"Generate recommendations for a heavy-spender session",
+						"obs.agent.autonomy_level": "suggested_action",
+					}),
+				},
+				{
+					...baseSpan,
+					spanId: scenario.llmSpanId,
+					parentSpanId: scenario.runSpanId,
+					spanName: "anthropic.chat",
+					attributesJson: JSON.stringify({
+						"openinference.span.kind": "LLM",
+						"llm.provider": "anthropic",
+						"llm.model_name": "claude-3-5-haiku",
+						"obs.action.id": scenario.llmActionId,
+						"obs.action.root_id": scenario.runActionId,
+						"obs.action.caused_by_id": scenario.runActionId,
+						"obs.action.kind": "llm.call",
+						"obs.agent.run_id": scenario.runActionId,
+						"obs.action.prompt_version": "seed-scenario-b-v1",
+						"obs.action.total_cost_usd": 0.25,
+					}),
+				},
+				{
+					...baseSpan,
+					spanId: scenario.toolSpanId,
+					parentSpanId: scenario.llmSpanId,
+					spanName: "catalog.lookup_recommendations",
+					attributesJson: JSON.stringify({
+						"obs.action.id": scenario.toolActionId,
+						"obs.action.root_id": scenario.runActionId,
+						"obs.action.caused_by_id": scenario.llmActionId,
+						"obs.action.kind": "tool.call",
+						"obs.agent.run_id": scenario.runActionId,
+						"obs.tool.name": "catalog.lookup_recommendations",
+						"obs.tool.args": JSON.stringify({ category: "premium", limit: 50 }),
+						"obs.tool.result": JSON.stringify({ returned: 50, cache: "miss" }),
+					}),
+				},
+				{
+					...baseSpan,
+					spanId: scenario.evalSpanId,
+					parentSpanId: scenario.llmSpanId,
+					spanName: "eval.recommendation_budget_guard",
+					statusCode: 2,
+					statusMessage: "budget_guard_failed",
+					attributesJson: JSON.stringify({
+						"obs.action.id": scenario.evalActionId,
+						"obs.action.root_id": scenario.runActionId,
+						"obs.action.caused_by_id": scenario.llmActionId,
+						"obs.action.kind": "eval",
+						"obs.agent.run_id": scenario.runActionId,
+						"obs.eval.evaluator_name": "recommendation_budget_guard",
+						"obs.eval.evaluator_version": "seed-v1",
+						"obs.eval.score": 0.35,
+						"obs.eval.passed": false,
+						"obs.eval.reasoning":
+							"Heavy-spender recommendation call exceeded the seed budget threshold.",
+					}),
+				},
+			] as StoredSpan[],
+			context,
+		);
+
+		const actionInserts = db.callsMatching("INSERT INTO actions");
+		expect(actionInserts.map((call) => call.binds[0])).toEqual([
+			scenario.runActionId,
+			scenario.llmActionId,
+			scenario.toolActionId,
+			scenario.evalActionId,
+		]);
+		expect(actionInserts.map((call) => call.binds[2])).toEqual([
+			scenario.runActionId,
+			scenario.runActionId,
+			scenario.runActionId,
+			scenario.runActionId,
+		]);
+		expect(actionInserts.map((call) => call.binds[3])).toEqual([
+			null,
+			scenario.runActionId,
+			scenario.llmActionId,
+			scenario.llmActionId,
+		]);
+
+		expect(db.callsMatching("INSERT INTO agent_runs")[0].binds).toContain(
+			"seed-recommendation-agent",
+		);
+		expect(db.callsMatching("INSERT INTO tool_calls")[0].binds).toContain(
+			"catalog.lookup_recommendations",
+		);
+		const evalInsert = db.callsMatching("INSERT INTO eval_results")[0];
+		expect(evalInsert.binds).toContain("recommendation_budget_guard");
+		expect(evalInsert.binds).toContain(0);
+	});
 });

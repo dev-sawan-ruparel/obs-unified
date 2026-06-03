@@ -136,4 +136,54 @@ describe("MetricsStore", () => {
 		]);
 		expect(db.calls[0].binds).toEqual(["p1", "trace-1", 5]);
 	});
+
+	it("queries recent exemplars for resource metric pivots", async () => {
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM metric_exemplars")) {
+					expect(sql).toContain("service_name = ?");
+					expect(sql).toContain("metric_name LIKE ?");
+					return [
+						{
+							id: "ex-2",
+							point_id: "point-2",
+							series_id: "series-2",
+							metric_name: "system.cpu.utilization",
+							service_name: "checkout",
+							trace_id: "trace-2",
+							span_id: "span-2",
+							ts_ns: "1800000000000000002",
+							value: 0.91,
+							received_at: "2026-06-01T00:01:00.000Z",
+						},
+					];
+				}
+				return [];
+			},
+		});
+		const store = new MetricsStore(db);
+
+		const rows = await store.recentExemplars({
+			projectId: "p1",
+			serviceName: "checkout",
+			metricPrefix: "system.",
+			limit: 3,
+		});
+
+		expect(rows).toEqual([
+			{
+				id: "ex-2",
+				pointId: "point-2",
+				seriesId: "series-2",
+				metricName: "system.cpu.utilization",
+				serviceName: "checkout",
+				traceId: "trace-2",
+				spanId: "span-2",
+				tsNs: "1800000000000000002",
+				value: 0.91,
+				receivedAt: "2026-06-01T00:01:00.000Z",
+			},
+		]);
+		expect(db.calls[0].binds).toEqual(["p1", "checkout", "system.%", 3]);
+	});
 });

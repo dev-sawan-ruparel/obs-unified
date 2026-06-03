@@ -140,6 +140,8 @@ export const evidenceRouteFor = (
 			return `#/tool-calls/${encodeURIComponent(entityId)}`;
 		case "trace":
 			return traceRoute(entityId);
+		case "docs":
+			return entityId.startsWith("#/") ? entityId : `#/docs/${entityId}`;
 	}
 	const exhaustive: never = entityKind;
 	return exhaustive;
@@ -179,6 +181,90 @@ const parseEvidenceTables = (
 		});
 	}
 	return tables;
+};
+
+const instrumentationGapEvidenceReferences = (
+	result: Pick<AnalysisResult, "analysisId" | "payload">,
+): EvidenceReference[] => {
+	const gaps = result.payload.instrumentationGaps;
+	if (!isRecord(gaps)) return [];
+	const traceId = asString(gaps.traceId);
+	const blindspots = gaps.blindspots;
+	if (!traceId || !Array.isArray(blindspots)) return [];
+
+	return blindspots
+		.filter(isRecord)
+		.map((gap, index): EvidenceReference | null => {
+			const spanId = asString(gap.parentSpanId);
+			if (!spanId) return null;
+			const serviceName = asString(gap.parentServiceName);
+			const spanName = asString(gap.parentSpanName);
+			const durationMs =
+				typeof gap.durationMs === "number" && Number.isFinite(gap.durationMs)
+					? gap.durationMs
+					: null;
+			const ratio =
+				typeof gap.ratioOfParent === "number" &&
+				Number.isFinite(gap.ratioOfParent)
+					? gap.ratioOfParent
+					: null;
+			const recommendation = asString(gap.recommendation);
+			const entityId = `${traceId}:${spanId}`;
+			const route = spanRoute(traceId, spanId);
+			const label = spanName ? `${spanName} (${spanId})` : `span ${spanId}`;
+			const durationText =
+				durationMs === null ? "unknown duration" : `${durationMs}ms`;
+			const ratioText =
+				ratio === null ? "" : `, ${(ratio * 100).toFixed(1)}% of parent`;
+			const docsRoute = "#/docs/howto/ebpf";
+			return {
+				evidenceId: `analysis:${result.analysisId}:instrumentation-gap:${index}:span:${entityId}`,
+				entityKind: "span",
+				entityId,
+				route,
+				source: "analysis.payload.instrumentationGaps",
+				confidence: 0.9,
+				reason: `Analysis "${result.analysisId}" found uninstrumented self-time on ${label}: ${durationText}${ratioText}.${recommendation ? ` ${recommendation}` : ""}`,
+				citations: [
+					{
+						label: `trace ${traceId}`,
+						entityKind: "trace",
+						entityId: traceId,
+						route: traceRoute(traceId),
+					},
+				],
+				suggestedNextPivots: [
+					{
+						label: "Open uninstrumented span",
+						entityKind: "span",
+						entityId,
+						route,
+						reason:
+							"Inspect the parent span whose self-time suggests missing child instrumentation.",
+					},
+					{
+						label: "Open trace gap data",
+						entityKind: "trace",
+						entityId: traceId,
+						route: `${traceRoute(traceId)}/gaps`,
+						reason:
+							"Review all structured instrumentation blindspots for this trace.",
+					},
+					{
+						label: "Open profiler setup docs",
+						entityKind: "docs",
+						entityId: "howto/ebpf",
+						route: docsRoute,
+						reason:
+							serviceName != null
+								? `Use profiler or eBPF setup guidance to cover missing spans in ${serviceName}.`
+								: "Use profiler or eBPF setup guidance to cover missing spans.",
+					},
+				],
+			};
+		})
+		.filter((ref): ref is EvidenceReference => ref !== null)
+		.slice(0, MAX_ANALYSIS_EVIDENCE_REFERENCES);
 };
 
 const entityFromRow = (
@@ -558,7 +644,9 @@ export const sourceLinkEvidenceReferences = (
 export const analysisResultEvidenceReferences = (
 	result: Pick<AnalysisResult, "analysisId" | "payload">,
 ): EvidenceReference[] => {
-	const references: EvidenceReference[] = [];
+	const references: EvidenceReference[] = [
+		...instrumentationGapEvidenceReferences(result),
+	];
 	for (const { sectionName, table } of parseEvidenceTables(result.payload)) {
 		const headers = table.headers.map(normalizeHeader);
 		for (const [rowIndex, row] of table.rows.entries()) {

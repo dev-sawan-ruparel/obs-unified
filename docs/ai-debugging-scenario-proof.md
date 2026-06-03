@@ -123,6 +123,18 @@ Current seed data:
   `heavy-spender@seed.local`, and property `heavy_spender: true`.
 - AI spans and denormalized `/v1/ai` calls carry `session.id`; heavy-session
   calls also carry `user.id` and usually `obs.interaction.id`.
+- The first heavy-spender AI call now has a deterministic action proof chain in
+  the same trace:
+  - trace `0b000000000000000000000000000001`
+  - agent run action `01K00000000000000000000001`
+  - LLM action `01K00000000000000000000002`
+  - tool action `01K00000000000000000000003`
+  - eval action `01K00000000000000000000004`
+  - LLM span `0b00000000000002`, tool span `0b00000000000003`, eval span
+    `0b00000000000004`
+  This fixture is intentionally attached through normal span attributes so the
+  collector's action-graph processor materializes the same tables a real agent
+  integration would use.
 
 Current gated Playwright coverage:
 
@@ -136,18 +148,18 @@ Current gated Playwright coverage:
 
 Remaining reproducibility gaps:
 
-- Literal IDs are not deterministic. `visitorBase`, `sessionRoot`, trace IDs,
-  span IDs, interaction IDs, token counts, and costs are random or time-derived.
-  Tests must discover the heavy session by aggregate behavior or stable user
-  markers, not hard-code IDs.
+- Most browser/session IDs are still not deterministic. `visitorBase`,
+  `sessionRoot`, interaction IDs, token counts, and non-proof costs remain
+  random or time-derived. Tests that start from the aggregate surface should
+  discover the heavy session by aggregate behavior or stable user markers, then
+  use the deterministic proof trace/action IDs only after they have reached the
+  seeded heavy-spender path.
 - The existing Scenario B live spec proves AI overview -> heavy session ->
   trace -> originating click. It does not yet prove aggregate cost attribution
   -> exemplar action/agent/tool/eval context.
-- The seed creates AI calls, but does not create a deterministic agent run,
-  action graph, tool call, or eval chain for the heavy-spender AI calls.
 - Dashboard navigation from aggregate row to exemplar AI call/action context
   should remain gated until the aggregate UI exposes stable exemplar links and
-  the fixture creates deterministic action IDs or discoverable markers.
+  the live spec discovers the proof chain from the heavy-spender surface.
 
 Scenario B proof cell status:
 
@@ -156,8 +168,8 @@ Scenario B proof cell status:
 | AI overview aggregate -> top heavy session | Keep gated live coverage; it is currently discovery-based and bounded. |
 | Heavy session -> trace/span -> originating click | Keep gated live coverage; it relies on seeded session/interaction propagation and should not run by default. |
 | AI tab renders seeded model | Safe as gated smoke; do not promote to default because it needs a live stack and seed. |
-| Cost attribution aggregate -> exemplar action/run/tool/eval | Keep skipped/gated until seed data includes deterministic agent action graph records for the heavy-spender path. |
-| AI call -> action/agent/tool/eval connected rail | Keep skipped/gated until the heavy-spender AI call has explicit action IDs and fixture-backed tool/eval records. |
+| Cost attribution aggregate -> exemplar action/run/tool/eval | Seed fixture exists; keep gated until the aggregate UI/API exposes and the live spec asserts the exemplar link. |
+| AI call -> action/agent/tool/eval connected rail | Seed fixture exists; next live proof should assert the connected rail exposes the run, tool, and eval records from the deterministic trace. |
 
 ## First Unskip Recommendations
 

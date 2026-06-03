@@ -1,4 +1,5 @@
 import type { CollectorPlugin } from "../framework/collector";
+import { MetricsStore } from "../lib/metrics-store";
 import { dialectFor, sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
@@ -136,6 +137,28 @@ export const platformRoutesPlugin: CollectorPlugin = {
 			return c.json({
 				success: true,
 				hosts: Array.from(byHost.values()),
+			});
+		});
+
+		app.get("/internal/platform/metric-exemplars", async (c) => {
+			const projectId = getProjectId(c);
+			const limit = Math.max(
+				1,
+				Math.min(Number.parseInt(c.req.query("limit") ?? "20", 10) || 20, 100),
+			);
+			const metricPrefix = c.req.query("metric_prefix") ?? "system.";
+			const serviceName = c.req.query("service") ?? null;
+			const store = new MetricsStore(sqlDbFor(c.env));
+			const exemplars = await store.recentExemplars({
+				projectId,
+				serviceName,
+				metricPrefix,
+				limit,
+			});
+			return c.json({
+				success: true,
+				exemplars,
+				timestamp: new Date().toISOString(),
 			});
 		});
 	},

@@ -693,6 +693,7 @@ const seedAi = async (sessionWindows = []) => {
 	];
 
 	const aiSpans = [];
+	const actionGraphSpans = [];
 	const sessionRoot = `seed-ai-${Date.now().toString(36)}`;
 	const totalCalls = 12;
 	// RFC 0006 Scenario B — last session is the "heavy spender" with 8
@@ -704,11 +705,23 @@ const seedAi = async (sessionWindows = []) => {
 		sessionWindows.length > 0
 			? sessionWindows[sessionWindows.length - 1]
 			: null;
+	const scenarioBFixture = {
+		traceId: "0b000000000000000000000000000001",
+		runSpanId: "0b00000000000001",
+		llmSpanId: "0b00000000000002",
+		toolSpanId: "0b00000000000003",
+		evalSpanId: "0b00000000000004",
+		runActionId: "01K00000000000000000000001",
+		llmActionId: "01K00000000000000000000002",
+		toolActionId: "01K00000000000000000000003",
+		evalActionId: "01K00000000000000000000004",
+	};
 
 	for (let i = 0; i < totalCalls; i++) {
 		const m = models[i % models.length];
 		const p = prompts[i % prompts.length];
 		const isHeavy = heavySpenderSession && i >= totalCalls - 8;
+		const isScenarioBProofCall = isHeavy && i === totalCalls - 8;
 
 		// Place heavy-spender calls inside the session window (so the
 		// timeline tab shows them lined up with the user's clicks); other
@@ -779,12 +792,30 @@ const seedAi = async (sessionWindows = []) => {
 		if (interactionId) {
 			attrs.push(kv("obs.interaction.id", interactionId));
 		}
+		if (isScenarioBProofCall) {
+			attrs.push(kv("obs.action.id", scenarioBFixture.llmActionId));
+			attrs.push(kv("obs.action.root_id", scenarioBFixture.runActionId));
+			attrs.push(kv("obs.action.caused_by_id", scenarioBFixture.runActionId));
+			attrs.push(kv("obs.action.kind", "llm.call"));
+			attrs.push(kv("obs.action.name", "Generate expensive recommendations"));
+			attrs.push(kv("obs.agent.run_id", scenarioBFixture.runActionId));
+			attrs.push(kv("obs.action.prompt_version", "seed-scenario-b-v1"));
+			attrs.push(kv("obs.action.model_name", effectiveModel.model));
+			attrs.push(kv("obs.action.provider", effectiveModel.provider));
+			attrs.push(kv("obs.action.total_cost_usd", cost));
+		}
+
+		const traceId = isScenarioBProofCall ? scenarioBFixture.traceId : hex(16);
+		const spanId = isScenarioBProofCall ? scenarioBFixture.llmSpanId : hex(8);
 
 		aiSpans.push({
 			service: "obs-demo",
 			span: {
-				traceId: hex(16),
-				spanId: hex(8),
+				traceId,
+				spanId,
+				parentSpanId: isScenarioBProofCall
+					? scenarioBFixture.runSpanId
+					: undefined,
 				name: `${effectiveModel.provider}.chat`,
 				kind: 3, // CLIENT
 				startTimeUnixNano: agoNs(offsetMs + dur),
@@ -796,6 +827,102 @@ const seedAi = async (sessionWindows = []) => {
 				attributes: attrs,
 			},
 		});
+
+		if (isScenarioBProofCall) {
+			const baseActionAttrs = [
+				kv("session.id", sessionId),
+				kv("user.id", `user-${heavySpenderSession.visitorId}`),
+				kv("obs.interaction.id", interactionId ?? ""),
+				kv("obs.agent.run_id", scenarioBFixture.runActionId),
+			];
+			actionGraphSpans.push(
+				{
+					traceId,
+					spanId: scenarioBFixture.runSpanId,
+					name: "agent.run.recommendation-cost-spike",
+					kind: 1,
+					startTimeUnixNano: agoNs(offsetMs + dur + 75),
+					endTimeUnixNano: agoNs(offsetMs - 200),
+					status: { code: 1, message: "" },
+					attributes: [
+						...baseActionAttrs,
+						kv("obs.action.id", scenarioBFixture.runActionId),
+						kv("obs.action.kind", "agent.run"),
+						kv("obs.action.name", "Seed recommendation agent run"),
+						kv("obs.actor.type", "agent"),
+						kv("obs.actor.id", "seed-recommendation-agent"),
+						kv("obs.agent.id", "seed-recommendation-agent"),
+						kv("obs.agent.name", "Seed Recommendation Agent"),
+						kv("obs.agent.version", "scenario-b-v1"),
+						kv(
+							"obs.agent.goal",
+							"Generate recommendations for a heavy-spender session",
+						),
+						kv(
+							"obs.agent.outcome",
+							"Returned high-token recommendations after inventory lookup",
+						),
+						kv("obs.agent.autonomy_level", "suggested_action"),
+						kv("obs.action.total_cost_usd", cost),
+					],
+				},
+				{
+					traceId,
+					spanId: scenarioBFixture.toolSpanId,
+					parentSpanId: scenarioBFixture.llmSpanId,
+					name: "catalog.lookup_recommendations",
+					kind: 3,
+					startTimeUnixNano: agoNs(offsetMs + Math.floor(dur / 2)),
+					endTimeUnixNano: agoNs(offsetMs + Math.floor(dur / 2) - 80),
+					status: { code: 1, message: "" },
+					attributes: [
+						...baseActionAttrs,
+						kv("obs.action.id", scenarioBFixture.toolActionId),
+						kv("obs.action.root_id", scenarioBFixture.runActionId),
+						kv("obs.action.caused_by_id", scenarioBFixture.llmActionId),
+						kv("obs.action.kind", "tool.call"),
+						kv("obs.action.name", "Lookup recommendation catalog"),
+						kv("obs.tool.name", "catalog.lookup_recommendations"),
+						kv(
+							"obs.tool.args",
+							JSON.stringify({ category: "premium", limit: 50 }),
+						),
+						kv(
+							"obs.tool.result",
+							JSON.stringify({ returned: 50, cache: "miss" }),
+						),
+						kv("obs.tool.side_effect", false),
+						kv("obs.tool.approval_state", "suggested"),
+					],
+				},
+				{
+					traceId,
+					spanId: scenarioBFixture.evalSpanId,
+					parentSpanId: scenarioBFixture.llmSpanId,
+					name: "eval.recommendation_budget_guard",
+					kind: 1,
+					startTimeUnixNano: agoNs(offsetMs + 40),
+					endTimeUnixNano: agoNs(offsetMs + 20),
+					status: { code: 2, message: "budget_guard_failed" },
+					attributes: [
+						...baseActionAttrs,
+						kv("obs.action.id", scenarioBFixture.evalActionId),
+						kv("obs.action.root_id", scenarioBFixture.runActionId),
+						kv("obs.action.caused_by_id", scenarioBFixture.llmActionId),
+						kv("obs.action.kind", "eval"),
+						kv("obs.action.name", "Recommendation budget guard"),
+						kv("obs.eval.evaluator_name", "recommendation_budget_guard"),
+						kv("obs.eval.evaluator_version", "seed-v1"),
+						kv("obs.eval.score", 0.35),
+						kv("obs.eval.passed", false),
+						kv(
+							"obs.eval.reasoning",
+							"Heavy-spender recommendation call exceeded the seed budget threshold.",
+						),
+					],
+				},
+			);
+		}
 	}
 
 	const resourceSpans = [
@@ -804,7 +931,7 @@ const seedAi = async (sessionWindows = []) => {
 			scopeSpans: [
 				{
 					scope: { name: "seed-ai" },
-					spans: aiSpans.map((s) => s.span),
+					spans: [...actionGraphSpans, ...aiSpans.map((s) => s.span)],
 				},
 			],
 		},
@@ -857,7 +984,7 @@ const seedAi = async (sessionWindows = []) => {
 
 	const heavyShare = heavySpenderSession ? 8 : 0;
 	return heavySpenderSession
-		? `${aiSpans.length} AI spans + ai_calls (${heavyShare} on heavy spender)`
+		? `${aiSpans.length} AI spans + ai_calls (${heavyShare} on heavy spender, 1 action proof chain)`
 		: `${aiSpans.length} AI spans + ai_calls across ${models.length} providers`;
 };
 

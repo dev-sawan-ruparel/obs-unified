@@ -90,7 +90,7 @@ and tools.
 
 ## 3. Live Scenario Fixtures and Proof Artifacts
 
-**Status:** [~] Partial.
+**Status:** [~] Partial; Scenario B action proof fixture implemented.
 
 **Why it matters:** Reproducible scenarios become canonical eval fixtures for
 AI debugging agents. They prove the graph can be traversed end-to-end.
@@ -110,11 +110,14 @@ criteria.
 **Acceptance checklist:**
 
 - [ ] Fresh setup can reproduce each scenario.
-- [ ] Each scenario has stable seed data or a repeatable script.
+- [x] Scenario B has stable seed data and a repeatable script for the
+      heavy-spender AI action/run/tool/eval path.
+- [ ] Scenario A profile and Scenario C instrumentation fixtures have stable
+      seed data or repeatable scripts.
 - [x] Each Scenario A/B path has an audited agent-debugging expected path and
       reusable proof artifact schema.
 - [ ] Live Playwright cells are unskipped where data is reproducible.
-- [ ] Proof artifact is captured or documented.
+- [x] Scenario B proof artifact is documented for the deterministic seed chain.
 
 ## 4. Structured Analysis Evidence for Agents
 
@@ -159,7 +162,7 @@ of disconnected spans.
 
 ## 6. Operational Aggregate Surfaces
 
-**Status:** [x] Implemented; [~] agent-consumability can improve.
+**Status:** [x] Implemented.
 
 **Surfaces:**
 
@@ -174,30 +177,30 @@ risky.
 
 **Next checklist:**
 
-- [ ] Ensure aggregate APIs include links to exemplar actions/runs/traces.
-- [ ] Ensure dashboards expose the same links through Connected Rail or direct
+- [x] Ensure aggregate APIs include links to exemplar actions/runs/traces.
+- [x] Ensure dashboards expose the same links through Connected Rail or direct
       routes.
-- [ ] Add agent-friendly sorting defaults for highest debugging value.
-- [ ] Add aggregate drilldowns so every row can lead to concrete action, tool,
+- [x] Add agent-friendly sorting defaults for highest debugging value.
+- [x] Add aggregate drilldowns so every row can lead to concrete action, tool,
       run, trace, or eval evidence.
 
 ## 7. Metric Exemplars and Aggregate-to-Trace Pivots
 
-**Status:** [x] Core implemented; [~] product coverage can expand.
+**Status:** [x] Implemented for trace/resource exemplar pivots.
 
 **Why it matters:** Exemplars bridge aggregate symptoms to concrete traces and
 spans, which is crucial for AI triage.
 
 **Next checklist:**
 
-- [ ] Add exemplar pivots from metric/resource dashboards where relevant.
-- [ ] Ensure exemplar links normalize correctly in dashboard navigation.
-- [ ] Add tests for metric dashboard -> trace/span routes if a metric detail
+- [x] Add exemplar pivots from metric/resource dashboards where relevant.
+- [x] Ensure exemplar links normalize correctly in dashboard navigation.
+- [x] Add tests for metric dashboard -> trace/span routes if a metric detail
       surface exists.
 
 ## 8. Missing Instrumentation via Self-Time
 
-**Status:** [x] Implemented; [~] calibration pending.
+**Status:** [x] Implemented; [~] live calibration pending.
 
 **Why it matters:** It tells an agent when a trace is incomplete and where to
 instrument next.
@@ -205,10 +208,10 @@ instrument next.
 **Next checklist:**
 
 - [ ] Calibrate self-time thresholds against demo/live traces.
-- [ ] Return structured uninstrumented gap data from trace APIs so agents do not
+- [x] Return structured uninstrumented gap data from trace APIs so agents do not
       need to recompute parent/child span math.
-- [ ] Expose missing-instrumentation evidence as structured analysis output.
-- [ ] Add a suggested-next-action link from badge to docs or profiler setup.
+- [x] Expose missing-instrumentation evidence as structured analysis output.
+- [x] Add a suggested-next-action link from badge to docs or profiler setup.
 
 ## 9. Framework Wrapper Coverage
 

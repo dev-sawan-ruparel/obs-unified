@@ -22,6 +22,19 @@ interface StoredExemplar {
 	tsNs: string;
 }
 
+export interface MetricExemplarPoint {
+	id: string;
+	pointId: string;
+	seriesId: string;
+	metricName: string;
+	serviceName: string | null;
+	traceId: string | null;
+	spanId: string | null;
+	tsNs: string;
+	value: number;
+	receivedAt: string;
+}
+
 const parseExemplars = (raw: string | null): StoredExemplar[] => {
 	if (!raw) return [];
 	try {
@@ -138,20 +151,7 @@ export class MetricsStore {
 		projectId: string,
 		traceId: string,
 		limit = 50,
-	): Promise<
-		Array<{
-			id: string;
-			pointId: string;
-			seriesId: string;
-			metricName: string;
-			serviceName: string | null;
-			traceId: string | null;
-			spanId: string | null;
-			tsNs: string;
-			value: number;
-			receivedAt: string;
-		}>
-	> {
+	): Promise<MetricExemplarPoint[]> {
 		const rows = await this.db
 			.prepare(
 				`SELECT id, point_id, series_id, metric_name, service_name,
@@ -161,6 +161,59 @@ export class MetricsStore {
 					ORDER BY ts_ns DESC LIMIT ?`,
 			)
 			.bind(projectId, traceId, limit)
+			.all<{
+				id: string;
+				point_id: string;
+				series_id: string;
+				metric_name: string;
+				service_name: string | null;
+				trace_id: string | null;
+				span_id: string | null;
+				ts_ns: string;
+				value: number;
+				received_at: string;
+			}>();
+		return rows.results.map((row) => ({
+			id: row.id,
+			pointId: row.point_id,
+			seriesId: row.series_id,
+			metricName: row.metric_name,
+			serviceName: row.service_name,
+			traceId: row.trace_id,
+			spanId: row.span_id,
+			tsNs: row.ts_ns,
+			value: row.value,
+			receivedAt: row.received_at,
+		}));
+	}
+
+	async recentExemplars(opts: {
+		projectId: string;
+		serviceName?: string | null;
+		metricPrefix?: string | null;
+		limit?: number;
+	}): Promise<MetricExemplarPoint[]> {
+		const limit = Math.max(1, Math.min(opts.limit ?? 20, 100));
+		const where = ["project_id = ?"];
+		const binds: unknown[] = [opts.projectId];
+		if (opts.serviceName) {
+			where.push("service_name = ?");
+			binds.push(opts.serviceName);
+		}
+		if (opts.metricPrefix) {
+			where.push("metric_name LIKE ?");
+			binds.push(`${opts.metricPrefix}%`);
+		}
+		const rows = await this.db
+			.prepare(
+				`SELECT id, point_id, series_id, metric_name, service_name,
+						trace_id, span_id, ts_ns, value, received_at
+					FROM metric_exemplars
+					WHERE ${where.join(" AND ")}
+					ORDER BY received_at DESC, ts_ns DESC
+					LIMIT ?`,
+			)
+			.bind(...binds, limit)
 			.all<{
 				id: string;
 				point_id: string;

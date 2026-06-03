@@ -9,7 +9,8 @@ export type EvidenceEntityKind =
 	| "eval"
 	| "profile"
 	| "service"
-	| "log";
+	| "log"
+	| "docs";
 
 export interface EvidenceCitation {
 	label: string;

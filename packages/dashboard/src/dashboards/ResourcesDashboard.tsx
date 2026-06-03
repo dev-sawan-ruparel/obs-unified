@@ -36,6 +36,16 @@ interface HostMetrics {
 	updatedAt: string;
 }
 
+interface MetricExemplar {
+	id: string;
+	metricName: string;
+	serviceName: string | null;
+	traceId: string | null;
+	spanId: string | null;
+	value: number;
+	receivedAt: string;
+}
+
 const fmtBytes = (bytes: number) => {
 	if (bytes === 0) return "0 B";
 	const k = 1024;
@@ -50,6 +60,7 @@ export function ResourcesDashboard() {
 	const api = useApi();
 	const [data, setData] = useState<ResourcesData | null>(null);
 	const [hosts, setHosts] = useState<HostMetrics[]>([]);
+	const [metricExemplars, setMetricExemplars] = useState<MetricExemplar[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -61,7 +72,7 @@ export function ResourcesDashboard() {
 		setLoading(true);
 		setError(null);
 		try {
-			const [res, hostsRes] = await Promise.all([
+			const [res, hostsRes, exemplarRes] = await Promise.all([
 				api<{ success: boolean; resources: ResourcesData }>(
 					"/platform/resources",
 				),
@@ -71,12 +82,19 @@ export function ResourcesDashboard() {
 				api<{ success: boolean; hosts: HostMetrics[] }>(
 					"/platform/hosts",
 				).catch(() => ({ success: true, hosts: [] as HostMetrics[] })),
+				api<{ success: boolean; exemplars: MetricExemplar[] }>(
+					"/platform/metric-exemplars?metric_prefix=system.&limit=10",
+				).catch(() => ({
+					success: true,
+					exemplars: [] as MetricExemplar[],
+				})),
 			]);
 			if (!res.success || !res.resources) {
 				throw new Error("collector returned an unexpected shape");
 			}
 			setData(res.resources);
 			setHosts(hostsRes.hosts ?? []);
+			setMetricExemplars(exemplarRes.exemplars ?? []);
 			setLastUpdated(new Date().toISOString());
 		} catch (err) {
 			console.error(err);
@@ -309,6 +327,55 @@ export function ResourcesDashboard() {
 								})}
 							</div>
 						</div>
+					)}
+
+					{metricExemplars.length > 0 && (
+						<Card className="mt-2 flex flex-col gap-3 p-4">
+							<div className="flex items-center justify-between gap-3">
+								<SectionTitle title="Metric exemplars" />
+								<Tag tone="accent">trace pivots</Tag>
+							</div>
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+								{metricExemplars.map((exemplar) => {
+									const href = exemplar.traceId
+										? exemplar.spanId
+											? `#/traces?trace=${encodeURIComponent(exemplar.traceId)}&span=${encodeURIComponent(exemplar.spanId)}`
+											: `#/traces?trace=${encodeURIComponent(exemplar.traceId)}`
+										: "";
+									return (
+										<div
+											key={exemplar.id}
+											className="border border-sys-outline-soft bg-sys-surface-low p-2 font-mono text-[0.75rem]"
+										>
+											<div className="flex items-center justify-between gap-2">
+												<span className="font-bold truncate">
+													{exemplar.metricName}
+												</span>
+												<span className="tabular-nums opacity-70">
+													{exemplar.value}
+												</span>
+											</div>
+											<div className="mt-1 flex items-center justify-between gap-2 text-[0.625rem] opacity-70">
+												<span className="truncate">
+													{exemplar.serviceName ?? "unknown service"}
+												</span>
+												<span>
+													{new Date(exemplar.receivedAt).toLocaleTimeString()}
+												</span>
+											</div>
+											{href && (
+												<a
+													href={href}
+													className="mt-2 inline-block text-sys-primary underline hover:bg-sys-primary hover:text-white px-1 py-0.5"
+												>
+													Open trace exemplar
+												</a>
+											)}
+										</div>
+									);
+								})}
+							</div>
+						</Card>
 					)}
 				</>
 			)}
