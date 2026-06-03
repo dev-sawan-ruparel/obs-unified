@@ -1,6 +1,5 @@
 import type { StoredSpan } from "@obs-unified/types";
 import type { SqlDb } from "../sql-db";
-import { updateTraceInstrumentationGaps } from "./trace-detail";
 
 export async function ingestTelemetrySpans(
 	db: SqlDb,
@@ -56,28 +55,14 @@ export async function ingestTelemetrySpans(
 
 	await db.batch(statements);
 
-	const uniqueTraces = Array.from(
-		new Map(
-			spans.map((s) => [
-				`${s.projectId}:${s.traceId}`,
-				{ projectId: s.projectId, traceId: s.traceId },
-			]),
-		).values(),
-	);
-
-	await Promise.all(
-		uniqueTraces.map(({ projectId, traceId }) =>
-			updateTraceInstrumentationGaps(db, projectId, traceId).catch((err) => {
-				console.error(
-					`Error updating trace instrumentation gaps for trace ${traceId}:`,
-					err,
-				);
-			}),
-		),
-	);
+	// Trace instrumentation gaps are computed lazily at read time (see
+	// `getTelemetryTraceGaps`), not materialized on ingest. This keeps the
+	// ingest hot path to a single batched span write and avoids recomputing
+	// gaps for the >99% of traces that are never inspected.
+	const uniqueTraces = new Set(spans.map((s) => `${s.projectId}:${s.traceId}`));
 
 	return {
 		inserted: spans.length,
-		traceCount: uniqueTraces.length,
+		traceCount: uniqueTraces.size,
 	};
 }

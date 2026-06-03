@@ -121,8 +121,8 @@ describe("extractCodeReference", () => {
 	});
 });
 
-describe("ingest-time gaps persistence", () => {
-	it("computes gaps on ingestion and writes them to the database", async () => {
+describe("lazy (read-time) gaps", () => {
+	it("does not materialize gaps on ingest, and computes them on read", async () => {
 		const insertedSpans: unknown[][] = [];
 		const deletedTraces: string[] = [];
 		const insertedGaps: Array<{
@@ -247,18 +247,12 @@ describe("ingest-time gaps persistence", () => {
 		expect(insertedSpans).toHaveLength(1);
 		expect(insertedSpans[0][1]).toBe("trace-ingest");
 
-		// Assert gaps calculation triggered deletion and insertion
-		expect(deletedTraces).toContain("trace-ingest");
-		expect(insertedGaps).toHaveLength(1);
-		expect(insertedGaps[0]).toMatchObject({
-			traceId: "trace-ingest",
-			parentSpanId: "root",
-			parentSpanName: "inventory.reserve",
-			durationMs: 500, // 540 - 40
-			childSpanCount: 1,
-		});
+		// Gaps are no longer materialized on the ingest hot path: ingest must
+		// not touch the trace_instrumentation_gaps table at all.
+		expect(deletedTraces).toHaveLength(0);
+		expect(insertedGaps).toHaveLength(0);
 
-		// Now retrieve using getTelemetryTraceGaps
+		// They are computed on demand from the trace's spans at read time.
 		const gaps = await getTelemetryTraceGaps(db, "trace-ingest", "p1");
 		expect(gaps).toBeDefined();
 		expect(gaps?.blindspots).toHaveLength(1);

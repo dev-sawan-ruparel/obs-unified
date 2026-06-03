@@ -97,74 +97,13 @@ export async function getTelemetryTraceGaps(
 	if (!projectId)
 		throw new Error("TelemetryStore.getTraceGaps: projectId is required");
 
-	const gapsResult = await db
-		.prepare(`
-			SELECT parent_span_id, parent_service_name, parent_span_name, offset_ms,
-			       duration_ms, ratio_of_parent, child_span_count, async_parent, recommendation
-			FROM trace_instrumentation_gaps
-			WHERE trace_id = ?
-		`)
-		.bind(traceId)
-		.all<{
-			parent_span_id: string;
-			parent_service_name: string;
-			parent_span_name: string;
-			offset_ms: number;
-			duration_ms: number;
-			ratio_of_parent: number;
-			child_span_count: number;
-			async_parent: number;
-			recommendation: string;
-		}>();
-
-	const rows = gapsResult.results ?? [];
+	// Gaps are derived data: compute them lazily from the trace's spans on
+	// read, rather than materializing them on the ingest hot path. The
+	// `spans` arg is passed by `getTelemetryTraceDetail` (which has already
+	// loaded them); the standalone `/gaps` endpoint omits it, so we load
+	// them here. The span query is project-scoped, so this avoids the
+	// `trace_instrumentation_gaps` table's lack of project scoping entirely.
 	const timestamp = new Date().toISOString();
-
-	if (rows.length > 0) {
-		let totalDurationMs = 0;
-		if (spans && spans.length > 0) {
-			const root = spans.find((span) => !span.parentSpanId) ?? spans[0];
-			totalDurationMs = root.durationMs;
-		} else {
-			const rootResult = await db
-				.prepare(`
-					SELECT duration_ms FROM telemetry_spans
-					WHERE project_id = ? AND trace_id = ?
-					ORDER BY parent_span_id ASC, start_time ASC, span_id ASC
-					LIMIT 1
-				`)
-				.bind(projectId, traceId)
-				.first<{ duration_ms: number }>();
-			totalDurationMs = rootResult?.duration_ms ?? 0;
-		}
-
-		const blindspots: TelemetryInstrumentationGap[] = rows.map((row) => ({
-			traceId,
-			parentSpanId: row.parent_span_id,
-			parentServiceName: row.parent_service_name,
-			parentSpanName: row.parent_span_name,
-			offsetMs: row.offset_ms,
-			durationMs: row.duration_ms,
-			ratioOfParent: row.ratio_of_parent,
-			childSpanCount: row.child_span_count,
-			asyncParent: row.async_parent === 1,
-			recommendation: row.recommendation,
-		}));
-
-		const uninstrumentedTimeMs = blindspots.reduce(
-			(acc, gap) => acc + gap.durationMs,
-			0,
-		);
-
-		return {
-			traceId,
-			totalDurationMs,
-			uninstrumentedTimeMs,
-			ratio: totalDurationMs > 0 ? uninstrumentedTimeMs / totalDurationMs : 0,
-			blindspots,
-			timestamp,
-		};
-	}
 
 	let localSpans = spans;
 	if (!localSpans) {
@@ -213,95 +152,6 @@ export async function getTelemetryTraceGaps(
 		root.durationMs,
 		timestamp,
 	);
-}
-
-export async function updateTraceInstrumentationGaps(
-	db: SqlDb,
-	projectId: string,
-	traceId: string,
-): Promise<void> {
-	const result = await db
-		.prepare(`
-      SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
-             scope_version, span_name, span_kind, status_code, status_message,
-             start_time, end_time, duration_ms, attributes_json,
-             resource_attributes_json, events_json, links_json,
-             received_at, expires_at
-      FROM telemetry_spans
-      WHERE project_id = ? AND trace_id = ?
-      ORDER BY start_time ASC, span_id ASC
-    `)
-		.bind(projectId, traceId)
-		.all<SpanDetailRow>();
-
-	const rows = result.results ?? [];
-	if (rows.length === 0) {
-		await db
-			.prepare(`DELETE FROM trace_instrumentation_gaps WHERE trace_id = ?`)
-			.bind(traceId)
-			.run();
-		return;
-	}
-
-	const spans: TelemetrySpanDetail[] = rows.map((row) => ({
-		traceId: row.trace_id,
-		spanId: row.span_id,
-		parentSpanId: row.parent_span_id,
-		serviceName: normalizeService(row.service_name),
-		scopeName: row.scope_name,
-		scopeVersion: row.scope_version,
-		spanName: row.span_name,
-		spanKind: row.span_kind,
-		statusCode: row.status_code,
-		statusMessage: row.status_message,
-		startTime: row.start_time,
-		endTime: row.end_time,
-		durationMs: row.duration_ms,
-		attributes: parseJsonRecord(row.attributes_json),
-		resourceAttributes: parseJsonRecord(row.resource_attributes_json),
-		events: parseJsonArray(row.events_json),
-		links: parseJsonArray(row.links_json),
-	}));
-
-	const root = spans.find((span) => !span.parentSpanId) ?? spans[0];
-	const timestamp = new Date().toISOString();
-	const gaps = buildTraceInstrumentationGaps(
-		traceId,
-		spans,
-		root.durationMs,
-		timestamp,
-	);
-
-	await db
-		.prepare(`DELETE FROM trace_instrumentation_gaps WHERE trace_id = ?`)
-		.bind(traceId)
-		.run();
-
-	if (gaps.blindspots.length > 0) {
-		const insertStatements = gaps.blindspots.map((gap) => {
-			return db
-				.prepare(`
-				INSERT INTO trace_instrumentation_gaps (
-					trace_id, parent_span_id, parent_service_name, parent_span_name,
-					offset_ms, duration_ms, ratio_of_parent, child_span_count,
-					async_parent, recommendation
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`)
-				.bind(
-					gap.traceId,
-					gap.parentSpanId,
-					gap.parentServiceName,
-					gap.parentSpanName,
-					gap.offsetMs,
-					gap.durationMs,
-					gap.ratioOfParent,
-					gap.childSpanCount,
-					gap.asyncParent ? 1 : 0,
-					gap.recommendation,
-				);
-		});
-		await db.batch(insertStatements);
-	}
 }
 
 export function buildTraceInstrumentationGaps(
