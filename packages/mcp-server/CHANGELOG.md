@@ -1,4 +1,4 @@
-# @obs-unified/mcp-server
+# @obsunified/mcp-server
 
 ## 2.0.1
 

@@ -6,7 +6,7 @@ code, issues, or prompts.
 
 ## 1. Investigation MCP Server
 
-Package: [`@obs-unified/mcp-server`](../packages/mcp-server)
+Package: [`@obsunified/mcp-server`](../packages/mcp-server)
 
 This is a read-only Model Context Protocol server for coding agents and desktop
 MCP hosts. It exposes collector query endpoints as tools, such as recent traces,
@@ -44,10 +44,10 @@ appear in the dashboard graph.
 
 ## Naming Rules
 
-- Say **investigation MCP server** for `@obs-unified/mcp-server`.
+- Say **investigation MCP server** for `@obsunified/mcp-server`.
 - Say **MCP context propagation** for SDK helpers in
   `@obs-unified/telemetry-sdk/mcp`.
 - Say **OTel MCP normalization** for collector ingest of `mcp.*` span
   attributes.
 - Avoid saying only "the MCP server" in Agent Action Graph docs unless the
-  referenced component is `@obs-unified/mcp-server`.
+  referenced component is `@obsunified/mcp-server`.

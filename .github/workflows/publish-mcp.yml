@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   publish-mcp:
-    name: Build & publish @obs-unified/mcp-server to npmjs
+    name: Build & publish @obsunified/mcp-server to npmjs
     runs-on: [self-hosted, obs-unified]
     steps:
       - uses: actions/checkout@v4
@@ -37,9 +37,9 @@ jobs:
 
       - run: pnpm --filter @obs-unified/types run build
 
-      - run: pnpm --filter @obs-unified/mcp-server run type-check
+      - run: pnpm --filter @obsunified/mcp-server run type-check
 
-      - run: pnpm --filter @obs-unified/mcp-server run build
+      - run: pnpm --filter @obsunified/mcp-server run build
 
       - name: Publish if version is new
         env:
@@ -48,12 +48,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "NPM_TOKEN is required to publish @obs-unified/mcp-server to npmjs." >&2
+            echo "NPM_TOKEN is required to publish @obsunified/mcp-server to npmjs." >&2
             exit 1
           fi
           {
             echo "registry=https://registry.npmjs.org/"
-            echo "@obs-unified:registry=https://registry.npmjs.org/"
+            echo "@obsunified:registry=https://registry.npmjs.org/"
             echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
           } > "${NPM_CONFIG_USERCONFIG}"
           cp "${NPM_CONFIG_USERCONFIG}" packages/mcp-server/.npmrc
@@ -61,9 +61,9 @@ jobs:
             mv .npmrc .npmrc.github-packages
           fi
           version="$(node -p "require('./packages/mcp-server/package.json').version")"
-          if npm view "@obs-unified/mcp-server@${version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
-            echo "@obs-unified/mcp-server@${version} is already published; skipping."
+          if npm view "@obsunified/mcp-server@${version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "@obsunified/mcp-server@${version} is already published; skipping."
             exit 0
           fi
           npm publish ./packages/mcp-server --access public --registry=https://registry.npmjs.org
-          npm view "@obs-unified/mcp-server@${version}" version --registry=https://registry.npmjs.org
+          npm view "@obsunified/mcp-server@${version}" version --registry=https://registry.npmjs.org

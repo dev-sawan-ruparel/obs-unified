@@ -103,7 +103,7 @@ step chose a side-effecting tool, whether the write was approved, what changed
 before and after a mutation, whether an eval failed, and whether a production
 failure should become an eval case.
 
-The graph is also agent-readable. The `@obs-unified/mcp-server` package is the
+The graph is also agent-readable. The `@obsunified/mcp-server` package is the
 obs-unified investigation MCP server: it exposes read-only tools for status,
 recent traces, trace detail, service maps, logs, AI sessions, users, replays,
 profiles, evals, connected signals, agent runs, actions, and tool calls. Coding agents can
@@ -278,7 +278,7 @@ header for browser calls, and verify the collector path with
 For agents, install the MCP server from npmjs without registry auth:
 
 ```bash
-pnpm add -g @obs-unified/mcp-server
+pnpm add -g @obsunified/mcp-server
 ```
 
 ### Install the SDKs

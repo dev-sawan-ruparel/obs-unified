@@ -1,4 +1,4 @@
-# @obs-unified/mcp-server
+# @obsunified/mcp-server
 
 Read-only investigation MCP server for AI agents that need access to an
 obs-unified collector.
@@ -59,7 +59,7 @@ be reported as inferred rather than definitive.
 ## Install
 
 ```bash
-pnpm add -g @obs-unified/mcp-server
+pnpm add -g @obsunified/mcp-server
 ```
 
 The package publishes to the public npm registry, so install does not require a
@@ -111,7 +111,7 @@ For local development from this repo:
   "mcpServers": {
     "obs-unified": {
       "command": "pnpm",
-      "args": ["--dir", "/absolute/path/to/obs-unified", "--filter", "@obs-unified/mcp-server", "start"],
+      "args": ["--dir", "/absolute/path/to/obs-unified", "--filter", "@obsunified/mcp-server", "start"],
       "env": {
         "OBS_COLLECTOR_URL": "http://localhost:8790",
         "OBS_INGEST_KEY": "dev"
@@ -121,7 +121,7 @@ For local development from this repo:
 }
 ```
 
-Build the package first with `pnpm --filter @obs-unified/mcp-server build`.
+Build the package first with `pnpm --filter @obsunified/mcp-server build`.
 
 ## Tools
 
