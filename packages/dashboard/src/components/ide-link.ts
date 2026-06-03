@@ -1,10 +1,22 @@
+function getSavedTemplate(): string | null {
+	if (typeof localStorage === "undefined") return null;
+	try {
+		return localStorage.getItem("obs_ide_template");
+	} catch {
+		return null;
+	}
+}
+
 export function buildIdeUrl(codeRef: {
 	relativePath?: string;
 	absolutePath?: string;
 	originalPath?: string;
 	lineNumber?: number;
 }): string {
+	const localTemplate = getSavedTemplate();
+
 	const template =
+		localTemplate ||
 		(typeof import.meta !== "undefined" &&
 			import.meta.env &&
 			import.meta.env.VITE_IDE_URL_TEMPLATE) ||

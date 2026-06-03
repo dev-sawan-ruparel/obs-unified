@@ -41,6 +41,304 @@ export interface EvalCaseResult {
 	createdAt: string;
 }
 
+type JsonRecord = Record<string, JsonValue>;
+
+const isRecord = (value: JsonValue | null | undefined): value is JsonRecord =>
+	!!value && typeof value === "object" && !Array.isArray(value);
+
+const getPath = (
+	value: JsonValue | null | undefined,
+	path: string[],
+): JsonValue | null => {
+	let current: JsonValue | null | undefined = value;
+	for (const key of path) {
+		if (!isRecord(current)) return null;
+		current = current[key];
+	}
+	return current ?? null;
+};
+
+const firstPath = (
+	value: JsonValue | null | undefined,
+	paths: string[][],
+): JsonValue | null => {
+	for (const path of paths) {
+		const found = getPath(value, path);
+		if (found !== null && found !== undefined) return found;
+	}
+	return null;
+};
+
+const arrayCount = (
+	value: JsonValue | null | undefined,
+	paths: string[][],
+): number | null => {
+	const found = firstPath(value, paths);
+	return Array.isArray(found) ? found.length : null;
+};
+
+const numberAt = (
+	value: JsonValue | null | undefined,
+	paths: string[][],
+): number | null => {
+	const found = firstPath(value, paths);
+	return typeof found === "number" && Number.isFinite(found) ? found : null;
+};
+
+const textAt = (
+	value: JsonValue | null | undefined,
+	paths: string[][],
+): string | null => {
+	const found = firstPath(value, paths);
+	return typeof found === "string" && found.trim() ? found : null;
+};
+
+const sourceHref = (evalCase: EvalCase): string => {
+	switch (evalCase.sourceEntityType) {
+		case "agent_run":
+			return `#/agent-runs/${encodeURIComponent(evalCase.sourceEntityId)}`;
+		case "action":
+			return `#/actions/${encodeURIComponent(evalCase.sourceEntityId)}`;
+		case "tool_call":
+			return `#/tools/${encodeURIComponent(evalCase.sourceEntityId)}`;
+		case "trace":
+			return `#/traces?trace=${encodeURIComponent(evalCase.sourceEntityId)}`;
+		case "ai_call":
+			return evalCase.sourceTraceId
+				? `#/traces?trace=${encodeURIComponent(evalCase.sourceTraceId)}`
+				: "#/ai";
+		default:
+			return "#/evaluations";
+	}
+};
+
+const formatCount = (value: number | null): string =>
+	value === null ? "n/a" : String(value);
+
+const formatMoney = (value: number | null): string =>
+	value === null ? "n/a" : `$${value.toFixed(value >= 1 ? 2 : 4)}`;
+
+function ProductionEvalComparison({
+	evalCase,
+	result,
+}: {
+	evalCase: EvalCase;
+	result: EvalCaseResult | null;
+}) {
+	const productionSteps =
+		arrayCount(evalCase.referencePayload, [
+			["steps"],
+			["actions"],
+			["tree", "steps"],
+			["agentRun", "steps"],
+		]) ?? numberAt(evalCase.metadata, [["stepCount"], ["steps"]]);
+	const productionTools =
+		arrayCount(evalCase.referencePayload, [
+			["tools"],
+			["toolCalls"],
+			["tree", "tools"],
+			["agentRun", "tools"],
+		]) ?? numberAt(evalCase.metadata, [["toolCount"], ["tools"]]);
+	const productionCost =
+		numberAt(evalCase.referencePayload, [
+			["totalCostUsd"],
+			["costUsd"],
+			["summary", "totalCostUsd"],
+			["agentRun", "totalCostUsd"],
+		]) ?? numberAt(evalCase.metadata, [["totalCostUsd"], ["costUsd"]]);
+
+	const candidateSteps = result
+		? (arrayCount(result.details, [
+				["steps"],
+				["actions"],
+				["candidate", "steps"],
+				["diff", "steps"],
+			]) ??
+			numberAt(result.details, [["stepCount"], ["candidate", "stepCount"]]))
+		: null;
+	const candidateTools = result
+		? (arrayCount(result.details, [
+				["tools"],
+				["toolCalls"],
+				["candidate", "tools"],
+				["diff", "tools"],
+			]) ??
+			numberAt(result.details, [["toolCount"], ["candidate", "toolCount"]]))
+		: null;
+	const candidateCost = result
+		? (numberAt(result.details, [
+				["totalCostUsd"],
+				["costUsd"],
+				["candidate", "totalCostUsd"],
+				["candidate", "costUsd"],
+				["summary", "totalCostUsd"],
+			]) ?? null)
+		: null;
+	const candidateSummary =
+		(result &&
+			(textAt(result.details, [
+				["summary"],
+				["candidate", "summary"],
+				["diff", "summary"],
+			]) ??
+				result.actualOutcome)) ||
+		null;
+
+	const delta = (before: number | null, after: number | null) =>
+		before === null || after === null
+			? "n/a"
+			: after - before >= 0
+				? `+${after - before}`
+				: String(after - before);
+	const costDelta =
+		productionCost === null || candidateCost === null
+			? "n/a"
+			: formatMoney(candidateCost - productionCost);
+
+	const diffRows = [
+		{
+			label: "Steps",
+			before: formatCount(productionSteps),
+			after: formatCount(candidateSteps),
+			delta: delta(productionSteps, candidateSteps),
+		},
+		{
+			label: "Tools",
+			before: formatCount(productionTools),
+			after: formatCount(candidateTools),
+			delta: delta(productionTools, candidateTools),
+		},
+		{
+			label: "Cost",
+			before: formatMoney(productionCost),
+			after: formatMoney(candidateCost),
+			delta: costDelta,
+		},
+		{
+			label: "Eval",
+			before: evalCase.expectedOutcome ? "expected" : "captured",
+			after: result ? (result.passed ? "pass" : "fail") : "n/a",
+			delta:
+				result?.score !== null && result?.score !== undefined
+					? result.score.toFixed(3)
+					: "n/a",
+		},
+	];
+
+	return (
+		<div className="mb-3 grid grid-cols-1 xl:grid-cols-2 gap-3 flex-none">
+			<div className="bg-sys-surface-low border border-sys-outline-soft p-2.5 rounded-sm min-w-0">
+				<div className="flex items-center justify-between gap-2 mb-2">
+					<span className="text-[0.6875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+						Production source
+					</span>
+					<a
+						href={sourceHref(evalCase)}
+						className="text-[0.6875rem] text-sys-primary hover:underline font-semibold"
+					>
+						Open source
+					</a>
+				</div>
+				<div className="grid grid-cols-2 gap-2 text-[0.75rem]">
+					<Metric
+						label="Entity"
+						value={evalCase.sourceEntityType.replace("_", " ")}
+					/>
+					<Metric label="ID" value={evalCase.sourceEntityId} mono />
+					<Metric
+						label="Agent run"
+						value={evalCase.sourceAgentRunId ?? "n/a"}
+						mono
+					/>
+					<Metric label="Trace" value={evalCase.sourceTraceId ?? "n/a"} mono />
+				</div>
+			</div>
+
+			<div className="bg-sys-surface-low border border-sys-outline-soft p-2.5 rounded-sm min-w-0">
+				<div className="flex items-center justify-between gap-2 mb-2">
+					<span className="text-[0.6875rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+						Evaluation candidate
+					</span>
+					{result && (
+						<Tag tone={result.passed ? "primary" : "error"}>
+							{result.passed ? "PASS" : "FAIL"}
+						</Tag>
+					)}
+				</div>
+				<div className="grid grid-cols-2 gap-2 text-[0.75rem]">
+					<Metric label="Run" value={result?.runId ?? "n/a"} mono />
+					<Metric
+						label="Score"
+						value={
+							result?.score === null || result?.score === undefined
+								? "n/a"
+								: result.score.toFixed(3)
+						}
+					/>
+					<Metric
+						label="Outcome"
+						value={candidateSummary ?? "No result selected"}
+					/>
+					<Metric
+						label="Created"
+						value={result ? new Date(result.createdAt).toLocaleString() : "n/a"}
+					/>
+				</div>
+			</div>
+
+			<div className="xl:col-span-2 border border-sys-outline-soft rounded-sm overflow-hidden">
+				<div className="grid grid-cols-[1.1fr_1fr_1fr_0.8fr] bg-sys-surface-low text-[0.625rem] font-bold uppercase tracking-[0.05em] text-sys-on-surface-subtle">
+					<div className="px-2 py-1.5">Signal</div>
+					<div className="px-2 py-1.5">Production</div>
+					<div className="px-2 py-1.5">Eval run</div>
+					<div className="px-2 py-1.5">Diff</div>
+				</div>
+				{diffRows.map((row) => (
+					<div
+						key={row.label}
+						className="grid grid-cols-[1.1fr_1fr_1fr_0.8fr] border-t border-sys-outline-soft text-[0.75rem]"
+					>
+						<div className="px-2 py-1.5 font-semibold">{row.label}</div>
+						<div className="px-2 py-1.5 font-mono text-sys-on-surface-muted truncate">
+							{row.before}
+						</div>
+						<div className="px-2 py-1.5 font-mono text-sys-on-surface-muted truncate">
+							{row.after}
+						</div>
+						<div className="px-2 py-1.5 font-mono text-sys-on-surface truncate">
+							{row.delta}
+						</div>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function Metric({
+	label,
+	value,
+	mono = false,
+}: {
+	label: string;
+	value: string;
+	mono?: boolean;
+}) {
+	return (
+		<div className="min-w-0">
+			<div className="text-[0.625rem] uppercase tracking-[0.05em] text-sys-on-surface-subtle font-bold">
+				{label}
+			</div>
+			<div
+				className={`truncate text-sys-on-surface ${mono ? "font-mono text-[0.6875rem]" : "font-medium"}`}
+				title={value}
+			>
+				{value}
+			</div>
+		</div>
+	);
+}
+
 export function EvaluationsDashboard() {
 	const api = useApi();
 	const [cases, setCases] = useState<EvalCase[]>([]);
@@ -427,6 +725,11 @@ export function EvaluationsDashboard() {
 								<h3 className="text-[0.75rem] font-bold uppercase tracking-[0.08em] text-sys-on-surface-subtle mb-2 flex-none">
 									Comparison: Production vs. Test Run
 								</h3>
+
+								<ProductionEvalComparison
+									evalCase={selectedCase}
+									result={selectedResult}
+								/>
 
 								<div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto min-h-0 min-w-0 pr-1">
 									{/* Production Source context */}

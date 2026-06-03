@@ -24,9 +24,16 @@ flowchart LR
   span --> action["action_id"]
 ```
 
-That means a checkout click can lead to the backend trace, related logs, replay,
-AI calls, agent steps, tool calls, eval cases, and CPU/profile evidence without
-copy-pasting IDs between vendors.
+That means a checkout click, AI cost spike, failed tool call, alert, profile hot
+frame, or missing-instrumentation gap can lead to the backend trace, related
+logs, replay, AI calls, agent steps, tool calls, eval cases, and CPU/profile
+evidence without copy-pasting IDs between vendors.
+
+For agents, the important part is not only that the data is colocated. The
+collector returns machine-readable evidence: entity IDs, routes, confidence,
+sources, citations, and suggested next pivots. An AI debugger can follow the
+same graph the dashboard shows, while still knowing which causal edges were
+explicitly propagated and which were fallback-derived.
 
 ## What you get
 
@@ -35,7 +42,8 @@ copy-pasting IDs between vendors.
 | Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, and Agent Action Graph records |
 | Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, and action graph views |
 | Agent Action Graph | Causal view of agent runs, LLM calls, retrievals, tool calls, guardrails, evals, traces, logs, profiles, and replay evidence |
-| MCP server | Read-only investigation tools for agents: status, traces, logs, service map, users, replays, connected signals, agent runs, actions, and tool calls |
+| Agent-readable evidence | Structured evidence references with entity IDs, routes, confidence, citations, source fields, code references, and suggested pivots |
+| MCP server | Read-only investigation tools for agents: status, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
 | SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust |
 | Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |
 
@@ -56,7 +64,31 @@ see all on [obsunified.com](https://obsunified.com)</sub>
 | **AI cost and LLM observability** | Model, provider, tokens, latency, cost, error category, prompt/output payloads, and trace context stay queryable together. |
 | **Agent Action Graph** | Agent work is represented as a causal graph, not loose LLM spans. You can see what the agent did, what each step caused, and which evidence supports the result. |
 | **Profiles and resources** | CPU/profile evidence and resource context can join the same incident path instead of living in a separate profiling tool. |
+| **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, confidence, and next pivots. |
 | **MCP investigation server** | Agents can inspect the graph with read-only tools, without receiving write-only ingest credentials. |
+
+## How agents debug with obs-unified
+
+obs-unified is designed for the loop a coding agent needs when it is asked to
+debug production behavior:
+
+1. Start from a symptom: alert, analysis, trace, log, user session, AI cost
+   spike, tool failure, profile hot frame, or resource metric.
+2. Read structured evidence references instead of scraping prose. Evidence
+   includes the entity kind, ID, route, source, confidence, citations, and
+   suggested pivots.
+3. Traverse Connected Rail from the anchor to neighboring signals: spans, logs,
+   usage events, replay sessions, AI calls, profiles, actions, tool calls, evals,
+   and agent runs.
+4. Check trust indicators. Explicit action IDs are high confidence;
+   fallback-derived action IDs are useful but visibly marked so the agent does
+   not invent causality.
+5. Move from root cause to fix context: code references, side-effect
+   before/after evidence, production-to-eval cases, and side-by-side agent step
+   comparisons.
+
+This is why the dashboard and MCP server share the same investigation surface.
+Humans get visual pivots; agents get stable IDs and structured responses.
 
 ## Agent Action Graph
 
@@ -67,19 +99,32 @@ profiles, and eval cases are linked through `root_action_id`, `action_id`, and
 `caused_by_action_id`.
 
 Use it to answer which user action or background job started a run, which model
-step chose a side-effecting tool, whether the write was approved, and whether a
-production failure should become an eval case.
+step chose a side-effecting tool, whether the write was approved, what changed
+before and after a mutation, whether an eval failed, and whether a production
+failure should become an eval case.
 
 The graph is also agent-readable. The `@obs-unified/mcp-server` package is the
 obs-unified investigation MCP server: it exposes read-only tools for status,
 recent traces, trace detail, service maps, logs, AI sessions, users, replays,
-connected signals, agent runs, actions, and tool calls. Coding agents can
+profiles, evals, connected signals, agent runs, actions, and tool calls. Coding agents can
 traverse the same evidence a human sees in the dashboard without receiving
 ingest credentials.
+
+Typical agent-debugging paths:
+
+- **AI cost spike:** cost aggregate -> expensive session or AI call -> trace/span
+  -> action -> agent run -> tool/eval context -> prompt/model/version evidence.
+- **User-facing failure:** user -> latest session -> replay/usage event -> trace
+  -> logs -> causing action or side-effecting tool.
+- **Slow request:** service operation or trace -> hot span -> profile or
+  instrumentation-gap evidence -> code reference.
+- **Unsafe autonomous write:** autonomous review aggregate -> action/tool call
+  -> before/after mutation evidence -> eval case or version comparison.
 
 Start here:
 
 - [Product overview](docs/agent-action-graph.md)
+- [EvidenceReference contract](docs/spec/evidence-reference.md)
 - [MCP terminology](docs/mcp.md)
 - [Investigation MCP server package](packages/mcp-server/README.md)
 - [Action ID wire spec](docs/spec/action-id.md)

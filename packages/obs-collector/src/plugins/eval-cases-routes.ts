@@ -1,4 +1,9 @@
-import type { EvidenceReference, JsonValue } from "@obs-unified/types";
+import type {
+	EvidenceReference,
+	EvidenceReferenceContract as EvidenceReferenceContractType,
+	JsonValue,
+} from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import {
 	type EvalCase,
@@ -47,6 +52,7 @@ interface EvalCaseResultResponse {
 	details: unknown;
 	createdAt: string;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContractType;
 }
 
 interface EvalRunRequestBody {
@@ -452,6 +458,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				details: body.details ?? null,
 				createdAt: now,
 				evidenceReferences: evalCaseResultEvidenceReferences(evalCase, id),
+				evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 			};
 
 			return c.json(
@@ -512,6 +519,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 						evalCase,
 						row.id,
 					),
+					evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 				}),
 			);
 

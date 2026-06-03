@@ -1,3 +1,4 @@
+import type { InstrumentationGapThresholds } from "../constants";
 import type { JsonValue } from "./primitives";
 
 // ── Stored Span ──
@@ -216,7 +217,9 @@ export interface TelemetryInstrumentationGap {
 	durationMs: number;
 	ratioOfParent: number;
 	childSpanCount: number;
+	parentSpanKind?: number;
 	asyncParent: boolean;
+	thresholdVersion?: string;
 	recommendation: string;
 }
 
@@ -226,6 +229,7 @@ export interface TelemetryInstrumentationGapsResponse {
 	uninstrumentedTimeMs: number;
 	ratio: number;
 	blindspots: TelemetryInstrumentationGap[];
+	thresholds: InstrumentationGapThresholds;
 	timestamp: string;
 }
 

@@ -209,6 +209,9 @@ const instrumentationGapEvidenceReferences = (
 					? gap.ratioOfParent
 					: null;
 			const recommendation = asString(gap.recommendation);
+			const thresholdVersion =
+				asString(gap.thresholdVersion) ??
+				(isRecord(gaps.thresholds) ? asString(gaps.thresholds.version) : null);
 			const entityId = `${traceId}:${spanId}`;
 			const route = spanRoute(traceId, spanId);
 			const label = spanName ? `${spanName} (${spanId})` : `span ${spanId}`;
@@ -216,6 +219,9 @@ const instrumentationGapEvidenceReferences = (
 				durationMs === null ? "unknown duration" : `${durationMs}ms`;
 			const ratioText =
 				ratio === null ? "" : `, ${(ratio * 100).toFixed(1)}% of parent`;
+			const thresholdText = thresholdVersion
+				? ` Thresholds: ${thresholdVersion}.`
+				: "";
 			const docsRoute = "#/docs/howto/ebpf";
 			return {
 				evidenceId: `analysis:${result.analysisId}:instrumentation-gap:${index}:span:${entityId}`,
@@ -224,7 +230,7 @@ const instrumentationGapEvidenceReferences = (
 				route,
 				source: "analysis.payload.instrumentationGaps",
 				confidence: 0.9,
-				reason: `Analysis "${result.analysisId}" found uninstrumented self-time on ${label}: ${durationText}${ratioText}.${recommendation ? ` ${recommendation}` : ""}`,
+				reason: `Analysis "${result.analysisId}" found uninstrumented self-time on ${label}: ${durationText}${ratioText}.${thresholdText}${recommendation ? ` ${recommendation}` : ""}`,
 				citations: [
 					{
 						label: `trace ${traceId}`,

@@ -24,8 +24,10 @@ import {
 	type ServiceOperationsOptions,
 } from "./store/service-map";
 import {
+	calibrateTelemetryInstrumentationGaps,
 	getTelemetryTraceDetail,
 	getTelemetryTraceGaps,
+	type TelemetryInstrumentationGapCalibrationOptions,
 } from "./store/trace-detail";
 
 export class TelemetryStore {
@@ -55,6 +57,12 @@ export class TelemetryStore {
 		projectId: string,
 	): Promise<TelemetryInstrumentationGapsResponse | null> {
 		return getTelemetryTraceGaps(this.db, traceId, projectId);
+	}
+
+	async calibrateTraceGaps(
+		options: TelemetryInstrumentationGapCalibrationOptions,
+	) {
+		return calibrateTelemetryInstrumentationGaps(this.db, options);
 	}
 
 	async getIssueOverview(

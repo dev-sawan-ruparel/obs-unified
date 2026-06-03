@@ -4,6 +4,7 @@ import type {
 	AIEvaluationsListOptions,
 	AIEvaluationsListResponse,
 } from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import { aiEvaluationEvidenceReferences } from "../evidence-references";
 import { parseJsonRecord } from "../json";
 import type { SqlDb } from "../sql-db";
@@ -80,6 +81,25 @@ export async function listAIEvaluations(
 	};
 }
 
+export async function getAIEvaluation(
+	db: SqlDb,
+	projectId: string,
+	evaluationId: string,
+): Promise<AIEvaluationRecord | null> {
+	if (!projectId)
+		throw new Error("AIStore.getEvaluation: projectId is required");
+	const row = await db
+		.prepare(
+			`SELECT * FROM ai_span_evaluations
+			 WHERE project_id = ? AND evaluation_id = ?
+			 LIMIT 1`,
+		)
+		.bind(projectId, evaluationId)
+		.first<AIEvaluationRow>();
+
+	return row ? mapEvaluationRows([row])[0] : null;
+}
+
 export function mapEvaluationRows(
 	rows: AIEvaluationRow[],
 ): AIEvaluationRecord[] {
@@ -99,6 +119,7 @@ export function mapEvaluationRows(
 			expiresAt: row.expires_at,
 		};
 		evaluation.evidenceReferences = aiEvaluationEvidenceReferences(evaluation);
+		evaluation.evidenceContract = EVIDENCE_REFERENCE_CONTRACT;
 		return evaluation;
 	});
 }

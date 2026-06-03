@@ -7,9 +7,19 @@ import type {
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
 } from "@obs-unified/types";
+import {
+	DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS,
+	isInstrumentationGapCandidate,
+} from "@obs-unified/types";
 import { parseJsonArray, parseJsonRecord } from "../json";
 import type { SqlDb } from "../sql-db";
 import { normalizeService } from "./helpers";
+
+export interface TelemetryInstrumentationGapCalibrationOptions {
+	projectId: string;
+	hours: number;
+	limit?: number;
+}
 
 export async function getTelemetryTraceDetail(
 	db: SqlDb,
@@ -181,10 +191,13 @@ export function buildTraceInstrumentationGaps(
 		const ratioOfParent =
 			span.durationMs > 0 ? Math.min(1, selfMs / span.durationMs) : 0;
 		if (
-			asyncParent ||
-			span.durationMs <= 100 ||
-			ratioOfParent <= 0.7 ||
-			childSpans.length >= 2
+			!isInstrumentationGapCandidate({
+				durationMs: span.durationMs,
+				selfRatio: ratioOfParent,
+				childSpanCount: childSpans.length,
+				asyncParent,
+				spanKind: span.spanKind,
+			})
 		) {
 			continue;
 		}
@@ -197,7 +210,9 @@ export function buildTraceInstrumentationGaps(
 			durationMs: Math.round(selfMs),
 			ratioOfParent,
 			childSpanCount: childSpans.length,
+			parentSpanKind: span.spanKind,
 			asyncParent,
+			thresholdVersion: DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS.version,
 			recommendation: `Add tracing inside ${span.spanName} or attach a profile for ${span.serviceName}.`,
 		});
 	}
@@ -212,7 +227,121 @@ export function buildTraceInstrumentationGaps(
 		uninstrumentedTimeMs,
 		ratio: totalDurationMs > 0 ? uninstrumentedTimeMs / totalDurationMs : 0,
 		blindspots,
+		thresholds: DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS,
 		timestamp,
+	};
+}
+
+export async function calibrateTelemetryInstrumentationGaps(
+	db: SqlDb,
+	options: TelemetryInstrumentationGapCalibrationOptions,
+) {
+	if (!options.projectId)
+		throw new Error("TelemetryStore.calibrateTraceGaps: projectId is required");
+	const hours = Math.max(1, Math.min(options.hours, 24 * 30));
+	const limit = Math.max(1, Math.min(options.limit ?? 5000, 20_000));
+	const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+	const result = await db
+		.prepare(`
+			SELECT project_id, trace_id, span_id, parent_span_id, service_name, scope_name,
+			       scope_version, span_name, span_kind, status_code, status_message,
+			       start_time, end_time, duration_ms, attributes_json,
+			       resource_attributes_json, events_json, links_json,
+			       received_at, expires_at
+			FROM telemetry_spans
+			WHERE project_id = ? AND received_at >= ?
+			ORDER BY received_at DESC, trace_id ASC, start_time ASC, span_id ASC
+			LIMIT ?
+		`)
+		.bind(options.projectId, since, limit)
+		.all<SpanDetailRow>();
+
+	const rows = result.results ?? [];
+	const byTrace = new Map<string, TelemetrySpanDetail[]>();
+	for (const row of rows) {
+		const bucket = byTrace.get(row.trace_id) ?? [];
+		bucket.push({
+			traceId: row.trace_id,
+			spanId: row.span_id,
+			parentSpanId: row.parent_span_id,
+			serviceName: normalizeService(row.service_name),
+			scopeName: row.scope_name,
+			scopeVersion: row.scope_version,
+			spanName: row.span_name,
+			spanKind: row.span_kind,
+			statusCode: row.status_code,
+			statusMessage: row.status_message,
+			startTime: row.start_time,
+			endTime: row.end_time,
+			durationMs: row.duration_ms,
+			attributes: parseJsonRecord(row.attributes_json),
+			resourceAttributes: parseJsonRecord(row.resource_attributes_json),
+			events: parseJsonArray(row.events_json),
+			links: parseJsonArray(row.links_json),
+		});
+		byTrace.set(row.trace_id, bucket);
+	}
+
+	const traceSummaries: Array<{
+		traceId: string;
+		rootSpanName: string;
+		serviceName: string;
+		totalDurationMs: number;
+		blindspotCount: number;
+		uninstrumentedTimeMs: number;
+		ratio: number;
+		topBlindspot: TelemetryInstrumentationGap | null;
+	}> = [];
+	let flaggedTraceCount = 0;
+	let blindspotCount = 0;
+	let uninstrumentedTimeMs = 0;
+
+	for (const [traceId, spans] of byTrace) {
+		spans.sort((a, b) => a.startTime.localeCompare(b.startTime));
+		const root = spans.find((span) => !span.parentSpanId) ?? spans[0];
+		if (!root) continue;
+		const gaps = buildTraceInstrumentationGaps(traceId, spans, root.durationMs);
+		if (gaps.blindspots.length === 0) continue;
+		flaggedTraceCount++;
+		blindspotCount += gaps.blindspots.length;
+		uninstrumentedTimeMs += gaps.uninstrumentedTimeMs;
+		traceSummaries.push({
+			traceId,
+			rootSpanName: root.spanName,
+			serviceName: root.serviceName,
+			totalDurationMs: root.durationMs,
+			blindspotCount: gaps.blindspots.length,
+			uninstrumentedTimeMs: gaps.uninstrumentedTimeMs,
+			ratio: gaps.ratio,
+			topBlindspot: [...gaps.blindspots].sort(
+				(a, b) => b.durationMs - a.durationMs,
+			)[0],
+		});
+	}
+
+	traceSummaries.sort(
+		(a, b) => b.uninstrumentedTimeMs - a.uninstrumentedTimeMs,
+	);
+	const traceCount = byTrace.size;
+	return {
+		thresholds: DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS,
+		windowHours: hours,
+		sampledSpanCount: rows.length,
+		traceCount,
+		flaggedTraceCount,
+		blindspotCount,
+		uninstrumentedTimeMs,
+		flaggedTraceRate: traceCount > 0 ? flaggedTraceCount / traceCount : 0,
+		status:
+			traceCount === 0
+				? "no_traces"
+				: flaggedTraceCount === 0
+					? "quiet"
+					: flaggedTraceCount / traceCount > 0.25
+						? "noisy"
+						: "calibrated",
+		topTraces: traceSummaries.slice(0, 20),
+		timestamp: new Date().toISOString(),
 	};
 }
 

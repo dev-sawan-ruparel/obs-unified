@@ -1,4 +1,5 @@
 import type { AlertRuleInput, AlertTestResponse } from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import { alertEvidenceReferences } from "../lib/evidence-references";
@@ -92,6 +93,7 @@ export const alertsRoutesPlugin: CollectorPlugin = {
 				comparison: rule.comparison,
 				threshold: rule.threshold,
 				evidenceReferences: alertEvidenceReferences(rule),
+				evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 			};
 			return c.json(response);
 		});

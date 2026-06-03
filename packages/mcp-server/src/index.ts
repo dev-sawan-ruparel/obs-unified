@@ -1,5 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+	EVIDENCE_REFERENCE_SCHEMA_VERSION,
+	EvidenceReferenceJsonSchema,
+	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
+	type ToolResponseContract,
+} from "@obs-unified/types";
 import { z } from "zod";
 
 type JsonValue =
@@ -133,15 +139,38 @@ class CollectorClient {
 	}
 }
 
-function jsonToolResult(data: unknown) {
+function jsonToolResult(data: unknown, contract?: ToolResponseContract) {
+	const payload =
+		contract && data && typeof data === "object" && !Array.isArray(data)
+			? { ...(data as Record<string, unknown>), contract }
+			: contract
+				? { result: data, contract }
+				: data;
 	return {
 		content: [
 			{
 				type: "text" as const,
-				text: JSON.stringify(data, null, 2),
+				text: JSON.stringify(payload, null, 2),
 			},
 		],
 	};
+}
+
+function toolResult(
+	tool: string,
+	params: Record<string, unknown>,
+	returns: string,
+	data: unknown,
+) {
+	return jsonToolResult(data, {
+		schemaVersion: TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
+		transport: "mcp",
+		tool,
+		params,
+		returns,
+		evidenceReferenceSchemaVersion: EVIDENCE_REFERENCE_SCHEMA_VERSION,
+		evidenceReferenceJsonSchema: EvidenceReferenceJsonSchema,
+	});
 }
 
 function errorToolResult(error: unknown) {
@@ -173,7 +202,12 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					hours,
 					limit: 1,
 				});
-				return jsonToolResult({ ok: true, overview });
+				return toolResult(
+					"obs_status",
+					{ hours },
+					"{ ok: true, overview: TelemetryOverviewResponse }",
+					{ ok: true, overview },
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -202,10 +236,15 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					status,
 					q: query,
 				});
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink("traces"),
-				});
+				return toolResult(
+					"recent_traces",
+					{ hours, limit, service, status, query },
+					"{ data: TelemetryOverviewResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink("traces"),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -225,12 +264,17 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/telemetry/traces/${encodeURIComponent(traceId)}`,
 				);
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink(
-						`traces?trace=${encodeURIComponent(traceId)}`,
-					),
-				});
+				return toolResult(
+					"get_trace",
+					{ traceId },
+					"{ data: TelemetryTraceDetailResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`traces?trace=${encodeURIComponent(traceId)}`,
+						),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -253,12 +297,17 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					`/internal/telemetry/services/${encodeURIComponent(service)}/operations`,
 					{ hours },
 				);
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink(
-						`services?service=${encodeURIComponent(service)}`,
-					),
-				});
+				return toolResult(
+					"service_operations",
+					{ service, hours },
+					"{ data: ServiceOperationsResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`services?service=${encodeURIComponent(service)}`,
+						),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -280,10 +329,15 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					hours,
 					source,
 				});
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink("service-map"),
-				});
+				return toolResult(
+					"service_map",
+					{ hours, source },
+					"{ data: ServiceMapResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink("service-map"),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -314,10 +368,15 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					traceId,
 					search,
 				});
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink("logs"),
-				});
+				return toolResult(
+					"search_logs",
+					{ hours, limit, service, severity, traceId, search },
+					"{ data: LogsOverviewResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink("logs"),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -343,10 +402,15 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					provider,
 					model,
 				});
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink("ai"),
-				});
+				return toolResult(
+					"ai_overview",
+					{ hours, limit, provider, model },
+					"{ data: AICallsOverviewResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink("ai"),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -366,12 +430,17 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/ai/sessions/${encodeURIComponent(sessionId)}`,
 				);
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink(
-						`ai?session=${encodeURIComponent(sessionId)}`,
-					),
-				});
+				return toolResult(
+					"get_ai_session",
+					{ sessionId },
+					"{ data: AISessionDetailResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`ai?session=${encodeURIComponent(sessionId)}`,
+						),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -391,12 +460,17 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/users/${encodeURIComponent(userId)}`,
 				);
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink(
-						`users/${encodeURIComponent(userId)}`,
-					),
-				});
+				return toolResult(
+					"get_user",
+					{ userId },
+					"{ data: UserProfileDetail, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`users/${encodeURIComponent(userId)}`,
+						),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -416,12 +490,86 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/replays/${encodeURIComponent(sessionId)}`,
 				);
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink(
-						`replay?session=${encodeURIComponent(sessionId)}`,
-					),
-				});
+				return toolResult(
+					"get_replay",
+					{ sessionId },
+					"{ data: ReplayResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`replay?session=${encodeURIComponent(sessionId)}`,
+						),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"get_profile",
+		{
+			description:
+				"Fetch pprof profile metadata, indexed trace ids, and frame summary for a profile id.",
+			inputSchema: {
+				profileId: z.string().min(1),
+				traceId: z
+					.string()
+					.optional()
+					.describe("Optionally scope frame summaries to one trace id."),
+			},
+		},
+		async ({ profileId, traceId }) => {
+			try {
+				const data = await client.get(
+					`/internal/profiles/${encodeURIComponent(profileId)}`,
+					{ trace_id: traceId },
+				);
+				return toolResult(
+					"get_profile",
+					{ profileId, traceId },
+					"{ data: ProfileDetailResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`profiles/${encodeURIComponent(profileId)}${
+								traceId ? `?trace_id=${encodeURIComponent(traceId)}` : ""
+							}`,
+						),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"get_eval",
+		{
+			description:
+				"Fetch one AI evaluation by id, including evidence references back to its trace/span.",
+			inputSchema: {
+				evaluationId: z.string().min(1),
+			},
+		},
+		async ({ evaluationId }) => {
+			try {
+				const data = await client.get(
+					`/internal/ai/evaluations/${encodeURIComponent(evaluationId)}`,
+				);
+				return toolResult(
+					"get_eval",
+					{ evaluationId },
+					"{ data: { evaluation: AIEvaluationRecord, timestamp: string }, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`evals/${encodeURIComponent(evaluationId)}`,
+						),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -432,10 +580,11 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 		"connected_signals",
 		{
 			description:
-				"Pivot from one entity to related traces, logs, AI calls, users, replays, actions, agent runs, and tool calls.",
+				"Pivot from one entity to related traces, logs, AI calls, users, replays, profiles, actions, agent runs, and tool calls.",
 			inputSchema: {
 				kind: z.enum([
 					"span",
+					"profile",
 					"log",
 					"usage",
 					"ai_call",
@@ -460,7 +609,12 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/connected/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
 				);
-				return jsonToolResult({ data });
+				return toolResult(
+					"connected_signals",
+					{ kind, id },
+					"{ data: ConnectedSignalManifest }",
+					{ data },
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -481,12 +635,17 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/agent-runs/${encodeURIComponent(agentRunId)}`,
 				);
-				return jsonToolResult({
-					data,
-					dashboardUrl: client.dashboardLink(
-						`agent-runs/${encodeURIComponent(agentRunId)}`,
-					),
-				});
+				return toolResult(
+					"get_agent_run",
+					{ agentRunId },
+					"{ data: AgentRunDetail, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`agent-runs/${encodeURIComponent(agentRunId)}`,
+						),
+					},
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -506,7 +665,12 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/actions/${encodeURIComponent(actionId)}`,
 				);
-				return jsonToolResult({ data });
+				return toolResult(
+					"get_action",
+					{ actionId },
+					"{ data: ActionDetail }",
+					{ data },
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}
@@ -526,7 +690,12 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				const data = await client.get(
 					`/internal/tool-calls/${encodeURIComponent(toolCallId)}`,
 				);
-				return jsonToolResult({ data });
+				return toolResult(
+					"get_tool_call",
+					{ toolCallId },
+					"{ data: ToolCallDetail }",
+					{ data },
+				);
 			} catch (err) {
 				return errorToolResult(err);
 			}

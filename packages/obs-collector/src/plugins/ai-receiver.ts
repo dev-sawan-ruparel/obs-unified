@@ -2,6 +2,13 @@ import type {
 	AICallPayload,
 	AICallRecord,
 	AIEvaluationPayload,
+	ToolResponseContract,
+} from "@obs-unified/types";
+import {
+	EVIDENCE_REFERENCE_CONTRACT,
+	EVIDENCE_REFERENCE_SCHEMA_VERSION,
+	EvidenceReferenceJsonSchema,
+	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
 } from "@obs-unified/types";
 import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
@@ -213,6 +220,35 @@ export const aiReceiverPlugin: CollectorPlugin = {
 			});
 
 			return c.json(response);
+		});
+
+		app.get("/internal/ai/evaluations/:evaluationId", async (c) => {
+			const projectId = getProjectId(c);
+			const evaluationId = c.req.param("evaluationId");
+			const store = new AIStore(sqlDbFor(c.env));
+			const evaluation = await store.getEvaluation(projectId, evaluationId);
+			if (!evaluation) {
+				return c.json(
+					{ error: "Not Found", message: "Evaluation not found" },
+					404,
+				);
+			}
+			const contract: ToolResponseContract = {
+				schemaVersion: TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
+				transport: "http",
+				tool: "GET /internal/ai/evaluations/:evaluationId",
+				params: { projectId, evaluationId },
+				returns:
+					"{ evaluation: AIEvaluationRecord, evidenceContract: EVIDENCE_REFERENCE_CONTRACT, timestamp: string }",
+				evidenceReferenceSchemaVersion: EVIDENCE_REFERENCE_SCHEMA_VERSION,
+				evidenceReferenceJsonSchema: EvidenceReferenceJsonSchema,
+			};
+			return c.json({
+				evaluation,
+				evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
+				contract,
+				timestamp: new Date().toISOString(),
+			});
 		});
 	},
 };

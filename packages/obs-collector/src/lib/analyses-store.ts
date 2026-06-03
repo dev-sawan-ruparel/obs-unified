@@ -19,6 +19,7 @@ import type {
 	AnalysisStatus,
 	AnalysisView,
 } from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import { analysisResultEvidenceReferences } from "./evidence-references";
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";
@@ -93,6 +94,7 @@ const rowToResult = (row: ResultRow): AnalysisResult => {
 	const evidenceReferences = analysisResultEvidenceReferences(result);
 	if (evidenceReferences.length > 0) {
 		result.evidenceReferences = evidenceReferences;
+		result.evidenceContract = EVIDENCE_REFERENCE_CONTRACT;
 	}
 	return result;
 };

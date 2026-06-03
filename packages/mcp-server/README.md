@@ -5,7 +5,18 @@ obs-unified collector.
 
 It exposes collector investigation endpoints as Model Context Protocol tools:
 recent traces, trace detail, service operations, service map, logs, AI sessions,
-users, replays, connected signals, agent runs, actions, and tool calls.
+users, replays, profiles, evaluations, connected signals, agent runs, actions,
+and tool calls.
+
+The goal is agentic debugging, not raw telemetry dumping. Tools return stable
+IDs and dashboard links so an agent can move from symptom to evidence to root
+cause while keeping read access separate from write-only ingest credentials.
+When collector responses include structured evidence references, agents should
+prefer those references over parsing narrative text: use the entity kind, entity
+ID, route, confidence, source, citations, and suggested pivots to decide the
+next query. MCP tool responses include a `contract` block with the tool name,
+params, return shape, and the published `EvidenceReference` JSON Schema version.
+See [`docs/spec/evidence-reference.md`](../../docs/spec/evidence-reference.md).
 
 This package is distinct from:
 
@@ -14,6 +25,36 @@ This package is distinct from:
   `mcp.method.name`.
 
 See [MCP in obs-unified](../../docs/mcp.md) for the terminology split.
+
+## Investigation model
+
+obs-unified exposes a connected telemetry graph. The MCP server lets an agent
+walk that graph through read-only tools:
+
+```mermaid
+flowchart LR
+  symptom["symptom or aggregate"] --> evidence["EvidenceReference"]
+  evidence --> rail["connected_signals"]
+  rail --> trace["trace/span/log/profile"]
+  rail --> action["action/run/tool/eval"]
+  action --> fix["code refs/eval case/step comparison"]
+```
+
+Use `connected_signals` whenever one entity should lead to its neighbors. For
+example:
+
+- AI cost spike -> `ai_overview` -> expensive AI call/session ->
+  `connected_signals` -> action/run/tool/eval context.
+- User report -> `get_user` -> session/replay/usage anchor ->
+  `connected_signals` -> traces, logs, AI calls, and actions.
+- Slow trace -> `get_trace` -> hot span -> `connected_signals` -> profile,
+  `get_profile`, instrumentation-gap evidence, logs, and action context.
+- Tool incident -> `get_tool_call` or `get_action` -> side-effect evidence,
+  `get_eval`, traces, and related agent run.
+
+Treat confidence as part of the result. Explicit action IDs are stronger
+evidence. Fallback-derived IDs are still useful for navigation, but they should
+be reported as inferred rather than definitive.
 
 ## Install
 
@@ -94,10 +135,22 @@ Build the package first with `pnpm --filter @obs-unified/mcp-server build`.
 - `get_ai_session`
 - `get_user`
 - `get_replay`
+- `get_profile`
+- `get_eval`
 - `connected_signals`
 - `get_agent_run`
 - `get_action`
 - `get_tool_call`
+
+## Reporting guidance for agents
+
+When returning an investigation to a user, summarize:
+
+1. The starting symptom and time window.
+2. The evidence path followed, including stable entity IDs.
+3. Which links were explicit versus fallback-derived.
+4. The likely root cause and the next concrete pivot or fix surface.
+5. Dashboard deep links so a human can inspect the same graph.
 
 This is a stdio MCP server. It writes operational errors to stderr only, because
 stdout is reserved for JSON-RPC messages.

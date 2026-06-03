@@ -69,3 +69,20 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Make GHCR package public
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          owner_type="$(gh api "/users/${OWNER}" --jq .type)"
+          if [ "$owner_type" = "Organization" ]; then
+            endpoint="/orgs/${OWNER}/packages/container/local/visibility"
+          else
+            endpoint="/user/packages/container/local/visibility"
+          fi
+          gh api --method PATCH "$endpoint" -f visibility=public || {
+            echo "::warning::Could not set GHCR package visibility automatically. Set ghcr.io/${OWNER}/local to Public from GitHub Packages settings."
+          }

@@ -1,4 +1,9 @@
-import type { EvidenceReference, JsonValue } from "@obs-unified/types";
+import type {
+	EvidenceReference,
+	EvidenceReferenceContract as EvidenceReferenceContractType,
+	JsonValue,
+} from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import { sourceLinkEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonValue } from "./json";
@@ -46,6 +51,7 @@ export interface EvalCase extends Required<EvalCaseSourceLinks> {
 	createdAt: string;
 	updatedAt: string;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContractType;
 }
 
 export interface EvalCaseListOptions {
@@ -84,6 +90,7 @@ export interface EvalRunSourceCase {
 	sourceTraceId: string | null;
 	sourceSpanId: string | null;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContractType;
 }
 
 export interface EvalRun {
@@ -102,6 +109,7 @@ export interface EvalRun {
 	createdAt: string;
 	sourceEvalCase?: EvalRunSourceCase | null;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContractType;
 }
 
 export interface EvalRunInput {
@@ -343,6 +351,7 @@ export const rowToEvalCase = (row: EvalCaseRow): EvalCase => {
 		updatedAt: row.updated_at,
 	};
 	evalCase.evidenceReferences = evalCaseEvidenceReferences(evalCase);
+	evalCase.evidenceContract = EVIDENCE_REFERENCE_CONTRACT;
 	return evalCase;
 };
 
@@ -387,6 +396,7 @@ const rowToEvalRun = (row: EvalRunRow): EvalRun => {
 			},
 			sourceEvalCase,
 		);
+		sourceEvalCase.evidenceContract = EVIDENCE_REFERENCE_CONTRACT;
 	}
 
 	const run: EvalRun = {
@@ -414,6 +424,7 @@ const rowToEvalRun = (row: EvalRunRow): EvalRun => {
 		sourceEvalCase,
 	};
 	run.evidenceReferences = evalRunEvidenceReferences(run);
+	run.evidenceContract = EVIDENCE_REFERENCE_CONTRACT;
 	return run;
 };
 

@@ -69,6 +69,19 @@ export type {
 	EvidenceEntityKind,
 	EvidenceNextPivot,
 	EvidenceReference,
+	EvidenceReferenceContract,
+	JsonSchema,
+	ToolResponseContract,
+} from "./types/evidence";
+export {
+	EVIDENCE_REFERENCE_CONTRACT,
+	EVIDENCE_REFERENCE_SCHEMA_VERSION,
+	EvidenceCitationSchema,
+	EvidenceEntityKindSchema,
+	EvidenceNextPivotSchema,
+	EvidenceReferenceJsonSchema,
+	EvidenceReferenceSchema,
+	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
 } from "./types/evidence";
 export type {
 	IdentifyInput,

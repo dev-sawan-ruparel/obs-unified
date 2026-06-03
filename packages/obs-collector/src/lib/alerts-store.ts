@@ -17,6 +17,7 @@ import type {
 	AlertStateRow,
 	LogSeverity,
 } from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import { alertEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import type { SqlDb } from "./sql-db";
@@ -314,6 +315,7 @@ export class AlertsStore {
 		};
 		if (rule) {
 			response.evidenceReferences = alertEvidenceReferences(rule);
+			response.evidenceContract = EVIDENCE_REFERENCE_CONTRACT;
 		}
 		return response;
 	}

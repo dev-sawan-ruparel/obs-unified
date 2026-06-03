@@ -1,0 +1,53 @@
+name: Publish MCP package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "mcp-server-v*"
+      - "v*"
+
+concurrency:
+  group: publish-mcp-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-mcp:
+    name: Build & publish @obs-unified/mcp-server
+    runs-on: [self-hosted, obs-unified]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: "@obs-unified"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @obs-unified/mcp-server run type-check
+
+      - run: pnpm --filter @obs-unified/mcp-server run build
+
+      - name: Publish if version is new
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_REGISTRY: https://npm.pkg.github.com
+        run: |
+          set -euo pipefail
+          echo "@obs-unified:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          version="$(node -p "require('./packages/mcp-server/package.json').version")"
+          if npm view "@obs-unified/mcp-server@${version}" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "@obs-unified/mcp-server@${version} is already published; skipping."
+            exit 0
+          fi
+          pnpm --filter @obs-unified/mcp-server publish --no-git-checks

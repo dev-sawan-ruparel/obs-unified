@@ -4,6 +4,7 @@ import { AskBox } from "../../../packages/dashboard/src/components/AskBox";
 import { ProjectSwitcher } from "../../../packages/dashboard/src/components/ProjectSwitcher";
 import {
 	GlobalSearch,
+	IdeSelector,
 	TimeRangePicker,
 } from "../../../packages/dashboard/src/components/TopBar";
 import {
@@ -217,6 +218,7 @@ export function App() {
 				<header className="flex h-12 flex-none items-center gap-3 border-b border-sys-outline-soft bg-sys-surface px-3">
 					<GlobalSearch />
 					<TimeRangePicker />
+					<IdeSelector />
 					<ProjectSwitcher />
 					<div className="ml-auto">
 						<AskBox />

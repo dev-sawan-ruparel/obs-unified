@@ -21,6 +21,7 @@
  */
 
 import process from "node:process";
+import { gzipSync } from "node:zlib";
 
 const noopSpan = {
 	end() {},
@@ -326,16 +327,16 @@ const seedAlerts = async (cookie) => {
 			enabled: true,
 		},
 		{
-			name: "Slow checkout p95 (paused)",
+			name: "Slow checkout p95",
 			signal: "spans",
-			query: { spanName: "POST /checkout" },
-			threshold: 800,
+			query: { spanName: "POST /api/checkout" },
+			threshold: 1,
 			windowMins: 15,
-			comparison: ">",
+			comparison: ">=",
 			channels: [
 				{ type: "webhook", url: "https://hooks.example.com/checkout-slow" },
 			],
-			enabled: false,
+			enabled: true,
 		},
 	];
 
@@ -394,7 +395,130 @@ const ingestPost = async (path, body) => {
 	return res.json().catch(() => ({}));
 };
 
+const ingestBinary = async (path, body, headers = {}) => {
+	const res = await fetch(`${COLLECTOR}${path}`, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${PROJECT_KEY}`,
+			"X-Project-Id": "default",
+			...headers,
+		},
+		body,
+	});
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		throw new Error(`${path} → ${res.status}: ${text.slice(0, 80)}`);
+	}
+	return res.json().catch(() => ({}));
+};
+
+const writeVarint = (out, value) => {
+	while (value >= 0x80) {
+		out.push((value & 0x7f) | 0x80);
+		value = Math.floor(value / 128);
+	}
+	out.push(value & 0x7f);
+};
+const writeTag = (out, fieldNum, wireType) =>
+	writeVarint(out, (fieldNum << 3) | wireType);
+const writeLengthDelimited = (out, fieldNum, bytes) => {
+	writeTag(out, fieldNum, 2);
+	writeVarint(out, bytes.length);
+	for (const byte of bytes) out.push(byte);
+};
+const writeString = (out, fieldNum, value) =>
+	writeLengthDelimited(out, fieldNum, new TextEncoder().encode(value));
+const writePackedVarints = (out, fieldNum, values) => {
+	const inner = [];
+	for (const value of values) writeVarint(inner, value);
+	writeLengthDelimited(out, fieldNum, inner);
+};
+const encodeSeedPprof = (traceId) => {
+	const strings = [
+		"",
+		"cpu",
+		"nanoseconds",
+		"checkout.handle",
+		"apps/obs-demo/src/routes/checkout.ts",
+		"payment.charge",
+		"packages/payments/src/charge.ts",
+		"json.parse",
+		"node:internal/json",
+		"trace_id",
+		traceId,
+	];
+	const out = [];
+	const valueType = [];
+	writeTag(valueType, 1, 0);
+	writeVarint(valueType, 1);
+	writeTag(valueType, 2, 0);
+	writeVarint(valueType, 2);
+	writeLengthDelimited(out, 1, valueType);
+
+	const functions = [
+		{ id: 1, nameIdx: 3, filenameIdx: 4 },
+		{ id: 2, nameIdx: 5, filenameIdx: 6 },
+		{ id: 3, nameIdx: 7, filenameIdx: 8 },
+	];
+	for (const fn of functions) {
+		const bytes = [];
+		writeTag(bytes, 1, 0);
+		writeVarint(bytes, fn.id);
+		writeTag(bytes, 2, 0);
+		writeVarint(bytes, fn.nameIdx);
+		writeTag(bytes, 4, 0);
+		writeVarint(bytes, fn.filenameIdx);
+		writeLengthDelimited(out, 5, bytes);
+	}
+
+	const locations = [
+		{ id: 1, functionId: 1, line: 88 },
+		{ id: 2, functionId: 2, line: 47 },
+		{ id: 3, functionId: 3, line: 1 },
+	];
+	for (const loc of locations) {
+		const bytes = [];
+		writeTag(bytes, 1, 0);
+		writeVarint(bytes, loc.id);
+		const line = [];
+		writeTag(line, 1, 0);
+		writeVarint(line, loc.functionId);
+		writeTag(line, 2, 0);
+		writeVarint(line, loc.line);
+		writeLengthDelimited(bytes, 4, line);
+		writeLengthDelimited(out, 4, bytes);
+	}
+
+	const samples = [
+		{ locations: [3, 2, 1], value: 920 },
+		{ locations: [2, 1], value: 680 },
+		{ locations: [1], value: 160 },
+	];
+	for (const sample of samples) {
+		const bytes = [];
+		writePackedVarints(bytes, 1, sample.locations);
+		writePackedVarints(bytes, 2, [sample.value]);
+		const label = [];
+		writeTag(label, 1, 0);
+		writeVarint(label, 9);
+		writeTag(label, 2, 0);
+		writeVarint(label, 10);
+		writeLengthDelimited(bytes, 3, label);
+		writeLengthDelimited(out, 2, bytes);
+	}
+
+	for (const str of strings) writeString(out, 6, str);
+	return gzipSync(Uint8Array.from(out));
+};
+
 // ── traces (Traces, Service Map, Issues) ────────────────────────────
+
+const SCENARIO_A = {
+	traceId: "0a000000000000000000000000000001",
+	rootSpanId: "0a00000000000101",
+	paymentSpanId: "0a00000000000102",
+	dbSpanId: "0a00000000000103",
+};
 
 const seedTraces = async (sessionWindows = []) => {
 	const services = ["obs-demo", "checkout-api", "payments-worker", "edge"];
@@ -552,6 +676,83 @@ const seedTraces = async (sessionWindows = []) => {
 		});
 	}
 
+	const checkoutSession = sessionWindows[sessionWindows.length - 1] ?? null;
+	const checkoutInteraction = checkoutSession?.interactions?.[0] ?? null;
+	const checkoutAttrs = [
+		kv("http.request.method", "POST"),
+		kv("http.route", "/api/checkout"),
+		kv("url.path", "/api/checkout"),
+		kv("http.response.status_code", 200),
+		kv("seed.scenario", "A"),
+	];
+	if (checkoutSession) {
+		checkoutAttrs.push(kv("session.id", checkoutSession.sessionId));
+		checkoutAttrs.push(kv("user.id", `user-${checkoutSession.visitorId}`));
+	}
+	if (checkoutInteraction) {
+		checkoutAttrs.push(
+			kv("obs.interaction.id", checkoutInteraction.interactionId),
+		);
+	}
+
+	allSpans.push(
+		{
+			service: "checkout-api",
+			span: {
+				traceId: SCENARIO_A.traceId,
+				spanId: SCENARIO_A.rootSpanId,
+				name: "POST /api/checkout",
+				kind: 2,
+				startTimeUnixNano: agoNs(2 * 60_000 + 980),
+				endTimeUnixNano: agoNs(2 * 60_000),
+				status: { code: 1, message: "" },
+				attributes: checkoutAttrs,
+			},
+		},
+		{
+			service: "checkout-api",
+			span: {
+				traceId: SCENARIO_A.traceId,
+				spanId: SCENARIO_A.paymentSpanId,
+				parentSpanId: SCENARIO_A.rootSpanId,
+				name: "payment.charge",
+				kind: 3,
+				startTimeUnixNano: agoNs(2 * 60_000 + 840),
+				endTimeUnixNano: agoNs(2 * 60_000 + 130),
+				status: { code: 1, message: "" },
+				attributes: [
+					kv("peer.service", "payments-worker"),
+					kv("payment.provider", "stripe"),
+					kv("seed.scenario", "A"),
+					...(checkoutSession
+						? [kv("session.id", checkoutSession.sessionId)]
+						: []),
+					...(checkoutInteraction
+						? [kv("obs.interaction.id", checkoutInteraction.interactionId)]
+						: []),
+				],
+			},
+		},
+		{
+			service: "payments-worker",
+			span: {
+				traceId: SCENARIO_A.traceId,
+				spanId: SCENARIO_A.dbSpanId,
+				parentSpanId: SCENARIO_A.paymentSpanId,
+				name: "payments-db.insert charge",
+				kind: 3,
+				startTimeUnixNano: agoNs(2 * 60_000 + 620),
+				endTimeUnixNano: agoNs(2 * 60_000 + 500),
+				status: { code: 1, message: "" },
+				attributes: [
+					kv("db.system", "postgresql"),
+					kv("db.statement", "INSERT INTO charges (...) VALUES (...)"),
+					kv("seed.scenario", "A"),
+				],
+			},
+		},
+	);
+
 	// Group by service for OTLP packaging
 	const bySvc = new Map();
 	for (const { service, span } of allSpans) {
@@ -565,7 +766,32 @@ const seedTraces = async (sessionWindows = []) => {
 	}));
 
 	await ingestPost("/v1/traces", { resourceSpans });
-	return `${allSpans.length} spans across ${bySvc.size} services (${sessionStamped} stamped with session.id)`;
+	return {
+		summary: `${allSpans.length} spans across ${bySvc.size} services (${sessionStamped} stamped with session.id, Scenario A checkout trace ${SCENARIO_A.traceId})`,
+		scenarioA: {
+			...SCENARIO_A,
+			sessionId: checkoutSession?.sessionId ?? null,
+			interactionId: checkoutInteraction?.interactionId ?? null,
+		},
+	};
+};
+
+const seedProfiles = async (scenarioA) => {
+	if (!scenarioA?.traceId) return "no Scenario A trace";
+	const body = encodeSeedPprof(scenarioA.traceId);
+	const now = new Date();
+	const startedAt = new Date(now.getTime() - 60_000).toISOString();
+	const result = await ingestBinary("/v1/profiles/pprof", body, {
+		"Content-Type": "application/octet-stream",
+		"Content-Encoding": "gzip",
+		"x-obs-service": "checkout-api",
+		"x-obs-profile-type": "cpu",
+		"x-obs-agent": "seed-everything",
+		"x-obs-duration-ms": "60000",
+		"x-obs-start-ts": startedAt,
+		"x-obs-trace-ids": scenarioA.traceId,
+	});
+	return `cpu profile ${result.profileId ?? "accepted"} indexed to ${scenarioA.traceId}`;
 };
 
 // ── logs ────────────────────────────────────────────────────────────
@@ -1059,8 +1285,12 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 		);
 		const sessionWindows = usageResult?.sessions ?? [];
 
-		await step("traces / service map / issues (/v1/traces)", () =>
-			seedTraces(sessionWindows),
+		const tracesResult = await step(
+			"traces / service map / issues (/v1/traces)",
+			() => seedTraces(sessionWindows),
+		);
+		await step("CPU profile for Scenario A (/v1/profiles/pprof)", () =>
+			seedProfiles(tracesResult?.scenarioA),
 		);
 		await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
 		await step("AI calls (/v1/traces with LLM kind)", () =>

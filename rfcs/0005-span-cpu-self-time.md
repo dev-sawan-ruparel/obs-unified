@@ -116,15 +116,21 @@ A small ⚠️ shown on spans where:
 self_ms / duration_ms > 0.7  AND  duration_ms > 100ms  AND  children.length < 2
 ```
 
+Dependency/boundary span kinds (`CLIENT`, `PRODUCER`, `CONSUMER`) are suppressed
+when span kind is available, because long leaf dependency spans usually mean
+"the boundary is instrumented" rather than "add child spans inside this
+process."
+
 Hover: _"Most of this span's time is unaccounted for — consider adding child
 spans, or attaching a profile (RFC 0007)."_
 
-The threshold is an advisory starting heuristic. It is intentionally labeled as
-"likely" rather than definitive, and live-workload calibration is tracked with
-Phase 6 demo validation instead of blocking this RFC's implementation. Spammy
-badges defeat the purpose, so production tuning should raise the ratio/duration
-gates or add route-specific suppressions when demo traffic proves the heuristic
-too noisy.
+The threshold is centralized in `@obs-unified/types` and versioned so collector
+evidence and dashboard badges cannot drift. The collector also exposes
+`/internal/telemetry/instrumentation-gaps/calibration`, which runs the current
+rule over recent traces and reports firing rate plus top candidates. It remains
+intentionally labeled "likely" rather than definitive; spammy badges defeat the
+purpose, so production tuning should raise the ratio/duration gates or add
+route-specific suppressions when live traffic proves the rule too noisy.
 
 ### Process-level CPU metric
 
@@ -219,11 +225,10 @@ per-span field that's wrong under concurrency.
 
 ## Open questions
 
-- **Self-time threshold calibration.** The "likely uninstrumented" badge
-  threshold (`self_ms/duration_ms > 0.7 AND duration_ms > 100ms`) remains a
-  Phase 6 validation task against demo and live traffic. If too noisy, raise; if
-  invisible, lower. The current implementation should be treated as an advisory
-  heuristic until that validation is recorded.
+- **Production-specific tuning.** The current calibrated rule is versioned and
+  queryable through the calibration endpoint. Large production deployments may
+  still add route/service suppressions if their live traces show noisy but
+  intentionally sparse parent spans.
 - **Persist self-time?** We don't, today. If lists like "show me all spans with
   high self-time across the last day" become important, we'd persist at ingest.
   Defer until asked.

@@ -70,7 +70,8 @@ Status legend:
 - [x] Per-trace self-time summary.
 - [x] `enableProcessMetrics()` Node helper.
 - [x] Health dashboard CPU sparkline/tile from process metrics.
-- [~] Missing-instrumentation thresholds still need live workload calibration.
+- [x] Missing-instrumentation thresholds share one calibrated rule across
+      collector/dashboard and expose a live calibration report endpoint.
 
 ## RFC 0006 — Connected Rail
 

@@ -1,8 +1,14 @@
 export type { TelemetryApiClientConfig } from "./api-client";
 export { TelemetryApiClient } from "./api-client";
+export type {
+	InstrumentationGapCandidateInput,
+	InstrumentationGapThresholds,
+} from "./constants";
 export {
+	DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS,
 	DEFAULT_WINDOW_HOURS,
 	getConfiguredRetentionHours,
+	isInstrumentationGapCandidate,
 	MAX_DURATION_SAMPLE_SIZE,
 	MAX_ISSUE_ROWS,
 	MAX_ISSUE_TRACE_ROWS,
@@ -77,10 +83,12 @@ export type {
 	EvidenceEntityKind,
 	EvidenceNextPivot,
 	EvidenceReference,
+	EvidenceReferenceContract,
 	IdentifyInput,
 	IngestKey,
 	IngestKeyRow,
 	IngestKeyWithPlaintext,
+	JsonSchema,
 	JsonValue,
 	LogRecord,
 	LogRow,
@@ -124,6 +132,7 @@ export type {
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
 	TelemetryTraceSummary,
+	ToolResponseContract,
 	TraceRow,
 	UsageBrowserSummary,
 	UsageCountrySummary,
@@ -148,4 +157,14 @@ export type {
 	UsageUtmSourceSummary,
 	UserProfileDetail,
 	UserProfileRow,
+} from "./types";
+export {
+	EVIDENCE_REFERENCE_CONTRACT,
+	EVIDENCE_REFERENCE_SCHEMA_VERSION,
+	EvidenceCitationSchema,
+	EvidenceEntityKindSchema,
+	EvidenceNextPivotSchema,
+	EvidenceReferenceJsonSchema,
+	EvidenceReferenceSchema,
+	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
 } from "./types";

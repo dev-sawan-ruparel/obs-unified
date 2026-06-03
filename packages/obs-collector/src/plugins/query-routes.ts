@@ -131,6 +131,27 @@ export const queryRoutesPlugin: CollectorPlugin = {
 			return c.json(gaps);
 		});
 
+		app.get(
+			"/internal/telemetry/instrumentation-gaps/calibration",
+			async (c) => {
+				const projectId = getProjectId(c);
+				const maxHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
+				const hours = Math.min(
+					maxHours,
+					Math.max(1, Number.parseInt(c.req.query("hours") || "72", 10) || 72),
+				);
+				const limit =
+					Number.parseInt(c.req.query("limit") || "5000", 10) || 5000;
+				const store = runtime.createStore(c.env);
+				const calibration = await store.calibrateTraceGaps({
+					projectId,
+					hours,
+					limit,
+				});
+				return c.json(calibration);
+			},
+		);
+
 		// NDJSON export (from D)
 		app.get("/internal/telemetry/export", async (c) => {
 			const projectId = getProjectId(c);

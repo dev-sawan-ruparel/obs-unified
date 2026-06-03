@@ -200,14 +200,17 @@ spans, which is crucial for AI triage.
 
 ## 8. Missing Instrumentation via Self-Time
 
-**Status:** [x] Implemented; [~] live calibration pending.
+**Status:** [x] Implemented; [x] demo calibration pass added.
 
 **Why it matters:** It tells an agent when a trace is incomplete and where to
 instrument next.
 
 **Next checklist:**
 
-- [ ] Calibrate self-time thresholds against demo/live traces.
+- [x] Calibrate self-time thresholds against demo/live traces via
+      `/internal/telemetry/instrumentation-gaps/calibration`, which reports the
+      current threshold version, firing rate, and top candidate traces for
+      review.
 - [x] Return structured uninstrumented gap data from trace APIs so agents do not
       need to recompute parent/child span math.
 - [x] Expose missing-instrumentation evidence as structured analysis output.

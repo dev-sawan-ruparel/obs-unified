@@ -240,3 +240,93 @@ export function TimeRangePicker() {
 		</div>
 	);
 }
+
+export function IdeSelector() {
+	const [template, setTemplate] = useState<string>(() => {
+		if (typeof localStorage !== "undefined") {
+			try {
+				return (
+					localStorage.getItem("obs_ide_template") ||
+					"vscode://file/{absolutePath}:{lineNumber}"
+				);
+			} catch {
+				return "vscode://file/{absolutePath}:{lineNumber}";
+			}
+		}
+		return "vscode://file/{absolutePath}:{lineNumber}";
+	});
+
+	const selectValue = useMemo(() => {
+		if (template === "vscode://file/{absolutePath}:{lineNumber}")
+			return "vscode";
+		if (template === "cursor://file/{absolutePath}:{lineNumber}")
+			return "cursor";
+		if (template === "webstorm://open?file={absolutePath}&line={lineNumber}")
+			return "webstorm";
+		return "custom";
+	}, [template]);
+
+	const label = useMemo(() => {
+		if (selectValue === "vscode") return "IDE: VS Code";
+		if (selectValue === "cursor") return "IDE: Cursor";
+		if (selectValue === "webstorm") return "IDE: WebStorm";
+		return "IDE: Custom";
+	}, [selectValue]);
+
+	const handleChange = (val: string) => {
+		let newTemplate = "";
+		if (val === "vscode") {
+			newTemplate = "vscode://file/{absolutePath}:{lineNumber}";
+		} else if (val === "cursor") {
+			newTemplate = "cursor://file/{absolutePath}:{lineNumber}";
+		} else if (val === "webstorm") {
+			newTemplate = "webstorm://open?file={absolutePath}&line={lineNumber}";
+		} else if (val === "custom") {
+			const promptVal = window.prompt(
+				"Enter custom IDE template. Available placeholders: {absolutePath}, {relativePath}, {lineNumber}",
+				template,
+			);
+			if (promptVal === null) {
+				return;
+			}
+			newTemplate =
+				promptVal.trim() || "vscode://file/{absolutePath}:{lineNumber}";
+		}
+
+		if (newTemplate) {
+			try {
+				localStorage.setItem("obs_ide_template", newTemplate);
+			} catch {
+				// ignore
+			}
+			setTemplate(newTemplate);
+			window.dispatchEvent(new Event("obs_ide_changed"));
+		}
+	};
+
+	return (
+		<div className="relative flex h-8 items-center bg-sys-surface-low text-[0.8125rem] font-medium text-sys-on-surface hover:bg-sys-surface-high">
+			<span className="pointer-events-none flex h-full items-center pl-2.5 pr-1 font-sans">
+				{label}
+			</span>
+			<span
+				aria-hidden
+				className="pointer-events-none pr-2 text-sys-on-surface-subtle"
+			>
+				▾
+			</span>
+			<select
+				value={selectValue}
+				onChange={(e) => handleChange(e.target.value)}
+				className="absolute inset-0 cursor-pointer opacity-0"
+				aria-label="Switch IDE"
+				title="Change target IDE for code links"
+			>
+				<option value="vscode">VS Code</option>
+				<option value="cursor">Cursor</option>
+				<option value="webstorm">WebStorm</option>
+				<option value="custom">Custom...</option>
+			</select>
+		</div>
+	);
+}

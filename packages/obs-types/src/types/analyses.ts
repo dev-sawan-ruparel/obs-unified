@@ -1,4 +1,4 @@
-import type { EvidenceReference } from "./evidence";
+import type { EvidenceReference, EvidenceReferenceContract } from "./evidence";
 
 export type AnalysisStatus = "ok" | "warn" | "critical" | "unknown";
 export type AnalysisView = "tile" | "page" | "alert";
@@ -95,6 +95,7 @@ export interface AnalysisResult {
 	narrativeSignature: string | null;
 	durationMs: number;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 export interface AnalysesListResponse {
@@ -152,6 +153,7 @@ export interface AskResponse {
 	answer: string | null;
 	evidence: AskEvidence[];
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 	queries: AskQuery[];
 	error: string | null;
 	timestamp: string;

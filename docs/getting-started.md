@@ -41,17 +41,18 @@ This packages the full local stack into one container. It is the lowest-friction
 first run. For a component-level map of what this container runs, see
 [`docs/system-components.md`](./system-components.md).
 
-### 1. Build and Launch
+### 1. Launch
 
-Build the image locally:
+Run the prebuilt image:
+
+```bash
+docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
+```
+
+Or build and start it from a checkout:
 
 ```bash
 pnpm local:image
-```
-
-Start the container:
-
-```bash
 pnpm local:run
 ```
 
@@ -85,7 +86,7 @@ docker run --rm \
   -p 8790:8790 \
   -v obs-unified-local-db:/var/lib/postgresql \
   -v obs-unified-local-blobs:/data \
-  obs-unified/local:dev
+  ghcr.io/obs-unified/local:latest
 ```
 
 ### 4. Verify the First-Run Path

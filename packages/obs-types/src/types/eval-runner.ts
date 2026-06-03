@@ -1,4 +1,4 @@
-import type { EvidenceReference } from "./evidence";
+import type { EvidenceReference, EvidenceReferenceContract } from "./evidence";
 import type { JsonValue } from "./primitives";
 
 export type EvalRunStatus =
@@ -30,6 +30,7 @@ export interface EvalRunSourceCase {
 	sourceTraceId: string | null;
 	sourceSpanId: string | null;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 export interface EvalRun {
@@ -48,6 +49,7 @@ export interface EvalRun {
 	createdAt: string;
 	sourceEvalCase?: EvalRunSourceCase | null;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 export interface EvalRunInput {

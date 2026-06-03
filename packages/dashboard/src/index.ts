@@ -36,7 +36,11 @@ export { ProjectSwitcher } from "./components/ProjectSwitcher";
 export { EmptyState, StateRow } from "./components/states";
 export type { TagTone } from "./components/Tag";
 export { Tag } from "./components/Tag";
-export { GlobalSearch, TimeRangePicker } from "./components/TopBar";
+export {
+	GlobalSearch,
+	IdeSelector,
+	TimeRangePicker,
+} from "./components/TopBar";
 export {
 	ActionDashboard,
 	type ActionDashboardProps,

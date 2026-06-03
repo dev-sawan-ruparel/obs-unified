@@ -155,6 +155,13 @@ export function FlameGraph({
 	const [error, setError] = useState<string | null>(null);
 	const [zoomedNode, setZoomedNode] = useState<FlameNode | null>(null);
 	const [hovered, setHovered] = useState<RenderFrame | null>(null);
+	const [, setIdeUpdateKey] = useState(0);
+
+	useEffect(() => {
+		const onIdeChange = () => setIdeUpdateKey((k) => k + 1);
+		window.addEventListener("obs_ide_changed", onIdeChange);
+		return () => window.removeEventListener("obs_ide_changed", onIdeChange);
+	}, []);
 
 	// Load metadata + the gzipped blob in parallel.
 	useEffect(() => {

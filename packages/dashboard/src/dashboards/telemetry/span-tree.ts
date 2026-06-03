@@ -1,3 +1,4 @@
+import { isInstrumentationGapCandidate } from "@obs-unified/types";
 import type { SpanDetail } from "./types";
 
 /**
@@ -69,4 +70,10 @@ export function buildSpanTree(spans: SpanDetail[]): SpanTreeNode[] {
 }
 
 export const isLikelyUninstrumented = (s: SpanTreeNode): boolean =>
-	!s.asyncParent && s.durationMs > 100 && s.selfRatio > 0.7 && s.childCount < 2;
+	isInstrumentationGapCandidate({
+		durationMs: s.durationMs,
+		selfRatio: s.selfRatio,
+		childSpanCount: s.childCount,
+		asyncParent: s.asyncParent,
+		spanKind: s.spanKind,
+	});

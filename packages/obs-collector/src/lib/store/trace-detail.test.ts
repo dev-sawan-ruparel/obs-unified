@@ -4,6 +4,7 @@ import { MemSqlDb } from "../test-utils/mem-sql-db";
 import { ingestTelemetrySpans } from "./ingest";
 import {
 	buildTraceInstrumentationGaps,
+	calibrateTelemetryInstrumentationGaps,
 	extractCodeReference,
 	getTelemetryTraceGaps,
 } from "./trace-detail";
@@ -67,8 +68,16 @@ describe("buildTraceInstrumentationGaps", () => {
 				durationMs: 500,
 				childSpanCount: 1,
 				asyncParent: false,
+				thresholdVersion: "demo-calibrated-2026-06-03",
 			}),
 		]);
+		expect(gaps.thresholds).toMatchObject({
+			version: "demo-calibrated-2026-06-03",
+			minDurationMs: 100,
+			minSelfRatio: 0.7,
+			maxChildSpanCount: 1,
+			excludedSpanKinds: [3, 4, 5],
+		});
 	});
 
 	it("does not flag async fan-out parents where child wall time exceeds parent", () => {
@@ -84,6 +93,146 @@ describe("buildTraceInstrumentationGaps", () => {
 
 		expect(gaps.uninstrumentedTimeMs).toBe(0);
 		expect(gaps.blindspots).toEqual([]);
+	});
+});
+
+describe("calibrateTelemetryInstrumentationGaps", () => {
+	it("runs the calibrated rule over recent demo traces and reports firing rate", async () => {
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (!sql.includes("FROM telemetry_spans")) return [];
+				return [
+					{
+						project_id: "p1",
+						trace_id: "trace-missing",
+						span_id: "root",
+						parent_span_id: null,
+						service_name: "checkout-api",
+						scope_name: null,
+						scope_version: null,
+						span_name: "POST /api/checkout",
+						span_kind: 2,
+						status_code: 1,
+						status_message: null,
+						duration_ms: 540,
+						start_time: "2026-06-01T00:00:00.000Z",
+						end_time: "2026-06-01T00:00:00.540Z",
+						received_at: "2026-06-01T00:00:01.000Z",
+						attributes_json: "{}",
+						resource_attributes_json: "{}",
+						events_json: "[]",
+						links_json: "[]",
+					},
+					{
+						project_id: "p1",
+						trace_id: "trace-missing",
+						span_id: "child",
+						parent_span_id: "root",
+						service_name: "checkout-api",
+						scope_name: null,
+						scope_version: null,
+						span_name: "cache.get",
+						span_kind: 3,
+						status_code: 1,
+						status_message: null,
+						duration_ms: 40,
+						start_time: "2026-06-01T00:00:00.010Z",
+						end_time: "2026-06-01T00:00:00.050Z",
+						received_at: "2026-06-01T00:00:01.000Z",
+						attributes_json: "{}",
+						resource_attributes_json: "{}",
+						events_json: "[]",
+						links_json: "[]",
+					},
+					{
+						project_id: "p1",
+						trace_id: "trace-dense",
+						span_id: "root",
+						parent_span_id: null,
+						service_name: "checkout-api",
+						scope_name: null,
+						scope_version: null,
+						span_name: "POST /api/checkout",
+						span_kind: 2,
+						status_code: 1,
+						status_message: null,
+						duration_ms: 540,
+						start_time: "2026-06-01T00:01:00.000Z",
+						end_time: "2026-06-01T00:01:00.540Z",
+						received_at: "2026-06-01T00:01:01.000Z",
+						attributes_json: "{}",
+						resource_attributes_json: "{}",
+						events_json: "[]",
+						links_json: "[]",
+					},
+					{
+						project_id: "p1",
+						trace_id: "trace-dense",
+						span_id: "child-a",
+						parent_span_id: "root",
+						service_name: "checkout-api",
+						scope_name: null,
+						scope_version: null,
+						span_name: "payment.charge",
+						span_kind: 3,
+						status_code: 1,
+						status_message: null,
+						duration_ms: 220,
+						start_time: "2026-06-01T00:01:00.010Z",
+						end_time: "2026-06-01T00:01:00.230Z",
+						received_at: "2026-06-01T00:01:01.000Z",
+						attributes_json: "{}",
+						resource_attributes_json: "{}",
+						events_json: "[]",
+						links_json: "[]",
+					},
+					{
+						project_id: "p1",
+						trace_id: "trace-dense",
+						span_id: "child-b",
+						parent_span_id: "root",
+						service_name: "checkout-api",
+						scope_name: null,
+						scope_version: null,
+						span_name: "db.query",
+						span_kind: 3,
+						status_code: 1,
+						status_message: null,
+						duration_ms: 180,
+						start_time: "2026-06-01T00:01:00.240Z",
+						end_time: "2026-06-01T00:01:00.420Z",
+						received_at: "2026-06-01T00:01:01.000Z",
+						attributes_json: "{}",
+						resource_attributes_json: "{}",
+						events_json: "[]",
+						links_json: "[]",
+					},
+				];
+			},
+		});
+
+		const calibration = await calibrateTelemetryInstrumentationGaps(db, {
+			projectId: "p1",
+			hours: 72,
+		});
+
+		expect(calibration).toMatchObject({
+			thresholds: { version: "demo-calibrated-2026-06-03" },
+			sampledSpanCount: 5,
+			traceCount: 2,
+			flaggedTraceCount: 1,
+			blindspotCount: 1,
+			flaggedTraceRate: 0.5,
+			status: "noisy",
+		});
+		expect(calibration.topTraces[0]).toMatchObject({
+			traceId: "trace-missing",
+			blindspotCount: 1,
+			topBlindspot: expect.objectContaining({
+				parentSpanName: "POST /api/checkout",
+				durationMs: 500,
+			}),
+		});
 	});
 });
 

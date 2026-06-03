@@ -11,7 +11,11 @@ import type {
 	AISpansOverviewResponse,
 } from "@obs-unified/types";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
-import { ingestAIEvaluations, listAIEvaluations } from "./ai-store/evaluations";
+import {
+	getAIEvaluation,
+	ingestAIEvaluations,
+	listAIEvaluations,
+} from "./ai-store/evaluations";
 import { purgeExpiredAIData } from "./ai-store/retention";
 import { getAISessionDetail, listAISessions } from "./ai-store/sessions";
 import { getAISpansOverview } from "./ai-store/spans";
@@ -64,5 +68,9 @@ export class AIStore {
 		options: AIEvaluationsListOptions,
 	): Promise<AIEvaluationsListResponse> {
 		return listAIEvaluations(this.db, options);
+	}
+
+	async getEvaluation(projectId: string, evaluationId: string) {
+		return getAIEvaluation(this.db, projectId, evaluationId);
 	}
 }

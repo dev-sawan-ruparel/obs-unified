@@ -87,8 +87,18 @@ export interface InstrumentationGap {
 	durationMs: number;
 	ratioOfParent: number;
 	childSpanCount: number;
+	parentSpanKind?: number;
 	asyncParent: boolean;
+	thresholdVersion?: string;
 	recommendation: string;
+}
+
+export interface InstrumentationGapThresholds {
+	version: string;
+	minDurationMs: number;
+	minSelfRatio: number;
+	maxChildSpanCount: number;
+	excludedSpanKinds: readonly number[];
 }
 
 export interface InstrumentationGapsResponse {
@@ -97,6 +107,7 @@ export interface InstrumentationGapsResponse {
 	uninstrumentedTimeMs: number;
 	ratio: number;
 	blindspots: InstrumentationGap[];
+	thresholds: InstrumentationGapThresholds;
 	timestamp: string;
 }
 

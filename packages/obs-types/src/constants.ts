@@ -6,6 +6,46 @@ export const MAX_DURATION_SAMPLE_SIZE = 500;
 export const MAX_ISSUE_ROWS = 50;
 export const MAX_ISSUE_TRACE_ROWS = 20;
 
+export interface InstrumentationGapThresholds {
+	/**
+	 * Bump when the calibration pass changes any firing gate. Agents can cite
+	 * this so evidence explains which threshold set produced a recommendation.
+	 */
+	version: string;
+	minDurationMs: number;
+	minSelfRatio: number;
+	maxChildSpanCount: number;
+	excludedSpanKinds: readonly number[];
+}
+
+export interface InstrumentationGapCandidateInput {
+	durationMs: number;
+	selfRatio: number;
+	childSpanCount: number;
+	asyncParent: boolean;
+	spanKind?: number;
+}
+
+export const DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS: InstrumentationGapThresholds =
+	{
+		version: "demo-calibrated-2026-06-03",
+		minDurationMs: 100,
+		minSelfRatio: 0.7,
+		maxChildSpanCount: 1,
+		excludedSpanKinds: [3, 4, 5],
+	};
+
+export const isInstrumentationGapCandidate = (
+	candidate: InstrumentationGapCandidateInput,
+	thresholds: InstrumentationGapThresholds = DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS,
+): boolean =>
+	!candidate.asyncParent &&
+	candidate.durationMs > thresholds.minDurationMs &&
+	candidate.selfRatio > thresholds.minSelfRatio &&
+	candidate.childSpanCount <= thresholds.maxChildSpanCount &&
+	(candidate.spanKind === undefined ||
+		!thresholds.excludedSpanKinds.includes(candidate.spanKind));
+
 export const getConfiguredRetentionHours = (envValue?: string): number => {
 	if (!envValue) return RETENTION_HOURS;
 	const parsed = Number.parseInt(envValue, 10);

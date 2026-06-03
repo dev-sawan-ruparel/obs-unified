@@ -23,6 +23,7 @@ import type {
 	AskQuery,
 	AskResponse,
 } from "@obs-unified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
 import type { AskRunDeps } from "./ask";
 import { askEvidenceReferences } from "./evidence-references";
 import type { LlmConfig, NarrativeRequest } from "./llm";
@@ -373,6 +374,7 @@ export async function runAskOpenAI(
 				answer: text.length > 0 ? text : null,
 				evidence: [...evidence.values()],
 				evidenceReferences: askEvidenceReferences(evidence.values()),
+				evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 				queries,
 				error: text.length > 0 ? null : "model returned no text",
 				timestamp: startedAt,
@@ -404,6 +406,7 @@ export async function runAskOpenAI(
 					answer: null,
 					evidence: [...evidence.values()],
 					evidenceReferences: askEvidenceReferences(evidence.values()),
+					evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 					queries,
 					error: "model response was truncated by max_tokens",
 					timestamp: startedAt,
@@ -501,6 +504,7 @@ export async function runAskOpenAI(
 		answer: null,
 		evidence: [...evidence.values()],
 		evidenceReferences: askEvidenceReferences(evidence.values()),
+		evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 		queries,
 		error: `iteration cap (${MAX_ITERATIONS}) reached without final answer`,
 		timestamp: startedAt,

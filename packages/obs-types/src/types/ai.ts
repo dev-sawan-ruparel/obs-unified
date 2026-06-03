@@ -1,4 +1,4 @@
-import type { EvidenceReference } from "./evidence";
+import type { EvidenceReference, EvidenceReferenceContract } from "./evidence";
 import type { JsonValue } from "./primitives";
 
 export type AICallType =
@@ -231,6 +231,7 @@ export interface AIEvaluationRecord {
 	createdAt: string;
 	expiresAt: string;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 export interface AIEvaluationsListOptions {

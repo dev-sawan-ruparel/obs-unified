@@ -1,4 +1,4 @@
-import type { EvidenceReference } from "./evidence";
+import type { EvidenceReference, EvidenceReferenceContract } from "./evidence";
 import type { LogSeverity } from "./logs";
 
 export type AlertSignal = "spans" | "logs" | "usage" | "ai";
@@ -94,11 +94,13 @@ export interface AlertEvaluation {
 	state: AlertState;
 	notified: boolean;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 export interface AlertEvaluationsListResponse {
 	evaluations: AlertEvaluation[];
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 export interface AlertEvaluationRow {
@@ -124,6 +126,7 @@ export interface AlertTestResponse {
 	comparison: AlertComparison;
 	threshold: number;
 	evidenceReferences?: EvidenceReference[];
+	evidenceContract?: EvidenceReferenceContract;
 }
 
 /** Input shape for creating/updating an alert rule */

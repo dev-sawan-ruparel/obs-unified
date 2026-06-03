@@ -55,6 +55,12 @@ export function TraceDetailView({
 	>([]);
 	const [openProfileId, setOpenProfileId] = useState<string | null>(null);
 	const [showEvalModal, setShowEvalModal] = useState(false);
+	const [, setIdeUpdateKey] = useState(0);
+	useEffect(() => {
+		const onIdeChange = () => setIdeUpdateKey((k) => k + 1);
+		window.addEventListener("obs_ide_changed", onIdeChange);
+		return () => window.removeEventListener("obs_ide_changed", onIdeChange);
+	}, []);
 
 	const isFailedTrace =
 		meta.errorSpanCount > 0 || spans.some((s) => s.statusCode === 2);
