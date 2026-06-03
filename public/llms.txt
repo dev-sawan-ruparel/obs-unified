@@ -59,7 +59,7 @@ A single collector service:
 - `/dashboard/*` — embedded dashboard (password authentication)
 - `/health` — liveness probe
 
-The `@obs-unified/mcp-server` package exposes those investigation surfaces to
+The `@obsunified/mcp-server` package exposes those investigation surfaces to
 MCP-compatible AI agents.
 
 Storage: D1 for structured signals and R2 for replay/profile blobs on Cloudflare,

@@ -17,7 +17,9 @@ export type SiteContent = {
     titleLine: string;
     accent: string;
     leadHtml: string;
+    lead: string;
     metaLabelHtml: string;
+    metaLabel: string;
     metaLinkLabel: string;
     identityLabel: string;
     identityChain: string;

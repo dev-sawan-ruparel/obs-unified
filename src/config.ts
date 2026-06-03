@@ -34,7 +34,7 @@ export const FOOTER_PACKAGES = [
     href: `${GITHUB_URL}/tree/main/packages/dashboard`,
   },
   {
-    name: "@obs-unified/mcp-server",
+    name: "@obsunified/mcp-server",
     label: "MCP server",
     href: `${GITHUB_URL}/tree/main/packages/mcp-server`,
   },

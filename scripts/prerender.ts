@@ -12,6 +12,16 @@ import { renderCompare } from "../src/sections/compare";
 import { renderFaq } from "../src/sections/faq";
 import { renderFooter } from "../src/sections/footer";
 import { renderJsonLdScript } from "../src/schema";
+import { siteContent } from "../src/content/site";
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distHtml = resolve(__dirname, "../dist/index.html");
@@ -39,6 +49,16 @@ if (!APP_DIV.test(html)) {
 
 let next = html.replace(APP_DIV, `<div id="app">${body}</div>`);
 next = next.replace("</head>", `    ${renderJsonLdScript()}\n  </head>`);
+
+const titleEscaped = escapeHtml(siteContent.seo.title);
+const descEscaped = escapeHtml(siteContent.seo.description);
+
+next = next.replace(/<title>[^]*?<\/title>/i, `<title>${titleEscaped}</title>`);
+next = next.replace(/<meta\s+name="description"\s+content="[^]*?"\s*\/?>/i, `<meta name="description" content="${descEscaped}" />`);
+next = next.replace(/<meta\s+property="og:title"\s+content="[^]*?"\s*\/?>/i, `<meta property="og:title" content="${titleEscaped}" />`);
+next = next.replace(/<meta\s+property="og:description"\s+content="[^]*?"\s*\/?>/i, `<meta property="og:description" content="${descEscaped}" />`);
+next = next.replace(/<meta\s+name="twitter:title"\s+content="[^]*?"\s*\/?>/i, `<meta name="twitter:title" content="${titleEscaped}" />`);
+next = next.replace(/<meta\s+name="twitter:description"\s+content="[^]*?"\s*\/?>/i, `<meta name="twitter:description" content="${descEscaped}" />`);
 
 await writeFile(distHtml, next, "utf8");
 
