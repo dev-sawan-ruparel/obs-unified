@@ -3,7 +3,7 @@ import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
-import { Card, SectionTitle } from "../components/primitives";
+import { Card, JsonBlock, SectionTitle } from "../components/primitives";
 import { SaveEvalCaseModal } from "../components/SaveEvalCaseModal";
 import { StateRow } from "../components/states";
 import { useApi } from "../use-api";
@@ -85,6 +85,7 @@ export function ActionDashboard({
 		(action as unknown as Record<string, unknown>)?.causalConfidence ??
 		parsedAttrs?.confidence ??
 		parsedAttrs?.causalConfidence;
+	const mcpAuditEnvelope = parsedAttrs?.["obs.mcp.audit_envelope"];
 
 	return (
 		<div className="flex h-full bg-sys-bg">
@@ -271,6 +272,15 @@ export function ActionDashboard({
 						)}
 					</dl>
 				</Card>
+
+				{mcpAuditEnvelope && (
+					<Card className="flex-none p-3">
+						<SectionTitle title="MCP Transport Audit" />
+						<div className="mt-2">
+							<JsonBlock label="audit envelope" value={mcpAuditEnvelope} />
+						</div>
+					</Card>
+				)}
 
 				<div className="flex-1 min-h-[400px] flex flex-col min-w-0">
 					<div className="flex-none px-3 py-2 bg-sys-surface border-[1px] border-b-0 border-sys-outline text-[0.8125rem] font-semibold text-sys-on-surface">

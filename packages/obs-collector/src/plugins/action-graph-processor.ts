@@ -107,6 +107,122 @@ const firstBoolLikeAttr = (
 	return value === true || value === 1 || value === "1" || value === "true";
 };
 
+const firstJsonAttr = (
+	attrs: Record<string, JsonValue>,
+	...keys: string[]
+): string | null => {
+	const value = firstAttr(attrs, ...keys);
+	if (value === undefined || value === null) return null;
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : null;
+	}
+	return JSON.stringify(value);
+};
+
+const parseJsonObject = (raw: string): Record<string, JsonValue> | null => {
+	try {
+		const parsed = JSON.parse(raw);
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			return parsed as Record<string, JsonValue>;
+		}
+	} catch {
+		return null;
+	}
+	return null;
+};
+
+const normalizeMcpAuditJson = (
+	attrs: Record<string, JsonValue>,
+): string | null => {
+	const raw = firstJsonAttr(
+		attrs,
+		"obs.mcp.audit",
+		"obs.mcp.audit_json",
+		"mcp.audit",
+		"mcp.audit_json",
+	);
+	if (!raw) return null;
+
+	const parsed = parseJsonObject(raw);
+	if (!parsed) return null;
+
+	const presentFields = Array.isArray(parsed.presentFields)
+		? parsed.presentFields.filter(
+				(field): field is string => typeof field === "string",
+			)
+		: null;
+	const allowedFields =
+		parsed.allowedFields &&
+		typeof parsed.allowedFields === "object" &&
+		!Array.isArray(parsed.allowedFields)
+			? (parsed.allowedFields as Record<string, JsonValue>)
+			: null;
+
+	if (!presentFields || !allowedFields) return null;
+
+	const redactedFields = Array.isArray(parsed.redactedFields)
+		? parsed.redactedFields.filter(
+				(field): field is string => typeof field === "string",
+			)
+		: [];
+	const droppedFields = Array.isArray(parsed.droppedFields)
+		? parsed.droppedFields.filter(
+				(field): field is string => typeof field === "string",
+			)
+		: [];
+	const hashedFields =
+		parsed.hashedFields &&
+		typeof parsed.hashedFields === "object" &&
+		!Array.isArray(parsed.hashedFields)
+			? (parsed.hashedFields as Record<string, JsonValue>)
+			: {};
+
+	return JSON.stringify({
+		schemaVersion: toFiniteNumber(parsed.schemaVersion) ?? 1,
+		presentFields,
+		allowedFields,
+		redactedFields,
+		hashedFields,
+		droppedFields,
+		hasRawMeta: parsed.hasRawMeta === true,
+	});
+};
+
+const normalizeMcpAuditEnvelope = (
+	attrs: Record<string, JsonValue>,
+): Record<string, JsonValue> | null => {
+	const json = normalizeMcpAuditJson(attrs);
+	if (!json) return null;
+	return parseJsonObject(json);
+};
+
+const normalizeMutationArtifactId = (
+	attrs: Record<string, JsonValue>,
+): string | null =>
+	firstStringAttr(
+		attrs,
+		"obs.tool_call.mutation.artifact_id",
+		"obs.tool.mutation.artifact_id",
+		"tool.mutation.artifact_id",
+	) ?? null;
+
+const EVIDENCE_ATTR_KEYS = [
+	"obs.mcp.audit",
+	"obs.mcp.audit_json",
+	"mcp.audit",
+	"mcp.audit_json",
+	"obs.tool_call.mutation.before",
+	"obs.tool_call.mutation.after",
+	"obs.tool_call.mutation.diff",
+	"obs.tool.mutation.before",
+	"obs.tool.mutation.after",
+	"obs.tool.mutation.diff",
+	"tool.mutation.before",
+	"tool.mutation.after",
+	"tool.mutation.diff",
+];
+
 const PAYLOAD_ATTR_KEYS = [
 	AI_PAYLOAD_INPUT_KEY,
 	AI_PAYLOAD_OUTPUT_KEY,
@@ -123,6 +239,7 @@ const PAYLOAD_ATTR_KEYS = [
 	ARTIFACT_CONTENT_KEY,
 	EVAL_REASONING_KEY,
 	EVAL_RUBRIC_KEY,
+	...EVIDENCE_ATTR_KEYS,
 ];
 
 const stripPayloadAttrs = (
@@ -209,6 +326,13 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							[ACTION_ROOT_ID_KEY]: rootActionId,
 							[ACTION_CONFIDENCE_KEY]: identity.confidence,
 						};
+						const mcpAuditEnvelope = normalizeMcpAuditEnvelope(attrs);
+						if (mcpAuditEnvelope) {
+							trustedAttrs["obs.mcp.audit_envelope"] = mcpAuditEnvelope;
+						}
+						for (const key of EVIDENCE_ATTR_KEYS) {
+							delete trustedAttrs[key];
+						}
 						delete trustedAttrs["obs.action.agent_run_id"];
 						delete trustedAttrs["obs.agent_run.id"];
 						if (causedByActionId !== undefined) {
@@ -500,6 +624,26 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 										: typeof redactedResult === "string"
 											? redactedResult
 											: JSON.stringify(redactedResult),
+								mcpAuditJson: normalizeMcpAuditJson(attrs),
+								mutationBeforeJson: firstJsonAttr(
+									attrs,
+									"obs.tool_call.mutation.before",
+									"obs.tool.mutation.before",
+									"tool.mutation.before",
+								),
+								mutationAfterJson: firstJsonAttr(
+									attrs,
+									"obs.tool_call.mutation.after",
+									"obs.tool.mutation.after",
+									"tool.mutation.after",
+								),
+								mutationDiffJson: firstJsonAttr(
+									attrs,
+									"obs.tool_call.mutation.diff",
+									"obs.tool.mutation.diff",
+									"tool.mutation.diff",
+								),
+								mutationArtifactId: normalizeMutationArtifactId(attrs),
 							};
 
 							for (const plugin of enricherPlugins) {
@@ -867,8 +1011,10 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 					const stmt = db.prepare(`
 						INSERT INTO tool_calls (
 							id, action_id, project_id, tool_name, args_hash, result_hash,
-							error_type, side_effect, approval_state, args_redacted, result_redacted
-						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+							error_type, side_effect, approval_state, args_redacted, result_redacted,
+							mcp_audit_json, mutation_before_json, mutation_after_json,
+							mutation_diff_json, mutation_artifact_id
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 						ON CONFLICT (id) DO UPDATE SET
 							action_id = excluded.action_id,
 							project_id = excluded.project_id,
@@ -879,7 +1025,12 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							side_effect = excluded.side_effect,
 							approval_state = excluded.approval_state,
 							args_redacted = excluded.args_redacted,
-							result_redacted = excluded.result_redacted
+							result_redacted = excluded.result_redacted,
+							mcp_audit_json = excluded.mcp_audit_json,
+							mutation_before_json = excluded.mutation_before_json,
+							mutation_after_json = excluded.mutation_after_json,
+							mutation_diff_json = excluded.mutation_diff_json,
+							mutation_artifact_id = excluded.mutation_artifact_id
 					`);
 					for (const r of toolCallsToInsert) {
 						statements.push(
@@ -895,6 +1046,11 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 								r.approvalState,
 								r.argsRedacted,
 								r.resultRedacted,
+								r.mcpAuditJson,
+								r.mutationBeforeJson,
+								r.mutationAfterJson,
+								r.mutationDiffJson,
+								r.mutationArtifactId,
 							),
 						);
 					}

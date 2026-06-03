@@ -23,6 +23,7 @@ import {
 	decodePprofBlob,
 	extractTraceIdsFromProfile,
 	filterPprofByTraceId,
+	summarizeProfileFrames,
 } from "../lib/parse-pprof";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
@@ -330,6 +331,35 @@ export const profileRoutesPlugin: CollectorPlugin = {
 					...(trace_id ? [meta.id, projectId, trace_id] : [meta.id, projectId]),
 				)
 				.all<{ trace_id: string }>();
+			const includeFrames = c.req.query("frames") === "true";
+			let frames: ReturnType<typeof summarizeProfileFrames> | undefined;
+			let framesError: string | null = null;
+			if (includeFrames) {
+				if (!c.env.PROFILES_BUCKET) {
+					framesError = "Profile storage not configured";
+				} else {
+					const obj = await c.env.PROFILES_BUCKET.get(meta.blob_url);
+					if (!obj) {
+						framesError = "Blob not found in storage";
+					} else {
+						try {
+							const raw = new Uint8Array(await obj.arrayBuffer());
+							const profile = await decodePprofBlob(raw);
+							frames = summarizeProfileFrames(profile, {
+								limit: parseNonNegInt(c.req.query("frame_limit"), 50),
+								traceIdFilter: trace_id ?? null,
+							});
+						} catch (err) {
+							framesError = err instanceof Error ? err.message : String(err);
+							runtime.logger.warn("[profile-routes] frame summary failed", {
+								profile_id: id,
+								trace_id: trace_id ?? null,
+								error: framesError,
+							});
+						}
+					}
+				}
+			}
 
 			return c.json({
 				profile: {
@@ -347,6 +377,8 @@ export const profileRoutesPlugin: CollectorPlugin = {
 				},
 				traceIds: traces.results.map((r) => r.trace_id),
 				traceIdRequested: trace_id ?? null,
+				frames: frames ?? [],
+				framesError,
 			});
 		});
 

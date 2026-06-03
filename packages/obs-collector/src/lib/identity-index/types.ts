@@ -143,6 +143,11 @@ export interface ToolCallRef {
 	approvalState: string | null;
 	argsRedacted: string | null;
 	resultRedacted: string | null;
+	mcpAuditJson: string | null;
+	mutationBeforeJson: string | null;
+	mutationAfterJson: string | null;
+	mutationDiffJson: string | null;
+	mutationArtifactId: string | null;
 }
 
 export interface RetrievalEventRef {

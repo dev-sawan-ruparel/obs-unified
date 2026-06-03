@@ -756,4 +756,119 @@ describe("actionGraphProcessorPlugin — Extensibility & Enrichment", () => {
 			await deriveActionId("proj-123", "trace-pipeline", "span-queue-parent"),
 		);
 	});
+
+	it("persists explicit MCP audit and mutation evidence without accepting raw MCP metadata", async () => {
+		const baseSpan = {
+			projectId: "proj-123",
+			parentSpanId: null,
+			traceId: "trace-evidence",
+			traceState: null,
+			serviceName: "tool-service",
+			scopeName: null,
+			scopeVersion: null,
+			spanKind: 1,
+			statusCode: 1,
+			statusMessage: null,
+			startTime: "2026-05-22T00:00:00.000Z",
+			endTime: "2026-05-22T00:00:01.000Z",
+			durationMs: 1000,
+			droppedAttributesCount: 0,
+			resourceAttributesJson: "{}",
+			eventsJson: "[]",
+			droppedEventsCount: 0,
+			linksJson: "[]",
+			droppedLinksCount: 0,
+			receivedAt: "2026-05-22T00:00:01.000Z",
+			expiresAt: "2026-05-23T00:00:01.000Z",
+			sessionId: null,
+			interactionId: null,
+		} satisfies Partial<StoredSpan>;
+
+		const runPipeline = registerSpanProcessors(actionGraphProcessorPlugin);
+		await runPipeline(
+			[
+				{
+					...baseSpan,
+					spanId: "span-evidence",
+					spanName: "write_file",
+					attributesJson: JSON.stringify({
+						"openinference.span.kind": "tool.call",
+						"obs.tool_call.tool_name": "write_file",
+						"obs.mcp.audit": {
+							schemaVersion: 1,
+							presentFields: ["progressToken", "_meta"],
+							allowedFields: { progressToken: true, _meta: false },
+							redactedFields: ["_meta"],
+							hashedFields: { progressToken: "sha256:123" },
+							droppedFields: ["_meta.secret"],
+							hasRawMeta: true,
+						},
+						"obs.tool_call.mutation.before": { status: "draft" },
+						"obs.tool_call.mutation.after": { status: "published" },
+						"obs.tool_call.mutation.diff": [{ op: "replace", path: "/status" }],
+						"obs.tool_call.mutation.artifact_id": "artifact-123",
+					}),
+				},
+				{
+					...baseSpan,
+					spanId: "span-raw-meta",
+					spanName: "raw_meta_tool",
+					attributesJson: JSON.stringify({
+						"openinference.span.kind": "tool.call",
+						"obs.tool_call.tool_name": "raw_meta_tool",
+						"mcp._meta": { secret: "do-not-store" },
+					}),
+				},
+				{
+					...baseSpan,
+					spanId: "span-resource",
+					spanName: "read_resource",
+					attributesJson: JSON.stringify({
+						"openinference.span.kind": "retrieval",
+						"mcp.method.name": "resources/read",
+						"obs.mcp.audit": {
+							schemaVersion: 1,
+							presentFields: ["cursor", "_meta"],
+							allowedFields: { cursor: true, _meta: false },
+							redactedFields: ["_meta"],
+							hasRawMeta: true,
+						},
+					}),
+				},
+			] as StoredSpan[],
+			context,
+		);
+
+		const toolInserts = db.callsMatching("INSERT INTO tool_calls");
+		expect(toolInserts).toHaveLength(2);
+		const evidenceInsert = toolInserts.find((call) =>
+			call.binds.includes("span-evidence"),
+		);
+		const rawMetaInsert = toolInserts.find((call) =>
+			call.binds.includes("span-raw-meta"),
+		);
+		expect(evidenceInsert?.binds[11]).toContain("presentFields");
+		expect(evidenceInsert?.binds[12]).toContain("draft");
+		expect(evidenceInsert?.binds[13]).toContain("published");
+		expect(evidenceInsert?.binds[14]).toContain("replace");
+		expect(evidenceInsert?.binds[15]).toBe("artifact-123");
+		expect(rawMetaInsert?.binds[11]).toBeNull();
+		expect(String(rawMetaInsert?.binds.join(" "))).not.toContain(
+			"do-not-store",
+		);
+
+		const actionBySpan = new Map(
+			db
+				.callsMatching("INSERT INTO actions")
+				.map((insert) => [String(insert.binds[13]), insert]),
+		);
+		const resourceAttrs = JSON.parse(
+			String(actionBySpan.get("span-resource")?.binds[24] ?? "{}"),
+		);
+		expect(resourceAttrs["obs.mcp.audit_envelope"]).toMatchObject({
+			presentFields: ["cursor", "_meta"],
+			hasRawMeta: true,
+		});
+		expect(resourceAttrs["obs.mcp.audit"]).toBeUndefined();
+	});
 });

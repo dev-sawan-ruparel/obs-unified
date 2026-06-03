@@ -77,6 +77,13 @@ export function ToolCallDashboard({
 	const causalAction = manifest.rawManifest?.actions?.find(
 		(a) => a.id === actionId,
 	);
+	const hasMcpAudit = Boolean(toolCall?.mcpAuditJson);
+	const hasMutationEvidence = Boolean(
+		toolCall?.mutationBeforeJson ||
+			toolCall?.mutationAfterJson ||
+			toolCall?.mutationDiffJson ||
+			toolCall?.mutationArtifactId,
+	);
 
 	const causalAttrs = (() => {
 		if (!causalAction?.attrsJson) return {};
@@ -246,6 +253,53 @@ export function ToolCallDashboard({
 							</div>
 						)}
 					</Card>
+				)}
+
+				{toolCall && (hasMcpAudit || hasMutationEvidence) && (
+					<div className="grid grid-cols-1 xl:grid-cols-2 gap-3 flex-none">
+						{hasMcpAudit && (
+							<Card className="p-3 min-w-0">
+								<SectionTitle title="MCP Transport Audit" />
+								<div className="mt-2">
+									<JsonBlock
+										label="audit envelope"
+										value={toolCall.mcpAuditJson}
+									/>
+								</div>
+							</Card>
+						)}
+
+						{hasMutationEvidence && (
+							<Card className="p-3 min-w-0">
+								<SectionTitle title="Mutation Evidence" />
+								<div className="mt-2 grid grid-cols-1 gap-3">
+									{toolCall.mutationBeforeJson && (
+										<JsonBlock
+											label="before"
+											value={toolCall.mutationBeforeJson}
+										/>
+									)}
+									{toolCall.mutationAfterJson && (
+										<JsonBlock
+											label="after"
+											value={toolCall.mutationAfterJson}
+										/>
+									)}
+									{toolCall.mutationDiffJson && (
+										<JsonBlock label="diff" value={toolCall.mutationDiffJson} />
+									)}
+									{toolCall.mutationArtifactId && (
+										<div className="rounded border border-sys-outline-soft bg-sys-surface-low p-2 font-mono text-[0.75rem]">
+											<span className="opacity-60">artifact_id</span>{" "}
+											<span className="font-semibold">
+												{toolCall.mutationArtifactId}
+											</span>
+										</div>
+									)}
+								</div>
+							</Card>
+						)}
+					</div>
 				)}
 
 				<div className="flex-1 min-h-[400px] flex flex-col min-w-0">

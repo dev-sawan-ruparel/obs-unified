@@ -156,8 +156,10 @@ export class ActionStore {
 			.prepare(`
 				INSERT INTO tool_calls (
 					id, action_id, project_id, tool_name, args_hash, result_hash,
-					error_type, side_effect, approval_state, args_redacted, result_redacted
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					error_type, side_effect, approval_state, args_redacted, result_redacted,
+					mcp_audit_json, mutation_before_json, mutation_after_json,
+					mutation_diff_json, mutation_artifact_id
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(id) DO UPDATE SET
 					action_id = excluded.action_id,
 					project_id = excluded.project_id,
@@ -168,7 +170,12 @@ export class ActionStore {
 					side_effect = excluded.side_effect,
 					approval_state = excluded.approval_state,
 					args_redacted = excluded.args_redacted,
-					result_redacted = excluded.result_redacted
+					result_redacted = excluded.result_redacted,
+					mcp_audit_json = excluded.mcp_audit_json,
+					mutation_before_json = excluded.mutation_before_json,
+					mutation_after_json = excluded.mutation_after_json,
+					mutation_diff_json = excluded.mutation_diff_json,
+					mutation_artifact_id = excluded.mutation_artifact_id
 			`)
 			.bind(
 				toolCall.id,
@@ -182,6 +189,11 @@ export class ActionStore {
 				toolCall.approvalState,
 				toolCall.argsRedacted,
 				toolCall.resultRedacted,
+				toolCall.mcpAuditJson,
+				toolCall.mutationBeforeJson,
+				toolCall.mutationAfterJson,
+				toolCall.mutationDiffJson,
+				toolCall.mutationArtifactId,
 			)
 			.run();
 	}

@@ -32,6 +32,39 @@ interface VersionComparison {
 	timestamp: string;
 }
 
+interface CompareStep {
+	key: string;
+	actionId: string;
+	parentActionId: string | null;
+	actionKind: string;
+	name: string | null;
+	status: string;
+	durationMs: number | null;
+	totalCostUsd: number | null;
+	toolName: string | null;
+	toolCallId: string | null;
+	evalPassed: boolean | null;
+	evalScore: number | null;
+	traceId: string | null;
+	spanId: string | null;
+	causalConfidence?: string;
+}
+
+interface StepComparison {
+	key: string;
+	changeType: "same" | "changed" | "added" | "removed";
+	changedFields: string[];
+	left: CompareStep | null;
+	right: CompareStep | null;
+}
+
+interface ActionCompareResponse {
+	leftId: string;
+	rightId: string;
+	stepComparisons: StepComparison[];
+	generatedAt: string;
+}
+
 interface Props {
 	onNavigate?: (href: string) => void;
 }
@@ -53,6 +86,9 @@ export function AgentVersionDiffDashboard({ onNavigate }: Props) {
 	const [showEmptyState, setShowEmptyState] = useState(false);
 	const [baseline, setBaseline] = useState("v2.0.4");
 	const [target, setTarget] = useState("v3.1.2");
+	const [compareData, setCompareData] = useState<ActionCompareResponse | null>(
+		null,
+	);
 
 	useEffect(() => {
 		let active = true;
@@ -81,6 +117,38 @@ export function AgentVersionDiffDashboard({ onNavigate }: Props) {
 			active = false;
 		};
 	}, [api, baseline, target]);
+
+	useEffect(() => {
+		let active = true;
+		const left =
+			data?.baselineExemplars?.[0]?.agentRunId ??
+			data?.baselineExemplars?.[0]?.actionId;
+		const right =
+			data?.targetExemplars?.[0]?.agentRunId ??
+			data?.targetExemplars?.[0]?.actionId;
+		if (!left || !right) {
+			setCompareData(null);
+			return () => {
+				active = false;
+			};
+		}
+
+		api<ActionCompareResponse>(
+			`/actions/compare?left=${encodeURIComponent(left)}&right=${encodeURIComponent(
+				right,
+			)}`,
+		)
+			.then((comparison) => {
+				if (active) setCompareData(comparison);
+			})
+			.catch(() => {
+				if (active) setCompareData(null);
+			});
+
+		return () => {
+			active = false;
+		};
+	}, [api, data]);
 
 	if (loading) {
 		return (
@@ -280,6 +348,113 @@ export function AgentVersionDiffDashboard({ onNavigate }: Props) {
 					))}
 				</div>
 			</Card>
+
+			<Card className="mt-2 p-3 flex flex-col min-w-0">
+				<SectionTitle
+					title="Step Comparison"
+					note="First baseline and target exemplars, aligned by step identity"
+				/>
+				{compareData ? (
+					<div className="mt-2 overflow-x-auto">
+						<table className="w-full text-left text-[0.75rem]">
+							<thead>
+								<tr className="border-b border-sys-outline-soft">
+									<th className="pb-2 font-bold uppercase tracking-[0.05em] opacity-60">
+										Change
+									</th>
+									<th className="pb-2 font-bold uppercase tracking-[0.05em] opacity-60">
+										Baseline Step
+									</th>
+									<th className="pb-2 font-bold uppercase tracking-[0.05em] opacity-60">
+										Target Step
+									</th>
+									<th className="pb-2 font-bold uppercase tracking-[0.05em] opacity-60">
+										Changed Fields
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-sys-outline-soft/40">
+								{compareData.stepComparisons
+									.filter((row) => row.changeType !== "same")
+									.slice(0, 25)
+									.map((row) => (
+										<tr key={row.key} className="align-top">
+											<td className="py-2 pr-3">
+												<span
+													className={`inline-block border px-1.5 py-0.5 font-mono text-[0.625rem] uppercase ${
+														row.changeType === "changed"
+															? "border-sys-warning/40 bg-sys-warning/10 text-sys-warning"
+															: row.changeType === "added"
+																? "border-sys-primary/40 bg-sys-primary/10 text-sys-primary"
+																: "border-sys-error/40 bg-sys-error/10 text-sys-error"
+													}`}
+												>
+													{row.changeType}
+												</span>
+											</td>
+											<td className="py-2 pr-3">
+												<StepCell step={row.left} onNavigate={onNavigate} />
+											</td>
+											<td className="py-2 pr-3">
+												<StepCell step={row.right} onNavigate={onNavigate} />
+											</td>
+											<td className="py-2 font-mono text-[0.6875rem] opacity-75">
+												{row.changedFields.length > 0
+													? row.changedFields.join(", ")
+													: "step presence"}
+											</td>
+										</tr>
+									))}
+							</tbody>
+						</table>
+					</div>
+				) : (
+					<div className="mt-2 border border-sys-outline-soft bg-sys-surface-low p-3 text-[0.75rem] text-sys-on-surface-muted">
+						No comparable exemplar pair is available for these versions.
+					</div>
+				)}
+			</Card>
+		</div>
+	);
+}
+
+function StepCell({
+	step,
+	onNavigate,
+}: {
+	step: CompareStep | null;
+	onNavigate?: Props["onNavigate"];
+}) {
+	if (!step) {
+		return <span className="text-sys-on-surface-muted">absent</span>;
+	}
+	const target =
+		step.toolCallId != null
+			? `#/tool-calls/${encodeURIComponent(step.toolCallId)}`
+			: `#/actions/${encodeURIComponent(step.actionId)}`;
+	return (
+		<div className="flex min-w-[12rem] flex-col gap-0.5">
+			<button
+				type="button"
+				onClick={() => onNavigate?.(target)}
+				className="text-left font-semibold text-sys-primary hover:underline"
+			>
+				{step.name ?? step.toolName ?? step.actionKind}
+			</button>
+			<div className="font-mono text-[0.625rem] opacity-65">
+				{step.actionKind} - {step.status}
+				{step.durationMs != null ? ` - ${step.durationMs}ms` : ""}
+				{step.totalCostUsd != null ? ` - $${step.totalCostUsd.toFixed(4)}` : ""}
+			</div>
+			<div className="font-mono text-[0.625rem] opacity-55">
+				{step.evalPassed == null
+					? "eval n/a"
+					: step.evalPassed
+						? "eval pass"
+						: "eval fail"}
+				{step.evalScore != null ? ` (${step.evalScore.toFixed(2)})` : ""}
+				{step.traceId ? ` - trace ${step.traceId.slice(0, 8)}` : ""}
+			</div>
 		</div>
 	);
 }

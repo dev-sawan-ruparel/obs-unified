@@ -41,6 +41,88 @@ export {
 const TRACE_ID_LABEL_KEYS = ["trace_id", "trace.id"];
 const TRACE_ID_RE = /^[0-9a-f]{16,32}$/i;
 
+export interface ProfileFrameSummary {
+	name: string;
+	value: number;
+	sampleCount: number;
+	codeReference?: {
+		originalPath: string;
+		relativePath?: string;
+		absolutePath?: string;
+		lineNumber?: number;
+		symbol?: string;
+	};
+}
+
+const sampleHasTraceId = (
+	profile: PprofProfile,
+	sample: PprofSample,
+	traceIdFilter: string | null,
+): boolean => {
+	if (!traceIdFilter) return true;
+	const want = traceIdFilter.toLowerCase();
+	const traceIdKeyIxs = new Set<number>();
+	for (let i = 0; i < profile.stringTable.length; i++) {
+		if (TRACE_ID_LABEL_KEYS.includes(profile.stringTable[i])) {
+			traceIdKeyIxs.add(i);
+		}
+	}
+	return sample.labels.some(
+		(label) =>
+			traceIdKeyIxs.has(label.keyIdx) &&
+			profile.stringTable[label.strIdx]?.toLowerCase() === want,
+	);
+};
+
+export const summarizeProfileFrames = (
+	profile: PprofProfile,
+	opts: { limit?: number; traceIdFilter?: string | null } = {},
+): ProfileFrameSummary[] => {
+	const limit = Math.max(1, Math.min(opts.limit ?? 50, 500));
+	const byFrame = new Map<string, ProfileFrameSummary>();
+
+	for (const sample of profile.samples) {
+		if (!sampleHasTraceId(profile, sample, opts.traceIdFilter ?? null))
+			continue;
+		const value = sample.values[0] ?? 0;
+		for (const locationId of sample.locationIds) {
+			const loc = profile.locations.get(locationId);
+			if (!loc) continue;
+			const lines =
+				loc.lines ||
+				(loc.functionIds || []).map((functionId) => ({ functionId, line: 0 }));
+			for (const line of lines) {
+				const fn = profile.functions.get(line.functionId);
+				if (!fn) continue;
+				const name = profile.stringTable[fn.nameIdx] ?? "?";
+				const filename = profile.stringTable[fn.filenameIdx] ?? "";
+				const key = `${name}\0${filename}\0${line.line || 0}`;
+				const existing = byFrame.get(key) ?? {
+					name,
+					value: 0,
+					sampleCount: 0,
+					codeReference: filename
+						? {
+								originalPath: filename,
+								relativePath: filename.startsWith("/") ? undefined : filename,
+								absolutePath: filename.startsWith("/") ? filename : undefined,
+								lineNumber: line.line || undefined,
+								symbol: name,
+							}
+						: undefined,
+				};
+				existing.value += value;
+				existing.sampleCount += 1;
+				byFrame.set(key, existing);
+			}
+		}
+	}
+
+	return Array.from(byFrame.values())
+		.sort((a, b) => b.value - a.value)
+		.slice(0, limit);
+};
+
 /**
  * Extract distinct trace_id label values from a parsed pprof. Returns
  * an array of valid 16-32 hex-char trace_ids, deduplicated. Defensive

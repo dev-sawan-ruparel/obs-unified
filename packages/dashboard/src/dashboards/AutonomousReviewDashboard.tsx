@@ -23,6 +23,8 @@ interface AutonomousWriteRow {
 	errorSnippet: string | null;
 	traceId: string;
 	occurredAt: string;
+	mutationEvidence?: boolean;
+	mutationArtifactId?: string | null;
 }
 
 interface AutonomousReviewData {
@@ -109,6 +111,7 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 	const rejectedCount = rows.filter(
 		(r) => r.approvalState === "rejected",
 	).length;
+	const evidenceCount = rows.filter((r) => r.mutationEvidence).length;
 
 	return (
 		<div className="flex h-full flex-col bg-sys-bg p-2 font-sans text-sys-on-surface overflow-hidden">
@@ -154,7 +157,7 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 			</div>
 
 			{/* Stats Bar */}
-			<div className="mb-2 grid grid-cols-3 gap-2 flex-none">
+			<div className="mb-2 grid grid-cols-4 gap-2 flex-none">
 				<Stat
 					label="Total Pending Invocations"
 					value={pendingCount.toString()}
@@ -169,6 +172,11 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 					label="Total Blocked/Rejected"
 					value={rejectedCount.toString()}
 					accent="error"
+				/>
+				<Stat
+					label="With Mutation Evidence"
+					value={evidenceCount.toString()}
+					accent="primary"
 				/>
 			</div>
 
@@ -203,6 +211,9 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 										</th>
 										<th className="pb-2 text-center font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
 											Status
+										</th>
+										<th className="pb-2 text-center font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
+											Evidence
 										</th>
 										<th className="pb-2 pr-2 text-right font-bold uppercase tracking-[0.05em] text-[0.625rem] opacity-70">
 											Inspect Telemetry
@@ -283,6 +294,18 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 														className={`px-2 py-0.5 rounded text-[0.6875rem] font-bold uppercase tracking-[0.05em] inline-block ${statusBadgeColor}`}
 													>
 														{row.status}
+													</span>
+												</td>
+												<td className="py-2.5 text-center">
+													<span
+														className={`px-2 py-0.5 rounded text-[0.6875rem] font-bold uppercase tracking-[0.05em] inline-block border ${
+															row.mutationEvidence
+																? "border-sys-primary/30 bg-sys-primary/15 text-sys-primary"
+																: "border-sys-outline-soft bg-sys-surface-low text-sys-on-surface-muted"
+														}`}
+														title={row.mutationArtifactId ?? undefined}
+													>
+														{row.mutationEvidence ? "diff" : "none"}
 													</span>
 												</td>
 												<td className="py-2.5 text-right font-mono text-[0.75rem] pr-2">

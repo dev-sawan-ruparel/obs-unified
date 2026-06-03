@@ -9,6 +9,12 @@ import {
 	getToolReliabilityAggregates,
 	getVersionDiffAggregates,
 } from "../lib/action-aggregates";
+import type {
+	ActionRef,
+	EntityManifestExtended,
+	EvalResultRef,
+	ToolCallRef,
+} from "../lib/identity-index";
 import { IdentityIndex } from "../lib/identity-index";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
@@ -30,6 +36,138 @@ const parseWindowHours = (
 ): number => {
 	const maxHours = getConfiguredRetentionHours(retentionHours);
 	return parsePositiveInt(raw, DEFAULT_WINDOW_HOURS, 1, maxHours);
+};
+
+interface CompareStep {
+	key: string;
+	index: number;
+	actionId: string;
+	parentActionId: string | null;
+	actionKind: string;
+	name: string | null;
+	status: string;
+	durationMs: number | null;
+	totalCostUsd: number | null;
+	toolName: string | null;
+	toolCallId: string | null;
+	evalPassed: boolean | null;
+	evalScore: number | null;
+	traceId: string | null;
+	spanId: string | null;
+	causalConfidence?: string;
+}
+
+const sortActionSteps = (actions: ActionRef[]): ActionRef[] =>
+	[...actions].sort((a, b) => {
+		const time = a.startedAt.localeCompare(b.startedAt);
+		if (time !== 0) return time;
+		return a.id.localeCompare(b.id);
+	});
+
+const stepBaseKey = (
+	action: ActionRef,
+	tool: ToolCallRef | undefined,
+): string => {
+	const name = tool?.toolName ?? action.stepId ?? action.name ?? "unnamed";
+	return `${action.actionKind}:${name}`.toLowerCase();
+};
+
+const buildCompareSteps = (manifest: EntityManifestExtended): CompareStep[] => {
+	const toolsByAction = new Map<string, ToolCallRef[]>();
+	for (const tool of manifest.toolCalls) {
+		const tools = toolsByAction.get(tool.actionId) ?? [];
+		tools.push(tool);
+		toolsByAction.set(tool.actionId, tools);
+	}
+
+	const evalsByAction = new Map<string, EvalResultRef[]>();
+	for (const evalResult of manifest.evalResults) {
+		const evals = evalsByAction.get(evalResult.actionId) ?? [];
+		evals.push(evalResult);
+		evalsByAction.set(evalResult.actionId, evals);
+	}
+
+	const seen = new Map<string, number>();
+	return sortActionSteps(manifest.actions).map((action, index) => {
+		const tool = toolsByAction.get(action.id)?.[0];
+		const evalResult = evalsByAction.get(action.id)?.[0];
+		const baseKey = stepBaseKey(action, tool);
+		const count = seen.get(baseKey) ?? 0;
+		seen.set(baseKey, count + 1);
+		return {
+			key: `${baseKey}#${count}`,
+			index,
+			actionId: action.id,
+			parentActionId: action.causedByActionId,
+			actionKind: action.actionKind,
+			name: action.name,
+			status: action.status,
+			durationMs: action.durationMs,
+			totalCostUsd: action.totalCostUsd,
+			toolName: tool?.toolName ?? null,
+			toolCallId: tool?.id ?? action.toolCallId,
+			evalPassed: evalResult ? evalResult.passed !== 0 : null,
+			evalScore: evalResult?.score ?? null,
+			traceId: action.traceId,
+			spanId: action.spanId,
+			causalConfidence: action.causalConfidence,
+		};
+	});
+};
+
+const changedFields = (left: CompareStep, right: CompareStep): string[] => {
+	const fields: (keyof CompareStep)[] = [
+		"parentActionId",
+		"actionKind",
+		"name",
+		"status",
+		"durationMs",
+		"totalCostUsd",
+		"toolName",
+		"evalPassed",
+		"evalScore",
+		"traceId",
+		"causalConfidence",
+	];
+	return fields.filter((field) => left[field] !== right[field]);
+};
+
+const compareStepSequences = (
+	leftSteps: CompareStep[],
+	rightSteps: CompareStep[],
+) => {
+	const leftByKey = new Map(leftSteps.map((step) => [step.key, step]));
+	const rightByKey = new Map(rightSteps.map((step) => [step.key, step]));
+	const keys = Array.from(new Set([...leftByKey.keys(), ...rightByKey.keys()]));
+	return keys.map((key) => {
+		const left = leftByKey.get(key) ?? null;
+		const right = rightByKey.get(key) ?? null;
+		const fields = left && right ? changedFields(left, right) : [];
+		return {
+			key,
+			changeType:
+				left && right
+					? fields.length > 0
+						? "changed"
+						: "same"
+					: left
+						? "removed"
+						: "added",
+			changedFields: fields,
+			left,
+			right,
+		};
+	});
+};
+
+const manifestForComparableId = async (
+	index: IdentityIndex,
+	projectId: string,
+	id: string,
+): Promise<EntityManifestExtended> => {
+	const byAction = await index.byAction(projectId, id);
+	if (byAction.actions.some((action) => action.id === id)) return byAction;
+	return index.byAgentRun(projectId, id);
 };
 
 export const actionRoutesPlugin: CollectorPlugin = {
@@ -92,6 +230,48 @@ export const actionRoutesPlugin: CollectorPlugin = {
 				c.req.query("target"),
 			);
 			return c.json(result);
+		});
+
+		app.get("/internal/actions/compare", async (c) => {
+			const projectId = getProjectId(c);
+			const leftId = c.req.query("left");
+			const rightId = c.req.query("right");
+			if (!leftId || !rightId) {
+				return c.json(
+					{ error: "left and right query parameters required" },
+					400,
+				);
+			}
+
+			const index = new IdentityIndex(sqlDbFor(c.env));
+			const [leftManifest, rightManifest] = await Promise.all([
+				manifestForComparableId(index, projectId, leftId),
+				manifestForComparableId(index, projectId, rightId),
+			]);
+			const leftSteps = buildCompareSteps(leftManifest);
+			const rightSteps = buildCompareSteps(rightManifest);
+
+			if (leftSteps.length === 0 || rightSteps.length === 0) {
+				return c.json(
+					{
+						error: "Not Found",
+						message: "Both comparable action graphs must exist",
+					},
+					404,
+				);
+			}
+
+			return c.json({
+				projectId,
+				leftId,
+				rightId,
+				leftManifest,
+				rightManifest,
+				leftSteps,
+				rightSteps,
+				stepComparisons: compareStepSequences(leftSteps, rightSteps),
+				generatedAt: new Date().toISOString(),
+			});
 		});
 
 		app.get("/internal/actions/:id", async (c) => {

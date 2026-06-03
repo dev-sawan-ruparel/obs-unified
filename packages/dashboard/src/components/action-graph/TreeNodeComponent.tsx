@@ -143,6 +143,18 @@ export function TreeNodeComponent({
 								({action.modelName})
 							</span>
 						)}
+						{action.causalConfidence && (
+							<span
+								className={`text-[0.55rem] font-mono px-1 py-0.2 rounded border uppercase ${
+									action.causalConfidence === "explicit"
+										? "border-sys-primary/40 bg-sys-primary/10 text-sys-primary"
+										: "border-sys-warning/40 bg-sys-warning/10 text-sys-warning"
+								}`}
+								title={`causal link: ${action.causalConfidence}`}
+							>
+								{action.causalConfidence}
+							</span>
+						)}
 
 						<div className="flex-1" />
 
@@ -183,6 +195,21 @@ export function TreeNodeComponent({
 									🛠️ {t.toolName}
 								</span>
 							))}
+							{nodeTools.some(
+								(t) =>
+									t.mcpAuditJson ||
+									t.mutationBeforeJson ||
+									t.mutationAfterJson ||
+									t.mutationDiffJson ||
+									t.mutationArtifactId,
+							) && (
+								<span
+									className="text-[0.55rem] font-mono px-1 py-0.2 rounded border border-sys-primary/40 bg-sys-primary/10 text-sys-primary"
+									title="tool evidence captured"
+								>
+									evidence
+								</span>
+							)}
 
 							{nodeRetrievals.map((r) => (
 								<span

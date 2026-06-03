@@ -258,6 +258,11 @@ export const mapToolCall = (r: {
 	approval_state: string | null;
 	args_redacted: string | null;
 	result_redacted: string | null;
+	mcp_audit_json?: string | null;
+	mutation_before_json?: string | null;
+	mutation_after_json?: string | null;
+	mutation_diff_json?: string | null;
+	mutation_artifact_id?: string | null;
 }): ToolCallRef => ({
 	id: r.id,
 	actionId: r.action_id,
@@ -270,6 +275,11 @@ export const mapToolCall = (r: {
 	approvalState: r.approval_state,
 	argsRedacted: r.args_redacted,
 	resultRedacted: r.result_redacted,
+	mcpAuditJson: r.mcp_audit_json ?? null,
+	mutationBeforeJson: r.mutation_before_json ?? null,
+	mutationAfterJson: r.mutation_after_json ?? null,
+	mutationDiffJson: r.mutation_diff_json ?? null,
+	mutationArtifactId: r.mutation_artifact_id ?? null,
 });
 
 export const mapRetrievalEvent = (r: {

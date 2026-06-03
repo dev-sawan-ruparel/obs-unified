@@ -200,6 +200,11 @@ interface ToolCallSourceRow {
 	tool_name: string | null;
 	args_hash: string | null;
 	result_hash: string | null;
+	mcp_audit_json?: unknown;
+	mutation_before_json?: unknown;
+	mutation_after_json?: unknown;
+	mutation_diff_json?: unknown;
+	mutation_artifact_id?: string | null;
 }
 
 interface SpanSourceRow {
@@ -854,7 +859,9 @@ export class EvalCasesStore {
 	): Promise<ToolCallSourceRow | null> {
 		return this.db
 			.prepare(
-				`SELECT id, action_id, tool_name, args_hash, result_hash
+				`SELECT id, action_id, tool_name, args_hash, result_hash,
+					mcp_audit_json, mutation_before_json, mutation_after_json,
+					mutation_diff_json, mutation_artifact_id
 				FROM tool_calls
 				WHERE project_id = ? AND id = ? LIMIT 1`,
 			)
@@ -929,7 +936,9 @@ export class EvalCasesStore {
 		} else if (links.sourceActionId) {
 			const rows = await this.db
 				.prepare(
-					`SELECT id, action_id, tool_name, args_hash, result_hash
+					`SELECT id, action_id, tool_name, args_hash, result_hash,
+						mcp_audit_json, mutation_before_json, mutation_after_json,
+						mutation_diff_json, mutation_artifact_id
 					FROM tool_calls
 					WHERE project_id = ? AND action_id = ?
 					LIMIT 25`,
@@ -971,9 +980,43 @@ export class EvalCasesStore {
 	}
 }
 
-const toolHashMetadata = (tool: ToolCallSourceRow): JsonValue => ({
-	toolCallId: tool.id,
-	toolName: tool.tool_name,
-	argsHash: tool.args_hash,
-	resultHash: tool.result_hash,
-});
+const toolHashMetadata = (tool: ToolCallSourceRow): JsonValue => {
+	const metadata: Record<string, JsonValue> = {
+		toolCallId: tool.id,
+		toolName: tool.tool_name,
+		argsHash: tool.args_hash,
+		resultHash: tool.result_hash,
+	};
+
+	const mcpAudit = parseEvidenceJson(tool.mcp_audit_json);
+	if (mcpAudit !== null) metadata.mcpAudit = mcpAudit;
+
+	const mutationEvidence: Record<string, JsonValue> = {};
+	const before = parseEvidenceJson(tool.mutation_before_json);
+	const after = parseEvidenceJson(tool.mutation_after_json);
+	const diff = parseEvidenceJson(tool.mutation_diff_json);
+	if (before !== null) mutationEvidence.before = before;
+	if (after !== null) mutationEvidence.after = after;
+	if (diff !== null) mutationEvidence.diff = diff;
+	if (tool.mutation_artifact_id) {
+		mutationEvidence.artifactId = tool.mutation_artifact_id;
+	}
+	if (Object.keys(mutationEvidence).length > 0) {
+		metadata.mutationEvidence = mutationEvidence;
+	}
+
+	return metadata;
+};
+
+const parseEvidenceJson = (value: unknown): JsonValue | null => {
+	if (value === null || value === undefined) return null;
+	if (typeof value === "string") return parseJsonValue(value);
+	if (
+		typeof value === "object" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	) {
+		return value as JsonValue;
+	}
+	return null;
+};

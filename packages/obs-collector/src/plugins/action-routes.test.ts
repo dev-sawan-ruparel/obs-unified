@@ -162,6 +162,84 @@ describe("actionRoutesPlugin", () => {
 		expect(body.manifest.actions).toHaveLength(2);
 	});
 
+	it("compares normalized action step sequences for two agent runs", async () => {
+		const leftRoot = {
+			...actionRoot,
+			id: "left-run",
+			root_action_id: "left-run",
+		};
+		const rightRoot = {
+			...actionRoot,
+			id: "right-run",
+			root_action_id: "right-run",
+		};
+		const leftTool = {
+			...actionChild,
+			id: "left-tool",
+			root_action_id: "left-run",
+			caused_by_action_id: "left-run",
+			name: "Update invoice",
+			status: "ok",
+			duration_ms: 100,
+		};
+		const rightTool = {
+			...actionChild,
+			id: "right-tool",
+			root_action_id: "right-run",
+			caused_by_action_id: "right-run",
+			name: "Update invoice",
+			status: "error",
+			duration_ms: 250,
+		};
+		const db = new MemSqlDb({
+			first: (_sql, binds) => {
+				if (binds.includes("left-run")) return leftRoot;
+				if (binds.includes("right-run")) return rightRoot;
+				return null;
+			},
+			all: (sql, binds) => {
+				if (sql.includes("FROM actions")) {
+					if (binds.includes("left-run")) return [leftRoot, leftTool];
+					if (binds.includes("right-run")) return [rightRoot, rightTool];
+				}
+				if (sql.includes("FROM agent_runs")) {
+					return [
+						{
+							...agentRun,
+							id: binds.includes("left-run") ? "left-run" : "right-run",
+						},
+					];
+				}
+				if (sql.includes("FROM tool_calls")) {
+					if (binds.includes("left-tool")) {
+						return [{ ...toolCall, id: "left-call", action_id: "left-tool" }];
+					}
+					if (binds.includes("right-tool")) {
+						return [{ ...toolCall, id: "right-call", action_id: "right-tool" }];
+					}
+				}
+				return [];
+			},
+		});
+
+		const res = await setup(db)(
+			"/internal/actions/compare?left=left-run&right=right-run",
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			stepComparisons: Array<{ changeType: string; changedFields: string[] }>;
+		};
+		expect(
+			body.stepComparisons.some((step) => step.changeType === "changed"),
+		).toBe(true);
+		expect(
+			body.stepComparisons.some((step) =>
+				step.changedFields.includes("status"),
+			),
+		).toBe(true);
+	});
+
 	it("returns 404 for missing actions, agent runs, and tool calls", async () => {
 		const fetch = setup(new MemSqlDb({ first: () => null, all: () => [] }));
 

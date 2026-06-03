@@ -86,6 +86,8 @@ export interface AutonomousReviewRow {
 	errorSnippet: string | null;
 	traceId: string;
 	occurredAt: string;
+	mutationEvidence: boolean;
+	mutationArtifactId: string | null;
 }
 
 export interface AutonomousReviewResult {
@@ -175,6 +177,8 @@ interface AutonomousReviewSqlRow {
 	error_snippet: string | null;
 	trace_id: string | null;
 	occurred_at: string | null;
+	mutation_evidence: number | null;
+	mutation_artifact_id: string | null;
 }
 
 interface VersionStatsRow {
@@ -795,7 +799,15 @@ export const getAutonomousReviewAggregates = async (
 				COALESCE(a.status, 'ok') AS status,
 				t.error_type AS error_snippet,
 				COALESCE(a.trace_id, root.trace_id) AS trace_id,
-				COALESCE(a.started_at, root.started_at) AS occurred_at
+				COALESCE(a.started_at, root.started_at) AS occurred_at,
+				CASE
+					WHEN t.mutation_before_json IS NOT NULL
+						OR t.mutation_after_json IS NOT NULL
+						OR t.mutation_diff_json IS NOT NULL
+						OR t.mutation_artifact_id IS NOT NULL
+					THEN 1 ELSE 0
+				END AS mutation_evidence,
+				t.mutation_artifact_id
 			FROM tool_calls t
 			LEFT JOIN actions a ON a.project_id = t.project_id AND a.id = t.action_id
 			LEFT JOIN actions root ON root.project_id = t.project_id AND root.id = a.root_action_id
@@ -828,6 +840,8 @@ export const getAutonomousReviewAggregates = async (
 			errorSnippet: row.error_snippet,
 			traceId: row.trace_id ?? "",
 			occurredAt: row.occurred_at ?? new Date(0).toISOString(),
+			mutationEvidence: row.mutation_evidence !== 0,
+			mutationArtifactId: row.mutation_artifact_id ?? null,
 		})),
 		timestamp: new Date().toISOString(),
 	};

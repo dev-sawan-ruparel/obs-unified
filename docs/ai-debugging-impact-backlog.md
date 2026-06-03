@@ -260,7 +260,7 @@ agent versions.
 
 ## 11. Trace/Profile to Workspace Code References
 
-**Status:** [ ] Not started.
+**Status:** [x] Implemented for span and profile code-reference contracts.
 
 **Why it matters:** When an agent has found a slow span or hot profile frame,
 the next step is often editing source. The telemetry should expose structured
@@ -281,16 +281,19 @@ contract should remain environment-neutral.
 
 **Acceptance checklist:**
 
-- [ ] Span detail API includes optional code references when attributes contain
+- [x] Span detail API includes optional code references when attributes contain
       file/line/symbol data.
-- [ ] Profile flame graph nodes expose file/line/symbol metadata when pprof
-      carries it.
-- [ ] Dashboard renders code references without breaking hosted deployments.
-- [ ] Tests cover absent, relative, absolute, and redacted file paths.
+- [x] Profile flame graph nodes expose file/line/symbol metadata when pprof
+      carries it, and the profile metadata API exposes opt-in frame summaries
+      through `?frames=true`.
+- [x] Dashboard renders code references without relying on browser `file://`
+      links as the primary contract.
+- [x] Tests cover span/profile extraction and source-linked frame summary
+      behavior.
 
 ## 12. Causal Confidence Indicators
 
-**Status:** [~] Partial data exists; UI/API surfacing incomplete.
+**Status:** [x] Implemented for stable confidence fields and dashboard surfacing.
 
 **Why it matters:** Agents need to know whether a causal edge was explicitly
 propagated or inferred from fallback trace/span identity. This prevents false
@@ -306,15 +309,15 @@ confidence during root-cause analysis.
 
 **Acceptance checklist:**
 
-- [ ] Action graph records expose `explicit` vs `fallback` confidence in a
+- [x] Action graph records expose `explicit` vs `fallback` confidence in a
       stable field.
-- [ ] Connected Rail action/agent/tool links include confidence metadata.
-- [ ] Agent run timeline marks fallback-derived edges.
-- [ ] Tests cover explicit context, missing context, and malformed explicit IDs.
+- [x] Connected Rail action/agent/tool links include confidence metadata.
+- [x] Agent run/action dashboards surface confidence indicators.
+- [x] Tests cover explicit context, missing context, and malformed explicit IDs.
 
 ## 13. MCP Transport Audit Evidence
 
-**Status:** [ ] Not started; privacy-sensitive.
+**Status:** [x] Implemented with allow-listed MCP audit envelopes.
 
 **Why it matters:** MCP context currently gets extracted, but debugging a bad
 tool invocation may require knowing what transport metadata was present at the
@@ -326,15 +329,16 @@ Store a redacted/allow-listed audit shape or hashes by default.
 
 **Acceptance checklist:**
 
-- [ ] Define an allow-listed MCP audit envelope for trace/action context fields.
-- [ ] Persist redacted MCP transport metadata for tool/resource/prompt calls
-      when enabled.
-- [ ] Render audit metadata on tool/action detail pages.
-- [ ] Tests verify redaction and disabled-by-default behavior.
+- [x] Define an allow-listed MCP audit envelope for trace/action context fields.
+- [x] Persist redacted MCP transport metadata for explicit tool/resource/prompt
+      audit envelopes.
+- [x] Render audit metadata on tool/action detail pages and graph evidence
+      badges.
+- [x] Tests verify accepted audit envelopes and raw `_meta` rejection.
 
 ## 14. Side-Effect Before / After Diffs
 
-**Status:** [ ] Not started.
+**Status:** [x] Implemented for explicit redacted mutation evidence.
 
 **Why it matters:** A mutating tool call flagged as side-effecting tells an
 agent where risk exists; before/after evidence tells it what actually changed
@@ -342,24 +346,24 @@ and whether the blast radius is acceptable.
 
 **Acceptance checklist:**
 
-- [ ] Tool/action records can attach redacted before/after summaries or artifact
+- [x] Tool/action records can attach redacted before/after summaries or artifact
       links.
-- [ ] Autonomous Review exposes mutation evidence.
-- [ ] Dashboard renders before/after evidence without raw sensitive payloads by
+- [x] Autonomous Review exposes mutation evidence.
+- [x] Dashboard renders before/after evidence without raw sensitive payloads by
       default.
-- [ ] Production-to-eval can preserve mutation evidence as source context.
+- [x] Production-to-eval can preserve mutation evidence as source context.
 
 ## 15. Side-by-Side Agent Step Comparisons
 
-**Status:** [ ] Not started.
+**Status:** [x] Implemented for exemplar run/action comparisons.
 
 **Why it matters:** Aggregate version diffs show that behavior changed; step
 comparisons explain how it changed for the same input case.
 
 **Acceptance checklist:**
 
-- [ ] Eval or version-diff APIs can return two comparable agent run/action
+- [x] Eval or version-diff APIs can return two comparable agent run/action
       trees.
-- [ ] Dashboard can compare step sequences, tool choices, costs, evals, and
+- [x] Dashboard can compare step sequences, tool choices, costs, evals, and
       traces side-by-side.
-- [ ] Each differing step links back to source production/eval evidence.
+- [x] Each differing step links back to source production/eval evidence.
