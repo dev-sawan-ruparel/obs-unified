@@ -118,7 +118,7 @@ await startAgentRun(
 
 MCP context propagation helpers let MCP hosts carry the same graph context
 through JSON-RPC `params._meta`. These helpers are separate from the
-`@obs-unified/mcp-server` investigation server:
+`@obsunified/mcp-server` investigation server:
 
 ```ts
 import { injectMcpContext, extractMcpContext } from "@obs-unified/telemetry-sdk/mcp";

@@ -281,6 +281,9 @@ For agents, install the MCP server from npmjs without registry auth:
 pnpm add -g @obsunified/mcp-server
 ```
 
+> [!NOTE]
+> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`); the first-party SDKs use the hyphenated `@obs-unified` scope on the GitHub Packages registry (`@obs-unified/*`).
+
 ### Install the SDKs
 
 The TypeScript SDK packages publish to GitHub Packages. Configure the

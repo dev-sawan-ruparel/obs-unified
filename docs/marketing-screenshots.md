@@ -10,7 +10,7 @@ The current set captures 24 review targets:
 1. Health overview with agentic investigation entry points
 2. Astronomy Shop service map
 3. Traces from live Astronomy traffic
-4. Trace waterfall with Connected rail
+4. Trace waterfall with Connected Rail
 5. Interaction ID path from click to backend
 6. Correlated structured logs
 7. AI cost and LLM spans

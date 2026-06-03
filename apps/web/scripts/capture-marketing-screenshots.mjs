@@ -54,7 +54,7 @@ const TARGETS = [
 	},
 	{
 		id: "trace-waterfall-connected-rail",
-		title: "Trace waterfall with Connected rail",
+		title: "Trace waterfall with Connected Rail",
 		route: "/#/traces",
 		website: true,
 		action: "openFirstTraceAndSpan",

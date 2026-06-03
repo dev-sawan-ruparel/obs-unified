@@ -205,7 +205,7 @@ export function UserDashboard({ userId, onNavigate }: UserDashboardProps) {
 				    the rail stacks below; on desktop it sits to the right. CSS-
 				    only switch via two arrows in different breakpoint visibilities. */}
 				<div className="mt-3 font-mono text-[0.6875rem] opacity-50">
-					Pivot into this user's activity via the Connected rail
+					Pivot into this user's activity via the Connected Rail
 					<span className="hidden md:inline"> →</span>
 					<span className="inline md:hidden"> ↓</span>
 				</div>

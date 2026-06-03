@@ -14,12 +14,7 @@ Status legend:
 
 ## Current Focus
 
-- [~] Complete live validation for click-to-root-cause and AI-cost-spike
-      scenarios, including reproducible proof artifacts.
-- [~] Finish Connected Rail coverage for profile-as-source and the live
-      any-to-any matrix.
-- [~] Close remaining agent-framework wrapper gaps, especially OpenAI Agents SDK
-      if it remains a target integration.
+For the current development status, prioritized execution queue, and active milestones, refer to the [AI debugging impact backlog](ai-debugging-impact-backlog.md) as the single source of truth.
 
 ## RFC 0001 — OTLP Parity
 
