@@ -188,7 +188,7 @@ Full details: [demo/README.md](demo/README.md).
 #### Fallback — synthetic seeder (no Docker)
 
 Faster but less realistic — writes ~70 spans, 20 logs, 12 AI calls, 49 usage
-events, and 3 alert rules straight to the collector:
+events, one Scenario A CPU profile, and 3 alert rules straight to the collector:
 
 ```bash
 pnpm run dev      # start collector + demo + dashboard (in separate panes works too)

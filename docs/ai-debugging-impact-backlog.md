@@ -112,8 +112,10 @@ criteria.
 - [ ] Fresh setup can reproduce each scenario.
 - [x] Scenario B has stable seed data and a repeatable script for the
       heavy-spender AI action/run/tool/eval path.
-- [ ] Scenario A profile and Scenario C instrumentation fixtures have stable
-      seed data or repeatable scripts.
+- [x] Scenario A CPU profile fixture has stable seed data through
+      `scripts/seed-everything/run.mjs`.
+- [ ] Scenario C instrumentation fixture has stable seed data or a repeatable
+      script.
 - [x] Each Scenario A/B path has an audited agent-debugging expected path and
       reusable proof artifact schema.
 - [ ] Live Playwright cells are unskipped where data is reproducible.

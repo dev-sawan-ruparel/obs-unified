@@ -7,10 +7,11 @@ import { expect, test } from "@playwright/test";
  * Every cell marked `≤1` in that table corresponds to one `test()` here.
  *
  * Status: scaffold. Most cells are `test.skip` placeholders until the
- * docker-compose demo SDK overlay (Phase 6.1-6.3) populates real
- * interaction_id / pprof / Beyla data — the synthetic seed in
- * `scripts/seed-everything/` can't exercise the happy paths these cells
- * assert. Current implementation status lives in docs/rfc-status.md.
+ * docker-compose demo SDK overlay (Phase 6.1-6.3) populates the full live
+ * interaction_id / pprof / Beyla paths. The synthetic seed now covers the
+ * Scenario A trace -> CPU profile fixture, but these browser cells still need
+ * the live stack for end-to-end UI assertions. Current implementation status
+ * lives in docs/rfc-status.md.
  *
  * Today's coverage of the same contract:
  *   - Server-side (manifest shape, count-collapse, informative-absence,
