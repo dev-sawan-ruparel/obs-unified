@@ -6,7 +6,7 @@
 - **Updated:** 2026-06-04
 - **Depends on:** none (process / infrastructure RFC)
 - **Related:** [RFC 0011 — Evidence retrieval layer](0011-evidence-retrieval-layer.md)
-  (worked example for feature propagation),
+  (implemented in PR #41; the live worked example for feature propagation),
   [EvidenceReference contract](../docs/spec/evidence-reference.md)
 - **Precedent:** `@obs-unified/brand` + `packages/brand/scripts/sync-to-projects.mjs`
 - **Target:** `obs-unified`, `obs-unified-docs`, `presence`, `obs-unified-skills`,
@@ -45,8 +45,20 @@ found the same failure mode **recurring**:
 - **Incident B — contract field drift.** `suggestedPivots` → `suggestedNextPivots`
   was corrected in `@obs-unified/types`, the spec, and docs-site, but the
   **skills** repo kept the old field name and was fixed only in a later PR.
+- **Incident C — evidence-retrieval / CCR drift (live, during this RFC).** PR #41
+  implemented the RFC 0011 evidence retrieval layer: it added **four** MCP tools
+  (`get_evidence_bundle`, `retrieve_evidence_ref`, `search_evidence_ref`,
+  `get_evidence_stats` — taking the surface from 16 to **20** tools) and new
+  `@obs-unified/types` exports (`EvidenceRetrievalRef`, `EvidenceRetrievalKind`,
+  fields `retrieval` / `retrievalRefIds` / `retrievalRefs`). Root README,
+  `presence` (PR #7), and `llms.txt` gained CCR messaging — but the **docs-site**
+  (`mcp-server.mdx`, `sdks.mdx`) still lists only the 16 older tools, the
+  **skills** repo has zero mention of the new tools, and **RFC 0011 itself is
+  still marked `Status: Draft`** despite shipping. Same pattern, third
+  occurrence, caught only by manual review again — while this very RFC was being
+  written.
 
-Both were caught only by manual review. Residual drift still open today
+Both A and B were caught only by manual review. Residual drift still open today
 (verification report): **M2** (dev ingest key `"dev"` vs `dev-ingest-key`) and
 **M4** (`doctor` invocation style). Same class of fact, same hand-copy problem.
 
@@ -211,17 +223,21 @@ lifecycle.
 {
   "id": "evidence-retrieval",
   "displayName": "Evidence retrieval (compressed context retrieval)",
-  "glossary": ["CCR", "compressed context retrieval", "evidence bundle"],
-  "status": "planned",                 // planned | preview | shipped
+  "glossary": ["CCR", "compressed context retrieval", "evidence bundle", "retrieval ref"],
+  "status": "shipped",                 // PR #41 merged — but RFC 0011 still says Draft (status drift)
   "rfc": "0011-evidence-retrieval-layer",
-  "docsSlug": "/docs/evidence-retrieval",
-  "addsMcpTools": ["retrieve_evidence"],     // declared; must match code when shipped
-  "addsEntityKinds": ["evidence_bundle"],    // EvidenceReference additions
-  "addsEvidenceFields": [],
+  "docsSlug": "/docs/evidence-retrieval",   // NOT YET CREATED → gap check fails
+  "addsMcpTools": [
+    "get_evidence_bundle", "retrieve_evidence_ref",
+    "search_evidence_ref", "get_evidence_stats"
+  ],
+  "addsEntityKinds": ["evidence_bundle"],
+  "addsEvidenceFields": ["retrieval", "retrievalRefIds", "retrievalRefs"],
   "addsSignalType": "Evidence retrieval",
   "surfacesWhenShipped": [
     "readme.what-you-get", "site.features", "llms.signal-types",
-    "jsonld.featureList", "docs.index", "docs.page", "skills.tool-list"
+    "jsonld.featureList", "docs.index", "docs.page",
+    "mcp.tool-list (README + mcp-server.mdx + sdks.mdx)", "skills.tool-list"
   ]
 }
 ```
@@ -250,35 +266,47 @@ lifecycle.
    status is set, code matches declarations, and all four repos' `messaging:check`
    pass. This clause is added to every feature's Definition of Done.
 
-### Worked example — evidence retrieval / CCR (RFC 0011)
+### Worked example — evidence retrieval / CCR (RFC 0011, shipped in PR #41)
 RFC 0011 introduces an evidence retrieval layer "inspired by
-compress-cache-retrieve systems." Under this RFC, onboarding it looks like:
+compress-cache-retrieve systems." It is **already merged (PR #41)**, so this is
+not hypothetical — it is the system's first real test, and it has **already
+drifted** in exactly the way the manifest would prevent. What happened, and what
+each gate would have done:
 
-- **Now (RFC Draft):** add the `evidence-retrieval` feature record with
-  `status: planned`. It may appear on the **roadmap/status** surfaces only. The
-  gate ensures it is **not** listed in README "What you get", the website feature
-  grid, `llms.txt` signal types, or JSON-LD as if it ships today.
-- **When it adds an MCP tool** (say `retrieve_evidence`): the tool lands in
-  `packages/mcp-server/src`; `generate` picks it into the manifest tool list;
-  `sync` adds it to *every* tool-list surface (mcp-server README + `.mdx`,
-  `sdks.mdx`, `site.json` feature card, `llms.txt`, root README) in one pass; the
-  skills lint now accepts it. No more "added the tool, forgot four docs."
-- **When it adds an `EvidenceReference` variant / entity kind** (e.g.
-  `evidence_bundle`, a `retrieval` source): it lands in `@obs-unified/types`;
-  `generate` updates the field/kind set; `sync` updates `evidence-reference.mdx`,
-  the spec cross-references, and the skills field list. The
-  `suggestedNextPivots`-style drift cannot recur.
-- **When it ships:** flip `status: shipped` in the status-of-record. The website,
-  README, llms.txt, JSON-LD, and docs index all gain the "Evidence retrieval"
-  capability with a `shipped` badge simultaneously; the new `/docs/evidence-retrieval`
-  page must exist and be linked from the index, or CI fails.
-- **Glossary:** `CCR` / "compressed context retrieval" / "evidence bundle" enter
-  the glossary; the glossary check ensures the terms are used consistently (not
+- **Code authority (what actually shipped):** four MCP tools
+  (`get_evidence_bundle`, `retrieve_evidence_ref`, `search_evidence_ref`,
+  `get_evidence_stats`) in `packages/mcp-server/src`, and new
+  `@obs-unified/types` exports (`EvidenceRetrievalRef`, `EvidenceRetrievalKind`,
+  fields `retrieval` / `retrievalRefIds` / `retrievalRefs`).
+- **Where messaging landed:** root README, `presence` (PR #7), `llms.txt`.
+- **Where it drifted (the bug):** the **docs-site** `mcp-server.mdx` and
+  `sdks.mdx` still list the old **16** tools (none of the four new ones); the
+  **skills** repo has zero mention; and **RFC 0011 is still `Status: Draft`**.
+- **What the manifest gates would do:**
+  - `generate` reads the four tools from the server registration → manifest tool
+    list becomes 20. `messaging:check` in **docs-site** and **skills** then
+    **fails** because their tool lists are missing four manifest members. (Catches
+    the exact drift, in the exact two laggard repos, automatically.)
+  - The feature record's `surfacesWhenShipped` includes `docs.page`
+    (`/docs/evidence-retrieval`). That page does not exist → **gap check fails**
+    until it is created and linked from the docs index.
+  - `addsEntityKinds`/`addsEvidenceFields` (`EvidenceRetrievalRef`, `retrieval`,
+    …) come from `@obs-unified/types`; `sync` updates `evidence-reference.mdx`
+    and the skills field list, so a `suggestedNextPivots`-style field drift cannot
+    recur.
+  - The status gate sees `status: shipped` (code merged) while RFC 0011 is still
+    `Draft` → **status-source drift flagged**, forcing the status-of-record and
+    the RFC header to agree.
+- **Glossary:** `CCR` / "compressed context retrieval" / "evidence bundle" /
+  "retrieval ref" enter the glossary; the check ensures consistent usage (not
   "CCR" in one place and "context cache" in another).
 
 The net effect: adding a feature is a manifest edit plus code; propagation to all
-~20 surfaces is mechanical and enforced, and the timing (planned → shipped) is
-governed so we never overclaim a draft feature or under-document a shipped one.
+~20 surfaces is mechanical and enforced, and the timing (planned → preview →
+shipped) is governed so we never overclaim a draft feature or under-document a
+shipped one. The CCR rollout is the proof: it shipped correctly in code and on
+three surfaces, and silently missed two — which is precisely the failure this
+system converts into a red CI check.
 
 ## Update workflow / Definition of done
 A contract/name/scope/status/feature change is "done" only when:
