@@ -5,6 +5,11 @@ debug production issues faster. It complements [RFC status](rfc-status.md): the
 RFC status file tracks broad implementation state, while this file tracks the
 next agent-debugging work queue.
 
+**Status source of record:** [`docs/rfc-status.md`](rfc-status.md) is the single
+authority for what is implemented. This backlog is a work queue and must not
+restate a completion status that contradicts it (see RFC 0012 — unified
+messaging, which collapses status onto one source so surfaces can't disagree).
+
 Status legend:
 
 - [ ] Not started.

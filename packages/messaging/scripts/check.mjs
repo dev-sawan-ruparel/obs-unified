@@ -12,6 +12,9 @@
  *   3. Feature gap — every feature.addsMcpTools ⊆ derived tools.
  *   4. Feature orphan — every shipped evidence tool is owned by a feature record.
  *   5. Dev ingest key — no bare "dev" ingest key (must be the manifest devIngestKey).
+ *   6. Identity chain — README shows the chain components in order.
+ *   7. Governance enums — docs/agent-action-graph.md documents every enum value.
+ *   8. Feature status gate — a not-yet-shipped feature is not advertised as shipped.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -79,6 +82,49 @@ for (const t of tools) {
 		fail(
 			`mcp-server/README.md uses ingest key "dev"; manifest devIngestKey is "${m.authored.devIngestKey}"`,
 		);
+	}
+}
+
+// 6. Identity chain (P2) — README must show the chain components in order.
+{
+	const chain = m.authored.identityChain.split("→").map((s) => s.trim());
+	const src = read("README.md");
+	let last = -1;
+	for (const part of chain) {
+		const at = src.indexOf(part, last + 1);
+		if (at === -1)
+			fail(`README.md is missing identity-chain component \`${part}\``);
+		else last = at;
+	}
+}
+
+// 7. Governance enums (P2) — agent-action-graph doc must document each value.
+{
+	const src = read("docs/agent-action-graph.md");
+	for (const [name, values] of Object.entries(m.authored.governance)) {
+		if (!Array.isArray(values)) continue;
+		for (const v of values)
+			if (!src.includes(v))
+				fail(`docs/agent-action-graph.md is missing ${name} value \`${v}\``);
+	}
+}
+
+// 8. Feature status gate (P3) — a not-yet-shipped feature must not be advertised
+//    as a shipped capability in README "What you get".
+{
+	const src = read("README.md");
+	const whatYouGet =
+		src.split(/^## What you get$/m)[1]?.split(/^## /m)[0] ?? src;
+	for (const f of m.authored.features ?? []) {
+		if (
+			f.status !== "shipped" &&
+			f.addsSignalType &&
+			whatYouGet.includes(f.addsSignalType)
+		) {
+			fail(
+				`feature "${f.id}" is status="${f.status}" but its signal "${f.addsSignalType}" is advertised in README "What you get"`,
+			);
+		}
 	}
 }
 
