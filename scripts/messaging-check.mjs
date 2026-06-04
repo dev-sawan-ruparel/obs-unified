@@ -185,11 +185,32 @@ async function checkDoctorCommand() {
 	);
 }
 
+// ---------------------------------------------------------------------------
+// CHECK 6 — shipped features docs page existence
+// ---------------------------------------------------------------------------
+async function checkShippedFeaturesInDocs() {
+	const authored = manifest.authored ?? {};
+	for (const f of authored.features ?? []) {
+		if (f.status === "shipped" && f.surfacesWhenShipped?.includes("docs.page")) {
+			// e.g. /docs/evidence-retrieval -> content/docs/evidence-retrieval.mdx
+			const relativePath = f.docsSlug.replace(/^\/docs\//, "") + ".mdx";
+			const fullPath = join(docsRoot, relativePath);
+			try {
+				await readFile(fullPath, "utf8");
+				console.log(`✓ CHECK 6 (shipped feature docs): found page for "${f.id}" at ${relativePath}`);
+			} catch (err) {
+				fail(`CHECK 6 (shipped feature docs): feature "${f.id}" is shipped and requires "docs.page", but no doc exists at ${relativePath}`);
+			}
+		}
+	}
+}
+
 await checkMcpTools();
 await checkPackageScopes();
 await checkEvidenceReferenceFields();
 await checkDevIngestKey();
 await checkDoctorCommand();
+await checkShippedFeaturesInDocs();
 
 if (failures.length > 0) {
 	console.error("");
