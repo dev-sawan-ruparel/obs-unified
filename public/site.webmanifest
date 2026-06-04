@@ -1,7 +1,7 @@
 {
 	"name": "Observability Unified",
 	"short_name": "Obs Unified",
-	"description": "Unified observability for humans and AI agents debugging software across action graphs, MCP tools, traces, logs, AI calls, replay, alerts, and profiles.",
+	"description": "Unified observability for humans and AI agents debugging software across CCR evidence bundles, action graphs, MCP tools, traces, logs, AI calls, replay, alerts, and profiles.",
 	"icons": [
 		{
 			"src": "/icon-192.png",

@@ -5,7 +5,7 @@
 > frontend usage events, rrweb session replays, alerts, profiles, analyses, and
 > Agent Action Graph records. Every signal is connected through one dashboard,
 > one MCP server for investigation agents, structured evidence references, and
-> one identity chain:
+> one evidence retrieval layer using CCR (compressed context retrieval), and one identity chain:
 > user_id → session_id → interaction_id → trace_id → span_id → action_id.
 
 ## What it is
@@ -23,6 +23,13 @@ Action IDs can be opened in the dashboard or traversed by an agent through MCP.
 Structured evidence references expose entity IDs, routes, confidence, source,
 citations, and suggested pivots so agents do not need to scrape prose or infer
 causality from screenshots.
+
+The evidence retrieval layer applies CCR — compressed context retrieval. Instead
+of handing an agent every correlated log row, full trace, replay window, profile
+frame, AI call, and tool payload immediately, the collector returns compact
+evidence bundles first. Bundles include summaries, clustered log exemplars,
+critical-path spans, evidence references, compaction provenance, suggested
+pivots, and explicit retrieval refs the agent can expand on demand.
 
 - Repository: https://github.com/obs-unified/obs-unified
 - Docs: https://docs.obsunified.com/docs
@@ -43,9 +50,13 @@ causality from screenshots.
 - **Evidence references** — Machine-readable entity IDs, routes, confidence,
   citations, source fields, and suggested pivots for analyses, alerts, evals,
   instrumentation gaps, and aggregate exemplars.
+- **Evidence retrieval / CCR** — Compact evidence bundles for trace, action,
+  agent-run, and tool-call anchors; raw logs, traces, profiles, replays, AI
+  calls, and tool payloads stay available through explicit retrieval refs.
 - **MCP server** — Investigation tools for AI agents: status, traces,
   logs, service map, users, replays, connected signals, profiles, agent runs,
-  actions, tool calls, and eval context.
+  actions, tool calls, eval context, evidence bundles, evidence ref expansion,
+  and evidence stats.
 - **Usage** — Page views, interactions, frontend errors, UTM parameters.
 - **Session replay** — DOM-mutation recording via rrweb, chunked into R2.
 - **Alerts** — Rules engine over any signal, one notification surface.
@@ -128,17 +139,24 @@ initObservability({
   action IDs.
 - **Can AI agents use Observability Unified directly?** Yes. The MCP server exposes
   tools for recent traces, trace details, logs, service maps, users,
-  replays, connected signals, profiles, agent runs, actions, and tool calls.
+  replays, connected signals, profiles, agent runs, actions, tool calls,
+  evidence bundles, retrieval refs, and evidence stats.
   Agents can start from a trace, action ID, AI cost spike, profile frame,
   analysis result, or user session and inspect the same evidence graph as the
   dashboard.
+- **What is CCR?** CCR means compressed context retrieval. Agents can benchmark it
+  by running the same incident twice: first with raw tools such as log search and
+  trace detail, then with `get_evidence_bundle` followed only by retrieval refs
+  the agent explicitly expands. Compare prompt tokens, tool calls, raw rows read,
+  cited evidence, and whether the same root cause is reached.
 - **How is it different from Datadog/Sentry/PostHog?** Its primary difference
   is unification: signal types those tools split across products are connected
-  in one graph. It also returns machine-readable evidence references with
-  confidence and exemplar pivots for agents. It runs on your own infrastructure
-  with no vendor in the data path. Humans use the dashboard; AI agents can
-  traverse the same graph through MCP from user action to backend trace, logs,
-  replay, AI cost, tool/eval context, and CPU profile.
+  in one graph. It also returns compact evidence bundles and machine-readable
+  evidence references with confidence, exemplar pivots, and retrieval refs for
+  agents. It runs on your own infrastructure with no vendor in the data path.
+  Humans use the dashboard; AI agents can traverse the same graph through MCP
+  from user action to backend trace, logs, replay, AI cost, tool/eval context,
+  and CPU profile.
 - **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
   you run it on. Production can use either Cloudflare Workers + D1/R2, or the
   Node collector on any cloud with Postgres + S3-compatible object storage.

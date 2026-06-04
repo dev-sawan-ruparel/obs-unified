@@ -11,6 +11,13 @@ export type Feature = {
   icon: string;
 };
 
+export type CcrBenchmarkCase = {
+  name: string;
+  withoutCcr: string;
+  withCcr: string;
+  measure: string;
+};
+
 export type SiteContent = {
   hero: {
     eyebrow: string;
@@ -33,6 +40,18 @@ export type SiteContent = {
     title: string;
     lead: string;
     items: Feature[];
+  };
+  ccr: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    beforeTitle: string;
+    beforeBody: string;
+    afterTitle: string;
+    afterBody: string;
+    benchmarkTitle: string;
+    benchmarkLead: string;
+    benchmarkCases: CcrBenchmarkCase[];
   };
   architecture: {
     eyebrow: string;

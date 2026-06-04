@@ -3,6 +3,7 @@ import { renderHeader } from "./sections/header";
 import { renderHero } from "./sections/hero";
 import { renderScreenshots } from "./sections/screenshots";
 import { renderFeatures } from "./sections/features";
+import { renderCcr } from "./sections/ccr";
 import { renderPreview } from "./sections/preview";
 import { renderArchitecture } from "./sections/architecture";
 import { renderCompare } from "./sections/compare";
@@ -22,6 +23,7 @@ if (!root.innerHTML.trim()) {
     renderHero(),
     renderScreenshots(),
     renderFeatures(),
+    renderCcr(),
     renderPreview(),
     renderArchitecture(),
     renderCompare(),

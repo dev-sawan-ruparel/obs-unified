@@ -3,8 +3,8 @@
     "eyebrow": "Open source · MIT licensed",
     "titleLine": "A telemetry graph",
     "accent": "agents can actually debug with.",
-    "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. Humans use the dashboard; agents use the <strong>MCP server</strong> to follow structured IDs, confidence, citations, and next pivots from symptom to root cause. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
-    "lead": "Debug AI agents, and help AI agents debug software. Observability Unified turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into one evidence graph. Humans use the dashboard; agents use the MCP server to follow structured IDs, confidence, citations, and next pivots from symptom to root cause. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
+    "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. The evidence retrieval layer applies <strong>CCR</strong> — compressed context retrieval — so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
+    "lead": "Debug AI agents, and help AI agents debug software. Observability Unified turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into one evidence graph. The evidence retrieval layer applies CCR — compressed context retrieval — so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
     "metaLabelHtml": "<strong>SDKs + MCP</strong> TypeScript · Go · Rust · browser · agents",
     "metaLabel": "SDKs + MCP TypeScript · Go · Rust · browser · agents",
     "metaLinkLabel": "SDK docs",
@@ -37,7 +37,7 @@
       },
       {
         "title": "Agent-readable evidence",
-        "body": "Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete entity IDs, routes, confidence, citations, and suggested pivots.",
+        "body": "Evidence bundles compact repeated logs, rank spans, preserve citations, and return retrieval refs so agents can expand raw logs, profiles, replay, AI calls, or tool calls on demand.",
         "icon": "<path d=\"M4 5h16M4 12h10M4 19h7\"/><path d=\"M16 15l2 2 4-5\"/>"
       },
       {
@@ -72,17 +72,54 @@
       }
     ]
   },
+  "ccr": {
+    "eyebrow": "Evidence retrieval · CCR",
+    "title": "Give the agent investigation-ready context, not a telemetry dump.",
+    "lead": "CCR means compressed context retrieval: the collector clusters repetitive logs, selects exemplars, ranks failed spans and critical paths, correlates traces/actions/profiles/replay, and hands the agent explicit retrieval refs for deeper inspection. The agent still controls expansion; the platform just makes the first packet useful.",
+    "beforeTitle": "Raw-tool debugging makes the agent ask for everything.",
+    "beforeBody": "Without CCR, an agent tends to page through broad logs, full traces, profile metadata, replay metadata, and action records separately. Repeated messages like hundreds of identical 404s consume context even though one exemplar plus count is enough to start.",
+    "afterTitle": "Evidence bundles summarize first, expand second.",
+    "afterBody": "With CCR, the agent asks for one compact bundle anchored on a trace, action, agent run, or tool call. The response includes summaries, evidence refs, compaction records, suggested pivots, and retrieval refs for raw data that remains available but explicit.",
+    "benchmarkTitle": "Benchmark by running the same incident twice: CCR off, then CCR on.",
+    "benchmarkLead": "Use fixed anchors, the same agent prompt, and the same token budget. In the off run, let the agent use raw tools such as log search and trace detail. In the on run, start with get_evidence_bundle and only expand retrieval refs the agent chooses. Compare token input, tool calls, raw rows read, cited evidence, and whether the same root cause is reached.",
+    "benchmarkCases": [
+      {
+        "name": "Repeated 404 burst",
+        "withoutCcr": "Search logs around the failing trace and return the broad result window.",
+        "withCcr": "Cluster matching log signatures, include exemplars, and attach a logs retrieval ref.",
+        "measure": "Raw log rows read vs. exemplar count, prompt tokens, and whether the answer cites the trace and exemplar log."
+      },
+      {
+        "name": "Slow checkout trace",
+        "withoutCcr": "Load the full span tree, then ask the model to infer the critical path.",
+        "withCcr": "Return failed spans, critical path summaries, and connected profile refs up front.",
+        "measure": "Spans included in context, top latency span agreement, and profile ref expansion rate."
+      },
+      {
+        "name": "Agent tool regression",
+        "withoutCcr": "Fetch agent runs, actions, tool calls, eval rows, AI calls, traces, and logs separately.",
+        "withCcr": "Anchor on the agent run or tool call and return causal path, side-effecting tool refs, failed evals, and connected traces.",
+        "measure": "Tool calls made by the debugging agent, correct failed tool/eval identification, and evidence citations."
+      },
+      {
+        "name": "Replay/profile deep dive",
+        "withoutCcr": "Include replay/profile metadata early even when the agent may not need it.",
+        "withCcr": "Expose replay event-window and profile-frame refs but require explicit expansion.",
+        "measure": "How often agents expand deep refs, payload bytes read, and whether unnecessary raw replay/profile data stays out of context."
+      }
+    ]
+  },
   "architecture": {
     "eyebrow": "Architecture",
     "title": "One collector. Your telemetry graph.",
-    "lead": "Instrumented services write telemetry into Observability Unified. Humans and agents read the same connected graph through dashboard APIs, structured evidence references, and MCP tools, while ingest credentials stay separate from investigation access.",
-    "connectedGraphBody": "evidence IDs, traces, logs, replay, AI cost, actions, CPU",
-    "debuggingAgentsBody": "follow evidence, confidence, and pivots"
+    "lead": "Instrumented services write telemetry into Observability Unified. Humans and agents read the same connected graph through dashboard APIs, compact evidence bundles, structured evidence references, and MCP tools, while ingest credentials stay separate from investigation access.",
+    "connectedGraphBody": "evidence IDs, compact bundles, traces, logs, replay, AI cost, actions, CPU",
+    "debuggingAgentsBody": "follow compact bundles, refs, confidence, and pivots"
   },
   "faq": [
     {
       "q": "What is Observability Unified?",
-      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with stable IDs, confidence, citations, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
+      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with compact evidence bundles, stable IDs, confidence, citations, retrieval refs, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
     },
     {
       "q": "What is the Agent Action Graph?",
@@ -94,11 +131,15 @@
     },
     {
       "q": "Can AI agents inspect Observability Unified through MCP?",
-      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, and tool calls. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
+      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, tool calls, evidence bundles, retrieval refs, and evidence expansion stats. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
+    },
+    {
+      "q": "What is CCR?",
+      "a": "CCR means compressed context retrieval. Instead of sending an agent every correlated log, span, replay chunk, profile frame, AI call, and tool payload immediately, Observability Unified returns a compact evidence bundle first: clustered log exemplars, ranked spans, citations, compaction provenance, suggested pivots, and retrieval refs. The raw evidence remains available, but the agent has to expand it intentionally."
     },
     {
       "q": "How is it different from Datadog, Sentry, or PostHog?",
-      "a": "Its primary difference is unification for debugging. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. Instead of leaving agents to scrape dashboards or prose, the platform returns concrete evidence references, confidence, exemplar pivots, and connected signals. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path."
+      "a": "Its primary difference is unification for debugging. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. Instead of leaving agents to scrape dashboards or prose, the platform returns compact evidence bundles, concrete evidence references, confidence, exemplar pivots, retrieval refs, and connected signals. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path."
     },
     {
       "q": "What's the data retention model?",
@@ -134,15 +175,16 @@
     "docsUrl": "https://docs.obsunified.com/docs",
     "githubUrl": "https://github.com/obs-unified/obs-unified",
     "title": "Observability Unified — a telemetry graph agents can debug with",
-    "description": "Self-hosted observability for debugging AI agents and helping AI agents debug software with structured evidence across traces, logs, replay, AI cost, action graphs, MCP tools, evals, and CPU profiles.",
+    "description": "Self-hosted observability for debugging AI agents and helping AI agents debug software with CCR evidence bundles across traces, logs, replay, AI cost, action graphs, MCP tools, evals, and CPU profiles.",
     "ogImageAlt": "Observability Unified telemetry graph for debugging AI agents and helping agents debug software",
     "ogCaption": "Observability Unified telemetry graph for debugging AI agents and helping AI agents debug software"
   },
   "schema": {
-    "reviewBody": "Designed as one self-hosted telemetry graph for debugging AI agents and helping AI agents debug software, connecting frontend interactions to structured evidence, action graphs, backend traces, logs, replay, AI cost, tool and eval context, MCP context, and CPU profiling evidence.",
+    "reviewBody": "Designed as one self-hosted telemetry graph for debugging AI agents and helping AI agents debug software, connecting frontend interactions to compact evidence bundles, structured evidence, action graphs, backend traces, logs, replay, AI cost, tool and eval context, MCP context, and CPU profiling evidence.",
     "featureList": [
       "One telemetry graph for humans and AI agents debugging software",
       "Structured evidence references with entity IDs, routes, confidence, citations, and suggested pivots",
+      "Compressed context retrieval with evidence bundles, compaction provenance, retrieval refs, and expansion telemetry",
       "Agent Action Graph for debugging AI agent runs, LLM calls, retrievals, tool calls, guardrails, and eval cases",
       "MCP server for AI agents to inspect traces, logs, replays, connected signals, profiles, evals, agent runs, actions, and tool calls",
       "OpenTelemetry trace ingest over OTLP HTTP",

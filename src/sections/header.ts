@@ -15,6 +15,7 @@ export function renderHeader(): string {
     </a>
     <nav class="site-nav" aria-label="Primary">
       <a href="#screenshots">Product</a>
+      <a href="#evidence">Evidence</a>
       <a href="#preview">How it works</a>
       <a href="#compare">Compare</a>
       <a class="btn btn-ghost" href="${GETTING_STARTED_URL}">Docs</a>
