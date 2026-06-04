@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Messaging parity check (RFC 0012)
+        run: node scripts/messaging-check.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm run types:check
       - run: pnpm run build

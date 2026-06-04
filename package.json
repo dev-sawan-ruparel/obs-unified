@@ -14,6 +14,7 @@
     "build": "tsc --noEmit && vite build && tsx scripts/prerender.ts",
     "preview": "vite preview",
     "types:check": "tsc --noEmit",
+    "messaging:check": "node scripts/messaging-check.mjs",
     "deploy": "pnpm build && wrangler pages deploy ./dist --project-name=obsunified --branch=main --commit-dirty=true",
     "deploy:preview": "pnpm build && wrangler pages deploy ./dist --project-name=obsunified --branch=preview --commit-dirty=true"
   },
