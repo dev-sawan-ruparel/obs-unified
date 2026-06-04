@@ -69,12 +69,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Make GHCR package public
+      - name: Verify public GHCR image
         env:
           GH_TOKEN: ${{ secrets.OBS_UNIFIED_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
+          docker logout ghcr.io || true
+          if docker manifest inspect "ghcr.io/${OWNER}/local:latest" >/dev/null; then
+            echo "ghcr.io/${OWNER}/local:latest is anonymously pullable"
+            exit 0
+          fi
+
+          echo "::notice::GHCR image is not anonymously pullable yet; attempting to make package public"
           owner_type="$(gh api "/users/${OWNER}" --jq .type)"
           if [ "$owner_type" = "Organization" ]; then
             endpoint="/orgs/${OWNER}/packages/container/local/visibility"
@@ -82,5 +89,4 @@ jobs:
             endpoint="/user/packages/container/local/visibility"
           fi
           gh api --method PATCH "$endpoint" -f visibility=public
-          docker logout ghcr.io
           docker manifest inspect "ghcr.io/${OWNER}/local:latest" >/dev/null
