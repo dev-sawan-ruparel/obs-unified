@@ -1,19 +1,21 @@
 import { GETTING_STARTED_URL, GITHUB_URL, SDK_DOCS_URL } from "../config";
 import { siteContent } from "../content/site";
+import { messaging } from "../content/messaging.generated";
 
 export function renderHero(): string {
   const { hero } = siteContent;
+  const { positioning } = messaging.authored;
+
   return `
 <section class="hero" aria-labelledby="hero-title">
   <div class="container hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">${hero.eyebrow}</p>
+      <p class="eyebrow">Open source · ${positioning.distribution.license} licensed</p>
       <h1 id="hero-title" class="hero-title">
-        <span class="hero-title-line">${hero.titleLine}</span>
-        <span class="accent">${hero.accent}</span>
+        <span class="hero-title-line">${positioning.hero.headline}</span>
       </h1>
       <p class="hero-lead">
-        ${hero.leadHtml}
+        <strong>${positioning.hero.subhead}</strong> ${hero.lead.replace(positioning.hero.subhead + " ", "")}
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
@@ -31,13 +33,13 @@ export function renderHero(): string {
       </div>
       <p class="hero-chain">
         ${hero.identityLabel}
-        <code>${hero.identityChain}</code>
-        <span>${hero.identityBody}</span>
+        <code>${positioning.proof.identityChain}</code>
+        <span>${positioning.proof.clickToActionCpuExample}</span>
       </p>
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">
-        <img src="/screenshots/app/agent-action-graph.png" alt="${hero.imageAlt}" width="1180" height="900" />
+        <img src="${positioning.hero.primaryProofImage}" alt="${hero.imageAlt}" width="1180" height="900" />
       </div>
       <figcaption>
         <span>${hero.figcaptionTitle}</span>
@@ -48,3 +50,4 @@ export function renderHero(): string {
 </section>
 `;
 }
+

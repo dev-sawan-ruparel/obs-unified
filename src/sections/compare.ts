@@ -1,4 +1,5 @@
 import { DOCS_URL } from "../config";
+import { messaging } from "../content/messaging.generated";
 
 type Cell = { v: string; tone?: "yes" | "no" | "partial" | "neutral"; ref?: string };
 type Row = {
@@ -202,12 +203,19 @@ function row(r: Row, refIndex: Map<string, number>): string {
 
 export function renderCompare(): string {
   const refIndex = buildRefIndex();
+  const { comparison } = messaging.authored.positioning;
+  const headers = comparison.agentRows.map((agent) => {
+    const isUs = agent.key === "obs";
+    const className = isUs ? "cmp-head cmp-head-us" : "cmp-head";
+    return `<th scope="col" class="${className}">${agent.name}</th>`;
+  }).join("");
+
   return `
 <section id="compare" class="compare" aria-labelledby="compare-title">
   <div class="container">
     <header class="section-header">
       <p class="eyebrow">How it compares <span class="cmp-asof">— snapshot as of May 2026</span></p>
-      <h2 id="compare-title">One stack instead of three (or nine)</h2>
+      <h2 id="compare-title">${comparison.headline}</h2>
       <p class="section-lead">
         Most teams glue an APM, a product-analytics tool, an error/session tool, and now an LLM-observability tool together.
         Observability Unified brings those workflows under one identity chain and one dashboard, so humans and agents can traverse from user action to backend trace, logs, replay, AI cost, and CPU profile while keeping the data plane in your infrastructure.
@@ -218,16 +226,7 @@ export function renderCompare(): string {
         <thead>
           <tr>
             <th scope="col" class="cmp-corner">Capability</th>
-            <th scope="col" class="cmp-head cmp-head-us">Observability Unified</th>
-            <th scope="col" class="cmp-head">Datadog</th>
-            <th scope="col" class="cmp-head">Sentry</th>
-            <th scope="col" class="cmp-head">PostHog</th>
-            <th scope="col" class="cmp-head">Honeycomb</th>
-            <th scope="col" class="cmp-head">New Relic</th>
-            <th scope="col" class="cmp-head">Grafana Cloud</th>
-            <th scope="col" class="cmp-head">SigNoz</th>
-            <th scope="col" class="cmp-head">Uptrace</th>
-            <th scope="col" class="cmp-head">HyperDX</th>
+            ${headers}
           </tr>
         </thead>
         <tbody>

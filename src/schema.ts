@@ -1,6 +1,11 @@
 import { siteContent } from "./content/site";
+import { messaging } from "./content/messaging.generated";
 
 const { schema, seo } = siteContent;
+
+const featureList = messaging.authored.capabilities
+  .filter((c) => c.status === "shipped")
+  .map((c) => c.name);
 
 const graph = {
   "@context": "https://schema.org",
@@ -64,7 +69,7 @@ const graph = {
         author: { "@type": "Organization", name: "Observability Unified maintainers" },
         reviewBody: schema.reviewBody,
       },
-      featureList: schema.featureList,
+      featureList: featureList,
     },
     {
       "@type": "SoftwareSourceCode",

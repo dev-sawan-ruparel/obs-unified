@@ -1,4 +1,5 @@
 import rawSiteContent from "./site.json";
+import { messaging } from "./messaging.generated";
 
 export type QA = {
   q: string;
@@ -6,6 +7,7 @@ export type QA = {
 };
 
 export type Feature = {
+  capabilityId: string;
   title: string;
   body: string;
   icon: string;
@@ -88,4 +90,21 @@ export type SiteContent = {
   };
 };
 
-export const siteContent = rawSiteContent as SiteContent;
+const raw = rawSiteContent as unknown as SiteContent;
+
+export const siteContent: SiteContent = {
+  ...raw,
+  hero: {
+    ...raw.hero,
+    identityChain: messaging.authored.positioning.proof.identityChain,
+    lead: raw.hero.lead.replace(
+      "Debug AI agents, and help AI agents debug software. ",
+      `${messaging.authored.positioning.hero.subhead} `
+    ),
+    leadHtml: raw.hero.leadHtml.replace(
+      "Debug AI agents, and help AI agents debug software.",
+      messaging.authored.positioning.hero.subhead
+    ),
+  },
+};
+

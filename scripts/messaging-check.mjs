@@ -137,11 +137,38 @@ console.log("CHECK 3 — generated module in sync");
 }
 
 // ---------------------------------------------------------------------------
+// CHECK 4 — Shipped features presence on the site:
+// any shipped feature requiring "site.features" must appear in site.json.
+// ---------------------------------------------------------------------------
+console.log("CHECK 4 — shipped features on site.features");
+{
+	let siteJson;
+	try {
+		siteJson = JSON.parse(read(SITE_JSON_PATH));
+	} catch (err) {
+		fail(`could not read/parse ${SITE_JSON_PATH}: ${err.message}`);
+	}
+	if (siteJson) {
+		const items = siteJson.features?.items ?? [];
+		for (const f of manifest.authored.features ?? []) {
+			if (f.status === "shipped" && f.surfacesWhenShipped?.includes("site.features")) {
+				const hasMatch = items.some((item) => item.capabilityId === f.id);
+				if (hasMatch) {
+					ok(`shipped feature "${f.id}" is present in ${SITE_JSON_PATH} under features.items`);
+				} else {
+					fail(`shipped feature "${f.id}" requires "site.features" surface, but no matching capabilityId was found in ${SITE_JSON_PATH}`);
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 console.log("");
 if (failures.length > 0) {
 	for (const f of failures) console.error(`✗ ${f}`);
 	console.error(`\n✗ messaging parity check FAILED (${failures.length} issue${failures.length === 1 ? "" : "s"})`);
 	process.exit(1);
 }
-console.log("✓ messaging parity check passed (3/3 checks clean)");
+console.log("✓ messaging parity check passed (4/4 checks clean)");
 process.exit(0);
