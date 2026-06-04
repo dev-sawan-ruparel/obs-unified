@@ -18,6 +18,12 @@ export type CcrBenchmarkCase = {
   measure: string;
 };
 
+export type CcrBenchmarkMetric = {
+  label: string;
+  raw: string;
+  ccr: string;
+};
+
 export type SiteContent = {
   hero: {
     eyebrow: string;
@@ -51,6 +57,12 @@ export type SiteContent = {
     afterBody: string;
     benchmarkTitle: string;
     benchmarkLead: string;
+    benchmarkResultTitle: string;
+    benchmarkResultLead: string;
+    benchmarkMetrics: CcrBenchmarkMetric[];
+    benchmarkCommand: string;
+    benchmarkDocUrl: string;
+    benchmarkDocLabel: string;
     benchmarkCases: CcrBenchmarkCase[];
   };
   architecture: {

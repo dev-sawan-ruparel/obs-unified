@@ -144,11 +144,13 @@ initObservability({
   Agents can start from a trace, action ID, AI cost spike, profile frame,
   analysis result, or user session and inspect the same evidence graph as the
   dashboard.
-- **What is CCR?** CCR means compressed context retrieval. Agents can benchmark it
-  by running the same incident twice: first with raw tools such as log search and
-  trace detail, then with `get_evidence_bundle` followed only by retrieval refs
-  the agent explicitly expands. Compare prompt tokens, tool calls, raw rows read,
-  cited evidence, and whether the same root cause is reached.
+- **What is CCR?** CCR means compressed context retrieval. A local June 4, 2026
+  benchmark against the evidence retrieval route used a checkout trace with 500
+  repeated 404 logs and a failed payment span. Raw trace/log evidence was 202,406
+  JSON bytes / 50,602 estimated tokens; the CCR bundle was 5,274 JSON bytes /
+  1,319 estimated tokens, with the failed payment span still cited. Reproduce it
+  in the product repo with `pnpm benchmark:ccr`; methodology and raw output live
+  at `docs/benchmarks/evidence-retrieval-ccr.md`.
 - **How is it different from Datadog/Sentry/PostHog?** Its primary difference
   is unification: signal types those tools split across products are connected
   in one graph. It also returns compact evidence bundles and machine-readable

@@ -82,6 +82,33 @@
     "afterBody": "With CCR, the agent asks for one compact bundle anchored on a trace, action, agent run, or tool call. The response includes summaries, evidence refs, compaction records, suggested pivots, and retrieval refs for raw data that remains available but explicit.",
     "benchmarkTitle": "Benchmark by running the same incident twice: CCR off, then CCR on.",
     "benchmarkLead": "Use fixed anchors, the same agent prompt, and the same token budget. In the off run, let the agent use raw tools such as log search and trace detail. In the on run, start with get_evidence_bundle and only expand retrieval refs the agent chooses. Compare token input, tool calls, raw rows read, cited evidence, and whether the same root cause is reached.",
+    "benchmarkResultTitle": "Measured CCR run: 500 repeated 404 logs collapsed to 3 exemplars.",
+    "benchmarkResultLead": "Local benchmark run on June 4, 2026 against the shipped evidence retrieval route. Scenario: a checkout trace with a failed payment span and 500 correlated 404 log rows. CCR preserved the failed payment span reference while reducing the first context packet.",
+    "benchmarkMetrics": [
+      {
+        "label": "JSON bytes",
+        "raw": "202,406",
+        "ccr": "5,274"
+      },
+      {
+        "label": "Estimated tokens",
+        "raw": "50,602",
+        "ccr": "1,319"
+      },
+      {
+        "label": "Log rows in first packet",
+        "raw": "500",
+        "ccr": "3 exemplars"
+      },
+      {
+        "label": "Reduction",
+        "raw": "baseline",
+        "ccr": "97.4%"
+      }
+    ],
+    "benchmarkCommand": "pnpm benchmark:ccr",
+    "benchmarkDocUrl": "https://github.com/obs-unified/obs-unified/blob/main/docs/benchmarks/evidence-retrieval-ccr.md",
+    "benchmarkDocLabel": "Read the benchmark methodology and raw output",
     "benchmarkCases": [
       {
         "name": "Repeated 404 burst",

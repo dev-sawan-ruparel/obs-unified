@@ -39,6 +39,11 @@ get_evidence_stats()</code></pre>
         <p class="eyebrow">Benchmark recipe</p>
         <h3>${ccr.benchmarkTitle}</h3>
         <p>${ccr.benchmarkLead}</p>
+        <div class="ccr-benchmark-run">
+          <span>Run it locally</span>
+          <code>${ccr.benchmarkCommand}</code>
+          <a href="${ccr.benchmarkDocUrl}">${ccr.benchmarkDocLabel}</a>
+        </div>
       </div>
       <div class="ccr-case-grid">
         ${ccr.benchmarkCases
@@ -64,6 +69,28 @@ get_evidence_stats()</code></pre>
           )
           .join("")}
       </div>
+    </div>
+
+    <div class="ccr-measured" aria-label="Measured CCR benchmark result">
+      <div class="ccr-measured-copy">
+        <p class="eyebrow">Executed benchmark</p>
+        <h3>${ccr.benchmarkResultTitle}</h3>
+        <p>${ccr.benchmarkResultLead}</p>
+      </div>
+      <dl class="ccr-metric-grid">
+        ${ccr.benchmarkMetrics
+          .map(
+            (metric) => `
+          <div class="ccr-metric">
+            <dt>${metric.label}</dt>
+            <dd>
+              <span>${metric.raw}</span>
+              <strong>${metric.ccr}</strong>
+            </dd>
+          </div>`,
+          )
+          .join("")}
+      </dl>
     </div>
   </div>
 </section>

@@ -6,6 +6,7 @@ import { renderHeader } from "../src/sections/header";
 import { renderHero } from "../src/sections/hero";
 import { renderScreenshots } from "../src/sections/screenshots";
 import { renderFeatures } from "../src/sections/features";
+import { renderCcr } from "../src/sections/ccr";
 import { renderPreview } from "../src/sections/preview";
 import { renderArchitecture } from "../src/sections/architecture";
 import { renderCompare } from "../src/sections/compare";
@@ -32,6 +33,7 @@ const body = [
   renderHero(),
   renderScreenshots(),
   renderFeatures(),
+  renderCcr(),
   renderPreview(),
   renderArchitecture(),
   renderCompare(),
