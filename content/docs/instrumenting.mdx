@@ -229,7 +229,7 @@ import { setAISessionContext } from "@obs-unified/telemetry-sdk";
 setAISessionContext({ sessionId, userId });
 
 const response = await openai.chat.completions.create({ /* ... */ });
-// The SDK's OpenAI wrapper (or your own typed helper) emits a span
+// Your typed helper emits a span
 // with openinference.span.kind=LLM, llm.cost_usd, llm.token_count.*, etc.
 ```
 

@@ -108,7 +108,7 @@ Validates the kernel-level layer:
 2. Rail's "Down → 🔥 off-CPU profile" leads to an icicle flame graph that surfaces `futex_wait_queue` ↑ `pthread_mutex_lock` ↑ `inventory_pool::checkout` taking 84% of off-CPU time.
 3. Root cause: a single pool-wide mutex serializing every checkout.
 
-This scenario currently runs only against the docker-compose demo with [Beyla](https://grafana.com/oss/beyla/) feeding pprof. The dashboard code paths are live; the synthetic seed doesn't generate pprof blobs.
+This Scenario C off-CPU path currently runs only against the docker-compose demo with [Beyla](https://grafana.com/oss/beyla/) feeding pprof. The dashboard code paths are live; the synthetic seed doesn't generate off-CPU pprof blobs for this path.
 
 ## Per-tab walkthrough
 
