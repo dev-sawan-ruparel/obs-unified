@@ -7,7 +7,15 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["src/**", "content/**", "*.ts", "*.tsx", "*.json", "*.mjs"]
+		"includes": [
+			"src/**",
+			"content/**",
+			"*.ts",
+			"*.tsx",
+			"*.json",
+			"*.mjs",
+			"!messaging.manifest.json"
+		]
 	},
 	"formatter": {
 		"enabled": true,

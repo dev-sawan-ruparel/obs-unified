@@ -7,6 +7,17 @@ on:
       - main
 
 jobs:
+  messaging-check:
+    name: Messaging parity (RFC 0012)
+    runs-on: [self-hosted, docs]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Messaging parity check
+        run: node scripts/messaging-check.mjs
+
   build:
     name: Type-check + build
     runs-on: [self-hosted, docs]
