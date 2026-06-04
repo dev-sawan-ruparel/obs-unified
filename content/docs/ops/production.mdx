@@ -191,6 +191,6 @@ Before opening ingest traffic:
 
 1. Run database migrations for the target collector storage.
 2. Confirm `/health` responds through the reverse proxy.
-3. Verify CORS from the browser origin with `obs-unified doctor`.
+3. Verify CORS from the browser origin with `pnpm dlx @obs-unified/cli doctor`.
 4. Send one synthetic trace, one log, and one usage event.
 5. Confirm dashboard login and internal query routes are not publicly exposed without your intended auth.

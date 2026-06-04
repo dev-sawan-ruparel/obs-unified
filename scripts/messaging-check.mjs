@@ -146,9 +146,50 @@ async function checkEvidenceReferenceFields() {
 	);
 }
 
+// ---------------------------------------------------------------------------
+// CHECK 4 — dev ingest key consistency (mcp-server.mdx config)
+// ---------------------------------------------------------------------------
+async function checkDevIngestKey() {
+	const path = join(docsRoot, "mcp-server.mdx");
+	const text = await readText(path);
+	if (/OBS_INGEST_KEY"\s*:\s*"dev"/.test(text)) {
+		fail(
+			`CHECK 4 (dev ingest key): mcp-server.mdx uses ingest key "dev"; manifest devIngestKey is "${manifest.authored.devIngestKey}"`,
+		);
+	} else {
+		console.log(`✓ CHECK 4 (dev ingest key): mcp-server.mdx does not use bare "dev" key`);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// CHECK 5 — doctor CLI command unification
+// ---------------------------------------------------------------------------
+async function checkDoctorCommand() {
+	const files = await walkMdx(docsRoot);
+	const violations = [];
+
+	for (const file of files) {
+		const text = await readText(file);
+		// Check for "obs-unified doctor" without "pnpm dlx @obs-unified/cli" prefix
+		if (/(?<!pnpm dlx @obs-unified\/cli\s+)obs-unified\s+doctor\b/.test(text)) {
+			violations.push(file.replace(`${repoRoot}/`, ""));
+		}
+	}
+
+	if (violations.length === 0) {
+		console.log(`✓ CHECK 5 (doctor command): all doctor CLI references use unified pnpm dlx format`);
+		return;
+	}
+	fail(
+		`CHECK 5 (doctor command): files use deprecated "obs-unified doctor" format instead of "pnpm dlx @obs-unified/cli doctor": ${violations.join(", ")}`,
+	);
+}
+
 await checkMcpTools();
 await checkPackageScopes();
 await checkEvidenceReferenceFields();
+await checkDevIngestKey();
+await checkDoctorCommand();
 
 if (failures.length > 0) {
 	console.error("");
