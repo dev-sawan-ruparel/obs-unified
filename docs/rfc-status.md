@@ -14,7 +14,7 @@ Status legend:
 
 ## Current Focus
 
-For the current development status, prioritized execution queue, and active milestones, refer to the [AI debugging impact backlog](ai-debugging-impact-backlog.md) as the single source of truth.
+For the RFC implementation status of record, this file is the single source of truth. For the upcoming development backlog, execution queue, and active milestones, refer to the [AI debugging impact backlog](ai-debugging-impact-backlog.md).
 
 ## RFC 0001 — OTLP Parity
 
@@ -155,4 +155,4 @@ For the current development status, prioritized execution queue, and active mile
 - [x] Sync mechanism to vendor the manifest and generated facts to satellite repos (`presence`, `obs-unified-docs`, `obs-unified-skills`).
 - [x] Independent messaging parity check scripts and CI gates in all satellite repos.
 - [x] Lint checks for Skills repository `SKILL.md` files asserting correct packages, tools, and fields.
-- [~] Complete synchronization of dev ingest keys and CLI command invocations across all repositories.
+- [x] Complete synchronization of dev ingest keys and CLI command invocations across all repositories.

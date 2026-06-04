@@ -51,6 +51,7 @@ const TARGETS = [
 ];
 
 const check = process.argv.includes("--check");
+const requireAll = process.argv.includes("--require-all");
 let stale = 0;
 let wrote = 0;
 
@@ -58,6 +59,12 @@ for (const t of TARGETS) {
 	const dest = resolve(WORKSPACE_ROOT, t.file);
 	const repoRoot = resolve(WORKSPACE_ROOT, t.file.split("/")[0]);
 	if (!existsSync(repoRoot)) {
+		if (requireAll) {
+			console.error(
+				`messaging:sync ERROR: sibling repo root "${repoRoot}" does not exist, but --require-all is set`,
+			);
+			process.exit(1);
+		}
 		console.log(`messaging:sync — skip ${t.name} (sibling not checked out)`);
 		continue;
 	}

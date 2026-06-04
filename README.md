@@ -45,7 +45,7 @@ issued and which ones agents expanded most often.
 | Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, and Agent Action Graph records |
 | Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, and action graph views |
 | Agent Action Graph | Causal view of agent runs, LLM calls, retrievals, tool calls, guardrails, evals, traces, logs, profiles, and replay evidence |
-| Agent-readable evidence | Structured evidence references and compact evidence bundles with entity IDs, routes, confidence, citations, compaction provenance, retrieval refs, code references, and suggested pivots |
+| Agent-readable evidence | Structured evidence references, Evidence retrieval, and compact evidence bundles with entity IDs, routes, confidence, citations, compaction provenance, retrieval refs, code references, and suggested pivots |
 | MCP server | Read-only investigation tools for agents: status, evidence bundles, evidence retrieval refs, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
 | SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust |
 | Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |

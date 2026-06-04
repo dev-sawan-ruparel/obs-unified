@@ -89,6 +89,8 @@ jobs:
       - run: pnpm run messaging:generate:check
       # …and lead-repo surfaces (READMEs, feature records) must match it.
       - run: pnpm run messaging:check
+      # …and vendored copies in siblings must be in sync.
+      - run: pnpm --filter @obs-unified/messaging run sync:check -- --require-all
 
   go-sdk:
     name: Go SDK

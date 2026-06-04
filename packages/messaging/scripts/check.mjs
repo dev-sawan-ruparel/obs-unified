@@ -109,20 +109,122 @@ for (const t of tools) {
 	}
 }
 
-// 8. Feature status gate (P3) — a not-yet-shipped feature must not be advertised
-//    as a shipped capability in README "What you get".
+// 8. Feature status gate (P3) — status gating checks both ways.
 {
 	const src = read("README.md");
 	const whatYouGet =
 		src.split(/^## What you get$/m)[1]?.split(/^## /m)[0] ?? src;
 	for (const f of m.authored.features ?? []) {
-		if (
-			f.status !== "shipped" &&
-			f.addsSignalType &&
-			whatYouGet.includes(f.addsSignalType)
-		) {
+		if (f.status === "shipped") {
+			// Enforce: shipped features must be advertised in README "What you get"
+			if (
+				f.surfacesWhenShipped?.includes("readme.what-you-get") &&
+				f.addsSignalType &&
+				!whatYouGet.includes(f.addsSignalType)
+			) {
+				fail(
+					`feature "${f.id}" is status="shipped" and requires "readme.what-you-get", but its signal "${f.addsSignalType}" is not advertised in README "What you get"`,
+				);
+			}
+			// Enforce: shipped features must have their tools in mcp-server README
+			if (
+				f.surfacesWhenShipped?.includes("mcp.tool-list") &&
+				f.addsMcpTools
+			) {
+				const mcpReadme = read("packages/mcp-server/README.md");
+				for (const tool of f.addsMcpTools) {
+					if (!mcpReadme.includes(`\`${tool}\``)) {
+						fail(
+							`feature "${f.id}" is status="shipped" and requires "mcp.tool-list", but its tool \`${tool}\` is not listed in mcp-server/README.md`,
+						);
+					}
+				}
+			}
+		} else {
+			// Enforce: non-shipped features must NOT be advertised in README "What you get"
+			if (
+				f.addsSignalType &&
+				whatYouGet.includes(f.addsSignalType)
+			) {
+				fail(
+					`feature "${f.id}" is status="${f.status}" but its signal "${f.addsSignalType}" is advertised in README "What you get"`,
+				);
+			}
+		}
+	}
+}
+
+// 9. RFC Status Log Integration Check (M2) — rfc-status.md single source of truth.
+{
+	const src = read("docs/rfc-status.md");
+	for (const f of m.authored.features ?? []) {
+		if (f.rfc) {
+			// Extract RFC number (e.g. "0011-evidence..." -> "0011")
+			const matchNum = f.rfc.match(/^(\d+)/);
+			if (matchNum) {
+				const rfcNum = matchNum[1];
+				const heading = `## RFC ${rfcNum}`;
+				const parts = src.split(new RegExp(`^${heading}\\b`, "m"));
+				if (parts.length < 2) {
+					fail(`rfc-status.md is missing section for \`${heading}\``);
+				} else {
+					const section = parts[1].split(/^## /m)[0] || "";
+					if (f.status === "shipped") {
+						if (section.includes("- [~]") || section.includes("- [ ]")) {
+							fail(
+								`feature "${f.id}" is status="shipped", but rfc-status.md section for \`${heading}\` has incomplete tasks ([~] or [ ])`,
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// 10. Governance Enum Source Check — manifest enums must match obs-types constants.
+{
+	const src = read("packages/obs-types/src/constants.ts");
+	const extractEnumValues = (objectName) => {
+		const blockMatch = src.match(
+			new RegExp(`export\\s+const\\s+${objectName}\\s*=\\s*\\{([^}]+)\\}`),
+		);
+		if (!blockMatch) return [];
+		return [...blockMatch[1].matchAll(/"([a-z0-9_]+)"/g)].map((x) => x[1]);
+	};
+
+	const autonomyLevelValues = extractEnumValues("AgentAutonomyLevel");
+	const approvalStateValues = extractEnumValues("ToolApprovalState");
+
+	const expectedAutonomy = m.authored.governance.autonomyLevel;
+	const expectedApproval = m.authored.governance.approvalState;
+
+	for (const v of autonomyLevelValues) {
+		if (!expectedAutonomy.includes(v)) {
 			fail(
-				`feature "${f.id}" is status="${f.status}" but its signal "${f.addsSignalType}" is advertised in README "What you get"`,
+				`manifest.json is missing autonomyLevel value \`${v}\` (defined in obs-types constants.ts)`,
+			);
+		}
+	}
+	for (const v of expectedAutonomy) {
+		if (!autonomyLevelValues.includes(v)) {
+			fail(
+				`manifest.json autonomyLevel has extra value \`${v}\` (not defined in obs-types constants.ts)`,
+			);
+		}
+	}
+
+	for (const v of approvalStateValues) {
+		if (!expectedApproval.includes(v)) {
+			fail(
+				`manifest.json is missing approvalState value \`${v}\` (defined in obs-types constants.ts)`,
+			);
+		}
+	}
+	for (const v of expectedApproval) {
+		if (!approvalStateValues.includes(v)) {
+			fail(
+				`manifest.json approvalState has extra value \`${v}\` (not defined in obs-types constants.ts)`,
 			);
 		}
 	}

@@ -167,6 +167,74 @@
 		"slug": "obs-unified",
 		"identityChain": "user_id → session_id → interaction_id → trace_id → span_id → action_id",
 		"devIngestKey": "dev-ingest-key",
+		"positioning": {
+			"hero": {
+				"headline": "A telemetry graph agents can actually debug with.",
+				"subhead": "Debug AI agents, and help AI agents debug software.",
+				"primaryProofImage": "/screenshots/app/agent-action-graph.png"
+			},
+			"proof": {
+				"identityChain": "user_id → session_id → interaction_id → trace_id → span_id → action_id",
+				"clickToActionCpuExample": "A click mints one interaction_id. Backend spans, logs, AI calls, action graphs, MCP tools, and CPU profiles join through the resulting trace."
+			},
+			"differentiator": {
+				"ccr": "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",
+				"mcp": "MCP investigation server",
+				"evidenceRefs": "Agent-readable evidence references",
+				"actionGraph": "Agent Action Graph"
+			},
+			"distribution": {
+				"license": "MIT",
+				"hosting": "Self-host on your infra",
+				"docker": "Start locally with one Docker image",
+				"cloudflareNodePaths": "Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage."
+			},
+			"comparison": {
+				"headline": "One stack instead of three (or nine)",
+				"agentRows": [
+					{
+						"name": "Observability Unified",
+						"key": "obs"
+					},
+					{
+						"name": "Datadog",
+						"key": "datadog"
+					},
+					{
+						"name": "Sentry",
+						"key": "sentry"
+					},
+					{
+						"name": "PostHog",
+						"key": "posthog"
+					},
+					{
+						"name": "Honeycomb",
+						"key": "honeycomb"
+					},
+					{
+						"name": "New Relic",
+						"key": "newrelic"
+					},
+					{
+						"name": "Grafana Cloud",
+						"key": "grafana"
+					},
+					{
+						"name": "SigNoz",
+						"key": "signoz"
+					},
+					{
+						"name": "Uptrace",
+						"key": "uptrace"
+					},
+					{
+						"name": "HyperDX",
+						"key": "hyperdx"
+					}
+				]
+			}
+		},
 		"scopes": {
 			"sdks": {
 				"scope": "@obs-unified",
@@ -237,6 +305,11 @@
 			{
 				"id": "alerts",
 				"name": "Alerts",
+				"status": "shipped"
+			},
+			{
+				"id": "user",
+				"name": "User profiles",
 				"status": "shipped"
 			},
 			{
