@@ -37,7 +37,8 @@
 		"e2e:alerts": "bash scripts/e2e-alerts/run-all.sh",
 		"e2e:otlp": "bash scripts/e2e-otlp/run.sh",
 		"e2e:ai-parity": "bash scripts/e2e-ai-parity/run.sh",
-		"measure:ingest": "bash scripts/measure-ingest/run.sh"
+		"measure:ingest": "bash scripts/measure-ingest/run.sh",
+		"benchmark:ccr": "pnpm --filter @obs-unified/collector exec vitest run src/plugins/evidence-retrieval-routes.benchmark.test.ts --reporter=verbose --silent=false"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",
