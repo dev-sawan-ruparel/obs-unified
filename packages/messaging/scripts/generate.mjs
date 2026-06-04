@@ -36,6 +36,8 @@ const AUTHORED_SEED = {
 				"user_id → session_id → interaction_id → trace_id → span_id → action_id",
 			clickToActionCpuExample:
 				"A click mints one interaction_id. Backend spans, logs, AI calls, action graphs, MCP tools, and CPU profiles join through the resulting trace.",
+			deterministicEvidence:
+				"Evidence references, Connected Rail pivots, CCR bundles, retrieval refs, and profile joins are deterministic structured data. LLMs can summarize the evidence, but they are optional consumers, not the source of truth.",
 		},
 		differentiator: {
 			ccr: "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",

@@ -8,6 +8,11 @@ Collector responses may include:
 - `contract`: a tool response contract when the endpoint maps directly to an
   MCP/HTTP tool surface.
 
+Evidence references are produced by collector logic, schema-aware derivation,
+and correlation/index lookups. They do not require an LLM. LLMs may summarize or
+rank evidence for narrative features, but the evidence contract remains the
+inspectable source of truth.
+
 The canonical exports live in `@obs-unified/types`:
 
 - `EvidenceReference`

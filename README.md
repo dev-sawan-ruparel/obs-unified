@@ -30,11 +30,13 @@ logs, replay, AI calls, agent steps, tool calls, eval cases, and CPU/profile
 evidence without copy-pasting IDs between vendors.
 
 For agents, the important part is not only that the data is colocated. The
-collector returns machine-readable evidence: entity IDs, routes, confidence,
-sources, citations, suggested next pivots, compact evidence bundles, and raw
-retrieval references. An AI debugger can follow the same graph the dashboard
-shows, while still knowing which causal edges were explicitly propagated, which
-records were compacted, and which raw evidence can be expanded on demand.
+collector deterministically returns machine-readable evidence: entity IDs,
+routes, confidence, sources, citations, suggested next pivots, compact evidence
+bundles, and raw retrieval references. LLMs can summarize that evidence, but
+they are optional consumers, not the source of truth. An AI debugger can follow
+the same graph the dashboard shows, while still knowing which causal edges were
+explicitly propagated, which records were compacted, and which raw evidence can
+be expanded on demand.
 The Evidence dashboard tab and MCP stats tool show which retrieval refs were
 issued and which ones agents expanded most often.
 
@@ -45,7 +47,7 @@ issued and which ones agents expanded most often.
 | Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, and Agent Action Graph records |
 | Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, and action graph views |
 | Agent Action Graph | Causal view of agent runs, LLM calls, retrievals, tool calls, guardrails, evals, traces, logs, profiles, and replay evidence |
-| Agent-readable evidence | Structured evidence references, Evidence retrieval, and compact evidence bundles with entity IDs, routes, confidence, citations, compaction provenance, retrieval refs, code references, and suggested pivots |
+| Agent-readable evidence | Deterministic structured evidence references, Evidence retrieval, and compact evidence bundles with entity IDs, routes, confidence, citations, compaction provenance, retrieval refs, code references, and suggested pivots; LLMs are optional summarizers, not the source of truth |
 | MCP server | Read-only investigation tools for agents: status, evidence bundles, evidence retrieval refs, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
 | SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust |
 | Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |
@@ -67,7 +69,7 @@ see all on [obsunified.com](https://obsunified.com)</sub>
 | **AI cost and LLM observability** | Model, provider, tokens, latency, cost, error category, prompt/output payloads, and trace context stay queryable together. |
 | **Agent Action Graph** | Agent work is represented as a causal graph, not loose LLM spans. You can see what the agent did, what each step caused, and which evidence supports the result. |
 | **Profiles and resources** | CPU/profile evidence and resource context can join the same incident path instead of living in a separate profiling tool. |
-| **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, compact bundles, confidence, raw retrieval refs, and next pivots. |
+| **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, compact bundles, confidence, raw retrieval refs, and next pivots without requiring an LLM. |
 | **MCP investigation server** | Agents can inspect the graph with read-only tools, without receiving write-only ingest credentials. |
 
 ## How agents debug with obs-unified
@@ -77,9 +79,10 @@ debug production behavior:
 
 1. Start from a symptom: alert, analysis, trace, log, user session, AI cost
    spike, tool failure, profile hot frame, or resource metric.
-2. Read structured evidence references and evidence bundles instead of scraping
-   prose. Evidence includes the entity kind, ID, route, source, confidence,
-   citations, compaction provenance, retrieval refs, and suggested pivots.
+2. Read deterministic structured evidence references and evidence bundles
+   instead of scraping prose. Evidence includes the entity kind, ID, route,
+   source, confidence, citations, compaction provenance, retrieval refs, and
+   suggested pivots; optional LLM summaries sit on top of this contract.
 3. Traverse Connected Rail from the anchor to neighboring signals: spans, logs,
    usage events, replay sessions, AI calls, profiles, actions, tool calls, evals,
    and agent runs.
