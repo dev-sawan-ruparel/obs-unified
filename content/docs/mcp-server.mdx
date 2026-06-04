@@ -8,8 +8,8 @@ that need to inspect an obs-unified collector.
 
 It exposes the same investigation graph that humans use in the dashboard:
 status, recent traces, trace detail, service operations, service map, logs, AI
-sessions, users, replays, profiles, evals, connected signals, agent runs,
-actions, and tool calls.
+sessions, users, replays, profiles, evals, compact evidence bundles, connected
+signals, agent runs, actions, and tool calls.
 
 ## Why it exists
 
@@ -121,6 +121,10 @@ pnpm --filter @obsunified/mcp-server build
 ## Tools
 
 - `obs_status`
+- `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`, or `tool_call` anchor, scoped to an investigation intent and token budget.
+- `retrieve_evidence_ref` — expand a bundle retrieval ref into raw, less-compacted, or redacted records (`chunkOffset` paginates replay event windows).
+- `search_evidence_ref` — search within a log retrieval ref without expanding the full evidence slice.
+- `get_evidence_stats` — issued/expanded evidence-ref telemetry for the active project.
 - `recent_traces`
 - `get_trace`
 - `service_operations`

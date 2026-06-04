@@ -45,7 +45,7 @@ All four packages live in the obs-unified monorepo. The TypeScript packages publ
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| `@obsunified/mcp-server` | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
+| `@obsunified/mcp-server` | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, compact evidence bundles, connected signals, agent runs, actions, and tool calls |
 
 The MCP server is intentionally a **read boundary**. Agents can inspect the same graph a human sees in the dashboard, but they do not need the write-only telemetry ingest key used by app SDKs. Configure it with a dashboard token, a compatible read bearer, or a local `obs_session` cookie for development.
 
