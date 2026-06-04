@@ -96,6 +96,13 @@ for (const t of tools) {
 			fail(`README.md is missing identity-chain component \`${part}\``);
 		else last = at;
 	}
+
+	// Validate duplicated positioning proof identityChain matches
+	if (m.authored.identityChain !== m.authored.positioning?.proof?.identityChain) {
+		fail(
+			`authored.identityChain ("${m.authored.identityChain}") and authored.positioning.proof.identityChain ("${m.authored.positioning?.proof?.identityChain}") are out of sync.`,
+		);
+	}
 }
 
 // 7. Governance enums (P2) — agent-action-graph doc must document each value.
