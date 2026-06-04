@@ -1,9 +1,9 @@
 # RFC 0011: Evidence retrieval layer
 
-- **Status:** Draft
+- **Status:** Implemented (PR #41; benchmark in PR #43)
 - **Author:** @sawanruparel
 - **Created:** 2026-06-03
-- **Updated:** 2026-06-03
+- **Updated:** 2026-06-04
 - **Parent:** [RFC 0010 — Agent action graph](0010-agent-action-graph.md)
 - **Depends on:**
   [RFC 0006 — Connected rail](0006-connected-rail.md),
