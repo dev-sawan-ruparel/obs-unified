@@ -18,6 +18,7 @@ import { connectedRoutesPlugin } from "./plugins/connected-routes";
 import { dashboardRoutesPlugin } from "./plugins/dashboard-routes";
 import { defaultSpanEnrichmentPlugin } from "./plugins/default-span-enrichment";
 import { evalCasesRoutesPlugin } from "./plugins/eval-cases-routes";
+import { evidenceRetrievalRoutesPlugin } from "./plugins/evidence-retrieval-routes";
 import { genAiNormalizerPlugin } from "./plugins/gen-ai-normalizer";
 import { identityReceiverPlugin } from "./plugins/identity-receiver";
 import { issueEnrichmentPlugin } from "./plugins/issue-enrichment";
@@ -126,6 +127,7 @@ export {
 	defaultSpanEnrichmentPlugin,
 	evalCasesRoutesPlugin,
 	evaluateAllRules,
+	evidenceRetrievalRoutesPlugin,
 	genAiNormalizerPlugin,
 	identityReceiverPlugin,
 	issueEnrichmentPlugin,
@@ -186,6 +188,7 @@ export const allPlugins = [
 	analysesRoutesPlugin,
 	actionRoutesPlugin,
 	evalCasesRoutesPlugin,
+	evidenceRetrievalRoutesPlugin,
 	askRoutesPlugin,
 	tailRoutesPlugin,
 	timelineRoutesPlugin,

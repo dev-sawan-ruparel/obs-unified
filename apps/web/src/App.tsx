@@ -16,6 +16,7 @@ import {
 	AutonomousReviewDashboard,
 	CostAttributionDashboard,
 	EvaluationsDashboard,
+	EvidenceDashboard,
 	HealthDashboard,
 	InvestigationPage,
 	InvestigationsDashboard,
@@ -137,14 +138,14 @@ export function App() {
 	};
 
 	return (
-		<div className="flex h-screen overflow-hidden bg-sys-bg font-sans text-sys-on-surface">
+		<div className="flex h-screen overflow-hidden bg-sys-bg font-sans text-sys-on-surface max-[640px]:flex-col">
 			<aside
-				className={`flex h-full flex-none flex-col border-r border-sys-outline-soft bg-sys-surface ${
+				className={`flex h-full flex-none flex-col border-r border-sys-outline-soft bg-sys-surface max-[640px]:h-auto max-[640px]:w-full max-[640px]:border-b max-[640px]:border-r-0 ${
 					collapsed ? "w-[56px]" : "w-[220px]"
 				}`}
 			>
 				<div
-					className={`flex h-12 flex-none items-center border-b border-sys-outline-soft ${
+					className={`flex h-12 flex-none items-center border-b border-sys-outline-soft max-[640px]:h-9 ${
 						collapsed ? "justify-center" : "px-4"
 					}`}
 				>
@@ -157,9 +158,16 @@ export function App() {
 						{collapsed ? "OBS" : "obs-unified"}
 					</span>
 				</div>
-				<nav className="flex-1 overflow-y-auto py-3">
+				<nav className="flex-1 overflow-y-auto py-3 max-[640px]:flex-none max-[640px]:overflow-x-auto max-[640px]:overflow-y-hidden max-[640px]:px-2 max-[640px]:py-2">
 					{NAV_GROUPS.map((group) => (
-						<div key={group.label} className={collapsed ? "mb-2" : "mb-4"}>
+						<div
+							key={group.label}
+							className={
+								collapsed
+									? "mb-2 max-[640px]:mb-0 max-[640px]:inline-block"
+									: "mb-4"
+							}
+						>
 							{!collapsed && (
 								<div className="mb-1 px-4 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-sys-on-surface-subtle">
 									{group.label}
@@ -171,13 +179,13 @@ export function App() {
 									className="mx-auto mb-1 h-[1px] w-6 bg-sys-outline-soft"
 								/>
 							)}
-							<div className="flex flex-col">
+							<div className="flex flex-col max-[640px]:flex-row">
 								{group.items.map(renderNavItem)}
 							</div>
 						</div>
 					))}
 				</nav>
-				<div className="flex-none border-t border-sys-outline-soft py-2">
+				<div className="flex-none border-t border-sys-outline-soft py-2 max-[640px]:hidden">
 					{PINNED_ITEMS.map(renderNavItem)}
 					<button
 						type="button"
@@ -215,12 +223,14 @@ export function App() {
 				</div>
 			</aside>
 			<div className="flex min-w-0 flex-1 flex-col">
-				<header className="flex h-12 flex-none items-center gap-3 border-b border-sys-outline-soft bg-sys-surface px-3">
+				<header className="flex h-12 flex-none items-center gap-3 border-b border-sys-outline-soft bg-sys-surface px-3 max-[640px]:h-auto max-[640px]:flex-wrap max-[640px]:gap-2 max-[640px]:px-2 max-[640px]:py-2">
 					<GlobalSearch />
 					<TimeRangePicker />
 					<IdeSelector />
-					<ProjectSwitcher />
-					<div className="ml-auto">
+					<div className="min-w-0 max-w-[220px] flex-none overflow-hidden max-[640px]:max-w-[calc(100vw-104px)] [&>div]:max-w-full [&>div]:whitespace-nowrap [&>div>span:first-child]:min-w-0 [&>div>span:first-child]:overflow-hidden [&>div>span:first-child]:text-ellipsis">
+						<ProjectSwitcher />
+					</div>
+					<div className="ml-auto max-[640px]:ml-0">
 						<AskBox />
 					</div>
 				</header>
@@ -257,6 +267,7 @@ export function App() {
 						)}
 						{route.tab === "logs" && <LogsDashboard />}
 						{route.tab === "ai" && <AIDashboard />}
+						{route.tab === "evidence" && <EvidenceDashboard />}
 						{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
 						{route.tab === "replay" && (
 							<ReplayDashboard

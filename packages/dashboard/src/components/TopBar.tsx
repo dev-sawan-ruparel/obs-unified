@@ -92,13 +92,15 @@ export function GlobalSearch() {
 				type="button"
 				onClick={() => setOpen(true)}
 				title="Open command palette (⌘K)"
-				className="flex h-8 min-w-[180px] items-center gap-2 bg-sys-surface-low px-2.5 text-left text-[0.8125rem] text-sys-on-surface-subtle hover:bg-sys-surface-high"
+				className="flex h-8 min-w-[180px] flex-none items-center gap-2 bg-sys-surface-low px-2.5 text-left text-[0.8125rem] text-sys-on-surface-subtle hover:bg-sys-surface-high max-[480px]:min-w-8 max-[480px]:w-8 max-[480px]:justify-center max-[480px]:px-0"
 			>
 				<span aria-hidden className="text-[0.875rem]">
 					⌕
 				</span>
-				<span className="flex-1">Jump to…</span>
-				<kbd className="font-mono text-[0.6875rem] text-sys-on-surface-subtle">
+				<span className="flex-1 whitespace-nowrap max-[480px]:hidden">
+					Jump to…
+				</span>
+				<kbd className="font-mono text-[0.6875rem] text-sys-on-surface-subtle max-[480px]:hidden">
 					⌘K
 				</kbd>
 			</button>
@@ -194,11 +196,11 @@ export function TimeRangePicker() {
 	}, [open]);
 
 	return (
-		<div ref={ref} className="relative">
+		<div ref={ref} className="relative flex-none">
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex h-8 items-center gap-1.5 bg-sys-surface-low px-2.5 text-[0.8125rem] font-medium text-sys-on-surface hover:bg-sys-surface-high"
+				className="flex h-8 items-center gap-1.5 whitespace-nowrap bg-sys-surface-low px-2.5 text-[0.8125rem] font-medium text-sys-on-surface hover:bg-sys-surface-high"
 			>
 				<span aria-hidden className="text-sys-on-surface-subtle">
 					◷
@@ -305,8 +307,8 @@ export function IdeSelector() {
 	};
 
 	return (
-		<div className="relative flex h-8 items-center bg-sys-surface-low text-[0.8125rem] font-medium text-sys-on-surface hover:bg-sys-surface-high">
-			<span className="pointer-events-none flex h-full items-center pl-2.5 pr-1 font-sans">
+		<div className="relative flex h-8 max-w-[160px] flex-none items-center overflow-hidden whitespace-nowrap bg-sys-surface-low text-[0.8125rem] font-medium text-sys-on-surface hover:bg-sys-surface-high max-[480px]:max-w-[112px]">
+			<span className="pointer-events-none flex h-full min-w-0 items-center overflow-hidden text-ellipsis whitespace-nowrap pl-2.5 pr-1 font-sans">
 				{label}
 			</span>
 			<span

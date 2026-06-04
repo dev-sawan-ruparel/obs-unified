@@ -27,6 +27,7 @@ export const KNOWN_TABS = new Set([
 	"issues",
 	"logs",
 	"ai",
+	"evidence",
 	"usage",
 	"replay",
 	"timeline",

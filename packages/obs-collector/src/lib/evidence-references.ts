@@ -122,6 +122,8 @@ export const evidenceRouteFor = (
 			return `#/alerts?alert=${encodeURIComponent(entityId)}`;
 		case "agent_run":
 			return `#/agent-runs/${encodeURIComponent(entityId)}`;
+		case "ai_call":
+			return `#/ai/calls/${encodeURIComponent(entityId)}`;
 		case "eval":
 			return `#/evals/${encodeURIComponent(entityId)}`;
 		case "log":
@@ -130,6 +132,8 @@ export const evidenceRouteFor = (
 			return traceId
 				? `#/profiles/${encodeURIComponent(entityId)}?trace_id=${encodeURIComponent(traceId)}`
 				: `#/profiles/${encodeURIComponent(entityId)}`;
+		case "replay":
+			return `#/replay?session=${encodeURIComponent(entityId)}`;
 		case "service":
 			return `#/traces?service=${encodeURIComponent(entityId)}`;
 		case "span": {

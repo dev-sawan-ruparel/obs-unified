@@ -31,9 +31,12 @@ evidence without copy-pasting IDs between vendors.
 
 For agents, the important part is not only that the data is colocated. The
 collector returns machine-readable evidence: entity IDs, routes, confidence,
-sources, citations, and suggested next pivots. An AI debugger can follow the
-same graph the dashboard shows, while still knowing which causal edges were
-explicitly propagated and which were fallback-derived.
+sources, citations, suggested next pivots, compact evidence bundles, and raw
+retrieval references. An AI debugger can follow the same graph the dashboard
+shows, while still knowing which causal edges were explicitly propagated, which
+records were compacted, and which raw evidence can be expanded on demand.
+The Evidence dashboard tab and MCP stats tool show which retrieval refs were
+issued and which ones agents expanded most often.
 
 ## What you get
 
@@ -42,8 +45,8 @@ explicitly propagated and which were fallback-derived.
 | Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, and Agent Action Graph records |
 | Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, and action graph views |
 | Agent Action Graph | Causal view of agent runs, LLM calls, retrievals, tool calls, guardrails, evals, traces, logs, profiles, and replay evidence |
-| Agent-readable evidence | Structured evidence references with entity IDs, routes, confidence, citations, source fields, code references, and suggested pivots |
-| MCP server | Read-only investigation tools for agents: status, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
+| Agent-readable evidence | Structured evidence references and compact evidence bundles with entity IDs, routes, confidence, citations, compaction provenance, retrieval refs, code references, and suggested pivots |
+| MCP server | Read-only investigation tools for agents: status, evidence bundles, evidence retrieval refs, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
 | SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust |
 | Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |
 
@@ -64,7 +67,7 @@ see all on [obsunified.com](https://obsunified.com)</sub>
 | **AI cost and LLM observability** | Model, provider, tokens, latency, cost, error category, prompt/output payloads, and trace context stay queryable together. |
 | **Agent Action Graph** | Agent work is represented as a causal graph, not loose LLM spans. You can see what the agent did, what each step caused, and which evidence supports the result. |
 | **Profiles and resources** | CPU/profile evidence and resource context can join the same incident path instead of living in a separate profiling tool. |
-| **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, confidence, and next pivots. |
+| **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, compact bundles, confidence, raw retrieval refs, and next pivots. |
 | **MCP investigation server** | Agents can inspect the graph with read-only tools, without receiving write-only ingest credentials. |
 
 ## How agents debug with obs-unified
@@ -74,9 +77,9 @@ debug production behavior:
 
 1. Start from a symptom: alert, analysis, trace, log, user session, AI cost
    spike, tool failure, profile hot frame, or resource metric.
-2. Read structured evidence references instead of scraping prose. Evidence
-   includes the entity kind, ID, route, source, confidence, citations, and
-   suggested pivots.
+2. Read structured evidence references and evidence bundles instead of scraping
+   prose. Evidence includes the entity kind, ID, route, source, confidence,
+   citations, compaction provenance, retrieval refs, and suggested pivots.
 3. Traverse Connected Rail from the anchor to neighboring signals: spans, logs,
    usage events, replay sessions, AI calls, profiles, actions, tool calls, evals,
    and agent runs.
@@ -105,10 +108,9 @@ failure should become an eval case.
 
 The graph is also agent-readable. The `@obsunified/mcp-server` package is the
 obs-unified investigation MCP server: it exposes read-only tools for status,
-recent traces, trace detail, service maps, logs, AI sessions, users, replays,
-profiles, evals, connected signals, agent runs, actions, and tool calls. Coding agents can
-traverse the same evidence a human sees in the dashboard without receiving
-ingest credentials.
+compact evidence bundles, retrieval refs, traces, logs, profiles, evals,
+connected signals, agent runs, actions, and tool calls. Coding agents can start
+with a budgeted bundle, then expand raw evidence only when needed.
 
 Typical agent-debugging paths:
 

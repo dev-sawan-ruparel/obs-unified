@@ -117,3 +117,8 @@ export const EvaluationsDashboard = lazy(() =>
 		"../../../../packages/dashboard/src/dashboards/EvaluationsDashboard"
 	).then((m) => ({ default: m.EvaluationsDashboard })),
 );
+export const EvidenceDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/EvidenceDashboard"
+	).then((m) => ({ default: m.EvidenceDashboard })),
+);

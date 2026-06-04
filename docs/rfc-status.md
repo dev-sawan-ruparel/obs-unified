@@ -130,3 +130,20 @@ For the current development status, prioritized execution queue, and active mile
       deterministic fallback IDs with fallback confidence, and preserves
       queue/async continuation parent links.
 - [~] OpenAI Agents SDK wrapper remains a likely pending framework integration.
+
+## RFC 0011 — Evidence Retrieval Layer
+
+- [x] Evidence bundle, retrieval ref, and compaction types plus JSON schemas.
+- [x] Investigation MCP tools for `get_evidence_bundle`,
+      `retrieve_evidence_ref`, `search_evidence_ref`, and
+      `get_evidence_stats`.
+- [x] Trace/log bundle path with critical-path summary, failed span evidence,
+      log exemplars, compaction provenance, and retrieval refs.
+- [x] Action, agent-run, and tool-call bundle anchors with causal path,
+      side-effect, approval, eval, trace, and log context.
+- [x] Replay, profile, AI-call, and tool-call retrieval refs expand under
+      project scope; replay event windows and profile frame summaries require
+      explicit retrieval, AI raw request/response data stays redacted, and tool
+      expansion returns hashes plus redacted args/results.
+- [x] Materialized retrieval refs, expansion telemetry, stats endpoint, and
+      Evidence dashboard tab for issued/expanded ref inspection.

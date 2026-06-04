@@ -18,6 +18,7 @@ export const NAV_GROUPS: NavGroup[] = [
 			{ key: "traces", label: "Traces", short: "TR" },
 			{ key: "issues", label: "Issues", short: "IS" },
 			{ key: "ai", label: "AI Calls", short: "AI" },
+			{ key: "evidence", label: "Evidence", short: "EV" },
 		],
 	},
 	{
@@ -34,7 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
 			{ key: "cost-attribution", label: "Cost Attribution", short: "CA" },
 			{ key: "autonomous-review", label: "Autonomous Review", short: "AR" },
 			{ key: "agent-version-diff", label: "Version Diff", short: "VD" },
-			{ key: "evaluations", label: "Evaluations", short: "EV" },
+			{ key: "evaluations", label: "Evaluations", short: "EA" },
 		],
 	},
 ];

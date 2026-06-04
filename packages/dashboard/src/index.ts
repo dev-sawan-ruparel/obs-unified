@@ -52,6 +52,7 @@ export {
 export { AIDashboard } from "./dashboards/AIDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { EvaluationsDashboard } from "./dashboards/EvaluationsDashboard";
+export { EvidenceDashboard } from "./dashboards/EvidenceDashboard";
 export { HealthDashboard } from "./dashboards/HealthDashboard";
 export { InvestigationPage } from "./dashboards/InvestigationPage";
 export { InvestigationsDashboard } from "./dashboards/InvestigationsDashboard";

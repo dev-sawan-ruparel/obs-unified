@@ -26,6 +26,8 @@ interface CollectorConfig {
 
 const positiveInt = (fallback: number, min = 1, max = 10_000) =>
 	z.number().int().min(min).max(max).optional().default(fallback);
+const nonNegativeInt = (fallback: number, max = 10_000) =>
+	z.number().int().min(0).max(max).optional().default(fallback);
 
 const hoursParam = positiveInt(24, 1, 24 * 365);
 const limitParam = positiveInt(30, 1, 500);
@@ -87,21 +89,29 @@ function buildPath(
 class CollectorClient {
 	constructor(private readonly config: CollectorConfig) {}
 
-	async get<T = JsonValue>(
+	private async request<T = JsonValue>(
+		method: "GET" | "POST",
 		pathname: string,
-		params?: Record<string, string | number | boolean | undefined>,
+		options: {
+			params?: Record<string, string | number | boolean | undefined>;
+			body?: unknown;
+		} = {},
 	): Promise<T> {
-		const path = buildPath(pathname, params);
+		const path = buildPath(pathname, options.params);
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
 		try {
 			const response = await fetch(`${this.config.baseUrl}${path}`, {
+				method,
 				headers: {
 					...this.config.authHeaders,
+					...(method === "POST" ? { "Content-Type": "application/json" } : {}),
 					...(this.config.projectId
 						? { "X-Project-Id": this.config.projectId }
 						: {}),
 				},
+				body:
+					options.body === undefined ? undefined : JSON.stringify(options.body),
 				signal: controller.signal,
 			});
 			const text = await response.text();
@@ -131,6 +141,17 @@ class CollectorClient {
 		} finally {
 			clearTimeout(timeout);
 		}
+	}
+
+	async get<T = JsonValue>(
+		pathname: string,
+		params?: Record<string, string | number | boolean | undefined>,
+	): Promise<T> {
+		return this.request<T>("GET", pathname, { params });
+	}
+
+	async post<T = JsonValue>(pathname: string, body: unknown): Promise<T> {
+		return this.request<T>("POST", pathname, { body });
 	}
 
 	dashboardLink(fragment: string): string | undefined {
@@ -187,6 +208,152 @@ function errorToolResult(error: unknown) {
 }
 
 function registerTools(server: McpServer, client: CollectorClient): void {
+	server.registerTool(
+		"get_evidence_bundle",
+		{
+			description:
+				"Return compact evidence for an anchor, investigation intent, and token budget.",
+			inputSchema: {
+				anchor: z.object({
+					entityKind: z.enum(["trace", "action", "agent_run", "tool_call"]),
+					entityId: z.string().min(1),
+				}),
+				intent: z.string().min(1).optional(),
+				budget: z
+					.object({
+						targetTokens: positiveInt(4000, 500, 30_000),
+						detailLevel: z
+							.enum(["brief", "standard", "deep"])
+							.optional()
+							.default("standard"),
+					})
+					.optional(),
+				hours: positiveInt(24, 1, 720),
+			},
+		},
+		async ({ anchor, intent, budget, hours }) => {
+			try {
+				const data = await client.post("/internal/evidence/bundle", {
+					anchor,
+					intent,
+					budget,
+					hours,
+				});
+				return toolResult(
+					"get_evidence_bundle",
+					{ anchor, intent, budget, hours },
+					"{ data: EvidenceBundle, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`evidence?kind=${encodeURIComponent(anchor.entityKind)}&id=${encodeURIComponent(anchor.entityId)}`,
+						),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"retrieve_evidence_ref",
+		{
+			description:
+				"Expand a retrieval reference into raw or less-compacted evidence records.",
+			inputSchema: {
+				refId: z.string().min(1),
+				limit: positiveInt(100, 1, 1000),
+				chunkOffset: nonNegativeInt(0, 1_000_000),
+				severity: z
+					.enum(["DEBUG", "INFO", "WARN", "ERROR", "FATAL"])
+					.optional(),
+			},
+		},
+		async ({ refId, limit, chunkOffset, severity }) => {
+			try {
+				const data = await client.get(
+					`/internal/evidence/refs/${encodeURIComponent(refId)}`,
+					{ limit, chunkOffset, severity },
+				);
+				return toolResult(
+					"retrieve_evidence_ref",
+					{ refId, limit, chunkOffset, severity },
+					"{ data: EvidenceRetrievalRefExpansion, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`evidence/refs/${encodeURIComponent(refId)}`,
+						),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"search_evidence_ref",
+		{
+			description:
+				"Search within a retrieval reference without expanding the full evidence slice.",
+			inputSchema: {
+				refId: z.string().min(1),
+				query: z.string().min(1),
+				limit: limitParam,
+			},
+		},
+		async ({ refId, query, limit }) => {
+			try {
+				const data = await client.post(
+					`/internal/evidence/refs/${encodeURIComponent(refId)}/search`,
+					{ query, limit },
+				);
+				return toolResult(
+					"search_evidence_ref",
+					{ refId, query, limit },
+					"{ data: EvidenceRetrievalRefSearchResponse, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink(
+							`evidence/refs/${encodeURIComponent(refId)}?q=${encodeURIComponent(query)}`,
+						),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"get_evidence_stats",
+		{
+			description:
+				"Return materialized evidence retrieval ref issue and expansion telemetry.",
+			inputSchema: {
+				limit: positiveInt(20, 1, 100),
+			},
+		},
+		async ({ limit }) => {
+			try {
+				const data = await client.get("/internal/evidence/stats", { limit });
+				return toolResult(
+					"get_evidence_stats",
+					{ limit },
+					"{ data: EvidenceRetrievalStats, dashboardUrl?: string }",
+					{
+						data,
+						dashboardUrl: client.dashboardLink("evidence"),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
 	server.registerTool(
 		"obs_status",
 		{
