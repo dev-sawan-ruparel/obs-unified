@@ -1,0 +1,17 @@
+{
+	"name": "@obs-unified/messaging",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Single source of truth for obs-unified messaging facts (RFC 0012). Derives package names, MCP tools, EvidenceReference fields and more from code; checks surfaces for drift; syncs a vendored manifest to sibling repos.",
+	"scripts": {
+		"generate": "node scripts/generate.mjs",
+		"generate:check": "node scripts/generate.mjs --check",
+		"check": "node scripts/check.mjs",
+		"sync": "node scripts/sync-to-projects.mjs",
+		"sync:check": "node scripts/sync-to-projects.mjs --check"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	}
+}

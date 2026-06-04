@@ -157,7 +157,7 @@ For local development from this repo:
       "args": ["--dir", "/absolute/path/to/obs-unified", "--filter", "@obsunified/mcp-server", "start"],
       "env": {
         "OBS_COLLECTOR_URL": "http://localhost:8790",
-        "OBS_INGEST_KEY": "dev"
+        "OBS_INGEST_KEY": "dev-ingest-key"
       }
     }
   }

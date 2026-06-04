@@ -1,0 +1,165 @@
+#!/usr/bin/env node
+/*
+ * messaging:generate — rewrite the DERIVED section of manifest.json from code.
+ *
+ *   node scripts/generate.mjs           # write manifest.json
+ *   node scripts/generate.mjs --check   # fail (exit 1) if the committed derived
+ *                                        # section is stale vs code
+ *
+ * The AUTHORED section (identity chain, governance enums, glossary, capabilities,
+ * feature records) is hand-maintained and preserved across runs. Only `derived`
+ * is machine-written, so a tool/field/scope change in code must be reflected by
+ * re-running generate — CI enforces this with --check.
+ *
+ * No timestamps are written: the output must be deterministic so --check is a
+ * pure content comparison.
+ */
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { deriveAll, MANIFEST_PATH } from "./lib.mjs";
+
+// Seed used only when manifest.json does not yet exist. After that the authored
+// section is read from disk and preserved verbatim.
+const AUTHORED_SEED = {
+	displayName: "Observability Unified",
+	slug: "obs-unified",
+	identityChain:
+		"user_id → session_id → interaction_id → trace_id → span_id → action_id",
+	devIngestKey: "dev-ingest-key",
+	scopes: {
+		sdks: {
+			scope: "@obs-unified",
+			registry: "https://npm.pkg.github.com",
+			note: "first-party SDKs on GitHub Packages",
+		},
+		mcp: {
+			scope: "@obsunified",
+			registry: "https://registry.npmjs.org/",
+			note: "MCP server on public npm (hyphen-less scope)",
+		},
+	},
+	governance: {
+		autonomyLevel: [
+			"read_only",
+			"suggested_action",
+			"human_approved_write",
+			"autonomous_write",
+			"blocked_by_policy",
+		],
+		approvalState: ["suggested", "human_approved", "bypassed", "blocked"],
+		sideEffect: "boolean",
+	},
+	glossary: {
+		"Observability Unified": "Display/brand name.",
+		"obs-unified":
+			"Repo + GitHub-Packages scope (@obs-unified) + CLI binary name.",
+		"@obsunified":
+			"Hyphen-less npm scope for the public MCP server package only.",
+		"Connected Rail":
+			"The cross-signal pivot surface (HTTP /internal/connected/:kind/:id; MCP connected_signals).",
+		CCR: "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",
+		"evidence bundle":
+			"Compact, token-budgeted evidence returned by the CCR layer.",
+	},
+	capabilities: [
+		{ id: "traces", name: "Distributed tracing", status: "shipped" },
+		{ id: "logs", name: "Structured logs", status: "shipped" },
+		{ id: "usage", name: "Usage analytics", status: "shipped" },
+		{ id: "replay", name: "Session replay", status: "shipped" },
+		{ id: "ai", name: "AI / LLM observability", status: "shipped" },
+		{ id: "profiles", name: "Profiles (CPU/off-CPU)", status: "shipped" },
+		{ id: "alerts", name: "Alerts", status: "shipped" },
+		{ id: "analyses", name: "Application-aware analyses", status: "shipped" },
+		{ id: "action-graph", name: "Agent Action Graph", status: "shipped" },
+		{
+			id: "evidence-references",
+			name: "Agent-readable evidence references",
+			status: "shipped",
+		},
+		{
+			id: "evidence-retrieval",
+			name: "Evidence retrieval (CCR)",
+			status: "shipped",
+		},
+		{ id: "mcp", name: "MCP investigation server", status: "shipped" },
+	],
+	features: [
+		{
+			id: "evidence-retrieval",
+			displayName: "Evidence retrieval (compressed context retrieval)",
+			glossary: [
+				"CCR",
+				"compressed context retrieval",
+				"evidence bundle",
+				"retrieval ref",
+			],
+			status: "shipped",
+			rfc: "0011-evidence-retrieval-layer",
+			docsSlug: "/docs/evidence-retrieval",
+			addsMcpTools: [
+				"get_evidence_bundle",
+				"retrieve_evidence_ref",
+				"search_evidence_ref",
+				"get_evidence_stats",
+			],
+			addsEvidenceFields: ["retrieval", "retrievalRefIds", "retrievalRefs"],
+			addsSignalType: "Evidence retrieval",
+			surfacesWhenShipped: [
+				"readme.what-you-get",
+				"site.features",
+				"llms.signal-types",
+				"jsonld.featureList",
+				"docs.index",
+				"docs.page",
+				"mcp.tool-list",
+				"skills.tool-list",
+			],
+		},
+	],
+};
+
+const HEADER =
+	"DO NOT EDIT the `derived` block by hand — run `pnpm --filter @obs-unified/messaging generate`. The `authored` block is hand-maintained.";
+
+function build() {
+	const authored = existsSync(MANIFEST_PATH)
+		? (JSON.parse(readFileSync(MANIFEST_PATH, "utf8")).authored ??
+			AUTHORED_SEED)
+		: AUTHORED_SEED;
+	return {
+		$note: HEADER,
+		schemaVersion: "obs-unified.messaging-manifest.v1",
+		derived: deriveAll(),
+		authored,
+	};
+}
+
+function serialize(obj) {
+	// Tab indent to match the repo's Biome JSON formatter so manifest.json passes
+	// `biome check` and generate --check stays the sole authority on its format.
+	return `${JSON.stringify(obj, null, "\t")}\n`;
+}
+
+const check = process.argv.includes("--check");
+const next = serialize(build());
+
+if (check) {
+	if (!existsSync(MANIFEST_PATH)) {
+		console.error(
+			"messaging: manifest.json missing; run `pnpm --filter @obs-unified/messaging generate`",
+		);
+		process.exit(1);
+	}
+	const current = readFileSync(MANIFEST_PATH, "utf8");
+	if (current !== next) {
+		console.error(
+			"messaging: manifest.json is STALE vs code.\n" +
+				"A tool/field/scope changed without regenerating. Run:\n" +
+				"  pnpm --filter @obs-unified/messaging generate\n",
+		);
+		process.exit(1);
+	}
+	console.log("messaging: manifest.json is up to date with code.");
+} else {
+	writeFileSync(MANIFEST_PATH, next);
+	console.log(`messaging: wrote ${MANIFEST_PATH}`);
+}

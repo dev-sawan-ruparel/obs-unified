@@ -70,6 +70,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
 
+  messaging:
+    name: Messaging parity
+    runs-on: [self-hosted, obs-unified]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          # Unique per-runner dir avoids the ENOTEMPTY race when concurrent
+          # self-hosted runner instances share the default ~/setup-pnpm.
+          dest: ${{ runner.temp }}/setup-pnpm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Manifest must be regenerated when a tool/field/scope changes in code…
+      - run: pnpm run messaging:generate:check
+      # …and lead-repo surfaces (READMEs, feature records) must match it.
+      - run: pnpm run messaging:check
+
   go-sdk:
     name: Go SDK
     runs-on: [self-hosted, obs-unified]

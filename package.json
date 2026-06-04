@@ -10,6 +10,10 @@
 	"scripts": {
 		"type-check": "pnpm -r run type-check",
 		"test": "pnpm -r run test",
+		"messaging:generate": "pnpm --filter @obs-unified/messaging run generate",
+		"messaging:generate:check": "pnpm --filter @obs-unified/messaging run generate:check",
+		"messaging:check": "pnpm --filter @obs-unified/messaging run check",
+		"messaging:sync": "pnpm --filter @obs-unified/messaging run sync",
 		"build": "pnpm -r run build",
 		"changeset": "changeset",
 		"version-packages": "changeset version",
