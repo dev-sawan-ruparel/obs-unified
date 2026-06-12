@@ -11,8 +11,8 @@ jobs:
     name: Messaging parity (RFC 0012)
     runs-on: [self-hosted, docs]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Messaging parity check
@@ -22,9 +22,9 @@ jobs:
     name: Type-check + build
     runs-on: [self-hosted, docs]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -33,9 +33,18 @@ jobs:
       - run: pnpm run types:check
       - run: pnpm run build
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: docs-build
           path: build/
           if-no-files-found: error
           retention-days: 7
+      - name: Deploy to Cloudflare Pages (production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # The Pages project ("obsunified-docs" per wrangler.toml →
+        # docs.obsunified.com) is NOT Git-connected, so this step is the
+        # production deploy — without it, merges build but never ship. Auth
+        # comes from the self-hosted runner host's `wrangler login` session; set
+        # a CLOUDFLARE_API_TOKEN env from repo secrets here if deploys ever move
+        # off that machine.
+        run: npx -y wrangler@4 pages deploy --branch=main --commit-hash="$GITHUB_SHA" --commit-dirty=true
