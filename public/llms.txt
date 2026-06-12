@@ -80,8 +80,8 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 
 | Runtime | Package / workspace | Notes |
 | --- | --- | --- |
-| TypeScript / Node | `@obs-unified/telemetry-sdk` | GitHub Packages; Workers, Hono, Next.js, Express |
-| TypeScript / browser | `@obs-unified/analytics-sdk` | GitHub Packages; vanilla + React provider |
+| TypeScript / Node | `@obs-unified/telemetry-sdk` | public npm; Workers, Hono, Next.js, Express |
+| TypeScript / browser | `@obs-unified/analytics-sdk` | public npm; vanilla + React provider |
 | Go | `sdks/go` | OpenTelemetry-compatible wrapper |
 | Rust | `sdks/rust` | OpenTelemetry-compatible wrapper |
 | MCP | `packages/mcp-server` | Stdio MCP server for agent investigations |
@@ -103,7 +103,7 @@ pnpm run setup
 pnpm run dev
 ```
 
-Language-specific examples and GitHub Packages auth setup are maintained in the SDK docs:
+Language-specific examples and package install details are maintained in the SDK docs:
 https://docs.obsunified.com/docs/sdks
 
 The SDK API cheat sheet is at:

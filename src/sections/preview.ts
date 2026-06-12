@@ -12,7 +12,7 @@ pnpm local:image
 pnpm local:run`;
 
 const SDK_PATHS = `Backend:
-  TypeScript  @obs-unified/* on GitHub Packages
+  TypeScript  @obs-unified/* on public npm
   Go          sdks/go
   Rust        sdks/rust
 
