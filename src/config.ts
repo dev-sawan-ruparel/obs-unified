@@ -14,22 +14,22 @@ export const GITHUB_URL = "https://github.com/obs-unified/obs-unified";
 
 export const FOOTER_PACKAGES = [
   {
-    name: "@obs-unified/collector",
+    name: "@obsunified/collector",
     label: "Collector",
     href: `${GITHUB_URL}/tree/main/packages/obs-collector`,
   },
   {
-    name: "@obs-unified/telemetry-sdk",
+    name: "@obsunified/telemetry-sdk",
     label: "Server SDK",
     href: `${GITHUB_URL}/tree/main/packages/telemetry-sdk`,
   },
   {
-    name: "@obs-unified/analytics-sdk",
+    name: "@obsunified/analytics-sdk",
     label: "Browser SDK",
     href: `${GITHUB_URL}/tree/main/packages/analytics-sdk`,
   },
   {
-    name: "@obs-unified/dashboard",
+    name: "@obsunified/dashboard",
     label: "Dashboard",
     href: `${GITHUB_URL}/tree/main/packages/dashboard`,
   },

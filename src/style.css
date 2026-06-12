@@ -2,7 +2,7 @@
  * presence — landing page stylesheet
  *
  * Aligned to the "Technical Monolith" design system. Color and
- * typography tokens are imported from @obs-unified/brand (synced into
+ * typography tokens are imported from @obsunified/brand (synced into
  * /public/ as part of the asset pipeline); this file only declares
  * layout, spacing, and presence-specific component classes.
  *

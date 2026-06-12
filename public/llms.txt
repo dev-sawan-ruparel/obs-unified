@@ -80,8 +80,8 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 
 | Runtime | Package / workspace | Notes |
 | --- | --- | --- |
-| TypeScript / Node | `@obs-unified/telemetry-sdk` | public npm; Workers, Hono, Next.js, Express |
-| TypeScript / browser | `@obs-unified/analytics-sdk` | public npm; vanilla + React provider |
+| TypeScript / Node | `@obsunified/telemetry-sdk` | public npm; Workers, Hono, Next.js, Express |
+| TypeScript / browser | `@obsunified/analytics-sdk` | public npm; vanilla + React provider |
 | Go | `sdks/go` | OpenTelemetry-compatible wrapper |
 | Rust | `sdks/rust` | OpenTelemetry-compatible wrapper |
 | MCP | `packages/mcp-server` | Stdio MCP server for agent investigations |
@@ -110,7 +110,7 @@ The SDK API cheat sheet is at:
 https://docs.obsunified.com/docs/sdk-reference
 
 ```typescript
-import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
+import { initObservability, createLogger } from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: "https://obs.my-app.com",

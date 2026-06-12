@@ -37,7 +37,7 @@ try {
 // ---------------------------------------------------------------------------
 // CHECK 1 — package scope: every @obs-unified / @obsunified token used by the
 // website must be a real package name in manifest.derived.packages[].name.
-// Catches scope typos like @obs-unified/mcp-server after the npm-scope rename.
+// Catches scope typos like @obsunified/mcp-server after the npm-scope rename.
 // ---------------------------------------------------------------------------
 console.log("CHECK 1 — package scope");
 {
