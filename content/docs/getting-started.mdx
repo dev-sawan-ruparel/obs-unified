@@ -100,6 +100,11 @@ pnpm run setup
 pnpm run dev
 ```
 
+`pnpm run setup` creates `apps/collector/.dev.vars` from
+`apps/collector/.dev.vars.example` if needed, then runs local migrations. If you
+change the local dashboard password or ingest key later, `pnpm run seed` reads
+the same file automatically.
+
 The local dev stack exposes:
 
 | Service | URL |

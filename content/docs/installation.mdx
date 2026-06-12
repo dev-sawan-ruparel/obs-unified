@@ -52,6 +52,11 @@ pnpm run setup
 pnpm run dev
 ```
 
+`pnpm run setup` creates `apps/collector/.dev.vars` from
+`apps/collector/.dev.vars.example` if needed, then runs local migrations. The
+sample-data seeder reads that same file, so custom local credentials do not need
+to be exported in every shell.
+
 The local dev stack exposes:
 
 | Service | Port | Purpose |

@@ -13,9 +13,9 @@ For the agent-facing investigation surface, see [MCP server](/docs/mcp-server).
 
 | Language | Install | Where it runs |
 | --- | --- | --- |
-| **TypeScript** | `pnpm add @obs-unified/telemetry-sdk` from GitHub Packages | Node.js · Bun · Deno · Cloudflare Workers |
+| **TypeScript** | `pnpm add @obs-unified/telemetry-sdk` from npm | Node.js · Bun · Deno · Cloudflare Workers |
 | **Go** | `go get github.com/obs-unified/obs-unified/sdks/go@latest` | Any Go 1.22+ binary |
-| **Rust** | Git dependency from `sdks/rust` | Any Rust 1.75+ binary (Tokio runtime) |
+| **Rust** | `cargo add obs-unified` | Any Rust 1.75+ binary (Tokio runtime) |
 
 All three expose the **same API surface**, so muscle memory ports across runtimes:
 
@@ -39,7 +39,7 @@ If your backend language isn't listed, any OTLP-compatible OpenTelemetry SDK wor
 
 This one is browser-only by definition — there's no parallel Go/Rust analytics SDK because that surface area is the web.
 
-All four packages live in the obs-unified monorepo. The TypeScript packages publish to GitHub Packages under `@obs-unified/*`; GitHub Packages requires authentication even for public packages. The Go SDK is consumed straight from the public `sdks/go` module path. The Rust SDK is currently consumed as a Git dependency until a crates.io release is cut.
+All four packages live in the obs-unified monorepo. The TypeScript packages publish to public npm under `@obs-unified/*`. The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.0`. The Rust SDK publishes to crates.io as `obs-unified`.
 
 ## MCP server
 
@@ -52,16 +52,14 @@ The MCP server is intentionally a **read boundary**. Agents can inspect the same
 See [MCP server](/docs/mcp-server) for install and host configuration.
 
 > [!NOTE]
-> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`). The first-party SDKs use the hyphenated `@obs-unified` scope on the GitHub Packages registry (`@obs-unified/*`).
+> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`). The first-party SDKs use the hyphenated `@obs-unified` scope on public npm (`@obs-unified/*`).
 
-### GitHub Packages setup
+### npm install
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
+pnpm add @obs-unified/telemetry-sdk
+pnpm add @obs-unified/analytics-sdk
 ```
-
-Use your GitHub username and a classic personal access token with `read:packages`.
 
 ## The identity skeleton
 
@@ -91,8 +89,6 @@ flowchart LR
 ### Install
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add @obs-unified/analytics-sdk
 ```
 
@@ -193,8 +189,6 @@ setTimeout(() => {
 ### Install
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add @obs-unified/telemetry-sdk
 ```
 
