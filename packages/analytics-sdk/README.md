@@ -6,8 +6,6 @@ events, mints click-scoped `interaction_id` correlation keys, injects them on
 outbound `fetch`/XHR, and (optionally) records rrweb session replay chunks.
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add @obs-unified/analytics-sdk
 ```
 

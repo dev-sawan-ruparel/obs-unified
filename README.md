@@ -159,10 +159,8 @@ docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
 If you are working from a clone instead, you can build and run it locally: `pnpm local:image && pnpm local:run`.
 Prefer to run from source? See [docs/getting-started.md](docs/getting-started.md).
 
-> Installing the SDKs into **your own** app needs a one-time GitHub Packages
-> login — covered in [Instrument your app](#instrument-your-app) below and in
-> [docs/github-packages.md](docs/github-packages.md). The MCP server publishes
-> to npmjs and does not need that login.
+> Installing the SDKs into **your own** app uses public npm packages. No GitHub
+> Packages login is required after the next npm release.
 
 ## See it with sample data
 
@@ -279,7 +277,7 @@ Start by choosing your language and framework, then follow the matching example:
 The common wiring is: run a collector, add the browser/backend SDK package, set
 `OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction` CORS
 header for browser calls, and verify the collector path with
-`pnpm dlx @obs-unified/cli doctor` (after the GitHub Packages login below).
+`pnpm dlx @obs-unified/cli doctor`.
 For agents, install the MCP server from npmjs without registry auth:
 
 ```bash
@@ -287,20 +285,7 @@ pnpm add -g @obsunified/mcp-server
 ```
 
 > [!NOTE]
-> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`); the first-party SDKs use the hyphenated `@obs-unified` scope on the GitHub Packages registry (`@obs-unified/*`).
-
-### Install the SDKs
-
-The TypeScript SDK packages publish to GitHub Packages. Configure the
-`@obs-unified` scope once for SDK installs (GitHub Packages requires
-authentication even for public packages — see
-[docs/github-packages.md](docs/github-packages.md) for token setup and the
-Go/Rust install paths):
-
-```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
-```
+> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`); the first-party SDKs use the hyphenated `@obs-unified` scope on public npm (`@obs-unified/*`).
 
 ### 1. Instrument Your Backend
 

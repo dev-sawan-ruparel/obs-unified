@@ -43,6 +43,7 @@
 		"sharp": "^0.34.0"
 	},
 	"publishConfig": {
-		"registry": "https://npm.pkg.github.com"
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
 	}
 }

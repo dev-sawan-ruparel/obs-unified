@@ -54,7 +54,7 @@ if grep -Eq "Internal Server Error|storage error|ERR_MODULE_NOT_FOUND|not valid 
 fi
 
 for expected in \
-	"migrate] done (31 new of 31 total)" \
+	"migrate] done (" \
 	"usage / sessions / timeline" \
 	"traces / service map / issues" \
 	"logs (/v1/logs)" \

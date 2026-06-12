@@ -20,6 +20,8 @@
  *                                        --rounds 8
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
 
@@ -56,15 +58,39 @@ function arg(name, fallback) {
 	return process.argv[idx + 1] ?? fallback;
 }
 
+function readCollectorDevVars() {
+	const path = resolve("apps/collector/.dev.vars");
+	try {
+		const entries = {};
+		for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+			const trimmed = line.trim();
+			if (!trimmed || trimmed.startsWith("#")) continue;
+			const eq = trimmed.indexOf("=");
+			if (eq === -1) continue;
+			const key = trimmed.slice(0, eq).trim();
+			let value = trimmed.slice(eq + 1).trim();
+			value = value.replace(/^['"]|['"]$/g, "");
+			entries[key] = value;
+		}
+		return entries;
+	} catch {
+		return {};
+	}
+}
+
+const collectorDevVars = readCollectorDevVars();
 const COLLECTOR = arg("collector", "http://localhost:8790");
 const DEMO = arg("demo", "http://localhost:8787");
 const PASSWORD = arg(
 	"password",
-	process.env.DASHBOARD_PASSWORD ?? "e2e-test-pass",
+	process.env.DASHBOARD_PASSWORD ??
+		collectorDevVars.DASHBOARD_PASSWORD ??
+		"e2e-test-pass",
 );
 const PROJECT_KEY = arg(
 	"key",
 	process.env.OBS_INGEST_KEY ??
+		collectorDevVars.INGEST_KEY ??
 		"obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504",
 );
 const ROUNDS = Number.parseInt(arg("rounds", "6"), 10);

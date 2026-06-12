@@ -7,8 +7,6 @@ Graph primitives. Targets Cloudflare Workers, Node.js, Bun, and Deno; the
 Workers binding wrappers live under the `./cloudflare` subpath.
 
 ```bash
-pnpm config set @obs-unified:registry https://npm.pkg.github.com
-pnpm login --scope=@obs-unified --auth-type=legacy --registry=https://npm.pkg.github.com
 pnpm add @obs-unified/telemetry-sdk
 ```
 

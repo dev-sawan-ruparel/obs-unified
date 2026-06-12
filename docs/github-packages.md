@@ -1,44 +1,35 @@
-# GitHub Packages
+# Package Registry
 
-Most TypeScript SDK packages publish to GitHub Packages under the `@obs-unified`
-scope:
-
-```bash
-@obs-unified:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-GitHub Packages requires authentication for installing public packages. Use a
-classic personal access token with `read:packages` for local installs. GitHub
-Actions can use `GITHUB_TOKEN` when the workflow repository has package access.
-
-Exception: `@obsunified/mcp-server` publishes to the public npm registry so
-agents can install it without GitHub Packages authentication:
-
-```bash
-pnpm add -g @obsunified/mcp-server
-```
-
-Install examples:
+obs-unified's public JavaScript packages publish to the public npm registry.
+New installs should not require GitHub Packages configuration:
 
 ```bash
 pnpm add @obs-unified/telemetry-sdk
 pnpm add @obs-unified/analytics-sdk
-pnpm add @obs-unified/collector
-pnpm add @obs-unified/dashboard
+pnpm dlx @obs-unified/cli doctor http://localhost:8790 --origin http://localhost:5173
+pnpm add -g @obsunified/mcp-server
 ```
 
-Go and Rust do not publish through GitHub Packages. GitHub Packages currently
-supports npm, RubyGems, Apache Maven, Gradle, NuGet, Docker, and OCI/container
-images. The Go SDK is consumed from the public Git module path:
+The repository used GitHub Packages in earlier releases. If an old environment
+has this scope override, remove it before installing current packages:
+
+```bash
+pnpm config delete @obs-unified:registry
+```
+
+During the transition, the already-published GitHub Packages versions may still
+require a GitHub token. The next release from this repo is configured to publish
+the `@obs-unified/*` packages to npmjs.
+
+Go and Rust do not use npm:
 
 ```bash
 go get github.com/obs-unified/obs-unified/sdks/go@latest
 ```
 
-For Rust, use the Git dependency until a crates.io release is cut:
-
-```toml
-[dependencies]
-obs-unified = { git = "https://github.com/obs-unified/obs-unified", package = "obs-unified" }
+```bash
+cargo add obs-unified
 ```
+
+Go availability is controlled by public Git tags in the form `sdks/go/vX.Y.Z`.
+Rust availability is controlled by the public crates.io package `obs-unified`.

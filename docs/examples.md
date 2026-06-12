@@ -74,8 +74,7 @@ copy into an existing app.
 
 After wiring any example, verify the collector and browser CORS path. From a
 clone of the obs-unified repo use `pnpm run doctor …`; from anywhere else use
-`pnpm dlx @obs-unified/cli doctor …` (needs a GitHub Packages login — see
-[github-packages.md](./github-packages.md)):
+`pnpm dlx @obs-unified/cli doctor …`:
 
 ```bash
 pnpm dlx @obs-unified/cli doctor http://localhost:8790 --origin http://localhost:5173

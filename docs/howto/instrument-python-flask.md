@@ -180,9 +180,8 @@ def call_llm(client, messages):
 
 ## Verify
 
-First verify the collector and browser CORS path (needs a one-time GitHub
-Packages login — see [github-packages.md](../github-packages.md); from a clone of
-the obs-unified repo you can use `pnpm run doctor …` with no auth instead):
+First verify the collector and browser CORS path. From a clone of the
+obs-unified repo you can use `pnpm run doctor …` instead:
 
 ```bash
 pnpm dlx @obs-unified/cli doctor http://localhost:8790 --origin http://localhost:5173

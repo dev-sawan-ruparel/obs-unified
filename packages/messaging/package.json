@@ -12,6 +12,6 @@
 		"sync:check": "node scripts/sync-to-projects.mjs --check"
 	},
 	"publishConfig": {
-		"registry": "https://npm.pkg.github.com"
+		"registry": "https://registry.npmjs.org/"
 	}
 }

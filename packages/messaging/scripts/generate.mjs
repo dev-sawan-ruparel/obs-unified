@@ -71,8 +71,8 @@ const AUTHORED_SEED = {
 	scopes: {
 		sdks: {
 			scope: "@obs-unified",
-			registry: "https://npm.pkg.github.com",
-			note: "first-party SDKs on GitHub Packages",
+			registry: "https://registry.npmjs.org/",
+			note: "first-party SDKs on public npm",
 		},
 		mcp: {
 			scope: "@obsunified",

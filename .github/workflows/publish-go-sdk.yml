@@ -1,0 +1,86 @@
+name: Publish Go SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver version to publish, without the leading v (example: 0.1.0)"
+        required: true
+        type: string
+      dry_run:
+        description: "Validate without creating and pushing the module tag"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: publish-go-sdk-${{ inputs.version }}
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Tag Go module
+    runs-on: [self-hosted, obs-unified]
+    defaults:
+      run:
+        working-directory: sdks/go
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.3"
+          cache-dependency-path: sdks/go/go.sum
+
+      - name: Validate version
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          case "${version}" in
+            v*)
+              echo "Pass the version without a leading v, for example 0.1.0." >&2
+              exit 1
+              ;;
+          esac
+          if ! printf '%s\n' "${version}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "Version must be semver, for example 0.1.0 or 0.1.0-rc.1." >&2
+            exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go build ./...
+
+      - name: Create and push module tag
+        if: inputs.dry_run != 'true'
+        working-directory: .
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          tag="sdks/go/v${version}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "Tag ${tag} already exists locally." >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists on origin." >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" -m "Release Go SDK v${version}"
+          git push origin "refs/tags/${tag}"
+
+      - name: Warm public Go proxy
+        if: inputs.dry_run != 'true'
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          curl --fail --retry 6 --retry-delay 10 \
+            "https://proxy.golang.org/github.com/obs-unified/obs-unified/sdks/go/@v/v${version}.info"

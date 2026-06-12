@@ -124,6 +124,11 @@ Configure and initialize the databases:
 pnpm run setup
 ```
 
+This creates `apps/collector/.dev.vars` from
+`apps/collector/.dev.vars.example` if needed, then runs local migrations. If you
+change the local dashboard password or ingest key later, `pnpm run seed` reads
+the same file automatically.
+
 Start the development servers:
 
 ```bash
@@ -246,8 +251,9 @@ The core pipeline configuration is standard across app types:
    pnpm run doctor http://localhost:8790 --origin http://localhost:5173
    ```
 
-   Outside the repo, use `pnpm dlx @obs-unified/cli doctor …` instead (requires a
-   GitHub Packages login — see [github-packages.md](./github-packages.md)).
+   Outside the repo, use `pnpm dlx @obs-unified/cli doctor …` instead. Once
+   the npmjs release is published, it installs from public npm without GitHub
+   Packages login.
 
 ---
 
@@ -299,6 +305,5 @@ Access the interface at `http://localhost:5173`.
 - **Browse Examples:** [`docs/examples.md`](./examples.md)
 - **SDK API Reference:** [`docs/sdk-reference.md`](./sdk-reference.md)
 - **Production Operations Guide:** [`docs/ops/production.md`](./ops/production.md)
-- **Configure Package Registry:**
-  [`docs/github-packages.md`](./github-packages.md)
+- **Package Registry:** [`docs/github-packages.md`](./github-packages.md)
 - **Plan Database Migrations:** [`docs/migrate/README.md`](./migrate/README.md)

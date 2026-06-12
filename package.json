@@ -22,7 +22,7 @@
 		"dev:demo": "pnpm --filter @obs-demo/app run dev",
 		"dev:web": "pnpm --filter @obs-demo/web run dev",
 		"dev": "pnpm run dev:collector & pnpm run dev:demo & pnpm run dev:web & wait",
-		"setup": "pnpm --filter @obs-demo/collector run db:setup",
+		"setup": "bash scripts/setup-local-dev.sh && pnpm --filter @obs-demo/collector run db:setup",
 		"demo": "curl -s http://127.0.0.1:8787/api/demo/run-all | tee /dev/stderr | head -c 500",
 		"demo:setup": "bash demo/setup.sh",
 		"demo:preflight": "bash demo/preflight.sh",

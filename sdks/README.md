@@ -21,6 +21,17 @@ not coverage.
 | Go                   | [`go/`](./go)     | initial |
 | Rust                 | [`rust/`](./rust) | initial |
 
+## Install
+
+```bash
+pnpm add @obs-unified/sdk
+go get github.com/obs-unified/obs-unified/sdks/go@latest
+cargo add obs-unified
+```
+
+Go uses public module tags such as `sdks/go/v0.1.0`; Rust uses the public
+crates.io package `obs-unified`.
+
 For Cloudflare Workers TypeScript, use
 [`packages/telemetry-sdk`](../packages/telemetry-sdk) instead — that one is
 Workers-shaped and ships with `wrapD1` / `wrapR2` / `wrapFetch`

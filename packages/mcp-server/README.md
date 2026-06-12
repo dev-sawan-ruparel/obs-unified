@@ -105,8 +105,7 @@ issued refs and record successful ref expansion/search telemetry.
 pnpm add -g @obsunified/mcp-server
 ```
 
-The package publishes to the public npm registry, so install does not require a
-GitHub Packages login.
+The package publishes to the public npm registry.
 
 ## Configure
 
