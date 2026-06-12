@@ -1,5 +1,11 @@
 # @obs-unified/brand
 
+## 1.0.2
+
+### Patch Changes
+
+- 77c781a: Publish public packages to npmjs so installs no longer require GitHub Packages authentication.
+
 ## 1.0.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/analytics-sdk",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Browser analytics SDK — usage events, interaction_id auto-correlation, session replay, React provider.",
 	"license": "MIT",
 	"repository": {

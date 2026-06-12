@@ -1,5 +1,11 @@
 # @obs-unified/pprof-decoder
 
+## 2.0.1
+
+### Patch Changes
+
+- 77c781a: Publish public packages to npmjs so installs no longer require GitHub Packages authentication.
+
 ## 2.0.0
 
 ### Major Changes

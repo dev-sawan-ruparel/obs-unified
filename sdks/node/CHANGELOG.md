@@ -1,5 +1,11 @@
 # @obs-unified/sdk
 
+## 0.2.1
+
+### Patch Changes
+
+- 77c781a: Publish public packages to npmjs so installs no longer require GitHub Packages authentication.
+
 ## 0.2.0
 
 ### Minor Changes

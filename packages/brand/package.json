@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/brand",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Brand assets and design tokens for obs-unified — logo, favicons, OG images, and shared CSS tokens.",
 	"license": "MIT",
 	"repository": {

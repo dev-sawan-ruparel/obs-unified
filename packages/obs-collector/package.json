@@ -1,6 +1,6 @@
 {
 	"name": "@obs-unified/collector",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Plugin-based observability collector runtime with pluggable SQL/blob storage.",
 	"license": "MIT",
 	"repository": {
