@@ -5,7 +5,7 @@ import type {
 	AISessionsListResponse,
 	AISpanRecord,
 	JsonValue,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { parseJsonRecord } from "../json";
 import { dialectFor, type SqlDb } from "../sql-db";
 import { mapEvaluationRows } from "./evaluations";

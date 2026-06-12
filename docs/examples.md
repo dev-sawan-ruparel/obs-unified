@@ -11,7 +11,7 @@ copy into an existing app.
 | First run from a fresh checkout                 | [`docs/getting-started.md`](./getting-started.md)                                                      | Guide             |
 | Run everything from one local image             | [`Dockerfile.local`](../Dockerfile.local) via `pnpm local:image && pnpm local:run`                     | Runnable image    |
 | Try obs-unified with realistic traffic          | [`demo/`](../demo/)                                                                                    | Runnable demo     |
-| Scaffold a new React + Hono app                 | [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/) via `pnpm dlx @obs-unified/cli create` | Runnable template |
+| Scaffold a new React + Hono app                 | [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/) via `pnpm dlx @obsunified/cli create` | Runnable template |
 | Add obs-unified to an existing React + Hono app | [`docs/howto/instrument-react-hono.md`](./howto/instrument-react-hono.md)                              | Walkthrough       |
 | Add obs-unified to an existing Python Flask app | [`docs/howto/instrument-python-flask.md`](./howto/instrument-python-flask.md)                          | Walkthrough       |
 | Add browser analytics only                      | [`packages/analytics-sdk/README.md`](../packages/analytics-sdk/README.md)                              | Reference         |
@@ -23,9 +23,9 @@ copy into an existing app.
 | Example                                                                           | What it shows                                                                                            | Run / entry point                                              |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | [`Dockerfile.local`](../Dockerfile.local)                                         | All-in-one local image with Postgres, collector, dashboard, file blob storage, and seed data             | `pnpm local:image && pnpm local:run`                           |
-| [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/)     | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation | `pnpm dlx @obs-unified/cli create my-app`, choose React + Vite + Hono        |
-| [`packages/cli/templates/vanilla-ts/`](../packages/cli/templates/vanilla-ts/)     | Browser-only Vite + TypeScript analytics                                                                 | `pnpm dlx @obs-unified/cli create my-app`, choose Vanilla TypeScript         |
-| [`packages/cli/templates/hono-workers/`](../packages/cli/templates/hono-workers/) | Hono on Cloudflare Workers with backend telemetry wiring                                                 | `pnpm dlx @obs-unified/cli create my-api`, choose Hono on Workers            |
+| [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/)     | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation | `pnpm dlx @obsunified/cli create my-app`, choose React + Vite + Hono        |
+| [`packages/cli/templates/vanilla-ts/`](../packages/cli/templates/vanilla-ts/)     | Browser-only Vite + TypeScript analytics                                                                 | `pnpm dlx @obsunified/cli create my-app`, choose Vanilla TypeScript         |
+| [`packages/cli/templates/hono-workers/`](../packages/cli/templates/hono-workers/) | Hono on Cloudflare Workers with backend telemetry wiring                                                 | `pnpm dlx @obsunified/cli create my-api`, choose Hono on Workers            |
 | [`apps/obs-demo/`](../apps/obs-demo/)                                             | AI calls, RAG, tool calls, session tracking, and evaluation scenarios                                    | `pnpm dev`, then `curl http://127.0.0.1:8787/api/demo/run-all` |
 | [`apps/collector-node/`](../apps/collector-node/)                                 | Standalone Node collector with Postgres + MinIO                                                          | `docker compose up -d` from `apps/collector-node`              |
 | [`demo/`](../demo/)                                                               | OpenTelemetry Astronomy Shop feeding obs-unified with polyglot microservice traffic                      | `pnpm demo:setup`, `pnpm demo:preflight`, `pnpm demo:up`       |
@@ -74,10 +74,10 @@ copy into an existing app.
 
 After wiring any example, verify the collector and browser CORS path. From a
 clone of the obs-unified repo use `pnpm run doctor …`; from anywhere else use
-`pnpm dlx @obs-unified/cli doctor …`:
+`pnpm dlx @obsunified/cli doctor …`:
 
 ```bash
-pnpm dlx @obs-unified/cli doctor http://localhost:8790 --origin http://localhost:5173
+pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:5173
 ```
 
 For browser examples, the origin should match the app you are testing. For the

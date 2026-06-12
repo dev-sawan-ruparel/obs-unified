@@ -1,13 +1,13 @@
-# @obs-unified/types
+# @obsunified/types
 
 Shared TypeScript types, constants, and a typed REST client for the obs-unified
 collector. Zero-runtime; intended to be imported by the SDK packages, the
 dashboard, and any external consumer that talks to the collector's HTTP API.
 
 ```ts
-import { type SpanRecord, type LogRecord } from "@obs-unified/types";
-import { INTERACTION_HEADER } from "@obs-unified/types/constants";
-import { createApiClient } from "@obs-unified/types/api-client";
+import { type SpanRecord, type LogRecord } from "@obsunified/types";
+import { INTERACTION_HEADER } from "@obsunified/types/constants";
+import { createApiClient } from "@obsunified/types/api-client";
 
 const api = createApiClient({ baseUrl: "https://obs.my-app.com" });
 const spans = await api.spans.list({ limit: 100 });

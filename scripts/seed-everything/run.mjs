@@ -179,7 +179,7 @@ const dashFetch = async (cookie, path, init = {}) => {
 
 // ── RFC 0004 — interaction_id minting ───────────────────────────────
 //
-// 26-char Crockford-base32, same shape as @obs-unified/analytics-sdk emits at
+// 26-char Crockford-base32, same shape as @obsunified/analytics-sdk emits at
 // click time. Time-prefixed so they sort within a session in seeded
 // data the same way real ids would.
 const ENCODING_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";

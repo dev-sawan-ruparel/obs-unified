@@ -1,4 +1,4 @@
-import type { AICallRecord, AIEvaluationSource } from "@obs-unified/types";
+import type { AICallRecord, AIEvaluationSource } from "@obsunified/types";
 
 export interface IngestEvaluation {
 	projectId: string;

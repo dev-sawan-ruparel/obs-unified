@@ -2,12 +2,12 @@
 	"name": "@obs-unified-internal/seed-everything",
 	"private": true,
 	"type": "module",
-	"description": "Seeder script — populates the dashboard with demo data. Self-instruments via @obs-unified/sdk so seed runs themselves are visible in the obs-dashboard project.",
+	"description": "Seeder script — populates the dashboard with demo data. Self-instruments via @obsunified/sdk so seed runs themselves are visible in the obs-dashboard project.",
 	"scripts": {
 		"start": "node --import ./instrumentation.mjs run.mjs"
 	},
 	"dependencies": {
-		"@obs-unified/sdk": "file:../../sdks/node",
+		"@obsunified/sdk": "file:../../sdks/node",
 		"@opentelemetry/api": "^1.9.0",
 		"@opentelemetry/instrumentation": "^0.55.0",
 		"@opentelemetry/instrumentation-undici": "^0.10.0"

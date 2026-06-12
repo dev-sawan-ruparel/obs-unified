@@ -6,7 +6,7 @@
  * not the SQL grammar.
  */
 
-import type { AlertRule } from "@obs-unified/types";
+import type { AlertRule } from "@obsunified/types";
 import { describe, expect, it } from "vitest";
 import { AlertsStore } from "./alerts-store";
 import { AnalysesStore } from "./analyses-store";

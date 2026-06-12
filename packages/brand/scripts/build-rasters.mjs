@@ -7,7 +7,7 @@
  * browsers, apple-touch-icon.png for iOS home-screen, PWA manifest
  * icons (192/512), and the social-card og.jpg fallbacks.
  *
- * Run: pnpm --filter @obs-unified/brand build:rasters
+ * Run: pnpm --filter @obsunified/brand build:rasters
  * Requires: sharp (devDependency of this package).
  */
 

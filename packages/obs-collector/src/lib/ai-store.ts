@@ -9,7 +9,7 @@ import type {
 	AISessionsListResponse,
 	AISpansOverviewOptions,
 	AISpansOverviewResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
 import {
 	getAIEvaluation,

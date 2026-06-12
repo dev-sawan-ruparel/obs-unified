@@ -10,8 +10,8 @@ export default defineConfig({
 	external: [
 		"react",
 		"react-dom",
-		"@obs-unified/types",
-		"@obs-unified/pprof-decoder",
+		"@obsunified/types",
+		"@obsunified/pprof-decoder",
 		"@xyflow/react",
 		"dagre",
 		"rrweb-player",

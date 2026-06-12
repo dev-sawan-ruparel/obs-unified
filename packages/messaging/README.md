@@ -1,4 +1,4 @@
-# @obs-unified/messaging
+# @obsunified/messaging
 
 Single source of truth for obs-unified **messaging facts** (RFC 0012): package
 names/scopes, the MCP tool list, the `EvidenceReference` / `EvidenceRetrievalRef`
@@ -36,8 +36,8 @@ pnpm messaging:sync            # vendor the manifest into sibling repos
 | --- | --- | --- |
 | MCP tool names | `packages/mcp-server/src` registrations | `derived.mcpTools` |
 | Connected-rail kinds | `connected_signals` enum | `derived.connectedKinds` |
-| `EvidenceReference` fields | `@obs-unified/types` JSON schema | `derived.evidenceReferenceFields` |
-| `EvidenceRetrievalRef` fields / kinds | `@obs-unified/types` | `derived.evidenceRetrieval*` |
+| `EvidenceReference` fields | `@obsunified/types` JSON schema | `derived.evidenceReferenceFields` |
+| `EvidenceRetrievalRef` fields / kinds | `@obsunified/types` | `derived.evidenceRetrieval*` |
 | Package names / registries | each `package.json` | `derived.packages` |
 | Identity chain, governance enums, glossary, capabilities, features | hand-authored | `authored.*` |
 

@@ -1,4 +1,4 @@
-import type { Project } from "@obs-unified/types";
+import type { Project } from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { useApi } from "../use-api";
 

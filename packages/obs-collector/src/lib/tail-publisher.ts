@@ -1,4 +1,4 @@
-import type { LogRecord, StoredSpan } from "@obs-unified/types";
+import type { LogRecord, StoredSpan } from "@obsunified/types";
 import type { TailEvent } from "../durable-objects/tail-hub";
 import type { CollectorEnv } from "../framework/env";
 

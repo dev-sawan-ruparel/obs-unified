@@ -20,7 +20,7 @@ export interface UsageEventInput {
 	properties?: Record<string, unknown>;
 	context?: Record<string, unknown>;
 	/**
-	 * RFC 0004 — set by @obs-unified/analytics-sdk when the event is emitted while
+	 * RFC 0004 — set by @obsunified/analytics-sdk when the event is emitted while
 	 * a click/submit/keydown interaction is active. Optional on the wire;
 	 * the receiver denormalizes into usage_events.interaction_id.
 	 */

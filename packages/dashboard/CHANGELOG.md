@@ -1,4 +1,4 @@
-# @obs-unified/dashboard
+# @obsunified/dashboard
 
 ## 1.1.2
 
@@ -6,8 +6,8 @@
 
 - 77c781a: Publish public packages to npmjs so installs no longer require GitHub Packages authentication.
 - Updated dependencies [77c781a]
-  - @obs-unified/pprof-decoder@2.0.1
-  - @obs-unified/types@2.0.1
+  - @obsunified/pprof-decoder@2.0.1
+  - @obsunified/types@2.0.1
 
 ## 1.1.1
 
@@ -32,5 +32,5 @@
 
 - Updated dependencies [4ac9a67]
 - Updated dependencies [0140450]
-  - @obs-unified/types@2.0.0
-  - @obs-unified/pprof-decoder@2.0.0
+  - @obsunified/types@2.0.0
+  - @obsunified/pprof-decoder@2.0.0

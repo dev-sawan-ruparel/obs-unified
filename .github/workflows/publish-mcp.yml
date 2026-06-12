@@ -35,7 +35,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter @obs-unified/types run build
+      - run: pnpm --filter @obsunified/types run build
 
       - run: pnpm --filter @obsunified/mcp-server run type-check
 

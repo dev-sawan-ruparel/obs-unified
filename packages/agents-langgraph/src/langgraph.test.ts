@@ -1,4 +1,4 @@
-import { createRequestSpan, runWithSpan } from "@obs-unified/telemetry-sdk";
+import { createRequestSpan, runWithSpan } from "@obsunified/telemetry-sdk";
 import { describe, expect, it } from "vitest";
 import {
 	type LangChainCallbackHandler,
@@ -112,7 +112,8 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 
 		// Assert spans and OTel attributes
 		const exportReq = requestSpan.toOtlpExportRequest();
-		const spans = exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
+		const spans: TestSpan[] =
+			exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
 		expect(spans.length).toBeGreaterThan(1);
 
 		const hasStringAttr = (span: TestSpan, key: string, value: string) =>
@@ -215,7 +216,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 			await instrumented.invoke({ query: "Secret triage" });
 		});
 
-		const spans =
+		const spans: TestSpan[] =
 			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
 				?.spans ?? [];
 		const llmSpan = spans.find((s) =>
@@ -254,7 +255,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 			await graph.invoke({ test: 1 });
 		});
 
-		const spans =
+		const spans: TestSpan[] =
 			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
 				?.spans ?? [];
 		const runSpan = spans.find((s) =>

@@ -9,8 +9,8 @@
   [RFC 0004 — Identity propagation](0004-identity-propagation.md)
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) Step 3
   (flame graph scoped to trace) and Step 4 (cohort view from a profile)
-- **Target:** `@obs-unified/collector`, `@obs-unified/dashboard`,
-  `@obs-unified/telemetry-sdk`
+- **Target:** `@obsunified/collector`, `@obsunified/dashboard`,
+  `@obsunified/telemetry-sdk`
 
 ## Summary
 
@@ -55,7 +55,7 @@ Profiling is **not present in any form**:
   is the only similarly-shaped plugin.)
 - No `profile_*` tables.
 - No flame-graph component in the dashboard.
-- No pprof helpers in `@obs-unified/telemetry-sdk`.
+- No pprof helpers in `@obsunified/telemetry-sdk`.
 
 The closest neighbor is RFC 0005 (CPU-time on spans), which is a coarse proxy
 but does not give function-level resolution.
@@ -215,10 +215,10 @@ This is what makes profiling feel native instead of bolted-on.
 
 ### SDK helper for Node
 
-In `@obs-unified/telemetry-sdk`:
+In `@obsunified/telemetry-sdk`:
 
 ```ts
-import { startProfiler } from "@obs-unified/telemetry-sdk/profile";
+import { startProfiler } from "@obsunified/telemetry-sdk/profile";
 
 startProfiler({
   type: "cpu",
@@ -256,7 +256,7 @@ that not all eBPF agents emit OTel `trace_id` labels (see open questions).
 - `profile_blobs` table + R2/fs blob storage
 - Trace → profile join query
 - Span-detail flame graph (client-rendered, scoped to trace_id)
-- `@obs-unified/telemetry-sdk` helper for Node
+- `@obsunified/telemetry-sdk` helper for Node
 
 **Phase 2 (separate PR):**
 

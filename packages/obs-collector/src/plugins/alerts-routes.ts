@@ -1,5 +1,5 @@
-import type { AlertRuleInput, AlertTestResponse } from "@obs-unified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
+import type { AlertRuleInput, AlertTestResponse } from "@obsunified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import { alertEvidenceReferences } from "../lib/evidence-references";

@@ -1,4 +1,4 @@
-# @obs-unified/brand
+# @obsunified/brand
 
 ## 1.0.2
 

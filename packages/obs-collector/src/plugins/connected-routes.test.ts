@@ -15,7 +15,7 @@ import {
 	ACTION_CONFIDENCE_KEY,
 	ACTION_ID_KEY,
 	ActionConfidence,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { CollectorRuntime } from "../framework/collector";

@@ -14,7 +14,7 @@
  * enable Ask" hint instead of a generic failure.
  */
 
-import type { AskRequest, AskResponse } from "@obs-unified/types";
+import type { AskRequest, AskResponse } from "@obsunified/types";
 import { getAllAnalysesForProject } from "../analyses/index";
 import type { CollectorPlugin } from "../framework/collector";
 import { AnalysesStore } from "../lib/analyses-store";

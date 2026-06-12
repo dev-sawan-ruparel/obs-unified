@@ -77,7 +77,7 @@ const AUTHORED_SEED = {
 		mcp: {
 			scope: "@obsunified",
 			registry: "https://registry.npmjs.org/",
-			note: "MCP server on public npm (hyphen-less scope)",
+			note: "MCP server on public npm (npm scope)",
 		},
 	},
 	governance: {
@@ -95,8 +95,7 @@ const AUTHORED_SEED = {
 		"Observability Unified": "Display/brand name.",
 		"obs-unified":
 			"Repo + GitHub-Packages scope (@obs-unified) + CLI binary name.",
-		"@obsunified":
-			"Hyphen-less npm scope for the public MCP server package only.",
+		"@obsunified": "npm scope for the public MCP server package only.",
 		"Connected Rail":
 			"The cross-signal pivot surface (HTTP /internal/connected/:kind/:id; MCP connected_signals).",
 		CCR: "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",
@@ -162,7 +161,7 @@ const AUTHORED_SEED = {
 };
 
 const HEADER =
-	"DO NOT EDIT the `derived` block by hand — run `pnpm --filter @obs-unified/messaging generate`. The `authored` block is hand-maintained.";
+	"DO NOT EDIT the `derived` block by hand — run `pnpm --filter @obsunified/messaging generate`. The `authored` block is hand-maintained.";
 
 function build() {
 	const authored = existsSync(MANIFEST_PATH)
@@ -189,7 +188,7 @@ const next = serialize(build());
 if (check) {
 	if (!existsSync(MANIFEST_PATH)) {
 		console.error(
-			"messaging: manifest.json missing; run `pnpm --filter @obs-unified/messaging generate`",
+			"messaging: manifest.json missing; run `pnpm --filter @obsunified/messaging generate`",
 		);
 		process.exit(1);
 	}
@@ -198,7 +197,7 @@ if (check) {
 		console.error(
 			"messaging: manifest.json is STALE vs code.\n" +
 				"A tool/field/scope changed without regenerating. Run:\n" +
-				"  pnpm --filter @obs-unified/messaging generate\n",
+				"  pnpm --filter @obsunified/messaging generate\n",
 		);
 		process.exit(1);
 	}

@@ -184,7 +184,7 @@ First verify the collector and browser CORS path. From a clone of the
 obs-unified repo you can use `pnpm run doctor …` instead:
 
 ```bash
-pnpm dlx @obs-unified/cli doctor http://localhost:8790 --origin http://localhost:5173
+pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:5173
 ```
 
 Then open the dashboard and check:

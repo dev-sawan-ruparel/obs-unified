@@ -12,7 +12,7 @@
  * the UI surface that makes the chain navigable in the browser.
  */
 
-import type { UserProfileDetail } from "@obs-unified/types";
+import type { UserProfileDetail } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Card, SectionTitle } from "../components/primitives";
@@ -100,7 +100,7 @@ export function UserDashboard({ userId, onNavigate }: UserDashboardProps) {
 					<StateRow>
 						{error
 							? `Failed to load user: ${error}`
-							: `User ${userId} not found. The user_profiles table is populated by /v1/identify calls from @obs-unified/analytics-sdk's tracker.identify().`}
+							: `User ${userId} not found. The user_profiles table is populated by /v1/identify calls from @obsunified/analytics-sdk's tracker.identify().`}
 					</StateRow>
 				</div>
 				<ConnectedRail

@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@obs-unified/sdk':
+      '@obsunified/sdk':
         specifier: file:../../sdks/node
         version: file:../../sdks/node
       '@opentelemetry/api':
@@ -35,7 +35,7 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@obs-unified/sdk@file:../../sdks/node':
+  '@obsunified/sdk@file:../../sdks/node':
     resolution: {directory: ../../sdks/node, type: directory}
     engines: {node: '>=18'}
 
@@ -404,7 +404,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@obs-unified/sdk@file:../../sdks/node':
+  '@obsunified/sdk@file:../../sdks/node':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/exporter-logs-otlp-http': 0.55.0(@opentelemetry/api@1.9.1)

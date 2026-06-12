@@ -277,7 +277,7 @@ Start by choosing your language and framework, then follow the matching example:
 The common wiring is: run a collector, add the browser/backend SDK package, set
 `OBS_COLLECTOR_URL` plus an ingest key, allow the `x-obs-interaction` CORS
 header for browser calls, and verify the collector path with
-`pnpm dlx @obs-unified/cli doctor`.
+`pnpm dlx @obsunified/cli doctor`.
 For agents, install the MCP server from npmjs without registry auth:
 
 ```bash
@@ -285,12 +285,12 @@ pnpm add -g @obsunified/mcp-server
 ```
 
 > [!NOTE]
-> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`); the first-party SDKs use the hyphenated `@obs-unified` scope on public npm (`@obs-unified/*`).
+> The MCP server and first-party SDKs share the `@obsunified` scope on public npm.
 
 ### 1. Instrument Your Backend
 
 ```bash
-pnpm add @obs-unified/telemetry-sdk
+pnpm add @obsunified/telemetry-sdk
 ```
 
 ```typescript
@@ -298,7 +298,7 @@ import {
   initObservability,
   createLogger,
   trackAICall,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 // Initialize once at startup
 initObservability({
@@ -332,14 +332,14 @@ trackAICall({
 ### 2. Instrument Your Frontend
 
 ```bash
-pnpm add @obs-unified/analytics-sdk
+pnpm add @obsunified/analytics-sdk
 ```
 
 ```tsx
 import {
   AnalyticsProvider,
   useAnalytics,
-} from "@obs-unified/analytics-sdk/react";
+} from "@obsunified/analytics-sdk/react";
 
 // Wrap your app
 function App() {
@@ -394,7 +394,7 @@ The collector is a standalone service that receives telemetry and serves the
 dashboard.
 
 ```bash
-pnpm add @obs-unified/collector hono
+pnpm add @obsunified/collector hono
 ```
 
 ```typescript
@@ -404,7 +404,7 @@ import {
   createRetentionCleanupHandler,
   createIngestAuth,
   createDashboardAuth,
-} from "@obs-unified/collector";
+} from "@obsunified/collector";
 
 const app = createDefaultCollectorApp({
   auth: {
@@ -436,15 +436,15 @@ Set environment variables:
 
 ## Packages
 
-- `@obs-unified/collector`: Collector service. Receives telemetry, stores it in
+- `@obsunified/collector`: Collector service. Receives telemetry, stores it in
   D1/SQLite or Postgres, and serves dashboard APIs.
-- `@obs-unified/telemetry-sdk`: Backend SDK for Cloudflare Workers. Provides
+- `@obsunified/telemetry-sdk`: Backend SDK for Cloudflare Workers. Provides
   structured logging, request spans, D1/R2/fetch wrappers, and AI call tracking.
-- `@obs-unified/analytics-sdk`: Frontend SDK for page views, interactions,
+- `@obsunified/analytics-sdk`: Frontend SDK for page views, interactions,
   browser errors, and session replay.
-- `@obs-unified/dashboard`: React dashboard components, also used by the
+- `@obsunified/dashboard`: React dashboard components, also used by the
   standalone dashboard SPA.
-- `@obs-unified/types`: Shared TypeScript types and constants.
+- `@obsunified/types`: Shared TypeScript types and constants.
 
 ## Polyglot SDKs ([`sdks/`](./sdks))
 
@@ -455,7 +455,7 @@ comes from the OTel ecosystem of each language.
 
 | Language             | Path                       | Package                                      |
 | -------------------- | -------------------------- | -------------------------------------------- |
-| Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obs-unified/sdk`                           |
+| Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obsunified/sdk`                           |
 | Go                   | [`sdks/go`](./sdks/go)     | `github.com/obs-unified/obs-unified/sdks/go` |
 | Rust                 | [`sdks/rust`](./sdks/rust) | `obs-unified`                                |
 
@@ -470,7 +470,7 @@ manual, when to annotate, how span nesting works) is documented once in
 
 ```typescript
 import { Hono } from "hono";
-import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
+import { initObservability, createLogger } from "@obsunified/telemetry-sdk";
 
 const app = new Hono();
 
@@ -488,7 +488,7 @@ app.use("*", async (c, next) => {
 
 ```typescript
 // lib/observability.ts
-import { initObservability } from "@obs-unified/telemetry-sdk";
+import { initObservability } from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -501,7 +501,7 @@ initObservability({
 
 ```typescript
 import express from "express";
-import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
+import { initObservability, createLogger } from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -526,7 +526,7 @@ For teams that want to embed observability views in their own admin panel:
 import {
   ObsDashboardProvider,
   TelemetryDashboard,
-} from "@obs-unified/dashboard";
+} from "@obsunified/dashboard";
 
 function AdminObservability() {
   return (

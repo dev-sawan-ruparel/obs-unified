@@ -1,5 +1,5 @@
-import type { LogRecord, LogSeverity } from "@obs-unified/types";
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
+import type { LogRecord, LogSeverity } from "@obsunified/types";
+import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { LogsStore } from "../lib/logs-store";
 import { sqlDbFor } from "../lib/sql-db";

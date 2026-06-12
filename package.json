@@ -10,10 +10,10 @@
 	"scripts": {
 		"type-check": "pnpm -r run type-check",
 		"test": "pnpm -r run test",
-		"messaging:generate": "pnpm --filter @obs-unified/messaging run generate",
-		"messaging:generate:check": "pnpm --filter @obs-unified/messaging run generate:check",
-		"messaging:check": "pnpm --filter @obs-unified/messaging run check",
-		"messaging:sync": "pnpm --filter @obs-unified/messaging run sync",
+		"messaging:generate": "pnpm --filter @obsunified/messaging run generate",
+		"messaging:generate:check": "pnpm --filter @obsunified/messaging run generate:check",
+		"messaging:check": "pnpm --filter @obsunified/messaging run check",
+		"messaging:sync": "pnpm --filter @obsunified/messaging run sync",
 		"build": "pnpm -r run build",
 		"changeset": "changeset",
 		"version-packages": "changeset version",
@@ -42,7 +42,7 @@
 		"e2e:otlp": "bash scripts/e2e-otlp/run.sh",
 		"e2e:ai-parity": "bash scripts/e2e-ai-parity/run.sh",
 		"measure:ingest": "bash scripts/measure-ingest/run.sh",
-		"benchmark:ccr": "pnpm --filter @obs-unified/collector exec vitest run src/plugins/evidence-retrieval-routes.benchmark.test.ts --reporter=verbose --silent=false"
+		"benchmark:ccr": "pnpm --filter @obsunified/collector exec vitest run src/plugins/evidence-retrieval-routes.benchmark.test.ts --reporter=verbose --silent=false"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",

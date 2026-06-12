@@ -34,7 +34,7 @@
 
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
-const TRACER_NAME = "@obs-unified/sdk";
+const TRACER_NAME = "@obsunified/sdk";
 
 const tracer = () => trace.getTracer(TRACER_NAME);
 

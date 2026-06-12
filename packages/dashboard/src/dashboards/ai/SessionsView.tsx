@@ -2,7 +2,7 @@ import type {
 	AISessionDetailResponse,
 	AISessionSummary,
 	AISessionsListResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Card, SectionTitle } from "../../components/primitives";
 import { ErrorState, StateRow } from "../../components/states";

@@ -1,4 +1,4 @@
-import type { TelemetrySpanDetail } from "@obs-unified/types";
+import type { TelemetrySpanDetail } from "@obsunified/types";
 import { describe, expect, it } from "vitest";
 import { MemSqlDb } from "../test-utils/mem-sql-db";
 import { ingestTelemetrySpans } from "./ingest";

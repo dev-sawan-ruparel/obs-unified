@@ -1,5 +1,5 @@
 {
-	"name": "@obs-unified/cli",
+	"name": "@obsunified/cli",
 	"version": "1.0.2",
 	"description": "obs-unified command-line — bring up a local stack, scaffold new apps, manage ingest keys.",
 	"license": "MIT",

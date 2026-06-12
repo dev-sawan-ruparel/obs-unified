@@ -3,11 +3,11 @@ import {
 	runWithSpan,
 	startAgentRun,
 	withAction,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 import {
 	ACTION_HEADER_NAME,
 	ACTION_ROOT_HEADER_NAME,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 
 type RequestLike = {
 	headers: {

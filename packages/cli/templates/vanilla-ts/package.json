@@ -9,7 +9,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@obs-unified/analytics-sdk": "^1.0.0"
+		"@obsunified/analytics-sdk": "^1.0.0"
 	},
 	"devDependencies": {
 		"typescript": "^6.0.0",

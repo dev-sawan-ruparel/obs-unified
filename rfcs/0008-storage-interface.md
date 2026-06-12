@@ -5,7 +5,7 @@
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-02
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
-- **Target:** `@obs-unified/collector`
+- **Target:** `@obsunified/collector`
 
 ## Summary
 
@@ -285,9 +285,9 @@ change.
   sequential. Measure before optimizing.
 - **Test double location.** Where does `MemSqlDb` live — `lib/test-utils/`?
   Probably yes, exported from a separate entry to keep production bundles slim.
-- **Should `Store` interfaces live in `@obs-unified/types`?** Probably yes, so a
+- **Should `Store` interfaces live in `@obsunified/types`?** Probably yes, so a
   host app can write its own implementation without depending on
-  `@obs-unified/collector`. Defer until someone asks.
+  `@obsunified/collector`. Defer until someone asks.
 
 ## Why this RFC at all
 

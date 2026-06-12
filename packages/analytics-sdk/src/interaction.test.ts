@@ -11,7 +11,7 @@
  *     documents the limitation rather than working around it).
  */
 
-import { ACTION_ID_RE } from "@obs-unified/types/constants";
+import { ACTION_ID_RE } from "@obsunified/types/constants";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	__resetInteractionStackForTests,

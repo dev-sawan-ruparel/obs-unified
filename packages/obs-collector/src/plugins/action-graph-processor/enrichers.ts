@@ -1,4 +1,4 @@
-import type { StoredSpan } from "@obs-unified/types";
+import type { StoredSpan } from "@obsunified/types";
 
 export interface ActionEnricherPlugin {
 	name: string;

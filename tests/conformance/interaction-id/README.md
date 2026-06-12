@@ -66,9 +66,9 @@ Each SDK ports its own runner:
 
 | SDK                          | Test entry                                      |
 | ---------------------------- | ----------------------------------------------- |
-| `@obs-unified/analytics-sdk` | `vitest run interaction.conformance`            |
-| `@obs-unified/telemetry-sdk` | `vitest run interaction.conformance`            |
-| `@obs-unified/sdk` (Node)    | `vitest run interaction.conformance`            |
+| `@obsunified/analytics-sdk` | `vitest run interaction.conformance`            |
+| `@obsunified/telemetry-sdk` | `vitest run interaction.conformance`            |
+| `@obsunified/sdk` (Node)    | `vitest run interaction.conformance`            |
 | `obs` (Go)                   | `go test -run TestInteractionConformance ./...` |
 | `obs-unified` (Rust)         | `cargo test interaction_conformance`            |
 

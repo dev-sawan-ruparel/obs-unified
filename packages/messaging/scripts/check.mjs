@@ -8,7 +8,7 @@
  *   1. MCP tool-list parity — packages/mcp-server/README.md "## Tools" == derived tools.
  *   2. Package-scope integrity — every @obs[-]unified/<pkg> referenced in README /
  *      mcp-server README is a real package (catches scope/name typos like the
- *      @obs-unified/mcp-server → @obsunified/mcp-server rename).
+ *      @obsunified/mcp-server → @obsunified/mcp-server rename).
  *   3. Feature gap — every feature.addsMcpTools ⊆ derived tools.
  *   4. Feature orphan — every shipped evidence tool is owned by a feature record.
  *   5. Dev ingest key — no bare "dev" ingest key (must be the manifest devIngestKey).

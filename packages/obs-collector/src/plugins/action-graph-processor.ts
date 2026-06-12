@@ -1,4 +1,4 @@
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
+import type { JsonValue, StoredSpan } from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
@@ -47,7 +47,7 @@ import {
 	TOOL_NAME_KEY,
 	TOOL_RESULT_KEY,
 	TOOL_SIDE_EFFECT_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { resolveActionIdentity } from "../lib/action-identity";
 import { sha256Hex } from "../lib/hash";

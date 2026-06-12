@@ -1,4 +1,4 @@
-# @obs-unified/brand
+# @obsunified/brand
 
 Source of truth for obs-unified's visual identity — logo, favicons, OG cards,
 and CSS design tokens.
@@ -52,12 +52,12 @@ Pick the right token file for your stack:
 /* Tailwind v4 projects — picks up `@theme` so utility classes like
    bg-sys-bg, text-sys-primary, etc. are generated automatically. */
 @import "tailwindcss";
-@import "@obs-unified/brand/theme.css";
+@import "@obsunified/brand/theme.css";
 ```
 
 ```css
 /* Plain CSS (no Tailwind) — gets the same custom properties via :root. */
-@import "@obs-unified/brand/tokens.css";
+@import "@obsunified/brand/tokens.css";
 ```
 
 Both files declare identical values; keep them in lockstep if you edit one.
@@ -65,14 +65,14 @@ Both files declare identical values; keep them in lockstep if you edit one.
 Import asset URLs in JSX via Vite/Webpack's URL imports:
 
 ```tsx
-import faviconUrl from "@obs-unified/brand/favicons/favicon.svg";
-import markUrl from "@obs-unified/brand/logo/mark.svg";
+import faviconUrl from "@obsunified/brand/favicons/favicon.svg";
+import markUrl from "@obsunified/brand/logo/mark.svg";
 ```
 
 Or get absolute paths from Node tooling:
 
 ```js
-import { logo, favicons, og, palette } from "@obs-unified/brand";
+import { logo, favicons, og, palette } from "@obsunified/brand";
 console.log(logo.mark); // → absolute path
 ```
 

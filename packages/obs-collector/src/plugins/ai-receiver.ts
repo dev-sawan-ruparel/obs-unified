@@ -3,14 +3,14 @@ import type {
 	AICallRecord,
 	AIEvaluationPayload,
 	ToolResponseContract,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import {
 	EVIDENCE_REFERENCE_CONTRACT,
 	EVIDENCE_REFERENCE_SCHEMA_VERSION,
 	EvidenceReferenceJsonSchema,
 	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
-} from "@obs-unified/types";
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
+} from "@obsunified/types";
+import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { AIStore, type IngestEvaluation } from "../lib/ai-store";
 import { sqlDbFor } from "../lib/sql-db";

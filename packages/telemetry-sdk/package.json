@@ -1,5 +1,5 @@
 {
-	"name": "@obs-unified/telemetry-sdk",
+	"name": "@obsunified/telemetry-sdk",
 	"version": "2.0.1",
 	"description": "Server-side telemetry SDK — OTLP spans, structured logger, AI/LLM helpers, interaction_id stamping. Workers wrappers under ./cloudflare.",
 	"license": "MIT",
@@ -56,7 +56,7 @@
 		"prepublishOnly": "pnpm build"
 	},
 	"dependencies": {
-		"@obs-unified/types": "workspace:*"
+		"@obsunified/types": "workspace:*"
 	},
 	"peerDependencies": {
 		"@hono/otel": "^1.0.0",

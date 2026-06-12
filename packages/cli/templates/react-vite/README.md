@@ -1,7 +1,7 @@
 # **APP_NAME**
 
 Scaffolded by `obs-unified create`. React + Vite frontend + Hono backend,
-pre-wired with `@obs-unified/analytics-sdk` and `@obs-unified/telemetry-sdk`.
+pre-wired with `@obsunified/analytics-sdk` and `@obsunified/telemetry-sdk`.
 
 ## Run
 

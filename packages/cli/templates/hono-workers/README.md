@@ -1,7 +1,7 @@
 # **APP_NAME**
 
 Scaffolded by `obs-unified create` (Hono-on-Workers variant). Hono backend
-deployed as a Cloudflare Worker, pre-wired with `@obs-unified/telemetry-sdk`.
+deployed as a Cloudflare Worker, pre-wired with `@obsunified/telemetry-sdk`.
 
 ## Run locally
 

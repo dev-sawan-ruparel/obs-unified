@@ -17,7 +17,7 @@
 
 import { initLogger, type LoggerConfig } from "./logger";
 
-const SCOPE_NAME = "@obs-unified/telemetry-sdk/process-metrics";
+const SCOPE_NAME = "@obsunified/telemetry-sdk/process-metrics";
 const SCOPE_VERSION = "1";
 
 const METRIC_CPU_TIME = "process.cpu.time";

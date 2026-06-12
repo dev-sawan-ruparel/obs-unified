@@ -4,8 +4,8 @@
 - **Author:** @sawanruparel
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-03
-- **Target:** `@obs-unified/collector`, `@obs-unified/dashboard`,
-  `@obs-unified/telemetry-sdk`, `@obs-unified/analytics-sdk`
+- **Target:** `@obsunified/collector`, `@obsunified/dashboard`,
+  `@obsunified/telemetry-sdk`, `@obsunified/analytics-sdk`
 - **Children:** RFC 0004 — RFC 0009 (see [§ Child RFCs](#child-rfcs)); RFC 0010
   extends the same graph to agentic systems
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) — the
@@ -194,13 +194,13 @@ Ordered by leverage on the click-to-CPU thesis, not by code size:
 
 Several RFCs (0004 acceptance, 0005 acceptance, the headline replay→trace UX
 in 0006) reference the OTel Astronomy Shop demo. The demo currently uses
-**native OTel SDKs**, not `@obs-unified/analytics-sdk` or
-`@obs-unified/telemetry-sdk`. End-to-end demo verification of SDK-bound features
+**native OTel SDKs**, not `@obsunified/analytics-sdk` or
+`@obsunified/telemetry-sdk`. End-to-end demo verification of SDK-bound features
 therefore depends on a separate prerequisite task:
 
-- Replace the demo frontend's tracing setup with `@obs-unified/analytics-sdk`
+- Replace the demo frontend's tracing setup with `@obsunified/analytics-sdk`
   (gives `interaction_id`, RUM events, replay).
-- Optionally add `@obs-unified/telemetry-sdk`'s `enableProcessMetrics()` to one
+- Optionally add `@obsunified/telemetry-sdk`'s `enableProcessMetrics()` to one
   or two demo backend services (gives `process.cpu.*` metrics).
 
 This is one shared PR, separate from any of the RFCs in this tree. It does not

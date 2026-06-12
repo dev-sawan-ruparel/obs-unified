@@ -3,11 +3,11 @@ import {
 	startAgentRun,
 	step,
 	tool,
-} from "@obs-unified/telemetry-sdk/agent";
+} from "@obsunified/telemetry-sdk/agent";
 import type {
 	AgentFrameworkAdapter,
 	AgentFrameworkPluginOptions,
-} from "@obs-unified/telemetry-sdk/agent-plugin";
+} from "@obsunified/telemetry-sdk/agent-plugin";
 
 type LangGraphMetadata = Record<string, unknown>;
 

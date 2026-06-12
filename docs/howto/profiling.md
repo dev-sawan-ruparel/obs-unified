@@ -39,7 +39,7 @@ badge is missing.
 
 ```ts
 import { time, encode } from "@datadog/pprof";
-import { pushProfile } from "@obs-unified/telemetry-sdk";
+import { pushProfile } from "@obsunified/telemetry-sdk";
 
 async function captureAndPush() {
   const profile = await time.profile({

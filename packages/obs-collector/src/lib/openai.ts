@@ -22,8 +22,8 @@ import type {
 	AskEvidence,
 	AskQuery,
 	AskResponse,
-} from "@obs-unified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
+} from "@obsunified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import type { AskRunDeps } from "./ask";
 import { askEvidenceReferences } from "./evidence-references";
 import type { LlmConfig, NarrativeRequest } from "./llm";

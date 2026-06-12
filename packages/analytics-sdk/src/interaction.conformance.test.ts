@@ -10,7 +10,7 @@ import {
 	ACTION_HEADER_NAME,
 	ACTION_ID_RE,
 	ACTION_ROOT_HEADER_NAME,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { describe, expect, test } from "vitest";
 import {
 	currentInteractionId,

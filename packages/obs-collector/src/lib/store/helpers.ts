@@ -6,7 +6,7 @@ import type {
 	TelemetryIssueSeverity,
 	TelemetryIssueSpanSummary,
 	TelemetryIssueSummary,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { parseJsonArray, parseJsonRecord } from "../json";
 
 /** Map D1 snake_case row to camelCase StoredSpan */

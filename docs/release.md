@@ -50,7 +50,7 @@ generated release PR is merged. Public JavaScript packages publish to npmjs so
 developers can install them without GitHub Packages authentication.
 
 The MCP server also publishes to npmjs from the `Publish MCP` workflow. It uses
-the public hyphen-less npm scope, `@obsunified/mcp-server`.
+the public npm scope, `@obsunified/mcp-server`.
 
 The Rust SDK publishes from the `Publish Rust SDK` workflow. It validates,
 packages, and publishes the `sdks/rust` crate version from `Cargo.toml` to
@@ -86,7 +86,7 @@ Before merging the release PR:
 ## Post-release
 
 - Install public packages from a clean project without registry overrides:
-  `pnpm add @obs-unified/telemetry-sdk @obs-unified/analytics-sdk`.
+  `pnpm add @obsunified/telemetry-sdk @obsunified/analytics-sdk`.
 - Install the MCP server: `pnpm add -g @obsunified/mcp-server`.
 - Install the Rust SDK: `cargo add obs-unified`.
 - Install the Go SDK:
@@ -95,7 +95,7 @@ Before merging the release PR:
   `docker manifest inspect ghcr.io/obs-unified/local:latest`.
 - Smoke-test the collector health endpoint, dashboard login, and at least one
   SDK ingest path.
-- Check npmjs for `@obs-unified/*` packages and `@obsunified/mcp-server`.
+- Check npmjs for `@obsunified/*` packages and `@obsunified/mcp-server`.
 - Check crates.io for `obs-unified`.
 - Check the public Go proxy:
   `go list -m -versions github.com/obs-unified/obs-unified/sdks/go`.

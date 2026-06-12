@@ -40,7 +40,7 @@ import {
 	TOOL_NAME_KEY,
 	TOOL_RESULT_KEY,
 	TOOL_SIDE_EFFECT_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import {
 	type AgentActionContext,
 	agentContextStorage,

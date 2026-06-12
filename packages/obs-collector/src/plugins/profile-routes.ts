@@ -8,7 +8,7 @@
  * Phase 4 minimal scope: ingest-time pprof parsing is deferred. The
  * receiver writes the blob verbatim to R2 / filesystem and reads
  * trace_ids from an `x-obs-trace-ids` header (comma-separated). The
- * @obs-unified/telemetry-sdk profile helper will stamp this; eBPF agents that
+ * @obsunified/telemetry-sdk profile helper will stamp this; eBPF agents that
  * don't emit the header just don't populate `profile_trace_index`,
  * which means the trace waterfall's 🔥 badge won't fire for those
  * profiles. Aggregate views still work.

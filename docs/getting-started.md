@@ -251,7 +251,7 @@ The core pipeline configuration is standard across app types:
    pnpm run doctor http://localhost:8790 --origin http://localhost:5173
    ```
 
-   Outside the repo, use `pnpm dlx @obs-unified/cli doctor …` instead. Once
+   Outside the repo, use `pnpm dlx @obsunified/cli doctor …` instead. Once
    the npmjs release is published, it installs from public npm without GitHub
    Packages login.
 

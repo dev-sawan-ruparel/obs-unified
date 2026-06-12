@@ -4,7 +4,7 @@ import type {
 	AnalysisResult,
 	AnalysisResultsBulkResponse,
 	AnalysisStatus,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button";
 import { SectionTitle, UpdatedChip } from "../components/primitives";

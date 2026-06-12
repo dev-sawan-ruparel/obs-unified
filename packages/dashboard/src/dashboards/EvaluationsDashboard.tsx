@@ -1,4 +1,4 @@
-import type { JsonValue } from "@obs-unified/types";
+import type { JsonValue } from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { type Column, DataTable } from "../components/DataTable";

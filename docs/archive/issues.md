@@ -450,7 +450,7 @@ aggregate or already fixed before this verification pass.
     `apps/web/tests/connected-rail.spec.ts` now gates the live matrix at the
     describe level so non-live Playwright runs skip cleanly before login/setup.
   - **Verified:**
-    `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`,
+    `pnpm --filter @obsunified/collector test -- connected-routes.test.ts`,
     `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`,
     `pnpm run lint`, and a live Astronomy Shop checkout against the Docker stack
     after starting Colima with 7 GiB memory.
@@ -471,7 +471,7 @@ aggregate or already fixed before this verification pass.
 - [x] **6.5 - Run and Verify UX Scenario B (LLM Cost Spike) End-to-End**
   - **Location:**
     [`docs/implementation/demo-integration.md:114-117`](docs/implementation/demo-integration.md#L114-L117)
-  - **Description:** Wire `@obs-unified/telemetry-sdk`'s `trackAICall` helper
+  - **Description:** Wire `@obsunified/telemetry-sdk`'s `trackAICall` helper
     into the Astronomy Shop's Recommendation Service (or AI agent helper) to
     verify LLM cost aggregates and parent-child span associations.
   - **Local verification added:**
@@ -480,7 +480,7 @@ aggregate or already fixed before this verification pass.
     `heavy-spender user -> latest session -> AI trace -> originating click`,
     covering the same identity-graph pivots the live dashboard flow depends on.
   - **Verified:**
-    `pnpm --filter @obs-unified/collector test -- connected-routes.test.ts`,
+    `pnpm --filter @obsunified/collector test -- connected-routes.test.ts`,
     `pnpm --filter @obs-demo/web test:e2e:all -- connected-rail.spec.ts`,
     `pnpm run lint`, and
     `DASHBOARD_PASSWORD=eval-password E2E_LIVE_STACK=1 pnpm --filter @obs-demo/web test:e2e:all -- scenario-b`.

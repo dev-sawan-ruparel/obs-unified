@@ -47,7 +47,7 @@ Open the dashboard at <http://localhost:5173> → AI tab → filter service to
 - **Collector** on `:8790` — receives spans/logs/AI payloads
 - **Dashboard** on `:5173` — reads from the collector
 - **This Worker** on `:8787` — emits instrumented spans via
-  `@obs-unified/telemetry-sdk`
+  `@obsunified/telemetry-sdk`
 
 ## Troubleshooting
 

@@ -2,7 +2,7 @@ import type {
 	TelemetryIssueDetailResponse,
 	TelemetryIssueOptions,
 	TelemetryIssueOverviewResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type { SqlDb } from "../sql-db";
 import { cutoffIso, groupIssues } from "./helpers";
 import { fetchSpansForTraceIds, selectTraceCandidates } from "./trace-queries";

@@ -1,5 +1,5 @@
 {
-	"name": "@obs-unified/pprof-decoder",
+	"name": "@obsunified/pprof-decoder",
 	"version": "2.0.1",
 	"description": "Minimal pprof decoder + encoder. Runs in browsers and Cloudflare Workers (uses DecompressionStream/CompressionStream).",
 	"license": "MIT",

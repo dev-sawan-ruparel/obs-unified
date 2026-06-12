@@ -1,5 +1,5 @@
 {
-	"name": "@obs-unified/collector",
+	"name": "@obsunified/collector",
 	"version": "2.0.1",
 	"description": "Plugin-based observability collector runtime with pluggable SQL/blob storage.",
 	"license": "MIT",
@@ -46,8 +46,8 @@
 	},
 	"dependencies": {
 		"@bufbuild/protobuf": "^2.11.0",
-		"@obs-unified/pprof-decoder": "workspace:*",
-		"@obs-unified/types": "workspace:*"
+		"@obsunified/pprof-decoder": "workspace:*",
+		"@obsunified/types": "workspace:*"
 	},
 	"peerDependencies": {
 		"hono": "^4.7.0",

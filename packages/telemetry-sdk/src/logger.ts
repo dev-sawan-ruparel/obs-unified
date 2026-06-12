@@ -6,7 +6,7 @@
  * (`ExportLogsServiceRequest`, proto-JSON encoded).
  */
 
-import type { JsonValue } from "@obs-unified/types";
+import type { JsonValue } from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_ID_KEY,
@@ -14,7 +14,7 @@ import {
 	ACTOR_ID_KEY,
 	ACTOR_TYPE_KEY,
 	AGENT_RUN_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 import { getActiveActionContext, getActiveSpan } from "./span";
 

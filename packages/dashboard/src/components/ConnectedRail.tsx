@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { useApi } from "../use-api";
 
 // Mirror of the collector's connected-routes types. Kept structural so
-// the dashboard package doesn't import from @obs-unified/collector at runtime.
+// the dashboard package doesn't import from @obsunified/collector at runtime.
 export type ConnectedEntityKind =
 	| "span"
 	| "profile"

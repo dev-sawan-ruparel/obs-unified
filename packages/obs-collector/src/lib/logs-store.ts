@@ -3,7 +3,7 @@ import type {
 	LogSeverity,
 	LogsOverviewOptions,
 	LogsOverviewResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { dialectFor, type SqlDb } from "./sql-db";
 
 const LOG_SEVERITIES = new Set<LogSeverity>([

@@ -1,4 +1,4 @@
-import type { AskEvidence, AskQuery, AskResponse } from "@obs-unified/types";
+import type { AskEvidence, AskQuery, AskResponse } from "@obsunified/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRawFetch } from "../use-api";
 

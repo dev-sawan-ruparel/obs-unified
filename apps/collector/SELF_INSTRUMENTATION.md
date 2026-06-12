@@ -112,7 +112,7 @@ When `OBS_DASHBOARD_INGEST_KEY` and `OBS_COLLECTOR_SELF_URL` are set:
   bracketing the call (request size, latency, token-related metadata). The child
   span is wired through the framework's `CollectorConfig.withChildSpan` field,
   which the worker entrypoint backs with the SDK's `withChildSpan` helper. The
-  framework package itself does not import `@obs-unified/telemetry-sdk` to keep
+  framework package itself does not import `@obsunified/telemetry-sdk` to keep
   the dependency graph one-way.
 
 When either env var is absent, self-instrumentation is a no-op and the collector

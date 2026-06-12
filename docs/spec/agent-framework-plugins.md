@@ -1,7 +1,7 @@
 # Agent Framework Plugin Contract
 
 RFC 0010 framework wrappers are optional adapters over the native
-`@obs-unified/telemetry-sdk/agent` primitives. The core Agent Action Graph
+`@obsunified/telemetry-sdk/agent` primitives. The core Agent Action Graph
 contract stays stable; wrappers translate framework-specific callbacks into
 `agent.run`, `agent.step`, `llm.call`, `tool.call`, retrieval, and evaluation
 actions.
@@ -11,9 +11,9 @@ actions.
 Framework wrappers should live outside the base SDK when they require framework
 dependencies:
 
-- `@obs-unified/agents-openai`
-- `@obs-unified/agents-langgraph`
-- `@obs-unified/agents-vercel-ai`
+- `@obsunified/agents-openai`
+- `@obsunified/agents-langgraph`
+- `@obsunified/agents-vercel-ai`
 
 Shared types are exported from:
 
@@ -21,13 +21,13 @@ Shared types are exported from:
 import type {
 	AgentFrameworkAdapter,
 	AgentFrameworkPluginOptions,
-} from "@obs-unified/telemetry-sdk/agent-plugin";
+} from "@obsunified/telemetry-sdk/agent-plugin";
 ```
 
 Wrappers may also re-export their adapter from a framework-specific package:
 
 ```ts
-import { instrumentLangGraph } from "@obs-unified/agents-langgraph";
+import { instrumentLangGraph } from "@obsunified/agents-langgraph";
 
 instrumentLangGraph(graph, {
 	defaultAgentName: "support-agent",
@@ -101,7 +101,7 @@ or the framework guarantees redaction.
 
 ## Installation Behavior
 
-Wrappers should avoid hard dependencies in `@obs-unified/telemetry-sdk`. Put
+Wrappers should avoid hard dependencies in `@obsunified/telemetry-sdk`. Put
 framework packages in the wrapper package's peer dependencies. The base SDK
 should remain usable without OpenAI Agents SDK, LangGraph, Vercel AI SDK, or
 other agent frameworks installed.
@@ -125,7 +125,7 @@ Phase 8 requires at least two wrappers to meet this bar.
 
 ## Implemented Framework Wrapper Packages
 
-### 1. Vercel AI SDK Wrapper (`@obs-unified/agents-vercel-ai`)
+### 1. Vercel AI SDK Wrapper (`@obsunified/agents-vercel-ai`)
 
 This package provides helper wrappers and an adapter for tracking Vercel AI SDK
 graph steps, generation completions, and tool executions.
@@ -134,7 +134,7 @@ graph steps, generation completions, and tool executions.
 
 ```ts
 import { generateText } from "ai";
-import { wrapGenerateText, withVercelAIRun } from "@obs-unified/agents-vercel-ai";
+import { wrapGenerateText, withVercelAIRun } from "@obsunified/agents-vercel-ai";
 
 // Instrument generateText
 const trackedGenerateText = wrapGenerateText(generateText, {
@@ -165,17 +165,17 @@ await withVercelAIRun({
 
 ---
 
-### 2. LangGraph Wrapper (`@obs-unified/agents-langgraph`)
+### 2. LangGraph Wrapper (`@obsunified/agents-langgraph`)
 
 This package integrates standard LangChain callbacks with the
-`@obs-unified/telemetry-sdk` runtime, mapping Node, Chain, Tool, and LLM
+`@obsunified/telemetry-sdk` runtime, mapping Node, Chain, Tool, and LLM
 lifecycle events to decision graph primitives.
 
 #### Usage Example:
 
 ```ts
 import { CompiledStateGraph } from "@langchain/langgraph";
-import { instrumentLangGraph, wrapLangGraphRunnable } from "@obs-unified/agents-langgraph";
+import { instrumentLangGraph, wrapLangGraphRunnable } from "@obsunified/agents-langgraph";
 
 const graph: CompiledStateGraph = compiledGraph;
 

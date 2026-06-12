@@ -11,7 +11,7 @@
  * Usage with @datadog/pprof:
  *
  *   import { time } from "@datadog/pprof";
- *   import { pushProfile } from "@obs-unified/telemetry-sdk";
+ *   import { pushProfile } from "@obsunified/telemetry-sdk";
  *
  *   const profile = await time.profile({ durationMillis: 60_000 });
  *   const buffer = await encode(profile); // returns gzipped pprof bytes
@@ -33,7 +33,7 @@
 import {
 	ACTION_HEADER_NAME,
 	ACTION_ROOT_HEADER_NAME,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { getActiveActionContext } from "./span";
 
 export interface PushProfileOptions {
@@ -125,7 +125,7 @@ export interface ProfilerHandle {
  * loop (any in-flight push completes first).
  *
  *   import { time, encode } from "@datadog/pprof";
- *   import { startProfiler } from "@obs-unified/telemetry-sdk";
+ *   import { startProfiler } from "@obsunified/telemetry-sdk";
  *
  *   const handle = startProfiler({
  *     collectorUrl: process.env.OBS_COLLECTOR_URL!,

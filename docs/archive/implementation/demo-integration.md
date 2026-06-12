@@ -5,7 +5,7 @@ exercise the click-to-CPU UX end-to-end you need our SDKs in addition. These
 instructions walk through that wiring without modifying upstream files (which
 would conflict with `pnpm demo:setup` updates).
 
-## 6.1 — Frontend: replace OTel browser SDK with @obs-unified/analytics-sdk
+## 6.1 — Frontend: replace OTel browser SDK with @obsunified/analytics-sdk
 
 The frontend lives in `demo/upstream/src/frontend`. `pnpm demo:setup` now
 applies a small overlay so resyncing the upstream demo doesn't blow away our
@@ -78,7 +78,7 @@ end-to-end.
 
 ## 6.5 — UX Scenario B
 
-LLM cost spike scenario — needs `@obs-unified/telemetry-sdk`'s `trackAICall`
+LLM cost spike scenario — needs `@obsunified/telemetry-sdk`'s `trackAICall`
 wired into one demo service that hits an LLM. The Astronomy Shop's
 recommendation service is a candidate; see its existing OTel instrumentation for
 the integration point.
@@ -88,7 +88,7 @@ the integration point.
 does not start with a known-empty LLM environment.
 
 For a running collector,
-`pnpm dlx @obs-unified/cli doctor --origin http://localhost:8080` verifies that
+`pnpm dlx @obsunified/cli doctor --origin http://localhost:8080` verifies that
 browser ingest preflight allows the interaction/session headers used by
 self-instrumentation.
 

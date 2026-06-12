@@ -1,4 +1,4 @@
-# @obs-unified/collector
+# @obsunified/collector
 
 ## 2.0.1
 
@@ -6,8 +6,8 @@
 
 - 77c781a: Publish public packages to npmjs so installs no longer require GitHub Packages authentication.
 - Updated dependencies [77c781a]
-  - @obs-unified/pprof-decoder@2.0.1
-  - @obs-unified/types@2.0.1
+  - @obsunified/pprof-decoder@2.0.1
+  - @obsunified/types@2.0.1
 
 ## 2.0.0
 
@@ -15,11 +15,11 @@
 
 - 4ac9a67: Initial publishable release.
 
-  - Scope renamed from `@obs/*` to `@obs-unified/*` (no longer reserves the
+  - Scope renamed from `@obs/*` to `@obsunified/*` (no longer reserves the
     shorter `@obs` scope on npm — see `docs/migrate/from-obs-scope.md`).
   - All five packages now ship compiled `dist/` artifacts via `tsup` (was: raw
     `./src/*.ts` exports that only resolved inside the monorepo).
-  - `@obs-unified/telemetry-sdk` splits Cloudflare-specific surfaces into the
+  - `@obsunified/telemetry-sdk` splits Cloudflare-specific surfaces into the
     `./cloudflare` subpath so Node consumers don't pull
     `@cloudflare/workers-types`.
   - Workers-only peer-dependencies (`@hono/otel`, `@microlabs/otel-cf-workers`)
@@ -38,5 +38,5 @@
 
 - Updated dependencies [4ac9a67]
 - Updated dependencies [0140450]
-  - @obs-unified/types@2.0.0
-  - @obs-unified/pprof-decoder@2.0.0
+  - @obsunified/types@2.0.0
+  - @obsunified/pprof-decoder@2.0.0

@@ -3,7 +3,7 @@ import type {
 	JsonValue as ObsJsonValue,
 	OtlpAnyValue,
 	OtlpKeyValue,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type {
 	AnyValue,
 	KeyValue,

@@ -2,7 +2,7 @@ import type {
 	AnalysisDefinition,
 	AnalysisResult,
 	AnalysisStatus,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { Tag, type TagTone } from "../../components/Tag";
 import { tileHref } from "./tile-href";
 

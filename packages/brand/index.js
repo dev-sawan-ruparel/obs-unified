@@ -1,9 +1,9 @@
 /*
- * @obs-unified/brand
+ * @obsunified/brand
  *
  * Programmatic access to the brand asset paths. Most consumers should
  * import the asset files directly via the package's `exports` field
- * (e.g. `import faviconUrl from "@obs-unified/brand/favicons/favicon.svg"`
+ * (e.g. `import faviconUrl from "@obsunified/brand/favicons/favicon.svg"`
  * with Vite/Webpack), or copy them into their public/ directory via
  * `node packages/brand/scripts/sync-to-projects.mjs`.
  *

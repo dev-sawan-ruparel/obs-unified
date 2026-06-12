@@ -26,7 +26,7 @@ import {
 	createIngestAuth,
 	PostgresAdapter,
 	S3BlobStore,
-} from "@obs-unified/collector";
+} from "@obsunified/collector";
 import { Pool } from "pg";
 import { FileBlobStore } from "./file-blob-store";
 

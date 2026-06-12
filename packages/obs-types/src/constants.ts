@@ -59,7 +59,7 @@ export const getConfiguredRetentionHours = (envValue?: string): number => {
 
 export const OPENINFERENCE_SPAN_KIND_KEY = "openinference.span.kind";
 
-/** Custom attribute keys used by @obs-unified/telemetry-sdk to carry large payloads
+/** Custom attribute keys used by @obsunified/telemetry-sdk to carry large payloads
  * on a span. The collector strips these off the span and routes them to
  * the ai_span_payloads side table — they never hit telemetry_spans. */
 export const AI_PAYLOAD_INPUT_KEY = "ai.payload.input";
@@ -71,7 +71,7 @@ export const AI_PAYLOAD_OUTPUT_KEY = "ai.payload.output";
 export const SESSION_ID_KEY = "session.id";
 export const USER_ID_KEY = "user.id";
 
-/** RFC 0004 — click-scoped correlation id. Stamped by @obs-unified/telemetry-sdk's
+/** RFC 0004 — click-scoped correlation id. Stamped by @obsunified/telemetry-sdk's
  * `stampInteractionFromRequest()` (and exported as INTERACTION_ATTRIBUTE_KEY
  * from that package). Denormalized into telemetry_spans.interaction_id at
  * ingest by the default span enrichment plugin. */

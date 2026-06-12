@@ -1,4 +1,4 @@
-import type { LogRecord, LogsOverviewResponse } from "@obs-unified/types";
+import type { LogRecord, LogsOverviewResponse } from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";

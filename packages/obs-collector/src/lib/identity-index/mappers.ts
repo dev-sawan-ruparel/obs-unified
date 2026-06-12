@@ -3,7 +3,7 @@ import {
 	ACTION_ID_KEY,
 	ACTION_ID_RE,
 	ActionConfidence,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import type {
 	ActionRef,
 	AgentRunRef,

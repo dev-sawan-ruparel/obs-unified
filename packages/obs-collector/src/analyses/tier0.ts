@@ -15,7 +15,7 @@
 //
 // delta_pct is precomputed by the runner from primary/baseline.
 
-import type { AnalysisDefinition } from "@obs-unified/types";
+import type { AnalysisDefinition } from "@obsunified/types";
 
 // ── overall_error_rate ──────────────────────────────────────────────────────
 // Error spans in the last 5 minutes vs. the trailing 1h baseline rate.
@@ -460,7 +460,7 @@ const logErrorRate: AnalysisDefinition = {
 // ── service_cpu_utilization ─────────────────────────────────────────────────
 // RFC 0005 Phase 2.6 — fleet-wide process CPU utilization tile.
 // Reads `process.cpu.utilization` gauge points emitted by
-// @obs-unified/telemetry-sdk's enableProcessMetrics() helper (or any other OTel
+// @obsunified/telemetry-sdk's enableProcessMetrics() helper (or any other OTel
 // runtime-metrics exporter using the standard semconv).
 //
 // Status: critical if any service averaged >0.9 over the last 5 min,

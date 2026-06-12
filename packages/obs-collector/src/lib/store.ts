@@ -7,7 +7,7 @@ import type {
 	TelemetryOverviewOptions,
 	TelemetryOverviewResponse,
 	TelemetryTraceDetailResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type { SqlDb } from "./sql-db";
 import { getTelemetryExportRows } from "./store/export";
 import { ingestTelemetrySpans } from "./store/ingest";

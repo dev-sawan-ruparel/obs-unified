@@ -1,4 +1,4 @@
-import type { AlertRule } from "@obs-unified/types";
+import type { AlertRule } from "@obsunified/types";
 import { describe, expect, it } from "vitest";
 import { evaluateRuleBatch } from "./alerts-evaluator";
 

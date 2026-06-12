@@ -4,7 +4,7 @@ import type {
 	AlertRule,
 	AlertRuleInput,
 	AlertTestResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";

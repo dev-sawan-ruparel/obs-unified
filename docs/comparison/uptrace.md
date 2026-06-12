@@ -16,8 +16,8 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 | OTLP/HTTP — gzip                  | ✅                | ✅                                   |                                                                                                              |
 | **OTLP/gRPC**                     | ✅                | **❌**                               | Migration friction for SDKs defaulting to gRPC — flip exporter to `otlphttp` or front with an OTel collector |
 | Proprietary high-throughput proto | ✅ Uptrace native | ❌                                   |                                                                                                              |
-| Custom backend SDK (typed)        | ❌                | ✅ `@obs-unified/telemetry-sdk`      |                                                                                                              |
-| Custom frontend SDK (typed)       | ❌                | ✅ `@obs-unified/analytics-sdk`      |                                                                                                              |
+| Custom backend SDK (typed)        | ❌                | ✅ `@obsunified/telemetry-sdk`      |                                                                                                              |
+| Custom frontend SDK (typed)       | ❌                | ✅ `@obsunified/analytics-sdk`      |                                                                                                              |
 | Per-request size limit            | configurable      | 🟡 hard-coded 2000 metric points/req | [metrics-receiver.ts:13](../../packages/obs-collector/src/plugins/metrics-receiver.ts)                       |
 | API key auth on ingest            | ✅ project tokens | ✅ ingest API key                    |                                                                                                              |
 

@@ -22,7 +22,7 @@ app incrementally.
 ```diff
 - import posthog from "posthog-js";
 - posthog.init("phc_…", { api_host: "https://us.i.posthog.com" });
-+ import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
++ import { AnalyticsProvider } from "@obsunified/analytics-sdk/react";
 + <AnalyticsProvider
 +   collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL}
 +   apiKey={import.meta.env.VITE_OBS_INGEST_KEY}

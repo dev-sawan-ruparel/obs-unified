@@ -32,7 +32,7 @@ export interface ObservabilityConfig {
  *
  * @example
  * ```ts
- * import { initObservability, createLogger } from "@obs-unified/telemetry-sdk";
+ * import { initObservability, createLogger } from "@obsunified/telemetry-sdk";
  *
  * initObservability({
  *   collectorUrl: "https://obs.my-app.com",

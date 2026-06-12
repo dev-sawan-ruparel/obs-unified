@@ -1,11 +1,11 @@
-# @obs-unified/pprof-decoder
+# @obsunified/pprof-decoder
 
 Minimal pprof decoder + encoder. Runs in browsers and Cloudflare Workers (uses
 the platform `DecompressionStream`/`CompressionStream` APIs — no Node-native
 dependencies, no Emscripten).
 
 ```ts
-import { decodeProfile, encodeProfile } from "@obs-unified/pprof-decoder";
+import { decodeProfile, encodeProfile } from "@obsunified/pprof-decoder";
 
 const profile = await decodeProfile(gzippedBuffer);
 profile.sample.forEach((s) => console.log(s.value, s.locationId));

@@ -10,9 +10,9 @@ export default defineConfig({
 	external: [
 		"@aws-sdk/client-s3",
 		"@hono/node-server",
-		"@obs-unified/collector",
-		"@obs-unified/telemetry-sdk",
-		"@obs-unified/types",
+		"@obsunified/collector",
+		"@obsunified/telemetry-sdk",
+		"@obsunified/types",
 		"hono",
 		"pg",
 	],

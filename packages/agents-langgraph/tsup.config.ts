@@ -7,5 +7,5 @@ export default defineConfig({
 	clean: true,
 	sourcemap: true,
 	target: "es2022",
-	external: ["@obs-unified/telemetry-sdk"],
+	external: ["@obsunified/telemetry-sdk"],
 });

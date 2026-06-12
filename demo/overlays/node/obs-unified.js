@@ -29,7 +29,7 @@ function drainTraceIds() {
 
 async function startObsUnified() {
 	const config = obsConfig();
-	const sdk = await import("@obs-unified/telemetry-sdk");
+	const sdk = await import("@obsunified/telemetry-sdk");
 	sdk.enableProcessMetrics({
 		collectorUrl: config.collectorUrl,
 		apiKey: config.apiKey,

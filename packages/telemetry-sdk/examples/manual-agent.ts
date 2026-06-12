@@ -2,7 +2,7 @@ import {
 	createRequestSpan,
 	runWithSpan,
 	startAgentRun,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 async function main() {
 	const requestSpan = createRequestSpan("billing-api", "POST /agents/billing");

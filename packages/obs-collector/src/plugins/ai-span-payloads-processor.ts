@@ -11,7 +11,7 @@
  * for AI calls.
  */
 
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
+import type { JsonValue, StoredSpan } from "@obsunified/types";
 import {
 	ACTION_ID_KEY,
 	AI_PAYLOAD_INPUT_KEY,
@@ -21,7 +21,7 @@ import {
 	OPENINFERENCE_SPAN_KIND_KEY,
 	SESSION_ID_KEY,
 	USER_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { sha256Hex } from "../lib/hash";
 import { parseJsonRecord } from "../lib/json";

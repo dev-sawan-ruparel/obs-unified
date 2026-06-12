@@ -10,7 +10,7 @@
 // by the Ask box over the past week get a `pinned: true` flag the
 // dashboard groups separately at the top of the Health tab.
 
-import type { AnalysisDefinition } from "@obs-unified/types";
+import type { AnalysisDefinition } from "@obsunified/types";
 
 import { AnalysesStore } from "../lib/analyses-store";
 import type { SqlDb } from "../lib/sql-db";

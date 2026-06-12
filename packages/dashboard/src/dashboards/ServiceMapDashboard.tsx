@@ -1,4 +1,4 @@
-import type { ServiceMapResponse } from "@obs-unified/types";
+import type { ServiceMapResponse } from "@obsunified/types";
 import {
 	Background,
 	Controls,

@@ -1,4 +1,4 @@
-import type { EvidenceBundle, EvidenceRetrievalRef } from "@obs-unified/types";
+import type { EvidenceBundle, EvidenceRetrievalRef } from "@obsunified/types";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import {

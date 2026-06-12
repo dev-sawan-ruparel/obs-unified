@@ -31,7 +31,7 @@ export interface StoredSpan {
 	/** Denormalized from attributes["session.id"] at ingest; null when absent. */
 	sessionId?: string | null;
 	/**
-	 * RFC 0004 — click-scoped correlation ID minted by @obs-unified/analytics-sdk and
+	 * RFC 0004 — click-scoped correlation ID minted by @obsunified/analytics-sdk and
 	 * propagated to backends via the x-obs-interaction header. Persisted as a
 	 * top-level column (not a span attribute) on telemetry_spans by ingest.
 	 * Null on server-originated work (cron, queue consumers) and on requests

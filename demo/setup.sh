@@ -27,9 +27,9 @@ SDK_VENDOR_DIR="$UPSTREAM_DIR/.obs-unified"
 mkdir -p "$SDK_VENDOR_DIR"
 
 echo "▸ packing obs-unified SDK tarballs → $SDK_VENDOR_DIR"
-(cd .. && pnpm --filter @obs-unified/types pack --pack-destination "demo/$SDK_VENDOR_DIR" >/dev/null)
-(cd .. && pnpm --filter @obs-unified/analytics-sdk pack --pack-destination "demo/$SDK_VENDOR_DIR" >/dev/null)
-(cd .. && pnpm --filter @obs-unified/telemetry-sdk pack --pack-destination "demo/$SDK_VENDOR_DIR" >/dev/null)
+(cd .. && pnpm --filter @obsunified/types pack --pack-destination "demo/$SDK_VENDOR_DIR" >/dev/null)
+(cd .. && pnpm --filter @obsunified/analytics-sdk pack --pack-destination "demo/$SDK_VENDOR_DIR" >/dev/null)
+(cd .. && pnpm --filter @obsunified/telemetry-sdk pack --pack-destination "demo/$SDK_VENDOR_DIR" >/dev/null)
 
 echo "▸ applying obs-unified frontend and backend overlays"
 python3 apply-obs-overlays.py

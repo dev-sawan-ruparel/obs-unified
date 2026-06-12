@@ -1,4 +1,4 @@
-import { ActionConfidence } from "@obs-unified/types/constants";
+import { ActionConfidence } from "@obsunified/types/constants";
 import type { SqlDb } from "../sql-db";
 import { FETCH_LIMIT } from "./constants";
 import { manifestByInteraction } from "./key-lookups";

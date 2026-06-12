@@ -16,8 +16,8 @@ import type {
 	AnalysesListResponse,
 	AnalysisResultResponse,
 	AnalysisResultsBulkResponse,
-} from "@obs-unified/types";
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
+} from "@obsunified/types";
+import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { runSqlAnalysis } from "../lib/analyses-runner";
 import { AnalysesStore } from "../lib/analyses-store";

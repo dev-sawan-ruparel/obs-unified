@@ -1,4 +1,4 @@
-import type { StoredSpan } from "@obs-unified/types";
+import type { StoredSpan } from "@obsunified/types";
 import type { SqlDb } from "../sql-db";
 
 export async function ingestTelemetrySpans(

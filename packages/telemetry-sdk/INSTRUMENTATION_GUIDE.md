@@ -1,6 +1,6 @@
 # Instrumentation Guide
 
-A walkthrough of what `@obs-unified/telemetry-sdk` provides automatically and
+A walkthrough of what `@obsunified/telemetry-sdk` provides automatically and
 what your application has to wire up. The split matters: helpers live in the SDK
 so the schema (OTel / OpenInference attribute names) is consistent across
 consumers; call sites live in your app because only you know where they are.
@@ -50,7 +50,7 @@ import {
   initObservability,
   runWithSpan,
   wrapD1,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 interface Env {
   DB: D1Database;
@@ -255,16 +255,16 @@ The `genAiNormalizerPlugin` on the collector side normalizes `gen_ai.*`
 attributes into OpenInference shape on ingest, so the dashboard's AI tab picks
 them up automatically.
 
-## Wiring inside `@obs-unified/collector` (the framework)
+## Wiring inside `@obsunified/collector` (the framework)
 
-If your worker uses `@obs-unified/collector` to register plugins, the framework
+If your worker uses `@obsunified/collector` to register plugins, the framework
 exposes `runtime.withChildSpan` to plugin handlers and accepts a `withChildSpan`
 field on `CollectorConfig`. Plug the SDK's helper in once at the worker
 entrypoint:
 
 ```ts
-import { withChildSpan } from "@obs-unified/telemetry-sdk";
-import { createDefaultCollectorApp } from "@obs-unified/collector";
+import { withChildSpan } from "@obsunified/telemetry-sdk";
+import { createDefaultCollectorApp } from "@obsunified/collector";
 
 const app = createDefaultCollectorApp({
   // ...other config...

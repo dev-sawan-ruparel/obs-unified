@@ -1,4 +1,4 @@
-import type { AnalysisDefinition } from "@obs-unified/types";
+import type { AnalysisDefinition } from "@obsunified/types";
 
 /**
  * Map an Analysis definition to a hash-router URL the user lands on when they

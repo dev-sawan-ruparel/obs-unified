@@ -6,11 +6,11 @@ import type {
 	TelemetryInstrumentationGapsResponse,
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import {
 	DEFAULT_INSTRUMENTATION_GAP_THRESHOLDS,
 	isInstrumentationGapCandidate,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { parseJsonArray, parseJsonRecord } from "../json";
 import type { SqlDb } from "../sql-db";
 import { normalizeService } from "./helpers";

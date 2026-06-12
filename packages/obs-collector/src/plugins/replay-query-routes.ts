@@ -1,4 +1,4 @@
-import type { SessionReplayMetadataRow } from "@obs-unified/types";
+import type { SessionReplayMetadataRow } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";

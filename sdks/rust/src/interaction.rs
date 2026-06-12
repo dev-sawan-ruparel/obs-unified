@@ -1,6 +1,6 @@
 //! Click-scoped correlation key propagation (server side).
 //!
-//! The browser SDK (`@obs-unified/analytics-sdk`) mints an
+//! The browser SDK (`@obsunified/analytics-sdk`) mints an
 //! `interaction_id` on every click and sets it on the `x-obs-interaction`
 //! header of outbound requests. This module reads that header on the
 //! server side and stamps the active span with `obs.interaction.id` so

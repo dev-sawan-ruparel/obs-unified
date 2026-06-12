@@ -17,7 +17,7 @@ coordinated with the reporter.
 
 ## Supported versions
 
-The latest minor release of each `@obs-unified/*` package is supported. Older
+The latest minor release of each `@obsunified/*` package is supported. Older
 minors receive fixes only when the issue is severe and a backport is feasible.
 
 ## Disclosure

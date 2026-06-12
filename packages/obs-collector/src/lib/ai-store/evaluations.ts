@@ -3,8 +3,8 @@ import type {
 	AIEvaluationSource,
 	AIEvaluationsListOptions,
 	AIEvaluationsListResponse,
-} from "@obs-unified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
+} from "@obsunified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import { aiEvaluationEvidenceReferences } from "../evidence-references";
 import { parseJsonRecord } from "../json";
 import type { SqlDb } from "../sql-db";

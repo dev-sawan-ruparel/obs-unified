@@ -9,8 +9,8 @@ from pathlib import Path
 
 DEFAULT_INGEST_KEY = "obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504"
 SDK_DEPENDENCIES = {
-    "@obs-unified/telemetry-sdk": "file:../../.obs-unified/obs-unified-telemetry-sdk-1.0.0.tgz",
-    "@obs-unified/types": "file:../../.obs-unified/obs-unified-types-1.0.0.tgz",
+    "@obsunified/telemetry-sdk": "file:../../.obs-unified/obs-unified-telemetry-sdk-1.0.0.tgz",
+    "@obsunified/types": "file:../../.obs-unified/obs-unified-types-1.0.0.tgz",
 }
 
 
@@ -255,7 +255,7 @@ def main() -> None:
     patch_json(
         root / "src/frontend/package.json",
         {
-            "@obs-unified/analytics-sdk": "file:../../.obs-unified/obs-unified-analytics-sdk-1.0.0.tgz",
+            "@obsunified/analytics-sdk": "file:../../.obs-unified/obs-unified-analytics-sdk-1.0.0.tgz",
             **SDK_DEPENDENCIES,
         },
     )

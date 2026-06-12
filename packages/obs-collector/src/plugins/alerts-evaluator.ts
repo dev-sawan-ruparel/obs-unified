@@ -3,7 +3,7 @@ import type {
 	AlertRule,
 	AlertState,
 	AlertWebhookChannel,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type { CollectorEnv } from "../framework/env";
 import {
 	type ChildSpanRunner,

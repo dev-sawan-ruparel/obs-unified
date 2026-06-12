@@ -8,9 +8,9 @@
 - **Related:** [RFC 0011 — Evidence retrieval layer](0011-evidence-retrieval-layer.md)
   (implemented in PR #41; the live worked example for feature propagation),
   [EvidenceReference contract](../docs/spec/evidence-reference.md)
-- **Precedent:** `@obs-unified/brand` + `packages/brand/scripts/sync-to-projects.mjs`
+- **Precedent:** `@obsunified/brand` + `packages/brand/scripts/sync-to-projects.mjs`
 - **Target:** `obs-unified`, `obs-unified-docs`, `presence`, `obs-unified-skills`,
-  `@obs-unified/types`, `packages/messaging` (new)
+  `@obsunified/types`, `packages/messaging` (new)
 - **Companion:** execution checklist, tracked separately (not in this RFC).
 
 ---
@@ -39,17 +39,17 @@ Two independent reviews (2026-06-03 messaging review + its verification report)
 found the same failure mode **recurring**:
 
 - **Incident A — MCP surface drift.** `get_profile`/`get_eval` were added and the
-  package moved scope/registry (`@obs-unified/mcp-server` on GitHub Packages →
+  package moved scope/registry (`@obsunified/mcp-server` on GitHub Packages →
   `@obsunified/mcp-server` on public npm). Lead repo + docs-site were updated;
   `presence` and the skills repo lagged in separate cycles.
 - **Incident B — contract field drift.** `suggestedPivots` → `suggestedNextPivots`
-  was corrected in `@obs-unified/types`, the spec, and docs-site, but the
+  was corrected in `@obsunified/types`, the spec, and docs-site, but the
   **skills** repo kept the old field name and was fixed only in a later PR.
 - **Incident C — evidence-retrieval / CCR drift (live, during this RFC).** PR #41
   implemented the RFC 0011 evidence retrieval layer: it added **four** MCP tools
   (`get_evidence_bundle`, `retrieve_evidence_ref`, `search_evidence_ref`,
   `get_evidence_stats` — taking the surface from 16 to **20** tools) and new
-  `@obs-unified/types` exports (`EvidenceRetrievalRef`, `EvidenceRetrievalKind`,
+  `@obsunified/types` exports (`EvidenceRetrievalRef`, `EvidenceRetrievalKind`,
   fields `retrieval` / `retrievalRefIds` / `retrievalRefs`). Root README,
   `presence` (PR #7), and `llms.txt` gained CCR messaging — but the **docs-site**
   (`mcp-server.mdx`, `sdks.mdx`) still lists only the 16 older tools, the
@@ -69,11 +69,11 @@ CCR layer), this gets worse without a system.
 ## Today
 
 ### What exists (and is good)
-- Contracts already live in **code**: `@obs-unified/types`
+- Contracts already live in **code**: `@obsunified/types`
   (`EvidenceReferenceJsonSchema`, governance enums), the MCP tool registration in
   `packages/mcp-server/src`, package identity in each `package.json`.
 - A spec layer: `docs/spec/evidence-reference.md`.
-- A **cross-repo sync precedent**: `@obs-unified/brand` +
+- A **cross-repo sync precedent**: `@obsunified/brand` +
   `packages/brand/scripts/sync-to-projects.mjs`.
 - `presence` already centralized prose into `src/content/site.json`.
 
@@ -110,7 +110,7 @@ a fact**. The inventory below is the authoritative list the parity checks cover.
 | Surface | Location | Carries | Governance |
 | --- | --- | --- | --- |
 | **npm package page** | npmjs.com/`@obsunified/mcp-server` | renders package README + `package.json` description/keywords | derived from package README + `package.json` |
-| **GitHub Packages pages** | `@obs-unified/*` (SDKs, collector, types, dashboard) | same, on GitHub Packages | derived |
+| **GitHub Packages pages** | `@obsunified/*` (SDKs, collector, types, dashboard) | same, on GitHub Packages | derived |
 | **`package.json` description/keywords** | each package | one-liner, search keywords, scope/registry | check |
 
 ### Website — `presence` / obsunified.com (buyer + evaluator)
@@ -132,8 +132,8 @@ a fact**. The inventory below is the authoritative list the parity checks cover.
 | Surface | Location | Carries | Governance |
 | --- | --- | --- | --- |
 | **MCP tool names + descriptions** | `packages/mcp-server/src` | the canonical tool list | **code (authority)** |
-| **ToolResponseContract + EvidenceReference output** | collector responses, `@obs-unified/types` | field names, schema version | **code (authority)** |
-| **CLI `--help` / `doctor`** | `@obs-unified/cli` | command/flag names | **code (authority)** |
+| **ToolResponseContract + EvidenceReference output** | collector responses, `@obsunified/types` | field names, schema version | **code (authority)** |
+| **CLI `--help` / `doctor`** | `@obsunified/cli` | command/flag names | **code (authority)** |
 | **Skills** | `obs-unified-skills/*/SKILL.md` (frontmatter description **and** body) | trigger phrasing, tool names, endpoints, field names | prose (description) + check (facts) |
 
 ### Design / contributor
@@ -177,10 +177,10 @@ Facts and authorities:
 | Fact | Authority | Generated? |
 | --- | --- | --- |
 | MCP tool names | `packages/mcp-server/src` registration | yes |
-| `EvidenceReference` fields + JSON schema | `@obs-unified/types` | yes |
+| `EvidenceReference` fields + JSON schema | `@obsunified/types` | yes |
 | Package names / scopes / registries | each `package.json` | yes |
 | Connected `kind` enum | collector route source | yes |
-| Governance enums (`autonomyLevel`/`approvalState`/`sideEffect`) | `@obs-unified/types` | yes |
+| Governance enums (`autonomyLevel`/`approvalState`/`sideEffect`) | `@obsunified/types` | yes |
 | Identity chain string | manifest (hand) | no |
 | Capability + status (`planned`/`preview`/`shipped`) | status-of-record | no |
 | **Feature records** | manifest (hand) + cross-checked vs code | partly |
@@ -249,7 +249,7 @@ lifecycle.
    original review flagged (Scenario A/C, "ships X" when partial).
 2. **Declare.** The feature record names the tools/entity-kinds/fields/signal it
    will add and the surfaces it must reach when shipped.
-3. **Build.** The contract lands in code authorities (`@obs-unified/types` for new
+3. **Build.** The contract lands in code authorities (`@obsunified/types` for new
    entity kinds/fields; `packages/mcp-server/src` for new tools; collector routes).
 4. **Generate.** `messaging:generate` auto-picks the new tools/fields/kinds into
    the manifest **and cross-checks them against the feature record**:
@@ -276,7 +276,7 @@ each gate would have done:
 - **Code authority (what actually shipped):** four MCP tools
   (`get_evidence_bundle`, `retrieve_evidence_ref`, `search_evidence_ref`,
   `get_evidence_stats`) in `packages/mcp-server/src`, and new
-  `@obs-unified/types` exports (`EvidenceRetrievalRef`, `EvidenceRetrievalKind`,
+  `@obsunified/types` exports (`EvidenceRetrievalRef`, `EvidenceRetrievalKind`,
   fields `retrieval` / `retrievalRefIds` / `retrievalRefs`).
 - **Where messaging landed:** root README, `presence` (PR #7), `llms.txt`.
 - **Where it drifted (the bug):** the **docs-site** `mcp-server.mdx` and
@@ -291,7 +291,7 @@ each gate would have done:
     (`/docs/evidence-retrieval`). That page does not exist → **gap check fails**
     until it is created and linked from the docs index.
   - `addsEntityKinds`/`addsEvidenceFields` (`EvidenceRetrievalRef`, `retrieval`,
-    …) come from `@obs-unified/types`; `sync` updates `evidence-reference.mdx`
+    …) come from `@obsunified/types`; `sync` updates `evidence-reference.mdx`
     and the skills field list, so a `suggestedNextPivots`-style field drift cannot
     recur.
   - The status gate sees `status: shipped` (code merged) while RFC 0011 is still

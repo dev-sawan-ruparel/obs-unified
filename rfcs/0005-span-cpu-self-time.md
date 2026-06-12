@@ -5,8 +5,8 @@
 - **Created:** 2026-05-02
 - **Updated:** 2026-05-02
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
-- **Target:** `@obs-unified/dashboard`, `@obs-unified/telemetry-sdk`,
-  `@obs-unified/collector`
+- **Target:** `@obsunified/dashboard`, `@obsunified/telemetry-sdk`,
+  `@obsunified/collector`
 
 ## Summary
 
@@ -124,7 +124,7 @@ process."
 Hover: _"Most of this span's time is unaccounted for — consider adding child
 spans, or attaching a profile (RFC 0007)."_
 
-The threshold is centralized in `@obs-unified/types` and versioned so collector
+The threshold is centralized in `@obsunified/types` and versioned so collector
 evidence and dashboard badges cannot drift. The collector also exposes
 `/internal/telemetry/instrumentation-gaps/calibration`, which runs the current
 rule over recent traces and reports firing rate plus top candidates. It remains
@@ -151,7 +151,7 @@ recent `process.cpu.utilization` (or derived from `process.cpu.time` if
 utilization isn't emitted) alongside throughput from spans. Compute-bound
 services stand out.
 
-**SDK helper (optional):** `@obs-unified/telemetry-sdk` adds an opt-in
+**SDK helper (optional):** `@obsunified/telemetry-sdk` adds an opt-in
 `enableProcessMetrics()` that wraps
 `@opentelemetry/instrumentation-runtime-node`, so users on Node who don't want
 to assemble OTel metric instrumentation by hand get it with one call. Workers
@@ -188,7 +188,7 @@ Two changes:
    `process.cpu.utilization` (or derived from `process.cpu.time`) is present in
    `metric_point` for that service. Tile shows "—" with a "no process metrics"
    hover when absent.
-5. `@obs-unified/telemetry-sdk`'s `enableProcessMetrics()` (Node) results in
+5. `@obsunified/telemetry-sdk`'s `enableProcessMetrics()` (Node) results in
    `process.cpu.time` and `process.cpu.utilization` series being created in
    `metric_series` after one minute of runtime.
 

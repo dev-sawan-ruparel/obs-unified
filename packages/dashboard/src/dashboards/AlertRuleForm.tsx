@@ -11,7 +11,7 @@ import type {
 	AlertSignal,
 	AlertWebhookChannel,
 	LogSeverity,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { Field, SelectField, TextField } from "../components/forms";

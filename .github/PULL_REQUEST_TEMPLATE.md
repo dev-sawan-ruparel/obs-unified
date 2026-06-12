@@ -1,7 +1,7 @@
 <!--
 Thanks for the PR. A few things that make review faster:
 - Link any related issue with "Closes #123".
-- Mention the @obs-unified/* package(s) you touched.
+- Mention the @obsunified/* package(s) you touched.
 - If this changes a public API, include a changeset (`pnpm changeset`).
 -->
 

@@ -9,7 +9,7 @@
   [RFC 0004 — Identity propagation](0004-identity-propagation.md)
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) — worked
   example with the rail at every step
-- **Target:** `@obs-unified/dashboard`, `@obs-unified/collector`
+- **Target:** `@obsunified/dashboard`, `@obsunified/collector`
 
 ## Summary
 
@@ -289,7 +289,7 @@ Order of work:
 1. Build the manifest endpoint on the collector for the seven Phase-1 entity
    kinds (`span`, `log`, `usage`, `ai_call`, `replay`, `alert`, `analysis`).
    Profile and kernel-event variants arrive with RFCs 0007 and 0009.
-2. Build `<ConnectedRail />` in `@obs-unified/dashboard` with the four section
+2. Build `<ConnectedRail />` in `@obsunified/dashboard` with the four section
    structure (up / across / down / related).
 3. Wire it into TelemetryDashboard's span drawer first (highest-traffic
    surface).

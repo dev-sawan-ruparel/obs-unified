@@ -1,4 +1,4 @@
-import type { EvidenceBundle } from "@obs-unified/types";
+import type { EvidenceBundle } from "@obsunified/types";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { CollectorRuntime } from "../framework/collector";

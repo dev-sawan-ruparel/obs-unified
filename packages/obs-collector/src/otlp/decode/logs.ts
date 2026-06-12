@@ -1,8 +1,5 @@
 import { fromBinary, fromJson } from "@bufbuild/protobuf";
-import type {
-	LogSeverity,
-	JsonValue as ObsJsonValue,
-} from "@obs-unified/types";
+import type { LogSeverity, JsonValue as ObsJsonValue } from "@obsunified/types";
 import {
 	type ExportLogsServiceRequest,
 	ExportLogsServiceRequestSchema,

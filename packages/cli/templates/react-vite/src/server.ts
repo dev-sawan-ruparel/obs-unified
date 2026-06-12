@@ -1,6 +1,6 @@
 // Backend entry point. Run with `node --import tsx src/server.ts`.
 //
-// Pre-wired with `@obs-unified/telemetry-sdk` — every inbound request
+// Pre-wired with `@obsunified/telemetry-sdk` — every inbound request
 // gets a root span, the x-obs-interaction header is stamped onto it,
 // child spans / logs / AI calls inherit. The dashboard's "click that
 // caused this trace" pivot works out of the box.
@@ -14,7 +14,7 @@ import {
 	initObservability,
 	runWithSpan,
 	stampInteractionFromRequest,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 

@@ -1,4 +1,4 @@
-import type { StoredSpan } from "@obs-unified/types";
+import type { StoredSpan } from "@obsunified/types";
 import { describe, expect, it } from "vitest";
 import type {
 	CollectorRuntime,

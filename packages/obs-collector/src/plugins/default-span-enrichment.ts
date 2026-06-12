@@ -1,8 +1,8 @@
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
+import type { JsonValue, StoredSpan } from "@obsunified/types";
 import {
 	INTERACTION_ID_KEY,
 	SESSION_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 
@@ -58,7 +58,7 @@ export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
 							: null;
 
 					// RFC 0004 — denormalize obs.interaction.id from attributes
-					// to a top-level column. Stamped by @obs-unified/telemetry-sdk's
+					// to a top-level column. Stamped by @obsunified/telemetry-sdk's
 					// stampInteractionFromRequest on the inbound request.
 					const interactionId =
 						typeof attributes[INTERACTION_ID_KEY] === "string" &&

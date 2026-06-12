@@ -10,10 +10,10 @@
 		"test:e2e:all": "playwright test"
 	},
 	"dependencies": {
-		"@obs-unified/analytics-sdk": "workspace:*",
-		"@obs-unified/brand": "workspace:*",
-		"@obs-unified/dashboard": "workspace:*",
-		"@obs-unified/types": "workspace:*",
+		"@obsunified/analytics-sdk": "workspace:*",
+		"@obsunified/brand": "workspace:*",
+		"@obsunified/dashboard": "workspace:*",
+		"@obsunified/types": "workspace:*",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
 		"rrweb": "2.0.0-alpha.20",

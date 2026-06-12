@@ -24,7 +24,7 @@ not coverage.
 ## Install
 
 ```bash
-pnpm add @obs-unified/sdk
+pnpm add @obsunified/sdk
 go get github.com/obs-unified/obs-unified/sdks/go@latest
 cargo add obs-unified
 ```

@@ -1,5 +1,5 @@
-import type { StoredSpan, UsageEventRecord } from "@obs-unified/types";
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
+import type { StoredSpan, UsageEventRecord } from "@obsunified/types";
+import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { AIStore } from "../lib/ai-store";
@@ -85,13 +85,13 @@ export interface CollectorConfig {
 	};
 	/**
 	 * Pluggable structured logger. Defaults to console output. Pass a logger
-	 * from `@obs-unified/telemetry-sdk` to ship the collector's own log output as
+	 * from `@obsunified/telemetry-sdk` to ship the collector's own log output as
 	 * OTLP — see apps/collector/SELF_INSTRUMENTATION.md.
 	 */
 	logger?: Logger;
 	/**
 	 * Wraps async work in a child span on the active request span. Wire this
-	 * to `@obs-unified/telemetry-sdk`'s `withChildSpan` from the worker entrypoint to
+	 * to `@obsunified/telemetry-sdk`'s `withChildSpan` from the worker entrypoint to
 	 * surface LLM hops + DB-heavy paths as nested spans. Defaults to
 	 * pass-through.
 	 */

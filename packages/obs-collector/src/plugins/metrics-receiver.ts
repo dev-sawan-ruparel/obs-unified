@@ -1,6 +1,6 @@
 /** OTLP/HTTP metrics receiver. Accepts JSON or protobuf, with gzip. */
 
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
+import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { MetricsStore } from "../lib/metrics-store";
 import { sqlDbFor } from "../lib/sql-db";

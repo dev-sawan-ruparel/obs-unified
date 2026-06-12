@@ -7,8 +7,8 @@
 - **Parent:** [RFC 0003 — Unified Stack](0003-unified-stack.md)
 - **Companion:** [docs/ux/click-to-cpu.md](../docs/ux/click-to-cpu.md) Steps 5–6
   (session timeline + replay→trace closure)
-- **Target:** `@obs-unified/analytics-sdk`, `@obs-unified/telemetry-sdk`,
-  `@obs-unified/collector`, `@obs-unified/types`
+- **Target:** `@obsunified/analytics-sdk`, `@obsunified/telemetry-sdk`,
+  `@obsunified/collector`, `@obsunified/types`
 
 ## Summary
 
@@ -66,7 +66,7 @@ trace it caused." That is the load-bearing UX move for the click-to-CPU thesis.
    128 chars, stable for the duration of a browser session, injected by the
    analytics SDK on every emitted record." Without this, a future SDK or a
    self-instrumenting backend could mint conflicting formats.
-5. **`@obs-unified/analytics-sdk` does not instrument the user app's outbound
+5. **`@obsunified/analytics-sdk` does not instrument the user app's outbound
    `fetch` at all.**
    [usage-tracker.ts](../packages/analytics-sdk/src/usage-tracker.ts) uses
    `fetch` only to push events back to the collector (lines 213, 323, 341, 372,
@@ -92,7 +92,7 @@ trace it caused." That is the load-bearing UX move for the click-to-CPU thesis.
 2. **Propagate.** The SDK sets `x-obs-interaction: <id>` on outbound HTTP calls.
    Bespoke header, not `tracestate` (rationale below).
 
-3. **Honor.** The backend SDK (`@obs-unified/telemetry-sdk`)'s middleware reads
+3. **Honor.** The backend SDK (`@obsunified/telemetry-sdk`)'s middleware reads
    `x-obs-interaction` and attaches it to the root span as a top-level field —
    _not_ as a span attribute, to avoid cardinality explosion in the attributes
    index.
@@ -126,7 +126,7 @@ actions, debounced calls, etc., the SDK exposes:
 import {
   withInteractionContext,
   currentInteractionId,
-} from "@obs-unified/analytics-sdk";
+} from "@obsunified/analytics-sdk";
 
 setTimeout(() => {
   withInteractionContext(savedId, () => {
@@ -212,7 +212,7 @@ column.
 
 ### SDK changes
 
-`@obs-unified/analytics-sdk` — all greenfield, the SDK does not patch user
+`@obsunified/analytics-sdk` — all greenfield, the SDK does not patch user
 `fetch` or listen for user-originated DOM events today:
 
 - Add a global `addEventListener` hook for `click`, `submit`, `keydown` on
@@ -231,7 +231,7 @@ column.
   execution.
 - Attach `currentInteractionId()` to rrweb event meta payloads.
 
-`@obs-unified/telemetry-sdk`:
+`@obsunified/telemetry-sdk`:
 
 - Middleware reads `x-obs-interaction` and stores on the active span context.
 - Span exporter writes it as a span field (alongside `trace_id`, `span_id`), not
@@ -298,7 +298,7 @@ opt-in, not coercive.
 ## Acceptance criteria
 
 The OTel Astronomy Shop demo today uses native OTel SDKs and does not include
-`@obs-unified/analytics-sdk` in its frontend. End-to-end demo verification
+`@obsunified/analytics-sdk` in its frontend. End-to-end demo verification
 requires that integration as a prerequisite (tracked as a separate task — see
 [RFC 0003 § Demo SDK integration](0003-unified-stack.md#demo-prerequisites)).
 
@@ -315,7 +315,7 @@ requires that integration as a prerequisite (tracked as a separate task — see
    `obs.interaction.propagation{propagated=false}` increments.
 5. **Mode B test:** Wrapping the same `setTimeout` body in
    `withInteractionContext(...)` _does_ propagate.
-6. `@obs-unified/telemetry-sdk` middleware reads `x-obs-interaction` and the
+6. `@obsunified/telemetry-sdk` middleware reads `x-obs-interaction` and the
    resulting root span carries `interaction_id` as a top-level field.
 7. `/internal/timeline/:sessionId` returns the new `groups` field alongside the
    flat `events` list. Each group bundles its originating click, the trace(s)

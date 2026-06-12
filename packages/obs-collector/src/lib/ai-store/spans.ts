@@ -3,7 +3,7 @@ import type {
 	AISpansOverviewOptions,
 	AISpansOverviewResponse,
 	JsonValue,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { parseJsonRecord } from "../json";
 import { dialectFor, type SqlDb } from "../sql-db";
 import { enrichCost } from "./helpers";

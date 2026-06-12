@@ -4,7 +4,7 @@ import {
 	startAgentRun,
 	step,
 	withSerializedActionContext,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 type QueueJob = {
 	name: string;

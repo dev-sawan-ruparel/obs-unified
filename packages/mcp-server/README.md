@@ -20,7 +20,7 @@ See [`docs/spec/evidence-reference.md`](../../docs/spec/evidence-reference.md).
 
 This package is distinct from:
 
-- SDK MCP context propagation helpers in `@obs-unified/telemetry-sdk/mcp`.
+- SDK MCP context propagation helpers in `@obsunified/telemetry-sdk/mcp`.
 - Collector normalization of OpenTelemetry MCP span attributes such as
   `mcp.method.name`.
 

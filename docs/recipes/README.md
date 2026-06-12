@@ -7,8 +7,8 @@ at the collector and use the small helper this page links to for
 
 ## Tier 1 — first-party SDKs
 
-- [`@obs-unified/analytics-sdk`](../../packages/analytics-sdk) — browser
-- [`@obs-unified/telemetry-sdk`](../../packages/telemetry-sdk) — Node, Workers,
+- [`@obsunified/analytics-sdk`](../../packages/analytics-sdk) — browser
+- [`@obsunified/telemetry-sdk`](../../packages/telemetry-sdk) — Node, Workers,
   Bun, Deno
 - [`obs` (Go)](../../sdks/go)
 - [`obs-unified` (Rust)](../../sdks/rust)

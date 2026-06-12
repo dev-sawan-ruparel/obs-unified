@@ -15,7 +15,7 @@
   Beyla-derived edge) closes the gap. Without that scenario, this RFC's UX
   claims are not concretely testable.
 - **Target:** documentation, demo configs; minimal code in
-  `@obs-unified/dashboard` (filters/tiles); none in `@obs-unified/collector`
+  `@obsunified/dashboard` (filters/tiles); none in `@obsunified/collector`
 
 ## Summary
 
@@ -286,7 +286,7 @@ present, falls back to (pid, ts) windowing when not.
   consume eBPF data inside the collector, but it's less consolidated than the
   agent-based path and the components are alpha. We recommend the agent path;
   revisit when collector-internal eBPF receivers stabilize.
-- **Off-CPU profiles in `@obs-unified/telemetry-sdk`.** Per-process libraries
+- **Off-CPU profiles in `@obsunified/telemetry-sdk`.** Per-process libraries
   can produce wall-clock profiles too (`@datadog/pprof` with mode `'wall'`).
   Should `startProfiler({ type: 'wall' })` be a first-class SDK option? Probably
   yes; small follow-up to RFC 0007.

@@ -64,7 +64,7 @@ export interface TimelineResponse {
 	/**
 	 * RFC 0004 — derived view keyed by interaction_id. Empty object when
 	 * no events in the session carry one (sessions ingested before
-	 * @obs-unified/analytics-sdk's autoCorrelate landed). Events without an
+	 * @obsunified/analytics-sdk's autoCorrelate landed). Events without an
 	 * interaction_id appear in `events` but never under `groups`.
 	 */
 	groups: Record<string, TimelineGroup>;

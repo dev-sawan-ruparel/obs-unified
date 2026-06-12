@@ -4,7 +4,7 @@
 - **Author:** @sawanruparel
 - **Created:** 2026-04-17
 - **Updated:** 2026-04-17
-- **Target:** `@obs-unified/collector`
+- **Target:** `@obsunified/collector`
 
 ## Summary
 
@@ -188,7 +188,7 @@ Hard cut — no compatibility shim:
 
 - `/v1/logs` is rewritten to accept real OTLP `ExportLogsServiceRequest`. The
   custom `{ logs: [...] }` shape is removed.
-- `@obs-unified/telemetry-sdk`'s logger is updated in the same change to emit
+- `@obsunified/telemetry-sdk`'s logger is updated in the same change to emit
   real OTLP log payloads.
 - Trace endpoint wire shape doesn't change — only the response envelope. The SDK
   ignores response bodies today, so this is transparent.

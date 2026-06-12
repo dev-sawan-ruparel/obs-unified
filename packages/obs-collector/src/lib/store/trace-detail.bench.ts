@@ -1,4 +1,4 @@
-import type { TelemetrySpanDetail } from "@obs-unified/types";
+import type { TelemetrySpanDetail } from "@obsunified/types";
 import { bench, describe } from "vitest";
 import { buildTraceInstrumentationGaps } from "./trace-detail";
 
@@ -18,7 +18,7 @@ import { buildTraceInstrumentationGaps } from "./trace-detail";
  * read-path child-span instrumentation (the other half of "Q1 = Both"), not
  * here.
  *
- * Run: `pnpm --filter @obs-unified/collector bench` (excluded from `pnpm test`).
+ * Run: `pnpm --filter @obsunified/collector bench` (excluded from `pnpm test`).
  */
 
 const SIZES = [10, 100, 500, 1_000, 5_000, 10_000];

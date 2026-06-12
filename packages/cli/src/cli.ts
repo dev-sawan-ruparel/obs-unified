@@ -230,8 +230,8 @@ async function scaffoldApp(name: string) {
 					type: "module",
 					scripts: { dev: "vite", build: "vite build" },
 					dependencies: {
-						"@obs-unified/analytics-sdk": "^1.0.0",
-						"@obs-unified/telemetry-sdk": "^1.0.0",
+						"@obsunified/analytics-sdk": "^1.0.0",
+						"@obsunified/telemetry-sdk": "^1.0.0",
 						react: "^19.0.0",
 						"react-dom": "^19.0.0",
 					},

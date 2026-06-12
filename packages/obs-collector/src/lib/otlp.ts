@@ -13,11 +13,11 @@ import type {
 	OtlpSpan,
 	OtlpTraceExportRequest,
 	StoredSpan,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import {
 	DEFAULT_WINDOW_HOURS,
 	getConfiguredRetentionHours,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 
 const EMPTY_ARRAY_JSON = "[]";
 const EMPTY_OBJECT_JSON = "{}";

@@ -1,4 +1,4 @@
-import type { ReplayChunkInput } from "@obs-unified/types";
+import type { ReplayChunkInput } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";

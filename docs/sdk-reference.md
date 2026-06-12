@@ -1,6 +1,6 @@
 # SDK API Reference Cheat Sheet
 
-This document serves as a centralized, searchable cheat sheet for all standard API methods exposed across the browser client SDK (`@obs-unified/analytics-sdk`) and server-side SDKs (`@obs-unified/telemetry-sdk`, Go, and Rust packages).
+This document serves as a centralized, searchable cheat sheet for all standard API methods exposed across the browser client SDK (`@obsunified/analytics-sdk`) and server-side SDKs (`@obsunified/telemetry-sdk`, Go, and Rust packages).
 
 ---
 
@@ -13,7 +13,7 @@ Initialize the browser SDK to track page views, click interactions, frontend exc
 
 #### React Wrapper
 ```tsx
-import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
+import { AnalyticsProvider } from "@obsunified/analytics-sdk/react";
 
 function Root() {
   return (
@@ -32,7 +32,7 @@ function Root() {
 
 #### Vanilla / Non-React JS
 ```typescript
-import { installAutoCorrelate, UsageTracker } from "@obs-unified/analytics-sdk";
+import { installAutoCorrelate, UsageTracker } from "@obsunified/analytics-sdk";
 
 const tracker = new UsageTracker({
   collectorUrl: "https://obs.my-app.com",
@@ -49,7 +49,7 @@ installAutoCorrelate({ tracker });
 Initialize the standard telemetry exporter pipeline. This registers unified trace span, structured log, and AI call tracking exporters simultaneously.
 
 ```typescript
-import { initObservability } from "@obs-unified/telemetry-sdk";
+import { initObservability } from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: "https://obs.my-app.com",
@@ -70,7 +70,7 @@ Closing the correlation loop joining client-side interactions to server-side spa
 Extract the `x-obs-interaction` transport header and bind the resulting Crockford base32 correlation key onto the active trace context:
 
 ```typescript
-import { createRequestSpan, stampInteractionFromRequest, runWithSpan } from "@obs-unified/telemetry-sdk";
+import { createRequestSpan, stampInteractionFromRequest, runWithSpan } from "@obsunified/telemetry-sdk";
 
 // Inside your HTTP middleware handler
 const span = createRequestSpan("my-service", `${req.method} ${req.path}`);
@@ -87,7 +87,7 @@ runWithSpan(span, () => {
 If you perform asynchronous operations that escape the standard microtask queue (e.g., debounce timers, state machine ticks, or `setTimeout` delays), manually capture and restore the click interaction context:
 
 ```typescript
-import { currentInteractionId, withInteractionContext } from "@obs-unified/analytics-sdk";
+import { currentInteractionId, withInteractionContext } from "@obsunified/analytics-sdk";
 
 // 1. Capture the ID synchronously inside the user-triggered click handler
 const clickId = currentInteractionId(); 
@@ -111,7 +111,7 @@ Track large language model prompts, completion tokens, latency, monetary cost, a
 Log raw LLM usage statistics without managing OpenTelemetry spans manually:
 
 ```typescript
-import { trackAICall } from "@obs-unified/telemetry-sdk";
+import { trackAICall } from "@obsunified/telemetry-sdk";
 
 trackAICall({
   modelName: "claude-3-5-sonnet-20251022",
@@ -129,7 +129,7 @@ trackAICall({
 Wrap your agent actions, vector store fetches, or model runs in semantic AI span contexts:
 
 ```typescript
-import { startLLMSpan, startToolSpan } from "@obs-unified/telemetry-sdk";
+import { startLLMSpan, startToolSpan } from "@obsunified/telemetry-sdk";
 
 // 1. Instrument the LLM call boundary
 const llmSpan = startLLMSpan("user-query-completion", {
@@ -168,10 +168,10 @@ try {
 
 For edge computing runtimes, wrap your database bindings, asset storage, and outgoing fetch calls to automatically propagate traces and inject correlation tags. 
 
-*Import these under the specific `@obs-unified/telemetry-sdk/cloudflare` path to avoid pulling heavy ambient type dependencies in Node.js environments.*
+*Import these under the specific `@obsunified/telemetry-sdk/cloudflare` path to avoid pulling heavy ambient type dependencies in Node.js environments.*
 
 ```typescript
-import { wrapD1, wrapR2, wrapFetch } from "@obs-unified/telemetry-sdk/cloudflare";
+import { wrapD1, wrapR2, wrapFetch } from "@obsunified/telemetry-sdk/cloudflare";
 
 // 1. Wrap SQL Database bindings (captures SQL query timings and parameter metadata)
 const db = wrapD1(env.DATABASE);
@@ -194,7 +194,7 @@ an `action_id`, and each child action points at its parent through
 `interaction_id` so replay and user/session pivots stay connected.
 
 ```typescript
-import { startAgentRun } from "@obs-unified/telemetry-sdk/agent";
+import { startAgentRun } from "@obsunified/telemetry-sdk/agent";
 
 await startAgentRun(
   {
@@ -235,7 +235,7 @@ For framework wrappers and MCP context propagation, see:
 
 The same observability concepts are exported across Go and Rust SDKs, named according to standard per-language casing and paradigms:
 
-| Concept / Action | TypeScript SDK (`@obs-unified/*`) | Go SDK (`obs`) | Rust SDK (`obs_unified`) |
+| Concept / Action | TypeScript SDK (`@obsunified/*`) | Go SDK (`obs`) | Rust SDK (`obs_unified`) |
 | :--- | :--- | :--- | :--- |
 | **Exporter Init** | `initObservability(config)` | `obs.Init(ctx, config)` | `obs_unified::init(config)` |
 | **HTTP Stamp** | `stampInteractionFromRequest(span, req)` | `obs.StampInteraction(ctx, r)` | `obs_unified::stamp_interaction(span, req)` |

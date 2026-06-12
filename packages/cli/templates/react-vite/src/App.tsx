@@ -1,4 +1,4 @@
-import { useAnalytics } from "@obs-unified/analytics-sdk/react";
+import { useAnalytics } from "@obsunified/analytics-sdk/react";
 import { useEffect } from "react";
 
 export function App() {

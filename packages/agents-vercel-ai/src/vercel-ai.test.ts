@@ -1,4 +1,4 @@
-import { createRequestSpan, runWithSpan } from "@obs-unified/telemetry-sdk";
+import { createRequestSpan, runWithSpan } from "@obsunified/telemetry-sdk";
 import { describe, expect, it } from "vitest";
 import {
 	VercelAIAdapter,
@@ -134,7 +134,8 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 
 		// Assert spans and their attributes
 		const exportReq = requestSpan.toOtlpExportRequest();
-		const spans = exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
+		const spans: TestSpan[] =
+			exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
 		expect(spans.length).toBeGreaterThan(1);
 
 		const hasStringAttr = (span: TestSpan, key: string, value: string) =>
@@ -226,7 +227,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 			);
 		});
 
-		const spans =
+		const spans: TestSpan[] =
 			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
 				?.spans ?? [];
 		// respects privacy default test
@@ -288,7 +289,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 			);
 		});
 
-		const spans =
+		const spans: TestSpan[] =
 			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
 				?.spans ?? [];
 		const streamLlmSpan = spans.find((s) =>
@@ -335,7 +336,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 			);
 		});
 
-		const spans =
+		const spans: TestSpan[] =
 			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
 				?.spans ?? [];
 		const llmSpan = spans.find((s) =>

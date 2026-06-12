@@ -5,7 +5,7 @@ import {
 	EvidenceReferenceJsonSchema,
 	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
 	type ToolResponseContract,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { z } from "zod";
 
 type JsonValue =

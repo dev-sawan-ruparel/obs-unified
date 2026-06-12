@@ -15,7 +15,7 @@
  * RFC 0006 § Connected rail / Empty-state.
  */
 
-import { ActionConfidence } from "@obs-unified/types/constants";
+import { ActionConfidence } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { IdentityIndex } from "../lib/identity-index";
 import {

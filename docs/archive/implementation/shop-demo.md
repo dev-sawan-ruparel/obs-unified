@@ -65,8 +65,8 @@ repo serves three distinct audiences:
 
 Implications:
 
-- Depend on **published** `@obs-unified/analytics-sdk` and
-  `@obs-unified/telemetry-sdk`, not `workspace:*` links. The reference value
+- Depend on **published** `@obsunified/analytics-sdk` and
+  `@obsunified/telemetry-sdk`, not `workspace:*` links. The reference value
   collapses if it pins to workspace.
 - Provide an escape hatch (`OBS_SDK_PATH` env, or documented `pnpm link`
   instructions) so SDK contributors can test unreleased SDK changes against the
@@ -74,7 +74,7 @@ Implications:
 - **SDK version strategy:** pin to known-good SDK versions in `package.json`.
   Upgrades arrive as Renovate PRs gated on the behavior-based Playwright suite
   (see Success Criteria). A separate **canary** workflow runs the same suite
-  against `@obs-unified/*@latest` on a daily schedule and alerts on failure —
+  against `@obsunified/*@latest` on a daily schedule and alerts on failure —
   early warning without breaking the public demo. Pin-and-renovate for the
   deployed demo; float for the canary.
 - License the repo permissively (MIT) — visitors are expected to copy from it.
@@ -92,8 +92,8 @@ demo repo's README. This file remains as a pointer + architectural rationale.
 - Vite
 - Tailwind CSS
 - Hono backend on a Cloudflare Worker
-- `@obs-unified/analytics-sdk` in the browser (published version)
-- `@obs-unified/telemetry-sdk` in the backend (published version)
+- `@obsunified/analytics-sdk` in the browser (published version)
+- `@obsunified/telemetry-sdk` in the backend (published version)
 
 This combination verifies the first-party SDKs in a modern frontend/backend
 split and gives a believable propagation path from browser interaction to API
@@ -267,7 +267,7 @@ the single-link handoff still works.
 
 ### Frontend
 
-Initialize `@obs-unified/analytics-sdk` once during app bootstrap.
+Initialize `@obsunified/analytics-sdk` once during app bootstrap.
 
 Capture:
 
@@ -322,7 +322,7 @@ users don't ship session recording to their own backend by accident. Opt-in via
 
 ### Backend
 
-Initialize `@obs-unified/telemetry-sdk` in the Hono server.
+Initialize `@obsunified/telemetry-sdk` in the Hono server.
 
 The SDK does not currently ship a Hono middleware (verified against
 `sdks/node/src/`). The demo will hand-roll one in

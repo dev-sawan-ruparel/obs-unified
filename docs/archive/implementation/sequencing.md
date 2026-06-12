@@ -42,19 +42,19 @@ become testable. Many sub-units; ship in order.
 - [x] **1.1** Migration `027_identity_propagation.sql` — `interaction_id` column
       on `telemetry_spans`, `logs`, `usage_events`, `ai_calls`,
       `ai_span_payloads`; `session_id` on `ai_calls`; partial indices.
-- [x] **1.2** `@obs-unified/analytics-sdk` — handler stack (push on
+- [x] **1.2** `@obsunified/analytics-sdk` — handler stack (push on
       click/submit/keydown, pop on return); ULID minting;
       `currentInteractionId()` / `withInteractionContext()` exports.
-- [x] **1.3** `@obs-unified/analytics-sdk` — global `fetch` and `XMLHttpRequest`
+- [x] **1.3** `@obsunified/analytics-sdk` — global `fetch` and `XMLHttpRequest`
       patch behind `autoCorrelate` prop (default true). Inject
       `x-obs-interaction` header. _Greenfield work — the SDK has never patched
       user `fetch` before._
-- [x] **1.4** `@obs-unified/analytics-sdk` — React
+- [x] **1.4** `@obsunified/analytics-sdk` — React
       `useAnalytics().withInteraction(handler)` helper. Snapshot ID at click
       time; restore inside the handler.
-- [x] **1.5** `@obs-unified/analytics-sdk` — attach `currentInteractionId()` to
+- [x] **1.5** `@obsunified/analytics-sdk` — attach `currentInteractionId()` to
       rrweb event meta payloads.
-- [x] **1.6** `@obs-unified/telemetry-sdk` — middleware reads
+- [x] **1.6** `@obsunified/telemetry-sdk` — middleware reads
       `x-obs-interaction`, attaches to root span as a top-level field (not a
       span attribute).
 - [x] **1.7** Collector receivers persist `interaction_id` on each of the 5
@@ -106,7 +106,7 @@ parallel after Phase 0.
 - [x] **2.4** "Likely uninstrumented" badge with advisory threshold.
       _Live-workload calibration remains in Phase 6 validation; the badge is
       intentionally heuristic until demo traffic proves the gates._
-- [x] **2.5** `@obs-unified/telemetry-sdk` — `enableProcessMetrics()` Node
+- [x] **2.5** `@obsunified/telemetry-sdk` — `enableProcessMetrics()` Node
       helper wrapping `@opentelemetry/instrumentation-runtime-node`.
 - [x] **2.6** Health dashboard — per-service CPU sparkline tile when
       `process.cpu.utilization` is in `metric_point`.
@@ -125,7 +125,7 @@ Phase-0-only sections earlier if desired. Per-surface PRs.
 - [x] **3.1** Manifest endpoint `/internal/connected/:kind/:id` for `span`,
       `log`, `usage`, `ai_call`, `replay`, `alert`, `analysis`. Built on
       `IdentityIndex` from Phase 1.5.3.
-- [x] **3.2** `<ConnectedRail />` component in `@obs-unified/dashboard` with the
+- [x] **3.2** `<ConnectedRail />` component in `@obsunified/dashboard` with the
       four-section structure (Up / Across / Down / Related).
 - [x] **3.3** Empty-state copy + tooltips per section per entity kind.
       _Load-bearing — see RFC 0006._
@@ -167,7 +167,7 @@ Function-level depth. Depends on Phase 0 (`SqlDb`) and benefits from Phase 1
       in `profile_trace_index`.
 - [x] **4.7** Flame graph viewer (client-side, ~200 LOC SVG or small OSS lib).
       Filter by `trace_id` when scoped from a span.
-- [x] **4.8** `@obs-unified/telemetry-sdk` — `startProfiler({ type: 'cpu' })`
+- [x] **4.8** `@obsunified/telemetry-sdk` — `startProfiler({ type: 'cpu' })`
       helper wrapping `@datadog/pprof`. Our wrapper labels each sample with the
       active OTel `trace_id`.
 - [x] **4.9** Profile entity in `<ConnectedRail />` (Phase 3).
@@ -212,7 +212,7 @@ our SDKs running in the demo. Land last so we validate against the assembled
 stack, not against synthetic harnesses.
 
 - [x] **6.1** Replace OTel browser SDK in Astronomy Shop frontend
-      (`demo/upstream/...`) with `@obs-unified/analytics-sdk`. Wires up
+      (`demo/upstream/...`) with `@obsunified/analytics-sdk`. Wires up
       `interaction_id`, RUM events, replay. Automated by `pnpm demo:setup`.
 - [x] **6.2** Add `enableProcessMetrics()` to one or two demo backend services
       (frontend-svc, payment-svc — the ones the UX scenarios star). Automated by

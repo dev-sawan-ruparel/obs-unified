@@ -27,7 +27,7 @@ import type {
 	AnalysisDefinition,
 	AnalysisResult,
 	AnalysisStatus,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { getAllAnalysesForProject } from "../analyses/index";
 import type { CollectorEnv } from "../framework/env";
 import {

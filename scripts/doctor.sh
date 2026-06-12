@@ -8,5 +8,5 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-pnpm --filter @obs-unified/cli build >/dev/null
+pnpm --filter @obsunified/cli build >/dev/null
 exec node packages/cli/dist/cli.js doctor "$@"

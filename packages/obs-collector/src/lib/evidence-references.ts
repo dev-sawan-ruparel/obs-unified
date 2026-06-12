@@ -9,7 +9,7 @@ import type {
 	EvidenceNextPivot,
 	EvidenceReference,
 	JsonValue,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 
 const analysisRoute = (analysisId: string) =>
 	`#/investigate/${encodeURIComponent(analysisId)}`;

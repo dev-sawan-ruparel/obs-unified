@@ -3,7 +3,7 @@ import type {
 	AnalysisResult,
 	AnalysisResultResponse,
 	AnalysisStatus,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectedRail } from "../components/ConnectedRail";
 import { Tag, type TagTone } from "../components/Tag";

@@ -43,9 +43,9 @@ jobs:
       - name: PR TypeScript smoke
         if: github.event_name == 'pull_request'
         run: |
-          pnpm -r --sort --filter @obs-unified/dashboard... --filter @obs-unified/collector... run build
-          pnpm --filter @obs-unified/dashboard run type-check
-          pnpm --filter @obs-unified/collector run type-check
+          pnpm -r --sort --filter @obsunified/dashboard... --filter @obsunified/collector... run build
+          pnpm --filter @obsunified/dashboard run type-check
+          pnpm --filter @obsunified/collector run type-check
       - name: Full TypeScript validation
         if: github.event_name != 'pull_request'
         run: |
@@ -92,7 +92,7 @@ jobs:
       # …and vendored copies in siblings must be in sync when sibling checkouts
       # are present. Actions checks out this repo by itself, so the stricter
       # --require-all mode is reserved for local umbrella-checkout validation.
-      - run: pnpm --filter @obs-unified/messaging run sync:check
+      - run: pnpm --filter @obsunified/messaging run sync:check
 
   go-sdk:
     name: Go SDK

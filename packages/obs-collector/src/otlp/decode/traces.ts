@@ -2,7 +2,7 @@ import { fromBinary, fromJson } from "@bufbuild/protobuf";
 import type {
 	OtlpResourceSpans,
 	OtlpTraceExportRequest,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import {
 	type ExportTraceServiceRequest,
 	ExportTraceServiceRequestSchema,
@@ -13,7 +13,7 @@ import { adaptKeyValue, bigintToString, bytesToHex } from "./values";
 
 /**
  * Decode an OTLP trace export request from wire bytes into the legacy
- * `@obs-unified/types` shape consumed by `toStoredSpans`.
+ * `@obsunified/types` shape consumed by `toStoredSpans`.
  */
 export const decodeTraceRequest = (
 	body: ReadBodyResult,

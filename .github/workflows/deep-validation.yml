@@ -104,11 +104,11 @@ jobs:
         with:
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r --sort --filter "@obs-unified/*" run build
+      - run: pnpm -r --sort --filter "@obsunified/*" run build
       # The conformance runner reads cases.json once and dispatches to
       # each SDK's native runner. Today each SDK runs its own vitest /
       # go test / cargo test against the same fixture file.
-      - run: pnpm -r --filter "@obs-unified/*" run test
+      - run: pnpm -r --filter "@obsunified/*" run test
       - run: go test ./...
         working-directory: sdks/go
       - run: cargo test --all-features

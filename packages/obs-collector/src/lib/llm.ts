@@ -16,7 +16,7 @@
  *   4. ≤2 sentences. We're labelling tiles, not writing essays.
  */
 
-import type { AnalysisDefinition, AnalysisResult } from "@obs-unified/types";
+import type { AnalysisDefinition, AnalysisResult } from "@obsunified/types";
 import type { ChildSpanRunner } from "../framework/logger";
 
 export interface NarrativeRequest {

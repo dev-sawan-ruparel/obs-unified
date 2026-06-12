@@ -16,8 +16,8 @@ import type {
 	AlertState,
 	AlertStateRow,
 	LogSeverity,
-} from "@obs-unified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
+} from "@obsunified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import { alertEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import type { SqlDb } from "./sql-db";

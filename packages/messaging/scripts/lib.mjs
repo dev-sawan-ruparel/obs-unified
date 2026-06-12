@@ -76,7 +76,7 @@ function requiredFor(src, constName) {
 	return [...m[1].matchAll(/["']([^"']+)["']/g)].map((x) => x[1]);
 }
 
-/** EvidenceReference + EvidenceRetrievalRef field sets and retrieval kinds (authority: @obs-unified/types). */
+/** EvidenceReference + EvidenceRetrievalRef field sets and retrieval kinds (authority: @obsunified/types). */
 export function extractEvidenceContract() {
 	const src = read("packages/obs-types/src/types/evidence.ts");
 	const evidenceReferenceFields = must(

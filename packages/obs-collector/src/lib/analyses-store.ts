@@ -18,8 +18,8 @@ import type {
 	AnalysisSource,
 	AnalysisStatus,
 	AnalysisView,
-} from "@obs-unified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
+} from "@obsunified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import { analysisResultEvidenceReferences } from "./evidence-references";
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";

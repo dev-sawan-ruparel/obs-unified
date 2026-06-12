@@ -14,7 +14,7 @@ import type {
 	BlobObject,
 	BlobPutOptions,
 	BlobStore,
-} from "@obs-unified/collector";
+} from "@obsunified/collector";
 
 export interface FileBlobStoreOptions {
 	root: string;

@@ -1,11 +1,11 @@
 import {
 	generateInteractionId,
 	withInteractionContext,
-} from "@obs-unified/analytics-sdk";
+} from "@obsunified/analytics-sdk";
 import {
 	AnalyticsProvider,
 	useAnalytics,
-} from "@obs-unified/analytics-sdk/react";
+} from "@obsunified/analytics-sdk/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 

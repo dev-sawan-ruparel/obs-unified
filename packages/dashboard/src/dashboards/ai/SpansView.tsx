@@ -3,7 +3,7 @@ import type {
 	AIEvaluationsListResponse,
 	AISpanRecord,
 	AISpansOverviewResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	useCallback,

@@ -1,7 +1,7 @@
 import {
 	AnalyticsErrorBoundary,
 	AnalyticsProvider,
-} from "@obs-unified/analytics-sdk/react";
+} from "@obsunified/analytics-sdk/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AuthGate } from "../../../packages/dashboard/src/AuthGate";

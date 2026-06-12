@@ -1,4 +1,4 @@
-# @obs-unified/sdk
+# @obsunified/sdk
 
 ## 0.2.1
 

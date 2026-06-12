@@ -1,4 +1,4 @@
-# @obs-unified/sdk (Node)
+# @obsunified/sdk (Node)
 
 Thin OpenTelemetry SDK wrapper for obs-unified. One-line init, OpenInference
 LLM/tool helpers, and project propagation. The OTel ecosystem provides
@@ -8,7 +8,7 @@ out of the box.
 ## Install
 
 ```sh
-npm install @obs-unified/sdk \
+npm install @obsunified/sdk \
   @opentelemetry/api \
   @opentelemetry/auto-instrumentations-node
 ```
@@ -22,7 +22,7 @@ init.
 ```ts
 // instrumentation.ts
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { init } from "@obs-unified/sdk";
+import { init } from "@obsunified/sdk";
 
 const shutdown = init({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -54,7 +54,7 @@ OTel doesn't ship LLM-specific spans. Wrap your fetch calls so the dashboard's
 AI tab can render them:
 
 ```ts
-import { withLLMSpan } from "@obs-unified/sdk";
+import { withLLMSpan } from "@obsunified/sdk";
 
 const json = await withLLMSpan(
   { provider: "openai", model: "gpt-4o-mini", maxTokens: 1024, turnIndex: i },
@@ -85,7 +85,7 @@ underneath, with both timings.
 ## Agent tool dispatch
 
 ```ts
-import { withToolSpan } from "@obs-unified/sdk";
+import { withToolSpan } from "@obsunified/sdk";
 
 const result = await withToolSpan(
   { name: "list_widgets", args: parsedArgs },
@@ -107,7 +107,7 @@ Multi-tenant deployments tag every span with `project.id`. Two options:
 init({ ..., projectId: "tenant-acme" });
 
 // Per-request, after auth resolves the project from the request:
-import { setProjectId } from "@obs-unified/sdk";
+import { setProjectId } from "@obsunified/sdk";
 app.use((req, res, next) => {
   const projectId = resolveProjectFromAuth(req);
   setProjectId(projectId);

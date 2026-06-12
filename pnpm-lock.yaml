@@ -32,13 +32,13 @@ importers:
 
   apps/collector:
     dependencies:
-      '@obs-unified/collector':
+      '@obsunified/collector':
         specifier: workspace:*
         version: link:../../packages/obs-collector
-      '@obs-unified/telemetry-sdk':
+      '@obsunified/telemetry-sdk':
         specifier: workspace:*
         version: link:../../packages/telemetry-sdk
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../../packages/obs-types
       hono:
@@ -63,13 +63,13 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.7
         version: 1.19.14(hono@4.12.11)
-      '@obs-unified/collector':
+      '@obsunified/collector':
         specifier: workspace:*
         version: link:../../packages/obs-collector
-      '@obs-unified/telemetry-sdk':
+      '@obsunified/telemetry-sdk':
         specifier: workspace:*
         version: link:../../packages/telemetry-sdk
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../../packages/obs-types
       hono:
@@ -94,10 +94,10 @@ importers:
 
   apps/obs-demo:
     dependencies:
-      '@obs-unified/telemetry-sdk':
+      '@obsunified/telemetry-sdk':
         specifier: workspace:*
         version: link:../../packages/telemetry-sdk
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../../packages/obs-types
       hono:
@@ -116,16 +116,16 @@ importers:
 
   apps/web:
     dependencies:
-      '@obs-unified/analytics-sdk':
+      '@obsunified/analytics-sdk':
         specifier: workspace:*
         version: link:../../packages/analytics-sdk
-      '@obs-unified/brand':
+      '@obsunified/brand':
         specifier: workspace:*
         version: link:../../packages/brand
-      '@obs-unified/dashboard':
+      '@obsunified/dashboard':
         specifier: workspace:*
         version: link:../../packages/dashboard
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../../packages/obs-types
       react:
@@ -168,7 +168,7 @@ importers:
 
   packages/agents-langgraph:
     devDependencies:
-      '@obs-unified/telemetry-sdk':
+      '@obsunified/telemetry-sdk':
         specifier: workspace:*
         version: link:../telemetry-sdk
       tsup:
@@ -183,7 +183,7 @@ importers:
 
   packages/agents-vercel-ai:
     devDependencies:
-      '@obs-unified/telemetry-sdk':
+      '@obsunified/telemetry-sdk':
         specifier: workspace:*
         version: link:../telemetry-sdk
       tsup:
@@ -198,7 +198,7 @@ importers:
 
   packages/analytics-sdk:
     dependencies:
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../obs-types
       rrweb:
@@ -248,10 +248,10 @@ importers:
 
   packages/dashboard:
     dependencies:
-      '@obs-unified/pprof-decoder':
+      '@obsunified/pprof-decoder':
         specifier: workspace:*
         version: link:../pprof-decoder
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../obs-types
       '@xyflow/react':
@@ -313,7 +313,7 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../obs-types
       '@types/node':
@@ -336,10 +336,10 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.11.0
         version: 2.11.0
-      '@obs-unified/pprof-decoder':
+      '@obsunified/pprof-decoder':
         specifier: workspace:*
         version: link:../pprof-decoder
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../obs-types
     devDependencies:
@@ -398,7 +398,7 @@ importers:
       '@microlabs/otel-cf-workers':
         specifier: ^1.0.0-rc.40
         version: 1.0.0-rc.52(@opentelemetry/api@1.9.1)
-      '@obs-unified/types':
+      '@obsunified/types':
         specifier: workspace:*
         version: link:../obs-types
       '@opentelemetry/api':

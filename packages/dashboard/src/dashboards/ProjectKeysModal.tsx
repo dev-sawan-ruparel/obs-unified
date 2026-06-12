@@ -2,7 +2,7 @@ import type {
 	IngestKey,
 	IngestKeyWithPlaintext,
 	Project,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button";
 import { DataTable } from "../components/DataTable";

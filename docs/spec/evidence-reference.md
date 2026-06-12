@@ -13,7 +13,7 @@ and correlation/index lookups. They do not require an LLM. LLMs may summarize or
 rank evidence for narrative features, but the evidence contract remains the
 inspectable source of truth.
 
-The canonical exports live in `@obs-unified/types`:
+The canonical exports live in `@obsunified/types`:
 
 - `EvidenceReference`
 - `EvidenceReferenceSchema`

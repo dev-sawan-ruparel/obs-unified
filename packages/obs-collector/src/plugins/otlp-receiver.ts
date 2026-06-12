@@ -1,6 +1,6 @@
 /** OTLP/HTTP trace receiver. Accepts JSON or protobuf, with gzip. */
 
-import { getConfiguredRetentionHours } from "@obs-unified/types/constants";
+import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { toStoredSpans } from "../lib/otlp";
 import { publishTail, spanToTailEvent } from "../lib/tail-publisher";

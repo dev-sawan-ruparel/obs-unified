@@ -1,4 +1,4 @@
-import type { PprofProfile } from "@obs-unified/pprof-decoder";
+import type { PprofProfile } from "@obsunified/pprof-decoder";
 import { describe, expect, it } from "vitest";
 import { summarizeProfileFrames } from "./parse-pprof";
 

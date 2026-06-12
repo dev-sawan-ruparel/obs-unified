@@ -9,7 +9,7 @@ export default defineConfig({
 	clean: true,
 	sourcemap: true,
 	target: "es2022",
-	noExternal: ["@obs-unified/types"],
+	noExternal: ["@obsunified/types"],
 	banner: {
 		js: "#!/usr/bin/env node",
 	},

@@ -15,7 +15,7 @@ and SigNoz comparisons are tracked in [`docs/comparison/`](../comparison/).
 ## Cutover pattern
 
 Most users dual-write for 1–2 weeks then turn off the old tool. The
-[`@obs-unified/analytics-sdk`](../../packages/analytics-sdk) doesn't conflict
+[`@obsunified/analytics-sdk`](../../packages/analytics-sdk) doesn't conflict
 with other SDKs running in the same browser — multiple SDKs can capture clicks
 independently. The OTel SDK on the server side supports `MultiSpanProcessor` for
 sending to two backends at once.

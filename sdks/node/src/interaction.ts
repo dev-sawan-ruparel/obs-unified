@@ -1,7 +1,7 @@
 /**
  * Click-scoped correlation key propagation (server side).
  *
- * The browser SDK (`@obs-unified/analytics-sdk`) mints an `interaction_id`
+ * The browser SDK (`@obsunified/analytics-sdk`) mints an `interaction_id`
  * on every click and sets it on the `x-obs-interaction` header of outbound
  * fetch/XHR. This module reads that header on the server side and stamps
  * the active span with `obs.interaction.id` so child spans, logs, and AI
@@ -11,7 +11,7 @@
  *
  * Usage with the Node HTTP module:
  *
- *   import { stampInteractionFromRequest } from "@obs-unified/sdk";
+ *   import { stampInteractionFromRequest } from "@obsunified/sdk";
  *
  *   server.on("request", (req, res) => {
  *     const span = tracer.startSpan("request");

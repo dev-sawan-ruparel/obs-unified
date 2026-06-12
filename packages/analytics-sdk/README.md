@@ -1,4 +1,4 @@
-# @obs-unified/analytics-sdk
+# @obsunified/analytics-sdk
 
 Browser analytics SDK for
 [obs-unified](https://github.com/obs-unified/obs-unified). Captures usage
@@ -6,7 +6,7 @@ events, mints click-scoped `interaction_id` correlation keys, injects them on
 outbound `fetch`/XHR, and (optionally) records rrweb session replay chunks.
 
 ```bash
-pnpm add @obs-unified/analytics-sdk
+pnpm add @obsunified/analytics-sdk
 ```
 
 ## React
@@ -15,7 +15,7 @@ pnpm add @obs-unified/analytics-sdk
 import {
   AnalyticsProvider,
   AnalyticsErrorBoundary,
-} from "@obs-unified/analytics-sdk/react";
+} from "@obsunified/analytics-sdk/react";
 
 createRoot(document.getElementById("root")!).render(
   <AnalyticsProvider
@@ -39,7 +39,7 @@ the happy path.
 ## Vanilla / non-React
 
 ```ts
-import { installAutoCorrelate, UsageTracker } from "@obs-unified/analytics-sdk";
+import { installAutoCorrelate, UsageTracker } from "@obsunified/analytics-sdk";
 
 const tracker = new UsageTracker({
   collectorUrl: "https://obs.my-app.com",
@@ -58,7 +58,7 @@ machines), capture and re-enter explicitly:
 import {
   currentInteractionId,
   withInteractionContext,
-} from "@obs-unified/analytics-sdk";
+} from "@obsunified/analytics-sdk";
 
 const id = currentInteractionId();
 setTimeout(() => {

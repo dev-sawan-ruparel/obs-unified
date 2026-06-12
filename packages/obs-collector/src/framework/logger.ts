@@ -1,10 +1,10 @@
 /**
  * Pluggable logger interface for the collector framework.
  *
- * Structurally compatible with `@obs-unified/telemetry-sdk`'s `Logger`, so the worker
+ * Structurally compatible with `@obsunified/telemetry-sdk`'s `Logger`, so the worker
  * entrypoint can do:
  *
- *   import { createLogger } from "@obs-unified/telemetry-sdk";
+ *   import { createLogger } from "@obsunified/telemetry-sdk";
  *   createDefaultCollectorApp({ logger: createLogger("obs-collector") });
  *
  * The framework package intentionally does not import telemetry-sdk to keep
@@ -46,7 +46,7 @@ export const consoleLogger: Logger = {
  * can stamp attributes / events / status onto the span as it learns about
  * them (e.g., LLM token counts that are only known after the response).
  *
- * Structurally compatible with `ChildSpan` from `@obs-unified/telemetry-sdk` so the
+ * Structurally compatible with `ChildSpan` from `@obsunified/telemetry-sdk` so the
  * worker entrypoint can pass the SDK's child span through directly without
  * a bespoke adapter.
  */
@@ -58,7 +58,7 @@ export interface ChildSpanHandle {
 
 /**
  * Wraps an async fn in a child span attached to the active parent span.
- * Structurally compatible with `withChildSpan` from `@obs-unified/telemetry-sdk`.
+ * Structurally compatible with `withChildSpan` from `@obsunified/telemetry-sdk`.
  * Default is pass-through — wire from the worker entrypoint to enable.
  *
  * The wrapped fn receives a `ChildSpanHandle` so it can stamp attributes

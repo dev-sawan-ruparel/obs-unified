@@ -2,7 +2,7 @@ import type {
 	AIEvaluationRecord,
 	AISessionDetailResponse,
 	AISpanRecord,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { useMemo } from "react";
 import { ChatBubble, Chip } from "../../components/primitives";
 import { ErrorState } from "../../components/states";

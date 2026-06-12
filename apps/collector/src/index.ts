@@ -6,7 +6,7 @@ import {
 	createIngestAuth,
 	createRetentionCleanupHandler,
 	evaluateAllRules,
-} from "@obs-unified/collector";
+} from "@obsunified/collector";
 import {
 	createLogger,
 	createRequestSpan,
@@ -20,9 +20,9 @@ import {
 	withChildSpan,
 	wrapD1,
 	wrapR2,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
-export { TailHub } from "@obs-unified/collector";
+export { TailHub } from "@obsunified/collector";
 
 /**
  * Collector worker.

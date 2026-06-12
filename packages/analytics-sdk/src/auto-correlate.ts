@@ -27,7 +27,7 @@
 import {
 	ACTION_HEADER_NAME,
 	ACTION_ROOT_HEADER_NAME,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import {
 	currentInteractionContext,
 	currentInteractionId,

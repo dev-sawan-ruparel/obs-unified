@@ -2,7 +2,7 @@ import type {
 	JsonValue,
 	UserProfileDetail,
 	UserProfileRow,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";

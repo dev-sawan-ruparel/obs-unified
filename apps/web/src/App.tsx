@@ -1,4 +1,4 @@
-import { useAnalytics } from "@obs-unified/analytics-sdk/react";
+import { useAnalytics } from "@obsunified/analytics-sdk/react";
 import { Suspense, useEffect, useState } from "react";
 import { AskBox } from "../../../packages/dashboard/src/components/AskBox";
 import { ProjectSwitcher } from "../../../packages/dashboard/src/components/ProjectSwitcher";

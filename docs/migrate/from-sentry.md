@@ -26,7 +26,7 @@ outgrow obs-unified for the error use case, but the flow is broader.
 +   createRequestSpan,
 +   runWithSpan,
 +   stampInteractionFromRequest,
-+ } from "@obs-unified/telemetry-sdk";
++ } from "@obsunified/telemetry-sdk";
 +
 + initObservability({
 +   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -51,7 +51,7 @@ outgrow obs-unified for the error use case, but the flow is broader.
 ```diff
 - import * as Sentry from "@sentry/react";
 - Sentry.init({ dsn: "https://…@sentry.io/…", integrations: [Sentry.replayIntegration()] });
-+ import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs-unified/analytics-sdk/react";
++ import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obsunified/analytics-sdk/react";
 + <AnalyticsProvider collectorUrl={…} apiKey={…} trackPageViews captureErrors>
 +   <AnalyticsErrorBoundary context="App">
 +     <App />

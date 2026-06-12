@@ -1,12 +1,12 @@
-# @obs-unified/cli
+# @obsunified/cli
 
 Command-line entry point for
 [obs-unified](https://github.com/obs-unified/obs-unified).
 
 ```bash
 obs-unified up                       # spin up the repo-local collector stack
-pnpm dlx @obs-unified/cli create my-app   # scaffold an app
-pnpm dlx @obs-unified/cli doctor     # diagnose a collector
+pnpm dlx @obsunified/cli create my-app   # scaffold an app
+pnpm dlx @obsunified/cli doctor     # diagnose a collector
 ```
 
 ## Commands

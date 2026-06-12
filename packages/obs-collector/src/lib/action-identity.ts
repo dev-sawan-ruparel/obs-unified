@@ -1,4 +1,4 @@
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
+import type { JsonValue, StoredSpan } from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
@@ -8,7 +8,7 @@ import {
 	ACTION_ROOT_ID_KEY,
 	ActionConfidence,
 	AGENT_RUN_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { sha256Hex } from "./hash";
 
 export interface ResolvedActionIdentity {

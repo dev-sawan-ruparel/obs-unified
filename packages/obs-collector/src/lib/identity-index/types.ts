@@ -1,4 +1,4 @@
-import type { ActionConfidence } from "@obs-unified/types/constants";
+import type { ActionConfidence } from "@obsunified/types/constants";
 
 export type CausalConfidence = ActionConfidence;
 

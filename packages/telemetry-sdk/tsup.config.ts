@@ -18,6 +18,6 @@ export default defineConfig({
 		"@microlabs/otel-cf-workers",
 		"@opentelemetry/api",
 		"hono",
-		"@obs-unified/types",
+		"@obsunified/types",
 	],
 });

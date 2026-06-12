@@ -1,4 +1,4 @@
-import type { TelemetryOverviewOptions } from "@obs-unified/types";
+import type { TelemetryOverviewOptions } from "@obsunified/types";
 import type { SqlDb } from "../sql-db";
 import { cutoffIso } from "./helpers";
 

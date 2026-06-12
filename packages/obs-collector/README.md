@@ -1,4 +1,4 @@
-# @obs-unified/collector
+# @obsunified/collector
 
 Plugin-based observability collector runtime. Receives OTLP traces / logs / AI
 calls / usage events / replays / profiles, persists them via a pluggable `SqlDb`
@@ -18,7 +18,7 @@ import {
   createIngestAuth,
   createDashboardAuth,
   createRetentionCleanupHandler,
-} from "@obs-unified/collector";
+} from "@obsunified/collector";
 
 const app = createDefaultCollectorApp({
   auth: { middleware: createIngestAuth({ secret: env.INGEST_KEY }) },
@@ -55,6 +55,6 @@ Same story for blob storage (replay chunks + pprof) — the runtime uses a
 
 ## Self-instrumentation
 
-The collector itself ships telemetry via `@obs-unified/telemetry-sdk`
+The collector itself ships telemetry via `@obsunified/telemetry-sdk`
 (loop-guarded by an `X-Telemetry-Self: 1` header). See
 [`apps/collector/SELF_INSTRUMENTATION.md`](../../apps/collector/SELF_INSTRUMENTATION.md).

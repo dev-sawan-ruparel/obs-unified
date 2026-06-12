@@ -1,6 +1,6 @@
 /**
  * Collector-side pprof helpers. The wire-format decoder/encoder lives in
- * `@obs-unified/pprof-decoder` and is shared with the dashboard's flame graph
+ * `@obsunified/pprof-decoder` and is shared with the dashboard's flame graph
  * viewer; this file adds the server-specific concerns:
  *
  *   - extractTraceIdsFromProfile — pulls distinct trace_id labels from a
@@ -22,7 +22,7 @@ import {
 	type PprofProfile,
 	type PprofSample,
 	type PprofValueType,
-} from "@obs-unified/pprof-decoder";
+} from "@obsunified/pprof-decoder";
 
 // Re-exports keep call sites (profile-routes, tests) importing from one
 // place — they don't need to know whether something lives upstream.

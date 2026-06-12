@@ -87,11 +87,11 @@ There are four implemented ways to get data into the Agent Action Graph.
 
 ### 1. Native TypeScript Agent SDK
 
-Use `@obs-unified/telemetry-sdk/agent` when you control the agent code and want
+Use `@obsunified/telemetry-sdk/agent` when you control the agent code and want
 precise action boundaries.
 
 ```ts
-import { startAgentRun } from "@obs-unified/telemetry-sdk/agent";
+import { startAgentRun } from "@obsunified/telemetry-sdk/agent";
 
 await startAgentRun(
   {
@@ -153,7 +153,7 @@ SDK rejects malformed `actionId`, `rootActionId`, `causedByActionId`, and
 
 ### 2. Vercel AI SDK Wrapper
 
-Use `@obs-unified/agents-vercel-ai` to wrap `generateText` or `streamText`
+Use `@obsunified/agents-vercel-ai` to wrap `generateText` or `streamText`
 without hand-instrumenting every call site.
 
 ```ts
@@ -162,7 +162,7 @@ import { openai } from "@ai-sdk/openai";
 import {
   withVercelAIRun,
   wrapGenerateText,
-} from "@obs-unified/agents-vercel-ai";
+} from "@obsunified/agents-vercel-ai";
 
 const trackedGenerateText = wrapGenerateText(generateText, {
   capturePayloads: false,
@@ -196,10 +196,10 @@ LLM actions emit the canonical action kind `llm.call`.
 
 ### 3. LangGraph Wrapper
 
-Use `@obs-unified/agents-langgraph` for LangGraph or LangChain runnable flows.
+Use `@obsunified/agents-langgraph` for LangGraph or LangChain runnable flows.
 
 ```ts
-import { instrumentLangGraph } from "@obs-unified/agents-langgraph";
+import { instrumentLangGraph } from "@obsunified/agents-langgraph";
 
 instrumentLangGraph(graph, {
   defaultAgentId: "state-graph-agent",
@@ -249,7 +249,7 @@ normalization of OTel MCP spans.
 MCP calls do not always have per-request HTTP headers, so obs-unified propagates
 trace and action context through JSON-RPC `params._meta`.
 
-Client helpers in `@obs-unified/telemetry-sdk/mcp` inject:
+Client helpers in `@obsunified/telemetry-sdk/mcp` inject:
 
 - `traceparent`
 - optional `tracestate`
@@ -268,8 +268,8 @@ ignored rather than restored into async-local action context.
 import {
   extractMcpContext,
   injectMcpContext,
-} from "@obs-unified/telemetry-sdk/mcp";
-import { withAction } from "@obs-unified/telemetry-sdk/agent";
+} from "@obsunified/telemetry-sdk/mcp";
+import { withAction } from "@obsunified/telemetry-sdk/agent";
 
 injectMcpContext(params, { tracestate: "obs=high" });
 

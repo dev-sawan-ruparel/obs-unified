@@ -1,4 +1,4 @@
-import type { AnalysisResult } from "@obs-unified/types";
+import type { AnalysisResult } from "@obsunified/types";
 import { describe, expect, it } from "vitest";
 import { computeSignature, evaluateGate, parsePredicate } from "./narrate-gate";
 

@@ -1,4 +1,4 @@
-# @obs-unified/telemetry-sdk
+# @obsunified/telemetry-sdk
 
 Server-side telemetry SDK for
 [obs-unified](https://github.com/obs-unified/obs-unified). OTLP spans,
@@ -7,7 +7,7 @@ Graph primitives. Targets Cloudflare Workers, Node.js, Bun, and Deno; the
 Workers binding wrappers live under the `./cloudflare` subpath.
 
 ```bash
-pnpm add @obs-unified/telemetry-sdk
+pnpm add @obsunified/telemetry-sdk
 ```
 
 ## Quick start
@@ -20,7 +20,7 @@ import {
   stampInteractionFromRequest,
   flushLogs,
   flushAICalls,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 app.use("*", async (c, next) => {
   initObservability({
@@ -58,7 +58,7 @@ import {
   wrapD1,
   wrapR2,
   wrapFetch,
-} from "@obs-unified/telemetry-sdk/cloudflare";
+} from "@obsunified/telemetry-sdk/cloudflare";
 
 const db = wrapD1(env.DB);
 const bucket = wrapR2(env.REPLAYS, { bucketName: "replays" });
@@ -81,13 +81,13 @@ child spans and logs inherit automatically. See
 
 ## Agent Action Graphs
 
-Use `@obs-unified/telemetry-sdk/agent` when your backend runs agents,
+Use `@obsunified/telemetry-sdk/agent` when your backend runs agents,
 tool-calling workflows, background jobs, or MCP hosts. The SDK creates RFC 0010
 action IDs, preserves browser `interaction_id` when a user action triggered the
 agent, and links each step through `caused_by_action_id`.
 
 ```ts
-import { startAgentRun } from "@obs-unified/telemetry-sdk/agent";
+import { startAgentRun } from "@obsunified/telemetry-sdk/agent";
 
 await startAgentRun(
   {
@@ -119,8 +119,8 @@ through JSON-RPC `params._meta`. These helpers are separate from the
 `@obsunified/mcp-server` investigation server:
 
 ```ts
-import { injectMcpContext, extractMcpContext } from "@obs-unified/telemetry-sdk/mcp";
-import { withAction } from "@obs-unified/telemetry-sdk/agent";
+import { injectMcpContext, extractMcpContext } from "@obsunified/telemetry-sdk/mcp";
+import { withAction } from "@obsunified/telemetry-sdk/agent";
 
 injectMcpContext(params);
 

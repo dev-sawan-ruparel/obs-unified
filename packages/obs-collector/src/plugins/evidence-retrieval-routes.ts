@@ -10,7 +10,7 @@ import type {
 	LogRecord,
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import type {
 	ActionRef,

@@ -13,8 +13,8 @@
   [EvidenceReference contract](../docs/spec/evidence-reference.md),
   [MCP terminology](../docs/mcp.md),
   [Agent Action Graph](../docs/agent-action-graph.md)
-- **Target:** `@obs-unified/collector`, `@obsunified/mcp-server`,
-  `@obs-unified/types`, `@obs-unified/dashboard`, docs
+- **Target:** `@obsunified/collector`, `@obsunified/mcp-server`,
+  `@obsunified/types`, `@obsunified/dashboard`, docs
 
 ## Summary
 
@@ -550,7 +550,7 @@ Requirements:
 ### Phase 1: Types and MCP shape
 
 - Add `EvidenceRetrievalRef`, `EvidenceCompaction`, and `EvidenceBundle` types
-  in `@obs-unified/types`.
+  in `@obsunified/types`.
 - Add JSON schemas and tool response contract metadata.
 - Add MCP tool stubs that can return a bundle for a trace or action anchor.
 

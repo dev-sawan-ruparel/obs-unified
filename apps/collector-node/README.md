@@ -21,7 +21,7 @@ populated dashboards once you seed data via `pnpm seed`. You can verify the
 collector before opening the dashboard with:
 
 ```bash
-pnpm --filter @obs-unified/cli exec obs-unified doctor --origin http://localhost:5173
+pnpm --filter @obsunified/cli exec obs-unified doctor --origin http://localhost:5173
 ```
 
 ## Quick start (host install)
@@ -73,6 +73,6 @@ via a Compose dependency.
 | Scheduled retention | Cron Triggers       | OS `cron` or Kubernetes `CronJob` (call `POST /internal/retention/run`) |
 | Cold-start          | <50ms               | ~1s on first request after restart                                      |
 
-Both deployments compose the same `@obs-unified/collector` runtime — plugin code
+Both deployments compose the same `@obsunified/collector` runtime — plugin code
 is identical. The only difference is the storage adapter chosen at startup and
 the host fetch handler.

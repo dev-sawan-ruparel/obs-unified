@@ -1,4 +1,4 @@
-import type { JsonValue, StoredSpan } from "@obs-unified/types";
+import type { JsonValue, StoredSpan } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { parseJsonRecord } from "../lib/json";
 

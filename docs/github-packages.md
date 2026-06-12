@@ -4,9 +4,9 @@ obs-unified's public JavaScript packages publish to the public npm registry.
 New installs should not require GitHub Packages configuration:
 
 ```bash
-pnpm add @obs-unified/telemetry-sdk
-pnpm add @obs-unified/analytics-sdk
-pnpm dlx @obs-unified/cli doctor http://localhost:8790 --origin http://localhost:5173
+pnpm add @obsunified/telemetry-sdk
+pnpm add @obsunified/analytics-sdk
+pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:5173
 pnpm add -g @obsunified/mcp-server
 ```
 
@@ -19,7 +19,7 @@ pnpm config delete @obs-unified:registry
 
 During the transition, the already-published GitHub Packages versions may still
 require a GitHub token. The next release from this repo is configured to publish
-the `@obs-unified/*` packages to npmjs.
+the `@obsunified/*` packages to npmjs.
 
 Go and Rust do not use npm:
 

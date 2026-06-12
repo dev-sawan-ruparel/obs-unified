@@ -1,11 +1,11 @@
-import type { StoredSpan } from "@obs-unified/types";
+import type { StoredSpan } from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
 	ACTION_ID_KEY,
 	ACTION_ROOT_ID_KEY,
 	ActionConfidence,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
 	CollectorPlugin,

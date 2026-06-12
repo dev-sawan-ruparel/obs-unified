@@ -7,7 +7,7 @@ import {
 	initObservability,
 	runWithSpan,
 	stampInteractionFromRequest,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 

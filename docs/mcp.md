@@ -29,8 +29,8 @@ issued and which refs were expanded most often.
 
 ## 2. MCP Context Propagation
 
-Package: [`@obs-unified/telemetry-sdk`](../packages/telemetry-sdk), module
-`@obs-unified/telemetry-sdk/mcp`
+Package: [`@obsunified/telemetry-sdk`](../packages/telemetry-sdk), module
+`@obsunified/telemetry-sdk/mcp`
 
 These helpers instrument applications that call MCP tools, resources, or
 prompts. They inject and extract W3C trace context plus Agent Action Graph IDs
@@ -42,7 +42,7 @@ Use this when your own agent runtime or MCP host needs to preserve
 
 ## 3. OTel MCP Normalization
 
-Package: [`@obs-unified/collector`](../packages/obs-collector)
+Package: [`@obsunified/collector`](../packages/obs-collector)
 
 The collector recognizes OpenTelemetry MCP semantic-convention attributes such
 as `mcp.method.name`, `mcp.tool.name`, `mcp.resource.uri`, and
@@ -57,7 +57,7 @@ appear in the dashboard graph.
 
 - Say **investigation MCP server** for `@obsunified/mcp-server`.
 - Say **MCP context propagation** for SDK helpers in
-  `@obs-unified/telemetry-sdk/mcp`.
+  `@obsunified/telemetry-sdk/mcp`.
 - Say **OTel MCP normalization** for collector ingest of `mcp.*` span
   attributes.
 - Avoid saying only "the MCP server" in Agent Action Graph docs unless the

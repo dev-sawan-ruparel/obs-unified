@@ -1,4 +1,4 @@
-import type { JsonValue } from "@obs-unified/types";
+import type { JsonValue } from "@obsunified/types";
 
 export const parseJsonRecord = (
 	value: string | null | undefined,

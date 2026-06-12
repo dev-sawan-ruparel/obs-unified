@@ -1,7 +1,7 @@
 import type {
 	TelemetryOverviewOptions,
 	TelemetryOverviewResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import type { SqlDb } from "../sql-db";
 import {
 	average,

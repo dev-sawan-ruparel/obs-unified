@@ -3,7 +3,7 @@
  *
  * Tests the receive side of the click-scoped correlation key. The
  * header itself is opaque ULID-shaped; we accept it only when it
- * matches the same Crockford-base32 26-char pattern @obs-unified/analytics-sdk
+ * matches the same Crockford-base32 26-char pattern @obsunified/analytics-sdk
  * mints. Anything else (empty, wrong shape, control characters) is
  * rejected so a corrupted header doesn't seed wrong joins.
  */
@@ -13,7 +13,7 @@ import {
 	ACTION_ID_KEY,
 	ACTION_ROOT_HEADER_NAME,
 	ACTION_ROOT_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { describe, expect, it, vi } from "vitest";
 import {
 	clearActiveActionContext,

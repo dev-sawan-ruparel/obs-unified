@@ -1,4 +1,4 @@
-import { isInstrumentationGapCandidate } from "@obs-unified/types";
+import { isInstrumentationGapCandidate } from "@obsunified/types";
 import type { SpanDetail } from "./types";
 
 /**

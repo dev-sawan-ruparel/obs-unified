@@ -13,8 +13,8 @@
   [docs/agent-action-graph.md](../docs/agent-action-graph.md),
   [docs/spec/action-id.md](../docs/spec/action-id.md),
   [docs/ux/agent-run-replay.md](../docs/ux/agent-run-replay.md)
-- **Target:** `@obs-unified/collector`, `@obs-unified/telemetry-sdk`,
-  `@obs-unified/dashboard`, docs
+- **Target:** `@obsunified/collector`, `@obsunified/telemetry-sdk`,
+  `@obsunified/dashboard`, docs
 
 ## Summary
 
@@ -498,7 +498,7 @@ during their development phase.
 
 Support three paths:
 
-1. **Native SDK path.** `@obs-unified/telemetry-sdk/agent` emits actions and
+1. **Native SDK path.** `@obsunified/telemetry-sdk/agent` emits actions and
    spans with obs-unified attributes from day one.
 2. **OTLP GenAI / MCP path.** The collector reads standard OTel GenAI and MCP
    spans, derives actions, and writes them into the action graph.
@@ -536,7 +536,7 @@ import {
   recordToolCall,
   recordRetrieval,
   recordEvaluation,
-} from "@obs-unified/telemetry-sdk/agent";
+} from "@obsunified/telemetry-sdk/agent";
 
 const run = startAgentRun({
   agentName: "support-triage",
@@ -770,7 +770,7 @@ combination rather than on either field alone.
 
 ### Phase 2 — Native SDK
 
-- Add `@obs-unified/telemetry-sdk/agent`.
+- Add `@obsunified/telemetry-sdk/agent`.
 - Implement `startAgentRun`, `run.step`, `run.tool`, `recordRetrieval`,
   `recordEvaluation`, and action context propagation.
 - Add docs and examples for manual instrumentation.
@@ -878,7 +878,7 @@ GenAI, MCP, and OpenInference can run in parallel on the same span stream.
 - **Human vs agent causality.** A user prompt may trigger a multi-agent workflow
   hours later. We need retention and UI language that make delayed causality
   understandable.
-- **Eval case format.** Do eval cases live in `@obs-unified/collector` or a new
+- **Eval case format.** Do eval cases live in `@obsunified/collector` or a new
   package? Start in collector; split only if users need an external runner.
 
 ## Positioning change

@@ -9,7 +9,7 @@ import type {
 	OtlpEvent,
 	OtlpKeyValue,
 	OtlpTraceExportRequest,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_HEADER_NAME,
@@ -21,7 +21,7 @@ import {
 	ACTOR_TYPE_KEY,
 	AGENT_RUN_ID_KEY,
 	INTERACTION_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 
 const generateId = (bytes: number): string =>
@@ -229,7 +229,7 @@ export const parseTraceparent = (
 /** Standard span-attribute key for the click-scoped correlation id. */
 export const INTERACTION_ATTRIBUTE_KEY = "obs.interaction.id";
 
-/** Header name set by `@obs-unified/analytics-sdk` on outbound requests. */
+/** Header name set by `@obsunified/analytics-sdk` on outbound requests. */
 export const INTERACTION_HEADER_NAME = "x-obs-interaction";
 
 const INTERACTION_ID_RE = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;

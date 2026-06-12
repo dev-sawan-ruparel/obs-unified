@@ -134,7 +134,7 @@ function buildSteps(c: SignalCounts): OnboardingStep[] {
   createRequestSpan,
   runWithSpan,
   flushLogs,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: process.env.OBS_COLLECTOR_URL!,
@@ -161,7 +161,7 @@ await flushLogs();`}
 					</p>
 					<Snippet
 						lang="tsx"
-						code={`import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
+						code={`import { AnalyticsProvider } from "@obsunified/analytics-sdk/react";
 
 <AnalyticsProvider collectorUrl={...} apiKey={...} trackPageViews captureErrors>
   <App />
@@ -173,7 +173,7 @@ await flushLogs();`}
 					</p>
 					<Snippet
 						lang="ts"
-						code={`import { stampInteractionFromRequest } from "@obs-unified/telemetry-sdk";
+						code={`import { stampInteractionFromRequest } from "@obsunified/telemetry-sdk";
 
 app.use("*", async (c, next) => {
   const span = createRequestSpan("my-api", \`\${c.req.method} \${c.req.path}\`);
@@ -205,7 +205,7 @@ identify("user-123", { email: "user@example.com", plan: "pro" });`}
 			body: (
 				<Snippet
 					lang="ts"
-					code={`import { createLogger } from "@obs-unified/telemetry-sdk";
+					code={`import { createLogger } from "@obsunified/telemetry-sdk";
 
 const log = createLogger("my-api");
 log.info("Cart loaded", { cartId, itemCount: 3 });`}
@@ -219,7 +219,7 @@ log.info("Cart loaded", { cartId, itemCount: 3 });`}
 			body: (
 				<Snippet
 					lang="ts"
-					code={`import { startLLMSpan } from "@obs-unified/telemetry-sdk";
+					code={`import { startLLMSpan } from "@obsunified/telemetry-sdk";
 
 await startLLMSpan({
   model: "claude-sonnet-4-20250514",
@@ -239,9 +239,9 @@ await startLLMSpan({
 			body: (
 				<p>
 					rrweb chunks are captured client-side by{" "}
-					<code>@obs-unified/analytics-sdk</code> when{" "}
-					<code>captureReplay</code> is set on the provider. Visit the
-					Playground tab and click <strong>Start replay</strong> to seed one.
+					<code>@obsunified/analytics-sdk</code> when <code>captureReplay</code>{" "}
+					is set on the provider. Visit the Playground tab and click{" "}
+					<strong>Start replay</strong> to seed one.
 				</p>
 			),
 		},

@@ -1,4 +1,4 @@
-# @obs-unified/cli
+# @obsunified/cli
 
 ## 1.0.2
 

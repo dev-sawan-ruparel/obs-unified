@@ -1,4 +1,4 @@
-import type { StoredSpan } from "@obs-unified/types";
+import type { StoredSpan } from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_CONFIDENCE_KEY,
@@ -15,7 +15,7 @@ import {
 	TOOL_CALL_ID_KEY,
 	TOOL_NAME_KEY,
 	TOOL_SIDE_EFFECT_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { describe, expect, it } from "vitest";
 import type {
 	CollectorRuntime,

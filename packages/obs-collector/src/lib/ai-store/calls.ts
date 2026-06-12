@@ -2,7 +2,7 @@ import type {
 	AICallRecord,
 	AICallsOverviewOptions,
 	AICallsOverviewResponse,
-} from "@obs-unified/types";
+} from "@obsunified/types";
 import { dialectFor, type SqlDb } from "../sql-db";
 import type { AICallRow, AICallSummaryRow } from "./types";
 import { clampInt } from "./types";

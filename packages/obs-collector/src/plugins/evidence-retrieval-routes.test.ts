@@ -2,8 +2,8 @@ import {
 	encodePprof,
 	gzipBytes,
 	type PprofProfile,
-} from "@obs-unified/pprof-decoder";
-import type { EvidenceBundle } from "@obs-unified/types";
+} from "@obsunified/pprof-decoder";
+import type { EvidenceBundle } from "@obsunified/types";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { CollectorRuntime } from "../framework/collector";

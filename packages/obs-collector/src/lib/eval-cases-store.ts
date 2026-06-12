@@ -2,8 +2,8 @@ import type {
 	EvidenceReference,
 	EvidenceReferenceContract as EvidenceReferenceContractType,
 	JsonValue,
-} from "@obs-unified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obs-unified/types";
+} from "@obsunified/types";
+import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import { sourceLinkEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonValue } from "./json";

@@ -121,7 +121,7 @@ else
 	fail=1
 fi
 
-require_glob "demo/upstream/.obs-unified/obs-unified-types-*.tgz" "local @obs-unified/types tarball is staged for Docker builds"
+require_glob "demo/upstream/.obs-unified/obs-unified-types-*.tgz" "local @obsunified/types tarball is staged for Docker builds"
 require_glob "demo/upstream/.obs-unified/obs-unified-analytics-sdk-*.tgz" "local analytics SDK tarball is staged for Docker builds"
 require_glob "demo/upstream/.obs-unified/obs-unified-telemetry-sdk-*.tgz" "local telemetry SDK tarball is staged for Docker builds"
 

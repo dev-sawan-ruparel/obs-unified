@@ -1,9 +1,9 @@
-import type { AICallInput, AICallPayload } from "@obs-unified/types";
+import type { AICallInput, AICallPayload } from "@obsunified/types";
 import {
 	ACTION_CAUSED_BY_ID_KEY,
 	ACTION_ID_KEY,
 	ACTION_ROOT_ID_KEY,
-} from "@obs-unified/types/constants";
+} from "@obsunified/types/constants";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 import { getActiveActionContext, getActiveSpan } from "./span";
 
