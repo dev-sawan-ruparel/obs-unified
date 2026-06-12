@@ -20,17 +20,17 @@ jobs:
     name: Release
     runs-on: [self-hosted, obs-unified]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           # Unique per-runner dir avoids the ENOTEMPTY race when concurrent
           # self-hosted runner instances share the default ~/setup-pnpm.
           dest: ${{ runner.temp }}/setup-pnpm
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm

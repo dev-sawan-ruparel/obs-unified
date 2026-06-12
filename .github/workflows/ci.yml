@@ -15,7 +15,7 @@ jobs:
       go-sdk: ${{ steps.filter.outputs.go-sdk }}
       rust-sdk: ${{ steps.filter.outputs.rust-sdk }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -29,13 +29,13 @@ jobs:
     name: TS — type-check + tests + build
     runs-on: [self-hosted, obs-unified]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
         with:
           # Unique per-runner dir avoids the ENOTEMPTY race when concurrent
           # self-hosted runner instances share the default ~/setup-pnpm.
           dest: ${{ runner.temp }}/setup-pnpm
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -57,13 +57,13 @@ jobs:
     name: Lint
     runs-on: [self-hosted, obs-unified]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
         with:
           # Unique per-runner dir avoids the ENOTEMPTY race when concurrent
           # self-hosted runner instances share the default ~/setup-pnpm.
           dest: ${{ runner.temp }}/setup-pnpm
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -74,13 +74,13 @@ jobs:
     name: Messaging parity
     runs-on: [self-hosted, obs-unified]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
         with:
           # Unique per-runner dir avoids the ENOTEMPTY race when concurrent
           # self-hosted runner instances share the default ~/setup-pnpm.
           dest: ${{ runner.temp }}/setup-pnpm
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -103,8 +103,8 @@ jobs:
       run:
         working-directory: sdks/go
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.26.3"
           cache-dependency-path: sdks/go/go.sum
@@ -121,7 +121,7 @@ jobs:
       run:
         working-directory: sdks/rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
