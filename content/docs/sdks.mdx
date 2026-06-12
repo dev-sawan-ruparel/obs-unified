@@ -13,7 +13,7 @@ For the agent-facing investigation surface, see [MCP server](/docs/mcp-server).
 
 | Language | Install | Where it runs |
 | --- | --- | --- |
-| **TypeScript** | `pnpm add @obs-unified/telemetry-sdk` from npm | Node.js · Bun · Deno · Cloudflare Workers |
+| **TypeScript** | `pnpm add @obsunified/telemetry-sdk` from npm | Node.js · Bun · Deno · Cloudflare Workers |
 | **Go** | `go get github.com/obs-unified/obs-unified/sdks/go@latest` | Any Go 1.22+ binary |
 | **Rust** | `cargo add obs-unified` | Any Rust 1.75+ binary (Tokio runtime) |
 
@@ -35,11 +35,11 @@ If your backend language isn't listed, any OTLP-compatible OpenTelemetry SDK wor
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| `@obs-unified/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
+| `@obsunified/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
 
 This one is browser-only by definition — there's no parallel Go/Rust analytics SDK because that surface area is the web.
 
-All four packages live in the obs-unified monorepo. The TypeScript packages publish to public npm under `@obs-unified/*`. The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.0`. The Rust SDK publishes to crates.io as `obs-unified`.
+All four packages live in the obs-unified monorepo. The TypeScript packages publish to public npm under `@obsunified/*`. The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.0`. The Rust SDK publishes to crates.io as `obs-unified`.
 
 ## MCP server
 
@@ -52,13 +52,13 @@ The MCP server is intentionally a **read boundary**. Agents can inspect the same
 See [MCP server](/docs/mcp-server) for install and host configuration.
 
 > [!NOTE]
-> The MCP server uses the hyphen-less `@obsunified` scope on public npm (`@obsunified/mcp-server`). The first-party SDKs use the hyphenated `@obs-unified` scope on public npm (`@obs-unified/*`).
+> The MCP server uses the `@obsunified` scope on public npm (`@obsunified/mcp-server`). The first-party SDKs use the `@obsunified` scope on public npm (`@obsunified/*`).
 
 ### npm install
 
 ```bash
-pnpm add @obs-unified/telemetry-sdk
-pnpm add @obs-unified/analytics-sdk
+pnpm add @obsunified/telemetry-sdk
+pnpm add @obsunified/analytics-sdk
 ```
 
 ## The identity skeleton
@@ -84,12 +84,12 @@ flowchart LR
   profileIndex --> profile["CPU/off-CPU profile"]
 ```
 
-## @obs-unified/analytics-sdk
+## @obsunified/analytics-sdk
 
 ### Install
 
 ```bash
-pnpm add @obs-unified/analytics-sdk
+pnpm add @obsunified/analytics-sdk
 ```
 
 For React hosts the SDK exports a provider component; for other hosts call the lower-level `installAutoCorrelate()` directly.
@@ -97,7 +97,7 @@ For React hosts the SDK exports a provider component; for other hosts call the l
 ### React quick start
 
 ```tsx
-import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obs-unified/analytics-sdk/react";
+import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obsunified/analytics-sdk/react";
 
 export function Root() {
 	return (
@@ -127,7 +127,7 @@ The provider:
 ### Inside a component
 
 ```tsx
-import { useAnalytics } from "@obs-unified/analytics-sdk/react";
+import { useAnalytics } from "@obsunified/analytics-sdk/react";
 
 export function CheckoutButton() {
 	const { trackInteraction, identify, withInteraction } = useAnalytics();
@@ -171,7 +171,7 @@ Future timestamps are rejected silently — clock-skewed clients can't poison th
 Auto-correlation (Mode A) handles synchronous handlers and shallow `await` chains. Deeper async flows (debounces, setTimeout-queued work, state-machine transitions) escape the microtask cascade. For those, use `withInteractionContext`:
 
 ```ts
-import { withInteractionContext, currentInteractionId } from "@obs-unified/analytics-sdk";
+import { withInteractionContext, currentInteractionId } from "@obsunified/analytics-sdk";
 
 // Capture at click time
 const id = currentInteractionId();
@@ -184,12 +184,12 @@ setTimeout(() => {
 }, 500);
 ```
 
-## @obs-unified/telemetry-sdk
+## @obsunified/telemetry-sdk
 
 ### Install
 
 ```bash
-pnpm add @obs-unified/telemetry-sdk
+pnpm add @obsunified/telemetry-sdk
 ```
 
 ### Cloudflare Worker / Hono quick start
@@ -202,7 +202,7 @@ import {
 	stampInteractionFromRequest,
 	flushLogs,
 	flushAICalls,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 app.use("*", async (c, next) => {
 	initObservability({
@@ -235,7 +235,7 @@ The same primitives work in plain Node.js — replace `c.env` with `process.env`
 ### Child spans
 
 ```ts
-import { withChildSpan } from "@obs-unified/telemetry-sdk";
+import { withChildSpan } from "@obsunified/telemetry-sdk";
 
 const items = await withChildSpan("db.query.items", async (child) => {
 	child.setAttribute("db.system", "postgres");
@@ -249,7 +249,7 @@ Child spans inherit the parent's trace context and interaction id automatically.
 ### Logs
 
 ```ts
-import { createLogger } from "@obs-unified/telemetry-sdk";
+import { createLogger } from "@obsunified/telemetry-sdk";
 
 const logger = createLogger("checkout-api");
 
@@ -264,7 +264,7 @@ Logs are flushed at request end via `flushLogs()`. If a span is active, the log 
 The SDK exposes typed helpers for OpenInference-style LLM spans:
 
 ```ts
-import { setAISessionContext, startRetrieverSpan } from "@obs-unified/telemetry-sdk";
+import { setAISessionContext, startRetrieverSpan } from "@obsunified/telemetry-sdk";
 
 setAISessionContext({ sessionId, userId });
 
@@ -281,7 +281,7 @@ For lower-level LLM and tool spans, use `startLLMSpan()` and `startToolSpan()` a
 Workers services can wrap platform bindings from the Cloudflare-specific entry point:
 
 ```ts
-import { wrapD1, wrapFetch, wrapR2 } from "@obs-unified/telemetry-sdk/cloudflare";
+import { wrapD1, wrapFetch, wrapR2 } from "@obsunified/telemetry-sdk/cloudflare";
 
 const db = wrapD1(env.DATABASE);
 const bucket = wrapR2(env.STORAGE_BUCKET, { bucketName: "blobs" });

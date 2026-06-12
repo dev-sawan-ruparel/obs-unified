@@ -2,7 +2,7 @@
 // Messaging parity check (RFC 0012).
 //
 // Reads the vendored ./messaging.manifest.json (single source of truth, copied
-// verbatim from @obs-unified/messaging) and asserts that the docs surfaces have
+// verbatim from @obsunified/messaging) and asserts that the docs surfaces have
 // not drifted from it. Plain Node ESM, no dependencies — runs on bare `node`.
 //
 // Exits 1 with `✗` messages on any drift, 0 with a success line when clean.
@@ -170,7 +170,7 @@ async function checkDoctorCommand() {
 
 	for (const file of files) {
 		const text = await readText(file);
-		// Check for "obs-unified doctor" without "pnpm dlx @obs-unified/cli" prefix
+		// Check for "obs-unified doctor" without "pnpm dlx @obsunified/cli" prefix
 		if (/(?<!pnpm dlx @obs-unified\/cli\s+)obs-unified\s+doctor\b/.test(text)) {
 			violations.push(file.replace(`${repoRoot}/`, ""));
 		}
@@ -181,7 +181,7 @@ async function checkDoctorCommand() {
 		return;
 	}
 	fail(
-		`CHECK 5 (doctor command): files use deprecated "obs-unified doctor" format instead of "pnpm dlx @obs-unified/cli doctor": ${violations.join(", ")}`,
+		`CHECK 5 (doctor command): files use deprecated "obs-unified doctor" format instead of "pnpm dlx @obsunified/cli doctor": ${violations.join(", ")}`,
 	);
 }
 

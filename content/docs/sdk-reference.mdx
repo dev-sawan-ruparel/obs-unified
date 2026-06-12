@@ -3,7 +3,7 @@ title: SDK API reference
 description: A compact cheat sheet for browser, TypeScript, Go, and Rust SDK APIs.
 ---
 
-This page is a centralized, searchable cheat sheet for the browser SDK (`@obs-unified/analytics-sdk`) and server-side SDKs (`@obs-unified/telemetry-sdk`, Go, and Rust).
+This page is a centralized, searchable cheat sheet for the browser SDK (`@obsunified/analytics-sdk`) and server-side SDKs (`@obsunified/telemetry-sdk`, Go, and Rust).
 
 ## SDK initialization
 
@@ -12,7 +12,7 @@ This page is a centralized, searchable cheat sheet for the browser SDK (`@obs-un
 Initialize the browser SDK to track page views, click interactions, frontend exceptions, and optional DOM session replay.
 
 ```tsx
-import { AnalyticsProvider } from "@obs-unified/analytics-sdk/react";
+import { AnalyticsProvider } from "@obsunified/analytics-sdk/react";
 
 function Root() {
   return (
@@ -32,7 +32,7 @@ function Root() {
 For non-React hosts:
 
 ```ts
-import { installAutoCorrelate, UsageTracker } from "@obs-unified/analytics-sdk";
+import { installAutoCorrelate, UsageTracker } from "@obsunified/analytics-sdk";
 
 const tracker = new UsageTracker({
   collectorUrl: "https://obs.my-app.com",
@@ -47,7 +47,7 @@ installAutoCorrelate({ tracker });
 Initialize the standard telemetry exporter pipeline once at application startup.
 
 ```ts
-import { initObservability } from "@obs-unified/telemetry-sdk";
+import { initObservability } from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: "https://obs.my-app.com",
@@ -69,7 +69,7 @@ import {
   createRequestSpan,
   runWithSpan,
   stampInteractionFromRequest,
-} from "@obs-unified/telemetry-sdk";
+} from "@obsunified/telemetry-sdk";
 
 const span = createRequestSpan("my-service", `${req.method} ${req.path}`);
 stampInteractionFromRequest(span, req);
@@ -87,7 +87,7 @@ Auto-correlation handles synchronous handlers and shallow `await` chains. For de
 import {
   currentInteractionId,
   withInteractionContext,
-} from "@obs-unified/analytics-sdk";
+} from "@obsunified/analytics-sdk";
 
 const clickId = currentInteractionId();
 
@@ -103,7 +103,7 @@ setTimeout(() => {
 ### High-level event tracking
 
 ```ts
-import { trackAICall } from "@obs-unified/telemetry-sdk";
+import { trackAICall } from "@obsunified/telemetry-sdk";
 
 trackAICall({
   modelName: "claude-3-5-sonnet-20251022",
@@ -120,7 +120,7 @@ trackAICall({
 ### OpenInference-style spans
 
 ```ts
-import { startLLMSpan, startToolSpan } from "@obs-unified/telemetry-sdk";
+import { startLLMSpan, startToolSpan } from "@obsunified/telemetry-sdk";
 
 const llmSpan = startLLMSpan("user-query-completion", {
   modelName: "gpt-4o",
@@ -154,10 +154,10 @@ try {
 
 ## Cloudflare Workers wrappers
 
-Import these from `@obs-unified/telemetry-sdk/cloudflare` to avoid pulling heavy ambient type dependencies into Node.js environments.
+Import these from `@obsunified/telemetry-sdk/cloudflare` to avoid pulling heavy ambient type dependencies into Node.js environments.
 
 ```ts
-import { wrapD1, wrapFetch, wrapR2 } from "@obs-unified/telemetry-sdk/cloudflare";
+import { wrapD1, wrapFetch, wrapR2 } from "@obsunified/telemetry-sdk/cloudflare";
 
 const db = wrapD1(env.DATABASE);
 const bucket = wrapR2(env.STORAGE_BUCKET, { bucketName: "blobs" });

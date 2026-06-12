@@ -13,7 +13,7 @@ import SearchDialog from '@/components/search';
 import NotFound from './routes/not-found';
 
 export const links: Route.LinksFunction = () => [
-  // Brand assets — synced from @obs-unified/brand. Re-run
+  // Brand assets — synced from @obsunified/brand. Re-run
   // `node packages/brand/scripts/sync-to-projects.mjs` after edits.
   { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
   { rel: 'alternate icon', href: '/favicon.ico' },
