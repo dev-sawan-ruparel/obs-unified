@@ -1,0 +1,77 @@
+name: Publish Node SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Package and verify without publishing to npmjs"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: publish-node-sdk-${{ github.ref }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish @obsunified/sdk to npmjs
+    runs-on: [self-hosted, obs-unified]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @obsunified/sdk run build
+
+      - name: Configure npm registry
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/npmjs.npmrc
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is required to publish @obsunified/sdk to npmjs." >&2
+            exit 1
+          fi
+          {
+            echo "registry=https://registry.npmjs.org/"
+            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+          } > "${NPM_CONFIG_USERCONFIG}"
+
+      - name: Publish or repair visibility
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/npmjs.npmrc
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          package="@obsunified/sdk"
+          version="$(node -p "require('./sdks/node/package.json').version")"
+
+          if npm view "${package}@${version}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "${package}@${version} already exists; ensuring public access."
+            if [ "${DRY_RUN}" != "true" ]; then
+              npm access public "${package}" --registry=https://registry.npmjs.org || true
+            fi
+          elif [ "${DRY_RUN}" = "true" ]; then
+            npm pack ./sdks/node --dry-run
+          else
+            npm publish ./sdks/node --access public --registry=https://registry.npmjs.org --provenance=false
+          fi
+
+      - name: Verify public package
+        if: ${{ !inputs.dry_run }}
+        run: npm view @obsunified/sdk version --registry=https://registry.npmjs.org
