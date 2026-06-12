@@ -1,6 +1,30 @@
 import { createRequestSpan, runWithSpan } from "@obs-unified/telemetry-sdk";
 import { describe, expect, it } from "vitest";
-import { LangGraphAdapter, wrapLangGraphRunnable } from "./index";
+import {
+	type LangChainCallbackHandler,
+	LangGraphAdapter,
+	wrapLangGraphRunnable,
+} from "./index";
+
+interface TestAttribute {
+	key: string;
+	value?: {
+		stringValue?: string;
+		intValue?: number | string;
+	};
+}
+
+interface TestSpan {
+	name?: string;
+	spanId?: string;
+	parentSpanId?: string;
+	attributes?: TestAttribute[];
+}
+
+interface TestRunnableConfig {
+	callbacks?: LangChainCallbackHandler[];
+	[key: string]: unknown;
+}
 
 describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 	it("should track runs, steps, llm calls, and tool calls via callbacks", async () => {
@@ -8,7 +32,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 
 		await runWithSpan(requestSpan, async () => {
 			const fakeRunnable = {
-				invoke: async (_input: any, config?: any) => {
+				invoke: async (_input: unknown, config?: TestRunnableConfig) => {
 					// Simulate callbacks triggered by LangGraph engine
 					if (config?.callbacks && config.callbacks.length > 0) {
 						for (const callback of config.callbacks) {
@@ -74,7 +98,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 				defaultAgentId: "langgraph-agent-123",
 				defaultAgentName: "StateGraph Assistant",
 				capturePayloads: true,
-				classifyTool: (toolName: any) => {
+				classifyTool: (toolName: unknown) => {
 					if (toolName === "stripe_charge_tool") {
 						return { sideEffect: true, approvalState: "human_approved" };
 					}
@@ -91,15 +115,13 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 		const spans = exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
 		expect(spans.length).toBeGreaterThan(1);
 
-		const hasStringAttr = (span: any, key: string, value: string) =>
+		const hasStringAttr = (span: TestSpan, key: string, value: string) =>
 			span.attributes?.some(
-				(attr: any) => attr.key === key && attr.value?.stringValue === value,
+				(attr) => attr.key === key && attr.value?.stringValue === value,
 			) ?? false;
-		const attrValue = (span: any, key: string) => {
-			const value = span.attributes?.find(
-				(attr: any) => attr.key === key,
-			)?.value;
-			expect(value).toBeDefined();
+		const attrValue = (span: TestSpan, key: string) => {
+			const value = span.attributes?.find((attr) => attr.key === key)?.value;
+			if (!value) throw new Error(`Missing attribute ${key}`);
 			return value;
 		};
 
@@ -155,7 +177,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 
 		await runWithSpan(requestSpan, async () => {
 			const fakeRunnable = {
-				invoke: async (_input: any, config?: any) => {
+				invoke: async (_input: unknown, config?: TestRunnableConfig) => {
 					if (config?.callbacks && config.callbacks.length > 0) {
 						for (const callback of config.callbacks) {
 							await callback.handleLLMStart(
@@ -198,7 +220,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 				?.spans ?? [];
 		const llmSpan = spans.find((s) =>
 			s.attributes?.some(
-				(attr: any) =>
+				(attr) =>
 					attr.key === "obs.action.kind" &&
 					attr.value?.stringValue === "llm.call",
 			),
@@ -206,19 +228,19 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 		if (!llmSpan) throw new Error("Missing llmSpan");
 
 		const inputAttr = llmSpan.attributes?.find(
-			(attr: any) => attr.key === "ai.payload.input",
+			(attr) => attr.key === "ai.payload.input",
 		);
 		expect(inputAttr?.value?.stringValue || "").toBe("");
 
 		const outputAttr = llmSpan.attributes?.find(
-			(attr: any) => attr.key === "ai.payload.output",
+			(attr) => attr.key === "ai.payload.output",
 		);
 		expect(outputAttr?.value?.stringValue || "").toBe("");
 	});
 
 	it("can install using LangGraphAdapter and instrumentLangGraph on compiled graph", async () => {
 		const graph = {
-			invoke: async (_input: any, _config?: any) => {
+			invoke: async (_input: unknown, _config?: TestRunnableConfig) => {
 				return { ok: true };
 			},
 		};
@@ -237,7 +259,7 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 				?.spans ?? [];
 		const runSpan = spans.find((s) =>
 			s.attributes?.some(
-				(attr: any) =>
+				(attr) =>
 					attr.key === "obs.action.kind" &&
 					attr.value?.stringValue === "agent.run",
 			),
@@ -249,7 +271,8 @@ describe("LangGraph SDK Agent Action Graph Wrapper", () => {
 	});
 });
 
-const attrValue = (span: any, key: string) => {
-	const value = span.attributes?.find((attr: any) => attr.key === key)?.value;
+const attrValue = (span: TestSpan, key: string) => {
+	const value = span.attributes?.find((attr) => attr.key === key)?.value;
+	if (!value) throw new Error(`Missing attribute ${key}`);
 	return value;
 };

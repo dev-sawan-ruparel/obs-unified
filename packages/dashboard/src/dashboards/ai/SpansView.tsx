@@ -983,7 +983,6 @@ function orderSpansForGantt(spans: AISpanRecord[]): AISpanRecord[] {
 	for (const list of children.values()) {
 		list.sort((a, b) => a.startTime.localeCompare(b.startTime));
 	}
-	const known = new Set(spans.map((s) => s.spanId));
 	const out: AISpanRecord[] = [];
 	const walk = (parentId: string | null) => {
 		const kids = children.get(parentId) ?? [];

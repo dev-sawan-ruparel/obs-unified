@@ -89,8 +89,10 @@ jobs:
       - run: pnpm run messaging:generate:check
       # …and lead-repo surfaces (READMEs, feature records) must match it.
       - run: pnpm run messaging:check
-      # …and vendored copies in siblings must be in sync.
-      - run: pnpm --filter @obs-unified/messaging run sync:check -- --require-all
+      # …and vendored copies in siblings must be in sync when sibling checkouts
+      # are present. Actions checks out this repo by itself, so the stricter
+      # --require-all mode is reserved for local umbrella-checkout validation.
+      - run: pnpm --filter @obs-unified/messaging run sync:check
 
   go-sdk:
     name: Go SDK

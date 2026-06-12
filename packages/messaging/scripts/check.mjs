@@ -98,7 +98,9 @@ for (const t of tools) {
 	}
 
 	// Validate duplicated positioning proof identityChain matches
-	if (m.authored.identityChain !== m.authored.positioning?.proof?.identityChain) {
+	if (
+		m.authored.identityChain !== m.authored.positioning?.proof?.identityChain
+	) {
 		fail(
 			`authored.identityChain ("${m.authored.identityChain}") and authored.positioning.proof.identityChain ("${m.authored.positioning?.proof?.identityChain}") are out of sync.`,
 		);
@@ -134,10 +136,7 @@ for (const t of tools) {
 				);
 			}
 			// Enforce: shipped features must have their tools in mcp-server README
-			if (
-				f.surfacesWhenShipped?.includes("mcp.tool-list") &&
-				f.addsMcpTools
-			) {
+			if (f.surfacesWhenShipped?.includes("mcp.tool-list") && f.addsMcpTools) {
 				const mcpReadme = read("packages/mcp-server/README.md");
 				for (const tool of f.addsMcpTools) {
 					if (!mcpReadme.includes(`\`${tool}\``)) {
@@ -149,10 +148,7 @@ for (const t of tools) {
 			}
 		} else {
 			// Enforce: non-shipped features must NOT be advertised in README "What you get"
-			if (
-				f.addsSignalType &&
-				whatYouGet.includes(f.addsSignalType)
-			) {
+			if (f.addsSignalType && whatYouGet.includes(f.addsSignalType)) {
 				fail(
 					`feature "${f.id}" is status="${f.status}" but its signal "${f.addsSignalType}" is advertised in README "What you get"`,
 				);

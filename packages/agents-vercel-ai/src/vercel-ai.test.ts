@@ -7,6 +7,53 @@ import {
 	wrapStreamText,
 } from "./index";
 
+interface TestAttribute {
+	key: string;
+	value?: {
+		stringValue?: string;
+		intValue?: number | string;
+	};
+}
+
+interface TestSpan {
+	spanId?: string;
+	parentSpanId?: string;
+	attributes?: TestAttribute[];
+}
+
+interface TestStepEvent {
+	text?: unknown;
+	usage?: {
+		promptTokens?: number;
+		completionTokens?: number;
+		totalTokens?: number;
+	};
+	finishReason?: string;
+	toolCalls?: unknown;
+	toolResults?: Array<{
+		toolName?: string;
+		args?: unknown;
+		result?: unknown;
+		error?: unknown;
+	}>;
+}
+
+interface TestGenerateOptions {
+	model?: string | { id?: string; modelId?: string; provider?: string };
+	prompt?: unknown;
+	messages?: unknown;
+	onStepFinish?: (event: TestStepEvent) => unknown;
+	[key: string]: unknown;
+}
+
+interface TestStreamOptions {
+	model?: string | { id?: string; modelId?: string; provider?: string };
+	prompt?: unknown;
+	messages?: unknown;
+	onFinish?: (event: TestStepEvent) => unknown;
+	[key: string]: unknown;
+}
+
 describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 	it("establishes agent run context and handles wrapped generateText with tools", async () => {
 		const requestSpan = createRequestSpan("test-service", "vercel-ai-run");
@@ -21,7 +68,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 				},
 				async (run) => {
 					// Mock the inner generateText call
-					const fakeGenerateText = async (options: any) => {
+					const fakeGenerateText = async (options: TestGenerateOptions) => {
 						// Simulate Vercel AI SDK triggering onStepFinish callback internally
 						if (options.onStepFinish) {
 							await options.onStepFinish({
@@ -61,8 +108,13 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 
 					const wrappedGenerateText = wrapGenerateText(fakeGenerateText, {
 						capturePayloads: true,
-						classifyTool: (toolObj: any) => {
-							if (toolObj.toolName === "refund_tool") {
+						classifyTool: (toolObj: unknown) => {
+							if (
+								typeof toolObj === "object" &&
+								toolObj !== null &&
+								"toolName" in toolObj &&
+								toolObj.toolName === "refund_tool"
+							) {
 								return { sideEffect: true, approvalState: "human_approved" };
 							}
 							return {};
@@ -85,15 +137,13 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 		const spans = exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
 		expect(spans.length).toBeGreaterThan(1);
 
-		const hasStringAttr = (span: any, key: string, value: string) =>
+		const hasStringAttr = (span: TestSpan, key: string, value: string) =>
 			span.attributes?.some(
-				(attr: any) => attr.key === key && attr.value?.stringValue === value,
+				(attr) => attr.key === key && attr.value?.stringValue === value,
 			) ?? false;
-		const attrValue = (span: any, key: string) => {
-			const value = span.attributes?.find(
-				(attr: any) => attr.key === key,
-			)?.value;
-			expect(value).toBeDefined();
+		const attrValue = (span: TestSpan, key: string) => {
+			const value = span.attributes?.find((attr) => attr.key === key)?.value;
+			if (!value) throw new Error(`Missing attribute ${key}`);
 			return value;
 		};
 
@@ -157,7 +207,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 					agentName: "Vercel AI Assistant",
 				},
 				async () => {
-					const fakeGenerateText = async (_options: any) => {
+					const fakeGenerateText = async (_options: TestGenerateOptions) => {
 						return {
 							text: "Secret data",
 							usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
@@ -182,7 +232,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 		// respects privacy default test
 		const llmSpan = spans.find((s) =>
 			s.attributes?.some(
-				(attr: any) =>
+				(attr) =>
 					attr.key === "obs.action.kind" &&
 					attr.value?.stringValue === "llm.call",
 			),
@@ -191,12 +241,12 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 
 		// Payloads should NOT be present in OTel input/output
 		const inputAttr = llmSpan.attributes?.find(
-			(attr: any) => attr.key === "ai.payload.input",
+			(attr) => attr.key === "ai.payload.input",
 		);
 		expect(inputAttr?.value?.stringValue || "").toBe("");
 
 		const outputAttr = llmSpan.attributes?.find(
-			(attr: any) => attr.key === "ai.payload.output",
+			(attr) => attr.key === "ai.payload.output",
 		);
 		expect(outputAttr?.value?.stringValue || "").toBe("");
 	});
@@ -211,7 +261,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 					agentName: "Vercel AI Assistant",
 				},
 				async () => {
-					const fakeStreamText = async (options: any) => {
+					const fakeStreamText = async (options: TestStreamOptions) => {
 						if (options.onFinish) {
 							await options.onFinish({
 								text: "Stream response",
@@ -243,24 +293,24 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 				?.spans ?? [];
 		const streamLlmSpan = spans.find((s) =>
 			s.attributes?.some(
-				(attr: any) =>
+				(attr) =>
 					attr.key === "obs.action.kind" &&
 					attr.value?.stringValue === "llm.call",
 			),
 		);
 		if (!streamLlmSpan) throw new Error("Missing streamLlmSpan");
 		const tokensAttr = streamLlmSpan.attributes?.find(
-			(attr: any) => attr.key === "llm.token_count.total",
+			(attr) => attr.key === "llm.token_count.total",
 		)?.value?.intValue;
 		expect(tokensAttr).toBe("12");
 	});
 
 	it("can install using VercelAIAdapter on framework object", async () => {
 		const framework = {
-			generateText: async (_options: any) => {
+			generateText: async (_options: TestGenerateOptions) => {
 				return { text: "Adapter output" };
 			},
-			streamText: async (_options: any) => {
+			streamText: async (_options: TestStreamOptions) => {
 				return { text: "Stream adapter output" };
 			},
 		};
@@ -290,7 +340,7 @@ describe("Vercel AI SDK Agent Action Graph Wrapper", () => {
 				?.spans ?? [];
 		const llmSpan = spans.find((s) =>
 			s.attributes?.some(
-				(attr: any) =>
+				(attr) =>
 					attr.key === "obs.action.kind" &&
 					attr.value?.stringValue === "llm.call",
 			),
