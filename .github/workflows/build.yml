@@ -12,6 +12,17 @@ jobs:
     runs-on: [self-hosted, docs]
     steps:
       - uses: actions/checkout@v5
+      - name: Enforce self-hosted runners
+        # Workspace policy: never GitHub-hosted runners. Inline-array form
+        # (runs-on: [self-hosted, <label>]) keeps this greppable — a
+        # multi-line runs-on fails here on purpose.
+        run: |
+          bad=$(grep -RnE '^[[:space:]]*runs-on:' .github/workflows --include='*.yml' --include='*.yaml' | grep -v 'self-hosted' || true)
+          if [ -n "$bad" ]; then
+            printf '%s\n' "$bad"
+            echo "::error::every workflow job must run on a self-hosted runner"
+            exit 1
+          fi
       - uses: actions/setup-node@v5
         with:
           node-version: 22
