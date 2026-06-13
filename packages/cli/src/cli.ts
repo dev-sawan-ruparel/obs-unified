@@ -413,15 +413,20 @@ async function runDoctor(args: string[]) {
 
 function parseDoctorArgs(args: string[]) {
 	let url = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
-	const origins = new Set(
-		(
-			process.env.OBS_DOCTOR_ORIGINS ??
-			"http://localhost:5173,http://localhost:8080"
-		)
-			.split(",")
-			.map((origin) => origin.trim())
-			.filter(Boolean),
-	);
+	// The default only covers the dashboard origin the all-in-one image allows;
+	// demo flows pass their own (examples.md sends Astronomy Shop users here
+	// with --origin http://localhost:8080).
+	const defaultOrigins = (
+		process.env.OBS_DOCTOR_ORIGINS ?? "http://localhost:5173"
+	)
+		.split(",")
+		.map((origin) => origin.trim())
+		.filter(Boolean);
+	// Origins given via --origin replace the defaults rather than extend them:
+	// doctor must check exactly what the caller asked about, or leftover
+	// defaults fail the run against collectors that only allow the caller's
+	// origin.
+	const flagOrigins = new Set<string>();
 
 	for (let i = 0; i < args.length; i += 1) {
 		const arg = args[i];
@@ -429,16 +434,16 @@ function parseDoctorArgs(args: string[]) {
 			const origin = args[i + 1];
 			if (!origin) {
 				console.error(
-					kleur.red("usage: obs-unified doctor [url] [--origin <origin>]"),
+					kleur.red("usage: obs-unified doctor [url] [--origin <origin> ...]"),
 				);
 				process.exit(1);
 			}
-			origins.add(origin);
+			flagOrigins.add(origin);
 			i += 1;
 			continue;
 		}
 		if (arg.startsWith("--origin=")) {
-			origins.add(arg.slice("--origin=".length));
+			flagOrigins.add(arg.slice("--origin=".length));
 			continue;
 		}
 		if (arg.startsWith("-")) {
@@ -448,7 +453,10 @@ function parseDoctorArgs(args: string[]) {
 		url = arg;
 	}
 
-	return { url, origins: [...origins] };
+	return {
+		url,
+		origins: flagOrigins.size ? [...flagOrigins] : [...new Set(defaultOrigins)],
+	};
 }
 
 async function checkCorsPreflight(url: string, origin: string, path: string) {

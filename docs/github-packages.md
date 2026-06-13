@@ -1,7 +1,12 @@
 # Package Registry
 
+> **Legacy reference.** Current packages install from the public npm registry
+> under the `@obsunified` scope with no authentication — the commands below are
+> all you need. The GitHub Packages notes further down only matter if an older
+> environment still overrides the retired `@obs-unified` scope.
+
 obs-unified's public JavaScript packages publish to the public npm registry.
-New installs should not require GitHub Packages configuration:
+New installs do not require GitHub Packages configuration:
 
 ```bash
 pnpm add @obsunified/telemetry-sdk

@@ -233,6 +233,21 @@ for (const t of tools) {
 	}
 }
 
+// 9. Scope integrity — the static scopes block must agree with the
+// code-derived package scopes (catches a stale block after a scope rename).
+{
+	const derivedScopes = new Set(
+		m.derived.packages.map((p) => p.scope).filter(Boolean),
+	);
+	for (const [key, entry] of Object.entries(m.scopes ?? {})) {
+		if (entry?.scope && !derivedScopes.has(entry.scope)) {
+			fail(
+				`manifest.json scopes.${key}.scope "${entry.scope}" is not the scope of any derived package`,
+			);
+		}
+	}
+}
+
 if (failures.length) {
 	console.error(`messaging:check FAILED (${failures.length}):`);
 	for (const f of failures) console.error(`  ✗ ${f}`);
