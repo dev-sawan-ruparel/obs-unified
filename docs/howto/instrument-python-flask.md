@@ -23,6 +23,7 @@ pip install \
 ```bash
 export OBS_COLLECTOR_URL=http://localhost:8790
 export OBS_INGEST_KEY=dev-ingest-key
+# Your Flask app's own CORS allowlist — not the collector's ALLOWED_ORIGINS.
 export OBS_ALLOWED_ORIGIN=http://localhost:5173
 ```
 

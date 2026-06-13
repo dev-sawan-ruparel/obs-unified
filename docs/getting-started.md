@@ -287,6 +287,39 @@ Access the interface at `http://localhost:5173`.
 
 ---
 
+## Environment Variables at a Glance
+
+Two separate namespaces appear throughout these docs — one configures the
+collector you deploy, the other lives in the app you instrument.
+
+**Collector deployment** (set where the collector runs: compose file, Workers
+vars, K8s secret):
+
+| Variable | Purpose |
+| :--- | :--- |
+| `INGEST_KEY` | Write key required on ingest endpoints (sent as `Authorization: Bearer <key>`, or `X-API-Key`). |
+| `DASHBOARD_PASSWORD` | Auth token for the dashboard read API. |
+| `ALLOWED_ORIGINS` | Comma-separated browser origins the collector's CORS allows. |
+| `ALLOW_UNAUTHENTICATED` | Dev-only escape hatch that disables ingest auth. |
+
+**Your instrumented app** — these names are the convention used by the docs
+and the `obs-unified` CLI; the SDKs take explicit config values, so any names
+work in your own code:
+
+| Variable | Purpose |
+| :--- | :--- |
+| `OBS_COLLECTOR_URL` | Collector base URL your app sends telemetry to (also read by the CLI). |
+| `OBS_INGEST_KEY` | Ingest key your server-side SDK sends. |
+| `VITE_OBS_COLLECTOR_URL` / `VITE_OBS_INGEST_KEY` | Browser-exposed equivalents for Vite frontends. |
+| `OBS_ADMIN_TOKEN` | Dashboard token the CLI uses for `keys mint` / `keys list`. |
+| `OBS_DOCTOR_ORIGINS` | Overrides `doctor`'s default origin checklist. |
+
+One near-twin to keep straight: an app-side CORS variable in the how-tos
+(e.g. the Flask guide's `OBS_ALLOWED_ORIGIN`) configures *your app's* CORS,
+not the collector's `ALLOWED_ORIGINS`.
+
+---
+
 ## First-Run Troubleshooting
 
 | Symptom / Error                            | Diagnostic Action                                                                                   |

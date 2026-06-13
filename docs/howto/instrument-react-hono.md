@@ -46,6 +46,11 @@ VITE_OBS_COLLECTOR_URL=https://obs.example.com    # browser (same URL)
 VITE_OBS_INGEST_KEY=obs_…                         # browser (separate write-only key recommended)
 ```
 
+> To mint that separate browser key against your collector:
+> `OBS_ADMIN_TOKEN=<dashboard password> pnpm dlx @obsunified/cli keys mint`
+> (it targets `OBS_COLLECTOR_URL`). For local development, reusing the server
+> key is fine.
+
 ## 1. Frontend — bootstrap the React provider
 
 `src/main.tsx`:
