@@ -42,6 +42,24 @@ const manifest = JSON.parse(
 const derived = manifest.derived ?? {};
 
 // ---------------------------------------------------------------------------
+// CHECK 0 — manifest scope integrity: every static scopes.*.scope must be a
+// scope actually carried by a derived (code-extracted) package. Catches a
+// stale vendored manifest that survived an npm-scope rename.
+// ---------------------------------------------------------------------------
+{
+	const derivedScopes = new Set(
+		(derived.packages ?? []).map((p) => p.scope).filter(Boolean),
+	);
+	for (const [key, entry] of Object.entries(manifest.scopes ?? {})) {
+		if (entry?.scope && !derivedScopes.has(entry.scope)) {
+			fail(
+				`scopes.${key}.scope "${entry.scope}" is not the scope of any derived package (stale vendored manifest?)`,
+			);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // CHECK 1 — MCP tool list (content/docs/mcp-server.mdx ## Tools section)
 // ---------------------------------------------------------------------------
 async function checkMcpTools() {
