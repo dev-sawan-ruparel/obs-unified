@@ -35,6 +35,28 @@ try {
 }
 
 // ---------------------------------------------------------------------------
+// CHECK 0 — manifest scope integrity: every static scopes.*.scope must be a
+// scope actually carried by a derived (code-extracted) package. Catches a
+// stale vendored manifest that survived an npm-scope rename.
+// ---------------------------------------------------------------------------
+console.log("CHECK 0 — manifest scope integrity");
+{
+	const derivedScopes = new Set(
+		(manifest?.derived?.packages ?? []).map((p) => p.scope).filter(Boolean),
+	);
+	for (const [key, entry] of Object.entries(manifest?.scopes ?? {})) {
+		if (!entry?.scope) continue;
+		if (derivedScopes.has(entry.scope)) {
+			ok(`scopes.${key}.scope ${entry.scope} matches a derived package scope`);
+		} else {
+			fail(
+				`scopes.${key}.scope "${entry.scope}" is not the scope of any derived package (stale vendored manifest?)`,
+			);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // CHECK 1 — package scope: every @obs-unified / @obsunified token used by the
 // website must be a real package name in manifest.derived.packages[].name.
 // Catches scope typos like @obsunified/mcp-server after the npm-scope rename.

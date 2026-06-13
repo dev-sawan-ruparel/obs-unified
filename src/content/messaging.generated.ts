@@ -74,85 +74,50 @@ export const messaging = {
 			{
 				"name": "@obsunified/agents-langgraph",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/agents-langgraph",
 				"private": false
 			},
 			{
 				"name": "@obsunified/agents-vercel-ai",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/agents-vercel-ai",
 				"private": false
 			},
 			{
 				"name": "@obsunified/analytics-sdk",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/analytics-sdk",
 				"private": false
 			},
 			{
 				"name": "@obsunified/brand",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/brand",
 				"private": false
 			},
 			{
 				"name": "@obsunified/cli",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/cli",
 				"private": false
 			},
 			{
 				"name": "@obsunified/collector",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/obs-collector",
 				"private": false
 			},
 			{
 				"name": "@obsunified/dashboard",
 				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"dir": "packages/dashboard",
-				"private": false
-			},
-			{
-				"name": "@obsunified/messaging",
-				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
-				"dir": "packages/messaging",
-				"private": true
-			},
-			{
-				"name": "@obsunified/pprof-decoder",
-				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
-				"dir": "packages/pprof-decoder",
-				"private": false
-			},
-			{
-				"name": "@obsunified/sdk",
-				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
-				"dir": "sdks/node",
-				"private": false
-			},
-			{
-				"name": "@obsunified/telemetry-sdk",
-				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
-				"dir": "packages/telemetry-sdk",
-				"private": false
-			},
-			{
-				"name": "@obsunified/types",
-				"registry": "https://registry.npmjs.org/",
-				"scope": "@obs-unified",
-				"dir": "packages/obs-types",
 				"private": false
 			},
 			{
@@ -160,6 +125,41 @@ export const messaging = {
 				"registry": "https://registry.npmjs.org/",
 				"scope": "@obsunified",
 				"dir": "packages/mcp-server",
+				"private": false
+			},
+			{
+				"name": "@obsunified/messaging",
+				"registry": "https://registry.npmjs.org/",
+				"scope": "@obsunified",
+				"dir": "packages/messaging",
+				"private": true
+			},
+			{
+				"name": "@obsunified/pprof-decoder",
+				"registry": "https://registry.npmjs.org/",
+				"scope": "@obsunified",
+				"dir": "packages/pprof-decoder",
+				"private": false
+			},
+			{
+				"name": "@obsunified/sdk",
+				"registry": "https://registry.npmjs.org/",
+				"scope": "@obsunified",
+				"dir": "sdks/node",
+				"private": false
+			},
+			{
+				"name": "@obsunified/telemetry-sdk",
+				"registry": "https://registry.npmjs.org/",
+				"scope": "@obsunified",
+				"dir": "packages/telemetry-sdk",
+				"private": false
+			},
+			{
+				"name": "@obsunified/types",
+				"registry": "https://registry.npmjs.org/",
+				"scope": "@obsunified",
+				"dir": "packages/obs-types",
 				"private": false
 			}
 		]
@@ -240,7 +240,7 @@ export const messaging = {
 		},
 		"scopes": {
 			"sdks": {
-				"scope": "@obs-unified",
+				"scope": "@obsunified",
 				"registry": "https://registry.npmjs.org/",
 				"note": "first-party SDKs on public npm"
 			},
@@ -268,8 +268,8 @@ export const messaging = {
 		},
 		"glossary": {
 			"Observability Unified": "Display/brand name.",
-			"obs-unified": "Repo + GitHub-Packages scope (@obs-unified) + CLI binary name.",
-			"@obsunified": "npm scope for the public MCP server package only.",
+			"obs-unified": "Repo name (github.com/obs-unified/obs-unified) and the CLI binary name. Earlier releases also used @obs-unified as a GitHub-Packages npm scope; it is retired in favor of @obsunified on public npm.",
+			"@obsunified": "npm scope for all public packages (SDKs, collector, CLI, dashboard, MCP server) on registry.npmjs.org.",
 			"Connected Rail": "The cross-signal pivot surface (HTTP /internal/connected/:kind/:id; MCP connected_signals).",
 			"CCR": "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",
 			"evidence bundle": "Compact, token-budgeted evidence returned by the CCR layer."

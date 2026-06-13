@@ -12,12 +12,12 @@ pnpm local:image
 pnpm local:run`;
 
 const SDK_PATHS = `Backend:
-  TypeScript  @obsunified/* on public npm
-  Go          sdks/go
-  Rust        sdks/rust
+  TypeScript  pnpm add @obsunified/telemetry-sdk
+  Go          go get github.com/obs-unified/obs-unified/sdks/go
+  Rust        cargo add obs-unified
 
 Browser:
-  React/vanilla  @obsunified/analytics-sdk`;
+  React/vanilla  pnpm add @obsunified/analytics-sdk`;
 
 const INSTRUMENT = `// Backend
 initObservability({ serviceName: "checkout-api" });
