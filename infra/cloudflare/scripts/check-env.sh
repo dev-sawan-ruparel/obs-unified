@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify ci/.env.deploy is filled in and the token actually works against
+# Verify infra/cloudflare/.env.deploy is filled in and the token actually works against
 # the Cloudflare API.
 #
 # Usage: scripts/check-env.sh [--help]
@@ -17,12 +17,12 @@ if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
   awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0
 fi
 
-CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="$CI_ROOT/.env.deploy"
+DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="$DEPLOY_ROOT/.env.deploy"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "✘ $ENV_FILE not found" >&2
-  echo "  → cp $CI_ROOT/.env.deploy.example $ENV_FILE" >&2
+  echo "  → cp $DEPLOY_ROOT/.env.deploy.example $ENV_FILE" >&2
   exit 1
 fi
 

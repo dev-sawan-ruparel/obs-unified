@@ -1,6 +1,8 @@
 # Cloudflare Pages config for the obs-unified landing page.
-# Used by `wrangler pages deploy` and by Cloudflare's GitHub integration.
+# Direct upload to the existing Cloudflare Pages project.
 
 name = "obsunified"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-01"
+
+account_id = "61d3245b7e3224d49a9553bdb4d1a70e"

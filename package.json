@@ -17,7 +17,7 @@
 		"build": "pnpm -r run build",
 		"changeset": "changeset",
 		"version-packages": "changeset version",
-		"release": "pnpm -r run build && changeset publish",
+		"release": "pnpm -r --filter '!presence' --filter '!obs-unified-docs' run build && changeset publish",
 		"dev:collector": "pnpm --filter @obs-demo/collector run dev",
 		"dev:demo": "pnpm --filter @obs-demo/app run dev",
 		"dev:web": "pnpm --filter @obs-demo/web run dev",
@@ -42,7 +42,16 @@
 		"e2e:otlp": "bash scripts/e2e-otlp/run.sh",
 		"e2e:ai-parity": "bash scripts/e2e-ai-parity/run.sh",
 		"measure:ingest": "bash scripts/measure-ingest/run.sh",
-		"benchmark:ccr": "pnpm --filter @obsunified/collector exec vitest run src/plugins/evidence-retrieval-routes.benchmark.test.ts --reporter=verbose --silent=false"
+		"benchmark:ccr": "pnpm --filter @obsunified/collector exec vitest run src/plugins/evidence-retrieval-routes.benchmark.test.ts --reporter=verbose --silent=false",
+		"dev:website": "pnpm --filter presence dev",
+		"dev:docs": "pnpm --filter obs-unified-docs dev",
+		"build:website": "pnpm --filter presence build",
+		"build:docs": "pnpm --filter obs-unified-docs build",
+		"skills:validate": "make -C skills validate",
+		"skills:build": "make -C skills build",
+		"check:surfaces": "pnpm messaging:generate:check && pnpm messaging:check && pnpm --filter @obsunified/messaging sync:check && pnpm --filter presence messaging:check && pnpm --filter obs-unified-docs messaging:check && make -C skills validate",
+		"deploy:website": "pnpm --filter presence deploy",
+		"deploy:docs": "pnpm --filter obs-unified-docs deploy"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",

@@ -1,3 +1,4 @@
+import { GITHUB_REPO_LINK } from "../config";
 import rawSiteContent from "./site.json";
 import { messaging } from "./messaging.generated";
 
@@ -94,6 +95,8 @@ const raw = rawSiteContent as unknown as SiteContent;
 
 export const siteContent: SiteContent = {
   ...raw,
+  seo: { ...raw.seo, githubUrl: GITHUB_REPO_LINK },
+  ccr: { ...raw.ccr, benchmarkDocUrl: `${GITHUB_REPO_LINK}/blob/main/docs/benchmarks/evidence-retrieval-ccr.md` },
   hero: {
     ...raw.hero,
     identityChain: messaging.authored.positioning.proof.identityChain,

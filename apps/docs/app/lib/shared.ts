@@ -3,8 +3,5 @@ export const docsRoute = "/docs";
 export const docsImageRoute = "/og/docs";
 export const docsContentRoute = "/llms.mdx/docs";
 
-export const gitConfig = {
-	user: "obs-unified",
-	repo: "obs-unified",
-	branch: "main",
-};
+export { GITHUB_REPO_LINK } from "../../../../config/project";
+export const gitBranch = "main";

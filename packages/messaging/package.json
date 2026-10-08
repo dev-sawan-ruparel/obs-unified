@@ -3,7 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
-	"description": "Single source of truth for obs-unified messaging facts (RFC 0012). Derives package names, MCP tools, EvidenceReference fields and more from code; checks surfaces for drift; syncs a vendored manifest to sibling repos.",
+	"description": "Single source of truth for obs-unified messaging facts (RFC 0012). Derives package names, MCP tools, EvidenceReference fields and more from code; checks surfaces for drift; generates messaging assets for all monorepo surfaces.",
 	"scripts": {
 		"generate": "node scripts/generate.mjs",
 		"generate:check": "node scripts/generate.mjs --check",

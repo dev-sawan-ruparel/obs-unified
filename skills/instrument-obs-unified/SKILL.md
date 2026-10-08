@@ -11,7 +11,7 @@ The well-tested stack is React (Vite) + Hono on Cloudflare Workers. Adjacent sta
 
 Stop and point elsewhere if:
 
-- The project is in a non-TypeScript language → point at [`docs/recipes/`](https://github.com/obs-unified/obs-unified/blob/main/docs/recipes/) (Python, JVM, .NET) or [`sdks/go`](https://github.com/obs-unified/obs-unified/blob/main/sdks/go), [`sdks/rust`](https://github.com/obs-unified/obs-unified/blob/main/sdks/rust).
+- The project is in a non-TypeScript language → point at [`docs/recipes/`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/) (Python, JVM, .NET) or [`sdks/go`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/sdks/go), [`sdks/rust`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/sdks/rust).
 - The user wants to instrument the obs-unified collector or dashboard themselves (self-instrumentation has its own conventions — see `apps/collector/SELF_INSTRUMENTATION.md`).
 - The project is already fully instrumented (run the idempotency check below first; if nothing's missing, say so and stop).
 
@@ -49,7 +49,7 @@ Don't install anything until you have a reachable collector and an ingest key th
 | Option | When it fits | What to do |
 | --- | --- | --- |
 | **Local dev — sibling repo** | The user has a working copy of obs-unified on the same machine. | `pnpm dev:collector` (collector → `http://localhost:8790`) and `pnpm dev:web` (dashboard → `http://localhost:5173`) in the obs-unified repo. Fastest iteration loop. |
-| **Self-hosted — deployed** | The user wants a persistent collector/dashboard for a team. | Point at the obs-unified [README → "Deploy the Collector"](https://github.com/obs-unified/obs-unified/blob/main/README.md#1-deploy-the-collector). This skill does **not** deploy obs-unified itself. Have them complete deploy + project creation, then come back with the URLs and key. |
+| **Self-hosted — deployed** | The user wants a persistent collector/dashboard for a team. | Point at the obs-unified [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector). This skill does **not** deploy obs-unified itself. Have them complete deploy + project creation, then come back with the URLs and key. |
 | **Hosted service** | If/when a managed obs-unified offering exists. | Use the URLs the service provides; the skill is otherwise identical. |
 
 If the user doesn't know which option fits, default-recommend local dev for a first integration — it's the fastest way to see end-to-end data without committing to infrastructure choices.
@@ -189,7 +189,7 @@ For each LLM call site, wrap with the matching helper per §5 of the doc. After 
 
 If the app has multi-turn conversations, call `setAISessionContext({ sessionId, userId })` at the start of each request so subsequent AI spans group into a session view.
 
-**Do not use `trackAICall`** — it's `@deprecated` in [`packages/telemetry-sdk/src/ai.ts`](https://github.com/obs-unified/obs-unified/blob/main/packages/telemetry-sdk/src/ai.ts) and predates the OpenInference helpers.
+**Do not use `trackAICall`** — it's `@deprecated` in [`packages/telemetry-sdk/src/ai.ts`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/src/ai.ts) and predates the OpenInference helpers.
 
 ### 7. Env var stubs
 
@@ -238,7 +238,7 @@ This is the test half of the task — don't claim success without doing it.
      "$OBS_COLLECTOR_URL/internal/telemetry/traces/<traceId>" | jq
    ```
 
-   The endpoint lives at [`packages/obs-collector/src/plugins/query-routes.ts:107`](https://github.com/obs-unified/obs-unified/blob/main/packages/obs-collector/src/plugins/query-routes.ts). Assert the response contains:
+   The endpoint lives at [`packages/obs-collector/src/plugins/query-routes.ts:107`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/obs-collector/src/plugins/query-routes.ts). Assert the response contains:
 
    - The root span with `service.name` matching what was passed to `initObservability`.
    - Any child spans the route should have produced.
@@ -277,8 +277,8 @@ The skill must be safe to invoke a second time on the same project. A re-invocat
 | Verification: trace not found | SDK buffers flush every ~10s; the middleware's explicit flush should make traces visible immediately. Retry after 5s. If still missing, check the backend logs for `flushLogs` / `flushAICalls` errors. |
 | Verification: interaction header absent | Frontend isn't using the provider's `fetch`, or `autoCorrelate` is disabled. Re-check §1 and §2 of the doc. |
 | Verification: AI spans show but aren't under the request span | `startLLMSpan()` is being called outside the request's `runWithSpan` scope. Move it inside the route handler. |
-| User asks to instrument a language other than TypeScript | Wrong skill — point at [`docs/recipes/`](https://github.com/obs-unified/obs-unified/blob/main/docs/recipes/) and stop. |
-| User asks the skill to deploy obs-unified itself | Wrong skill — this one wires apps **into** an obs-unified deployment. Point at the obs-unified [README → "Deploy the Collector"](https://github.com/obs-unified/obs-unified/blob/main/README.md#1-deploy-the-collector). |
+| User asks to instrument a language other than TypeScript | Wrong skill — point at [`docs/recipes/`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/) and stop. |
+| User asks the skill to deploy obs-unified itself | Wrong skill — this one wires apps **into** an obs-unified deployment. Point at the obs-unified [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector). |
 
 For anything not covered above, the troubleshooting table in §Troubleshooting of [`docs/howto/instrument-react-hono.md`](references/instrument-react-hono.md) is authoritative.
 

@@ -1,11 +1,11 @@
-import { EXAMPLES_URL, GETTING_STARTED_URL, SDK_DOCS_URL } from "../config";
+import { GITHUB_REPO_LINK, EXAMPLES_URL, GETTING_STARTED_URL, SDK_DOCS_URL } from "../config";
 
 const FIRST_RUN = `# Fastest first run
 docker run --rm -p 5173:5173 -p 8790:8790 \\
-  ghcr.io/obs-unified/local:latest
+  ghcr.io/dev-sawan-ruparel/local:latest
 
 # Editable local repo
-git clone https://github.com/obs-unified/obs-unified.git
+git clone ${GITHUB_REPO_LINK}.git
 cd obs-unified
 pnpm install
 pnpm local:image
@@ -13,7 +13,7 @@ pnpm local:run`;
 
 const SDK_PATHS = `Backend:
   TypeScript  pnpm add @obsunified/telemetry-sdk
-  Go          go get github.com/obs-unified/obs-unified/sdks/go
+  Go          go get github.com/dev-sawan-ruparel/obs-unified/sdks/go
   Rust        cargo add obs-unified
 
 Browser:

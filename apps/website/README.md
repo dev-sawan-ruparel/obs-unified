@@ -1,6 +1,6 @@
 # presence
 
-Marketing / landing page for [obs-unified](https://github.com/obs-unified/obs-unified), the self-hosted observability platform. Live at **[obsunified.com](https://obsunified.com)**.
+Marketing / landing page for [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified), the self-hosted observability platform. Live at **[obsunified.com](https://obsunified.com)**.
 
 Vanilla TypeScript + Vite. No framework. Optimized for AEO (answer-engine optimization): JSON-LD `SoftwareApplication` + `FAQPage` schemas, semantic HTML5 landmarks, `llms.txt`, sitemap, explicit AI-crawler allowlist.
 
@@ -78,12 +78,12 @@ presence/
 
 | Repo | What it is |
 |---|---|
-| [`obs-unified`](https://github.com/obs-unified/obs-unified) | The product (collector + SDKs + dashboard). Design and usage at [docs.obsunified.com](https://docs.obsunified.com). |
-| [`obs-unified-docs`](https://github.com/obs-unified/obs-unified-docs) | Docs site. Live at [docs.obsunified.com](https://docs.obsunified.com). |
-| [`ci`](https://github.com/obs-unified/ci) | Self-hosted runners + Cloudflare deploy automation. |
+| [`obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified) | The product (collector + SDKs + dashboard). Design and usage at [docs.obsunified.com](https://docs.obsunified.com). |
+| [`obs-unified-docs`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs) | Docs site. Live at [docs.obsunified.com](https://docs.obsunified.com). |
+| [`ci`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/infra/cloudflare) | Cloudflare deployment configuration and helpers. |
 
-See the org overview at [github.com/obs-unified](https://github.com/obs-unified).
+See the project overview at [github.com/dev-sawan-ruparel/obs-unified](https://github.com/dev-sawan-ruparel/obs-unified).
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). The canonical contribution guide lives in [obs-unified/CONTRIBUTING.md](https://github.com/obs-unified/obs-unified/blob/main/CONTRIBUTING.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md). The canonical contribution guide lives in [obs-unified/CONTRIBUTING.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/CONTRIBUTING.md).

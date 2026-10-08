@@ -1,6 +1,6 @@
 # Contributing to presence
 
-Thanks for considering a contribution. The canonical contribution guide for the entire obs-unified org lives in [`obs-unified/CONTRIBUTING.md`](https://github.com/obs-unified/obs-unified/blob/main/CONTRIBUTING.md) — that covers commit message style, the RFC tree, testing expectations, and review process.
+Thanks for considering a contribution. The canonical contribution guide for the entire obs-unified org lives in [`obs-unified/CONTRIBUTING.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/CONTRIBUTING.md) — that covers commit message style, the RFC tree, testing expectations, and review process.
 
 A few `presence`-specific notes on top of that:
 
@@ -20,15 +20,15 @@ pnpm types:check  # tsc --noEmit
 pnpm build        # full production build
 ```
 
-Both should pass clean. CI runs the same two commands on a self-hosted runner managed under [`obs-unified/ci`](https://github.com/obs-unified/ci).
+Both should pass clean. Run validation locally before deployment.
 
 ## What lives here
 
 `presence` is **only the marketing / landing page**. If your change is about:
 
-- An SDK or the collector → [`obs-unified/obs-unified`](https://github.com/obs-unified/obs-unified)
-- The documentation site → [`obs-unified/obs-unified-docs`](https://github.com/obs-unified/obs-unified-docs)
-- A deploy or runner workflow → [`obs-unified/ci`](https://github.com/obs-unified/ci)
+- An SDK or the collector → [`obs-unified/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified)
+- The documentation site → [`obs-unified/obs-unified-docs`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs)
+- Cloudflare deployment configuration → [`infra/cloudflare`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/infra/cloudflare)
 
 Pick the right repo before opening the PR.
 
@@ -42,4 +42,4 @@ This site is optimized for Answer-Engine Optimization. When changing copy, keep:
 
 ## Code of Conduct
 
-This repo follows the [obs-unified Code of Conduct](https://github.com/obs-unified/obs-unified/blob/main/CODE_OF_CONDUCT.md).
+This repo follows the [obs-unified Code of Conduct](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/CODE_OF_CONDUCT.md).

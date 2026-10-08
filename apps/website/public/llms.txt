@@ -31,7 +31,7 @@ evidence bundles first. Bundles include summaries, clustered log exemplars,
 critical-path spans, evidence references, compaction provenance, suggested
 pivots, and explicit retrieval refs the agent can expand on demand.
 
-- Repository: https://github.com/obs-unified/obs-unified
+- Repository: https://github.com/dev-sawan-ruparel/obs-unified
 - Docs: https://docs.obsunified.com/docs
 - Getting started: https://docs.obsunified.com/docs/getting-started
 - Examples: https://docs.obsunified.com/docs/examples

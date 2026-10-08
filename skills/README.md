@@ -1,6 +1,6 @@
 # obs-unified-skills
 
-Claude Code skills for [obs-unified](https://github.com/obs-unified/obs-unified) — drop them into your `~/.claude/skills/` directory and AI coding agents working in your repos will know how to wire obs-unified observability in and how to investigate the data once it's flowing.
+Claude Code skills for [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) — drop them into your `~/.claude/skills/` directory and AI coding agents working in your repos will know how to wire obs-unified observability in and how to investigate the data once it's flowing.
 
 | Skill | What it does |
 | --- | --- |
@@ -13,11 +13,11 @@ Two paths, depending on how you prefer to manage skills.
 
 ### A. As pre-built `.skill` bundles (recommended)
 
-Each skill ships as a `.skill` file (a zip of the skill directory), attached to [GitHub Releases](https://github.com/obs-unified/obs-unified-skills/releases/latest) — no clone or build needed:
+Each skill ships as a `.skill` file (a zip of the skill directory), attached to [GitHub Releases](https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.1) — no clone or build needed:
 
 ```bash
-curl -LO https://github.com/obs-unified/obs-unified-skills/releases/latest/download/instrument-obs-unified.skill
-curl -LO https://github.com/obs-unified/obs-unified-skills/releases/latest/download/investigate-obs-unified.skill
+curl -LO https://github.com/dev-sawan-ruparel/obs-unified/releases/download/skills-v0.1.1/instrument-obs-unified.skill
+curl -LO https://github.com/dev-sawan-ruparel/obs-unified/releases/download/skills-v0.1.1/investigate-obs-unified.skill
 cp *.skill ~/.claude/skills/
 
 # or install with one command if your Claude Code version supports it:
@@ -25,14 +25,14 @@ claude skill install instrument-obs-unified.skill
 claude skill install investigate-obs-unified.skill
 ```
 
-Working from a clone instead? `make build` produces the same bundles in `dist/` (it is not checked in).
+Working from a clone instead? `make -C skills build` produces the same bundles in `dist/` (it is not checked in).
 
 ### B. As source directories (best for hacking on the skills)
 
 ```bash
-git clone https://github.com/obs-unified/obs-unified-skills.git
-ln -s "$(pwd)/obs-unified-skills/instrument-obs-unified" ~/.claude/skills/instrument-obs-unified
-ln -s "$(pwd)/obs-unified-skills/investigate-obs-unified" ~/.claude/skills/investigate-obs-unified
+git clone https://github.com/dev-sawan-ruparel/obs-unified.git
+ln -s "$(pwd)/obs-unified/skills/instrument-obs-unified" ~/.claude/skills/instrument-obs-unified
+ln -s "$(pwd)/obs-unified/skills/investigate-obs-unified" ~/.claude/skills/investigate-obs-unified
 ```
 
 Restart Claude Code (or re-open your project) and the skills appear in the available-skills list. Trigger them either by typing the slash commands (`/instrument-obs-unified`, `/investigate-obs-unified`) or by asking naturally — see each skill's description for triggers.
@@ -68,9 +68,9 @@ The investigate skill knows the collector's `/internal/*` query surface, the rig
 
 ## What obs-unified is
 
-[obs-unified](https://github.com/obs-unified/obs-unified) is the upstream project — an OTel-compatible observability platform with first-party SDKs, a Cloudflare Worker collector (with a Node.js variant), and a dashboard. These skills automate the two most common interactions a coding agent has with it: writing the SDK call sites, and reading the resulting telemetry.
+[obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) is the upstream project — an OTel-compatible observability platform with first-party SDKs, a Cloudflare Worker collector (with a Node.js variant), and a dashboard. These skills automate the two most common interactions a coding agent has with it: writing the SDK call sites, and reading the resulting telemetry.
 
-If you don't have obs-unified deployed yet, the instrument skill will walk you through the options — local dev (`pnpm dev:collector` in the obs-unified repo) or self-hosted (see the [obs-unified README → "Deploy the Collector"](https://github.com/obs-unified/obs-unified/blob/main/README.md#1-deploy-the-collector)). The skills do not deploy obs-unified itself; they assume a reachable collector.
+If you don't have obs-unified deployed yet, the instrument skill will walk you through the options — local dev (`pnpm dev:collector` in the obs-unified repo) or self-hosted (see the [obs-unified README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector)). The skills do not deploy obs-unified itself; they assume a reachable collector.
 
 ## How these were built
 
@@ -83,7 +83,7 @@ Both skills were drafted, eval-tested with parallel subagents (with-skill vs bas
 
 The investigate eval also surfaced two doc-accuracy bugs in the skill itself (the `connected/<kind>/<id>` valid-kinds list was wrong and `logs/overview` uses `traceId` not `trace_id`) — both fixed before release.
 
-Eval workspaces and the full per-run grading data live in the upstream [obs-unified](https://github.com/obs-unified/obs-unified) repo under `.claude/skills/*-workspace/iteration-1/`.
+Eval workspaces and the full per-run grading data live in the upstream [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) repo under `.claude/skills/*-workspace/iteration-1/`.
 
 ## Contributing
 
@@ -92,16 +92,16 @@ Skills live under `instrument-obs-unified/` and `investigate-obs-unified/`. Each
 To rebuild the `.skill` artifacts after edits:
 
 ```bash
-make build      # or invoke scripts/package.sh
+make -C skills build
 ```
 
 Validation:
 
 ```bash
-make validate   # checks SKILL.md frontmatter parses + links resolve
+make -C skills validate   # checks frontmatter and links
 ```
 
-CI runs both on every PR — see [.github/workflows/validate.yml](.github/workflows/validate.yml).
+Run these checks locally before publishing skill bundles. GitHub Actions is not used.
 
 ## License
 

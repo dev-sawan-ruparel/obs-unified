@@ -1,4 +1,4 @@
-module github.com/obs-unified/obs-unified/sdks/go
+module github.com/dev-sawan-ruparel/obs-unified/sdks/go
 
 go 1.22
 

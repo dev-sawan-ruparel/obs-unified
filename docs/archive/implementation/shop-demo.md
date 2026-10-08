@@ -43,7 +43,7 @@ Canonical links:
 
 - Storefront: `https://demo.obsunified.com`
 - Dashboard: `https://demo.obsunified.com/dashboard`
-- Source: `https://github.com/obs-unified/shop-demo` (final URL TBD)
+- Source: `https://github.com/dev-sawan-ruparel/obs-unified/tree/main/demo` (final URL TBD)
 
 Landing page copy:
 

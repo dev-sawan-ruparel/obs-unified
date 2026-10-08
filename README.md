@@ -8,6 +8,25 @@ server live in one collector and one dashboard, correlated end-to-end.
 [![Docs](https://img.shields.io/badge/docs-docs.obsunified.com-006B18)](https://docs.obsunified.com/docs)
 [![Website](https://img.shields.io/badge/website-obsunified.com-006B18)](https://obsunified.com)
 
+## Monorepo
+
+All product development lives in [dev-sawan-ruparel/obs-unified](https://github.com/dev-sawan-ruparel/obs-unified).
+
+| Directory | Purpose |
+| --- | --- |
+| `apps/website` | Marketing site at obsunified.com |
+| `apps/docs` | Documentation at docs.obsunified.com |
+| `apps/collector`, `apps/collector-node`, `apps/web`, `apps/obs-demo` | Collector and dashboard/demo applications |
+| `packages` | SDKs, dashboard, CLI, MCP, messaging, and brand |
+| `sdks` | Node, Go, and Rust integrations |
+| `skills` | Instrumentation and investigation agent skills |
+| `infra/cloudflare` | Cloudflare deployment configuration and helpers |
+
+Run `pnpm install --frozen-lockfile` once at the root. Use `pnpm dev:website`,
+`pnpm dev:docs`, `pnpm check:surfaces`, and `pnpm skills:build` for the companion
+surfaces. Packages and sites keep independent release/deployment commands.
+See [migration and compatibility notes](docs/monorepo-migration.md).
+
 ## Why obs-unified?
 
 Modern debugging now has two users: engineers and AI agents. Most observability
@@ -152,7 +171,7 @@ Pull the prebuilt all-in-one image (Postgres, collector, dashboard, and seed
 data in one container):
 
 ```bash
-docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
+docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/dev-sawan-ruparel/local:latest
 # → http://localhost:5173   (dashboard password: e2e-test-pass)
 ```
 
@@ -456,7 +475,7 @@ comes from the OTel ecosystem of each language.
 | Language             | Path                       | Package                                      |
 | -------------------- | -------------------------- | -------------------------------------------- |
 | Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obsunified/sdk`                           |
-| Go                   | [`sdks/go`](./sdks/go)     | `github.com/obs-unified/obs-unified/sdks/go` |
+| Go                   | [`sdks/go`](./sdks/go)     | `github.com/dev-sawan-ruparel/obs-unified/sdks/go` |
 | Rust                 | [`sdks/rust`](./sdks/rust) | `obs-unified`                                |
 
 Each SDK exposes the same surface — see [`sdks/README.md`](./sdks/README.md) for

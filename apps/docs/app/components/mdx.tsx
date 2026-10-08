@@ -1,3 +1,4 @@
+import { configuredRepositoryLink } from "../../../../config/project";
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
 import { isValidElement } from 'react';
@@ -25,9 +26,12 @@ function isMermaidChart(text: string) {
   );
 }
 
+const MarkdownLink = defaultMdxComponents.a;
+
 export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
+    a: (props) => <MarkdownLink {...props} href={configuredRepositoryLink(props.href)} />,
     pre: (props) => {
       const text = extractText(props.children);
 

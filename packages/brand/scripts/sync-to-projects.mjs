@@ -3,10 +3,8 @@
  * Copy brand assets into the public/ directories of all three
  * obs-unified surfaces (web app, docs site, marketing landing).
  *
- * The docs and presence projects are sibling repos to obs-unified,
- * not pnpm workspace members, so they can't import @obsunified/brand
- * directly — we sync the built files into their public/ instead and
- * commit them as if they were ordinary static assets.
+ * The docs and website are workspace applications. Static assets
+ * are copied into each application's public directory for static hosting.
  *
  * Run: node packages/brand/scripts/sync-to-projects.mjs
  *
@@ -19,7 +17,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BRAND = resolve(__dirname, "..");
-const REPO_ROOT = resolve(BRAND, "../../..");
+const REPO_ROOT = resolve(BRAND, "../..");
 
 /*
  * Each target lists the public/ directory of a consuming project and
@@ -30,7 +28,7 @@ const REPO_ROOT = resolve(BRAND, "../../..");
 const TARGETS = [
 	{
 		name: "obs-unified web app",
-		publicDir: resolve(REPO_ROOT, "obs-unified/apps/web/public"),
+		publicDir: resolve(REPO_ROOT, "apps/web/public"),
 		files: [
 			["favicons/favicon.svg", "favicon.svg"],
 			["favicons/favicon.ico", "favicon.ico"],
@@ -45,7 +43,7 @@ const TARGETS = [
 	},
 	{
 		name: "obs-unified-docs",
-		publicDir: resolve(REPO_ROOT, "obs-unified-docs/public"),
+		publicDir: resolve(REPO_ROOT, "apps/docs/public"),
 		files: [
 			["favicons/favicon.svg", "favicon.svg"],
 			["favicons/favicon.ico", "favicon.ico"],
@@ -59,7 +57,7 @@ const TARGETS = [
 	},
 	{
 		name: "presence",
-		publicDir: resolve(REPO_ROOT, "presence/public"),
+		publicDir: resolve(REPO_ROOT, "apps/website/public"),
 		files: [
 			["favicons/favicon.svg", "favicon.svg"],
 			["favicons/favicon.ico", "favicon.ico"],
@@ -74,26 +72,13 @@ const TARGETS = [
 	{
 		// presence is vanilla CSS (no Tailwind), so it pulls the
 		// tokens.css source straight into its src/ next to style.css.
-		// presence/src/style.css does `@import "./tokens.css"`.
+		// apps/website/src/style.css does `@import "./tokens.css"`.
 		// Stamp is suppressed because we're dropping into a hand-edited
 		// src/ directory, not a managed-assets dir.
 		name: "presence (CSS tokens)",
-		publicDir: resolve(REPO_ROOT, "presence/src"),
+		publicDir: resolve(REPO_ROOT, "apps/website/src"),
 		files: [["tokens/tokens.css", "tokens.css"]],
 		stamp: false,
-	},
-	{
-		// The GitHub org-profile repo (rendered at github.com/obs-unified).
-		// Banner assets only — no favicon/manifest, since this repo's
-		// only purpose is to expose profile/README.md.
-		name: ".github (org profile)",
-		publicDir: resolve(REPO_ROOT, "dot-github/profile"),
-		files: [
-			["og/profile.svg", "banner.svg"],
-			["og/profile-dark.svg", "banner-dark.svg"],
-			["og/profile.png", "banner.png"],
-			["og/profile-dark.png", "banner-dark.png"],
-		],
 	},
 ];
 
