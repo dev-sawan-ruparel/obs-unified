@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  messaging-check:
+    name: Messaging parity (RFC 0012)
+    runs-on: [self-hosted, docs]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Enforce self-hosted runners
+        # Workspace policy: never GitHub-hosted runners. Inline-array form
+        # (runs-on: [self-hosted, <label>]) keeps this greppable — a
+        # multi-line runs-on fails here on purpose.
+        run: |
+          bad=$(grep -RnE '^[[:space:]]*runs-on:' .github/workflows --include='*.yml' --include='*.yaml' | grep -v 'self-hosted' || true)
+          if [ -n "$bad" ]; then
+            printf '%s\n' "$bad"
+            echo "::error::every workflow job must run on a self-hosted runner"
+            exit 1
+          fi
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Messaging parity check
+        run: node scripts/messaging-check.mjs
+
+  build:
+    name: Type-check + build
+    runs-on: [self-hosted, docs]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run types:check
+      - run: pnpm run build
+      - name: Upload build output
+        uses: actions/upload-artifact@v6
+        with:
+          name: docs-build
+          path: build/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Deploy to Cloudflare Pages (production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # The Pages project ("obsunified-docs" per wrangler.toml →
+        # docs.obsunified.com) is NOT Git-connected, so this step is the
+        # production deploy — without it, merges build but never ship. Auth
+        # comes from the self-hosted runner host's `wrangler login` session; set
+        # a CLOUDFLARE_API_TOKEN env from repo secrets here if deploys ever move
+        # off that machine.
+        run: npx -y wrangler@4 pages deploy --branch=main --commit-hash="$GITHUB_SHA" --commit-dirty=true
