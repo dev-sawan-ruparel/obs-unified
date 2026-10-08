@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="obs-unified maskable icon">
+  <title>obs-unified</title>
+  <rect width="512" height="512" fill="#006B18"/>
+  <!-- Maskable safe-zone is the centered 80% circle (~205px from center).
+       Glyph (caret + 2 records) stays well within that radius. -->
+  <path d="M148 172 L184 232 L148 292" fill="none" stroke="#FFFFFF" stroke-width="26.4" stroke-linejoin="bevel" stroke-linecap="square"/>
+  <rect x="232" y="218.8" width="144" height="26.4" fill="#FFFFFF"/>
+  <rect x="232" y="290.8" width="96"  height="26.4" fill="#FFFFFF"/>
+</svg>

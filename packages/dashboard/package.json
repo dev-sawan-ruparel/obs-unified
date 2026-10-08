@@ -1,0 +1,71 @@
+{
+	"name": "@obsunified/dashboard",
+	"version": "1.1.2",
+	"description": "Observability dashboard UI — React components for embedding telemetry views in your own admin panel.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/dev-sawan-ruparel/obs-unified.git",
+		"directory": "packages/dashboard"
+	},
+	"keywords": [
+		"observability",
+		"dashboard",
+		"react",
+		"react-components",
+		"obs-unified"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": [
+		"*.css"
+	],
+	"scripts": {
+		"build": "tsup",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
+	},
+	"dependencies": {
+		"@obsunified/pprof-decoder": "workspace:*",
+		"@obsunified/types": "workspace:*",
+		"@xyflow/react": "^12.10.2",
+		"dagre": "^0.8.5",
+		"rrweb-player": "2.0.0-alpha.20"
+	},
+	"peerDependencies": {
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260405.1",
+		"@tailwindcss/vite": "^4.2.2",
+		"@types/dagre": "^0.7.54",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"rrweb": "2.0.0-alpha.20",
+		"tailwindcss": "^4.2.2",
+		"tsup": "^8.3.5",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.5"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	}
+}

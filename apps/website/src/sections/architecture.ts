@@ -1,0 +1,88 @@
+import { siteContent } from "../content/site";
+
+export function renderArchitecture(): string {
+  const { architecture } = siteContent;
+  return `
+<section id="architecture" class="architecture" aria-labelledby="arch-title">
+  <div class="container">
+    <header class="section-header">
+      <p class="eyebrow">${architecture.eyebrow}</p>
+      <h2 id="arch-title">${architecture.title}</h2>
+      <p class="section-lead">
+        ${architecture.lead}
+      </p>
+    </header>
+
+    <figure class="arch-map" aria-label="Observability Unified product architecture map">
+      <div class="arch-side arch-side-left">
+        <div class="arch-side-label">Instrumented systems</div>
+        <div class="arch-mini-node">
+          <span>Frontend app</span>
+          <p>interactions, replay, errors</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>Backend services</span>
+          <p>traces, logs, profiles</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>Workers</span>
+          <p>edge requests, jobs</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>AI / LLM calls</span>
+          <p>agent runs, tokens, cost, tools</p>
+        </div>
+      </div>
+
+      <div class="arch-core-map">
+        <div class="arch-boundary arch-boundary-write">
+          <span class="arch-node-kicker">Write boundary</span>
+          <strong>SDKs + OTLP ingest</strong>
+          <p>Write-only keys send telemetry without read access.</p>
+        </div>
+
+        <div class="arch-core">
+          <div class="arch-core-label">Observability Unified</div>
+          <div class="arch-core-step">
+            <span>Collector</span>
+            <p>Normalizes every signal into one identity chain.</p>
+          </div>
+          <div class="arch-core-split">
+            <div>
+              <span>Owned storage</span>
+              <p>D1/R2 or Postgres/S3</p>
+            </div>
+            <div>
+              <span>Connected graph</span>
+              <p>${architecture.connectedGraphBody}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-boundary arch-boundary-read">
+          <span class="arch-node-kicker">Read boundary</span>
+          <strong>Dashboard + APIs + MCP</strong>
+          <p>Agents inspect telemetry with MCP investigation tools.</p>
+        </div>
+      </div>
+
+      <div class="arch-side arch-side-right">
+        <div class="arch-side-label">Investigation clients</div>
+        <div class="arch-mini-node">
+          <span>Dashboard users</span>
+          <p>inspect sessions, traces, logs, replay, alerts, costs</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>Debugging agents</span>
+          <p>${architecture.debuggingAgentsBody}</p>
+        </div>
+        <div class="arch-mini-node">
+          <span>Incident workflows</span>
+          <p>follow evidence from action to root cause</p>
+        </div>
+      </div>
+    </figure>
+  </div>
+</section>
+`;
+}

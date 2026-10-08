@@ -1,0 +1,27 @@
+{
+	"name": "presence",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Landing page for obs-unified \u2014 self-hosted observability for agent action graphs, MCP, traces, logs, AI calls, and session replay.",
+	"engines": {
+		"node": ">=22.0.0",
+		"pnpm": ">=10.0.0"
+	},
+	"packageManager": "pnpm@10.33.4",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc --noEmit && vite build && tsx scripts/prerender-entry.ts",
+		"preview": "vite preview",
+		"types:check": "tsc --noEmit",
+		"messaging:check": "node scripts/messaging-check.mjs",
+		"deploy": "pnpm build && pnpm dlx wrangler@4 pages deploy ./dist --project-name=obsunified --branch=main --commit-dirty=true",
+		"deploy:preview": "pnpm build && pnpm dlx wrangler@4 pages deploy ./dist --project-name=obsunified --branch=preview --commit-dirty=true"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"tsx": "^4.19.2",
+		"typescript": "^5.6.3",
+		"vite": "^5.4.10"
+	}
+}

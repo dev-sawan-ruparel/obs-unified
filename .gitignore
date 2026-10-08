@@ -1,0 +1,55 @@
+node_modules
+.pnpm-store
+
+# cloudflare workers local state
+.wrangler
+.dev.vars
+
+# build outputs
+dist
+build
+out
+.next
+.nuxt
+*.tsbuildinfo
+
+# test artifacts
+playwright-report
+test-results
+
+# Makefile dev runtime — pid files and logs from `make run`
+.dev/
+
+# Rust build output
+sdks/rust/target/
+
+# OpenTelemetry Demo — cloned by `pnpm demo:setup`, never committed
+demo/upstream/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs (process log output, NOT directories named "logs" — the bare
+# `logs` rule used to mask `proto/.../logs/` and the conformance fixtures.)
+/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+*.pem
+
+# Claude Code: user-specific permissions, not for sharing
+.claude/settings.local.json
+.claude/skills/
+
+# Local scratch probes
+apps/collector-node/src/test-hono.js

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="obs-unified">
+  <title>obs-unified</title>
+  <style>
+    .bg { fill: #006B18; }
+    .fg { fill: #FFFFFF; stroke: #FFFFFF; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #2BA644; }
+      .fg { fill: #0E1110; stroke: #0E1110; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32"/>
+  <path class="fg" d="M7 9 L10 14 L7 19" fill="none" stroke-width="2.2" stroke-linejoin="bevel" stroke-linecap="square"/>
+  <rect class="fg" x="14" y="12.9" width="12" height="2.2" stroke="none"/>
+  <rect class="fg" x="14" y="18.9" width="8"  height="2.2" stroke="none"/>
+</svg>

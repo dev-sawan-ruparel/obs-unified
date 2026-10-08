@@ -1,0 +1,129 @@
+/** Union: A's JSON error handling, event limit, env-based retention. P/D's dynamic CORS. */
+
+import type {
+	UsageEventInput,
+	UsageEventPayload,
+	UsageEventRecord,
+} from "@obsunified/types";
+import {
+	DEFAULT_WINDOW_HOURS,
+	getConfiguredRetentionHours,
+} from "@obsunified/types/constants";
+import type { CollectorPlugin } from "../framework/collector";
+import { retentionExpiry } from "../lib/otlp";
+import { getProjectId } from "./_context";
+
+const sanitizeIsoTimestamp = (value?: string): string => {
+	if (!value) return new Date().toISOString();
+	const parsed = new Date(value);
+	return Number.isNaN(parsed.getTime())
+		? new Date().toISOString()
+		: parsed.toISOString();
+};
+
+const toUsageRecord = (
+	input: UsageEventInput,
+	userAgent: string | null,
+	country: string | null,
+	receivedAt: Date,
+	projectId: string,
+	retentionHours?: number,
+): UsageEventRecord => ({
+	projectId,
+	eventId: crypto.randomUUID(),
+	sessionId: input.sessionId,
+	visitorId: input.visitorId,
+	eventType: input.type,
+	eventName: input.name,
+	pagePath: input.path || null,
+	pageTitle: input.title || null,
+	referrer: input.referrer || null,
+	severity: input.severity || "info",
+	source: "web",
+	contextJson: JSON.stringify(input.context || {}),
+	propertiesJson: JSON.stringify(input.properties || {}),
+	userAgent,
+	occurredAt: sanitizeIsoTimestamp(input.occurredAt),
+	receivedAt: receivedAt.toISOString(),
+	expiresAt: retentionExpiry(receivedAt, retentionHours),
+	country,
+	browser: null,
+	os: null,
+	deviceType: null,
+	isBot: false,
+	utmSource: null,
+	utmMedium: null,
+	utmCampaign: null,
+	// RFC 0004 — opaque correlation id from the analytics SDK; null when
+	// the event was emitted outside any user interaction.
+	interactionId: input.interactionId || null,
+});
+
+export const usageReceiverPlugin: CollectorPlugin = {
+	name: "usage-receiver",
+	register(app, runtime) {
+		// CORS is handled by the framework-level /v1/* middleware.
+		// No per-route CORS needed here.
+
+		app.post("/v1/usage", async (c) => {
+			const projectId = getProjectId(c);
+			let payload: UsageEventPayload;
+			try {
+				payload = await c.req.json<UsageEventPayload>();
+			} catch {
+				return c.json({ error: "Invalid JSON body" }, 400);
+			}
+			const rawEvents = payload.events || [];
+			if (rawEvents.length > 200) {
+				return c.json(
+					{ error: `Too many events: ${rawEvents.length} (max 200)` },
+					413,
+				);
+			}
+			const validInputs = rawEvents.filter((event): event is UsageEventInput =>
+				Boolean(
+					event?.type && event?.name && event?.sessionId && event?.visitorId,
+				),
+			);
+
+			const receivedAt = new Date();
+			const retentionHours = getConfiguredRetentionHours(c.env.RETENTION_HOURS);
+			const country = c.req.header("X-Client-Country") || null;
+			const records = validInputs.map((event) =>
+				toUsageRecord(
+					event,
+					c.req.header("User-Agent") || null,
+					country,
+					receivedAt,
+					projectId,
+					retentionHours,
+				),
+			);
+
+			const processed = await runtime.runUsageEventProcessors(
+				records,
+				runtime.createRouteContext(c.env, c),
+			);
+			const store = runtime.createUsageStore(c.env);
+			const result = await runtime.withChildSpan(
+				"usage.ingest",
+				async (span) => {
+					const r = await store.ingest(processed);
+					span.setAttribute("usage.events_received", rawEvents.length);
+					span.setAttribute("usage.events_valid", validInputs.length);
+					span.setAttribute("usage.events_inserted", r.inserted);
+					span.setAttribute("usage.session_count", r.sessionCount);
+					span.setAttribute("project.id", projectId);
+					return r;
+				},
+			);
+
+			return c.json({
+				success: true,
+				inserted: result.inserted,
+				sessionCount: result.sessionCount,
+				acceptedWindowHours: DEFAULT_WINDOW_HOURS,
+			});
+		});
+	},
+};

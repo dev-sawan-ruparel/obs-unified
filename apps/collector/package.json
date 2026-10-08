@@ -1,0 +1,22 @@
+{
+	"name": "@obs-demo/collector",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev --port 8790 --test-scheduled",
+		"db:setup": "node scripts/migrate.mjs --local",
+		"db:migrate": "node scripts/migrate.mjs --local",
+		"db:migrate:remote": "node scripts/migrate.mjs --remote"
+	},
+	"dependencies": {
+		"@obsunified/collector": "workspace:*",
+		"@obsunified/telemetry-sdk": "workspace:*",
+		"@obsunified/types": "workspace:*",
+		"hono": "^4.12.11"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260405.1",
+		"typescript": "^6.0.2",
+		"wrangler": "^4.80.0"
+	}
+}

@@ -1,0 +1,114 @@
+/*
+ * obs-unified design tokens — "The Technical Monolith"
+ *
+ * Source of truth for color and typography across every obs-unified
+ * surface: product UI, docs, marketing. See DESIGN.md in the repo root
+ * for the full design system narrative; this file is the executable
+ * version of the same decisions.
+ *
+ * Tokens follow the Material 3 `sys` naming for color so they can be
+ * consumed by either Tailwind v4 (@theme) or vanilla CSS.
+ */
+
+:root {
+	/* ── Surface ladder ──────────────────────────────────────────────
+	 * Treat the UI as stacked sheets of high-grade paper. Boundaries
+	 * are tonal, never a 1px border. */
+	--color-sys-bg: #f9f9f9;
+	--color-sys-surface: #ffffff;
+	--color-sys-surface-low: #f3f3f3;
+	--color-sys-surface-high: #e8e8e8;
+
+	/* ── Brand ──────────────────────────────────────────────────────
+	 * Terminal green. Never blue/violet. The micro-gradient
+	 * (primary → primary-container at 135°) is reserved for primary
+	 * CTAs and the brand mark fill. */
+	--color-sys-primary: #006b18;
+	--color-sys-primary-container: #008821;
+
+	/* ── Status ─────────────────────────────────────────────────────
+	 * Red is critical-only; warning is for soft signals; accent is
+	 * the rare informational hue. */
+	--color-sys-error: #b7102a;
+	--color-sys-warning: #a56100;
+	--color-sys-accent: #17497b;
+
+	/* ── Text on surfaces ───────────────────────────────────────────
+	 * Maintain ≥7:1 against the active surface for body. */
+	--color-sys-on-surface: #1a1c1c;
+	--color-sys-on-surface-muted: #4e5555;
+	--color-sys-on-surface-subtle: #6b7171;
+
+	/* ── Outlines ───────────────────────────────────────────────────
+	 * Only used as the "ghost border" accessibility fallback at 15%
+	 * opacity. Never use as a normal divider. */
+	--color-sys-outline: #bdcbb6;
+	--color-sys-outline-soft: #e5e7e3;
+
+	/* ── Typography ─────────────────────────────────────────────────
+	 * Inter Variable for all chrome; ui-monospace for numerics and
+	 * code. Never Roboto, never SF Pro. */
+	--font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui,
+		sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+		"Segoe UI Symbol", "Noto Color Emoji";
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", "Courier New", monospace;
+
+	/* ── Brand-mark treatment ───────────────────────────────────────
+	 * The 13px / 700 / UPPERCASE / 0.14em tracking spec from
+	 * DESIGN.md §3. Apply via .brand-mark wherever obs-unified
+	 * appears as a logotype in chrome. */
+	--brand-mark-size: 13px;
+	--brand-mark-weight: 700;
+	--brand-mark-tracking: 0.14em;
+
+	/* ── Radius ─────────────────────────────────────────────────────
+	 * The Radius is Zero. */
+	--radius: 0;
+}
+
+/* Dark theme — opt in via <html data-theme="dark">.
+ * Inverts the surface ladder while keeping terminal-green primary
+ * and system red intact. Hand-tuned to preserve WCAG contrast. */
+html[data-theme="dark"] {
+	--color-sys-bg: #0e1110;
+	--color-sys-surface: #15191a;
+	--color-sys-surface-low: #1c2122;
+	--color-sys-surface-high: #262c2d;
+	--color-sys-primary: #2ba644;
+	--color-sys-primary-container: #38c254;
+	--color-sys-error: #e0556a;
+	--color-sys-warning: #d89248;
+	--color-sys-accent: #4f8fcb;
+	--color-sys-on-surface: #e6e9e7;
+	--color-sys-on-surface-muted: #9ca5a2;
+	--color-sys-on-surface-subtle: #6e7773;
+	--color-sys-outline: #2d3a30;
+	--color-sys-outline-soft: #1f2622;
+}
+
+/* Zero-radius enforcement — matches the @layer base reset in theme.css.
+ * The Radius is Zero. If you need a circle, use an SVG. */
+* {
+	border-radius: 0 !important;
+}
+
+/* Brand mark utility — the chrome-level logotype treatment. */
+.brand-mark {
+	font-family: var(--font-sans);
+	font-size: var(--brand-mark-size);
+	font-weight: var(--brand-mark-weight);
+	letter-spacing: var(--brand-mark-tracking);
+	text-transform: uppercase;
+	color: var(--color-sys-on-surface);
+}
+
+/* Primary CTA micro-gradient — terminal-phosphor glow on hover. */
+.bg-micro-gradient,
+.hover\:bg-micro-gradient:hover {
+	background: linear-gradient(
+		135deg,
+		var(--color-sys-primary) 0%,
+		var(--color-sys-primary-container) 100%
+	);
+}

@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "../..",
+		"outDir": "dist",
+		"types": ["@cloudflare/workers-types", "node"],
+		"baseUrl": "../..",
+		"paths": {
+			"@obsunified/collector": ["packages/obs-collector/src/index.ts"],
+			"@obsunified/telemetry-sdk": ["packages/telemetry-sdk/src/index.ts"],
+			"@obsunified/types": ["packages/obs-types/src/index.ts"],
+			"@obsunified/types/constants": ["packages/obs-types/src/constants.ts"]
+		}
+	},
+	"include": ["src"]
+}

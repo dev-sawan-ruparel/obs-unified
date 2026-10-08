@@ -1,0 +1,32 @@
+{
+	"name": "@obs-demo/web",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"screenshots:marketing": "node scripts/capture-marketing-screenshots.mjs",
+		"test:e2e": "playwright test features.spec.ts",
+		"test:e2e:all": "playwright test"
+	},
+	"dependencies": {
+		"@obsunified/analytics-sdk": "workspace:*",
+		"@obsunified/brand": "workspace:*",
+		"@obsunified/dashboard": "workspace:*",
+		"@obsunified/types": "workspace:*",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"rrweb": "2.0.0-alpha.20",
+		"rrweb-player": "2.0.0-alpha.20"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.59.1",
+		"@tailwindcss/vite": "^4.2.2",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.1",
+		"tailwindcss": "^4.2.2",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.5"
+	}
+}
