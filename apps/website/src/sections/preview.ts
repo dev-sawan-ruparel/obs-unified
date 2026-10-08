@@ -1,13 +1,9 @@
 import { GITHUB_REPO_LINK, EXAMPLES_URL, GETTING_STARTED_URL, SDK_DOCS_URL } from "../config";
 
-const FIRST_RUN = `# Fastest first run
-docker run --rm -p 5173:5173 -p 8790:8790 \\
-  ghcr.io/dev-sawan-ruparel/local:latest
-
-# Editable local repo
+const FIRST_RUN = `# Build and run the local stack
 git clone ${GITHUB_REPO_LINK}.git
 cd obs-unified
-pnpm install
+pnpm install --frozen-lockfile
 pnpm local:image
 pnpm local:run`;
 
@@ -63,8 +59,8 @@ export function renderPreview(): string {
     </header>
     <div class="preview-grid">
       <div class="preview-card">
-        <div class="preview-step"><span class="step-num">1</span> Run the GHCR image</div>
-        <p class="preview-step-note">Pull the all-in-one image from GHCR, or build the same image from a clone.</p>
+        <div class="preview-step"><span class="step-num">1</span> Run the local stack</div>
+        <p class="preview-step-note">Build the all-in-one stack from the monorepo.</p>
         ${code("bash", FIRST_RUN)}
       </div>
       <div class="preview-card">

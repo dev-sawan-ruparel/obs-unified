@@ -401,7 +401,7 @@ async function runDoctor(args: string[]) {
 				kleur.yellow(
 					`\nCouldn't reach a collector at ${url}.\n` +
 						`  • Is it running? Start one locally with: ${kleur.cyan("pnpm dev:collector")}\n` +
-						`  • Or boot the all-in-one image: ${kleur.cyan("docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/dev-sawan-ruparel/local:latest")}\n` +
+						`  • Or build and run the all-in-one image from a clone: ${kleur.cyan("pnpm local:image && pnpm local:run")}\n` +
 						`  • Then re-run this check against ${url}.`,
 				),
 			);

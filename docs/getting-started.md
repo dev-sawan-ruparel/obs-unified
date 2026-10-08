@@ -43,17 +43,12 @@ first run. For a component-level map of what this container runs, see
 
 ### 1. Launch
 
-Run the prebuilt image:
+Build and run from the personal monorepo:
 
 ```bash
-docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/dev-sawan-ruparel/local:latest
-```
-
-The image is public, so anonymous pulls need no GitHub account or token. If
-your network blocks `ghcr.io` — or you'd rather build from source — build and
-start the same image from a checkout:
-
-```bash
+git clone https://github.com/dev-sawan-ruparel/obs-unified.git
+cd obs-unified
+pnpm install --frozen-lockfile
 pnpm local:image
 pnpm local:run
 ```
@@ -88,7 +83,7 @@ docker run --rm \
   -p 8790:8790 \
   -v obs-unified-local-db:/var/lib/postgresql \
   -v obs-unified-local-blobs:/data \
-  ghcr.io/dev-sawan-ruparel/local:latest
+  obs-unified/local:dev
 ```
 
 ### 4. Verify the First-Run Path
