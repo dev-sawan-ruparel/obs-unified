@@ -23,4 +23,4 @@ This template only sends browser analytics. Pair it with any of:
 - Your existing backend, instrumented per the
   [Tier 1 SDK docs](https://obs-unified-docs.dev/docs/instrumenting) or one of
   the
-  [Tier 3 recipes](https://github.com/obs-unified/obs-unified/tree/main/docs/recipes).
+  [Tier 3 recipes](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/docs/recipes).

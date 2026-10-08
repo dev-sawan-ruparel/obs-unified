@@ -1,18 +1,8 @@
 #!/usr/bin/env node
 /*
- * messaging:sync — push the manifest into the sibling repos that consume it.
- *
- * Like @obsunified/brand's sync-to-projects, the docs / presence / skills repos
- * are sibling checkouts, not workspace members, so they can't import this
- * package. We write a vendored copy they commit as an ordinary file, plus a
- * generated TS module for presence to import. Each satellite ships its own
- * messaging:check that reads the vendored copy — so CI in those repos needs no
- * access to obs-unified.
- *
- *   node scripts/sync-to-projects.mjs           # write vendored copies
- *   node scripts/sync-to-projects.mjs --check   # fail if a vendored copy is stale
- *
- * Run after `messaging:generate`. Idempotent. Missing siblings are skipped.
+ * Generate messaging assets for the website, docs, and skills from the
+ * canonical manifest. All consumers are part of this monorepo; missing
+ * consumers are errors. Run with --check to verify committed assets.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -30,43 +20,41 @@ export type Messaging = typeof messaging;
 const TARGETS = [
 	{
 		name: "obs-unified-docs",
-		file: "obs-unified-docs/messaging.manifest.json",
+		file: "apps/docs/messaging.manifest.json",
 		content: manifestJson,
 	},
 	{
 		name: "obs-unified-skills",
-		file: "obs-unified-skills/messaging.manifest.json",
+		file: "skills/messaging.manifest.json",
 		content: manifestJson,
 	},
 	{
 		name: "presence (vendored json)",
-		file: "presence/public/messaging.manifest.json",
+		file: "apps/website/public/messaging.manifest.json",
 		content: manifestJson,
 	},
 	{
 		name: "presence (generated ts)",
-		file: "presence/src/content/messaging.generated.ts",
+		file: "apps/website/src/content/messaging.generated.ts",
 		content: tsModule,
 	},
 ];
 
 const check = process.argv.includes("--check");
-const requireAll = process.argv.includes("--require-all");
 let stale = 0;
 let wrote = 0;
 
 for (const t of TARGETS) {
 	const dest = resolve(WORKSPACE_ROOT, t.file);
-	const repoRoot = resolve(WORKSPACE_ROOT, t.file.split("/")[0]);
+	const repoRoot = resolve(
+		WORKSPACE_ROOT,
+		t.file.startsWith("apps/")
+			? t.file.split("/").slice(0, 2).join("/")
+			: "skills",
+	);
 	if (!existsSync(repoRoot)) {
-		if (requireAll) {
-			console.error(
-				`messaging:sync ERROR: sibling repo root "${repoRoot}" does not exist, but --require-all is set`,
-			);
-			process.exit(1);
-		}
-		console.log(`messaging:sync — skip ${t.name} (sibling not checked out)`);
-		continue;
+		console.error(`messaging:sync ERROR: missing monorepo consumer ${repoRoot}`);
+		process.exit(1);
 	}
 	if (check) {
 		const current = existsSync(dest) ? readFileSync(dest, "utf8") : null;

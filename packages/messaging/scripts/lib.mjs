@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const MESSAGING_DIR = resolve(__dirname, "..");
 export const REPO_ROOT = resolve(MESSAGING_DIR, "../.."); // obs-unified repo root
-export const WORKSPACE_ROOT = resolve(REPO_ROOT, ".."); // dir holding sibling repos
+export const WORKSPACE_ROOT = REPO_ROOT; // all product surfaces live in this repository
 export const MANIFEST_PATH = join(MESSAGING_DIR, "manifest.json");
 
 function read(rel) {

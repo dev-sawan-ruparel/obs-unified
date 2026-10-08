@@ -40,13 +40,13 @@ We deliberately excluded **performance benchmarks** (ingest throughput, query la
 We build obs-unified, so this comparison is inherently interested. Rather than ask you to trust it, we make it checkable:
 
 - **Every claim is cited and quoted.** Each cell on the [landing-page table](https://obsunified.com#compare) footnotes into a `src-*` anchor on this page, and each anchor carries the vendor's own URL plus a verbatim quote. If the quote no longer matches the source, the claim is wrong — by construction.
-- **The audit is reproducible.** The quarterly refresh is a published harness, not a private spreadsheet: a runbook and a workflow script live in [`obs-unified-docs/scripts/`](https://github.com/obs-unified/obs-unified-docs/tree/main/scripts) (`COMPARISON_AUDIT.md` + `comparison-audit.workflow.js`). It parses this page into structured claims, re-fetches every vendor source, and assigns each claim a verdict (TRUE / PARTIALLY TRUE / OUTDATED / FALSE / UNVERIFIABLE). obs-unified is MIT-licensed, so anyone can run it and dispute a cell.
+- **The audit is reproducible.** The quarterly refresh is a published harness, not a private spreadsheet: a runbook and a workflow script live in [`obs-unified-docs/scripts/`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs/tree/main/scripts) (`COMPARISON_AUDIT.md` + `comparison-audit.workflow.js`). It parses this page into structured claims, re-fetches every vendor source, and assigns each claim a verdict (TRUE / PARTIALLY TRUE / OUTDATED / FALSE / UNVERIFIABLE). obs-unified is MIT-licensed, so anyone can run it and dispute a cell.
 - **The method is AI-assisted and human-verified.** Claims are extracted and re-checked against live vendor pages by automated agents; a maintainer reviews the verdicts and signs off before anything on this page changes. We disclose this rather than imply a human hand-checked all ~90 cells unaided.
 - **Scoring is non-judgmental, and we score ourselves too.** A "—" is not a demerit — it means the vendor doesn't sell that capability. obs-unified is held to the same axes, including [where it falls short](#where-obs-unified-fits).
 
 ### Right of reply <a id="right-of-reply" />
 
-If you work on one of these products — or you're a reader who spots a stale or wrong cell — please tell us and we'll fix it. Open a **[Comparison correction](https://github.com/obs-unified/obs-unified/issues/new?template=comparison_correction.yml)** issue; the template asks for the cell, the current vs. correct claim, and a vendor source URL. We aim to respond within five working days, and every accepted correction is logged below.
+If you work on one of these products — or you're a reader who spots a stale or wrong cell — please tell us and we'll fix it. Open a **[Comparison correction](https://github.com/dev-sawan-ruparel/obs-unified/issues/new?template=comparison_correction.yml)** issue; the template asks for the cell, the current vs. correct claim, and a vendor source URL. We aim to respond within five working days, and every accepted correction is logged below.
 
 ### Corrections <a id="corrections" />
 
@@ -90,7 +90,7 @@ The ten capability axes used in the landing-page table:
 
 ## obs-unified
 
-Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage interface](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-interface.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, profiles, Agent Action Graphs, and an MCP server in one stack with one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile. The [Connected Rail](/docs/what-to-expect#the-connected-rail) is the human-facing version of that graph; the [MCP server](/docs/mcp-server) is the agent-facing version. Free; you pay your own infra bill.
+Self-hosted on Cloudflare Workers + D1 + R2 (or Node + Postgres + S3 via the [storage interface](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/rfcs/0008-storage-interface.md)). Ships traces, logs, metrics, session replay (rrweb), AI/LLM observability, product analytics, alerts, profiles, Agent Action Graphs, and an MCP server in one stack with one telemetry graph agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile. The [Connected Rail](/docs/what-to-expect#the-connected-rail) is the human-facing version of that graph; the [MCP server](/docs/mcp-server) is the agent-facing version. Free; you pay your own infra bill.
 
 The rest of this page is the third-party comparison.
 
@@ -589,7 +589,7 @@ Per-GB ingest: traces $0.10/GB, logs $0.10/GB, metrics $0.025 per million datapo
 
 ### Distributed traces / APM <a id="src-up-otlp" />
 
-OTLP-native. (The internal [obs-unified Uptrace migration doc](https://github.com/obs-unified/obs-unified/blob/main/docs/comparison/uptrace.md) notes Uptrace supports OTLP/gRPC and OTLP/HTTP; obs-unified is OTLP/HTTP-only as of this writing.)
+OTLP-native. (The internal [obs-unified Uptrace migration doc](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison/uptrace.md) notes Uptrace supports OTLP/gRPC and OTLP/HTTP; obs-unified is OTLP/HTTP-only as of this writing.)
 
 - Source: [Uptrace product](https://uptrace.dev/)
 - > *"OpenTelemetry-native observability platform"* — *"Uptrace unifies traces, metrics, and logs in a single platform."*
@@ -715,7 +715,7 @@ The vendors split along their primary storage backend, and that split shows up i
 - **Proprietary backends** ([Datadog](#src-dd-pricing), [New Relic](#src-nr-pricing)) meter on dimensions that map to their internal cost model (per host, per indexed event, per GB ingest + per user) and bill at higher per-unit rates.
 - **Wide-event store** ([Honeycomb](#src-hc-pricing)) is a third shape — single event store with event-volume pricing.
 - **PostHog** uses ClickHouse internally for events but exposes per-product SKUs ([per event, per recording, per LLM span](#src-ph-pricing)) rather than per-GB; storage shape and pricing shape are decoupled here.
-- **obs-unified** deliberately does **not** use ClickHouse. The default backend is **SQLite via Cloudflare D1**, with a Postgres adapter via the [storage interface](https://github.com/obs-unified/obs-unified/blob/main/rfcs/0008-storage-interface.md). The trade-off: D1 caps at ~100M hot rows per project (then archive sweep or move to Postgres), in exchange for zero operational cost on the Workers tier and a single-image local deploy.
+- **obs-unified** deliberately does **not** use ClickHouse. The default backend is **SQLite via Cloudflare D1**, with a Postgres adapter via the [storage interface](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/rfcs/0008-storage-interface.md). The trade-off: D1 caps at ~100M hot rows per project (then archive sweep or move to Postgres), in exchange for zero operational cost on the Workers tier and a single-image local deploy.
 
 The right backend depends on what you're optimizing for. ClickHouse pays off for high-cardinality search across billions of rows. SQLite/D1 pays off for projects whose hot-data ceiling is bounded and who want a single-binary or single-Worker deploy. No one shape is universally better.
 
@@ -767,7 +767,7 @@ The trade-offs working against obs-unified versus this set:
 
 - **Maturity** — early. Production deployments are limited; storage scale is bounded by the SqlDb adapter you pick (D1 caps at ~100M hot rows; Postgres is fine to billions).
 - **OTLP/gRPC** — not yet (OTLP/HTTP only as of this writing). Migrate gRPC exporters to HTTP or front with an OTel Collector.
-- **SSO / RBAC** — single-password auth today (see [Auth & multi-tenancy gap](https://github.com/obs-unified/obs-unified/blob/main/docs/comparison/uptrace.md#auth-multi-tenancy-governance) in the Uptrace comparison).
+- **SSO / RBAC** — single-password auth today (see [Auth & multi-tenancy gap](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison/uptrace.md#auth-multi-tenancy-governance) in the Uptrace comparison).
 - **Free-form dashboards / query language** — Analyses are LLM-narrative-shaped, not panel-shaped. There's no PromQL/NRQL/UQL equivalent.
 - **Generic infra metrics** — the Resources dashboard is Cloudflare-shaped first, with Linux-host mode added via the OTel `hostmetricsreceiver`. Non-Linux non-Cloudflare deployments have less curated coverage.
 
@@ -777,4 +777,4 @@ These are the right axes to weigh obs-unified on. If any of the above are blocke
 
 The current review date lives in the callout at the top of this page — that is the **single source of truth** (the landing-page footnotes inherit it). Reviews are quarterly. On each refresh, every cited URL is re-fetched; any claim whose cited evidence has changed is updated, downgraded, or removed, and the change is logged under [Corrections](#corrections).
 
-The refresh is run with the reproducible audit harness in [`obs-unified-docs/scripts/`](https://github.com/obs-unified/obs-unified-docs/tree/main/scripts) (`COMPARISON_AUDIT.md` runbook + `comparison-audit.workflow.js`). Because obs-unified is open source, anyone can run it and dispute a cell.
+The refresh is run with the reproducible audit harness in [`obs-unified-docs/scripts/`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs/tree/main/scripts) (`COMPARISON_AUDIT.md` runbook + `comparison-audit.workflow.js`). Because obs-unified is open source, anyone can run it and dispute a cell.

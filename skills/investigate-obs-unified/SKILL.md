@@ -22,7 +22,7 @@ over narrative summaries:
 ## When this is the wrong skill
 
 - The user wants to instrument an app → `instrument-obs-unified`.
-- The user wants to deploy the obs-unified collector/dashboard itself → obs-unified repo's [README → "Deploy the Collector"](https://github.com/obs-unified/obs-unified/blob/main/README.md#1-deploy-the-collector).
+- The user wants to deploy the obs-unified collector/dashboard itself → obs-unified repo's [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector).
 - The user wants to read a stack trace from a single error message they pasted → just answer normally; don't ping the collector.
 - The user wants conceptual / API-shape questions about obs-unified packages → just read the source / READMEs directly.
 

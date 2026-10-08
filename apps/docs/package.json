@@ -16,16 +16,16 @@
 		"messaging:check": "node scripts/messaging-check.mjs",
 		"start": "serve ./build/client --config ./serve.json",
 		"types:check": "react-router typegen && fumadocs-mdx && tsc --noEmit",
-		"deploy": "pnpm build && wrangler pages deploy ./build/client --project-name=obsunified-docs --branch=main --commit-dirty=true",
-		"deploy:preview": "pnpm build && wrangler pages deploy ./build/client --project-name=obsunified-docs --branch=preview --commit-dirty=true",
+		"deploy": "pnpm build && pnpm dlx wrangler@4 pages deploy ./build/client --project-name=obsunified-docs --branch=main --commit-dirty=true",
+		"deploy:preview": "pnpm build && pnpm dlx wrangler@4 pages deploy ./build/client --project-name=obsunified-docs --branch=preview --commit-dirty=true",
 		"postinstall": "fumadocs-mdx"
 	},
 	"dependencies": {
 		"@orama/orama": "^3.1.18",
 		"@react-router/node": "^7.15.0",
-		"fumadocs-core": "latest",
-		"fumadocs-mdx": "latest",
-		"fumadocs-ui": "latest",
+		"fumadocs-core": "16.8.10",
+		"fumadocs-mdx": "15.0.3",
+		"fumadocs-ui": "16.8.10",
 		"isbot": "^5.1.40",
 		"lucide-react": "^1.14.0",
 		"mermaid": "^11.12.0",
@@ -47,10 +47,5 @@
 		"tailwindcss": "^4.3.0",
 		"typescript": "^6.0.3",
 		"vite": "^8.0.11"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": [
-			"esbuild"
-		]
 	}
 }

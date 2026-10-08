@@ -1,7 +1,7 @@
 # @obsunified/telemetry-sdk
 
 Server-side telemetry SDK for
-[obs-unified](https://github.com/obs-unified/obs-unified). OTLP spans,
+[obs-unified](https://github.com/dev-sawan-ruparel/obs-unified). OTLP spans,
 structured logger, AI/LLM helpers, `interaction_id` stamping, and Agent Action
 Graph primitives. Targets Cloudflare Workers, Node.js, Bun, and Deno; the
 Workers binding wrappers live under the `./cloudflare` subpath.

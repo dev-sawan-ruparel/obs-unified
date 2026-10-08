@@ -5,3 +5,7 @@
 /.react-router/
 /build/
 .source
+
+.env
+.env.*
+!.env.example

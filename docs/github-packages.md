@@ -29,7 +29,7 @@ the `@obsunified/*` packages to npmjs.
 Go and Rust do not use npm:
 
 ```bash
-go get github.com/obs-unified/obs-unified/sdks/go@latest
+go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest
 ```
 
 ```bash

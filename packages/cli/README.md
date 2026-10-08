@@ -1,7 +1,7 @@
 # @obsunified/cli
 
 Command-line entry point for
-[obs-unified](https://github.com/obs-unified/obs-unified).
+[obs-unified](https://github.com/dev-sawan-ruparel/obs-unified).
 
 ```bash
 obs-unified up                       # spin up the repo-local collector stack

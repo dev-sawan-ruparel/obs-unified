@@ -7,7 +7,14 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!packages/messaging/manifest.json"]
+		"includes": [
+			"**",
+			"!packages/messaging/manifest.json",
+			"!apps/website",
+			"!apps/docs",
+			"!skills",
+			"!infra"
+		]
 	},
 	"formatter": {
 		"enabled": true,

@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const tracerName = "github.com/obs-unified/obs-unified/sdks/go"
+const tracerName = "github.com/dev-sawan-ruparel/obs-unified/sdks/go"
 
 func tracer() trace.Tracer { return otel.Tracer(tracerName) }
 

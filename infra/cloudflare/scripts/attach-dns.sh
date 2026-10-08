@@ -13,7 +13,7 @@
 #   trigger the auto-create path).
 #
 # Idempotent: existing records with matching name are PUT-updated.
-# Reads CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID from ci/.env.deploy.
+# Reads CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID from infra/cloudflare/.env.deploy.
 # Run scripts/check-env.sh first to verify the token works.
 
 set -euo pipefail
@@ -22,16 +22,16 @@ if [[ "${1-}" == "--help" || "${1-}" == "-h" ]]; then
   awk '/^#!/{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0
 fi
 
-CI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Auto-source .env.deploy if present so the user doesn't have to export manually.
-if [[ -f "$CI_ROOT/.env.deploy" ]]; then
+if [[ -f "$DEPLOY_ROOT/.env.deploy" ]]; then
   set -o allexport
   # shellcheck source=/dev/null
-  source "$CI_ROOT/.env.deploy"
+  source "$DEPLOY_ROOT/.env.deploy"
   set +o allexport
 fi
 
-: "${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN in $CI_ROOT/.env.deploy (Zone:DNS:Edit on obsunified.com)}"
+: "${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN in $DEPLOY_ROOT/.env.deploy (Zone:DNS:Edit on obsunified.com)}"
 ZONE="${CLOUDFLARE_ZONE_ID:?CLOUDFLARE_ZONE_ID missing from .env.deploy}"
 
 upsert() {

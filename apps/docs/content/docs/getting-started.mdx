@@ -36,7 +36,7 @@ This packages the full local stack into one container. It is the lowest-friction
 Run the prebuilt image:
 
 ```bash
-docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
+docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/dev-sawan-ruparel/local:latest
 ```
 
 Or build and start it from a checkout:
@@ -77,7 +77,7 @@ docker run --rm \
   -p 8790:8790 \
   -v obs-unified-local-db:/var/lib/postgresql \
   -v obs-unified-local-blobs:/data \
-  ghcr.io/obs-unified/local:latest
+  ghcr.io/dev-sawan-ruparel/local:latest
 ```
 
 Verify the full first-run path:
@@ -93,7 +93,7 @@ The smoke test builds the image, boots a fresh container, seeds data, and verifi
 Use this when you are modifying dashboard code, collector code, or SDK packages.
 
 ```bash
-git clone https://github.com/obs-unified/obs-unified.git
+git clone https://github.com/dev-sawan-ruparel/obs-unified.git
 cd obs-unified
 pnpm install
 pnpm run setup

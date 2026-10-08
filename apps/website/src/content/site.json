@@ -1,41 +1,41 @@
 {
   "hero": {
-    "eyebrow": "Open source · MIT licensed",
+    "eyebrow": "Open source \u00b7 MIT licensed",
     "titleLine": "A telemetry graph",
     "accent": "agents can actually debug with.",
-    "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. The evidence retrieval layer applies <strong>CCR</strong> — compressed context retrieval — so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
-    "lead": "Debug AI agents, and help AI agents debug software. Observability Unified turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into one evidence graph. The evidence retrieval layer applies CCR — compressed context retrieval — so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
-    "metaLabelHtml": "<strong>SDKs + MCP</strong> TypeScript · Go · Rust · browser · agents",
-    "metaLabel": "SDKs + MCP TypeScript · Go · Rust · browser · agents",
+    "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. The evidence retrieval layer applies <strong>CCR</strong> \u2014 compressed context retrieval \u2014 so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
+    "lead": "Debug AI agents, and help AI agents debug software. Observability Unified turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into one evidence graph. The evidence retrieval layer applies CCR \u2014 compressed context retrieval \u2014 so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Start locally with one Docker image. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
+    "metaLabelHtml": "<strong>SDKs + MCP</strong> TypeScript \u00b7 Go \u00b7 Rust \u00b7 browser \u00b7 agents",
+    "metaLabel": "SDKs + MCP TypeScript \u00b7 Go \u00b7 Rust \u00b7 browser \u00b7 agents",
     "metaLinkLabel": "SDK docs",
     "identityLabel": "Identity propagated end-to-end:",
-    "identityChain": "user_id → session_id → interaction_id → trace_id → span_id → action_id",
+    "identityChain": "user_id \u2192 session_id \u2192 interaction_id \u2192 trace_id \u2192 span_id \u2192 action_id",
     "identityBody": "The interaction ID follows a frontend action into backend spans, logs, AI calls, actions, evals, and MCP tools; CPU/off-CPU profiles join through the trace it caused.",
     "imageAlt": "Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence",
     "figcaptionTitle": "Agent Action Graph",
     "figcaptionBody": "See what an agent did, what each step caused, which evidence is explicit or inferred, and which trace, log, replay, AI cost, tool, eval, or profile explains the result."
   },
   "features": {
-    "eyebrow": "One collector · one identity chain · dashboard + MCP",
+    "eyebrow": "One collector \u00b7 one identity chain \u00b7 dashboard + MCP",
     "title": "Unified observability means every signal knows its neighbors.",
     "lead": "Observability Unified replaces the patchwork of APM + logging + product analytics + session replay + LLM observability + alerting with one unified stack, correlated through a single identity chain and explorable through the dashboard, action graph, structured evidence references, or MCP tools.",
     "items": [
       {
         "capabilityId": "traces",
         "title": "Distributed tracing",
-        "body": "OTLP-native ingest. Spans, baggage, and propagation work with first-party Node, Go, and Rust SDKs — and any OpenTelemetry SDK over OTLP.",
+        "body": "OTLP-native ingest. Spans, baggage, and propagation work with first-party Node, Go, and Rust SDKs \u2014 and any OpenTelemetry SDK over OTLP.",
         "icon": "<path d=\"M3 6h6M3 12h12M3 18h9\"/><circle cx=\"18\" cy=\"6\" r=\"2\"/><circle cx=\"18\" cy=\"12\" r=\"2\"/><circle cx=\"18\" cy=\"18\" r=\"2\"/>"
       },
       {
         "capabilityId": "logs",
         "title": "Structured logs",
-        "body": "JSON logs with severity, automatic trace correlation, and per-module loggers. Auto-attached to the active span — no copy-paste IDs.",
+        "body": "JSON logs with severity, automatic trace correlation, and per-module loggers. Auto-attached to the active span \u2014 no copy-paste IDs.",
         "icon": "<path d=\"M4 6h16M4 12h16M4 18h10\"/>"
       },
       {
         "capabilityId": "ai",
         "title": "AI and agent actions",
-        "body": "LLM calls, retrievals, tool calls, agent runs, eval cases, tokens, USD cost, latency, and failure category — all linked into one causal action graph.",
+        "body": "LLM calls, retrievals, tool calls, agent runs, eval cases, tokens, USD cost, latency, and failure category \u2014 all linked into one causal action graph.",
         "icon": "<path d=\"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>"
       },
       {
@@ -53,7 +53,7 @@
       {
         "capabilityId": "usage",
         "title": "Usage analytics",
-        "body": "Page views, interactions, errors, UTM parameters, and identity stitching — the product-analytics layer, in the same store as your traces.",
+        "body": "Page views, interactions, errors, UTM parameters, and identity stitching \u2014 the product-analytics layer, in the same store as your traces.",
         "icon": "<path d=\"M3 20h18M6 16v-6M11 16V8M16 16v-3M21 16v-9\"/>"
       },
       {
@@ -65,7 +65,7 @@
       {
         "capabilityId": "alerts",
         "title": "Alerts",
-        "body": "Alert rules over any signal — latency, error rate, AI spend, custom usage events. One rules engine and one notification surface across the stack.",
+        "body": "Alert rules over any signal \u2014 latency, error rate, AI spend, custom usage events. One rules engine and one notification surface across the stack.",
         "icon": "<path d=\"M12 2a7 7 0 0 0-7 7v4l-2 3h18l-2-3V9a7 7 0 0 0-7-7z\"/><path d=\"M9 18a3 3 0 0 0 6 0\"/>"
       },
       {
@@ -83,7 +83,7 @@
     ]
   },
   "ccr": {
-    "eyebrow": "Evidence retrieval · CCR",
+    "eyebrow": "Evidence retrieval \u00b7 CCR",
     "title": "Give the agent investigation-ready context, not a telemetry dump.",
     "lead": "CCR means compressed context retrieval: the collector clusters repetitive logs, selects exemplars, ranks failed spans and critical paths, correlates traces/actions/profiles/replay, and hands the agent explicit retrieval refs for deeper inspection. The agent still controls expansion; the platform just makes the first packet useful.",
     "beforeTitle": "Raw-tool debugging makes the agent ask for everything.",
@@ -117,7 +117,6 @@
       }
     ],
     "benchmarkCommand": "pnpm benchmark:ccr",
-    "benchmarkDocUrl": "https://github.com/obs-unified/obs-unified/blob/main/docs/benchmarks/evidence-retrieval-ccr.md",
     "benchmarkDocLabel": "Read the benchmark methodology and raw output",
     "benchmarkCases": [
       {
@@ -210,8 +209,7 @@
   "seo": {
     "siteUrl": "https://obsunified.com/",
     "docsUrl": "https://docs.obsunified.com/docs",
-    "githubUrl": "https://github.com/obs-unified/obs-unified",
-    "title": "Observability Unified — a telemetry graph agents can debug with",
+    "title": "Observability Unified \u2014 a telemetry graph agents can debug with",
     "description": "Self-hosted observability for debugging AI agents and helping AI agents debug software with CCR evidence bundles across traces, logs, replay, AI cost, action graphs, MCP tools, evals, and CPU profiles.",
     "ogImageAlt": "Observability Unified telemetry graph for debugging AI agents and helping agents debug software",
     "ogCaption": "Observability Unified telemetry graph for debugging AI agents and helping AI agents debug software"

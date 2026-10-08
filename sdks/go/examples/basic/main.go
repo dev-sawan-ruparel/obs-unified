@@ -17,7 +17,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	obs "github.com/obs-unified/obs-unified/sdks/go"
+	obs "github.com/dev-sawan-ruparel/obs-unified/sdks/go"
 )
 
 func main() {

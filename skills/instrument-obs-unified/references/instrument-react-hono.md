@@ -7,9 +7,9 @@ every browser interaction propagates through to a backend trace, AI calls
 show up in the AI tab with cost / tokens, and structured logs link back to
 their originating request.
 
-For other runtimes (Python, JVM, .NET) see [docs/recipes/](https://github.com/obs-unified/obs-unified/blob/main/docs/recipes/).
+For other runtimes (Python, JVM, .NET) see [docs/recipes/](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/).
 For deeper detail on the backend SDK specifically, see
-[INSTRUMENTATION_GUIDE.md](https://github.com/obs-unified/obs-unified/blob/main/packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md).
+[INSTRUMENTATION_GUIDE.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md).
 
 ## What you'll have when done
 
@@ -253,7 +253,7 @@ Richer AI flows have matching helpers:
 | `startAgentSpan` | Agent loop root |
 
 > Don't use `trackAICall()` for new code. It's marked `@deprecated` in
-> [packages/telemetry-sdk/src/ai.ts](https://github.com/obs-unified/obs-unified/blob/main/packages/telemetry-sdk/src/ai.ts)
+> [packages/telemetry-sdk/src/ai.ts](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/src/ai.ts)
 > — predates the OpenInference helpers and only writes the legacy `ai_calls`
 > table.
 
@@ -332,12 +332,12 @@ a propagation delay, alert if the expected spans are missing.
 ## Reference
 
 - Frontend SDK:
-  [packages/analytics-sdk/README.md](https://github.com/obs-unified/obs-unified/blob/main/packages/analytics-sdk/README.md)
+  [packages/analytics-sdk/README.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/analytics-sdk/README.md)
 - Backend SDK quick start:
-  [packages/telemetry-sdk/README.md](https://github.com/obs-unified/obs-unified/blob/main/packages/telemetry-sdk/README.md)
+  [packages/telemetry-sdk/README.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/README.md)
 - Backend SDK deep guide:
-  [packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md](https://github.com/obs-unified/obs-unified/blob/main/packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md)
-- Interaction-id spec: [docs/spec/interaction-id.md](https://github.com/obs-unified/obs-unified/blob/main/docs/spec/interaction-id.md)
-- Non-Node / non-browser runtimes: [docs/recipes/](https://github.com/obs-unified/obs-unified/blob/main/docs/recipes/)
+  [packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md)
+- Interaction-id spec: [docs/spec/interaction-id.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/spec/interaction-id.md)
+- Non-Node / non-browser runtimes: [docs/recipes/](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/)
 - Full working example: the planned shop-demo repo, see
-  [docs/implementation/shop-demo.md](https://github.com/obs-unified/obs-unified/blob/main/docs/implementation/shop-demo.md)
+  [docs/implementation/shop-demo.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/implementation/shop-demo.md)

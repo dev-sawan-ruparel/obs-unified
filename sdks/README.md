@@ -25,7 +25,7 @@ not coverage.
 
 ```bash
 pnpm add @obsunified/sdk
-go get github.com/obs-unified/obs-unified/sdks/go@latest
+go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest
 cargo add obs-unified
 ```
 

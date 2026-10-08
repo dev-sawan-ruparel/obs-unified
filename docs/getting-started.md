@@ -46,7 +46,7 @@ first run. For a component-level map of what this container runs, see
 Run the prebuilt image:
 
 ```bash
-docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/obs-unified/local:latest
+docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/dev-sawan-ruparel/local:latest
 ```
 
 The image is public, so anonymous pulls need no GitHub account or token. If
@@ -88,7 +88,7 @@ docker run --rm \
   -p 8790:8790 \
   -v obs-unified-local-db:/var/lib/postgresql \
   -v obs-unified-local-blobs:/data \
-  ghcr.io/obs-unified/local:latest
+  ghcr.io/dev-sawan-ruparel/local:latest
 ```
 
 ### 4. Verify the First-Run Path
@@ -113,7 +113,7 @@ you are modifying dashboard code, collector code, or SDK packages.
 Clone the repository and install workspace dependencies:
 
 ```bash
-git clone https://github.com/obs-unified/obs-unified.git
+git clone https://github.com/dev-sawan-ruparel/obs-unified.git
 cd obs-unified
 pnpm install
 ```

@@ -152,7 +152,7 @@ For the RFC implementation status of record, this file is the single source of t
 
 - [x] Machine-readable `manifest.json` containing package metadata, MCP tools, and governance enums.
 - [x] Auto-generation of code-derived facts (MCP tool registrations, packages, enums) and change checking in CI.
-- [x] Sync mechanism to vendor the manifest and generated facts to satellite repos (`presence`, `obs-unified-docs`, `obs-unified-skills`).
-- [x] Independent messaging parity check scripts and CI gates in all satellite repos.
+- [x] Sync mechanism to vendor the manifest and generated facts to monorepo surfaces (`apps/website`, `apps/docs`, `skills`).
+- [x] Messaging parity scripts validate every monorepo surface locally.
 - [x] Lint checks for Skills repository `SKILL.md` files asserting correct packages, tools, and fields.
 - [x] Complete synchronization of dev ingest keys and CLI command invocations across all repositories.

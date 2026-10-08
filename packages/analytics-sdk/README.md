@@ -1,7 +1,7 @@
 # @obsunified/analytics-sdk
 
 Browser analytics SDK for
-[obs-unified](https://github.com/obs-unified/obs-unified). Captures usage
+[obs-unified](https://github.com/dev-sawan-ruparel/obs-unified). Captures usage
 events, mints click-scoped `interaction_id` correlation keys, injects them on
 outbound `fetch`/XHR, and (optionally) records rrweb session replay chunks.
 

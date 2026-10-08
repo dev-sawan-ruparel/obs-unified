@@ -268,7 +268,7 @@ export const messaging = {
 		},
 		"glossary": {
 			"Observability Unified": "Display/brand name.",
-			"obs-unified": "Repo name (github.com/obs-unified/obs-unified) and the CLI binary name. Earlier releases also used @obs-unified as a GitHub-Packages npm scope; it is retired in favor of @obsunified on public npm.",
+			"obs-unified": "Repo name (github.com/dev-sawan-ruparel/obs-unified) and the CLI binary name. Earlier releases also used @obs-unified as a GitHub-Packages npm scope; it is retired in favor of @obsunified on public npm.",
 			"@obsunified": "npm scope for all public packages (SDKs, collector, CLI, dashboard, MCP server) on registry.npmjs.org.",
 			"Connected Rail": "The cross-signal pivot surface (HTTP /internal/connected/:kind/:id; MCP connected_signals).",
 			"CCR": "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",

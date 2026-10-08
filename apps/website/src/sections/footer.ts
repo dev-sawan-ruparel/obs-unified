@@ -3,7 +3,7 @@ import {
   EXAMPLES_URL,
   FOOTER_PACKAGES,
   GETTING_STARTED_URL,
-  GITHUB_URL,
+  GITHUB_REPO_LINK,
   PRODUCTION_OPS_URL,
   SDK_REFERENCE_URL,
 } from "../config";
@@ -28,7 +28,7 @@ export function renderFooter(): string {
       </p>
       <div class="footer-cta-row" aria-label="Primary project links">
         <a href="${GETTING_STARTED_URL}">Start locally</a>
-        <a href="${GITHUB_URL}">View source</a>
+        <a href="${GITHUB_REPO_LINK}">View source</a>
       </div>
     </div>
     <nav class="footer-nav" aria-label="Documentation">
@@ -55,7 +55,7 @@ export function renderFooter(): string {
   <div class="footer-bottom-wrap">
     <div class="container footer-bottom">
       <p class="muted small">© ${YEAR} Observability Unified</p>
-      <a class="footer-bottom-link" href="${GITHUB_URL}">GitHub</a>
+      <a class="footer-bottom-link" href="${GITHUB_REPO_LINK}">GitHub</a>
     </div>
   </div>
 </footer>

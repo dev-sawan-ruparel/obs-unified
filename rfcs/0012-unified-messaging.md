@@ -99,7 +99,7 @@ a fact**. The inventory below is the authoritative list the parity checks cover.
 ### GitHub (developer + contributor entry points)
 | Surface | Location | Carries | Governance |
 | --- | --- | --- | --- |
-| **Org profile README** | `github.com/obs-unified` (`.github` repo) | display name, tagline, signal/capability list, primary links | prose + check |
+| **Org profile README** | `github.com/dev-sawan-ruparel/obs-unified` (`.github` repo) | display name, tagline, signal/capability list, primary links | prose + check |
 | **Root README** | `obs-unified/README.md` | install, "What you get", MCP tool list, package names, deploy paths | check + gen snippets |
 | **Per-package READMEs** | `packages/*/README.md` (also render on the registry page) | package name, install command, tool list, field names | check |
 | **Repo "About" + topics** | GitHub repo metadata | tagline, keywords/topics | check |

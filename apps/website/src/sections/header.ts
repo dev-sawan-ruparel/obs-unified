@@ -1,4 +1,4 @@
-import { GETTING_STARTED_URL, GITHUB_URL } from "../config";
+import { GETTING_STARTED_URL, GITHUB_REPO_LINK } from "../config";
 
 export function renderHeader(): string {
   return `
@@ -19,7 +19,7 @@ export function renderHeader(): string {
       <a href="#preview">How it works</a>
       <a href="#compare">Compare</a>
       <a class="btn btn-ghost" href="${GETTING_STARTED_URL}">Docs</a>
-      <a class="btn btn-ghost" href="${GITHUB_URL}">GitHub</a>
+      <a class="btn btn-ghost" href="${GITHUB_REPO_LINK}">GitHub</a>
     </nav>
   </div>
 </header>

@@ -5,11 +5,11 @@
 	"homepage": "https://obsunified.com",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/obs-unified/obs-unified.git",
+		"url": "git+https://github.com/dev-sawan-ruparel/obs-unified.git",
 		"directory": "sdks/node"
 	},
 	"bugs": {
-		"url": "https://github.com/obs-unified/obs-unified/issues"
+		"url": "https://github.com/dev-sawan-ruparel/obs-unified/issues"
 	},
 	"author": "Sawan Ruparel",
 	"publishConfig": {

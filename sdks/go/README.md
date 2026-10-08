@@ -8,7 +8,7 @@ box.
 ## Install
 
 ```sh
-go get github.com/obs-unified/obs-unified/sdks/go@latest
+go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest
 ```
 
 ## Quickstart
@@ -22,7 +22,7 @@ import (
     "net/http"
     "os"
 
-    obs "github.com/obs-unified/obs-unified/sdks/go"
+    obs "github.com/dev-sawan-ruparel/obs-unified/sdks/go"
     "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -50,7 +50,7 @@ matching `otel*` package (`otelpgx`, `otelmongo`, etc.) — same pattern.
 ## LLM call instrumentation
 
 ```go
-import obs "github.com/obs-unified/obs-unified/sdks/go"
+import obs "github.com/dev-sawan-ruparel/obs-unified/sdks/go"
 
 response, err := obs.WithLLMSpan(ctx,
     obs.LLMOptions{
