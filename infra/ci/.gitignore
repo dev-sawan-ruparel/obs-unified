@@ -1,0 +1,19 @@
+# Downloaded runner tarball + extracted reference copy
+.runner-bin/
+*.tar.gz
+
+# Per-repo configured runners (each contains the actions-runner state + work dirs)
+runners/*/
+
+# Local env — never commit the file with the actual token
+.env
+.env.local
+.env.deploy
+.env.deploy.local
+!.env.deploy.example
+
+# Logs
+*.log
+logs/
+
+.DS_Store
