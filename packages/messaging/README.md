@@ -18,7 +18,7 @@ the docs site). This package makes the enumerable facts single-sourced and
 - `scripts/lib.mjs` — extractors (derive facts from code).
 - `scripts/generate.mjs` — rewrite the `derived` block; `--check` fails if stale.
 - `scripts/check.mjs` — fail when a lead-repo surface disagrees with the manifest.
-- `scripts/sync-to-projects.mjs` — vendor the manifest into sibling repos
+- `scripts/sync-to-projects.mjs` — vendor the manifest into monorepo surfaces
   (docs / presence / skills); `--check` fails if a vendored copy is stale.
 
 ## Commands (from repo root)
@@ -27,7 +27,7 @@ the docs site). This package makes the enumerable facts single-sourced and
 pnpm messaging:generate        # rewrite manifest.json derived block from code
 pnpm messaging:generate:check  # CI: fail if manifest is stale vs code
 pnpm messaging:check           # CI: fail if a lead surface drifted from manifest
-pnpm messaging:sync            # vendor the manifest into sibling repos
+pnpm messaging:sync            # vendor the manifest into monorepo surfaces
 ```
 
 ## Authority map
@@ -48,7 +48,7 @@ A contract / name / scope / status / feature change is done only when:
 1. the code change lands;
 2. the relevant `authored` fact / feature record is updated (if any);
 3. `pnpm messaging:generate` is rerun (manifest updated);
-4. `pnpm messaging:sync` is run (siblings updated);
+4. `pnpm messaging:sync` is run (all consumers updated);
 5. `pnpm messaging:check` and every satellite's `messaging:check` pass.
 
 ## Feature records

@@ -31,8 +31,8 @@ Output is ~10 KB gzipped (7 KB HTML / 3 KB CSS / 6 KB JS).
 The site deploys to **Cloudflare Pages** (project name: `obsunified`).
 
 ```bash
-pnpm deploy           # build + push to main
-pnpm deploy:preview   # build + push to a preview branch
+pnpm run deploy       # build + upload to production
+pnpm run deploy:preview # build + upload to preview
 ```
 
 Wrangler must be authenticated first (one-time): `wrangler login`. The Cloudflare Pages project (`obsunified`) and the `obsunified.com` custom domain are already configured. See [DEPLOY.md](./DEPLOY.md) for the full custom-domain + DNS walkthrough.
@@ -40,7 +40,7 @@ Wrangler must be authenticated first (one-time): `wrangler login`. The Cloudflar
 ## Structure
 
 ```
-presence/
+apps/website/
 ├── index.html                # head: meta, OG, Twitter, JSON-LD
 ├── wrangler.toml             # Cloudflare Pages config
 ├── DEPLOY.md                 # custom-domain + DNS setup
@@ -74,7 +74,7 @@ presence/
 - Open Graph + Twitter cards, canonical URL
 - Sitemap + robots with named AI crawlers (GPTBot, ClaudeBot, PerplexityBot…)
 
-## Sibling projects
+## Monorepo components
 
 | Repo | What it is |
 |---|---|
