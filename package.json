@@ -50,8 +50,8 @@
 		"skills:validate": "make -C skills validate",
 		"skills:build": "make -C skills build",
 		"check:surfaces": "pnpm messaging:generate:check && pnpm messaging:check && pnpm --filter @obsunified/messaging sync:check && pnpm --filter presence messaging:check && pnpm --filter obs-unified-docs messaging:check && make -C skills validate",
-		"deploy:website": "pnpm --filter presence deploy",
-		"deploy:docs": "pnpm --filter obs-unified-docs deploy"
+		"deploy:website": "pnpm --filter presence run deploy",
+		"deploy:docs": "pnpm --filter obs-unified-docs run deploy"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",
