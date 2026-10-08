@@ -76,7 +76,7 @@ import { logo, favicons, og, palette } from "@obsunified/brand";
 console.log(logo.mark); // → absolute path
 ```
 
-### From obs-unified-docs and presence (sibling repos)
+### From apps/docs and apps/website (workspace apps)
 
 These projects aren't part of the obs-unified pnpm workspace, so they consume
 assets via a one-shot copy into their `public/` directory:
