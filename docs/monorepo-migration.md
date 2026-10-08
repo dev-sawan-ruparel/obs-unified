@@ -39,7 +39,8 @@ use the independent commands in [release instructions](release.md) and
 
 The website and docs use existing Cloudflare Pages projects and domains:
 `pnpm deploy:website` and `pnpm deploy:docs`. Account and project names are
-set in each app's Wrangler config and recorded in `config/cloudflare.json`.
+recorded in `config/cloudflare.json`; the deployment helper loads the account
+through the environment and each Wrangler config selects its Pages project.
 
 Public npm names stay under `@obsunified`. Skill downloads use this repository's
 `skills-v0.1.1` release. The Go module now uses
