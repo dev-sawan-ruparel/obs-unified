@@ -16,8 +16,8 @@
 		"messaging:check": "node scripts/messaging-check.mjs",
 		"start": "serve ./build/client --config ./serve.json",
 		"types:check": "react-router typegen && fumadocs-mdx && tsc --noEmit",
-		"deploy": "pnpm build && pnpm dlx wrangler@4 pages deploy ./build/client --project-name=obsunified-docs --branch=main --commit-dirty=true",
-		"deploy:preview": "pnpm build && pnpm dlx wrangler@4 pages deploy ./build/client --project-name=obsunified-docs --branch=preview --commit-dirty=true",
+		"deploy": "node ../../scripts/deploy-pages.mjs docs",
+		"deploy:preview": "node ../../scripts/deploy-pages.mjs docs --preview",
 		"postinstall": "fumadocs-mdx"
 	},
 	"dependencies": {
