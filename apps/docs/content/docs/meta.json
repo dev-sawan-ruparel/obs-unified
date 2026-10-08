@@ -1,0 +1,20 @@
+{
+	"title": "obs-unified",
+	"description": "Install, instrument, and read unified observability across every signal.",
+	"pages": [
+		"index",
+		"getting-started",
+		"installation",
+		"examples",
+		"sdks",
+		"sdk-reference",
+		"evidence-reference",
+		"agent-action-graph",
+		"mcp-server",
+		"instrumenting",
+		"instrument-python-flask",
+		"what-to-expect",
+		"ops/production",
+		"comparison"
+	]
+}
