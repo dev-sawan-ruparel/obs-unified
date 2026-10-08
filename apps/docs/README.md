@@ -44,13 +44,13 @@ Output under `build/client/` deploys to any static host.
 The site deploys to **Cloudflare Pages** (project name: `obsunified-docs`).
 
 ```bash
-pnpm deploy           # build + push to main
-pnpm deploy:preview   # build + push to a preview branch
+pnpm run deploy       # build + upload to production
+pnpm run deploy:preview # build + upload to preview
 ```
 
 Wrangler must be authenticated first (one-time): `wrangler login`. The Cloudflare Pages project (`obsunified-docs`) and the `docs.obsunified.com` custom domain are already configured. See [DEPLOY.md](./DEPLOY.md) for the full custom-domain + DNS walkthrough.
 
-## Sibling projects
+## Monorepo components
 
 | Repo | What it is |
 |---|---|
