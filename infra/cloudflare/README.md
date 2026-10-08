@@ -2,8 +2,8 @@
 
 The monorepo deploys directly to existing Cloudflare Pages projects in the
 Quoppo account. Resource IDs and domains are recorded in
-[`config/cloudflare.json`](../../config/cloudflare.json), and each application's
-`wrangler.toml` selects the matching account and Pages project.
+[`config/cloudflare.json`](../../config/cloudflare.json), and the deploy helper selects the account through `CLOUDFLARE_ACCOUNT_ID`.
+Each application's `wrangler.toml` selects the matching Pages project.
 
 | Application | Pages project | Domain | Command from the root |
 | --- | --- | --- | --- |
