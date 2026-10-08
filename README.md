@@ -167,16 +167,19 @@ Start locally, then choose one of two production paths:
 
 ## Try it
 
-Pull the prebuilt all-in-one image (Postgres, collector, dashboard, and seed
-data in one container):
+Build and run the all-in-one stack from this repository:
 
 ```bash
-docker run --rm -p 5173:5173 -p 8790:8790 ghcr.io/dev-sawan-ruparel/local:latest
-# → http://localhost:5173   (dashboard password: e2e-test-pass)
+git clone https://github.com/dev-sawan-ruparel/obs-unified.git
+cd obs-unified
+pnpm install --frozen-lockfile
+pnpm local:image
+pnpm local:run
+# → http://localhost:5173 (dashboard password: e2e-test-pass)
 ```
 
-If you are working from a clone instead, you can build and run it locally: `pnpm local:image && pnpm local:run`.
-Prefer to run from source? See [docs/getting-started.md](docs/getting-started.md).
+See [getting started](docs/getting-started.md) for development servers and
+sample data. Container registry publication is a separate release step.
 
 > Installing the SDKs into **your own** app uses public npm packages — no
 > registry login or token required.
