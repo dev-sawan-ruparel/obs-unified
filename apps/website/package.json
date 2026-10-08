@@ -15,8 +15,8 @@
 		"preview": "vite preview",
 		"types:check": "tsc --noEmit",
 		"messaging:check": "node scripts/messaging-check.mjs",
-		"deploy": "pnpm build && pnpm dlx wrangler@4 pages deploy ./dist --project-name=obsunified --branch=main --commit-dirty=true",
-		"deploy:preview": "pnpm build && pnpm dlx wrangler@4 pages deploy ./dist --project-name=obsunified --branch=preview --commit-dirty=true"
+		"deploy": "node ../../scripts/deploy-pages.mjs website",
+		"deploy:preview": "node ../../scripts/deploy-pages.mjs website --preview"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.2",
