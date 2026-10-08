@@ -1,0 +1,14 @@
+# Copy to `.dev.vars` for local `wrangler dev`. These are local-only defaults;
+# replace them before deploying anywhere shared.
+
+DASHBOARD_PASSWORD=e2e-test-pass
+INGEST_KEY=obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504
+
+# Keep auth enabled in local dev so the dashboard and ingest paths behave like
+# production. Set to "true" only for isolated debugging.
+ALLOW_UNAUTHENTICATED=false
+
+# Optional collector self-instrumentation. Leave blank unless you want the
+# dashboard's own telemetry to land in the obs-dashboard project.
+OBS_COLLECTOR_SELF_URL=http://localhost:8790
+OBS_DASHBOARD_INGEST_KEY=

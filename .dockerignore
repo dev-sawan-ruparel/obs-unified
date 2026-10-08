@@ -1,0 +1,17 @@
+.git
+.changeset
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+target
+**/target
+.wrangler
+**/.wrangler
+.turbo
+coverage
+**/coverage
+.DS_Store
+*.log

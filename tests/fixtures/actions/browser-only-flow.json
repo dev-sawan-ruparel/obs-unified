@@ -1,0 +1,38 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"description": "Fixture for a basic, human-only browser interaction with no agent activity. All three IDs coalesce.",
+	"actions": [
+		{
+			"id": "01HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"project_id": "proj_prod_01",
+			"root_action_id": "01HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"caused_by_action_id": null,
+			"actor_type": "human",
+			"actor_id": "usr_991283",
+			"action_kind": "browser.click",
+			"name": "billing.submit_payment",
+			"status": "ok",
+			"started_at": "2026-05-31T21:00:00.000Z",
+			"ended_at": "2026-05-31T21:00:00.120Z",
+			"duration_ms": 120,
+			"trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+			"span_id": "00f067aa0ba902b7",
+			"session_id": "sess_88127392813",
+			"interaction_id": "01HZQ5W3K8M4P2X7N9B0CDEFGH",
+			"user_id": "usr_991283",
+			"agent_run_id": null,
+			"step_id": null,
+			"tool_call_id": null,
+			"prompt_version": null,
+			"model_name": null,
+			"provider": null,
+			"total_cost_usd": 0.0,
+			"attrs_json": "{\"target_element\": \"button#submit-pay\", \"page_path\": \"/billing/invoice\"}"
+		}
+	],
+	"agent_runs": [],
+	"tool_calls": [],
+	"retrieval_events": [],
+	"eval_results": [],
+	"artifacts": []
+}

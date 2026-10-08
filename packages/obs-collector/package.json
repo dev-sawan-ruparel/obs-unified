@@ -1,0 +1,74 @@
+{
+	"name": "@obsunified/collector",
+	"version": "2.0.1",
+	"description": "Plugin-based observability collector runtime with pluggable SQL/blob storage.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/dev-sawan-ruparel/obs-unified.git",
+		"directory": "packages/obs-collector"
+	},
+	"keywords": [
+		"observability",
+		"opentelemetry",
+		"otlp",
+		"collector",
+		"cloudflare-workers",
+		"obs-unified"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./auth": {
+			"types": "./dist/auth.d.ts",
+			"import": "./dist/auth.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"migrations",
+		"README.md"
+	],
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsup",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"bench": "vitest bench --run",
+		"codegen": "PATH=\"$PWD/node_modules/.bin:$PATH\" buf generate",
+		"prepublishOnly": "pnpm build"
+	},
+	"dependencies": {
+		"@bufbuild/protobuf": "^2.11.0",
+		"@obsunified/pprof-decoder": "workspace:*",
+		"@obsunified/types": "workspace:*"
+	},
+	"peerDependencies": {
+		"hono": "^4.7.0",
+		"pg": "^8.13.0"
+	},
+	"peerDependenciesMeta": {
+		"pg": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@bufbuild/buf": "^1.68.1",
+		"@bufbuild/protoc-gen-es": "^2.11.0",
+		"@types/pg": "^8.11.10",
+		"hono": "^4.12.11",
+		"pg": "^8.13.1",
+		"tsup": "^8.3.5",
+		"typescript": "^6.0.2"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	}
+}

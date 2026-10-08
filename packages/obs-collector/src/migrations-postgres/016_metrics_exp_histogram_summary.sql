@@ -1,0 +1,1 @@
+ALTER TABLE metric_point ADD COLUMN IF NOT EXISTS extra_json JSONB;

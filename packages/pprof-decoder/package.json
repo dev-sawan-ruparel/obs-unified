@@ -1,0 +1,40 @@
+{
+	"name": "@obsunified/pprof-decoder",
+	"version": "2.0.1",
+	"description": "Minimal pprof decoder + encoder. Runs in browsers and Cloudflare Workers (uses DecompressionStream/CompressionStream).",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/dev-sawan-ruparel/obs-unified.git",
+		"directory": "packages/pprof-decoder"
+	},
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsup",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
+	},
+	"devDependencies": {
+		"tsup": "^8.3.5",
+		"typescript": "^6.0.2"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	}
+}

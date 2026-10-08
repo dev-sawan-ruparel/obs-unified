@@ -1,0 +1,19 @@
+{
+	"accountId": "61d3245b7e3224d49a9553bdb4d1a70e",
+	"accountName": "Quoppo",
+	"zoneId": "d427d43500d56be3381a62c1f13c8089",
+	"pages": {
+		"website": {
+			"project": "obsunified",
+			"directory": "apps/website",
+			"output": "dist",
+			"domains": ["obsunified.com", "www.obsunified.com"]
+		},
+		"docs": {
+			"project": "obsunified-docs",
+			"directory": "apps/docs",
+			"output": "build/client",
+			"domains": ["docs.obsunified.com"]
+		}
+	}
+}

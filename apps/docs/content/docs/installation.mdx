@@ -1,0 +1,112 @@
+---
+title: Installation
+description: Run obs-unified with the all-in-one Docker image, or install the editable local repo.
+---
+
+This page is the shortest install path. For a guided decision tree across runtime and data options, start with [Getting started](/docs/getting-started). If you only want to instrument a service with an SDK, jump to [SDKs](/docs/sdks).
+
+## Prerequisites
+
+- **Docker** for the all-in-one local image and the Astronomy Shop demo.
+- **Node.js 22+ and pnpm 10+** for local repo development and scripts.
+- A POSIX shell such as bash or zsh.
+
+## Fastest first run: Docker image
+
+Build and run the local image:
+
+```bash
+pnpm local:image
+pnpm local:run
+```
+
+This starts Postgres, the collector, the dashboard, a filesystem blob store, and seeded sample data in one container.
+
+| Interface | URL |
+| --- | --- |
+| Dashboard | `http://localhost:5173` |
+| Collector ingest | `http://localhost:8790` |
+
+Default local credentials:
+
+| Credential | Value |
+| --- | --- |
+| Ingest write key | `dev-ingest-key` |
+| Dashboard password | `e2e-test-pass` |
+
+Run the local image smoke test when you want a full outside-the-container verification:
+
+```bash
+pnpm smoke:local-image
+```
+
+## Editable local install
+
+Use this when you are changing collector, dashboard, or SDK code.
+
+```bash
+git clone https://github.com/dev-sawan-ruparel/obs-unified.git
+cd obs-unified
+pnpm install
+pnpm run setup
+pnpm run dev
+```
+
+`pnpm run setup` creates `apps/collector/.dev.vars` from
+`apps/collector/.dev.vars.example` if needed, then runs local migrations. The
+sample-data seeder reads that same file, so custom local credentials do not need
+to be exported in every shell.
+
+The local dev stack exposes:
+
+| Service | Port | Purpose |
+| --- | --- | --- |
+| `collector` | `8790` | OTLP ingest and dashboard read API |
+| `web` | `5173` | React dashboard |
+| `demo` | `8787` | Synthetic demo API for end-to-end testing |
+
+## Seed sample data
+
+The Docker image seeds sample data automatically. For the editable local install, run:
+
+```bash
+pnpm run seed
+```
+
+This populates traces, logs, AI calls, usage events, issues, users, and alert rules. Replays require a real browser interaction, so use the dashboard Playground tab to capture one.
+
+## Astronomy Shop demo
+
+For realistic microservice traffic and service-map edges:
+
+```bash
+pnpm demo:setup
+pnpm demo:preflight
+pnpm demo:up
+```
+
+Open the demo shop at `http://localhost:8080` and the dashboard at `http://localhost:5173`.
+
+Stop it with:
+
+```bash
+pnpm demo:down
+```
+
+## Standalone Node collector
+
+If you only want the collector service with Postgres and MinIO/S3:
+
+```bash
+cd apps/collector-node
+docker compose up -d
+docker compose logs -f collector
+```
+
+## Production deployment
+
+For production deployment details, see [Production operations](/docs/ops/production). At minimum, set a real `INGEST_KEY`, set `DASHBOARD_PASSWORD`, point `VITE_OBS_COLLECTOR_URL` at your collector, configure CORS for browser origins, and run migrations before accepting traffic.
+
+<Callout type="warn">
+Do not use `ALLOW_UNAUTHENTICATED=true` or the default local credentials in production.
+</Callout>

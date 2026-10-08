@@ -1,0 +1,17 @@
+# Copy to `.dev.vars` and fill keys. Wrangler reads this automatically for
+# `wrangler dev` — it shadows the [vars] block in wrangler.toml so you never
+# commit secrets.
+
+OPENAI_API_KEY=""
+ANTHROPIC_API_KEY=""
+GOOGLE_API_KEY=""
+
+# Must match apps/collector/.dev.vars INGEST_KEY (the collector rejects
+# unauth'd /v1/traces with 401 when INGEST_KEY is set). For local dev the
+# simplest setup is to copy the same value.
+OBS_INGEST_KEY=""
+
+# Optional model overrides (defaults in wrangler.toml are cheap-tier models)
+# OPENAI_MODEL="gpt-4o-mini"
+# ANTHROPIC_MODEL="claude-3-5-haiku-latest"
+# GEMINI_MODEL="gemini-1.5-flash"

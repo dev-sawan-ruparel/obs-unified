@@ -1,0 +1,91 @@
+# Local-dev stack for the standalone Node collector. Brings up a
+# Postgres + MinIO + collector + dashboard quartet on localhost.
+#
+#   docker compose up -d           # start
+#   docker compose logs -f         # tail
+#   docker compose down -v         # tear down + delete volumes
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: obs
+      POSTGRES_PASSWORD: obs
+      POSTGRES_DB: obs_unified
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obs -d obs_unified"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: obs
+      MINIO_ROOT_PASSWORD: obs-secret-123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # console
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-bucket-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 obs obs-secret-123 &&
+      mc mb --ignore-existing local/obs-replays &&
+      mc mb --ignore-existing local/obs-profiles
+      "
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/collector-node/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://obs:obs@postgres:5432/obs_unified
+    entrypoint: ["node", "scripts/migrate-pg.mjs"]
+
+  collector:
+    build:
+      context: ../..
+      dockerfile: apps/collector-node/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-bucket-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://obs:obs@postgres:5432/obs_unified
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: obs-replays
+      S3_FORCE_PATH_STYLE: "true"
+      S3_ACCESS_KEY_ID: obs
+      S3_SECRET_ACCESS_KEY: obs-secret-123
+      INGEST_KEY: dev-ingest-key
+      DASHBOARD_PASSWORD: e2e-test-pass
+      ALLOWED_ORIGINS: "http://localhost:5173"
+      PORT: 8790
+    ports:
+      - "8790:8790"
+
+volumes:
+  pg_data:
+  minio_data:

@@ -1,0 +1,60 @@
+{
+	"name": "@obsunified/types",
+	"version": "2.0.1",
+	"description": "Shared types, constants, and API client for observability",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/dev-sawan-ruparel/obs-unified.git",
+		"directory": "packages/obs-types"
+	},
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./constants": {
+			"types": "./dist/constants.d.ts",
+			"import": "./dist/constants.js"
+		},
+		"./api-client": {
+			"types": "./dist/api-client.d.ts",
+			"import": "./dist/api-client.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsup",
+		"type-check": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"prepublishOnly": "pnpm build"
+	},
+	"peerDependencies": {
+		"hono": "^4.7.0"
+	},
+	"peerDependenciesMeta": {
+		"hono": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"zod": "^3.25.76"
+	},
+	"devDependencies": {
+		"hono": "^4.12.11",
+		"tsup": "^8.3.5",
+		"typescript": "^6.0.2"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	}
+}
