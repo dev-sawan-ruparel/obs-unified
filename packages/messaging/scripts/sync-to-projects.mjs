@@ -53,7 +53,9 @@ for (const t of TARGETS) {
 			: "skills",
 	);
 	if (!existsSync(repoRoot)) {
-		console.error(`messaging:sync ERROR: missing monorepo consumer ${repoRoot}`);
+		console.error(
+			`messaging:sync ERROR: missing monorepo consumer ${repoRoot}`,
+		);
 		process.exit(1);
 	}
 	if (check) {
