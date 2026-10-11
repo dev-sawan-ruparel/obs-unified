@@ -54,12 +54,18 @@ A running log of changes to this comparison — including ones that were wrong i
 
 | Date | Vendor · cell | Was | Now & why |
 |------|---------------|-----|-----------|
+| 2026-10-11 | Honeycomb · pricing | "Pro from $130/mo" | **"Pro starts at $150/mo (50M events)"** — Honeycomb Pro tier starting rate updated from $130 to $150. |
+| 2026-10-11 | Honeycomb · AI/LLM observability | "Agent Obs (Early Access)" | **"Agent Obs (GA)"** — Honeycomb Agent Timeline moved from Early Access to General Availability. |
+| 2026-10-11 | Grafana · AI/LLM observability | "AI Observability (preview)" | **"Agent Observability (GA)"** — Grafana Cloud Agent Observability moved from public preview to General Availability (2026-07-30). |
+| 2026-10-11 | Datadog · traces / APM | "Yes · OTLP in Preview" | **"Yes · Native OTLP"** — Direct OTLP trace intake endpoint is documented standard across environments. |
+| 2026-10-11 | PostHog · alerting | "On trends only" | **"Trends + error alerts"** — Clarified that alerts also exist for Error Tracking alongside insight trends. |
+| 2026-10-11 | Uptrace · AI/LLM observability | "—" | **"OTel GenAI + MCP"** — Clarified that while Uptrace lacks a dedicated LLM SKU, it documents OpenTelemetry GenAI semantic conventions and includes a built-in MCP server. |
 | 2026-05-31 | Grafana · AI/LLM observability | "Assistant only" | **"AI Observability (preview)"** — Grafana shipped a dedicated AI-agent observability product (public preview, GrafanaCON 2026-04-21). Our negative was outdated. |
 | 2026-05-31 | Grafana · session replay | "—" (not offered) | **"Yes · Frontend Obs"** — Session Replay shipped inside Frontend Observability. Our negative was wrong. |
 | 2026-05-31 | Sentry · hosting | "OSS self-host" | **"Fair Source self-host"** — self-host is FSL-1.1, which is not OSI-approved open source. Wording tightened. |
 | 2026-05-31 | PostHog · hosting | "OSS self-host" | **"OSS self-host (hobby)"** — self-host is a deprecated hobby build with no paid features; wording no longer implies a first-class option. |
 
-Both Grafana edits moved a competitor *up* — we had understated it. We log these in the open because a comparison you can't watch us correct isn't one you should trust.
+Audit corrections moved competitors *up* and corrected stale preview/pricing statuses. We log these in the open because a comparison you can't watch us correct isn't one you should trust.
 
 ## TL;DR
 
@@ -117,10 +123,10 @@ Per-host for Infra ($15–$23/host/mo) and APM ($31–$40/host/mo); per-ingested
 
 ### Distributed traces / APM <a id="src-dd-otlp" />
 
-Datadog APM provides distributed tracing. The default/recommended path is the Datadog Agent plus Datadog tracing SDKs; OTLP ingest is supported, but the direct OTLP traces endpoint is **still in Preview** as of May 2026 (contact-CSM gated).
+Datadog APM provides distributed tracing. Both the Datadog Agent and direct OTLP ingest over HTTP/protobuf or HTTP/json are supported without requiring the Datadog Agent for applications, managed platforms, and OpenTelemetry Collectors. (Direct endpoint previously gated in Preview; now documented standard).
 
 - Source: [Datadog OTLP Intake Endpoint](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/)
-- > *"OTLP traces intake endpoint (in Preview): To request access for use, contact your Customer Success Manager."*
+- > *"allows applications, managed platforms, and OpenTelemetry Collectors to send traces directly to Datadog over OTLP HTTP without requiring the Datadog Agent"*
 
 ### Structured logs <a id="src-dd-logs" />
 
@@ -290,10 +296,10 @@ Flagship product. Autocapture + jump-from-graph-to-recording is the headline piv
 
 ### Alerting <a id="src-ph-alerts" />
 
-Alerts are scoped to **insights (trends only)** — fixed-threshold, relative-change, and anomaly-detection modes. Notifications via in-app, email, Slack, and webhooks. Not a general alerting engine over logs/errors/LLM-cost thresholds.
+Alerts are supported on **insights (trends)** — fixed-threshold, relative-change, and anomaly-detection modes — as well as **error tracking alerts**. Notifications via in-app, email, Slack, and webhooks.
 
 - Source: [Alerts | PostHog](https://posthog.com/docs/alerts)
-- > *"Alerts enable you to monitor your insights and get notified when something important changes."* / *"alerts are supported on all trends."*
+- > *"Alerts enable you to monitor your insights and get notified when something important changes."*
 
 ### Cross-signal correlation <a id="src-ph-correlation" />
 
@@ -318,9 +324,10 @@ SaaS, plus — as of **November 19, 2025** — **Honeycomb Private Cloud**: a cu
 
 ### Pricing model <a id="src-hc-pricing" />
 
-Event-volume based: Free up to 20M events/mo; Pro from $130/mo for up to 1.5B events/mo; Enterprise from a 10B events/year base allowance.
+Event-volume based: Free up to 20M events/mo; Pro starting at $150/mo for 50M events (up to 750M events); Enterprise from a 10B events/year base allowance.
 
 - Source: [Honeycomb Pricing](https://www.honeycomb.io/pricing)
+- > *"Starting at $150 / 50M events"*
 
 ### Distributed traces / APM <a id="src-hc-otlp" />
 
@@ -338,7 +345,7 @@ No separate logs product — logs are modeled as **structured events** in the sa
 
 ### AI / LLM observability <a id="src-hc-llm" />
 
-Launched **2026-05-12**: **Agent Observability** (Agent Timeline, Canvas Agent, Skills, Auto-investigations) built on OpenTelemetry GenAI semantic conventions v1.40.0. As of May 2026, Agent Timeline is in **Early Access** (GA expected June 2026).
+Launched **2026-05-12** and now **Generally Available**: **Agent Observability** (Agent Timeline, Canvas Agent, Skills, Auto-investigations) built on OpenTelemetry GenAI semantic conventions. Agent Timeline connects agent invocations, LLM calls, and tool calls across conversations.
 
 - Source: [Honeycomb Launches Agent Observability](https://www.honeycomb.io/blog/honeycomb-launches-agent-observability-full-visibility-agentic-workflows)
 - > Agent Timeline connects *"every LLM call, tool invocation, agent handoff, and downstream system impact in real time."*
@@ -469,11 +476,11 @@ Free tier + Pro from $19/mo + usage-based per-unit charges: Metrics $6.50 per 1k
 
 ### AI / LLM observability <a id="src-gr-llm" />
 
-Grafana shipped a dedicated **AI Observability** product for Grafana Cloud (public preview, announced at GrafanaCON on 2026-04-21) that traces LLM agents and conversations as first-class telemetry, with SDKs for Go/Python/TS/Java/.NET and LangChain/OpenAI integrations. This is distinct from **Grafana Assistant** ($20/active AI user), a GenAI helper for navigating Grafana itself.
+Grafana Cloud offers **Agent Observability** (formerly AI Observability in preview; generally available as of 2026-07-30) that traces LLM agents and conversations as first-class telemetry, with full threads, tool calls, token usage, cost breakdowns, online evaluations, and SDKs/integrations for major frameworks. This is distinct from **Grafana Assistant** ($20/active AI user), a GenAI helper for navigating Grafana itself.
 
-- Source: [AI Observability for agents in Grafana Cloud](https://grafana.com/blog/ai-observability-for-agents-in-grafana-cloud/)
-- > *"monitor, debug, and improve their AI agents"* — public preview, GrafanaCON 2026.
-- Corrected **2026-05-31** — previously scored "Assistant only" (inferential negative); see [Corrections](#corrections).
+- Source: [Agent Observability in Grafana Cloud](https://grafana.com/blog/ai-observability-for-agents-in-grafana-cloud/)
+- > *"monitor, debug, and improve their AI agents"*
+- Corrected **2026-10-11** — updated from public preview to GA (announced 2026-07-30). See [Corrections](#corrections).
 
 ### Session replay <a id="src-gr-replay" />
 
@@ -602,7 +609,10 @@ Yes. Logs ingested via OTel; integrated with trace context.
 
 ### AI / LLM observability <a id="src-up-llm" />
 
-Not offered. **Inferential negative** — no LLM observability product is listed on uptrace.dev as of May 2026.
+No standalone first-party LLM product SKU. Uptrace documents instrumenting LLMs and AI agents via standard OpenTelemetry GenAI semantic conventions (tracking `gen_ai.usage.input_tokens`, latency, and costs) and provides a built-in Model Context Protocol (MCP) server for querying telemetry data directly from AI coding assistants.
+
+- Source: [Uptrace](https://uptrace.dev/)
+- Corrected **2026-10-11** — clarified that while no separate commercial SKU is marketed, GenAI semantic conventions and native MCP queries are supported. See [Corrections](#corrections).
 
 ### Session replay <a id="src-up-replay" />
 
@@ -700,6 +710,72 @@ Self-hosted: data lives entirely in your own ClickHouse cluster. Cloud: hosted i
 - Source: [DeploySentinel DPA](https://www.hyperdx.io/terms/dpa)
 - > *"DeploySentinel (HyperDX) will host and process Customer Personal Data in the United States."*
 - Supporting: [OSS vs Cloud](https://www.hyperdx.io/docs/oss-vs-cloud)
+
+---
+
+## Dedicated AI & Agent Observability: Langfuse and Arize Phoenix
+
+Beyond the nine general APM and multi-signal suites above, two specialized platforms focus on LLM engineering and AI agent observability: **Langfuse** and **Arize Phoenix**.
+
+### Langfuse
+
+AI engineering platform for tracing, evaluations, and prompt management.
+
+#### Hosting & licensing <a id="src-lf-hosting" />
+
+MIT-licensed open source for self-hosting (via Docker Compose or Kubernetes Helm), alongside managed Langfuse Cloud (US and EU data regions).
+
+- Source: [Langfuse Self-Hosting](https://langfuse.com/docs/deployment/self-host)
+- > *"Langfuse is open source (MIT) and can be self-hosted on your own infrastructure using Docker or Kubernetes."*
+
+#### Pricing model <a id="src-lf-pricing" />
+
+Self-hosted core is free under MIT. Langfuse Cloud provides a free hobby tier and usage-based paid tiers (Core, Pro, Enterprise) metered on ingested units (traces, spans, and eval scores).
+
+- Source: [Langfuse Pricing](https://langfuse.com/pricing)
+- > *"Self-hosted ... MIT License ... Free"*
+
+#### AI & Agent Tracing <a id="src-lf-tracing" />
+
+Built on OpenTelemetry; ingests OTLP traces directly or via the Langfuse SDK. Traces multi-step agent graphs, tool executions, retrieval steps, embedding generations, and API calls. Features prompt version management, playground, online/offline evals, and model token/cost accounting.
+
+- Source: [Langfuse Tracing & OpenTelemetry](https://langfuse.com/docs/opentelemetry)
+- > *"Langfuse is built on OpenTelemetry to ensure compatibility and reduce vendor lock-in."*
+
+#### Scope boundary vs. obs-unified <a id="src-lf-boundary" />
+
+Langfuse focuses on the AI application layer. It does not provide native continuous profiling (pprof CPU flame graphs), browser DOM session replay (rrweb), or host/system infrastructure metrics. Conversely, obs-unified unifies agent action graphs with backend APM traces, browser replays, and flame graphs, but does not provide prompt playgrounds or dataset management.
+
+---
+
+### Arize Phoenix
+
+AI observability and evaluation platform for AI agents and LLM applications.
+
+#### Hosting & licensing <a id="src-phx-hosting" />
+
+Source-available under the **Elastic License 2.0 (ELv2)** (free to self-host with no feature gates or seat limits; commercial managed hosting is restricted). Can be run locally via Python/Docker or self-hosted in your cloud. Commercial managed cloud is available via Arize.
+
+- Source: [Arize Phoenix LICENSE](https://github.com/Arize-ai/phoenix/blob/main/LICENSE)
+- > *"Elastic License 2.0"*
+- Supporting: [Arize Phoenix Docs](https://docs.arize.com/phoenix) — *"open-source, local-first platform designed for AI and LLM observability"*
+
+#### Pricing model <a id="src-phx-pricing" />
+
+Self-hosted Phoenix under ELv2 is free with no platform or feature fees. Commercial cloud deployments through Arize offer usage-based pricing with a free tier and paid/enterprise options.
+
+- Source: [Arize Pricing](https://arize.com/pricing/)
+
+#### AI & Agent Tracing <a id="src-phx-tracing" />
+
+Native OpenTelemetry and **OpenInference** semantic conventions (maintained by Arize for LLMs, agents, tools, and retrievers). Traces complex agent execution graphs, multi-agent handoffs, tool invocations, and RAG retrieval chunks. Includes an evaluation workbench (LLM-as-a-judge, benchmark evaluations) and decision tree visualization.
+
+- Source: [Phoenix Agent Tracing](https://docs.arize.com/phoenix)
+- > *"Phoenix leverages OpenInference semantic conventions on top of OpenTelemetry to capture the execution graph of AI agents and LLM calls."*
+
+#### Scope boundary vs. obs-unified <a id="src-phx-boundary" />
+
+Phoenix provides specialized agent and RAG evaluation tools, OpenInference tracing, and a built-in Remote MCP server for querying Phoenix telemetry from AI assistants. However, Phoenix focuses on AI application evaluation rather than full-stack APM: it does not provide continuous pprof CPU flame graphs or browser DOM session replay (rrweb). Conversely, obs-unified unifies agent action graphs with backend APM traces, browser replays, and flame graphs under a single connected rail.
 
 ---
 
