@@ -23,4 +23,7 @@ RUN chmod +x /repo/docker/local/start.sh
 VOLUME ["/data", "/var/lib/postgresql"]
 EXPOSE 5173 8790
 
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+	CMD curl -fsS http://127.0.0.1:8790/health >/dev/null && curl -fsS http://127.0.0.1:5173/ >/dev/null || exit 1
+
 CMD ["/repo/docker/local/start.sh"]
