@@ -15,6 +15,7 @@
 		"instrument-python-flask",
 		"what-to-expect",
 		"ops/production",
+		"ops/identity-access",
 		"comparison"
 	]
 }

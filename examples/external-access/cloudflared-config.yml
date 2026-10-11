@@ -1,0 +1,51 @@
+# =============================================================================
+# Cloudflare Tunnel (cloudflared) Configuration for obs-unified
+# =============================================================================
+#
+# Topology:
+#   ingest.example.com -> Collector (:8790) [Bypasses Access, OTLP Ingest Key]
+#   obs.example.com    -> Collector & Dashboard [Protected by Cloudflare Access]
+# =============================================================================
+
+tunnel: YOUR_TUNNEL_UUID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_UUID.json
+
+ingress:
+  # ---------------------------------------------------------------------------
+  # Hostname 1: Public Telemetry Ingestion (No Cloudflare Access)
+  # ---------------------------------------------------------------------------
+  - hostname: ingest.example.com
+    path: ^/v1/
+    service: http://obs-collector:8790
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 10s
+
+  - hostname: ingest.example.com
+    path: ^/health$
+    service: http://obs-collector:8790
+
+  # ---------------------------------------------------------------------------
+  # Hostname 2: Web Dashboard & Internal Query APIs (Cloudflare Access Protected)
+  # ---------------------------------------------------------------------------
+  # Collector health probe on dashboard domain (configured with Access Bypass policy)
+  - hostname: obs.example.com
+    path: ^/health$
+    service: http://obs-collector:8790
+
+  # Collector query and auth routes
+  - hostname: obs.example.com
+    path: ^/(auth|internal)/
+    service: http://obs-collector:8790
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+
+  # Dashboard static files & SPA fallback
+  - hostname: obs.example.com
+    service: http://obs-web:5173
+    originRequest:
+      connectTimeout: 10s
+
+  # Catch-all rule (required by cloudflared)
+  - service: http_status:404
