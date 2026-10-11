@@ -289,12 +289,25 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					const otherSpans = traceManifest.spans.filter(
 						(s) => s.spanId !== span.spanId,
 					);
+					const interactionManifest = span.interactionId
+						? await index.byInteraction(projectId, span.interactionId)
+						: null;
+					const parentSessionId =
+						interactionManifest?.usageEvents.find((e) => Boolean(e.sessionId))
+							?.sessionId;
+
 					manifest.up = [
 						{
 							label: "Trace",
 							links: [linkToTrace(span.traceId, "Parent trace")],
 						},
 					];
+					if (parentSessionId) {
+						manifest.up.push({
+							label: "User session",
+							links: [linkToSession(parentSessionId)],
+						});
+					}
 					manifest.across = [
 						linksFromSpans(otherSpans, `Other spans in this trace`),
 						linksFromLogs(traceManifest.logs, "Logs in this trace"),
@@ -339,11 +352,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							"Metric exemplars in this trace",
 						),
 					];
-					if (span.interactionId) {
-						const interactionManifest = await index.byInteraction(
-							projectId,
-							span.interactionId,
-						);
+					if (interactionManifest) {
 						manifest.related = [
 							linksFromUsage(
 								interactionManifest.usageEvents,

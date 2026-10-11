@@ -46,7 +46,13 @@ For the RFC implementation status of record, this file is the single source of t
       surfaces exist in one collector/dashboard stack.
 - [x] Core click-to-trace-to-profile and AI-cost-spike graph contracts have
       deterministic tests.
-- [~] Live scenario proof and the full any-to-any matrix are not yet complete.
+- [~] Scenario A synthetic verification active via live Playwright (2/2) and focused
+      unit (27/27) suites covering synthetic API rail contracts + trace→span→profile
+      browser slice. Full RFC 0003 Acceptance #1 remains incomplete: does not run
+      on a fresh OTel Astronomy Shop install, does not prove firing alert / exemplar
+      navigation, does not verify rrweb replay, and browser UI only traverses
+      trace→span→profile rather than the full six-hop UI journey.
+- [~] Full any-to-any matrix remains incomplete and partially scaffolded.
 
 ## RFC 0004 — Identity Propagation
 
