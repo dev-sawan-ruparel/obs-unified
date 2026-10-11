@@ -189,7 +189,7 @@ export const messaging = {
 			"distribution": {
 				"license": "MIT",
 				"hosting": "Self-host on your infra",
-				"docker": "Start locally with one Docker image",
+				"docker": "Build and run one local image from the repository",
 				"cloudflareNodePaths": "Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage."
 			},
 			"comparison": {
