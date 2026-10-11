@@ -194,3 +194,7 @@ Before opening ingest traffic:
 3. Verify CORS from the browser origin with `pnpm dlx @obsunified/cli doctor`.
 4. Send one synthetic trace, one log, and one usage event.
 5. Confirm dashboard login and internal query routes are not publicly exposed without your intended auth.
+
+## Identity and external access
+
+`obs-unified` does not contain native per-user RBAC or SSO. To deploy behind Cloudflare Access or `oauth2-proxy` with proper path boundaries, secrets management, header forwarding, and MCP service tokens, see [Identity and external access](./identity-access).

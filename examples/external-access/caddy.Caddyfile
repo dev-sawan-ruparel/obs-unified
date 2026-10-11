@@ -1,0 +1,61 @@
+# =============================================================================
+# Production Caddyfile with oauth2-proxy Forward Auth for obs-unified
+# =============================================================================
+
+obs.example.com {
+    # 1. Health Probe (Public)
+    @health path /health
+    handle @health {
+        reverse_proxy 127.0.0.1:8790 {
+            header_up Host {host}
+        }
+    }
+
+    # 2. Telemetry Ingest (Bypasses SSO, authenticated via Ingest Key)
+    @ingest path /v1/*
+    handle @ingest {
+        request_body {
+            max_size 10MB
+        }
+        reverse_proxy 127.0.0.1:8790 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # 3. oauth2-proxy endpoints
+    @oauth2 path /oauth2/*
+    handle @oauth2 {
+        reverse_proxy 127.0.0.1:4180 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Scheme {scheme}
+        }
+    }
+
+    # 4. Gated Routes (/internal/*, /auth/*, and Dashboard SPA)
+    handle {
+        # Forward authentication to oauth2-proxy
+        forward_auth 127.0.0.1:4180 {
+            uri /oauth2/auth
+            copy_headers X-Auth-Request-User X-Auth-Request-Email
+        }
+
+        # Query and auth endpoints to Collector
+        @collector_routes path /internal/* /auth/*
+        handle @collector_routes {
+            reverse_proxy 127.0.0.1:8790 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
+            }
+        }
+
+        # Default SPA to Dashboard
+        handle {
+            reverse_proxy 127.0.0.1:5173 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
+            }
+        }
+    }
+}

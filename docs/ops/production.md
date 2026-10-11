@@ -265,3 +265,9 @@ docker run --rm \
   obs-unified/collector:latest \
   node /repo/apps/collector-node/scripts/migrate-pg.mjs
 ```
+
+---
+
+## 6. Identity & External Access Layer
+
+`obs-unified` does not contain native per-user RBAC or SSO. To deploy behind Cloudflare Access or `oauth2-proxy` with proper path boundaries, secrets management, header forwarding, and MCP service tokens, see the dedicated [Identity & External Access Recipes](./identity-access-recipes.md).
