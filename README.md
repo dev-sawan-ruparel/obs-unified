@@ -569,9 +569,26 @@ pnpm run dev       # Start collector (:8790), API (:8787), web (:5173)
 
 ## What Gets Collected
 
+### Emitted Telemetry
+
+Applications emit these signals through SDKs, OpenTelemetry integrations, or profiler exporters (telemetry is not collected automatically without instrumentation):
+
 - **Traces** — Request spans with timing, status, and attributes (OTLP format)
 - **Logs** — Structured logs with severity, trace correlation, and attributes
-- **Usage** — Page views, interactions, frontend errors, UTM parameters
+- **Metrics** — Runtime, host, and custom metrics (OTLP format)
+- **Usage** — Page views, interactions, frontend errors, and UTM parameters
 - **Session Replay** — DOM recording via rrweb for visual session playback
-- **AI Calls** — Model name, provider, tokens, cost, latency, errors
-- **User Profiles** — Identity linking (visitor ID to user ID)
+- **AI Calls** — Model name, provider, tokens, cost, latency, errors, and optional prompt/response payloads (when configured)
+- **Profiles** — CPU and off-CPU profiling data (pprof format) correlated with traces
+- **Agent Action Graphs** — Causal workflow spans and records linking agent runs, steps, LLM calls, tool calls, retrievals, and evals
+- **User Profiles** — Identity linking associating visitor sessions with user IDs and traits
+
+### Derived Investigation State
+
+The platform computes and maintains product evaluations and investigation state from ingested telemetry, rather than receiving them as app-emitted signals:
+
+- **Alerts** — Alert rule evaluations, threshold checks, and firing states computed across signals
+- **Analyses** — Application-aware anomaly detection, diagnostic run results, and instrumentation gap findings
+
+> [!NOTE]
+> Capabilities such as the **investigation MCP server**, **evidence retrieval (CCR)**, and structured **evidence references** (`EvidenceReference`) are investigation and retrieval surfaces rather than additional telemetry types. They query, compact, and navigate the unified telemetry graph rather than acting as separate collected signal streams.
