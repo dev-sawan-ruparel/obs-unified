@@ -58,6 +58,10 @@ export { InvestigationPage } from "./dashboards/InvestigationPage";
 export { InvestigationsDashboard } from "./dashboards/InvestigationsDashboard";
 export { LogsDashboard } from "./dashboards/LogsDashboard";
 export {
+	OnboardingDashboard,
+	type OnboardingDashboardProps,
+} from "./dashboards/OnboardingDashboard";
+export {
 	ProfileDashboard,
 	type ProfileDashboardProps,
 } from "./dashboards/ProfileDashboard";

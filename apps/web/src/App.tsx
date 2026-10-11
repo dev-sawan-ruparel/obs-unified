@@ -21,6 +21,7 @@ import {
 	InvestigationPage,
 	InvestigationsDashboard,
 	LogsDashboard,
+	OnboardingDashboard,
 	ProfileDashboard,
 	ProjectsDashboard,
 	ReplayDashboard,
@@ -237,6 +238,13 @@ export function App() {
 				<main className="min-h-0 flex-1 overflow-y-auto">
 					<Suspense fallback={<DashboardLoading />}>
 						{route.tab === "playground" && <Playground />}
+						{route.tab === "onboarding" && (
+							<OnboardingDashboard
+								onNavigate={(href) => {
+									location.hash = href.startsWith("#") ? href.slice(1) : href;
+								}}
+							/>
+						)}
 						{route.tab === "health" && <HealthDashboard />}
 						{route.tab === "investigate" &&
 							(route.investigationId ? (
