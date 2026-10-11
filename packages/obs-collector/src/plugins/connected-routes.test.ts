@@ -1789,3 +1789,109 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		expect(otherTools?.links[0].label).toContain("other_tool");
 	});
 });
+
+describe("ConnectedRail manifest — span parent session link", () => {
+	it("surfaces parent session link under Up when interaction usage event has session_id", async () => {
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "tr-payment",
+							span_id: "sp-payment",
+							parent_span_id: null,
+							service_name: "checkout-api",
+							span_name: "payment.charge",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 700,
+							interaction_id: "int-checkout-click",
+						},
+					];
+				}
+				if (sql.includes("FROM usage_events")) {
+					return [
+						{
+							event_id: "evt-click-1",
+							event_type: "interaction",
+							event_name: "click_checkout",
+							page_path: "/api/checkout",
+							severity: null,
+							occurred_at: "2026-05-04T10:00:00Z",
+							interaction_id: "int-checkout-click",
+							session_id: "session-abc-123456",
+						},
+					];
+				}
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/span/tr-payment:sp-payment");
+
+		// Preserves parent trace link
+		const traceSection = m.up.find((s) => s.label === "Trace");
+		expect(traceSection).toBeDefined();
+		expect(traceSection?.links[0]).toMatchObject({
+			entityKind: "trace",
+			entityId: "tr-payment",
+		});
+
+		// Surfaces parent session link via linkToSession
+		const sessionSection = m.up.find((s) =>
+			s.label.toLowerCase().includes("session"),
+		);
+		expect(sessionSection).toBeDefined();
+		expect(sessionSection?.links[0]).toMatchObject({
+			entityKind: "replay",
+			sample: "session-abc-123456",
+			href: "#/replay?session=session-abc-123456",
+		});
+
+		// Preserves originating click link in Related
+		const clickSection = m.related.find((s) =>
+			s.label.toLowerCase().includes("click"),
+		);
+		expect(clickSection).toBeDefined();
+		expect(clickSection?.links.length).toBeGreaterThan(0);
+	});
+
+	it("preserves informative absence when span has no interaction or session", async () => {
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM telemetry_spans")) {
+					return [
+						{
+							trace_id: "tr-cron",
+							span_id: "sp-cron",
+							parent_span_id: null,
+							service_name: "worker",
+							span_name: "cron.tick",
+							status_code: 1,
+							status_message: null,
+							start_time: "2026-05-04T10:00:00Z",
+							duration_ms: 100,
+							interaction_id: null,
+						},
+					];
+				}
+				return [];
+			},
+			first: () => null,
+		});
+		const fetch = setup(db);
+		const m = await fetch("/internal/connected/span/tr-cron:sp-cron");
+
+		expect(m.up).toHaveLength(1);
+		expect(m.up[0].label).toBe("Trace");
+
+		const clickSection = m.related.find((s) =>
+			s.label.toLowerCase().includes("click"),
+		);
+		expect(clickSection).toBeDefined();
+		expect(clickSection?.links).toEqual([]);
+		expect(clickSection?.emptyReason).toContain("Server-originated work");
+	});
+});

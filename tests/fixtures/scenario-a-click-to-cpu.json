@@ -1,0 +1,133 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"scenarioId": "scenario-a-click-to-cpu",
+	"title": "Scenario A — Alert → Root Cause Trace → Hot Span → CPU Profile → User Session → Originating Click",
+	"description": "Design and entity/ID contract reference specification for RFC 0003 Acceptance #1 and RFC 0006 Phase 6.6 Connected Rail Click-to-CPU navigation loop. Note: The automated Playwright test suite (scenario-a-click-to-cpu.spec.ts) programmatically seeds fixtures directly via the collector API (ensureScenarioAFixture) rather than reading this file at runtime. This JSON document is preserved as an offline design/ID contract and documented reference specification.",
+	"contractMetadata": {
+		"role": "design-and-id-contract-reference",
+		"runtimeUsage": "unconsumed-redundant-reference (preserved for offline documentation; test uses programmatic seeding)",
+		"scopeBoundaries": {
+			"provenByAutomatedTest": [
+				"Synthetic trace waterfall hierarchy and span ID links",
+				"Connected Rail Down link from span to CPU profile route with trace_id filter",
+				"Connected Rail Across link from profile manifest to sampled trace",
+				"Connected Rail Up link to user session and Related link to originating interaction ID",
+				"Browser UI navigation slice: trace waterfall -> span Connected Rail -> profile detail view"
+			],
+			"notProvenByAutomatedTest": [
+				"Live firing alert transition or incident exemplar click navigation",
+				"Trace waterfall self-time calculation or dominance",
+				"Parsed pprof binary protobuf frame hierarchy or hot function identification",
+				"Session replay / rrweb DOM mutation playback"
+			]
+		}
+	},
+	"entities": {
+		"alert": {
+			"ruleName": "Slow checkout p95",
+			"signal": "spans",
+			"query": { "spanName": "POST /api/checkout" },
+			"threshold": 1,
+			"windowMins": 15
+		},
+		"trace": {
+			"traceId": "0a000000000000000000000000000001",
+			"spans": [
+				{
+					"spanId": "0a00000000000101",
+					"parentSpanId": null,
+					"name": "POST /api/checkout",
+					"service": "checkout-api",
+					"kind": 2,
+					"attributes": {
+						"http.request.method": "POST",
+						"http.route": "/api/checkout",
+						"url.path": "/api/checkout",
+						"http.response.status_code": 200,
+						"seed.scenario": "A"
+					}
+				},
+				{
+					"spanId": "0a00000000000102",
+					"parentSpanId": "0a00000000000101",
+					"name": "payment.charge",
+					"service": "checkout-api",
+					"kind": 3,
+					"attributes": {
+						"peer.service": "payments-worker",
+						"payment.provider": "stripe",
+						"seed.scenario": "A"
+					}
+				},
+				{
+					"spanId": "0a00000000000103",
+					"parentSpanId": "0a00000000000102",
+					"name": "payments-db.insert charge",
+					"service": "payments-worker",
+					"kind": 3,
+					"attributes": {
+						"db.system": "postgresql",
+						"db.statement": "INSERT INTO charges (...) VALUES (...)",
+						"seed.scenario": "A"
+					}
+				}
+			]
+		},
+		"profile": {
+			"service": "checkout-api",
+			"profileType": "cpu",
+			"agent": "seed-everything",
+			"indexedTraceId": "0a000000000000000000000000000001",
+			"note": "Design/spec frames only. Automated test asserts HTTP 200 and rail link presence; it does not parse pprof protobuf frames or prove hot frame dominance.",
+			"frames": [
+				{ "function": "checkout.handle", "file": "apps/obs-demo/src/routes/checkout.ts" },
+				{ "function": "payment.charge", "file": "packages/payments/src/charge.ts" },
+				{ "function": "json.parse", "file": "node:internal/json" }
+			]
+		},
+		"session": {
+			"pagePath": "/api/checkout",
+			"interactionName": "click_checkout",
+			"target": "checkout-submit"
+		}
+	},
+	"navigationHopsNote": "Aspirational 6-hop UX journey contract from RFC 0006 / docs/ux/click-to-cpu.md. The unskipped browser test verifies a targeted 2-hop slice (hops 2-3: trace waterfall -> span Connected Rail -> profile view) and API rail manifests; it does not prove live alert firing (hop 1) or rrweb session replay (hops 5-6).",
+	"navigationHops": [
+		{
+			"hop": 1,
+			"name": "Alert → Trace",
+			"source": "Alert rule 'Slow checkout p95' / spanName 'POST /api/checkout'",
+			"target": "Trace 0a000000000000000000000000000001"
+		},
+		{
+			"hop": 2,
+			"name": "Trace Waterfall → Hot Span",
+			"source": "Trace 0a000000000000000000000000000001 root POST /api/checkout",
+			"target": "Child span 0a00000000000102 (payment.charge)"
+		},
+		{
+			"hop": 3,
+			"name": "Hot Span → Connected Rail CPU Profile",
+			"source": "ConnectedRail on span 0a000000000000000000000000000001:0a00000000000102",
+			"target": "Down section link to #/profiles/<profileId>?trace_id=0a000000000000000000000000000001"
+		},
+		{
+			"hop": 4,
+			"name": "CPU Profile → Sampled Traces Cohort",
+			"source": "ConnectedRail on profile <profileId>",
+			"target": "Across section link to trace 0a000000000000000000000000000001"
+		},
+		{
+			"hop": 5,
+			"name": "Hot Span → User Session & Originating Click",
+			"source": "ConnectedRail on span 0a000000000000000000000000000001:0a00000000000102",
+			"target": "Related section 'Click that caused this trace' and Up section 'User session'"
+		},
+		{
+			"hop": 6,
+			"name": "User Session → Spans / Trace Join",
+			"source": "ConnectedRail on session/usage event",
+			"target": "Across section link back to trace 0a000000000000000000000000000001"
+		}
+	]
+}
