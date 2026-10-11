@@ -102,6 +102,20 @@ async function mockApis(
 		if (p.includes("/usage/sessions")) return json(route, "{}");
 		if (p.includes("/platform/resources"))
 			return json(route, '{"plugins":[],"database":{"tables":[]}}');
+		if (p.includes("/onboarding/counts")) {
+			return json(
+				route,
+				JSON.stringify({
+					spans: 0,
+					logs: 0,
+					usageEvents: 0,
+					identifiedUsers: 0,
+					aiCalls: 0,
+					replayChunks: 0,
+					spansWithInteraction: 0,
+				}),
+			);
+		}
 		if (p.includes("/connected/")) {
 			return json(
 				route,
@@ -1476,5 +1490,65 @@ test.describe("Phase 6 Operational Views", () => {
 				.locator("text=Correctly updated address and blocked injection")
 				.first(),
 		).toBeVisible();
+	});
+});
+
+// ── Onboarding ──
+
+test.describe("Onboarding", () => {
+	test("renders onboarding guidance with mocked counts and navigates via links", async ({
+		page,
+	}) => {
+		await mockApis(page, {
+			"/internal/onboarding/counts": (route) =>
+				json(
+					route,
+					JSON.stringify({
+						spans: 15,
+						logs: 0,
+						usageEvents: 0,
+						identifiedUsers: 0,
+						aiCalls: 3,
+						replayChunks: 0,
+						spansWithInteraction: 0,
+					}),
+				),
+		});
+
+		await page.goto("/#/onboarding");
+		await expect(page.locator("h1", { hasText: "Onboarding" })).toBeVisible();
+		await expect(page.getByText("2 of 6 steps complete.")).toBeVisible();
+
+		// Confirm agent debugging guidance is rendered
+		await expect(
+			page.getByRole("heading", {
+				name: "Next steps: Agent debugging & investigation",
+			}),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Agent Action Graph" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Read-only investigation MCP server" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Evidence retrieval (CCR)" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Profiles (CPU & off-CPU)" }),
+		).toBeVisible();
+
+		// Confirm product surface navigation link works
+		await page.click('a[href="#/evidence"]');
+		await expect(page).toHaveURL(/\/#\/evidence/);
+	});
+
+	test("clicking Onboarding in sidebar navigates to onboarding tab", async ({
+		page,
+	}) => {
+		await mockApis(page);
+		await page.goto("/#/health");
+		await page.click('button:has-text("Onboarding")');
+		await expect(page).toHaveURL(/\/#\/onboarding/);
 	});
 });
