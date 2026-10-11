@@ -21,6 +21,7 @@ export type Route = {
 export const KNOWN_TABS = new Set([
 	"playground",
 	"health",
+	"onboarding",
 	"investigate",
 	"traces",
 	"service-map",

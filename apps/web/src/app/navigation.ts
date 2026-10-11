@@ -41,6 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 export const PINNED_ITEMS: NavItem[] = [
+	{ key: "onboarding", label: "Onboarding", short: "OB" },
 	{ key: "projects", label: "Projects", short: "PR" },
 	{ key: "playground", label: "Playground", short: "PG" },
 ];

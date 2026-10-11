@@ -32,6 +32,11 @@ export const LogsDashboard = lazy(() =>
 		(m) => ({ default: m.LogsDashboard }),
 	),
 );
+export const OnboardingDashboard = lazy(() =>
+	import(
+		"../../../../packages/dashboard/src/dashboards/OnboardingDashboard"
+	).then((m) => ({ default: m.OnboardingDashboard })),
+);
 export const ProjectsDashboard = lazy(() =>
 	import(
 		"../../../../packages/dashboard/src/dashboards/ProjectsDashboard"
