@@ -5,9 +5,23 @@ export PGDATA="${PGDATA:-/var/lib/postgresql/15/main}"
 export DATABASE_URL="${DATABASE_URL:-postgres://obs:obs@127.0.0.1:5432/obs_unified}"
 export BLOB_STORE="${BLOB_STORE:-file}"
 export BLOB_DIR="${BLOB_DIR:-/data/blobs}"
-export INGEST_KEY="${INGEST_KEY:-dev-ingest-key}"
-export OBS_INGEST_KEY="${OBS_INGEST_KEY:-$INGEST_KEY}"
-export DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-e2e-test-pass}"
+if [ "${REQUIRE_AUTH_CONFIG:-false}" = "true" ]; then
+	if [ -z "${INGEST_KEY:-}" ] || [ "${INGEST_KEY}" = "dev-ingest-key" ]; then
+		echo "[obs-unified] ERROR: INGEST_KEY must be explicitly set to a secure value for production runtime." >&2
+		exit 1
+	fi
+	if [ -z "${DASHBOARD_PASSWORD:-}" ] || [ "${DASHBOARD_PASSWORD}" = "e2e-test-pass" ]; then
+		echo "[obs-unified] ERROR: DASHBOARD_PASSWORD must be explicitly set to a secure value for production runtime." >&2
+		exit 1
+	fi
+	export INGEST_KEY
+	export OBS_INGEST_KEY="${OBS_INGEST_KEY:-$INGEST_KEY}"
+	export DASHBOARD_PASSWORD
+else
+	export INGEST_KEY="${INGEST_KEY:-dev-ingest-key}"
+	export OBS_INGEST_KEY="${OBS_INGEST_KEY:-$INGEST_KEY}"
+	export DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-e2e-test-pass}"
+fi
 export ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
 export PORT="${PORT:-8790}"
 export OBS_DASHBOARD_PORT="${OBS_DASHBOARD_PORT:-5173}"
@@ -15,6 +29,13 @@ export OBS_COLLECTOR_URL="${OBS_COLLECTOR_URL:-http://127.0.0.1:8790}"
 
 mkdir -p /data/blobs
 chown -R postgres:postgres /var/lib/postgresql /var/run/postgresql
+
+if [ ! -d "$PGDATA" ] || [ -z "$(ls -A "$PGDATA" 2>/dev/null)" ]; then
+	echo "[obs-unified] initializing postgres cluster at $PGDATA"
+	mkdir -p "$(dirname "$PGDATA")"
+	chown postgres:postgres "$(dirname "$PGDATA")"
+	pg_createcluster 15 main
+fi
 
 echo "[obs-unified] starting postgres"
 pg_ctlcluster 15 main start
@@ -65,6 +86,20 @@ if [ "${OBS_LOCAL_SEED:-true}" = "true" ]; then
 		--rounds "${OBS_LOCAL_SEED_ROUNDS:-6}" || true
 fi
 
+if [ "${REQUIRE_AUTH_CONFIG:-false}" = "true" ]; then
+cat <<EOF
+
+obs-unified is ready.
+
+Dashboard:  http://localhost:${OBS_DASHBOARD_PORT}
+Collector:  http://localhost:${PORT}
+Auth:       configured via environment (credentials masked in logs)
+
+Verify:
+  obs-unified doctor http://localhost:${PORT} --origin http://localhost:${OBS_DASHBOARD_PORT}
+
+EOF
+else
 cat <<EOF
 
 obs-unified local is ready.
@@ -78,5 +113,6 @@ Verify:
   obs-unified doctor http://localhost:${PORT} --origin http://localhost:${OBS_DASHBOARD_PORT}
 
 EOF
+fi
 
 wait -n "$collector_pid" "$dashboard_pid"

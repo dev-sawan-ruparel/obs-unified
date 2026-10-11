@@ -59,9 +59,35 @@ bundles. The migration release is `skills-v0.1.1`.
 
 ## Container image
 
-Build `Dockerfile.local` and publish to `ghcr.io/dev-sawan-ruparel/local:latest`
-with package publishing access. Mark it public and verify an anonymous pull.
-Local builds use `pnpm local:image` and `pnpm local:run`.
+Prebuilt multi-stage Docker images are published manually to
+`ghcr.io/dev-sawan-ruparel/obs-unified` as an evaluation and small self-host
+path. (For production operations, see the standalone Node collector in
+[`apps/collector-node`](../apps/collector-node/README.md) backed by external
+PostgreSQL and S3, documented in [Production Operations](ops/production.md)).
+GitHub Actions and runners are not used.
+
+1. Build and tag the release image locally:
+   ```bash
+   pnpm docker:build
+   ```
+2. Validate the built image with the smoke test suite:
+   ```bash
+   pnpm docker:smoke
+   ```
+3. Authenticate to GHCR using an existing `gh` session or standard docker login:
+   ```bash
+   gh auth token | docker login ghcr.io -u <github-username> --password-stdin
+   ```
+4. Push the tagged release images (`:<version>`, `:sha-<sha>`, `:latest`):
+   ```bash
+   docker push ghcr.io/dev-sawan-ruparel/obs-unified:<version>
+   docker push ghcr.io/dev-sawan-ruparel/obs-unified:sha-<sha>
+   docker push ghcr.io/dev-sawan-ruparel/obs-unified:latest
+   ```
+5. On initial publish, ensure package visibility is set to Public in GitHub package settings and verify anonymous pull.
+
+For zero-config local development and demo testing, use `pnpm local:image` and `pnpm local:run`.
+For complete runtime architecture, fail-closed runtime credential requirements, and rollback procedures, see the [Docker Release Guide](ops/docker-release.md).
 
 ## Website and docs
 
