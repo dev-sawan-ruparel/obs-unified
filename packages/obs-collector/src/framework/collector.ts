@@ -324,99 +324,134 @@ export const createTelemetryCollectorApp = (
 };
 
 /**
+ * Runtime-neutral entry point for a background maintenance task.
+ *
+ * `run(env)` does the work and needs nothing but a `CollectorEnv`, so any
+ * host (Cloudflare cron, a Node `setInterval`, a Kubernetes CronJob hitting
+ * a one-shot script) can drive it. `scheduled(event, env, ctx)` is the thin
+ * Cloudflare Workers adapter over `run` — the event and context are accepted
+ * for signature compatibility with `ExportedHandler.scheduled` but are never
+ * consulted, so non-Workers hosts should call `run` directly rather than
+ * fabricating placeholder event objects.
+ */
+export interface ScheduledTaskHandler<TSummary = void> {
+	run(env: CollectorEnv): Promise<TSummary>;
+	scheduled(
+		event: ScheduledEvent,
+		env: CollectorEnv,
+		ctx: ExecutionContext,
+	): Promise<void>;
+}
+
+/** Per-table purge counts reported by the retention cleanup task. */
+export interface RetentionCleanupSummary {
+	spans: number;
+	usage: number;
+	logs: number;
+	ai_calls: number;
+	metric_points: number;
+	analysis_results: number;
+	profile_blobs: number;
+}
+
+/**
  * Scheduled handler that purges expired telemetry and usage rows.
- * Wire into wrangler.toml: `[triggers] crons = ["0 * * * *"]`
+ * Wire into wrangler.toml: `[triggers] crons = ["0 * * * *"]`, or call
+ * `.run(env)` from a non-Workers host scheduler.
  * Source: AgentOwl + DecisionOps
  */
 export const createRetentionCleanupHandler = (options?: {
 	logger?: Logger;
-}) => {
+}): ScheduledTaskHandler<RetentionCleanupSummary> => {
 	const logger = options?.logger ?? consoleLogger;
-	return {
-		async scheduled(
-			_event: ScheduledEvent,
-			env: CollectorEnv,
-			_ctx: ExecutionContext,
-		): Promise<void> {
-			const db = sqlDbFor(env);
-			const telemetryStore = new TelemetryStore(db);
-			const usageStore = new UsageStore(db);
-			const logsStore = new LogsStore(db);
-			const aiStore = new AIStore(db);
-			const metricsStore = new MetricsStore(db);
-			const analysesStore = new AnalysesStore(db);
+	const run = async (env: CollectorEnv): Promise<RetentionCleanupSummary> => {
+		const db = sqlDbFor(env);
+		const telemetryStore = new TelemetryStore(db);
+		const usageStore = new UsageStore(db);
+		const logsStore = new LogsStore(db);
+		const aiStore = new AIStore(db);
+		const metricsStore = new MetricsStore(db);
+		const analysesStore = new AnalysesStore(db);
 
-			const [
-				telemetryPurged,
-				usagePurged,
-				logsPurged,
-				aiPurged,
-				metricsPurged,
-				analysesPurged,
-			] = await Promise.all([
-				telemetryStore.purgeExpired(),
-				usageStore.purgeExpired(),
-				logsStore.purgeExpired(),
-				aiStore.purgeExpired(),
-				metricsStore.purgeExpired(),
-				analysesStore.purgeExpired(),
-			]);
+		const [
+			telemetryPurged,
+			usagePurged,
+			logsPurged,
+			aiPurged,
+			metricsPurged,
+			analysesPurged,
+		] = await Promise.all([
+			telemetryStore.purgeExpired(),
+			usageStore.purgeExpired(),
+			logsStore.purgeExpired(),
+			aiStore.purgeExpired(),
+			metricsStore.purgeExpired(),
+			analysesStore.purgeExpired(),
+		]);
 
-			// RFC 0007 Phase 4.10 — profile_blobs retention. Cascade
-			// foreign key on profile_trace_index handles the join rows;
-			// we still need to delete the R2 blobs, which we do
-			// best-effort by reading the URLs first.
-			let profilesPurged = 0;
-			try {
-				const dialect = dialectFor(db);
-				const expiredProfiles = await db
-					.prepare(
-						`SELECT id, blob_url FROM profile_blobs WHERE expires_at < ${dialect.now()} LIMIT 500`,
-					)
-					.all<{ id: string; blob_url: string }>();
-				if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
-					await Promise.allSettled(
-						expiredProfiles.results.map((p) =>
-							env.PROFILES_BUCKET?.delete(p.blob_url),
-						),
-					);
-				}
-				const deleted = await db
-					.prepare(
-						`DELETE FROM profile_blobs WHERE expires_at < ${dialect.now()}`,
-					)
-					.run();
-				profilesPurged = deleted.meta.changes;
-			} catch (err) {
-				logger.error("[retention-cleanup] profile purge failed", {
-					error: err instanceof Error ? err.message : String(err),
-				});
+		// RFC 0007 Phase 4.10 — profile_blobs retention. Cascade
+		// foreign key on profile_trace_index handles the join rows;
+		// we still need to delete the R2 blobs, which we do
+		// best-effort by reading the URLs first.
+		let profilesPurged = 0;
+		try {
+			const dialect = dialectFor(db);
+			const expiredProfiles = await db
+				.prepare(
+					`SELECT id, blob_url FROM profile_blobs WHERE expires_at < ${dialect.now()} LIMIT 500`,
+				)
+				.all<{ id: string; blob_url: string }>();
+			if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
+				await Promise.allSettled(
+					expiredProfiles.results.map((p) =>
+						env.PROFILES_BUCKET?.delete(p.blob_url),
+					),
+				);
 			}
-
-			logger.info("[retention-cleanup] purged expired rows", {
-				spans: telemetryPurged,
-				usage: usagePurged,
-				logs: logsPurged,
-				ai_calls: aiPurged,
-				metric_points: metricsPurged,
-				analysis_results: analysesPurged,
-				profile_blobs: profilesPurged,
+			const deleted = await db
+				.prepare(
+					`DELETE FROM profile_blobs WHERE expires_at < ${dialect.now()}`,
+				)
+				.run();
+			profilesPurged = deleted.meta.changes;
+		} catch (err) {
+			logger.error("[retention-cleanup] profile purge failed", {
+				error: err instanceof Error ? err.message : String(err),
 			});
+		}
 
-			// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.
-			// Hourly aggregation rides the retention cron because cadence
-			// matches and both touch the same projects' tables.
-			try {
-				const propagation = await aggregatePropagation(db, new Date(), logger);
-				logger.info("[propagation-metric] hourly aggregation complete", {
-					projects: propagation.projects,
-					points_written: propagation.pointsWritten,
-				});
-			} catch (err) {
-				logger.error("[propagation-metric] aggregation failed", {
-					error: err instanceof Error ? err.message : String(err),
-				});
-			}
+		const summary: RetentionCleanupSummary = {
+			spans: telemetryPurged,
+			usage: usagePurged,
+			logs: logsPurged,
+			ai_calls: aiPurged,
+			metric_points: metricsPurged,
+			analysis_results: analysesPurged,
+			profile_blobs: profilesPurged,
+		};
+		logger.info("[retention-cleanup] purged expired rows", { ...summary });
+
+		// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.
+		// Hourly aggregation rides the retention cron because cadence
+		// matches and both touch the same projects' tables.
+		try {
+			const propagation = await aggregatePropagation(db, new Date(), logger);
+			logger.info("[propagation-metric] hourly aggregation complete", {
+				projects: propagation.projects,
+				points_written: propagation.pointsWritten,
+			});
+		} catch (err) {
+			logger.error("[propagation-metric] aggregation failed", {
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+
+		return summary;
+	};
+	return {
+		run,
+		scheduled: async (_event, env, _ctx) => {
+			await run(env);
 		},
 	};
 };
@@ -426,41 +461,54 @@ export const createRetentionCleanupHandler = (options?: {
  * `runAllDueAnalyses` filters by `last_run + refreshSeconds < now` before
  * touching D1.
  *
- * Wire to a per-minute trigger in wrangler.toml: `crons = ["* * * * *"]`.
- * Kept distinct from retention so the per-minute tick doesn't sweep every
- * retention table every cycle.
+ * Wire to a per-minute trigger in wrangler.toml: `crons = ["* * * * *"]`,
+ * or call `.run(env)` from a non-Workers host scheduler. Kept distinct from
+ * retention so the per-minute tick doesn't sweep every retention table every
+ * cycle.
  */
 export const createAnalysesRunHandler = (options?: {
 	logger?: Logger;
 	tracer?: ChildSpanRunner;
-}) => {
+}): ScheduledTaskHandler<AnalysesRunSummary | undefined> => {
 	const logger = options?.logger ?? consoleLogger;
 	const tracer = options?.tracer;
+	/**
+	 * Runs every due analysis. Resolves to the run summary, or `undefined`
+	 * when the run failed — failures are logged rather than thrown so a
+	 * transient DB hiccup never breaks a host's cron loop.
+	 */
+	const run = async (
+		env: CollectorEnv,
+	): Promise<AnalysesRunSummary | undefined> => {
+		try {
+			const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
+			const summary = await runAllDueAnalyses({
+				env,
+				retentionHours,
+				logger,
+				tracer,
+			});
+			logger.info("[analyses] scheduled run summary", {
+				refreshed: summary.refreshed,
+				ran: summary.ran,
+				failed: summary.failed,
+				narrated: summary.narrated,
+			});
+			return summary;
+		} catch (error) {
+			logger.error("[analyses] scheduled run failed", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return undefined;
+		}
+	};
 	return {
-		async scheduled(
-			_event: ScheduledEvent,
-			env: CollectorEnv,
-			_ctx: ExecutionContext,
-		): Promise<void> {
-			try {
-				const retentionHours = getConfiguredRetentionHours(env.RETENTION_HOURS);
-				const summary = await runAllDueAnalyses({
-					env,
-					retentionHours,
-					logger,
-					tracer,
-				});
-				logger.info("[analyses] scheduled run summary", {
-					refreshed: summary.refreshed,
-					ran: summary.ran,
-					failed: summary.failed,
-					narrated: summary.narrated,
-				});
-			} catch (error) {
-				logger.error("[analyses] scheduled run failed", {
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
+		run,
+		scheduled: async (_event, env, _ctx) => {
+			await run(env);
 		},
 	};
 };
+
+/** Shape returned by `runAllDueAnalyses` and surfaced via the run handler. */
+export type AnalysesRunSummary = Awaited<ReturnType<typeof runAllDueAnalyses>>;

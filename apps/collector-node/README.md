@@ -54,6 +54,48 @@ pnpm --filter @obs-demo/collector-node run start
 | `DASHBOARD_TOKEN`      | no            | —                        | Programmatic read/admin bearer token for /internal/* (MCP)  |
 | `ALLOWED_ORIGINS`      | no            | —                        | Comma-separated CORS origins                                |
 | `PORT`                 | no            | 8790                     | HTTP listen port                                            |
+| `RETENTION_HOURS`      | no            | 72                       | Retention window for rows and blobs (1–720); also bounds dashboard query ranges |
+| `ANTHROPIC_API_KEY`    | no            | —                        | Enables the analyses narrate pass and `/internal/ask` via Anthropic |
+| `OPENAI_API_KEY`       | no            | —                        | Same via OpenAI-compatible chat completions (wins if both keys are set) |
+| `OPENAI_BASE_URL`      | no            | —                        | Endpoint override for OpenAI-compatible servers (OpenRouter, vLLM, Ollama…) |
+| `NARRATIVE_MODEL`      | no            | provider default         | Narrative model id (defaults: `claude-3-5-haiku-latest` / `gpt-4o-mini`) |
+| `NARRATIVE_BUDGET_PER_HOUR` | no       | 50                       | Max narrative writes per project per hour                   |
+| `MAINTENANCE_ENABLED`  | no            | `true`                   | Set to `false` to disable the in-process maintenance scheduler |
+| `MAINTENANCE_ANALYSES_INTERVAL_SECONDS`  | no | 60                  | Cadence of the due-analyses run                             |
+| `MAINTENANCE_ALERTS_INTERVAL_SECONDS`    | no | 300                 | Cadence of alert rule evaluation                            |
+| `MAINTENANCE_RETENTION_INTERVAL_SECONDS` | no | 3600                | Cadence of retention cleanup                                |
+
+## Background maintenance
+
+The Cloudflare Worker relies on Cron Triggers for three recurring jobs. The
+Node collector runs the same jobs from an in-process scheduler
+(`src/maintenance.ts` + `src/scheduler.ts`) using the same Postgres adapter
+and blob store as HTTP traffic:
+
+| Task                | Default cadence | Worker cron    | What it does                                            |
+| ------------------- | --------------- | -------------- | ------------------------------------------------------- |
+| `analyses_run`      | every 1 min     | `* * * * *`    | Runs analyses whose refresh window has elapsed          |
+| `alerts_evaluate`   | every 5 min     | `*/5 * * * *`  | Evaluates enabled alert rules, fires/resolves incidents |
+| `retention_cleanup` | every 60 min    | `0 * * * *`    | Purges expired rows and profile blobs                   |
+
+First runs are staggered shortly after startup (15 s / 30 s / 60 s) so a
+restarted collector repopulates dashboards quickly. A tick that fires while
+the previous run of the same task is still in flight is skipped and logged
+(`[maintenance] skipped tick`), never run concurrently. A failing run is
+logged (`[maintenance] task failed`) and the next tick proceeds. On `SIGINT`
+or `SIGTERM` the scheduler stops arming new ticks, waits up to 10 s for
+in-flight runs, and only then is the Postgres pool closed.
+
+The optional `RETENTION_HOURS` and narrative LLM variables above are forwarded
+into the collector env, so a scheduled analyses run narrates and expires
+results exactly as the Worker does; blank values are treated as unset.
+
+Run more than one collector replica? Set `MAINTENANCE_ENABLED=false` on the
+serving replicas and run exactly one maintenance process with it enabled. See
+the Kubernetes example in
+[`docs/ops/production.md`](../../docs/ops/production.md#4-kubernetes-orchestration-manifests).
+Or disable it everywhere and drive the jobs from an external scheduler of
+your own.
 
 ## Migrations
 
@@ -88,7 +130,7 @@ OBS_PG_TEST_URL=postgres://obs:obs@127.0.0.1:5432/obs_scratch \
 | SQL storage         | D1 (SQLite-on-edge) | Postgres                                                                |
 | Blob storage        | R2                  | S3 (or compatible)                                                      |
 | Runtime             | workerd             | Node 22+                                                                |
-| Scheduled retention | Cron Triggers       | OS `cron` or Kubernetes `CronJob` (call `POST /internal/retention/run`) |
+| Scheduled jobs      | Cron Triggers       | In-process scheduler (see "Background maintenance")                      |
 | Cold-start          | <50ms               | ~1s on first request after restart                                      |
 
 Both deployments compose the same `@obsunified/collector` runtime — plugin code

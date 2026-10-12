@@ -29,7 +29,12 @@ import {
 	S3BlobStore,
 } from "@obsunified/collector";
 import pg, { Pool } from "pg";
+import { readOptionalCollectorEnv } from "./collector-env";
 import { FileBlobStore } from "./file-blob-store";
+import {
+	createCollectorMaintenance,
+	readMaintenanceConfig,
+} from "./maintenance";
 
 const env = readEnv();
 
@@ -100,6 +105,15 @@ const app = createDefaultCollectorApp({
 });
 const wrappedS3 = new BlobStoreToR2Adapter(blob);
 
+// Optional Worker-parity fields (RETENTION_HOURS, narrative LLM settings).
+// Forwarded into the same env object HTTP handlers and the maintenance
+// scheduler receive, so retention windows and the analyses narrate pass
+// behave exactly as they do on Cloudflare.
+const optionalEnv = readOptionalCollectorEnv(process.env);
+for (const warning of optionalEnv.warnings) {
+	console.warn(`[obs-unified] ${warning}`);
+}
+
 const requestEnv: CollectorEnv = {
 	DB: sqlDb as unknown as D1Database,
 	REPLAYS_BUCKET: wrappedS3,
@@ -108,6 +122,7 @@ const requestEnv: CollectorEnv = {
 	DASHBOARD_PASSWORD: env.DASHBOARD_PASSWORD,
 	DASHBOARD_TOKEN: env.DASHBOARD_TOKEN,
 	ALLOWED_ORIGINS: env.ALLOWED_ORIGINS.join(","),
+	...optionalEnv.env,
 };
 
 const port = env.PORT;
@@ -124,9 +139,41 @@ const server = serve(
 	},
 );
 
+// Background maintenance — the Node counterpart of the Worker's cron
+// triggers: due analyses every minute, alert evaluation every five minutes,
+// retention cleanup hourly. Runs against the same `requestEnv` (and therefore
+// the same PostgresAdapter + blob store) as HTTP traffic. Disable with
+// MAINTENANCE_ENABLED=false when an external scheduler owns these jobs or
+// when running several replicas and only one should do maintenance.
+const maintenanceConfig = readMaintenanceConfig();
+const maintenance = createCollectorMaintenance({
+	env: requestEnv,
+	config: maintenanceConfig,
+});
+if (maintenanceConfig.enabled) {
+	maintenance.start();
+} else {
+	console.log(
+		"[obs-unified] maintenance scheduler disabled (MAINTENANCE_ENABLED=false)",
+	);
+}
+
+let shuttingDown = false;
 const shutdown = async (signal: string) => {
+	if (shuttingDown) return;
+	shuttingDown = true;
 	console.log(`[obs-unified] received ${signal}, draining…`);
-	await closeServerWithDeadline(10_000);
+	// Stop scheduling new maintenance ticks and close the listener together;
+	// both wait for in-flight work up to the deadline before the pool goes.
+	const [, drain] = await Promise.all([
+		closeServerWithDeadline(10_000),
+		maintenance.stop({ drainTimeoutMs: 10_000 }),
+	]);
+	if (!drain.drained) {
+		console.warn(
+			`[obs-unified] maintenance tasks still running at shutdown deadline: ${drain.inFlight.join(", ")}`,
+		);
+	}
 	await pool.end().catch(() => {});
 	process.exit(0);
 };
