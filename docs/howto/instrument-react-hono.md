@@ -47,9 +47,10 @@ VITE_OBS_INGEST_KEY=obs_…                         # browser (separate write-on
 ```
 
 > To mint that separate browser key against your collector:
-> `OBS_ADMIN_TOKEN=<dashboard password> pnpm dlx @obsunified/cli keys mint`
-> (it targets `OBS_COLLECTOR_URL`). For local development, reusing the server
-> key is fine.
+> `OBS_ADMIN_TOKEN=<collector DASHBOARD_TOKEN> pnpm dlx @obsunified/cli keys mint --name browser`
+> (it targets `OBS_COLLECTOR_URL` and the collector's `default` project; pass
+> `--project <id>` or set `OBS_PROJECT_ID` to mint for another project). For
+> local development, reusing the server key is fine.
 
 ## 1. Frontend — bootstrap the React provider
 
