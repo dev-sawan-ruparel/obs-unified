@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Hono, type MiddlewareHandler } from "hono";
@@ -100,6 +100,104 @@ class MemR2Bucket {
 	async delete(key: string): Promise<void> {
 		this.objects.delete(key);
 	}
+}
+
+interface PgTestHarness {
+	query<T = Record<string, unknown>>(
+		sql: string,
+		params?: unknown[],
+	): Promise<{ rows: T[] }>;
+	exec(sql: string): Promise<void>;
+	close(): Promise<void>;
+}
+
+const pgliteEnvPath =
+	"/tmp/obs-pglite-env/node_modules/@electric-sql/pglite/dist/index.js";
+const hasPgHarness = Boolean(
+	process.env.OBS_PG_TEST_URL || existsSync(pgliteEnvPath),
+);
+
+async function createPgTestHarness(): Promise<PgTestHarness | null> {
+	if (process.env.OBS_PG_TEST_URL) {
+		const pgModule = await import("pg");
+		const Client = pgModule.default?.Client ?? pgModule.Client;
+		const client = new Client({
+			connectionString: process.env.OBS_PG_TEST_URL,
+		});
+		await client.connect();
+
+		// Guard: create an isolated scratch schema so we NEVER touch any non-scratch database
+		const scratchSchema = `obs_replay_scratch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+		await client.query(`CREATE SCHEMA "${scratchSchema}"`);
+		await client.query(`SET search_path TO "${scratchSchema}"`);
+
+		// Guard: verify the newly active schema is completely empty
+		const tables = await client.query<{ table_name: string }>(
+			`SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'`,
+		);
+		if (tables.rows.length > 0) {
+			await client.query(`DROP SCHEMA IF EXISTS "${scratchSchema}" CASCADE`);
+			await client.end();
+			throw new Error("Scratch schema was unexpectedly not empty");
+		}
+
+		return {
+			async query<T = Record<string, unknown>>(
+				sql: string,
+				params: unknown[] = [],
+			) {
+				const res = await client.query(sql, params);
+				return { rows: res.rows as T[] };
+			},
+			async exec(sql: string) {
+				await client.query(sql);
+			},
+			async close() {
+				try {
+					await client.query("RESET search_path").catch(() => {});
+					await client.query(`DROP SCHEMA IF EXISTS "${scratchSchema}" CASCADE`);
+				} finally {
+					await client.end();
+				}
+			},
+		};
+	}
+
+	if (existsSync(pgliteEnvPath)) {
+		const { PGlite } = (await import(
+			/* @vite-ignore */ pgliteEnvPath
+		)) as {
+			PGlite: {
+				create: () => Promise<{
+					query: <T = Record<string, unknown>>(
+						sql: string,
+						params?: unknown[],
+					) => Promise<{ rows: T[] }>;
+					exec: (sql: string) => Promise<void>;
+					close: () => Promise<void>;
+				}>;
+			};
+		};
+
+		const db = await PGlite.create();
+		return {
+			async query<T = Record<string, unknown>>(
+				sql: string,
+				params: unknown[] = [],
+			) {
+				const res = await db.query<T>(sql, params);
+				return { rows: res.rows };
+			},
+			async exec(sql: string) {
+				await db.exec(sql);
+			},
+			async close() {
+				await db.close();
+			},
+		};
+	}
+
+	return null;
 }
 
 describe("Cross-Project Session Replay Isolation & Migration 042", () => {
@@ -317,6 +415,223 @@ describe("Cross-Project Session Replay Isolation & Migration 042", () => {
 			"UPDATE session_replay_metadata SET project_id = 'default'",
 		);
 	});
+
+	it.runIf(hasPgHarness)(
+		"executes PostgreSQL migration 042 against an old-schema table with preserved rows and validates cross-project ON CONFLICT upsert",
+		async () => {
+			const pg = await createPgTestHarness();
+			if (!pg) return;
+
+			try {
+				// 1. Simulate existing deployed database schema up to migration 010
+				const m007 = readFileSync(
+					resolve(pgMigrationsDir, "007_session_replay_metadata.sql"),
+					"utf8",
+				);
+				const m008 = readFileSync(
+					resolve(pgMigrationsDir, "008_session_replay_storage_bytes.sql"),
+					"utf8",
+				);
+
+				await pg.exec(m007);
+				await pg.exec(m008);
+				await pg.exec(
+					"ALTER TABLE session_replay_metadata ADD COLUMN project_id TEXT DEFAULT 'default';",
+				);
+				await pg.exec(
+					"CREATE INDEX IF NOT EXISTS idx_replay_project_last ON session_replay_metadata (project_id, last_chunk_at DESC);",
+				);
+
+				// 2. Insert existing row before migration 042
+				await pg.query(
+					`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
+					 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+					[
+						"proj-existing",
+						"sess-123",
+						"vis-1",
+						"2026-06-01T10:00:00Z",
+						"2026-06-01T10:02:00Z",
+						2,
+						20,
+						2048,
+					],
+				);
+
+				// 3. Before 042, inserting a row in another project with duplicate session_id fails due to single-column PK
+				let insertFailedBefore = false;
+				try {
+					await pg.query(
+						`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
+						 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+						[
+							"proj-other",
+							"sess-123",
+							"vis-2",
+							"2026-06-01T12:00:00Z",
+							"2026-06-01T12:00:00Z",
+							1,
+							10,
+							1024,
+						],
+					);
+				} catch (err) {
+					insertFailedBefore = true;
+					expect((err as Error).message).toMatch(/unique|primary/i);
+				}
+				expect(insertFailedBefore).toBe(true);
+
+				// 4. Execute migration 042
+				const m042 = readFileSync(
+					resolve(pgMigrationsDir, "042_session_replay_project_composite_pk.sql"),
+					"utf8",
+				);
+				await pg.exec(m042);
+
+				// 5. Verify existing row is preserved intact
+				const preserved = await pg.query<{
+					project_id: string;
+					session_id: string;
+					visitor_id: string;
+					first_chunk_at: string;
+					last_chunk_at: string;
+					chunk_count: number;
+					events_count: number;
+					storage_bytes: number;
+				}>(
+					"SELECT * FROM session_replay_metadata WHERE project_id = $1 AND session_id = $2",
+					["proj-existing", "sess-123"],
+				);
+				expect(preserved.rows).toHaveLength(1);
+				expect(preserved.rows[0]).toEqual({
+					project_id: "proj-existing",
+					session_id: "sess-123",
+					visitor_id: "vis-1",
+					first_chunk_at: "2026-06-01T10:00:00Z",
+					last_chunk_at: "2026-06-01T10:02:00Z",
+					chunk_count: 2,
+					events_count: 20,
+					storage_bytes: 2048,
+				});
+
+				// 6. Verify duplicate session_id in proj-other now succeeds
+				await pg.query(
+					`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
+					 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+					[
+						"proj-other",
+						"sess-123",
+						"vis-2",
+						"2026-06-01T12:00:00Z",
+						"2026-06-01T12:00:00Z",
+						1,
+						10,
+						1024,
+					],
+				);
+
+				// 7. Verify ON CONFLICT(project_id, session_id) DO UPDATE SET ... updates only the target project
+				const upsertSql = `
+					INSERT INTO session_replay_metadata (
+						project_id, session_id, visitor_id, first_chunk_at, last_chunk_at,
+						chunk_count, events_count, storage_bytes
+					) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+					ON CONFLICT(project_id, session_id) DO UPDATE SET
+						last_chunk_at = EXCLUDED.last_chunk_at,
+						chunk_count = session_replay_metadata.chunk_count + 1,
+						events_count = session_replay_metadata.events_count + EXCLUDED.events_count,
+						storage_bytes = session_replay_metadata.storage_bytes + EXCLUDED.storage_bytes
+				`;
+				await pg.query(upsertSql, [
+					"proj-other",
+					"sess-123",
+					"vis-2",
+					"2026-06-01T12:00:00Z",
+					"2026-06-01T12:05:00Z",
+					1,
+					15,
+					1500,
+				]);
+
+				const afterExisting = await pg.query<{
+					chunk_count: number;
+					events_count: number;
+					storage_bytes: number;
+					last_chunk_at: string;
+				}>(
+					"SELECT chunk_count, events_count, storage_bytes, last_chunk_at FROM session_replay_metadata WHERE project_id = $1 AND session_id = $2",
+					["proj-existing", "sess-123"],
+				);
+				const afterOther = await pg.query<{
+					chunk_count: number;
+					events_count: number;
+					storage_bytes: number;
+					last_chunk_at: string;
+				}>(
+					"SELECT chunk_count, events_count, storage_bytes, last_chunk_at FROM session_replay_metadata WHERE project_id = $1 AND session_id = $2",
+					["proj-other", "sess-123"],
+				);
+
+				// proj-existing remains unchanged
+				expect(afterExisting.rows[0]?.chunk_count).toBe(2);
+				expect(afterExisting.rows[0]?.events_count).toBe(20);
+				expect(afterExisting.rows[0]?.storage_bytes).toBe(2048);
+				expect(afterExisting.rows[0]?.last_chunk_at).toBe("2026-06-01T10:02:00Z");
+
+				// proj-other has its chunk count and bytes incremented
+				expect(afterOther.rows[0]?.chunk_count).toBe(2);
+				expect(afterOther.rows[0]?.events_count).toBe(25);
+				expect(afterOther.rows[0]?.storage_bytes).toBe(2524);
+				expect(afterOther.rows[0]?.last_chunk_at).toBe("2026-06-01T12:05:00Z");
+
+				// 8. Re-running migration 042 is idempotent
+				await pg.exec(m042);
+				const afterRerun = await pg.query<{ count: string | number }>(
+					"SELECT COUNT(*) AS count FROM session_replay_metadata",
+				);
+				expect(Number(afterRerun.rows[0]?.count)).toBe(2);
+			} finally {
+				await pg.close();
+			}
+		},
+	);
+
+	it.runIf(hasPgHarness)(
+		"applies all PostgreSQL migrations sequentially on fresh install without errors and establishes composite PK",
+		async () => {
+			const pg = await createPgTestHarness();
+			if (!pg) return;
+
+			try {
+				const files = readdirSync(pgMigrationsDir)
+					.filter((f) => f.endsWith(".sql"))
+					.sort((a, b) => a.localeCompare(b));
+
+				for (const file of files) {
+					const sql = readFileSync(resolve(pgMigrationsDir, file), "utf8");
+					await pg.exec(sql);
+				}
+
+				const pkInfo = await pg.query<{ column_name: string }>(
+					`SELECT kcu.column_name
+					 FROM information_schema.table_constraints tc
+					 JOIN information_schema.key_column_usage kcu
+					   ON tc.constraint_name = kcu.constraint_name
+					  AND tc.table_schema = kcu.table_schema
+					 WHERE tc.table_schema = current_schema()
+					   AND tc.table_name = 'session_replay_metadata'
+					   AND tc.constraint_type = 'PRIMARY KEY'
+					 ORDER BY kcu.column_name ASC`,
+				);
+				expect(pkInfo.rows.map((r) => r.column_name)).toEqual([
+					"project_id",
+					"session_id",
+				]);
+			} finally {
+				await pg.close();
+			}
+		},
+	);
 
 	it("proves complete write/read/delete isolation across projects with identical session IDs", async () => {
 		const rawDb = new DatabaseSync(":memory:");
