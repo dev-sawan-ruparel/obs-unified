@@ -36,21 +36,25 @@ flowchart TD
 
   Browser -->|Web & Query| SSOGate -->|Proxied Session| Web
   SSOGate -->|API Query| Collector
-  MCPAgent -->|Read Tools| InternalVPC -->|obs_session cookie| Collector
+  MCPAgent -->|Read Tools| InternalVPC -->|Bearer token or obs_session| Collector
   OTelApp -->|OTLP POST| IngestPass -->|API Key| Collector
 ```
 
-1. **Dashboard shared secret (`DASHBOARD_PASSWORD`)**:
-   Managed in the collector via `dashboardAuth`. Authentication via `POST /auth/login` sets an HMAC-SHA256 signed `obs_session` cookie valid for 7 days. On `/internal/*`, the collector strictly checks **only** the `obs_session` cookie; it does not accept bearer tokens or API keys on `/internal/*`.
+1. **Dashboard authentication & programmatic token (`DASHBOARD_PASSWORD`, `DASHBOARD_TOKEN`)**:
+   Managed in the collector via `dashboardAuth`. Browser login via `POST /auth/login` sets an HMAC-SHA256 signed `obs_session` cookie valid for 7 days. On `/internal/*`, the collector accepts either a valid `obs_session` cookie or a programmatic read/admin bearer token (`Authorization: Bearer <DASHBOARD_TOKEN>`). Programmatic client tokens map directly to this server secret:
+   - **CLI client (`@obsunified/cli`)**: uses `OBS_ADMIN_TOKEN` for `keys mint` and `keys list`; this value must equal the collector server `DASHBOARD_TOKEN`.
+   - **MCP server (`@obsunified/mcp-server`)**: uses `OBS_DASHBOARD_TOKEN` for telemetry inspection; this value must equal the collector server `DASHBOARD_TOKEN`.
+   Ingest keys (`INGEST_KEY`, `OBS_INGEST_KEY`) are strictly write-only and cannot read `/internal/*`.
 2. **Telemetry ingest API keys (`INGEST_KEY`, `ingest_keys` table)**:
    Managed via `ingestAuth`. Telemetry producers send `Authorization: Bearer <key>` or `X-API-Key: <key>` to `/v1/*` routes. Ingest keys grant **write-only** access and cannot read dashboard or internal query APIs.
 3. **Public health endpoint (`/health`)**:
    Publicly accessible on the collector for load balancer health probes and client clock synchronization.
 4. **Investigation MCP boundary (`@obsunified/mcp-server`)**:
    Read-only investigation server querying `/internal/*` routes.
-   - When the collector runs with `dashboardAuth`, `/internal/*` requires `OBS_SESSION_COOKIE`.
+   - Configure `OBS_DASHBOARD_TOKEN` on the MCP client matching `DASHBOARD_TOKEN` on the collector (or `OBS_SESSION_COOKIE` for ad-hoc browser session reuse). Note that while CLI clients configure `OBS_ADMIN_TOKEN`, MCP configures `OBS_DASHBOARD_TOKEN`; both authenticate against the collector server `DASHBOARD_TOKEN`.
+   - The MCP client sends `Authorization: Bearer <OBS_DASHBOARD_TOKEN>` and optional `X-Project-Id`.
    - The MCP client does **not** emit Cloudflare Access service token headers (`CF-Access-Client-*`). Direct connection across a Cloudflare Access gate without a forwarding proxy is unsupported.
-   - Run the MCP server within the trusted internal network or localhost boundary where it can directly reach the collector's port using `OBS_SESSION_COOKIE`.
+   - Run the MCP server within the trusted internal network or localhost boundary where it can directly reach the collector's port using `OBS_DASHBOARD_TOKEN`.
 5. **`X-Project-Id` Handling**:
    The collector requires `X-Project-Id` for multi-project tenant scoping in the dashboard and MCP. The reverse proxy must pass `X-Project-Id` through.
 
@@ -63,7 +67,7 @@ flowchart TD
 | `/health` | Collector `:8790` | Public / Bypass | None | Liveness & clock offset sync |
 | `/v1/*` | Collector `:8790` | Bypass SSO | Ingest API Key | OTLP spans, logs, metrics, AI calls |
 | `/auth/*` | Collector `:8790` | SSO Protected | `obs_session` | Dashboard session management |
-| `/internal/*` | Collector `:8790` | SSO / Internal VPC | `obs_session` | Telemetry & evidence queries |
+| `/internal/*` | Collector `:8790` | SSO / Internal VPC | `obs_session` cookie or Bearer `DASHBOARD_TOKEN` | Telemetry & evidence queries |
 | `/` | Dashboard `:5173` | SSO Protected | IdP Session Cookie | React SPA assets |
 
 ---
@@ -250,6 +254,13 @@ server {
    ```bash
    curl -i https://obs.example.com/internal/telemetry/overview \
      -H "Cookie: _oauth2_proxy=<OAUTH_COOKIE>; obs_session=<OBS_SESSION>" \
+     -H "X-Project-Id: default"
+   # 200 OK
+   ```
+5. **Verify programmatic MCP bearer token access**:
+   ```bash
+   curl -i https://obs.example.com/internal/telemetry/overview \
+     -H "Authorization: Bearer <DASHBOARD_TOKEN>" \
      -H "X-Project-Id: default"
    # 200 OK
    ```

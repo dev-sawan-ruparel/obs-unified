@@ -16,7 +16,7 @@ type JsonValue =
 	| JsonValue[]
 	| { [key: string]: JsonValue };
 
-interface CollectorConfig {
+export interface CollectorConfig {
 	baseUrl: string;
 	authHeaders: Record<string, string>;
 	projectId?: string;
@@ -40,7 +40,7 @@ function requireEnv(name: string): string {
 	return value;
 }
 
-function readConfig(): CollectorConfig {
+export function readConfig(): CollectorConfig {
 	const baseUrl = requireEnv("OBS_COLLECTOR_URL").replace(/\/+$/, "");
 	const dashboardToken = process.env.OBS_DASHBOARD_TOKEN?.trim();
 	const ingestKey = process.env.OBS_INGEST_KEY?.trim();
@@ -52,15 +52,17 @@ function readConfig(): CollectorConfig {
 	};
 	if (dashboardToken) {
 		authHeaders.Authorization = `Bearer ${dashboardToken}`;
-	} else if (ingestKey) {
-		authHeaders.Authorization = `Bearer ${ingestKey}`;
 	} else if (sessionCookie) {
 		authHeaders.Cookie = sessionCookie.includes("obs_session=")
 			? sessionCookie
 			: `obs_session=${encodeURIComponent(sessionCookie)}`;
+	} else if (ingestKey) {
+		throw new Error(
+			"OBS_INGEST_KEY is a write-only ingest key and cannot be used for collector read access. Set OBS_DASHBOARD_TOKEN or OBS_SESSION_COOKIE instead.",
+		);
 	} else {
 		throw new Error(
-			"Set OBS_DASHBOARD_TOKEN, OBS_INGEST_KEY, or OBS_SESSION_COOKIE for collector read access",
+			"Set OBS_DASHBOARD_TOKEN or OBS_SESSION_COOKIE for collector read access",
 		);
 	}
 
@@ -86,7 +88,7 @@ function buildPath(
 	return query ? `${pathname}?${query}` : pathname;
 }
 
-class CollectorClient {
+export class CollectorClient {
 	constructor(private readonly config: CollectorConfig) {}
 
 	private async request<T = JsonValue>(
@@ -884,7 +886,11 @@ async function main(): Promise<void> {
 	await server.connect(transport);
 }
 
-main().catch((err) => {
-	console.error(err instanceof Error ? err.message : String(err));
-	process.exit(1);
-});
+export { main, registerTools };
+
+if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
+	main().catch((err) => {
+		console.error(err instanceof Error ? err.message : String(err));
+		process.exit(1);
+	});
+}

@@ -61,11 +61,11 @@ export OBS_DASHBOARD_TOKEN="..."
 
 Supported auth variables, in priority order:
 
-- `OBS_DASHBOARD_TOKEN` — programmatic dashboard token, sent as a bearer token.
-- `OBS_INGEST_KEY` — project ingest key, sent as a bearer token for collectors
-  that allow it on read endpoints.
+- `OBS_DASHBOARD_TOKEN` — programmatic read/admin token, sent as `Authorization: Bearer <token>`. Must equal the collector server-side `DASHBOARD_TOKEN` (note: CLI clients use `OBS_ADMIN_TOKEN` for the same collector secret).
 - `OBS_SESSION_COOKIE` — dashboard `obs_session` cookie value for ad-hoc local
   use.
+
+Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion (`/v1/*`) and are rejected on collector read/admin endpoints (`/internal/*`).
 
 Optional variables:
 
@@ -105,7 +105,7 @@ For local development from the monorepo:
       ],
       "env": {
         "OBS_COLLECTOR_URL": "http://localhost:8790",
-        "OBS_INGEST_KEY": "dev-ingest-key"
+        "OBS_DASHBOARD_TOKEN": "e2e-dashboard-token"
       }
     }
   }

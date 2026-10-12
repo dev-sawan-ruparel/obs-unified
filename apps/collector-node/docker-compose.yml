@@ -81,6 +81,7 @@ services:
       S3_SECRET_ACCESS_KEY: obs-secret-123
       INGEST_KEY: dev-ingest-key
       DASHBOARD_PASSWORD: e2e-test-pass
+      DASHBOARD_TOKEN: e2e-dashboard-token
       ALLOWED_ORIGINS: "http://localhost:5173"
       PORT: 8790
     ports:

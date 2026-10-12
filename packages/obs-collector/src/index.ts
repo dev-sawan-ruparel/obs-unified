@@ -44,7 +44,10 @@ import { usageReceiverPlugin } from "./plugins/usage-receiver";
 import { usersQueryRoutesPlugin } from "./plugins/users-query-routes";
 import { utmEnrichmentPlugin } from "./plugins/utm-enrichment";
 
-export { createDashboardAuth } from "./auth/dashboard-auth";
+export {
+	createDashboardAuth,
+	type DashboardAuthConfig,
+} from "./auth/dashboard-auth";
 export { createIngestAuth } from "./auth/ingest-auth";
 export type { TailEvent, TailKind } from "./durable-objects/tail-hub";
 export { TailHub } from "./durable-objects/tail-hub";

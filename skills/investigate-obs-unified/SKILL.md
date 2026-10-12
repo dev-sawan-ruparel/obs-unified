@@ -33,15 +33,16 @@ over narrative summaries:
 You need:
 
 - `OBS_COLLECTOR_URL` — base URL of the collector.
-- An auth path. The collector's `/internal/*` routes are dashboard-authenticated. Three pragmatic options for an agent:
-  1. **`OBS_DASHBOARD_TOKEN`** if the user has a programmatic dashboard token (cleanest).
-  2. **`OBS_INGEST_KEY`** as `Authorization: Bearer <key>` — works on collectors configured to accept ingest keys for read endpoints (common for dev / self-hosted).
-  3. **Browser session cookie** (`obs_session` cookie value) copied from a logged-in dashboard tab — fallback for ad-hoc investigations.
+- An auth path. The collector's `/internal/*` routes are dashboard-authenticated. Two pragmatic options for an agent:
+  1. **`OBS_DASHBOARD_TOKEN`** as `Authorization: Bearer <token>` for programmatic read access (cleanest and recommended).
+  2. **Browser session cookie** (`obs_session` cookie value) copied from a logged-in dashboard tab — fallback for ad-hoc investigations.
+
+  > **Note:** Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion and are rejected on `/internal/*` read routes.
 
 Confirm with the user which auth they want to use, then probe:
 
 ```bash
-curl -sf -H "Authorization: Bearer $OBS_INGEST_KEY" \
+curl -sf -H "Authorization: Bearer $OBS_DASHBOARD_TOKEN" \
   "$OBS_COLLECTOR_URL/internal/telemetry/overview?hours=1&limit=1" \
   > /dev/null && echo "OK: read access works" || echo "FAIL: auth or URL wrong"
 ```
@@ -315,7 +316,7 @@ This is the natural handoff from `instrument-obs-unified`:
 
 | Pitfall | What to do |
 | --- | --- |
-| Auth 401/403 | The `/internal/*` routes need dashboard auth — confirm `OBS_DASHBOARD_TOKEN` or that the collector accepts the ingest key for reads. |
+| Auth 401/403 | The `/internal/*` routes need dashboard auth — confirm `OBS_DASHBOARD_TOKEN` or a valid `obs_session` cookie. Ingest keys are write-only and cannot be used for reads. |
 | No data returned | Confirm the collector is the one the user's app is sending to (collectors are per-project — `OBS_COLLECTOR_URL` must match what's in `.env` of the app). |
 | Time window too narrow | Default `hours` is often 1; widen to 24 or 168 when the user is asking about "this week" / "yesterday." |
 | Time window too wide | If a query returns thousands of rows, add a `service` or `q` filter — the dashboard's analyst experience always scopes by service first. |

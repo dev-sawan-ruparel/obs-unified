@@ -293,20 +293,19 @@ export const createTelemetryCollectorApp = (
 		app.use("/v1/*", config.auth.ingest);
 	}
 
-	// Dashboard auth (session cookie) — owns /internal/* when configured.
+	// Dashboard auth (session cookie or programmatic bearer token) — owns /internal/* and /dashboard/* when configured.
 	// Routes for login/check/logout are always registered so the dashboard
 	// can authenticate regardless of subsequent middleware placement.
 	if (config.dashboardAuth) {
 		config.dashboardAuth.registerRoutes(app);
 		app.use("/dashboard/*", config.dashboardAuth.middleware);
 		app.use("/internal/*", config.dashboardAuth.middleware);
-	} else if (config.auth?.middleware) {
-		// No dashboard auth configured — fall back to applying the unified
-		// ingest auth to /internal/* too, preserving the earlier single-auth
-		// contract for deployments that haven't adopted dashboard auth yet.
-		app.use("/internal/*", config.auth.middleware);
-	} else if (config.auth?.query) {
-		app.use("/internal/*", config.auth.query);
+	} else {
+		// Fail closed for /internal/* and /dashboard/*: ingest keys must never grant read/admin access
+		app.use("/internal/*", async (c) => c.json({ error: "Unauthorized" }, 401));
+		app.use("/dashboard/*", async (c) =>
+			c.json({ error: "Unauthorized" }, 401),
+		);
 	}
 
 	for (const plugin of config.plugins) {

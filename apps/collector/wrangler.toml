@@ -31,6 +31,7 @@ RETENTION_HOURS = "72"
 # Set these in production (wrangler secret put):
 # INGEST_KEY = "your-ingest-api-key"
 # DASHBOARD_PASSWORD = "your-dashboard-password"
+# DASHBOARD_TOKEN = "your-programmatic-read-admin-token"
 # ALLOWED_ORIGINS = "https://my-app.com"
 # RFC 0002 Stage 3 + 5 — narrative pipeline + Ask box. Optional; when
 # neither API key is set the narrate pass and Ask endpoint are disabled
