@@ -32,9 +32,33 @@ remaining migrations are tracked in
 [`docs/postgres-migration.md`](../../../../docs/postgres-migration.md); they'll
 land alongside the first hosted-Postgres deployment.
 
-## What's NOT translated
+## Column types the stores depend on
 
-`009_projects_and_keys.sql` uses SQLite's `BLOB` type for the hashed API key.
-Postgres uses `BYTEA` and the column-name rewrite is in
-`009_projects_and_keys.sql` here (a non-mechanical translation; review carefully
-when porting forward).
+- `ingest_keys.key_hash` is `TEXT` on both backends. `ProjectsStore` binds the
+  SHA-256 hex digest as a string; an earlier Postgres version of `009` declared
+  the column `BYTEA`, which silently stored the ASCII bytes of the hex text and
+  made the `026` seed key unreachable. `041_ingest_key_hash_text.sql` converts
+  databases migrated with that version back to `TEXT` (fresh installs get
+  `TEXT` from `009` directly and `041` is a no-op). The D1 `041` file is an
+  intentional no-op that only keeps the numbering in parity.
+- Timestamp columns (`received_at`, `expires_at`, …) are `TEXT` holding
+  `Date#toISOString()` output. Postgres will not compare `text` to
+  `timestamptz`, so `postgresDialect` and `translateD1Sql` render every time
+  window as ISO text (`to_char(…, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`).
+- Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
+  and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
+  (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or
+  `SUM(is_error)`). Hosts call `configurePostgresTypeParsers(pg.types)` so
+  BOOLEAN reads back as `0/1`, BIGINT/NUMERIC as numbers and JSON/JSONB as
+  text, matching what D1 returns.
+
+## Verifying against a real database
+
+`src/lib/sql-db-postgres.integration.test.ts` applies this directory into an
+empty scratch database, then exercises ingest-key auth, AI/usage ingest, the
+retention purge and every built-in analysis through `PostgresAdapter`:
+
+```bash
+OBS_PG_TEST_URL=postgres://obs:obs@127.0.0.1:5432/obs_scratch \
+  pnpm --filter @obsunified/collector exec vitest run src/lib/sql-db-postgres.integration.test.ts
+```

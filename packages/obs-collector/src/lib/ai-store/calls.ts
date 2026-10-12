@@ -97,7 +97,7 @@ export async function getAICallsOverview(
         SUM(total_cost_usd) as totalCostUsd,
         SUM(prompt_tokens) as totalPromptTokens,
         SUM(completion_tokens) as totalCompletionTokens,
-        SUM(is_error) as errorCalls
+        SUM(CASE WHEN is_error THEN 1 ELSE 0 END) as errorCalls
       FROM ai_calls WHERE project_id = ? AND received_at >= ${dialect.sinceHours("?")}
       ${options.service ? "AND service_name = ?" : ""}
     `;
@@ -124,7 +124,7 @@ export async function getAICallsOverview(
 		completionTokens: row.completion_tokens,
 		totalCostUsd: row.total_cost_usd,
 		latencyMs: row.latency_ms,
-		isError: row.is_error === 1,
+		isError: row.is_error === 1 || row.is_error === true,
 		errorMessage: row.error_message,
 		occurredAt: row.occurred_at,
 		receivedAt: row.received_at,

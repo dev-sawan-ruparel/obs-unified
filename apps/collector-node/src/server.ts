@@ -21,16 +21,22 @@ import { serve } from "@hono/node-server";
 import {
 	BlobStoreToR2Adapter,
 	type CollectorEnv,
+	configurePostgresTypeParsers,
 	createDashboardAuth,
 	createDefaultCollectorApp,
 	createIngestAuth,
 	PostgresAdapter,
 	S3BlobStore,
 } from "@obsunified/collector";
-import { Pool } from "pg";
+import pg, { Pool } from "pg";
 import { FileBlobStore } from "./file-blob-store";
 
 const env = readEnv();
+
+// The shared stores were written against D1 result shapes: INTEGER 0/1
+// flags, numeric aggregates, JSON columns as text. Teach `pg` to return
+// BOOLEAN / BIGINT / NUMERIC / JSON(B) the same way before any query runs.
+configurePostgresTypeParsers(pg.types);
 
 const pool = new Pool({
 	connectionString: env.DATABASE_URL,

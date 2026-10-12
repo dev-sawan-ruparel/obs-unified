@@ -64,6 +64,23 @@ pnpm --filter @obs-demo/collector-node run start
 The Docker stack runs the migrator automatically before starting the collector
 via a Compose dependency.
 
+Upgrading an existing database picks up `041_ingest_key_hash_text.sql`, which
+converts `ingest_keys.key_hash` from `BYTEA` to `TEXT` in place so hex-digest
+lookups match on Postgres (see `docs/postgres-migration.md` for rollout notes).
+
+`server.ts` calls `configurePostgresTypeParsers(pg.types)` before the first
+query so BOOLEAN, BIGINT, NUMERIC and JSON/JSONB values come back in the same
+shape the D1-backed Worker sees (0/1 flags, numbers, JSON text). Any other
+host that constructs `PostgresAdapter` must do the same.
+
+To verify a Postgres server end to end, point the collector's integration test
+at an empty scratch database:
+
+```bash
+OBS_PG_TEST_URL=postgres://obs:obs@127.0.0.1:5432/obs_scratch \
+  pnpm --filter @obsunified/collector exec vitest run src/lib/sql-db-postgres.integration.test.ts
+```
+
 ## How this differs from `apps/collector` (Cloudflare Worker)
 
 | Concern             | Worker version      | Node version                                                            |
