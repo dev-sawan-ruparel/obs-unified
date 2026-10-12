@@ -6,7 +6,7 @@
  *  - `R2BlobStore` — Cloudflare R2 binding (default on Workers).
  *  - `S3BlobStore` (sibling file) — AWS S3 / MinIO / any S3-compatible.
  *
- * Replay chunks live under `replays/<session_id>/<chunk_id>`; pprof
+ * Replay chunks live under `replays/<project_id>/<session_id>/<chunk_id>`; pprof
  * profiles live under `profiles/<service>/<trace_id>/<span_id>`. The
  * adapter never sees these paths — they're constructed by the callers
  * (`replay-receiver`, `profile-routes`).

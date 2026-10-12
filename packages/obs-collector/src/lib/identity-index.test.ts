@@ -81,13 +81,12 @@ describe("IdentityIndex.bySession", () => {
 			eventsCount: 42,
 		});
 
-		// All five queries pin (project_id, session_id) — replay lookup uses
-		// just session_id since replay is global.
+		// All five queries pin (project_id, session_id).
 		const allCalls = db.calls.filter((c) => c.op !== "first" || c.binds.length);
 		const sessionQueries = allCalls.filter(
 			(c) => c.sql.includes("session_id") && c.binds.includes("proj-1"),
 		);
-		expect(sessionQueries.length).toBeGreaterThanOrEqual(4);
+		expect(sessionQueries.length).toBe(5);
 	});
 
 	it("returns null replay when session_replay_metadata is empty", async () => {
