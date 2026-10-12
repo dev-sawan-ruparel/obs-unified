@@ -55,9 +55,109 @@ describe("createRetentionCleanupHandler", () => {
 		expect(summary.metric_points).toBeGreaterThanOrEqual(3);
 		expect(summary.metric_points % 3).toBe(0);
 		expect(db.callsMatching("DELETE FROM profile_blobs")).toHaveLength(1);
+		// No expired action candidates were returned, so the action graph
+		// sweep selects once and never issues a DELETE against the spine.
+		expect(summary).toMatchObject({ actions: 0, action_leaves: 0 });
+		expect(db.callsMatching("FROM actions a")).toHaveLength(1);
+		expect(db.callsMatching("DELETE FROM actions")).toHaveLength(0);
 		expect(logger.info).toHaveBeenCalledWith(
 			"[retention-cleanup] purged expired rows",
-			expect.objectContaining({ spans: 3, profile_blobs: 3 }),
+			expect.objectContaining({ spans: 3, profile_blobs: 3, actions: 0 }),
+		);
+	});
+
+	it("deletes expired action leaves before the spine, scoped by project, and honours RETENTION_HOURS", async () => {
+		const logger = makeLogger();
+		let selects = 0;
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (!sql.includes("FROM actions a")) return [];
+				// First batch: two projects; afterwards nothing is left.
+				selects += 1;
+				return selects === 1
+					? [
+							{ id: "act-1", project_id: "alpha" },
+							{ id: "act-2", project_id: "alpha" },
+							{ id: "act-1", project_id: "beta" },
+						]
+					: [];
+			},
+			run: () => ({ changes: 1 }),
+		});
+		const env = { DB: db, RETENTION_HOURS: "24" } as unknown as CollectorEnv;
+
+		const summary = await createRetentionCleanupHandler({ logger }).run(env);
+
+		// MemSqlDb reports 1 change per statement, and each project gets its
+		// own statement per table: 2 spine statements, 2 × (4 leaf tables +
+		// agent_runs) leaf statements.
+		expect(summary.actions).toBe(2);
+		expect(summary.action_leaves).toBe(2 * 5);
+
+		const select = db.callsMatching("FROM actions a")[0];
+		const [cutoff, cutoffAgain, limit] = select?.binds ?? [];
+		expect(cutoff).toBe(cutoffAgain);
+		expect(typeof cutoff).toBe("string");
+		// RETENTION_HOURS=24 → the cutoff is ~24h ago, not the 72h default.
+		const ageHours = (Date.now() - Date.parse(cutoff as string)) / 3_600_000;
+		expect(ageHours).toBeGreaterThan(23.9);
+		expect(ageHours).toBeLessThan(24.1);
+		expect(limit).toBe(200);
+
+		const deletes = db.calls
+			.filter(
+				(c) =>
+					c.op === "run" &&
+					/^DELETE FROM (tool_calls|retrieval_events|eval_results|artifacts|agent_runs|actions) /.test(
+						c.sql.trim(),
+					),
+			)
+			.map((c) => ({
+				table: /^DELETE FROM (\w+)/.exec(c.sql.trim())?.[1],
+				binds: c.binds,
+			}));
+		expect(deletes.map((d) => d.table)).toEqual([
+			"tool_calls",
+			"retrieval_events",
+			"eval_results",
+			"artifacts",
+			"agent_runs",
+			"actions",
+			"tool_calls",
+			"retrieval_events",
+			"eval_results",
+			"artifacts",
+			"agent_runs",
+			"actions",
+		]);
+		expect(deletes[0]?.binds).toEqual(["alpha", "act-1", "act-2"]);
+		expect(deletes[5]?.binds).toEqual(["alpha", "act-1", "act-2"]);
+		expect(deletes[6]?.binds).toEqual(["beta", "act-1"]);
+		for (const d of deletes) {
+			expect(d.binds[0]).toMatch(/^(alpha|beta)$/);
+			expect(d.binds.length).toBeGreaterThan(1);
+		}
+	});
+
+	it("logs and keeps the other purge counts when the action graph sweep fails", async () => {
+		const logger = makeLogger();
+		const db = new MemSqlDb({
+			all: (sql) => {
+				if (sql.includes("FROM actions a"))
+					throw new Error("no such table: actions");
+				return [];
+			},
+			run: () => ({ changes: 2 }),
+		});
+
+		const summary = await createRetentionCleanupHandler({ logger }).run(
+			envFor(db),
+		);
+
+		expect(summary).toMatchObject({ spans: 2, actions: 0, action_leaves: 0 });
+		expect(logger.error).toHaveBeenCalledWith(
+			"[retention-cleanup] action graph purge failed",
+			expect.objectContaining({ error: "no such table: actions" }),
 		);
 	});
 

@@ -76,7 +76,7 @@ and blob store as HTTP traffic:
 | ------------------- | --------------- | -------------- | ------------------------------------------------------- |
 | `analyses_run`      | every 1 min     | `* * * * *`    | Runs analyses whose refresh window has elapsed          |
 | `alerts_evaluate`   | every 5 min     | `*/5 * * * *`  | Evaluates enabled alert rules, fires/resolves incidents |
-| `retention_cleanup` | every 60 min    | `0 * * * *`    | Purges expired rows and profile blobs                   |
+| `retention_cleanup` | every 60 min    | `0 * * * *`    | Purges expired rows, action graphs and profile blobs    |
 
 First runs are staggered shortly after startup (15 s / 30 s / 60 s) so a
 restarted collector repopulates dashboards quickly. A tick that fires while

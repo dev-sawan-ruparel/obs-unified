@@ -32,6 +32,7 @@ import { deriveAnalysesForProject } from "../analyses/derive";
 import { INVESTIGATION_ANALYSES } from "../analyses/investigations";
 import { TIER0_ANALYSES } from "../analyses/tier0";
 import type { DecodedMetricPoint } from "../otlp/decode";
+import { purgeExpiredActionGraph } from "./action-retention";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
 import { purgeExpiredAIData } from "./ai-store/retention";
 import { AlertsStore } from "./alerts-store";
@@ -43,6 +44,14 @@ import {
 	configurePostgresTypeParsers,
 	PostgresAdapter,
 } from "./sql-db-postgres";
+import {
+	countActionGraph,
+	FIXTURE_NOW_MS,
+	FIXTURE_RETENTION_HOURS,
+	FRESH_START,
+	seedEvalCase,
+	seedTree,
+} from "./test-utils/action-graph-fixtures";
 import { UsageStore } from "./usage-store";
 
 const databaseUrl = process.env.OBS_PG_TEST_URL;
@@ -519,6 +528,129 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 			await legacyPool.query("RESET search_path").catch(() => {});
 			await legacyPool.end();
 		}
+	});
+
+	it("migration 044 creates idx_actions_started_at and is a no-op when re-applied", async () => {
+		expect(migrationFiles).toContain("044_actions_started_at_index.sql");
+		const indexed = () =>
+			db
+				.prepare(
+					`SELECT indexname FROM pg_indexes
+					 WHERE schemaname = current_schema() AND tablename = 'actions' AND indexname = 'idx_actions_started_at'`,
+				)
+				.first<{ indexname: string }>();
+		expect((await indexed())?.indexname).toBe("idx_actions_started_at");
+
+		// Upgrade path: an already-indexed database re-running 044 must not fail.
+		const admin = await adminClient();
+		try {
+			await admin.query(
+				await readFile(
+					path.join(migrationsDir, "044_actions_started_at_index.sql"),
+					"utf8",
+				),
+			);
+		} finally {
+			await admin.end();
+		}
+		expect((await indexed())?.indexname).toBe("idx_actions_started_at");
+	});
+
+	it("purges expired action trees by TEXT started_at and keeps fresh, in-progress and eval-pinned trees", async () => {
+		const purge = (over: { batchSize?: number; maxBatches?: number } = {}) =>
+			purgeExpiredActionGraph(db, {
+				retentionHours: FIXTURE_RETENTION_HOURS,
+				now: () => FIXTURE_NOW_MS,
+				...over,
+			});
+		const count = (table: string, column: string, value: string) =>
+			db
+				.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`)
+				.bind(value)
+				.first<{ n: number | string }>()
+				.then((r) => Number(r?.n ?? 0));
+
+		const expired = await seedTree(db, {
+			projectId: "pg-ret",
+			rootId: "pg-old",
+		});
+		const fresh = await seedTree(db, {
+			projectId: "pg-ret",
+			rootId: "pg-new",
+			rootStartedAt: FRESH_START,
+		});
+		await seedTree(db, {
+			projectId: "pg-ret",
+			rootId: "pg-hung",
+			childEndedAt: null,
+		});
+		await seedTree(db, {
+			projectId: "pg-ret",
+			rootId: "pg-running",
+			agentRunStatus: "running",
+		});
+		const pinned = await seedTree(db, {
+			projectId: "pg-ret",
+			rootId: "pg-pinned",
+		});
+		await seedEvalCase(db, {
+			id: "pg-case",
+			projectId: "pg-ret",
+			sourceActionId: pinned.childId,
+		});
+		await seedTree(db, { projectId: "pg-ret-other", rootId: "pg-other-old" });
+		// Several expired single-batch candidates to exercise batching + IN lists.
+		for (let i = 0; i < 3; i += 1) {
+			await seedTree(db, {
+				projectId: "pg-ret",
+				rootId: `pg-bulk-${i}`,
+				withLeaves: false,
+			});
+		}
+
+		const first = await purge({ batchSize: 4, maxBatches: 1 });
+		expect(first).toMatchObject({ actions: 4, batches: 1, truncated: true });
+
+		const rest = await purge({ batchSize: 4 });
+		expect(rest.truncated).toBe(false);
+		// 2 (pg-old) + 2 (pg-other-old) + 6 (bulk) spine rows in total.
+		expect(first.actions + rest.actions).toBe(10);
+		expect(first.agent_runs + rest.agent_runs).toBe(5);
+		expect(first.tool_calls + rest.tool_calls).toBe(2);
+		expect(first.artifacts + rest.artifacts).toBe(2);
+
+		expect(await count("actions", "root_action_id", expired.rootId)).toBe(0);
+		expect(await count("tool_calls", "id", expired.toolCallId)).toBe(0);
+		expect(
+			await count("retrieval_events", "id", expired.retrievalEventId),
+		).toBe(0);
+		expect(await count("eval_results", "id", expired.evalResultId)).toBe(0);
+		expect(await count("artifacts", "id", expired.artifactId)).toBe(0);
+		expect(await count("agent_runs", "id", expired.rootId)).toBe(0);
+		expect(await count("actions", "root_action_id", "pg-other-old")).toBe(0);
+
+		expect(await count("actions", "root_action_id", fresh.rootId)).toBe(2);
+		expect(await count("tool_calls", "id", fresh.toolCallId)).toBe(1);
+		expect(await count("actions", "root_action_id", "pg-hung")).toBe(2);
+		expect(await count("actions", "root_action_id", "pg-running")).toBe(2);
+		expect(await count("agent_runs", "id", "pg-running")).toBe(1);
+		expect(await count("actions", "root_action_id", pinned.rootId)).toBe(2);
+		expect(await count("eval_cases", "id", "pg-case")).toBe(1);
+		expect(await countActionGraph(db, "pg-ret")).toEqual({
+			actions: 8,
+			agent_runs: 4,
+			tool_calls: 4,
+			retrieval_events: 4,
+			eval_results: 4,
+			artifacts: 4,
+		});
+
+		// Idempotent: nothing left to purge.
+		expect(await purge()).toMatchObject({
+			actions: 0,
+			batches: 0,
+			truncated: false,
+		});
 	});
 
 	it("ingests AI calls and summarises BOOLEAN is_error inside a TEXT time window", async () => {

@@ -2,6 +2,10 @@ import type { StoredSpan, UsageEventRecord } from "@obsunified/types";
 import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import {
+	type ActionGraphPurgeSummary,
+	purgeExpiredActionGraph,
+} from "../lib/action-retention";
 import { AIStore } from "../lib/ai-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { AnalysesStore } from "../lib/analyses-store";
@@ -352,6 +356,11 @@ export interface RetentionCleanupSummary {
 	metric_points: number;
 	analysis_results: number;
 	profile_blobs: number;
+	/** RFC 0010 action spine rows removed (trees older than RETENTION_HOURS). */
+	actions: number;
+	/** Leaf rows removed with their actions: agent_runs, tool_calls,
+	 *  retrieval_events, eval_results and artifacts. */
+	action_leaves: number;
 }
 
 /**
@@ -420,6 +429,27 @@ export const createRetentionCleanupHandler = (options?: {
 			});
 		}
 
+		// RFC 0010 — action graph retention. Derived from `actions.started_at`
+		// because the spine has no `expires_at`; whole causal trees go at once,
+		// in bounded batches, and in-progress or eval-case-pinned trees stay.
+		// Runs after the per-table purges so a slow sweep never delays them.
+		let actionGraph: ActionGraphPurgeSummary | undefined;
+		try {
+			actionGraph = await purgeExpiredActionGraph(db, {
+				retentionHours: getConfiguredRetentionHours(env.RETENTION_HOURS),
+			});
+			if (actionGraph.truncated) {
+				logger.warn(
+					"[retention-cleanup] action graph purge hit its batch cap; remaining expired trees wait for the next run",
+					{ batches: actionGraph.batches, actions: actionGraph.actions },
+				);
+			}
+		} catch (err) {
+			logger.error("[retention-cleanup] action graph purge failed", {
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+
 		const summary: RetentionCleanupSummary = {
 			spans: telemetryPurged,
 			usage: usagePurged,
@@ -428,8 +458,28 @@ export const createRetentionCleanupHandler = (options?: {
 			metric_points: metricsPurged,
 			analysis_results: analysesPurged,
 			profile_blobs: profilesPurged,
+			actions: actionGraph?.actions ?? 0,
+			action_leaves: actionGraph
+				? actionGraph.agent_runs +
+					actionGraph.tool_calls +
+					actionGraph.retrieval_events +
+					actionGraph.eval_results +
+					actionGraph.artifacts
+				: 0,
 		};
-		logger.info("[retention-cleanup] purged expired rows", { ...summary });
+		logger.info("[retention-cleanup] purged expired rows", {
+			...summary,
+			...(actionGraph
+				? {
+						action_agent_runs: actionGraph.agent_runs,
+						action_tool_calls: actionGraph.tool_calls,
+						action_retrieval_events: actionGraph.retrieval_events,
+						action_eval_results: actionGraph.eval_results,
+						action_artifacts: actionGraph.artifacts,
+						action_batches: actionGraph.batches,
+					}
+				: {}),
+		});
 
 		// RFC 0004 Phase 1.8 — emit interaction_id propagation counters.
 		// Hourly aggregation rides the retention cron because cadence
