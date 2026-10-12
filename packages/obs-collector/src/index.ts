@@ -52,6 +52,7 @@ export { createIngestAuth } from "./auth/ingest-auth";
 export type { TailEvent, TailKind } from "./durable-objects/tail-hub";
 export { TailHub } from "./durable-objects/tail-hub";
 export {
+	type AnalysesRunSummary,
 	type CollectorAuthConfig,
 	type CollectorConfig,
 	type CollectorPlugin,
@@ -59,6 +60,8 @@ export {
 	createAnalysesRunHandler,
 	createRetentionCleanupHandler,
 	createTelemetryCollectorApp,
+	type RetentionCleanupSummary,
+	type ScheduledTaskHandler,
 	type SpanProcessorPlugin,
 	type SqlDbFactory,
 	type UsageEventProcessorPlugin,

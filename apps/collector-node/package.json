@@ -2,13 +2,14 @@
 	"name": "@obs-demo/collector-node",
 	"private": true,
 	"type": "module",
-	"description": "Standalone Node.js entrypoint for @obsunified/collector — Postgres + S3 backend, no Cloudflare Worker required.",
+	"description": "Standalone Node.js entrypoint for @obsunified/collector \u2014 Postgres + S3 backend, no Cloudflare Worker required.",
 	"scripts": {
 		"dev": "node --watch src/server.ts",
 		"start": "node dist/server.js",
 		"build": "tsup",
 		"db:migrate": "node scripts/migrate-pg.mjs",
 		"smoke:docker": "node scripts/smoke-docker.mjs",
+		"test": "vitest run --passWithNoTests",
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {

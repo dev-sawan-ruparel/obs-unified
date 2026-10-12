@@ -156,6 +156,8 @@ aws s3api put-bucket-lifecycle-configuration \
 
 For scalable production container runtimes, execute `obs-unified` as a stateless horizontal deployment communicating with a managed PostgreSQL instance and cloud S3 bucket storage.
 
+Every collector process ships an in-process scheduler for the three recurring jobs the Cloudflare Worker gets from Cron Triggers (due analyses every minute, alert evaluation every 5 minutes, retention cleanup hourly). It is **on by default**, so a plain multi-replica Deployment would run each job once per replica. The manifests below keep exactly one owner: serving replicas set `MAINTENANCE_ENABLED: "false"` via the shared ConfigMap, and a separate single-replica `obs-maintenance` Deployment re-enables it. See the [collector-node README](../../apps/collector-node/README.md#background-maintenance) for the `MAINTENANCE_*` settings.
+
 ### 1. ConfigMap and Secrets (`obs-config.yaml`)
 
 ```yaml
@@ -170,6 +172,10 @@ data:
   S3_BUCKET: "my-production-obs-bucket"
   PG_POOL_MAX: "30"
   PORT: "8790"
+  RETENTION_HOURS: "72"
+  # Serving replicas must not run background maintenance; the dedicated
+  # obs-maintenance Deployment below overrides this to "true".
+  MAINTENANCE_ENABLED: "false"
 ---
 apiVersion: v1
 kind: Secret
@@ -184,9 +190,23 @@ data:
   S3_SECRET_ACCESS_KEY: c2VjcmV0LWtleS12YWx1ZS1nb2VzLWhlcmU=               # secret-key-value-goes-here
   INGEST_KEY: bXktc2VjdXJlLXdyaXRlLWtleQ==                                 # my-secure-write-key
   DASHBOARD_PASSWORD: bXktc3VwZXItc2VjdXJlLXBhc3N3b3Jk                    # my-super-secure-password
+  # Programmatic read/admin bearer token for /internal/* (MCP server, CLI).
+  # Generate a fresh random value per environment and base64-encode it:
+  #   openssl rand -hex 32 | tr -d '\n' | base64
+  DASHBOARD_TOKEN: <base64 of your generated token>
 ```
 
-### 2. Collector Deployment (`obs-deployment.yaml`)
+`DASHBOARD_TOKEN` is the one secret shared with programmatic clients, so keep it distinct from `DASHBOARD_PASSWORD` and `INGEST_KEY`:
+
+- The MCP server (`@obsunified/mcp-server`) sends `OBS_DASHBOARD_TOKEN` as `Authorization: Bearer`; it must equal this `DASHBOARD_TOKEN` exactly.
+- The CLI (`@obsunified/cli`) sends `OBS_ADMIN_TOKEN` the same way for `keys mint`, `keys list`, and `doctor`; it must also equal this `DASHBOARD_TOKEN`.
+- Rotate all three together. The collector compares the token in constant time and only on `/internal/*` and `GET /auth/check`; ingest keys never grant read access, and the token plays no part in ingest or background maintenance.
+
+Both Deployments below mount the same `obs-secrets`, so the serving replicas and the single `obs-maintenance` replica accept the same token. See [Identity & External Access Recipes](./identity-access-recipes.md) for the full header-forwarding and proxy patterns.
+
+### 2. Serving Collector Deployment (`obs-deployment.yaml`)
+
+Handles ingest and dashboard traffic only. `MAINTENANCE_ENABLED` is inherited as `"false"` from the ConfigMap, so scaling `replicas` up or down never changes how many times a job runs.
 
 ```yaml
 apiVersion: apps/v1
@@ -250,6 +270,76 @@ spec:
       targetPort: 8790
   type: ClusterIP
 ```
+
+### 3. Maintenance Deployment (`obs-maintenance.yaml`)
+
+The single owner of the scheduled jobs. Same image, ConfigMap, and Secret as the serving Deployment; the only differences are `replicas: 1`, the explicit `MAINTENANCE_ENABLED: "true"` override (a container `env` entry takes precedence over `envFrom`), a `Recreate` strategy so a rollout never has two maintenance pods alive at once, and a distinct `app` label so `obs-collector-service` never routes traffic to it.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obs-maintenance
+  namespace: observability
+  labels:
+    app: obs-maintenance
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: obs-maintenance
+  template:
+    metadata:
+      labels:
+        app: obs-maintenance
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: maintenance
+        image: obs-unified/collector:latest
+        ports:
+        - containerPort: 8790
+        envFrom:
+        - configMapRef:
+            name: obs-config
+        - secretRef:
+            name: obs-secrets
+        env:
+        - name: MAINTENANCE_ENABLED
+          value: "true"
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: "250m"
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8790
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8790
+          initialDelaySeconds: 15
+          periodSeconds: 20
+```
+
+Verify the split after applying both manifests:
+
+```bash
+kubectl -n observability logs deploy/obs-maintenance | grep '\[maintenance\] scheduler started'
+kubectl -n observability logs deploy/obs-collector   | grep 'maintenance scheduler disabled'
+```
+
+On `SIGTERM` the maintenance pod stops arming new ticks, waits up to 10 s for an in-flight job, then closes its Postgres pool, which fits inside the 30 s grace period above. The serving Deployment's `/health` endpoint is unaffected by the scheduler, so the probes are identical.
+
+If you prefer a scheduler you already operate, set `MAINTENANCE_ENABLED: "false"` everywhere, omit `obs-maintenance`, and run the jobs from your own cron; do **not** leave the default (`true`) on a multi-replica serving Deployment.
 
 ---
 
