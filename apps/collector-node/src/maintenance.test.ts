@@ -239,7 +239,12 @@ describe("createCollectorMaintenanceTasks (real collector handlers)", () => {
 			metric_points: 0,
 			analysis_results: 0,
 			profile_blobs: 0,
+			actions: 0,
+			action_leaves: 0,
 		});
+		// The action graph sweep ran through the same SqlDb, scoped by the
+		// dialect-neutral started_at cutoff rather than a SQLite built-in.
+		expect(calls.some((sql) => /FROM actions a/i.test(sql))).toBe(true);
 		// Postgres dialect flowed through: the profile purge uses
 		// CURRENT_TIMESTAMP rather than SQLite's datetime('now').
 		expect(

@@ -76,6 +76,12 @@ export type {
 export type { Logger } from "./framework/logger";
 export { consoleLogger } from "./framework/logger";
 export {
+	type ActionGraphPurgeSummary,
+	type ActionGraphRetentionOptions,
+	actionRetentionCutoff,
+	purgeExpiredActionGraph,
+} from "./lib/action-retention";
+export {
 	type ActionRecord,
 	ActionStore,
 	type AgentRunRecord,
