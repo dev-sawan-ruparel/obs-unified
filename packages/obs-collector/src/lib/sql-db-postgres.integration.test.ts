@@ -33,6 +33,7 @@ import { INVESTIGATION_ANALYSES } from "../analyses/investigations";
 import { TIER0_ANALYSES } from "../analyses/tier0";
 import type { DecodedMetricPoint } from "../otlp/decode";
 import { purgeExpiredActionGraph } from "./action-retention";
+import { ActionStore } from "./actions-store";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
 import { purgeExpiredAIData } from "./ai-store/retention";
 import { AlertsStore } from "./alerts-store";
@@ -45,6 +46,8 @@ import {
 	PostgresAdapter,
 } from "./sql-db-postgres";
 import {
+	actionRecord,
+	agentRunRecord,
 	countActionGraph,
 	FIXTURE_NOW_MS,
 	FIXTURE_RETENTION_HOURS,
@@ -557,7 +560,13 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 	});
 
 	it("purges expired action trees by TEXT started_at and keeps fresh, in-progress and eval-pinned trees", async () => {
-		const purge = (over: { batchSize?: number; maxBatches?: number } = {}) =>
+		const purge = (
+			over: {
+				maxActionsPerBatch?: number;
+				maxTreesPerBatch?: number;
+				maxBatches?: number;
+			} = {},
+		) =>
 			purgeExpiredActionGraph(db, {
 				retentionHours: FIXTURE_RETENTION_HOURS,
 				now: () => FIXTURE_NOW_MS,
@@ -599,7 +608,7 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 			sourceActionId: pinned.childId,
 		});
 		await seedTree(db, { projectId: "pg-ret-other", rootId: "pg-other-old" });
-		// Several expired single-batch candidates to exercise batching + IN lists.
+		// Three more expired two-action trees to exercise packing and batching.
 		for (let i = 0; i < 3; i += 1) {
 			await seedTree(db, {
 				projectId: "pg-ret",
@@ -607,14 +616,52 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 				withLeaves: false,
 			});
 		}
+		// An expired tree larger than the per-batch cap used below (5 actions).
+		const bigStore = new ActionStore(db);
+		for (let i = 0; i < 5; i += 1) {
+			await bigStore.upsertAction(
+				actionRecord({
+					id: i === 0 ? "pg-big" : `pg-big-${i}`,
+					projectId: "pg-ret",
+					rootActionId: "pg-big",
+					causedByActionId: i === 0 ? null : "pg-big",
+					agentRunId: "pg-big",
+				}),
+			);
+		}
+		await bigStore.upsertAgentRun(
+			agentRunRecord({ id: "pg-big", projectId: "pg-ret" }),
+		);
 
-		const first = await purge({ batchSize: 4, maxBatches: 1 });
-		expect(first).toMatchObject({ actions: 4, batches: 1, truncated: true });
+		// Cap of 4 actions per batch, one batch: two whole 2-action trees go,
+		// nothing is split, and the 5-action tree is reported, not touched.
+		const first = await purge({ maxActionsPerBatch: 4, maxBatches: 1 });
+		expect(first).toMatchObject({
+			actions: 4,
+			trees: 2,
+			batches: 1,
+			truncated: true,
+			oversized_trees: 1,
+			oversized: [
+				{ project_id: "pg-ret", root_action_id: "pg-big", actions: 5 },
+			],
+		});
+		expect(await count("actions", "root_action_id", "pg-big")).toBe(5);
+		for (const root of [
+			"pg-old",
+			"pg-other-old",
+			"pg-bulk-0",
+			"pg-bulk-1",
+			"pg-bulk-2",
+		]) {
+			expect([0, 2]).toContain(await count("actions", "root_action_id", root));
+		}
 
-		const rest = await purge({ batchSize: 4 });
-		expect(rest.truncated).toBe(false);
+		const rest = await purge({ maxActionsPerBatch: 4 });
+		expect(rest).toMatchObject({ truncated: false, oversized_trees: 1 });
 		// 2 (pg-old) + 2 (pg-other-old) + 6 (bulk) spine rows in total.
 		expect(first.actions + rest.actions).toBe(10);
+		expect(first.trees + rest.trees).toBe(5);
 		expect(first.agent_runs + rest.agent_runs).toBe(5);
 		expect(first.tool_calls + rest.tool_calls).toBe(2);
 		expect(first.artifacts + rest.artifacts).toBe(2);
@@ -636,6 +683,18 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		expect(await count("agent_runs", "id", "pg-running")).toBe(1);
 		expect(await count("actions", "root_action_id", pinned.rootId)).toBe(2);
 		expect(await count("eval_cases", "id", "pg-case")).toBe(1);
+		expect(await count("actions", "root_action_id", "pg-big")).toBe(5);
+		expect(await count("agent_runs", "id", "pg-big")).toBe(1);
+
+		// With a cap that fits it, the oversized tree goes whole.
+		const big = await purge({ maxActionsPerBatch: 5 });
+		expect(big).toMatchObject({
+			actions: 5,
+			trees: 1,
+			agent_runs: 1,
+			oversized_trees: 0,
+		});
+		expect(await count("actions", "root_action_id", "pg-big")).toBe(0);
 		expect(await countActionGraph(db, "pg-ret")).toEqual({
 			actions: 8,
 			agent_runs: 4,

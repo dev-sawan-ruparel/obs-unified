@@ -5,10 +5,11 @@
  *
  * Unlike the telemetry tables these rows carry no `expires_at`; the sweep
  * derives expiry from `actions.started_at` and the configured
- * `RETENTION_HOURS`. Deletion is decided per causal tree
- * (`project_id`, `root_action_id`), never per action, so a run is removed
- * only once *every* action in it is expired and finished. A tree is kept
- * whole while any of its actions:
+ * `RETENTION_HOURS`. The unit of deletion is the causal tree
+ * (`project_id`, `root_action_id`): a tree is selected, rechecked and
+ * removed as a whole inside one `SqlDb.batch` (a D1 batch or a Postgres
+ * transaction), never action by action. A tree is kept whole while any of
+ * its actions:
  *
  *   - started inside the retention window,
  *   - is still in progress (`ended_at IS NULL`),
@@ -17,19 +18,31 @@
  *     `source_action_id`, `source_agent_run_id`, or (through a `tool_calls`
  *     row) `source_tool_call_id`.
  *
- * Each batch selects at most `batchSize` expired action ids (oldest first,
- * served by `idx_actions_started_at`), deletes their leaf rows and then the
- * spine rows in one `SqlDb.batch` (a D1 batch or a Postgres transaction),
- * and stops after `maxBatches` so an hourly run stays bounded. Leaf deletes
- * are scoped by `project_id` *and* `action_id`, so an id collision across
- * projects can never reach another project's rows.
+ * Work is bounded per invocation: each batch packs whole trees up to
+ * `maxActionsPerBatch` actions and `maxTreesPerBatch` trees, and the sweep
+ * stops after `maxBatches`. A tree with more than `maxActionsPerBatch`
+ * actions can never be deleted atomically within those bounds, so it is
+ * retained intact and reported as `oversized_trees` (and logged by the
+ * handler) instead of being deleted in pieces. Raise `maxActionsPerBatch`
+ * to reclaim such trees.
+ *
+ * Concurrency: every DELETE repeats the eligibility predicate, so a tree
+ * that gained a fresh or unfinished action, a `running` run, or an eval
+ * case between selection and deletion is left alone. On D1 the batch is a
+ * single serialized SQLite transaction, so that recheck is airtight. On
+ * Postgres (READ COMMITTED) each statement sees writes committed before it
+ * started, so a commit landing between the leaf deletes and the final spine
+ * delete of the same tree could leave that tree's spine without its leaves.
+ * That needs an ingest for a tree whose newest action is already older than
+ * the retention window, inside a sub-second window; it is documented rather
+ * than locked against because `SqlDb` has no row-locking primitive.
  *
  * Intentionally **not** deleted here:
  *
  *   - `artifacts.storage_ref` blobs — only the metadata row goes; the blob
  *     store is not consulted (the collector never wrote those blobs).
- *   - `agent_runs` rows with no matching `actions` row — nothing proves
- *     when they started.
+ *   - `agent_runs` rows whose `id` is not an action in the tree — nothing
+ *     proves when they started.
  *   - `ai_span_payloads.action_id` and `evidence_retrieval_refs` anchors —
  *     those tables have their own `expires_at` retention.
  *   - `eval_cases`, `eval_runs`, `eval_case_results` — curated fixtures,
@@ -39,13 +52,19 @@
 import type { SqlDb, SqlStatement } from "./sql-db";
 
 export interface ActionGraphRetentionOptions {
-	/** Retention window; actions whose tree is older than this expire. */
+	/** Retention window; trees whose newest action is older than this expire. */
 	retentionHours: number;
 	/** Clock override for tests. Defaults to `Date.now`. */
 	now?: () => number;
-	/** Expired action ids selected per batch. Defaults to 200. */
-	batchSize?: number;
-	/** Upper bound on batches per invocation. Defaults to 20. */
+	/**
+	 * Upper bound on actions deleted per batch/transaction. Also the largest
+	 * tree the sweep will delete; bigger trees are retained and reported.
+	 * Defaults to 500.
+	 */
+	maxActionsPerBatch?: number;
+	/** Upper bound on trees per batch (bounds statements per transaction). Defaults to 25. */
+	maxTreesPerBatch?: number;
+	/** Upper bound on batches per invocation. Defaults to 10. */
 	maxBatches?: number;
 }
 
@@ -57,66 +76,119 @@ export interface ActionGraphPurgeSummary {
 	retrieval_events: number;
 	eval_results: number;
 	artifacts: number;
-	/** Batches executed; equals `maxBatches` when the sweep was cut short. */
+	/** Whole trees deleted. */
+	trees: number;
+	/** Batches (transactions) executed. */
 	batches: number;
-	/** `true` when `maxBatches` was hit while candidates remained. */
+	/** `true` when `maxBatches` was hit while deletable trees remained. */
 	truncated: boolean;
+	/**
+	 * Expired, otherwise eligible trees retained because they hold more than
+	 * `maxActionsPerBatch` actions. Capped at `OVERSIZED_REPORT_LIMIT`.
+	 */
+	oversized_trees: number;
+	/** Identities of the reported oversized trees, for operators. */
+	oversized: Array<{
+		project_id: string;
+		root_action_id: string;
+		actions: number;
+	}>;
 }
 
-/** Stay under D1's ~100 bound parameters per statement (1 is `project_id`). */
-const MAX_IDS_PER_STATEMENT = 50;
-
-const DEFAULT_BATCH_SIZE = 200;
-const DEFAULT_MAX_BATCHES = 20;
+const DEFAULT_MAX_ACTIONS_PER_BATCH = 500;
+const DEFAULT_MAX_TREES_PER_BATCH = 25;
+const DEFAULT_MAX_BATCHES = 10;
+/** How many oversized trees one invocation lists; keeps the log line bounded. */
+export const OVERSIZED_REPORT_LIMIT = 20;
 
 /**
- * Oldest expired, finished actions whose whole tree is expired, finished,
- * not part of a running agent run, and not pinned by an eval case.
- * Binds: ISO cutoff (twice), then the batch size.
+ * Tree eligibility for the tree identified by the SQL expressions
+ * `project` / `root`. The DELETEs pass `?` placeholders (bound through
+ * `treeEligibleBinds`); the candidate query passes the grouped columns.
+ * Using the same text in both places means the decision is re-made,
+ * unchanged, inside the deleting transaction.
  */
-const SELECT_EXPIRED_ACTIONS_SQL = `
-	SELECT a.id, a.project_id
+const treeEligibleSql = (project: string, root: string, cutoff: string) => `
+	NOT EXISTS (
+	  SELECT 1 FROM actions t
+	  WHERE t.project_id = ${project} AND t.root_action_id = ${root}
+	    AND (t.started_at >= ${cutoff} OR t.ended_at IS NULL)
+	)
+	AND NOT EXISTS (
+	  SELECT 1 FROM actions t
+	  JOIN agent_runs r ON r.project_id = t.project_id AND r.id = t.agent_run_id
+	  WHERE t.project_id = ${project} AND t.root_action_id = ${root}
+	    AND r.status = 'running'
+	)
+	AND NOT EXISTS (
+	  SELECT 1 FROM actions t
+	  JOIN eval_cases c
+	    ON c.project_id = t.project_id
+	   AND (c.source_action_id = t.id OR c.source_agent_run_id = t.agent_run_id)
+	  WHERE t.project_id = ${project} AND t.root_action_id = ${root}
+	)
+	AND NOT EXISTS (
+	  SELECT 1 FROM actions t
+	  JOIN tool_calls tc ON tc.project_id = t.project_id AND tc.action_id = t.id
+	  JOIN eval_cases c ON c.project_id = tc.project_id AND c.source_tool_call_id = tc.id
+	  WHERE t.project_id = ${project} AND t.root_action_id = ${root}
+	)`;
+
+/** Eligibility with every tree reference bound; pair with `treeEligibleBinds`. */
+const TREE_ELIGIBLE_SQL = treeEligibleSql("?", "?", "?");
+
+/** Binds for `TREE_ELIGIBLE_SQL`, in placeholder order. */
+const treeEligibleBinds = (
+	projectId: string,
+	rootActionId: string,
+	cutoff: string,
+): unknown[] => [
+	projectId,
+	rootActionId,
+	cutoff,
+	projectId,
+	rootActionId,
+	projectId,
+	rootActionId,
+	projectId,
+	rootActionId,
+];
+
+/**
+ * Candidate trees, oldest first. The WHERE keeps the scan to expired rows
+ * (served by `idx_actions_started_at`); eligibility is decided per tree in
+ * HAVING over the whole tree, which — because eligible trees contain no
+ * fresh action — also makes `COUNT(*)` the full tree size.
+ *
+ * `sizeOp` is `<=` for deletable trees and `>` for oversized reporting.
+ * Binds: cutoff, size cap, cutoff (inside the eligibility test), limit.
+ */
+const candidateTreesSql = (sizeOp: "<=" | ">") => `
+	SELECT a.project_id, a.root_action_id, COUNT(*) AS action_count,
+	       MIN(a.started_at) AS oldest_started_at
 	FROM actions a
 	WHERE a.started_at < ?
-	  AND a.ended_at IS NOT NULL
-	  AND NOT EXISTS (
-	    SELECT 1 FROM actions t
-	    WHERE t.project_id = a.project_id
-	      AND t.root_action_id = a.root_action_id
-	      AND (t.started_at >= ? OR t.ended_at IS NULL)
-	  )
-	  AND NOT EXISTS (
-	    SELECT 1 FROM actions t
-	    JOIN agent_runs r
-	      ON r.project_id = t.project_id AND r.id = t.agent_run_id
-	    WHERE t.project_id = a.project_id
-	      AND t.root_action_id = a.root_action_id
-	      AND r.status = 'running'
-	  )
-	  AND NOT EXISTS (
-	    SELECT 1 FROM actions t
-	    JOIN eval_cases c
-	      ON c.project_id = t.project_id
-	     AND (c.source_action_id = t.id OR c.source_agent_run_id = t.agent_run_id)
-	    WHERE t.project_id = a.project_id
-	      AND t.root_action_id = a.root_action_id
-	  )
-	  AND NOT EXISTS (
-	    SELECT 1 FROM actions t
-	    JOIN tool_calls tc
-	      ON tc.project_id = t.project_id AND tc.action_id = t.id
-	    JOIN eval_cases c
-	      ON c.project_id = tc.project_id AND c.source_tool_call_id = tc.id
-	    WHERE t.project_id = a.project_id
-	      AND t.root_action_id = a.root_action_id
-	  )
-	ORDER BY a.started_at ASC
+	GROUP BY a.project_id, a.root_action_id
+	HAVING COUNT(*) ${sizeOp} ?
+	   AND ${treeEligibleSql("a.project_id", "a.root_action_id", "?")}
+	ORDER BY oldest_started_at ASC
 	LIMIT ?
 `;
 
-interface ExpiredActionRow {
-	id: string;
+const SELECT_DELETABLE_TREES_SQL = candidateTreesSql("<=");
+const SELECT_OVERSIZED_TREES_SQL = candidateTreesSql(">");
+
+interface CandidateTreeRow {
 	project_id: string;
+	root_action_id: string;
+	/** D1 returns numbers; pg returns BIGINT as string unless type parsers are configured. */
+	action_count: number | string;
+}
+
+interface CandidateTree {
+	projectId: string;
+	rootActionId: string;
+	actions: number;
 }
 
 /** Tables keyed by `action_id`, deleted before the spine. */
@@ -128,6 +200,7 @@ const LEAF_TABLES = [
 ] as const;
 
 type LeafTable = (typeof LEAF_TABLES)[number];
+type CountedTable = LeafTable | "agent_runs" | "actions";
 
 const emptySummary = (): ActionGraphPurgeSummary => ({
 	actions: 0,
@@ -136,20 +209,12 @@ const emptySummary = (): ActionGraphPurgeSummary => ({
 	retrieval_events: 0,
 	eval_results: 0,
 	artifacts: 0,
+	trees: 0,
 	batches: 0,
 	truncated: false,
+	oversized_trees: 0,
+	oversized: [],
 });
-
-const placeholders = (count: number): string =>
-	Array.from({ length: count }, () => "?").join(", ");
-
-const chunk = <T>(items: readonly T[], size: number): T[][] => {
-	const out: T[][] = [];
-	for (let i = 0; i < items.length; i += size) {
-		out.push(items.slice(i, i + size));
-	}
-	return out;
-};
 
 /** Cutoff as the same ISO text shape the collector writes to `started_at`. */
 export const actionRetentionCutoff = (
@@ -157,106 +222,180 @@ export const actionRetentionCutoff = (
 	nowMs: number = Date.now(),
 ): string => new Date(nowMs - retentionHours * 60 * 60 * 1000).toISOString();
 
+const selectTrees = async (
+	db: SqlDb,
+	sql: string,
+	cutoff: string,
+	sizeCap: number,
+	limit: number,
+): Promise<CandidateTree[]> => {
+	const { results } = await db
+		.prepare(sql)
+		.bind(cutoff, sizeCap, cutoff, limit)
+		.all<CandidateTreeRow>();
+	return results.map((row) => ({
+		projectId: row.project_id,
+		rootActionId: row.root_action_id,
+		actions: Number(row.action_count),
+	}));
+};
+
+/**
+ * Greedy pack of whole trees (already ordered oldest first) into one batch
+ * without exceeding `maxActions`. Every candidate fits on its own because
+ * the SELECT capped tree size at `maxActions`.
+ */
+const packBatch = (
+	candidates: readonly CandidateTree[],
+	maxActions: number,
+): CandidateTree[] => {
+	const batch: CandidateTree[] = [];
+	let used = 0;
+	for (const tree of candidates) {
+		if (batch.length > 0 && used + tree.actions > maxActions) break;
+		batch.push(tree);
+		used += tree.actions;
+	}
+	return batch;
+};
+
 /**
  * Purge expired action trees. Safe to call repeatedly: a second call right
- * after the first finds no candidates and deletes nothing.
+ * after the first finds no deletable trees and changes nothing.
  */
 export async function purgeExpiredActionGraph(
 	db: SqlDb,
 	options: ActionGraphRetentionOptions,
 ): Promise<ActionGraphPurgeSummary> {
-	const batchSize = Math.max(1, options.batchSize ?? DEFAULT_BATCH_SIZE);
+	const maxActions = Math.max(
+		1,
+		options.maxActionsPerBatch ?? DEFAULT_MAX_ACTIONS_PER_BATCH,
+	);
+	const maxTrees = Math.max(
+		1,
+		options.maxTreesPerBatch ?? DEFAULT_MAX_TREES_PER_BATCH,
+	);
 	const maxBatches = Math.max(1, options.maxBatches ?? DEFAULT_MAX_BATCHES);
 	const nowMs = (options.now ?? Date.now)();
 	const cutoff = actionRetentionCutoff(options.retentionHours, nowMs);
 
 	const summary = emptySummary();
+	let exhausted = false;
 
-	for (let batch = 0; batch < maxBatches; batch += 1) {
-		const { results } = await db
-			.prepare(SELECT_EXPIRED_ACTIONS_SQL)
-			.bind(cutoff, cutoff, batchSize)
-			.all<ExpiredActionRow>();
-		if (results.length === 0) return summary;
-
+	for (let batch = 0; batch < maxBatches && !exhausted; batch += 1) {
+		const candidates = await selectTrees(
+			db,
+			SELECT_DELETABLE_TREES_SQL,
+			cutoff,
+			maxActions,
+			maxTrees,
+		);
+		if (candidates.length === 0) {
+			exhausted = true;
+			break;
+		}
+		const trees = packBatch(candidates, maxActions);
 		summary.batches += 1;
-		const deleted = await deleteActionBatch(db, results);
+		const deleted = await deleteTrees(db, trees, cutoff);
 		for (const table of LEAF_TABLES) summary[table] += deleted[table];
 		summary.agent_runs += deleted.agent_runs;
 		summary.actions += deleted.actions;
-
-		if (results.length < batchSize) return summary;
+		summary.trees += deleted.trees;
+		// Fewer candidates than asked for and all of them packed: nothing left.
+		exhausted =
+			candidates.length < maxTrees && trees.length === candidates.length;
 	}
 
-	// We stopped because of `maxBatches`; a candidate may remain. Probe so
-	// the summary says so without doing another delete.
-	const remaining = await db
-		.prepare(SELECT_EXPIRED_ACTIONS_SQL)
-		.bind(cutoff, cutoff, 1)
-		.all<ExpiredActionRow>();
-	summary.truncated = remaining.results.length > 0;
+	if (!exhausted) {
+		const remaining = await selectTrees(
+			db,
+			SELECT_DELETABLE_TREES_SQL,
+			cutoff,
+			maxActions,
+			1,
+		);
+		summary.truncated = remaining.length > 0;
+	}
+
+	const oversized = await selectTrees(
+		db,
+		SELECT_OVERSIZED_TREES_SQL,
+		cutoff,
+		maxActions,
+		OVERSIZED_REPORT_LIMIT,
+	);
+	summary.oversized_trees = oversized.length;
+	summary.oversized = oversized.map((tree) => ({
+		project_id: tree.projectId,
+		root_action_id: tree.rootActionId,
+		actions: tree.actions,
+	}));
+
 	return summary;
 }
 
-type BatchCounts = Record<LeafTable | "agent_runs" | "actions", number>;
+type BatchCounts = Record<CountedTable, number> & { trees: number };
 
 /**
- * Delete leaves, then `agent_runs`, then the spine for the given actions in
- * a single `SqlDb.batch`. Statements are grouped per project so every
- * `DELETE` is scoped by `project_id`, and id lists are chunked to respect
- * D1's bound-parameter ceiling.
+ * Delete the given trees in one `SqlDb.batch`: for each tree, its four leaf
+ * tables, then `agent_runs`, then the spine, every statement scoped by
+ * `project_id` and the tree and guarded by the eligibility recheck.
  */
-async function deleteActionBatch(
+async function deleteTrees(
 	db: SqlDb,
-	rows: readonly ExpiredActionRow[],
+	trees: readonly CandidateTree[],
+	cutoff: string,
 ): Promise<BatchCounts> {
-	const byProject = new Map<string, string[]>();
-	for (const row of rows) {
-		const ids = byProject.get(row.project_id);
-		if (ids) ids.push(row.id);
-		else byProject.set(row.project_id, [row.id]);
-	}
-
 	const statements: SqlStatement[] = [];
-	const owners: Array<keyof BatchCounts> = [];
-	const push = (table: keyof BatchCounts, stmt: SqlStatement) => {
-		statements.push(stmt);
-		owners.push(table);
-	};
+	const owners: Array<{ table: CountedTable; tree: number }> = [];
 
-	for (const [projectId, ids] of byProject) {
-		for (const idChunk of chunk(ids, MAX_IDS_PER_STATEMENT)) {
-			const list = placeholders(idChunk.length);
-			for (const table of LEAF_TABLES) {
-				push(
-					table,
-					db
-						.prepare(
-							`DELETE FROM ${table} WHERE project_id = ? AND action_id IN (${list})`,
-						)
-						.bind(projectId, ...idChunk),
-				);
-			}
-			// `agent_runs.id` matches the run's root `actions.id`, so only runs
-			// whose spine row is in this batch are removed.
+	trees.forEach(({ projectId, rootActionId }, treeIndex) => {
+		const guard = treeEligibleBinds(projectId, rootActionId, cutoff);
+		const push = (table: CountedTable, stmt: SqlStatement) => {
+			statements.push(stmt);
+			owners.push({ table, tree: treeIndex });
+		};
+		for (const table of LEAF_TABLES) {
 			push(
-				"agent_runs",
+				table,
 				db
 					.prepare(
-						`DELETE FROM agent_runs WHERE project_id = ? AND id IN (${list})`,
+						`DELETE FROM ${table}
+						 WHERE project_id = ?
+						   AND action_id IN (
+						     SELECT id FROM actions WHERE project_id = ? AND root_action_id = ?
+						   )
+						   AND ${TREE_ELIGIBLE_SQL}`,
 					)
-					.bind(projectId, ...idChunk),
-			);
-			push(
-				"actions",
-				db
-					.prepare(
-						`DELETE FROM actions WHERE project_id = ? AND id IN (${list})`,
-					)
-					.bind(projectId, ...idChunk),
+					.bind(projectId, projectId, rootActionId, ...guard),
 			);
 		}
-	}
+		// `agent_runs.id` matches the run's root `actions.id` (sub-agent runs
+		// match a nested action), so only runs anchored in this tree go.
+		push(
+			"agent_runs",
+			db
+				.prepare(
+					`DELETE FROM agent_runs
+					 WHERE project_id = ?
+					   AND id IN (
+					     SELECT id FROM actions WHERE project_id = ? AND root_action_id = ?
+					   )
+					   AND ${TREE_ELIGIBLE_SQL}`,
+				)
+				.bind(projectId, projectId, rootActionId, ...guard),
+		);
+		push(
+			"actions",
+			db
+				.prepare(
+					`DELETE FROM actions
+					 WHERE project_id = ? AND root_action_id = ?
+					   AND ${TREE_ELIGIBLE_SQL}`,
+				)
+				.bind(projectId, rootActionId, ...guard),
+		);
+	});
 
 	const results = await db.batch(statements);
 	const counts: BatchCounts = {
@@ -266,10 +405,16 @@ async function deleteActionBatch(
 		artifacts: 0,
 		agent_runs: 0,
 		actions: 0,
+		trees: 0,
 	};
+	const spineDeleted = new Set<number>();
 	results.forEach((result, index) => {
 		const owner = owners[index];
-		if (owner) counts[owner] += result?.meta?.changes ?? 0;
+		if (!owner) return;
+		const changes = result?.meta?.changes ?? 0;
+		counts[owner.table] += changes;
+		if (owner.table === "actions" && changes > 0) spineDeleted.add(owner.tree);
 	});
+	counts.trees = spineDeleted.size;
 	return counts;
 }

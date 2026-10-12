@@ -441,7 +441,19 @@ export const createRetentionCleanupHandler = (options?: {
 			if (actionGraph.truncated) {
 				logger.warn(
 					"[retention-cleanup] action graph purge hit its batch cap; remaining expired trees wait for the next run",
-					{ batches: actionGraph.batches, actions: actionGraph.actions },
+					{ batches: actionGraph.batches, trees: actionGraph.trees },
+				);
+			}
+			if (actionGraph.oversized_trees > 0) {
+				// Retained on purpose: deleting them would exceed the per-batch
+				// bound, and a partial tree is worse than an old one. Operators
+				// can raise `maxActionsPerBatch` or remove them by hand.
+				logger.warn(
+					"[retention-cleanup] expired action trees retained because they exceed the per-batch action cap",
+					{
+						oversized_trees: actionGraph.oversized_trees,
+						trees: actionGraph.oversized,
+					},
 				);
 			}
 		} catch (err) {
@@ -476,7 +488,9 @@ export const createRetentionCleanupHandler = (options?: {
 						action_retrieval_events: actionGraph.retrieval_events,
 						action_eval_results: actionGraph.eval_results,
 						action_artifacts: actionGraph.artifacts,
+						action_trees: actionGraph.trees,
 						action_batches: actionGraph.batches,
+						action_oversized_trees: actionGraph.oversized_trees,
 					}
 				: {}),
 		});

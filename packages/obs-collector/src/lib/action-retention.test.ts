@@ -10,6 +10,7 @@ import {
 	purgeExpiredActionGraph,
 } from "./action-retention";
 import { ActionStore } from "./actions-store";
+import type { SqlDb, SqlStatement } from "./sql-db";
 import {
 	actionRecord,
 	agentRunRecord,
@@ -28,24 +29,36 @@ import {
 	NodeSqliteDb,
 } from "./test-utils/node-sqlite-db";
 
+type PurgeOverrides = {
+	maxActionsPerBatch?: number;
+	maxTreesPerBatch?: number;
+	maxBatches?: number;
+};
+
 const now = () => FIXTURE_NOW_MS;
-const purge = (
-	db: NodeSqliteDb,
-	over: { batchSize?: number; maxBatches?: number } = {},
-) =>
+const purge = (db: SqlDb, over: PurgeOverrides = {}) =>
 	purgeExpiredActionGraph(db, {
 		retentionHours: FIXTURE_RETENTION_HOURS,
 		now,
 		...over,
 	});
 
-const EMPTY = {
+const EMPTY_COUNTS = {
 	actions: 0,
 	agent_runs: 0,
 	tool_calls: 0,
 	retrieval_events: 0,
 	eval_results: 0,
 	artifacts: 0,
+};
+
+const NOTHING_PURGED = {
+	...EMPTY_COUNTS,
+	trees: 0,
+	batches: 0,
+	truncated: false,
+	oversized_trees: 0,
+	oversized: [],
 };
 
 const indexNames = (db: NodeSqliteDb): string[] =>
@@ -56,6 +69,41 @@ const indexNames = (db: NodeSqliteDb): string[] =>
 			)
 			.all() as Array<{ name: string }>
 	).map((r) => r.name);
+
+/** Root + `children` child actions, one `agent_runs` row, leaves on the first child. */
+const seedWideTree = async (
+	db: SqlDb,
+	rootId: string,
+	children: number,
+	projectId = "alpha",
+) => {
+	const store = new ActionStore(db);
+	await store.upsertAction(
+		actionRecord({
+			id: rootId,
+			projectId,
+			rootActionId: rootId,
+			agentRunId: rootId,
+		}),
+	);
+	await store.upsertAgentRun(agentRunRecord({ id: rootId, projectId }));
+	for (let i = 0; i < children; i += 1) {
+		await store.upsertAction(
+			actionRecord({
+				id: `${rootId}-c${i}`,
+				projectId,
+				rootActionId: rootId,
+				causedByActionId: rootId,
+				agentRunId: rootId,
+				actionKind: "tool.call",
+			}),
+		);
+	}
+	await store.upsertToolCall(
+		toolCallRecord({ id: `${rootId}-tc`, actionId: `${rootId}-c0`, projectId }),
+	);
+	return { rootId, actions: children + 1, toolCallId: `${rootId}-tc` };
+};
 
 describe("actionRetentionCutoff", () => {
 	it("renders the cutoff as collector-style ISO text", () => {
@@ -86,7 +134,8 @@ describe("purgeExpiredActionGraph (SQLite)", () => {
 
 		const summary = await purge(db);
 		expect(summary.actions).toBe(2);
-		expect(await countActionGraph(db, "alpha")).toEqual(EMPTY);
+		expect(summary.trees).toBe(1);
+		expect(await countActionGraph(db, "alpha")).toEqual(EMPTY_COUNTS);
 	});
 
 	it("deletes expired trees with their leaves and keeps fresh trees, per project", async () => {
@@ -114,8 +163,11 @@ describe("purgeExpiredActionGraph (SQLite)", () => {
 			retrieval_events: 2,
 			eval_results: 2,
 			artifacts: 2,
+			trees: 2,
 			batches: 1,
 			truncated: false,
+			oversized_trees: 0,
+			oversized: [],
 		});
 		expect(db.count("actions", "root_action_id = ?", expired.rootId)).toBe(0);
 		expect(db.count("agent_runs", "id = ?", expired.rootId)).toBe(0);
@@ -232,7 +284,7 @@ describe("purgeExpiredActionGraph (SQLite)", () => {
 		const second = await purge(db);
 
 		expect(first.actions).toBe(2);
-		expect(second).toEqual({ ...EMPTY, batches: 0, truncated: false });
+		expect(second).toEqual(NOTHING_PURGED);
 		expect(await countActionGraph(db, "alpha")).toEqual({
 			actions: 2,
 			agent_runs: 1,
@@ -243,40 +295,138 @@ describe("purgeExpiredActionGraph (SQLite)", () => {
 		});
 	});
 
-	it("works in bounded batches and reports when the cap leaves candidates behind", async () => {
+	it("never splits a tree: one eligible tree larger than the batch cap is retained intact and reported", async () => {
+		const db = NodeSqliteDb.migrated();
+		const big = await seedWideTree(db, "big", 6); // 7 actions
+		const small = await seedTree(db, { rootId: "small" }); // 2 actions
+
+		const summary = await purge(db, { maxActionsPerBatch: 4, maxBatches: 1 });
+
+		// The small tree goes whole; the big one is untouched, not trimmed.
+		expect(summary).toMatchObject({
+			actions: 2,
+			trees: 1,
+			batches: 1,
+			truncated: false,
+			oversized_trees: 1,
+			oversized: [{ project_id: "alpha", root_action_id: "big", actions: 7 }],
+		});
+		expect(db.count("actions", "root_action_id = ?", big.rootId)).toBe(
+			big.actions,
+		);
+		expect(db.count("agent_runs", "id = ?", big.rootId)).toBe(1);
+		expect(db.count("tool_calls", "id = ?", big.toolCallId)).toBe(1);
+		expect(db.count("actions", "root_action_id = ?", small.rootId)).toBe(0);
+
+		// Running again with the same cap changes nothing; raising the cap
+		// deletes the big tree in one piece.
+		expect(await purge(db, { maxActionsPerBatch: 4 })).toMatchObject({
+			actions: 0,
+			oversized_trees: 1,
+		});
+		const raised = await purge(db, { maxActionsPerBatch: 7 });
+		expect(raised).toMatchObject({
+			actions: 7,
+			trees: 1,
+			agent_runs: 1,
+			tool_calls: 1,
+			oversized_trees: 0,
+		});
+		expect(await countActionGraph(db, "alpha")).toEqual(EMPTY_COUNTS);
+	});
+
+	it("packs whole trees into a batch up to the action cap and leaves the rest for later batches", async () => {
 		const db = NodeSqliteDb.migrated();
 		for (let i = 0; i < 5; i += 1) {
 			await seedTree(db, { rootId: `run-${i}`, withLeaves: false });
 		}
 		expect(db.count("actions")).toBe(10);
 
-		const capped = await purge(db, { batchSize: 4, maxBatches: 1 });
-		expect(capped).toMatchObject({ actions: 4, batches: 1, truncated: true });
+		// 5 actions fit two 2-action trees, not two and a half.
+		const capped = await purge(db, { maxActionsPerBatch: 5, maxBatches: 1 });
+		expect(capped).toMatchObject({
+			actions: 4,
+			trees: 2,
+			agent_runs: 2,
+			batches: 1,
+			truncated: true,
+		});
 		expect(db.count("actions")).toBe(6);
-		// agent_runs rows go only once their root action is in the batch.
-		expect(db.count("agent_runs")).toBe(5 - capped.agent_runs);
+		expect(db.count("agent_runs")).toBe(3);
+		// Every surviving tree is still complete.
+		const survivors = db.raw
+			.prepare(
+				`SELECT root_action_id AS root, COUNT(*) AS n FROM actions GROUP BY root_action_id`,
+			)
+			.all() as Array<{ root: string; n: number }>;
+		expect(survivors.map((s) => Number(s.n))).toEqual([2, 2, 2]);
 
-		const rest = await purge(db, { batchSize: 4 });
-		expect(rest).toMatchObject({ actions: 6, batches: 2, truncated: false });
+		const rest = await purge(db, { maxActionsPerBatch: 5 });
+		expect(rest).toMatchObject({
+			actions: 6,
+			trees: 3,
+			batches: 2,
+			truncated: false,
+		});
 		expect(db.count("actions")).toBe(0);
 		expect(db.count("agent_runs")).toBe(0);
 	});
 
-	it("chunks id lists so a batch larger than D1's bind limit still deletes everything", async () => {
+	it("bounds trees per batch and reports truncation when batches run out", async () => {
 		const db = NodeSqliteDb.migrated();
-		const store = new ActionStore(db);
-		for (let i = 0; i < 120; i += 1) {
-			await store.upsertAction(actionRecord({ id: `single-${i}` }));
+		for (let i = 0; i < 4; i += 1) {
+			await seedTree(db, { rootId: `run-${i}`, withLeaves: false });
 		}
 
-		const summary = await purge(db, { batchSize: 200 });
+		const summary = await purge(db, { maxTreesPerBatch: 1, maxBatches: 2 });
 
 		expect(summary).toMatchObject({
-			actions: 120,
-			batches: 1,
-			truncated: false,
+			actions: 4,
+			trees: 2,
+			batches: 2,
+			truncated: true,
 		});
-		expect(db.count("actions")).toBe(0);
+		expect(db.count("actions")).toBe(4);
+	});
+
+	it("re-checks eligibility inside the deleting transaction", async () => {
+		// Simulate an ingest landing after selection but before the batch runs:
+		// a fresh child arrives for the already-selected tree.
+		const inner = NodeSqliteDb.migrated();
+		await seedTree(inner, { rootId: "late" });
+		await seedTree(inner, { rootId: "quiet" });
+		const store = new ActionStore(inner);
+		let raced = false;
+		const racing: SqlDb = {
+			prepare: (sql) => inner.prepare(sql),
+			batch: async (statements: SqlStatement[]) => {
+				if (!raced) {
+					raced = true;
+					await store.upsertAction(
+						actionRecord({
+							id: "late-straggler",
+							rootActionId: "late",
+							causedByActionId: "late",
+							agentRunId: "late",
+							startedAt: FRESH_START,
+							endedAt: FRESH_START,
+						}),
+					);
+				}
+				return inner.batch(statements);
+			},
+		};
+
+		const summary = await purge(racing);
+
+		// Only the undisturbed tree went; the raced tree kept spine AND leaves.
+		expect(summary.actions).toBe(2);
+		expect(summary.trees).toBe(1);
+		expect(inner.count("actions", "root_action_id = ?", "late")).toBe(3);
+		expect(inner.count("agent_runs", "id = ?", "late")).toBe(1);
+		expect(inner.count("tool_calls", "action_id = ?", "late-child")).toBe(1);
+		expect(inner.count("artifacts", "action_id = ?", "late-child")).toBe(1);
+		expect(inner.count("actions", "root_action_id = ?", "quiet")).toBe(0);
 	});
 
 	it("leaves agent_runs rows that have no action and leaves other actions' leaves alone", async () => {
