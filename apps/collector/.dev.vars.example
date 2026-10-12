@@ -2,6 +2,7 @@
 # replace them before deploying anywhere shared.
 
 DASHBOARD_PASSWORD=e2e-test-pass
+DASHBOARD_TOKEN=e2e-dashboard-token
 INGEST_KEY=obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504
 
 # Keep auth enabled in local dev so the dashboard and ingest paths behave like

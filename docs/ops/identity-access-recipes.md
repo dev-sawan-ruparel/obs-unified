@@ -45,18 +45,20 @@ flowchart TD
 
     User -->|Browser session| SSO -->|Proxied session| Dashboard
     User -->|API queries| SSO -->|obs_session cookie| Collector
-    Agent -->|Local / Internal stdio| DirectNet -->|obs_session cookie| Collector
+    Agent -->|Local / Internal stdio| DirectNet -->|Bearer token or obs_session| Collector
     App -->|OTLP POST| Bypass -->|X-API-Key / Bearer| Collector
 ```
 
-1. **Dashboard Shared Secret (`DASHBOARD_PASSWORD`)**:
+1. **Dashboard & Internal Authentication (`DASHBOARD_PASSWORD`, `DASHBOARD_TOKEN`)**:
    - Grounded in [`packages/obs-collector/src/auth/dashboard-auth.ts`](../../packages/obs-collector/src/auth/dashboard-auth.ts) and [`packages/obs-collector/src/framework/collector.ts`](../../packages/obs-collector/src/framework/collector.ts).
-   - Single shared secret defined via the `DASHBOARD_PASSWORD` environment variable.
-   - Login endpoint (`POST /auth/login`) tests the password using constant-time comparison (`timingSafeEqualStr`) and issues a signed `obs_session` cookie (`HMAC-SHA256` payload containing `{ exp }`, valid for 7 days, `HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS).
+   - Password authentication: defined via `DASHBOARD_PASSWORD`. Login endpoint (`POST /auth/login`) tests the password using constant-time comparison (`timingSafeEqualStr`) and issues a signed `obs_session` cookie (`HMAC-SHA256` payload containing `{ exp }`, valid for 7 days, `HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS).
+   - Programmatic Bearer token: defined via `DASHBOARD_TOKEN` (or fallback `OBS_DASHBOARD_TOKEN`). Validated on `/internal/*` and `GET /auth/check` via constant-time comparison (`timingSafeEqualStr`). Programmatic clients map to this secret:
+     - The CLI (`@obsunified/cli`) sends `Authorization: Bearer <OBS_ADMIN_TOKEN>` (which must equal the collector server `DASHBOARD_TOKEN`).
+     - The MCP server (`@obsunified/mcp-server`) sends `Authorization: Bearer <OBS_DASHBOARD_TOKEN>` (which must equal the collector server `DASHBOARD_TOKEN`).
    - The `dashboardAuth.middleware` protects `/internal/*` and `/dashboard/*`.
-   - **Crucial collector constraint**: On `/internal/*`, `dashboardAuth` checks **only the `obs_session` cookie**. It does not accept bearer tokens or API keys on `/internal/*`.
+   - **Collector auth contract**: On `/internal/*`, `dashboardAuth` accepts either a valid `obs_session` cookie or a valid `Authorization: Bearer <DASHBOARD_TOKEN>` header. Ingest keys are strictly rejected (they are write-only).
      - If unauthenticated, HTML requests (`Accept: text/html`) redirect to `/dashboard/login`.
-     - API requests without a valid `obs_session` cookie return `401 Unauthorized`.
+     - API requests without a valid `obs_session` cookie or Bearer token return `401 Unauthorized`.
    - The React dashboard ([`packages/dashboard/src/AuthGate.tsx`](../../packages/dashboard/src/AuthGate.tsx)) queries `GET /auth/check` on mount and renders [`Login.tsx`](../../packages/dashboard/src/Login.tsx) when anon.
 
 2. **Telemetry Ingest API Keys (`INGEST_KEY`, `ingest_keys` table)**:
@@ -71,12 +73,13 @@ flowchart TD
 
 4. **Investigation MCP Server Boundaries (`@obsunified/mcp-server`)**:
    - Grounded in [`packages/mcp-server/src/index.ts`](../../packages/mcp-server/src/index.ts).
-   - `readConfig()` reads one of: `OBS_DASHBOARD_TOKEN`, `OBS_INGEST_KEY`, or `OBS_SESSION_COOKIE`.
+   - `readConfig()` reads `OBS_DASHBOARD_TOKEN` (or `OBS_SESSION_COOKIE` for ad-hoc session reuse).
+   - Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion and are rejected on `/internal/*` endpoints.
    - **Grounding reality**:
-     - When the collector runs with `dashboardAuth` (standard production setup), `/internal/*` checks **only** the `obs_session` cookie. Neither `OBS_INGEST_KEY` nor `OBS_DASHBOARD_TOKEN` provides native read access to `/internal/*`. Only `OBS_SESSION_COOKIE` is valid against a collector running `dashboardAuth`.
+     - When the collector runs with `dashboardAuth` (standard production setup), `/internal/*` accepts either an `obs_session` cookie (for browser users) or an `Authorization: Bearer <DASHBOARD_TOKEN>` header (for programmatic clients like MCP).
      - The current `@obsunified/mcp-server` client **does not emit Cloudflare Access service token headers** (`CF-Access-Client-Id` or `CF-Access-Client-Secret`). It only sends standard HTTP headers (`Accept`, `Authorization`, `Cookie`, `X-Project-Id`).
      - Therefore, attempting to route remote `@obsunified/mcp-server` traffic through a Cloudflare Access gate without a local forwarding proxy that injects Access headers is **unsupported**.
-     - **Verified MCP Deployment Pattern**: Run `@obsunified/mcp-server` within the trusted internal network or localhost boundary where it can directly reach the collector's internal port (`http://127.0.0.1:8790` or internal cluster service `http://obs-collector:8790`) using `OBS_SESSION_COOKIE`.
+     - **Verified MCP Deployment Pattern**: Run `@obsunified/mcp-server` within the trusted internal network or localhost boundary where it can directly reach the collector's internal port (`http://127.0.0.1:8790` or internal cluster service `http://obs-collector:8790`) using `OBS_DASHBOARD_TOKEN`.
 
 5. **`X-Project-Id` Handling**:
    - The collector requires `X-Project-Id` to switch project views in the dashboard and to scope MCP queries.
@@ -92,7 +95,7 @@ flowchart TD
 | `/health` | Collector (`:8790`) | Public / Unrestricted | None | Health check & clock sync |
 | `/v1/*` | Collector (`:8790`) | Public / Bypass SSO | Ingest Key (`X-API-Key` or `Bearer`) | OTLP telemetry ingestion from apps |
 | `/auth/*` | Collector (`:8790`) | SSO Protected | Handled by SPA / Collector | Session creation & status checks |
-| `/internal/*` | Collector (`:8790`) | SSO Protected (Human) / Internal Network (MCP) | `obs_session` Cookie | Dashboard data queries & evidence retrieval |
+| `/internal/*` | Collector (`:8790`) | SSO Protected (Human) / Internal Network (MCP) | `obs_session` Cookie or Bearer `DASHBOARD_TOKEN` | Dashboard data queries & evidence retrieval |
 | `/` & Static Assets | Dashboard (`:5173`) | SSO Protected | External IdP session | React dashboard interface |
 
 ---
@@ -399,6 +402,6 @@ curl -i https://obs.example.com/internal/telemetry/overview \
 ```bash
 # On the internal host running the collector:
 export OBS_COLLECTOR_URL="http://127.0.0.1:8790"
-export OBS_SESSION_COOKIE="<VALID_OBS_COOKIE>"
+export OBS_DASHBOARD_TOKEN="<VALID_DASHBOARD_TOKEN>"
 obs-unified-mcp
 ```

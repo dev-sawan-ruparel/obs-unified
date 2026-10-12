@@ -51,6 +51,7 @@ pnpm --filter @obs-demo/collector-node run start
 | `S3_SECRET_ACCESS_KEY` | yes (if `s3`) | —                        | Secret key                                                  |
 | `INGEST_KEY`           | yes           | —                        | Write-only API key for SDK clients                          |
 | `DASHBOARD_PASSWORD`   | yes           | —                        | Dashboard login password                                    |
+| `DASHBOARD_TOKEN`      | no            | —                        | Programmatic read/admin bearer token for /internal/* (MCP)  |
 | `ALLOWED_ORIGINS`      | no            | —                        | Comma-separated CORS origins                                |
 | `PORT`                 | no            | 8790                     | HTTP listen port                                            |
 

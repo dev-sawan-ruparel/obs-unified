@@ -77,6 +77,7 @@ const ingestAuth = createIngestAuth({
 });
 const dashboardAuth = createDashboardAuth({
 	password: env.DASHBOARD_PASSWORD,
+	token: env.DASHBOARD_TOKEN,
 });
 
 const app = createDefaultCollectorApp({
@@ -99,6 +100,7 @@ const requestEnv: CollectorEnv = {
 	PROFILES_BUCKET: wrappedS3,
 	INGEST_KEY: env.INGEST_KEY,
 	DASHBOARD_PASSWORD: env.DASHBOARD_PASSWORD,
+	DASHBOARD_TOKEN: env.DASHBOARD_TOKEN,
 	ALLOWED_ORIGINS: env.ALLOWED_ORIGINS.join(","),
 };
 
@@ -169,6 +171,10 @@ function readEnv() {
 				: (process.env.S3_SECRET_ACCESS_KEY ?? "local"),
 		INGEST_KEY: required("INGEST_KEY"),
 		DASHBOARD_PASSWORD: required("DASHBOARD_PASSWORD"),
+		DASHBOARD_TOKEN:
+			process.env.DASHBOARD_TOKEN?.trim() ||
+			process.env.OBS_DASHBOARD_TOKEN?.trim() ||
+			undefined,
 		ALLOWED_ORIGINS:
 			process.env.ALLOWED_ORIGINS?.split(",").map((s) => s.trim()) ?? [],
 	};

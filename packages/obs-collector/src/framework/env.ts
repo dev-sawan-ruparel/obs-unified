@@ -26,6 +26,8 @@ export interface CollectorEnv {
 	INGEST_KEY?: string;
 	/** Password for dashboard login */
 	DASHBOARD_PASSWORD?: string;
+	/** Programmatic read/admin bearer token for /internal/* endpoints (e.g. MCP server) */
+	DASHBOARD_TOKEN?: string;
 	/** Comma-separated allowed origins for CORS (e.g. "https://my-app.com,https://staging.my-app.com") */
 	ALLOWED_ORIGINS?: string;
 	/** Set to "true" to allow unauthenticated ingest (local dev only) */

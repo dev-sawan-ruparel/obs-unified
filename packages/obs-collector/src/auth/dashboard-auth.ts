@@ -104,17 +104,27 @@ function getCookie(
 	return match ? decodeURIComponent(match[1]) : undefined;
 }
 
+export interface DashboardAuthConfig {
+	password?: string;
+	token?: string;
+}
+
 /**
- * Creates auth routes and middleware for dashboard password login.
+ * Creates auth routes and middleware for dashboard password login and
+ * programmatic read/admin bearer token authentication.
  *
  * Routes added:
  *   POST /auth/login  — accepts { password }, sets session cookie
- *   GET  /auth/check  — returns { authenticated: true/false }
+ *   GET  /auth/check  — returns { authenticated: true/false } (supports cookie and Bearer token)
  *   POST /auth/logout — clears session cookie
  *
- * The returned middleware validates the session cookie on protected routes.
+ * The returned middleware validates either:
+ *   1. Authorization: Bearer <token> (programmatic read/admin token for MCP/API)
+ *   2. obs_session cookie (human dashboard user session)
+ *
+ * Ingest keys are rejected on dashboard/internal routes — they are write-only.
  */
-export function createDashboardAuth(config: { password: string }): {
+export function createDashboardAuth(config?: DashboardAuthConfig): {
 	middleware: MiddlewareHandler<{
 		Bindings: CollectorEnv;
 		Variables: { projectId: string };
@@ -127,45 +137,99 @@ export function createDashboardAuth(config: { password: string }): {
 		Bindings: CollectorEnv;
 		Variables: { projectId: string };
 	}> = async (c, next) => {
-		if (!config.password) {
+		const configuredPassword = config?.password ?? c.env.DASHBOARD_PASSWORD;
+		const configuredToken =
+			config?.token ??
+			c.env.DASHBOARD_TOKEN ??
+			(c.env as unknown as Record<string, string | undefined>)
+				.OBS_DASHBOARD_TOKEN;
+
+		if (!configuredPassword && !configuredToken) {
 			return c.json(
 				{
 					error:
-						"DASHBOARD_PASSWORD is not configured. Set the DASHBOARD_PASSWORD environment variable.",
+						"Neither DASHBOARD_PASSWORD nor DASHBOARD_TOKEN is configured. Set at least one environment variable.",
 				},
 				500,
 			);
 		}
 
-		const cookieHeader = c.req.header("Cookie");
-		const sessionValue = getCookie(cookieHeader, SESSION_COOKIE);
+		let authenticated = false;
 
-		if (!sessionValue) {
+		const authHeader = c.req.header("Authorization");
+		if (authHeader) {
+			const match = authHeader.match(/^Bearer\s+(.+)$/i);
+			if (!match) {
+				return c.json({ error: "Unauthorized" }, 401);
+			}
+			const bearerToken = match[1].trim();
+			if (!bearerToken) {
+				return c.json({ error: "Unauthorized" }, 401);
+			}
+
+			// Ingest keys must never grant read/admin access to dashboard/internal endpoints.
+			const ingestKey = c.env.INGEST_KEY;
+			if (ingestKey && (await timingSafeEqualStr(bearerToken, ingestKey))) {
+				return c.json(
+					{
+						error:
+							"Unauthorized: ingest keys cannot be used for dashboard/internal access",
+					},
+					401,
+				);
+			}
+
+			// Fail closed if no programmatic read/admin token is configured.
+			if (!configuredToken) {
+				return c.json({ error: "Unauthorized" }, 401);
+			}
+
+			// Verify bearer token in constant time.
+			const valid = await timingSafeEqualStr(bearerToken, configuredToken);
+			if (!valid) {
+				return c.json({ error: "Unauthorized" }, 401);
+			}
+
+			authenticated = true;
+		} else {
+			// Check session cookie for browser dashboard users.
+			const cookieHeader = c.req.header("Cookie");
+			const sessionValue = getCookie(cookieHeader, SESSION_COOKIE);
+
+			if (sessionValue) {
+				if (!configuredPassword) {
+					return c.json({ error: "Unauthorized" }, 401);
+				}
+
+				const dotIndex = sessionValue.lastIndexOf(".");
+				if (dotIndex === -1) {
+					return c.json({ error: "Invalid session" }, 401);
+				}
+
+				const payload = sessionValue.substring(0, dotIndex);
+				const sig = sessionValue.substring(dotIndex + 1);
+
+				const valid = await verify(payload, sig, configuredPassword);
+				if (!valid) {
+					return c.json({ error: "Invalid session" }, 401);
+				}
+
+				const token = parseSessionToken(payload);
+				if (!token || token.exp < Math.floor(Date.now() / 1000)) {
+					return c.json({ error: "Session expired" }, 401);
+				}
+
+				authenticated = true;
+			}
+		}
+
+		if (!authenticated) {
 			// For API requests, return 401. For page requests, redirect to login.
 			const accept = c.req.header("Accept") || "";
 			if (accept.includes("text/html")) {
 				return c.redirect("/dashboard/login");
 			}
 			return c.json({ error: "Unauthorized" }, 401);
-		}
-
-		// Session cookie format: payload.signature
-		const dotIndex = sessionValue.lastIndexOf(".");
-		if (dotIndex === -1) {
-			return c.json({ error: "Invalid session" }, 401);
-		}
-
-		const payload = sessionValue.substring(0, dotIndex);
-		const sig = sessionValue.substring(dotIndex + 1);
-
-		const valid = await verify(payload, sig, config.password);
-		if (!valid) {
-			return c.json({ error: "Invalid session" }, 401);
-		}
-
-		const token = parseSessionToken(payload);
-		if (!token || token.exp < Math.floor(Date.now() / 1000)) {
-			return c.json({ error: "Session expired" }, 401);
 		}
 
 		// Resolve project for data-scoped routes. /internal/projects/* is exempt
@@ -198,7 +262,8 @@ export function createDashboardAuth(config: { password: string }): {
 		app: import("hono").Hono<{ Bindings: CollectorEnv }>,
 	) => {
 		app.post("/auth/login", async (c) => {
-			if (!config.password) {
+			const configuredPassword = config?.password ?? c.env.DASHBOARD_PASSWORD;
+			if (!configuredPassword) {
 				return c.json({ error: "Dashboard password not configured" }, 500);
 			}
 
@@ -207,14 +272,14 @@ export function createDashboardAuth(config: { password: string }): {
 				.catch(() => ({ password: undefined }));
 			if (
 				!body.password ||
-				!(await timingSafeEqualStr(body.password, config.password))
+				!(await timingSafeEqualStr(body.password, configuredPassword))
 			) {
 				return c.json({ error: "Invalid password" }, 401);
 			}
 
 			const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MAX_AGE;
 			const payload = createSessionToken(expiresAt);
-			const sig = await sign(payload, config.password);
+			const sig = await sign(payload, configuredPassword);
 			const cookieValue = `${payload}.${sig}`;
 
 			const isSecure = c.req.url.startsWith("https:");
@@ -227,10 +292,34 @@ export function createDashboardAuth(config: { password: string }): {
 		});
 
 		app.get("/auth/check", async (c) => {
+			const configuredPassword = config?.password ?? c.env.DASHBOARD_PASSWORD;
+			const configuredToken =
+				config?.token ??
+				c.env.DASHBOARD_TOKEN ??
+				(c.env as unknown as Record<string, string | undefined>)
+					.OBS_DASHBOARD_TOKEN;
+
+			const authHeader = c.req.header("Authorization");
+			if (authHeader) {
+				const match = authHeader.match(/^Bearer\s+(.+)$/i);
+				if (match && configuredToken) {
+					const bearerToken = match[1].trim();
+					const ingestKey = c.env.INGEST_KEY;
+					if (ingestKey && (await timingSafeEqualStr(bearerToken, ingestKey))) {
+						return c.json({ authenticated: false });
+					}
+					const valid = await timingSafeEqualStr(bearerToken, configuredToken);
+					if (valid) {
+						return c.json({ authenticated: true });
+					}
+				}
+				return c.json({ authenticated: false });
+			}
+
 			const cookieHeader = c.req.header("Cookie");
 			const sessionValue = getCookie(cookieHeader, SESSION_COOKIE);
 
-			if (!sessionValue) {
+			if (!sessionValue || !configuredPassword) {
 				return c.json({ authenticated: false });
 			}
 
@@ -242,7 +331,7 @@ export function createDashboardAuth(config: { password: string }): {
 			const payload = sessionValue.substring(0, dotIndex);
 			const sig = sessionValue.substring(dotIndex + 1);
 
-			const valid = await verify(payload, sig, config.password);
+			const valid = await verify(payload, sig, configuredPassword);
 			if (!valid) {
 				return c.json({ authenticated: false });
 			}

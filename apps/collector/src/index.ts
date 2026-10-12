@@ -91,9 +91,16 @@ const createApp = (env: CollectorEnv) => {
 		allowUnauthenticated: env.ALLOW_UNAUTHENTICATED === "true",
 	});
 
-	const dashboardAuth = env.DASHBOARD_PASSWORD
-		? createDashboardAuth({ password: env.DASHBOARD_PASSWORD })
-		: undefined;
+	const dashboardToken =
+		env.DASHBOARD_TOKEN ||
+		(env as unknown as Record<string, string | undefined>).OBS_DASHBOARD_TOKEN;
+	const dashboardAuth =
+		env.DASHBOARD_PASSWORD || dashboardToken
+			? createDashboardAuth({
+					password: env.DASHBOARD_PASSWORD,
+					token: dashboardToken,
+				})
+			: undefined;
 
 	return createDefaultCollectorApp({
 		auth: { middleware: ingestAuth },
