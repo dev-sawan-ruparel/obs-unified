@@ -132,6 +132,18 @@ pnpm --filter @obsunified/analytics-sdk test
 pnpm --filter @obsunified/types test
 ```
 
+### Postgres integration test
+
+`packages/obs-collector/src/lib/sql-db-postgres.integration.test.ts` is skipped
+unless `OBS_PG_TEST_URL` is set. Point it at an **empty** scratch database (it
+refuses to run if the default schema already contains any table, and drops the
+tables it creates):
+
+```bash
+OBS_PG_TEST_URL=postgres://obs:obs@127.0.0.1:5432/obs_scratch \
+  pnpm --filter @obsunified/collector exec vitest run src/lib/sql-db-postgres.integration.test.ts
+```
+
 ## Type Checking
 
 ```bash

@@ -104,13 +104,31 @@ export const sqliteDialect: SqlDialect = {
 	jsonText: (expr, path) => `json_extract(${expr}, '${path}')`,
 };
 
+/**
+ * The collector stores every timestamp column (`received_at`, `expires_at`,
+ * `occurred_at`, …) as TEXT holding `Date#toISOString()` output on both
+ * D1 and Postgres. Postgres will not compare TEXT against a
+ * `timestamptz`, so time-window expressions have to be rendered as ISO
+ * text in the same `YYYY-MM-DDTHH:MM:SS.mmmZ` shape the collector writes.
+ */
+const POSTGRES_ISO_TEXT_FORMAT = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
+const POSTGRES_UTC_NOW = "(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')";
+
+/** Render a Postgres `timestamp` expression as collector-style ISO text. */
+export const postgresIsoText = (expr: string): string =>
+	`to_char(${expr}, ${POSTGRES_ISO_TEXT_FORMAT})`;
+
 export const postgresDialect: SqlDialect = {
 	name: "postgres",
-	now: () => "CURRENT_TIMESTAMP",
+	now: () => postgresIsoText(POSTGRES_UTC_NOW),
 	sinceHours: (param) =>
-		`(CURRENT_TIMESTAMP - (${param}::text || ' hours')::interval)`,
+		postgresIsoText(
+			`${POSTGRES_UTC_NOW} - (${param}::text || ' hours')::interval`,
+		),
 	sinceMinutes: (param) =>
-		`(CURRENT_TIMESTAMP - (${param}::text || ' minutes')::interval)`,
+		postgresIsoText(
+			`${POSTGRES_UTC_NOW} - (${param}::text || ' minutes')::interval`,
+		),
 	jsonText: (expr, path) => {
 		const key = path
 			.replace(/^\$\./, "")

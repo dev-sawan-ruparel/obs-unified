@@ -113,8 +113,10 @@ export { MetricsStore } from "./lib/metrics-store";
 export { ProjectsStore } from "./lib/projects-store";
 export { D1Adapter, type SqlDb, type SqlStatement } from "./lib/sql-db";
 export {
+	configurePostgresTypeParsers,
 	PostgresAdapter,
 	type PostgresAdapterOptions,
+	type PostgresTypeParserRegistry,
 } from "./lib/sql-db-postgres";
 export {
 	actionRoutesPlugin,

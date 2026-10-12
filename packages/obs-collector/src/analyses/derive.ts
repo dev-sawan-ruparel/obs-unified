@@ -560,13 +560,14 @@ const makeAiErrorRate = (projectId: string): AnalysisDefinition => ({
 	// AI error rate is per-call; 5 min cadence balances signal vs cost on
 	// installs with hundreds of LLM spans.
 	refreshSeconds: 300,
-	// is_error = 1 fraction in the last 5 minutes vs trailing 1h baseline.
+	// is_error fraction in the last 5 minutes vs trailing 1h baseline. Tested
+	// as a bare boolean so it works for INTEGER 0/1 (D1) and BOOLEAN (Postgres).
 	// Same thresholds as overall_error_rate.
 	sql: `
 		WITH now_window AS (
 			SELECT
 				COUNT(*) AS total,
-				SUM(CASE WHEN is_error = 1 THEN 1 ELSE 0 END) AS errors
+				SUM(CASE WHEN is_error THEN 1 ELSE 0 END) AS errors
 			FROM ai_calls
 			WHERE project_id = '${sqlEscape(projectId)}'
 				AND received_at >= datetime('now', '-5 minutes')
@@ -574,7 +575,7 @@ const makeAiErrorRate = (projectId: string): AnalysisDefinition => ({
 		base_window AS (
 			SELECT
 				COUNT(*) AS total,
-				SUM(CASE WHEN is_error = 1 THEN 1 ELSE 0 END) AS errors
+				SUM(CASE WHEN is_error THEN 1 ELSE 0 END) AS errors
 			FROM ai_calls
 			WHERE project_id = '${sqlEscape(projectId)}'
 				AND received_at >= datetime('now', '-1 hour')

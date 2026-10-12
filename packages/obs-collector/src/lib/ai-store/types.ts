@@ -42,7 +42,8 @@ export interface AICallRow {
 	completion_tokens: number | null;
 	total_cost_usd: number | null;
 	latency_ms: number | null;
-	is_error: number;
+	/** INTEGER 0/1 on D1; BOOLEAN on Postgres unless the host installs the D1-shaped type parsers. */
+	is_error: number | boolean;
 	error_message: string | null;
 	occurred_at: string;
 	received_at: string;

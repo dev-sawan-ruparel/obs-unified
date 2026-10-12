@@ -448,7 +448,9 @@ export class AlertsStore {
 			sql += ` AND model_name = ?`;
 			binds.push(q.model);
 		}
-		if (q.isError === true) sql += ` AND is_error = 1`;
+		// Bare boolean test: INTEGER 0/1 on D1, BOOLEAN on Postgres (where
+		// `is_error = 1` is a type error).
+		if (q.isError === true) sql += ` AND is_error`;
 		const row = await this.db
 			.prepare(sql)
 			.bind(...binds)

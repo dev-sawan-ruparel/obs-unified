@@ -10,10 +10,10 @@ CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects (slug);
 CREATE TABLE IF NOT EXISTS ingest_keys (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
-  -- D1 used TEXT for the bcrypt hash. Postgres stores it as BYTEA so
-  -- the column-comparison code in ingest-auth.ts (constant-time
-  -- compare via bytes) doesn't pay a UTF-8 decode cost on every check.
-  key_hash BYTEA NOT NULL UNIQUE,
+  -- SHA-256 hex digest of the plaintext key, exactly as D1 stores it.
+  -- ProjectsStore binds the hex string, so the column must be TEXT; an
+  -- earlier BYTEA version is converted by 041_ingest_key_hash_text.sql.
+  key_hash TEXT NOT NULL UNIQUE,
   key_prefix TEXT NOT NULL,
   name TEXT NOT NULL,
   created_at TEXT NOT NULL,
