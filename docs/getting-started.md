@@ -293,7 +293,8 @@ vars, K8s secret):
 | Variable | Purpose |
 | :--- | :--- |
 | `INGEST_KEY` | Write key required on ingest endpoints (sent as `Authorization: Bearer <key>`, or `X-API-Key`). |
-| `DASHBOARD_PASSWORD` | Auth token for the dashboard read API. |
+| `DASHBOARD_PASSWORD` | Password for dashboard login (session cookie). |
+| `DASHBOARD_TOKEN` | Bearer token the collector accepts on `/internal/*`; the CLI's `OBS_ADMIN_TOKEN` must equal it. |
 | `ALLOWED_ORIGINS` | Comma-separated browser origins the collector's CORS allows. |
 | `ALLOW_UNAUTHENTICATED` | Dev-only escape hatch that disables ingest auth. |
 
@@ -306,7 +307,8 @@ work in your own code:
 | `OBS_COLLECTOR_URL` | Collector base URL your app sends telemetry to (also read by the CLI). |
 | `OBS_INGEST_KEY` | Ingest key your server-side SDK sends. |
 | `VITE_OBS_COLLECTOR_URL` / `VITE_OBS_INGEST_KEY` | Browser-exposed equivalents for Vite frontends. |
-| `OBS_ADMIN_TOKEN` | Dashboard token the CLI uses for `keys mint` / `keys list`. |
+| `OBS_ADMIN_TOKEN` | Must match the collector's `DASHBOARD_TOKEN`. The CLI sends it as `Authorization: Bearer` for `keys mint` / `keys list` (and, when set, `doctor`'s dashboard read-API probe). |
+| `OBS_PROJECT_ID` | Project the CLI's `keys` commands target when `--project` is omitted. Without either, the CLI uses the collector's `default` project (or its only project). |
 | `OBS_DOCTOR_ORIGINS` | Overrides `doctor`'s default origin checklist. |
 
 One near-twin to keep straight: an app-side CORS variable in the how-tos

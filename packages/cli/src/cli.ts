@@ -6,8 +6,11 @@
  *   up        Bring up a local stack via docker compose.
  *   down      Tear down the local stack.
  *   create    Scaffold a new React + Hono app pre-wired with the SDKs.
- *   keys      Mint or revoke ingest keys against a running collector.
- *   doctor    Diagnose a running collector — check storage, auth, CORS.
+ *   keys      Mint or list ingest keys for a project on a running collector.
+ *   doctor    Diagnose a running collector — health, CORS, dashboard read API.
+ *
+ * `keys` and `doctor` live in `collector-commands.ts` so their HTTP contract
+ * can be tested directly against a fake fetch.
  *
  * The CLI is host-agnostic — it does not assume Cloudflare. The `up`
  * subcommand boots the Node + Postgres + MinIO stack from
@@ -22,6 +25,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 import prompts from "prompts";
+import { runDoctor, runKeys } from "./collector-commands";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES = path.join(here, "..", "templates");
@@ -38,10 +42,20 @@ Commands:
   ${kleur.cyan("up")}                    Start the local stack (Postgres + MinIO + collector)
   ${kleur.cyan("down")}                  Stop the local stack
   ${kleur.cyan("create")} <app-name>     Scaffold a new React + Hono app pre-wired with the SDKs
-  ${kleur.cyan("keys mint")}             Mint a new ingest key
-  ${kleur.cyan("keys list")}             List existing ingest keys
-  ${kleur.cyan("doctor")} [url]          Diagnose a running collector
+  ${kleur.cyan("keys mint")} [--project <id>] [--name <label>] [--json]
+                        Mint a new ingest key for a project
+  ${kleur.cyan("keys list")} [--project <id>] [--json]
+                        List a project's ingest keys
+  ${kleur.cyan("doctor")} [url] [--origin <origin> ...]
+                        Diagnose a running collector
   ${kleur.cyan("help")}                  Show this message
+
+Project selection for ${kleur.cyan("keys")}: --project, then OBS_PROJECT_ID, then the
+collector's "default" project (or its only project) via GET /internal/projects.
+
+Environment: OBS_COLLECTOR_URL (default http://localhost:8790),
+OBS_ADMIN_TOKEN (required for keys; optional for doctor), OBS_PROJECT_ID,
+OBS_DOCTOR_ORIGINS.
 `);
 };
 
@@ -108,12 +122,12 @@ switch (subcommand) {
 	}
 
 	case "keys": {
-		await keysSubcommand(rest);
+		process.exit(await runKeys(rest));
 		break;
 	}
 
 	case "doctor": {
-		await runDoctor(rest);
+		process.exit(await runDoctor(rest));
 		break;
 	}
 
@@ -273,229 +287,4 @@ async function copyTemplate(
 		}
 	}
 	void stat;
-}
-
-async function keysSubcommand(args: string[]) {
-	const [action] = args;
-	const collectorUrl = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
-	const adminToken = process.env.OBS_ADMIN_TOKEN;
-	if (!adminToken) {
-		console.error(
-			kleur.red(
-				"OBS_ADMIN_TOKEN env var required (collector dashboard auth token)",
-			),
-		);
-		process.exit(1);
-	}
-	switch (action) {
-		case "mint": {
-			const r = await fetch(`${collectorUrl}/internal/keys/mint`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${adminToken}` },
-			});
-			if (!r.ok) {
-				console.error(kleur.red(`mint failed: ${r.status}`));
-				process.exit(1);
-			}
-			const body = (await r.json()) as { key: string };
-			console.log(`${kleur.green("✓")} minted:`);
-			console.log(body.key);
-			break;
-		}
-		case "list": {
-			const r = await fetch(`${collectorUrl}/internal/keys`, {
-				headers: { Authorization: `Bearer ${adminToken}` },
-			});
-			if (!r.ok) {
-				console.error(kleur.red(`list failed: ${r.status}`));
-				process.exit(1);
-			}
-			const body = (await r.json()) as {
-				keys: Array<{
-					id: string;
-					created_at: string;
-					last_used: string | null;
-				}>;
-			};
-			for (const k of body.keys) {
-				console.log(
-					`${k.id}\t${k.created_at}\t${k.last_used ?? kleur.gray("never used")}`,
-				);
-			}
-			break;
-		}
-		default:
-			console.error(kleur.red(`unknown subcommand: keys ${action ?? ""}`));
-			process.exit(1);
-	}
-}
-
-async function runDoctor(args: string[]) {
-	const { url, origins } = parseDoctorArgs(args);
-	console.log(`Checking ${url}…`);
-	console.log(`CORS origins: ${origins.join(", ")}\n`);
-	const checks: Array<[string, () => Promise<string>]> = [
-		[
-			"health endpoint",
-			async () => {
-				const r = await fetch(`${url}/health`);
-				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				return "ok";
-			},
-		],
-		[
-			"OTLP traces endpoint",
-			async () => {
-				const r = await fetch(`${url}/v1/traces`, {
-					method: "OPTIONS",
-					headers: {
-						Origin: origins[0],
-						"Access-Control-Request-Method": "POST",
-						"Access-Control-Request-Headers":
-							"content-type,authorization,x-project-id,x-obs-interaction,x-obs-session-id",
-					},
-				});
-				if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
-				return "reachable";
-			},
-		],
-		[
-			"browser ingest CORS",
-			async () => {
-				for (const origin of origins) {
-					const result = await checkCorsPreflight(url, origin, "/v1/usage");
-					if (result !== "ok") return result;
-				}
-				return "interaction/session headers allowed";
-			},
-		],
-		[
-			"dashboard read API",
-			async () => {
-				const r = await fetch(`${url}/internal/spans?limit=1`);
-				if (r.status === 401) return "auth required (expected)";
-				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				return "ok";
-			},
-		],
-	];
-	let failed = 0;
-	for (const [name, check] of checks) {
-		try {
-			const result = await check();
-			console.log(`  ${kleur.green("✓")} ${name} — ${result}`);
-		} catch (err) {
-			failed += 1;
-			console.log(
-				`  ${kleur.red("✗")} ${name} — ${err instanceof Error ? err.message : err}`,
-			);
-		}
-	}
-	console.log();
-	if (failed > 0) {
-		console.log(kleur.red(`${failed} check(s) failed`));
-		// If every check failed, the collector is almost certainly unreachable
-		// (not running, wrong URL) rather than misconfigured — point the way out.
-		if (failed === checks.length) {
-			console.log(
-				kleur.yellow(
-					`\nCouldn't reach a collector at ${url}.\n` +
-						`  • Is it running? Start one locally with: ${kleur.cyan("pnpm dev:collector")}\n` +
-						`  • Or build and run the all-in-one image from a clone: ${kleur.cyan("pnpm local:image && pnpm local:run")}\n` +
-						`  • Then re-run this check against ${url}.`,
-				),
-			);
-		}
-		process.exit(1);
-	}
-	console.log(kleur.green("all clear"));
-}
-
-function parseDoctorArgs(args: string[]) {
-	let url = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
-	// The default only covers the dashboard origin the all-in-one image allows;
-	// demo flows pass their own (examples.md sends Astronomy Shop users here
-	// with --origin http://localhost:8080).
-	const defaultOrigins = (
-		process.env.OBS_DOCTOR_ORIGINS ?? "http://localhost:5173"
-	)
-		.split(",")
-		.map((origin) => origin.trim())
-		.filter(Boolean);
-	// Origins given via --origin replace the defaults rather than extend them:
-	// doctor must check exactly what the caller asked about, or leftover
-	// defaults fail the run against collectors that only allow the caller's
-	// origin.
-	const flagOrigins = new Set<string>();
-
-	for (let i = 0; i < args.length; i += 1) {
-		const arg = args[i];
-		if (arg === "--origin") {
-			const origin = args[i + 1];
-			if (!origin) {
-				console.error(
-					kleur.red("usage: obs-unified doctor [url] [--origin <origin> ...]"),
-				);
-				process.exit(1);
-			}
-			flagOrigins.add(origin);
-			i += 1;
-			continue;
-		}
-		if (arg.startsWith("--origin=")) {
-			flagOrigins.add(arg.slice("--origin=".length));
-			continue;
-		}
-		if (arg.startsWith("-")) {
-			console.error(kleur.red(`unknown doctor option: ${arg}`));
-			process.exit(1);
-		}
-		url = arg;
-	}
-
-	return {
-		url,
-		origins: flagOrigins.size ? [...flagOrigins] : [...new Set(defaultOrigins)],
-	};
-}
-
-async function checkCorsPreflight(url: string, origin: string, path: string) {
-	const requestedHeaders = [
-		"content-type",
-		"authorization",
-		"x-project-id",
-		"x-obs-interaction",
-		"x-obs-session-id",
-	];
-	const r = await fetch(`${url}${path}`, {
-		method: "OPTIONS",
-		headers: {
-			Origin: origin,
-			"Access-Control-Request-Method": "POST",
-			"Access-Control-Request-Headers": requestedHeaders.join(","),
-		},
-	});
-	if (!r.ok) throw new Error(`HTTP ${r.status}`);
-
-	const allowOrigin = r.headers.get("access-control-allow-origin");
-	if (allowOrigin !== origin) {
-		throw new Error(
-			`expected Access-Control-Allow-Origin ${origin}, got ${allowOrigin ?? "none"}`,
-		);
-	}
-
-	const allowedHeaders = new Set(
-		(r.headers.get("access-control-allow-headers") ?? "")
-			.split(",")
-			.map((header) => header.trim().toLowerCase())
-			.filter(Boolean),
-	);
-	const missing = requestedHeaders.filter(
-		(header) => !allowedHeaders.has(header),
-	);
-	if (missing.length > 0) {
-		throw new Error(`missing allowed header(s): ${missing.join(", ")}`);
-	}
-
-	return "ok";
 }
