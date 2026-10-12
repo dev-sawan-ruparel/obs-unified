@@ -15,7 +15,8 @@
  *
  * Each test pins a Postgres-only failure that D1 never surfaced: BYTEA vs
  * hex `key_hash`, BOOLEAN flags, TEXT timestamps compared to
- * `timestamptz`, and SQLite built-ins in the shared analysis SQL.
+ * `timestamptz` (including the `metric_exemplars` TIMESTAMPTZ columns that
+ * 043 converts), and SQLite built-ins in the shared analysis SQL.
  */
 
 import { readdir, readFile } from "node:fs/promises";
@@ -30,11 +31,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deriveAnalysesForProject } from "../analyses/derive";
 import { INVESTIGATION_ANALYSES } from "../analyses/investigations";
 import { TIER0_ANALYSES } from "../analyses/tier0";
+import type { DecodedMetricPoint } from "../otlp/decode";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
 import { purgeExpiredAIData } from "./ai-store/retention";
 import { AlertsStore } from "./alerts-store";
 import { runSqlAnalysis } from "./analyses-runner";
 import { sha256Hex } from "./hash";
+import { MetricsStore } from "./metrics-store";
 import { ProjectsStore } from "./projects-store";
 import {
 	configurePostgresTypeParsers,
@@ -111,6 +114,41 @@ const usageEvent = (over: Partial<UsageEventRecord>): UsageEventRecord => ({
 	utmCampaign: null,
 	...over,
 });
+
+const metricPoint = (
+	over: Partial<DecodedMetricPoint>,
+): DecodedMetricPoint => ({
+	name: "http.server.duration",
+	description: null,
+	unit: "ms",
+	type: "histogram",
+	isMonotonic: null,
+	temporality: 2,
+	scopeName: "@opentelemetry/instrumentation-http",
+	scopeVersion: "1.0.0",
+	serviceName: "checkout",
+	resourceAttrsJson: JSON.stringify({ "service.name": "checkout" }),
+	attributesJson: JSON.stringify({ route: "/checkout" }),
+	identity: `metric-${Math.random().toString(36).slice(2)}`,
+	tsNs: "1800000000000000000",
+	startTsNs: null,
+	value: null,
+	count: 1,
+	sum: 42,
+	min: null,
+	max: null,
+	boundsJson: JSON.stringify([50]),
+	bucketCountsJson: JSON.stringify([1]),
+	extraJson: null,
+	exemplarsJson: null,
+	...over,
+});
+
+const exemplarJson = (traceId: string, tsNs: string) =>
+	JSON.stringify([{ value: 1, traceId, spanId: null, tsNs }]);
+
+/** Same `to_char` shape `postgresDialect.now()` and 043 render. */
+const ISO_TEXT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 	const legacySchema = `obs_pg_test_legacy_${Date.now().toString(36)}`;
@@ -296,6 +334,190 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 			// search_path back before the pooled adapter runs again.
 			await legacy.query("RESET search_path").catch(() => {});
 			await legacy.end();
+		}
+	});
+
+	it("creates metric_exemplars timestamps as TEXT and purges expired exemplars", async () => {
+		expect(migrationFiles).toContain(
+			"043_metric_exemplars_text_timestamps.sql",
+		);
+		const cols = await db
+			.prepare(
+				`SELECT column_name, data_type FROM information_schema.columns
+				 WHERE table_schema = current_schema() AND table_name = 'metric_exemplars'
+				   AND column_name IN ('received_at', 'expires_at')
+				 ORDER BY column_name`,
+			)
+			.all<{ column_name: string; data_type: string }>();
+		expect(cols.results).toEqual([
+			{ column_name: "expires_at", data_type: "text" },
+			{ column_name: "received_at", data_type: "text" },
+		]);
+
+		const metrics = new MetricsStore(db);
+		await metrics.ingestBatch({
+			projectId: "default",
+			receivedAt: isoNow(),
+			expiresAt: isoIn(-60_000),
+			points: [
+				metricPoint({ exemplarsJson: exemplarJson("trace-ex-expired", "1") }),
+			],
+		});
+		await metrics.ingestBatch({
+			projectId: "default",
+			receivedAt: isoNow(),
+			expiresAt: isoIn(3_600_000),
+			points: [
+				metricPoint({ exemplarsJson: exemplarJson("trace-ex-live", "2") }),
+			],
+		});
+
+		// One expired exemplar + its expired point.
+		expect(await metrics.purgeExpired()).toBe(2);
+		const exemplars = await db
+			.prepare(`SELECT trace_id FROM metric_exemplars ORDER BY trace_id`)
+			.all<{ trace_id: string }>();
+		expect(exemplars.results).toEqual([{ trace_id: "trace-ex-live" }]);
+		const points = await db
+			.prepare(`SELECT COUNT(*) AS n FROM metric_point`)
+			.first<{ n: number }>();
+		expect(points?.n).toBe(1);
+		const live = await metrics.exemplarsForTrace("default", "trace-ex-live");
+		expect(live.map((e) => e.traceId)).toEqual(["trace-ex-live"]);
+		expect(live[0]?.receivedAt).toMatch(ISO_TEXT);
+	});
+
+	it("migration 043 converts legacy TIMESTAMPTZ metric_exemplars columns in place", async () => {
+		// max: 1 pins SET search_path / timezone to the one client the
+		// adapter will reuse, on PGlite and on real Postgres alike.
+		const legacyPool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+		try {
+			await legacyPool.query(`SET search_path TO ${legacySchema}`);
+			// A non-UTC session zone must not leak into the converted text.
+			await legacyPool.query(`SET timezone TO 'America/New_York'`);
+			// Shape of migrations-postgres/035 before the fix (metric_series /
+			// metric_point trimmed to the columns the FK and purge touch).
+			await legacyPool.query(`
+				CREATE TABLE metric_series (id TEXT PRIMARY KEY);
+				CREATE TABLE metric_point (id TEXT PRIMARY KEY, expires_at TEXT NOT NULL);
+				CREATE TABLE metric_exemplars (
+					id TEXT PRIMARY KEY,
+					point_id TEXT NOT NULL REFERENCES metric_point(id),
+					series_id TEXT NOT NULL REFERENCES metric_series(id),
+					project_id TEXT NOT NULL,
+					metric_name TEXT NOT NULL,
+					service_name TEXT,
+					trace_id TEXT,
+					span_id TEXT,
+					ts_ns TEXT NOT NULL,
+					value DOUBLE PRECISION NOT NULL,
+					received_at TIMESTAMPTZ NOT NULL,
+					expires_at TIMESTAMPTZ NOT NULL
+				);
+				CREATE INDEX idx_metric_exemplars_expires ON metric_exemplars (expires_at);
+				INSERT INTO metric_series VALUES ('s1');
+				INSERT INTO metric_point VALUES
+					('p-expired', '2000-01-01T00:00:00.000Z'),
+					('p-live', '2999-01-01T00:00:00.000Z');
+			`);
+			// The collector bound Date#toISOString() text, which Postgres
+			// parsed into timestamptz. Include a non-UTC offset to prove the
+			// conversion normalises to UTC rather than echoing input.
+			const insert = `INSERT INTO metric_exemplars
+				(id, point_id, series_id, project_id, metric_name, service_name, trace_id, span_id, ts_ns, value, received_at, expires_at)
+				VALUES ($1, $2, 's1', 'default', 'http.server.duration', 'checkout', $3, NULL, '1', 1, $4::timestamptz, $5::timestamptz)`;
+			await legacyPool.query(insert, [
+				"ex-expired",
+				"p-expired",
+				"trace-legacy-expired",
+				"2000-01-01T00:00:00.000Z",
+				"2000-01-02T00:00:00.000Z",
+			]);
+			await legacyPool.query(insert, [
+				"ex-live",
+				"p-live",
+				"trace-legacy-live",
+				"2026-06-01T14:34:56.789+02:00",
+				"2999-01-01T00:00:00.000Z",
+			]);
+			const before = await legacyPool.query(
+				`SELECT data_type FROM information_schema.columns
+				 WHERE table_schema = $1 AND table_name = 'metric_exemplars' AND column_name = 'expires_at'`,
+				[legacySchema],
+			);
+			expect(before.rows[0]?.data_type).toBe("timestamp with time zone");
+
+			const legacyDb = new PostgresAdapter(legacyPool);
+			const metrics = new MetricsStore(legacyDb);
+			// The launch blocker: TEXT now() against TIMESTAMPTZ columns.
+			await expect(metrics.purgeExpired()).rejects.toThrow(
+				/operator does not exist: timestamp with time zone < text/,
+			);
+
+			const sql = await readFile(
+				path.join(migrationsDir, "043_metric_exemplars_text_timestamps.sql"),
+				"utf8",
+			);
+			await legacyPool.query(sql);
+			await legacyPool.query(sql); // re-running is a no-op
+
+			const types = await legacyPool.query<{
+				column_name: string;
+				data_type: string;
+			}>(
+				`SELECT column_name, data_type FROM information_schema.columns
+				 WHERE table_schema = $1 AND table_name = 'metric_exemplars'
+				   AND column_name IN ('received_at', 'expires_at')
+				 ORDER BY column_name`,
+				[legacySchema],
+			);
+			expect(types.rows).toEqual([
+				{ column_name: "expires_at", data_type: "text" },
+				{ column_name: "received_at", data_type: "text" },
+			]);
+			const converted = await legacyPool.query(
+				`SELECT id, received_at, expires_at FROM metric_exemplars ORDER BY id`,
+			);
+			expect(converted.rows).toEqual([
+				{
+					id: "ex-expired",
+					received_at: "2000-01-01T00:00:00.000Z",
+					expires_at: "2000-01-02T00:00:00.000Z",
+				},
+				{
+					id: "ex-live",
+					received_at: "2026-06-01T12:34:56.789Z",
+					expires_at: "2999-01-01T00:00:00.000Z",
+				},
+			]);
+			const indexes = await legacyPool.query<{ indexname: string }>(
+				`SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = 'metric_exemplars'`,
+				[legacySchema],
+			);
+			expect(indexes.rows.map((r) => r.indexname)).toContain(
+				"idx_metric_exemplars_expires",
+			);
+
+			// Retention now runs through the real store: 1 exemplar + 1 point.
+			expect(await metrics.purgeExpired()).toBe(2);
+			const remaining = await legacyPool.query(
+				`SELECT id FROM metric_exemplars ORDER BY id`,
+			);
+			expect(remaining.rows).toEqual([{ id: "ex-live" }]);
+			const points = await legacyPool.query(
+				`SELECT id FROM metric_point ORDER BY id`,
+			);
+			expect(points.rows).toEqual([{ id: "p-live" }]);
+			const recent = await metrics.recentExemplars({ projectId: "default" });
+			expect(recent.map((e) => [e.traceId, e.receivedAt])).toEqual([
+				["trace-legacy-live", "2026-06-01T12:34:56.789Z"],
+			]);
+		} finally {
+			// Single-session servers (PGlite) share GUCs across sockets, so put
+			// search_path / timezone back before the pooled adapter runs again.
+			await legacyPool.query("RESET timezone").catch(() => {});
+			await legacyPool.query("RESET search_path").catch(() => {});
+			await legacyPool.end();
 		}
 	});
 

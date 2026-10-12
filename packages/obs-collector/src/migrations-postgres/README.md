@@ -45,6 +45,12 @@ land alongside the first hosted-Postgres deployment.
   `Date#toISOString()` output. Postgres will not compare `text` to
   `timestamptz`, so `postgresDialect` and `translateD1Sql` render every time
   window as ISO text (`to_char(…, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`).
+  `metric_exemplars` originally declared `received_at`/`expires_at` as
+  `TIMESTAMPTZ`, which made `MetricsStore.purgeExpired` fail with
+  `operator does not exist: timestamp with time zone < text`;
+  `043_metric_exemplars_text_timestamps.sql` converts those columns to UTC
+  ISO `TEXT` in place (fresh installs get `TEXT` from `035` and `043` is a
+  no-op; the D1 `043` is a numbering no-op).
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

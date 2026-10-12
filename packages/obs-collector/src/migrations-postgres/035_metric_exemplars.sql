@@ -15,8 +15,11 @@ CREATE TABLE IF NOT EXISTS metric_exemplars (
   span_id TEXT,
   ts_ns TEXT NOT NULL,
   value DOUBLE PRECISION NOT NULL,
-  received_at TIMESTAMPTZ NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL
+  -- TEXT ISO timestamps like every other retention table; see
+  -- 043_metric_exemplars_text_timestamps.sql for databases that were
+  -- created with the earlier TIMESTAMPTZ version of this file.
+  received_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_metric_exemplars_project_trace

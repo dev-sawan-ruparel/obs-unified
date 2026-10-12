@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DecodedMetricPoint } from "../otlp/decode";
 import { MetricsStore } from "./metrics-store";
+import { postgresDialect } from "./sql-db";
 import { MemSqlDb } from "./test-utils/mem-sql-db";
 
 const point = (
@@ -33,6 +34,28 @@ const point = (
 });
 
 describe("MetricsStore", () => {
+	it("purges expired exemplars and points with the dialect's text-rendered now()", async () => {
+		const sqlite = new MemSqlDb({ run: () => ({ changes: 2 }) });
+		expect(await new MetricsStore(sqlite).purgeExpired()).toBe(4);
+		expect(sqlite.calls.map((c) => c.sql)).toEqual([
+			"DELETE FROM metric_exemplars WHERE expires_at < datetime('now')",
+			"DELETE FROM metric_point WHERE expires_at < datetime('now')",
+		]);
+
+		// metric_exemplars.received_at / expires_at are TEXT ISO on Postgres
+		// too (035 for fresh installs, 043 for databases created with the
+		// TIMESTAMPTZ version), so the comparison must be text < text.
+		const postgres = Object.assign(
+			new MemSqlDb({ run: () => ({ changes: 1 }) }),
+			{ dialect: postgresDialect },
+		);
+		expect(await new MetricsStore(postgres).purgeExpired()).toBe(2);
+		expect(postgres.calls.map((c) => c.sql)).toEqual([
+			`DELETE FROM metric_exemplars WHERE expires_at < to_char((CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+			`DELETE FROM metric_point WHERE expires_at < to_char((CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+		]);
+	});
+
 	it("indexes metric exemplars by trace/span during ingest", async () => {
 		const db = new MemSqlDb({
 			all: (sql, binds) => {
