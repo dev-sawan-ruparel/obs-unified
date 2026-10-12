@@ -51,6 +51,14 @@ land alongside the first hosted-Postgres deployment.
   `043_metric_exemplars_text_timestamps.sql` converts those columns to UTC
   ISO `TEXT` in place (fresh installs get `TEXT` from `035` and `043` is a
   no-op; the D1 `043` is a numbering no-op).
+- `actions.started_at` is ISO `TEXT` and drives action-graph retention (the
+  spine has no `expires_at`). `044_actions_started_at_index.sql` adds
+  `idx_actions_started_at` on both backends so the hourly sweep reads expired
+  trees in index order. Deletes run per tree inside `PostgresAdapter.batch`
+  (one transaction) and re-check eligibility in every statement, but under
+  READ COMMITTED a concurrent insert into an already-expired tree can still
+  land between that tree's leaf deletes and its spine delete; see the header
+  of `src/lib/action-retention.ts`.
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

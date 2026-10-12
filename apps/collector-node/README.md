@@ -90,6 +90,18 @@ The optional `RETENTION_HOURS` and narrative LLM variables above are forwarded
 into the collector env, so a scheduled analyses run narrates and expires
 results exactly as the Worker does; blank values are treated as unset.
 
+Action-graph retention (`actions` and their `agent_runs`, `tool_calls`,
+`retrieval_events`, `eval_results`, `artifacts`) is decided per causal tree:
+a tree is deleted whole once every action in it is older than
+`RETENTION_HOURS` and finished, and kept while any action is fresh or
+unfinished, its agent run is `running`, or an eval case references it. Two
+limits to know about: an expired tree with more actions than the per-batch cap
+(500) is retained intact and logged as `oversized_trees` rather than trimmed,
+and on Postgres (READ COMMITTED) an ingest into an already-expired tree that
+commits between the tree's leaf deletes and its spine delete can leave that
+spine without its leaves. Artifact blobs referenced by `storage_ref` are never
+deleted by the collector.
+
 Run more than one collector replica? Set `MAINTENANCE_ENABLED=false` on the
 serving replicas and run exactly one maintenance process with it enabled. See
 the Kubernetes example in
