@@ -12,7 +12,7 @@ docker compose up -d
 docker compose logs -f collector
 ```
 
-Brings up Postgres + MinIO (S3-compatible) + the collector on
+Brings up Postgres + RustFS (S3-compatible) + the collector on
 `http://localhost:8790`. Dashboard password is `e2e-test-pass`; ingest key is
 `dev-ingest-key`.
 

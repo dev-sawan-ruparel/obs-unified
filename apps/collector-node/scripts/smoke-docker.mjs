@@ -40,8 +40,9 @@ async function main() {
 				"--no-color",
 				"collector",
 				"migrate",
+				"bucket-init",
 				"postgres",
-				"minio",
+				"rustfs",
 			],
 			{ allowFailure: true },
 		);

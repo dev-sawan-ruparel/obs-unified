@@ -1,5 +1,9 @@
 # Local-dev stack for the standalone Node collector. Brings up a
-# Postgres + MinIO + collector + dashboard quartet on localhost.
+# Postgres + RustFS (S3-compatible) + collector trio on localhost.
+#
+# RustFS replaces MinIO: the previous `minio/minio` and `minio/mc` image
+# references were unavailable during smoke testing, so the stack pins a
+# pullable S3-compatible test image instead. Bump the pinned tag deliberately.
 #
 #   docker compose up -d           # start
 #   docker compose logs -f         # tail
@@ -22,34 +26,43 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  rustfs:
+    image: rustfs/rustfs:1.0.1
     environment:
-      MINIO_ROOT_USER: obs
-      MINIO_ROOT_PASSWORD: obs-secret-123
+      RUSTFS_ACCESS_KEY: obs
+      RUSTFS_SECRET_KEY: obs-secret-123
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     ports:
       - "9000:9000"  # S3 API
       - "9001:9001"  # console
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  minio-bucket-init:
-    image: minio/mc:latest
+  # Creates the buckets with the collector image's own AWS SDK — no
+  # separate `mc` image to pull. See scripts/ensure-buckets.mjs.
+  bucket-init:
+    build:
+      context: ../..
+      dockerfile: apps/collector-node/Dockerfile
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 obs obs-secret-123 &&
-      mc mb --ignore-existing local/obs-replays &&
-      mc mb --ignore-existing local/obs-profiles
-      "
+    environment:
+      S3_ENDPOINT: http://rustfs:9000
+      S3_REGION: us-east-1
+      S3_FORCE_PATH_STYLE: "true"
+      S3_ACCESS_KEY_ID: obs
+      S3_SECRET_ACCESS_KEY: obs-secret-123
+      S3_INIT_BUCKETS: obs-replays,obs-profiles
+    entrypoint: ["node", "scripts/ensure-buckets.mjs"]
 
   migrate:
     build:
@@ -69,11 +82,11 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-      minio-bucket-init:
+      bucket-init:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://obs:obs@postgres:5432/obs_unified
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_REGION: us-east-1
       S3_BUCKET: obs-replays
       S3_FORCE_PATH_STYLE: "true"
@@ -89,4 +102,4 @@ services:
 
 volumes:
   pg_data:
-  minio_data:
+  rustfs_data:
