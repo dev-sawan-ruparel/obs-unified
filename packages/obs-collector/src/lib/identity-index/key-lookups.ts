@@ -53,9 +53,9 @@ export async function manifestBySession(
 			.prepare(
 				`SELECT first_chunk_at, last_chunk_at, chunk_count, events_count
 					FROM session_replay_metadata
-					WHERE session_id = ?`,
+					WHERE project_id = ? AND session_id = ?`,
 			)
-			.bind(sessionId)
+			.bind(projectId, sessionId)
 			.first<{
 				first_chunk_at: string;
 				last_chunk_at: string;

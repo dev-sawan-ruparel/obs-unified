@@ -313,10 +313,10 @@ export async function manifestByAction(
 			.prepare(
 				`SELECT session_id, first_chunk_at, last_chunk_at, chunk_count, events_count
 					FROM session_replay_metadata
-					WHERE session_id IN (${sessionPlaceholders})
+					WHERE project_id = ? AND session_id IN (${sessionPlaceholders})
 					ORDER BY last_chunk_at DESC LIMIT 1`,
 			)
-			.bind(...sessionIds)
+			.bind(projectId, ...sessionIds)
 			.first<{
 				session_id: string;
 				first_chunk_at: string;
@@ -546,10 +546,10 @@ export async function manifestByAgentRun(
 			.prepare(
 				`SELECT session_id, first_chunk_at, last_chunk_at, chunk_count, events_count
 					FROM session_replay_metadata
-					WHERE session_id IN (${sessionPlaceholders})
+					WHERE project_id = ? AND session_id IN (${sessionPlaceholders})
 					ORDER BY last_chunk_at DESC LIMIT 1`,
 			)
-			.bind(...sessionIds)
+			.bind(projectId, ...sessionIds)
 			.first<{
 				session_id: string;
 				first_chunk_at: string;
@@ -767,10 +767,10 @@ export async function manifestByActor(
 			.prepare(
 				`SELECT session_id, first_chunk_at, last_chunk_at, chunk_count, events_count
 					FROM session_replay_metadata
-					WHERE session_id IN (${sessionPlaceholders})
+					WHERE project_id = ? AND session_id IN (${sessionPlaceholders})
 					ORDER BY last_chunk_at DESC LIMIT 1`,
 			)
-			.bind(...sessionIds)
+			.bind(projectId, ...sessionIds)
 			.first<{
 				session_id: string;
 				first_chunk_at: string;

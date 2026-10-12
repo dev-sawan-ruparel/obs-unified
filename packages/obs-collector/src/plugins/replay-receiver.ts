@@ -46,7 +46,7 @@ export const replayReceiverPlugin: CollectorPlugin = {
 				.prepare(
 					`INSERT INTO session_replay_metadata (project_id, session_id, visitor_id, first_chunk_at, last_chunk_at, chunk_count, events_count, storage_bytes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(session_id) DO UPDATE SET
+         ON CONFLICT(project_id, session_id) DO UPDATE SET
            last_chunk_at = excluded.last_chunk_at,
            chunk_count = session_replay_metadata.chunk_count + 1,
            events_count = session_replay_metadata.events_count + excluded.events_count,
