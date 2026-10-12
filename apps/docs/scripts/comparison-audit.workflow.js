@@ -1,9 +1,9 @@
 export const meta = {
   name: 'comparison-audit',
-  description: 'Re-verify every competitor claim in comparison.mdx against live vendor sources',
-  whenToUse: 'Run on the quarterly review cadence, or before any release that touches the landing-page comparison table, to catch vendor pricing/feature drift.',
+  description: 'Re-verify competitor claims extracted from historical 90-cell Git baseline against live vendor sources',
+  whenToUse: 'Run when executing a verification pass against live vendor sources for the 90-cell capability matrix.',
   phases: [
-    { title: 'Extract', detail: 'Parse comparison.mdx into structured per-vendor claims' },
+    { title: 'Extract', detail: 'Parse historical comparison claims from extracted MDX baseline' },
     { title: 'Verify', detail: 'One agent per vendor re-checks every claim against its live source URL' },
     { title: 'Synthesize', detail: 'Aggregate verdicts, flag cells needing edits, propose next review date' },
   ],
@@ -13,20 +13,47 @@ export const meta = {
 // HOW TO RUN
 //   This is a Claude Code *Workflow* script, not a standalone Node script. The
 //   globals below (agent/parallel/phase/log/args) only exist inside the Workflow
-//   runtime. Launch it from a Claude Code session with:
+//   runtime.
 //
-//     Workflow({ scriptPath: 'obs-unified-docs/scripts/comparison-audit.workflow.js',
-//                args: { today: '2026-08-19' } })
+//   IMPORTANT:
+//   The public `apps/docs/content/docs/comparison.mdx` withholds unverified
+//   competitor tables for launch safety. Therefore, `args.comparisonPath` is
+//   REQUIRED. You must extract the historical 90-cell comparison baseline from
+//   Git commit `e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58` before running.
 //
-//   `args.today` is required because the runtime forbids Date.now(); pass the
-//   real date so the next-review date can be computed. `args.comparisonPath` is
-//   optional (defaults below).
+//   Extract the baseline safely to a temporary file:
+//     git show e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58:apps/docs/content/docs/comparison.mdx > /tmp/comparison-baseline.mdx
+//
+//   Note: `docs/comparison-full-audit-2026-10-11.md` is the evidence status ledger
+//   (recording 0/90 verified cells), NOT a parsable MDX claim source.
+//
+//   Launch from a Claude Code session with:
+//     Workflow({
+//       scriptPath: 'apps/docs/scripts/comparison-audit.workflow.js',
+//       args: {
+//         today: 'YYYY-MM-DD',
+//         comparisonPath: '/tmp/comparison-baseline.mdx'
+//       }
+//     })
+//
+//   `args.today` is required because the runtime forbids Date.now().
+//   `args.comparisonPath` is required. The runner will fail clearly if omitted.
 //
 //   See ./COMPARISON_AUDIT.md for the full runbook and verdict rubric.
 // ---------------------------------------------------------------------------
 
 const COMPARISON_PATH =
-  (args && args.comparisonPath) || 'obs-unified-docs/content/docs/comparison.mdx'
+  args && args.comparisonPath ? String(args.comparisonPath).trim() : null
+
+if (!COMPARISON_PATH) {
+  throw new Error(
+    'comparisonPath is required. The public apps/docs/content/docs/comparison.mdx withholds unverified competitor tables for launch safety. ' +
+    'Provide a path to a historical 90-cell source extracted from Git baseline e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58 ' +
+    '(e.g., run `git show e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58:apps/docs/content/docs/comparison.mdx > /tmp/comparison-baseline.mdx`). ' +
+    'Note that docs/comparison-full-audit-2026-10-11.md is the audit status record, not a parsable claim source.'
+  )
+}
+
 const TODAY = (args && args.today) || null
 
 const VERDICTS = ['TRUE', 'PARTIALLY_TRUE', 'OUTDATED', 'FALSE', 'UNVERIFIABLE']
@@ -122,17 +149,17 @@ const REPORT_SCHEMA = {
 
 function verifyPrompt(vendor) {
   return [
-    `You are fact-checking the competitor-comparison doc for obs-unified against CURRENT public information.`,
+    `You are fact-checking the competitor-comparison claims for obs-unified against CURRENT public information.`,
     `Vendor under review: **${vendor.name}**.`,
     ``,
-    `Below are the claims the doc currently makes about ${vendor.name}, as JSON. Each has an axis, the doc's assertion, the cited source URL, and (often) a verbatim quotedPhrase the doc pulled from that source:`,
+    `Below are the claims extracted from the historical baseline for ${vendor.name}, as JSON:`,
     ``,
     JSON.stringify(vendor.claims, null, 2),
     ``,
     `For EACH claim:`,
     `1. Fetch the cited sourceUrl (use WebFetch). If it 404s or redirected, find the vendor's current equivalent page via WebSearch and note the new URL in liveSourceUrl.`,
     `2. Check whether the quotedPhrase still appears (or an equivalent statement does). Set quoteStillPresent accordingly.`,
-    `3. Decide whether the assertion is still accurate as of today. Vendors ship fast — watch for: a capability that moved from Preview/beta to GA (or was newly launched), a pricing number that changed, a product rename, or a "vendor does NOT have X" negative claim that is now false because they shipped X.`,
+    `3. Decide whether the assertion is still accurate as of today. Vendors ship fast — watch for: a capability that moved from Preview/beta to GA (or was newly launched), a pricing number that changed, a product rename, or a negative claim that is now false because they shipped the feature.`,
     `4. Assign a verdict: TRUE / PARTIALLY_TRUE / OUTDATED / FALSE / UNVERIFIABLE.`,
     `   - OUTDATED = was true when written but the vendor has since changed; FALSE = not true now and likely wasn't.`,
     `   - Be skeptical and specific. Prefer the vendor's own domain as the source.`,
@@ -173,11 +200,16 @@ const extracted = await agent(
 )
 const vendors = (extracted && extracted.vendors) || []
 const claimCount = vendors.reduce((n, v) => n + (v.claims ? v.claims.length : 0), 0)
+
+if (claimCount === 0) {
+  throw new Error(
+    `Zero claims extracted from ${COMPARISON_PATH}. Ensure the file contains parsable "## <Vendor>" and "### <Axis> <a id="src-..."/>" headings matching the 90-cell historical baseline.`
+  )
+}
+
 log(`Extracted ${vendors.length} vendors / ${claimCount} claims from ${COMPARISON_PATH}`)
 
 phase('Verify')
-// One agent per vendor — mirrors the manual audit. Barrier here is fine: the
-// synthesis step genuinely needs all vendors' verdicts together to total them.
 const verified = (
   await parallel(
     vendors.map((v) => () =>
