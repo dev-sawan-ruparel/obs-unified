@@ -64,6 +64,8 @@ const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
 
 let logConfig: LoggerConfig | null = null;
 const logBuffer: BufferedLog[] = [];
+/** Bumped for every new item (never for a requeue); see PendingSnapshot. */
+let logEnqueueRevision = 0;
 let flushInProgress = false;
 let flushLifecycle: FlushLifecycle | null = null;
 
@@ -74,6 +76,7 @@ export function initLogger(config: LoggerConfig) {
 		name: "log telemetry",
 		flush: flushLogs,
 		intervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+		pending: () => ({ count: logBuffer.length, revision: logEnqueueRevision }),
 	});
 }
 
@@ -291,6 +294,7 @@ export function createLogger(name: string): Logger {
 			logBuffer.splice(0, logBuffer.length - MAX_BUFFER_SIZE + 1);
 		}
 		logBuffer.push(logObj);
+		logEnqueueRevision += 1;
 
 		if (logBuffer.length >= 20 && !flushInProgress) {
 			flushLogs().catch(console.error);

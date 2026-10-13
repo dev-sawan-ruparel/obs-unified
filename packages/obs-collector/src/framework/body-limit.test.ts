@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { createDashboardAuth } from "../auth/dashboard-auth";
 import type { CollectorPlugin } from "./collector";
 import { createTelemetryCollectorApp } from "./collector";
 import type { CollectorEnv } from "./env";
@@ -94,5 +95,71 @@ describe("request body cap", () => {
 			(await post(app, "/v1/echo", "x".repeat(101), { MAX_BODY_BYTES: "lots" }))
 				.status,
 		).toBe(200);
+	});
+
+	it("caps unauthenticated /auth/login bodies independently of the ingest cap", async () => {
+		const app = createTelemetryCollectorApp({
+			plugins: [],
+			// A generous ingest cap must not widen what an anonymous client
+			// can make the host buffer on the login route.
+			maxBodyBytes: 1024 * 1024,
+			maxAuthBodyBytes: 256,
+			dashboardAuth: createDashboardAuth({
+				password: "correct-horse-battery-staple",
+				loginRateLimit: false,
+			}),
+		});
+		const login = (body: BodyInit) =>
+			app.request(
+				"/auth/login",
+				{
+					method: "POST",
+					body,
+					headers: { "content-type": "application/json" },
+					duplex: "half",
+				} as RequestInit,
+				{} as CollectorEnv,
+			);
+
+		const padded = JSON.stringify({ password: "x".repeat(512) });
+		const byLength = await login(padded);
+		expect(byLength.status).toBe(413);
+		await expect(byLength.json()).resolves.toEqual({
+			error: "Payload too large (max 256 bytes)",
+		});
+		expect((await login(streamOf(512))).status).toBe(413);
+
+		// Normal-sized bodies still reach the handler.
+		const wrong = await login(JSON.stringify({ password: "nope" }));
+		expect(wrong.status).toBe(401);
+		const right = await login(
+			JSON.stringify({ password: "correct-horse-battery-staple" }),
+		);
+		expect(right.status).toBe(200);
+	});
+
+	it("applies the 16 KiB default to /auth/* when the config leaves it unset", async () => {
+		const app = createTelemetryCollectorApp({
+			plugins: [],
+			dashboardAuth: createDashboardAuth({
+				password: "pw",
+				loginRateLimit: false,
+			}),
+		});
+		const login = (body: string) =>
+			app.request(
+				"/auth/login",
+				{
+					method: "POST",
+					body,
+					headers: { "content-type": "application/json" },
+				},
+				// MAX_BODY_BYTES only governs ingest/admin routes.
+				{ MAX_BODY_BYTES: String(10 * 1024 * 1024) } as CollectorEnv,
+			);
+		expect(
+			(await login(JSON.stringify({ password: "x".repeat(16 * 1024) }))).status,
+		).toBe(413);
+		expect((await login(JSON.stringify({ password: "x" }))).status).toBe(401);
 	});
 });

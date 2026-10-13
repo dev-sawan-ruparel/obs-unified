@@ -6,6 +6,7 @@ import {
 	LoginRateLimiter,
 	type LoginRateLimitOptions,
 	loginClientKey,
+	UNKEYED_LOGIN_CLIENT_WARNING,
 } from "./login-rate-limit";
 
 const SESSION_COOKIE = "obs_session";
@@ -118,7 +119,9 @@ export interface DashboardAuthConfig {
 	 * `clientAddress` lets the host supply the connection's peer address;
 	 * `trustProxyHeaders` honours forwarding headers from a trusted proxy.
 	 * Without either, Workers use the edge-set client IP and every other
-	 * runtime shares one bucket.
+	 * runtime has no trustworthy identity: limiting is then skipped (never a
+	 * shared bucket, which would let one client lock everyone out) and a
+	 * warning is logged once via `warn` (default `console.warn`).
 	 */
 	loginRateLimit?:
 		| (LoginRateLimitOptions & {
@@ -126,6 +129,8 @@ export interface DashboardAuthConfig {
 					c: Context<{ Bindings: CollectorEnv }>,
 				) => string | undefined;
 				trustProxyHeaders?: boolean;
+				/** Sink for the one-time "limiter inactive" warning. */
+				warn?: (message: string) => void;
 		  })
 		| false;
 }
@@ -286,6 +291,7 @@ export function createDashboardAuth(config?: DashboardAuthConfig): {
 			config?.loginRateLimit === false
 				? null
 				: new LoginRateLimiter(config?.loginRateLimit ?? {});
+		let warnedUnkeyedClient = false;
 
 		app.post("/auth/login", async (c) => {
 			const configuredPassword = config?.password ?? c.env.DASHBOARD_PASSWORD;
@@ -294,28 +300,42 @@ export function createDashboardAuth(config?: DashboardAuthConfig): {
 			}
 
 			const limitConfig = config?.loginRateLimit || undefined;
-			const clientKey = loginClientKey(c.req.raw.headers, {
-				clientAddress: limitConfig?.clientAddress?.(c),
-				trustProxyHeaders: limitConfig?.trustProxyHeaders,
-			});
-			const verdict = limiter?.check(clientKey);
+			const clientKey = limiter
+				? loginClientKey(c.req.raw.headers, {
+						clientAddress: limitConfig?.clientAddress?.(c),
+						trustProxyHeaders: limitConfig?.trustProxyHeaders,
+					})
+				: null;
+			if (limiter && clientKey === null && !warnedUnkeyedClient) {
+				warnedUnkeyedClient = true;
+				(limitConfig?.warn ?? console.warn)(UNKEYED_LOGIN_CLIENT_WARNING);
+			}
+			const verdict = clientKey === null ? null : limiter?.check(clientKey);
 			if (verdict && !verdict.allowed) {
 				c.header("Retry-After", String(verdict.retryAfterSeconds));
 				return c.json({ error: "Too many failed login attempts" }, 429);
 			}
 
-			const body = await c.req
-				.json<{ password?: string }>()
-				.catch(() => ({ password: undefined }));
+			let body: { password?: string } | null = null;
+			try {
+				body = await c.req.json<{ password?: string }>();
+			} catch (err) {
+				// The framework's body cap (hono/body-limit) surfaces an oversized
+				// streamed body as an error from the read; let it propagate so the
+				// middleware answers 413 instead of this handler calling it a bad
+				// password. Anything else is malformed JSON → 401 below.
+				if (err instanceof Error && err.name === "BodyLimitError") throw err;
+				body = null;
+			}
 			if (
 				!body?.password ||
 				typeof body.password !== "string" ||
 				!(await timingSafeEqualStr(body.password, configuredPassword))
 			) {
-				limiter?.recordFailure(clientKey);
+				if (clientKey !== null) limiter?.recordFailure(clientKey);
 				return c.json({ error: "Invalid password" }, 401);
 			}
-			limiter?.reset(clientKey);
+			if (clientKey !== null) limiter?.reset(clientKey);
 
 			const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MAX_AGE;
 			const payload = createSessionToken(expiresAt);

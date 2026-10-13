@@ -57,9 +57,10 @@ describe("LoginRateLimiter", () => {
 		});
 
 		it("ignores forwarding headers unless a trusted proxy is declared", () => {
-			// Direct client on Node: headers are attacker-chosen → one shared bucket.
-			expect(loginClientKey(spoofed)).toBe("shared");
-			expect(loginClientKey(headers({}))).toBe("shared");
+			// Direct client on Node: headers are attacker-chosen and there is no
+			// peer address → no key (never a shared bucket).
+			expect(loginClientKey(spoofed)).toBeNull();
+			expect(loginClientKey(headers({}))).toBeNull();
 			expect(loginClientKey(spoofed, { trustProxyHeaders: true })).toBe(
 				"9.9.9.9",
 			);
@@ -73,9 +74,9 @@ describe("LoginRateLimiter", () => {
 		it("trusts CF-Connecting-IP only on the Cloudflare Workers runtime", () => {
 			vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
 			expect(loginClientKey(spoofed)).toBe("9.9.9.9");
-			expect(loginClientKey(headers({ "x-forwarded-for": "8.8.8.8" }))).toBe(
-				"shared",
-			);
+			expect(
+				loginClientKey(headers({ "x-forwarded-for": "8.8.8.8" })),
+			).toBeNull();
 		});
 	});
 });

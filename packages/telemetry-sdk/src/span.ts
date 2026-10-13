@@ -41,6 +41,8 @@ export interface SpanExporterConfig {
 
 let spanExporterConfig: SpanExporterConfig | null = null;
 const spanBuffer: OtlpTraceExportRequest[] = [];
+/** Bumped for every new item (never for a requeue); see PendingSnapshot. */
+let spanEnqueueRevision = 0;
 let spanFlushInProgress = false;
 let spanFlushLifecycle: FlushLifecycle | null = null;
 
@@ -51,6 +53,10 @@ export function initSpanExporter(config: SpanExporterConfig): void {
 		name: "span telemetry",
 		flush: flushSpans,
 		intervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+		pending: () => ({
+			count: spanBuffer.length,
+			revision: spanEnqueueRevision,
+		}),
 	});
 }
 
@@ -105,6 +111,7 @@ function enqueueSpanExport(request: OtlpTraceExportRequest): void {
 		spanBuffer.splice(0, spanBuffer.length - MAX_SPAN_BUFFER_SIZE + 1);
 	}
 	spanBuffer.push(request);
+	spanEnqueueRevision += 1;
 }
 
 function requeueSpans(batch: OtlpTraceExportRequest[]): void {

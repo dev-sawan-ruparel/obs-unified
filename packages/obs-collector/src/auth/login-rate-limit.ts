@@ -103,14 +103,19 @@ export const isCloudflareWorkersRuntime = (): boolean =>
  * Client identity for limiting, most trustworthy source first:
  *   1. a peer address the host resolved from the connection;
  *   2. proxy headers, only when the host says a trusted proxy sets them;
- *   3. `CF-Connecting-IP` when running on Cloudflare Workers (edge-set);
- *   4. a single shared bucket — a conservative fallback that can slow every
- *      client down together but never lets one client rotate its key.
+ *   3. `CF-Connecting-IP` when running on Cloudflare Workers (edge-set).
+ *
+ * Returns `null` when none of these apply. There is deliberately no shared
+ * fallback bucket: one bucket for every client would let an anonymous
+ * attacker lock every operator out of the dashboard with a handful of wrong
+ * passwords, which is a worse failure than an unthrottled login endpoint
+ * guarded by a strong password. Callers skip limiting on `null` and must
+ * warn so the embedder supplies `clientAddress` or `trustProxyHeaders`.
  */
 export const loginClientKey = (
 	headers: { get(name: string): string | null },
 	options: LoginClientKeyOptions = {},
-): string => {
+): string | null => {
 	const peer = options.clientAddress?.trim();
 	if (peer) return peer;
 	const cf = headers.get("cf-connecting-ip")?.trim();
@@ -120,5 +125,11 @@ export const loginClientKey = (
 		if (forwarded) return forwarded;
 	}
 	if (cf && isCloudflareWorkersRuntime()) return cf;
-	return "shared";
+	return null;
 };
+
+export const UNKEYED_LOGIN_CLIENT_WARNING =
+	"[dashboard-auth] login rate limiting is inactive: no trustworthy client address. " +
+	"On Node, pass `loginRateLimit.clientAddress` (e.g. the TCP peer from @hono/node-server's getConnInfo); " +
+	"behind a trusted reverse proxy set `loginRateLimit.trustProxyHeaders`. " +
+	"Cloudflare Workers key on CF-Connecting-IP automatically.";

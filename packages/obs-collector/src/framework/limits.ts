@@ -10,6 +10,15 @@
 /** Raw request body cap. Overridable via `MAX_BODY_BYTES` or `CollectorConfig.maxBodyBytes`. */
 export const DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024;
 
+/**
+ * Cap for the unauthenticated `/auth/*` routes. `POST /auth/login` carries a
+ * JSON object with one password; anything near this size is not a login.
+ * Deliberately small and separate from `MAX_BODY_BYTES`: raising the ingest
+ * cap for large OTLP batches must not widen what an anonymous client can
+ * make the host buffer.
+ */
+export const DEFAULT_MAX_AUTH_BODY_BYTES = 16 * 1024;
+
 /** Cap on the gunzipped OTLP payload (a 10 MiB gzip can expand far beyond this). */
 export const DEFAULT_MAX_DECOMPRESSED_BYTES = 32 * 1024 * 1024;
 

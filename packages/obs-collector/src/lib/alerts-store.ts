@@ -271,28 +271,85 @@ export class AlertsStore {
 
 	// ── State ──
 
-	async getState(ruleId: string): Promise<AlertStateRow | null> {
+	async getState(
+		ruleId: string,
+		projectId: string,
+	): Promise<AlertStateRow | null> {
 		const row = await this.db
-			.prepare(`SELECT * FROM alert_state WHERE rule_id = ?`)
-			.bind(ruleId)
+			.prepare(`SELECT * FROM alert_state WHERE rule_id = ? AND project_id = ?`)
+			.bind(ruleId, projectId)
 			.first<AlertStateRow>();
 		return row ?? null;
 	}
 
+	/**
+	 * Record a state transition with its notification still outstanding
+	 * (`notified = 0`); `markNotified` flips it once a channel accepts the
+	 * alert. On a database that has not applied migration 049 the column is
+	 * missing: the transition is still written (legacy statement) so alerting
+	 * keeps working through a rolling deploy, and the evaluator treats a row
+	 * without the column as delivered.
+	 */
 	async transitionState(
 		ruleId: string,
 		projectId: string,
 		newState: AlertState,
 		now: string,
 	): Promise<void> {
-		await this.db
-			.prepare(
-				`INSERT INTO alert_state (rule_id, project_id, current_state, last_state_change)
+		try {
+			await this.db
+				.prepare(
+					`INSERT INTO alert_state (rule_id, project_id, current_state, last_state_change, notified)
+         VALUES (?, ?, ?, ?, 0)
+         ON CONFLICT(rule_id) DO UPDATE SET
+           current_state = excluded.current_state,
+           last_state_change = excluded.last_state_change,
+           notified = 0`,
+				)
+				.bind(ruleId, projectId, newState, now)
+				.run();
+		} catch (err) {
+			if (!isMissingNotifiedColumn(err)) throw err;
+			await this.db
+				.prepare(
+					`INSERT INTO alert_state (rule_id, project_id, current_state, last_state_change)
          VALUES (?, ?, ?, ?)
-         ON CONFLICT(rule_id) DO UPDATE SET current_state = excluded.current_state, last_state_change = excluded.last_state_change`,
-			)
-			.bind(ruleId, projectId, newState, now)
-			.run();
+         ON CONFLICT(rule_id) DO UPDATE SET
+           current_state = excluded.current_state,
+           last_state_change = excluded.last_state_change`,
+				)
+				.bind(ruleId, projectId, newState, now)
+				.run();
+		}
+	}
+
+	/**
+	 * Mark the transition `(state, lastStateChange)` as delivered. Scoped to
+	 * the exact transition the caller notified for: if the rule changed state
+	 * again while the webhook was in flight, the newer transition keeps its
+	 * own outstanding flag. Returns false when nothing matched (stale or
+	 * already marked). On a pre-049 schema there is nothing to mark.
+	 */
+	async markNotified(
+		ruleId: string,
+		projectId: string,
+		state: AlertState,
+		lastStateChange: string,
+	): Promise<boolean> {
+		try {
+			const result = await this.db
+				.prepare(
+					`UPDATE alert_state SET notified = 1
+				 WHERE rule_id = ? AND project_id = ? AND current_state = ?
+				   AND last_state_change = ? AND notified = 0`,
+				)
+				.bind(ruleId, projectId, state, lastStateChange)
+				.run();
+			return (result.meta?.changes ?? 0) > 0;
+		} catch (err) {
+			if (isMissingNotifiedColumn(err)) return false;
+			throw err;
+		}
 	}
 
 	async recordEvaluation(
@@ -487,3 +544,16 @@ export class AlertsStore {
 		return row?.c ?? 0;
 	}
 }
+
+/**
+ * SQLite: "table alert_state has no column named notified" / "no such column:
+ * notified"; Postgres: `column "notified" of relation "alert_state" does not
+ * exist` (42703). Anything else is a real failure.
+ */
+const isMissingNotifiedColumn = (err: unknown): boolean => {
+	const message = err instanceof Error ? err.message : String(err);
+	return (
+		/notified/i.test(message) &&
+		/no such column|has no column|does not exist/i.test(message)
+	);
+};

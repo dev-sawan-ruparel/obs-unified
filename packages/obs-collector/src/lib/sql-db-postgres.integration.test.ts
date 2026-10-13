@@ -1021,6 +1021,95 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		expect(await alerts.evaluateRule(rule)).toBe(1);
 	});
 
+	it("migration 049 adds alert_state.notified with a delivered backfill, and the store drives it", async () => {
+		// Legacy shape: alert_state as created by 014, before 049.
+		const legacyPool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+		try {
+			await legacyPool.query(`SET search_path TO ${legacySchema}`);
+			await legacyPool.query(`
+				CREATE TABLE alert_state (
+					rule_id TEXT PRIMARY KEY,
+					project_id TEXT NOT NULL,
+					current_state TEXT NOT NULL,
+					last_state_change TEXT NOT NULL
+				);
+				INSERT INTO alert_state VALUES
+					('rule-legacy', 'default', 'firing', '2026-05-31T00:00:00.000Z');
+			`);
+			const sql = await readFile(
+				path.join(migrationsDir, "049_alert_state_notified.sql"),
+				"utf8",
+			);
+			await legacyPool.query(sql);
+			// Re-running is a no-op. Postgres answers the IF NOT EXISTS skip
+			// with a NOTICE, which PGlite's socket bridge does not relay
+			// cleanly; silence it on this session (real Postgres is unaffected).
+			await legacyPool.query(`SET client_min_messages TO WARNING`);
+			await legacyPool.query(sql);
+			const column = await legacyPool.query<{
+				data_type: string;
+				is_nullable: string;
+				column_default: string;
+			}>(
+				`SELECT data_type, is_nullable, column_default FROM information_schema.columns
+				 WHERE table_schema = $1 AND table_name = 'alert_state' AND column_name = 'notified'`,
+				[legacySchema],
+			);
+			expect(column.rows).toEqual([
+				{ data_type: "integer", is_nullable: "NO", column_default: "1" },
+			]);
+			const backfilled = await legacyPool.query<{ notified: number }>(
+				`SELECT notified FROM alert_state WHERE rule_id = 'rule-legacy'`,
+			);
+			expect(Number(backfilled.rows[0]?.notified)).toBe(1);
+		} finally {
+			// PGlite is one session for every socket: put search_path and the
+			// message level back before the pooled adapter runs again.
+			await legacyPool.query("RESET client_min_messages").catch(() => {});
+			await legacyPool.query("RESET search_path").catch(() => {});
+			await legacyPool.end();
+		}
+
+		// Live schema: transitions start undelivered; only the exact
+		// transition that was delivered is acknowledged.
+		const projects = new ProjectsStore(db);
+		const project = await projects.createProject({
+			name: "Alert state",
+			slug: `alert-state-${Date.now().toString(36)}`,
+		});
+		const alerts = new AlertsStore(db);
+		const rule = await alerts.createRule(project.id, {
+			name: "notified flag",
+			signal: "spans",
+			query: {},
+			threshold: 1,
+			windowMins: 5,
+			comparison: ">",
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+			enabled: true,
+		});
+		const t1 = "2026-05-31T00:00:00.000Z";
+		await alerts.transitionState(rule.id, project.id, "firing", t1);
+		expect(await alerts.getState(rule.id, project.id)).toMatchObject({
+			current_state: "firing",
+			last_state_change: t1,
+			notified: 0,
+		});
+		expect(
+			await alerts.markNotified(rule.id, "other-project", "firing", t1),
+		).toBe(false);
+		expect(await alerts.markNotified(rule.id, project.id, "ok", t1)).toBe(
+			false,
+		);
+		expect(await alerts.markNotified(rule.id, project.id, "firing", t1)).toBe(
+			true,
+		);
+		expect((await alerts.getState(rule.id, project.id))?.notified).toBe(1);
+		expect(await alerts.markNotified(rule.id, project.id, "firing", t1)).toBe(
+			false,
+		);
+	});
+
 	it("purges expired AI data using the dialect's text-rendered now()", async () => {
 		await ingestAICallBatch(db, [
 			aiCall({ callId: "ai-expired", expiresAt: isoIn(-60_000) }),

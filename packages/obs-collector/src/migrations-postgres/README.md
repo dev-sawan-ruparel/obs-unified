@@ -68,6 +68,12 @@ land alongside the first hosted-Postgres deployment.
   composite; the D1 siblings rebuild the tables through `*_new` copies. The
   stores upsert with `ON CONFLICT (project_id, …)`, so both backends must
   carry these migrations before deploying collector 2.1.
+- `049` adds `alert_state.notified INTEGER` (0/1, like
+  `alert_evaluations.notified`): whether the current state's transition has
+  been delivered to the rule's channels. Existing rows backfill to 1. The
+  store falls back to the pre-049 statement when the column is missing, so
+  the collector keeps evaluating during a rolling deploy, but it cannot
+  retry undelivered notifications until 049 is applied.
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

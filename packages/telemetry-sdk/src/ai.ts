@@ -28,6 +28,8 @@ type BufferedAICall = AICallInput & Record<string, unknown>;
 
 let aiConfig: AILoggerConfig | null = null;
 const aiBuffer: BufferedAICall[] = [];
+/** Bumped for every new item (never for a requeue); see PendingSnapshot. */
+let aiEnqueueRevision = 0;
 let flushInProgress = false;
 let flushLifecycle: FlushLifecycle | null = null;
 
@@ -38,6 +40,7 @@ export function initAI(config: AILoggerConfig) {
 		name: "AI telemetry",
 		flush: flushAICalls,
 		intervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+		pending: () => ({ count: aiBuffer.length, revision: aiEnqueueRevision }),
 	});
 }
 
@@ -87,6 +90,7 @@ export function trackAICall(
 		aiBuffer.splice(0, aiBuffer.length - MAX_BUFFER_SIZE + 1);
 	}
 	aiBuffer.push(fullCall);
+	aiEnqueueRevision += 1;
 
 	if (aiBuffer.length >= 10 && !flushInProgress) {
 		flushAICalls().catch(console.error);

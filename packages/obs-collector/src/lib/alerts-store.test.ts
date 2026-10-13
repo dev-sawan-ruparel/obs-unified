@@ -97,3 +97,57 @@ describe("AlertsStore.validateInput webhook targets", () => {
 		expect(() => store.validateInput(internal)).toThrow(/not a public/);
 	});
 });
+
+describe("AlertsStore alert_state.notified (migration 049)", () => {
+	it("records a transition as undelivered, marks exactly that transition delivered, and scopes by project", async () => {
+		const db = createMigratedSqliteDb();
+		const projects = new ProjectsStore(db);
+		const alpha = await projects.createProject({ name: "A", slug: "a" });
+		const beta = await projects.createProject({ name: "B", slug: "b" });
+		const store = new AlertsStore(db);
+		const rule = await store.createRule(alpha.id, input());
+
+		const t1 = "2026-05-31T00:00:00.000Z";
+		await store.transitionState(rule.id, alpha.id, "firing", t1);
+		expect(await store.getState(rule.id, alpha.id)).toMatchObject({
+			current_state: "firing",
+			last_state_change: t1,
+			notified: 0,
+		});
+		// Another project cannot read or acknowledge this rule's state.
+		expect(await store.getState(rule.id, beta.id)).toBeNull();
+		expect(await store.markNotified(rule.id, beta.id, "firing", t1)).toBe(
+			false,
+		);
+
+		// A stale acknowledgement (different state or timestamp) is ignored.
+		expect(await store.markNotified(rule.id, alpha.id, "ok", t1)).toBe(false);
+		expect(
+			await store.markNotified(
+				rule.id,
+				alpha.id,
+				"firing",
+				"2026-01-01T00:00:00.000Z",
+			),
+		).toBe(false);
+		expect((await store.getState(rule.id, alpha.id))?.notified).toBe(0);
+
+		expect(await store.markNotified(rule.id, alpha.id, "firing", t1)).toBe(
+			true,
+		);
+		expect((await store.getState(rule.id, alpha.id))?.notified).toBe(1);
+		// Idempotent: already delivered → no row changed.
+		expect(await store.markNotified(rule.id, alpha.id, "firing", t1)).toBe(
+			false,
+		);
+
+		// The next transition starts a fresh outstanding notification.
+		const t2 = "2026-05-31T01:00:00.000Z";
+		await store.transitionState(rule.id, alpha.id, "ok", t2);
+		expect(await store.getState(rule.id, alpha.id)).toMatchObject({
+			current_state: "ok",
+			last_state_change: t2,
+			notified: 0,
+		});
+	});
+});

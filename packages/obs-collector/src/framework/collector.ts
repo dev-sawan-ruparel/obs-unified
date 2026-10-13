@@ -21,7 +21,11 @@ import { D1Adapter, dialectFor, type SqlDb, sqlDbFor } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
 import type { CollectorEnv, CollectorRouteContext } from "./env";
-import { DEFAULT_MAX_BODY_BYTES, parseByteLimit } from "./limits";
+import {
+	DEFAULT_MAX_AUTH_BODY_BYTES,
+	DEFAULT_MAX_BODY_BYTES,
+	parseByteLimit,
+} from "./limits";
 import {
 	type ChildSpanRunner,
 	consoleLogger,
@@ -119,6 +123,12 @@ export interface CollectorConfig {
 	 * requests get a 413 before any handler buffers the body.
 	 */
 	maxBodyBytes?: number;
+	/**
+	 * Body cap for the unauthenticated `/auth/*` routes (login/check/logout).
+	 * Defaults to 16 KiB and is independent of `maxBodyBytes`, so an anonymous
+	 * client can never make the host buffer an ingest-sized body.
+	 */
+	maxAuthBodyBytes?: number;
 }
 
 export class CollectorRuntime implements CollectorPluginContext {
@@ -319,6 +329,20 @@ export const createTelemetryCollectorApp = (
 	};
 	app.use("/v1/*", bodyCap);
 	app.use("/internal/*", bodyCap);
+	// `/auth/*` is reachable without any credential, so it gets its own,
+	// much smaller cap regardless of what MAX_BODY_BYTES allows for ingest.
+	const authMaxSize = config.maxAuthBodyBytes ?? DEFAULT_MAX_AUTH_BODY_BYTES;
+	app.use(
+		"/auth/*",
+		bodyLimit({
+			maxSize: authMaxSize,
+			onError: (ctx) =>
+				ctx.json(
+					{ error: `Payload too large (max ${authMaxSize} bytes)` },
+					413,
+				),
+		}),
+	);
 
 	// Ingest auth (API key) — always on /v1/* when configured.
 	if (config.auth?.middleware) {

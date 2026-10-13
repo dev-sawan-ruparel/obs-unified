@@ -205,7 +205,7 @@ describe("migrations 045–048 (project-scoped composite keys)", () => {
 			VALUES ('t1', 's1', 'llm', '${NOW}', '${NOW}', 5, '${NOW}', '${LATER}', 'beyla');
 		`);
 
-		const applied = applySqliteMigrations(raw, { from: "045" });
+		const applied = applySqliteMigrations(raw, { from: "045", upTo: "048" });
 		expect(applied.map((f) => f.slice(0, 3))).toEqual([
 			"045",
 			"046",
