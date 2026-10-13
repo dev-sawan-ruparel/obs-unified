@@ -1,5 +1,7 @@
 # Competitor Comparison Full Audit Ledger (2026-10-11)
 
+> **Superseded on 2026-10-13.** This file is preserved unchanged as the historical 0/90 baseline record. The completed manual audit (81/90 directly source-checked, 9 inferential negatives) is in [`comparison-full-audit-2026-10-13.md`](./comparison-full-audit-2026-10-13.md).
+
 > **Audit Status: Incomplete Audit Baseline (Non-Validated Ledger)**
 > **Verdict Counts:** Verified: **0** · Outdated: **0** · Unverified: **90** (Total: **90 cells**)
 > **Source Ledger Data:** Sourced from the tracked [`apps/docs/content/docs/comparison.mdx`](../apps/docs/content/docs/comparison.mdx) and [`apps/website/src/sections/compare.ts`](../apps/website/src/sections/compare.ts) at baseline `origin/main` e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58.

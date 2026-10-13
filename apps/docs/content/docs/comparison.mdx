@@ -1,77 +1,226 @@
 ---
 title: How obs-unified compares
-description: Architecture and product evaluation guide for obs-unified, with comparison audit status and tracked evidence ledger.
+description: Evidence-backed comparison of obs-unified with Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX, with primary-source citations and audit status.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-<Callout type="warn" title="Comparison audit status: Non-validated baseline (0/90 vendor cells independently verified)">
-The tracked audit ledger ([`docs/comparison-full-audit-2026-10-11.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md)) records **Verified: 0, Unverified: 90/90** (100% unverified against live primary sources) and designates the historical competitor matrix an incomplete, non-validated baseline.
-
-For launch safety and evidence integrity, detailed third-party competitor claim matrices and unverified vendor assertions have been withheld from public rendering. The prior stated baseline date of **May 31, 2026** was a preliminary draft rather than a completed audit record. Anyone can inspect the complete historical 90-cell evidence ledger and audit run logs in Git history (pinned baseline commit `e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58`) and at [`docs/comparison-full-audit-2026-10-11.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md).
+<Callout type="info" title="Reviewed 2026-10-13 · 81 of 90 vendor cells directly source-checked · next review 2027-01-13">
+Every third-party claim on this page was re-checked on **2026-10-13** by reading the vendor's own live page (docs, pricing, product page, official repo, or official blog). "Source-checked" means the historical claim was compared with the live page and corrected where the vendor had changed (of the 90 historical claims, 59 were still accurate, 12 were tightened, 9 were outdated, and 1 was wrong). Nine further cells are **inferential negatives** ("the vendor does not market this") and are shown as *Not marketed†* rather than as checked facts. The full per-cell ledger with URLs, verdicts, and verbatim excerpts is tracked in [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md). We build obs-unified, so read [how we keep this honest](#provenance) and [what we corrected](#corrections).
 </Callout>
 
-## Product evaluation & architectural fit
+## What this page is
 
-obs-unified is built around a specific architecture: **a self-hosted telemetry graph that unites distributed traces, structured logs, session replay (rrweb), and AI agent observability under one identity chain**.
+A long-form companion to the comparison table on [obsunified.com](https://obsunified.com#compare). The landing-page table is terse; each vendor column footnote-links to the matching section here, where every cell carries the source URL and a short excerpt. Use this page to verify a claim, read one vendor's profile, or see what was deliberately *not* compared.
 
-Rather than publishing unverified third-party feature checklists or pricing claims, this guide provides a concrete framework outlining repo-backed obs-unified capabilities and operational boundaries.
+## Scope
 
-### Correlated telemetry graph architecture
+- **Vendors (9):** Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud (LGTM stack), SigNoz, Uptrace, HyperDX.
+- **Axes (10):** hosting model, pricing model, traces / APM, structured logs, AI / LLM observability, session replay, product analytics, alerting, cross-signal correlation, data ownership.
+- **Out of scope:** infrastructure-only tools (Prometheus, Zabbix, Nagios), incident-response platforms (PagerDuty, Opsgenie), single-signal frontend tools (LogRocket, FullStory, Highlight), legacy enterprise suites (Splunk Observability Cloud, Dynatrace, AppDynamics, Elastic Observability), and cross-vendor performance benchmarks.
 
-obs-unified structures telemetry as an interconnected graph rather than isolated signal stores:
+## How to read the cells
 
-- **Unified identity chain**: OpenTelemetry spans, structured logs, browser session replays, and AI agent spans share common execution identifiers (`trace_id`, `span_id`, `session_id`, `interaction_id`).
-- **Full-stack traversal**: Client interaction events recorded in browser sessions correlate directly with backend distributed trace spans, structured application logs, and downstream LLM agent tool calls.
-- **AI & agent observability**: Agent action tracking captures LLM prompts, token usage, latency, and tool execution steps as first-class graph nodes.
-
-### Supported storage engines & deployment models
-
-obs-unified supports two self-hosted deployment targets implemented in the repository:
-
-1. **Cloudflare Serverless**:
-   - Collector and dashboard run on Cloudflare Workers.
-   - Relational metadata and traces persist in Cloudflare D1.
-   - Session replay chunks and large payloads persist in Cloudflare R2 object storage.
-2. **Node Service**:
-   - Collector and web server run as a Node.js process.
-   - Relational metadata and telemetry persist in PostgreSQL.
-   - Session replay payloads store in S3-compatible object storage.
-   - Automated retention sweeps and cleanup tasks run via maintenance scripts.
-
-Telemetry is written directly to the datastores provisioned in your deployment.
-
-### Documented limitations & trade-offs
-
-We believe candid self-assessment is essential. If any of the following are immediate requirements, other specialized tools may better suit your needs:
-
-- **Maturity**: obs-unified is early-stage software optimized for single-team deployments rather than complex enterprise organizations.
-- **Authentication & access control**: Uses single-password or bearer token authentication. Enterprise SSO, SAML, and fine-grained role-based access control (RBAC) are not implemented.
-- **Protocols**: Telemetry ingestion is currently OTLP/HTTP-only. Direct OTLP/gRPC ingestion is not supported natively; gRPC exporters should be fronted with a standard OpenTelemetry Collector.
-- **Query & dashboarding**: Analyses emphasize AI-assisted investigation, root cause narratives, and trace traversal rather than arbitrary custom dashboard query builders (such as PromQL, NRQL, or SQL panel editors).
-- **Storage capacity & retention**: D1 storage is subject to database size limits and retention policies; high-throughput workloads requiring long-term data retention should deploy the PostgreSQL adapter with automated retention pruning.
+- Each vendor table below lists the **claim as reviewed on 2026-10-13**, the **primary source** read, and a **short excerpt** from that page.
+- **Not marketed†** means we read the vendor's product index, docs navigation, or sitemap on 2026-10-13 and found no such product. It is not an explicit vendor statement, and it is not a demerit.
+- Pricing is volatile. Prices are quoted as shown on the review date and may already have changed.
+- Cells are descriptive, not scored. A vendor that does not sell a capability is not worse; it is a different shape of product.
 
 ---
 
-## Comparison audit status & provenance <a id="provenance" />
+## obs-unified
 
-We build obs-unified, so any comparison is inherently interested. To keep product evaluation honest and checkable:
+Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage. Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability (Agent Action Graph); usage analytics; alerts; CPU/off-CPU profiles; and an MCP server, all joined through one identity chain (`trace_id`, `span_id`, `session_id`, `interaction_id`). MIT-licensed; you pay only your own infrastructure bill. Limitations are listed in [Where obs-unified fits](#where-obs-unified-fits).
 
-- **Unverified competitor claims are withheld from public display**: In accordance with evidence-integrity standards, we do not render third-party capability matrices or pricing comparisons until they have been independently verified against live primary documentation.
-- **The audit ledger is public and tracked**: The complete historical 90-cell comparison matrix and audit run logs are preserved in [`docs/comparison-full-audit-2026-10-11.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md). As recorded in that ledger, **0 of 90 competitor capability cells** met the criteria for independent primary verification.
-- **The audit framework is reproducible**: A complete runbook and workflow script are published in [`apps/docs/scripts/`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs/scripts/) (`COMPARISON_AUDIT.md` + `comparison-audit.workflow.js`). To run an audit, extract the historical 90-cell claim source from Git baseline `e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58` and pass the path to the workflow runner.
-- **No unverified review cadence is asserted**: We do not assert that ongoing quarterly reviews have occurred or that future audits are scheduled beyond actual verified executions.
+---
+
+## Datadog <a id="src-datadog" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | SaaS across independent regional sites, plus **BYOC Log Management** that keeps logs in your own environment | [Datadog Sites](https://docs.datadoghq.com/getting_started/site/): "Each site is completely independent, and you cannot share data across sites." · [BYOC Log Management](https://www.datadoghq.com/product/byoc-logs/): "lets you keep your logs in your own environment while using the Datadog platform for querying, analytics, and investigations." |
+| Pricing | Per host (Infrastructure, APM) plus per signal (GB, events, sessions) | [Pricing](https://www.datadoghq.com/pricing/): Infrastructure Pro "$15 Per host, per month" (annual; $18 on-demand); APM from "$31 Per host, per month"; Logs "$0.10 Per ingested or scanned GB" and "$1.70 Per million log events" (15-day indexing); RUM "Per 1,000 sessions". |
+| Traces / APM | Yes. OTLP via Agent/Collector (recommended) or direct intake endpoints | [OTLP Intake Endpoint](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/): "Datadog recommends sending OpenTelemetry data through a Datadog Agent or OpenTelemetry Collector." Direct `/v1/traces`, `/v1/logs`, `/v1/metrics` endpoints are documented without preview gating. |
+| Structured logs | Yes; ingestion decoupled from indexing | [Log Management](https://docs.datadoghq.com/logs/): "decoupling log ingestion from indexing"; "unifies logs, metrics, and traces in a single view". |
+| AI / LLM | **Agent Observability** (formerly LLM Observability) | [Agent Observability](https://www.datadoghq.com/products/ai/agent-observability/): "Evaluate, improve, and trace your AI agents with offline experimentation and production observability in one platform." |
+| Session replay | Yes (RUM Session Replay) | [Session Replay](https://www.datadoghq.com/product/session-replay/): "Jump from session replays to backend traces for full-stack visibility". |
+| Product analytics | Yes: funnels, Sankeys, cohorts | [Product Analytics](https://www.datadoghq.com/product/product-analytics/): "Optimize user journeys with sankeys, funnels, and conversion analysis"; "a single SDK for RUM and Product Analytics". |
+| Alerting | 30+ monitor types incl. Anomaly, Forecast, Outlier, Composite, Watchdog | [Monitor Types](https://docs.datadoghq.com/monitors/types/): "Watchdog: Get notified when Watchdog detects anomalous behavior." |
+| Cross-signal | Within platform, tag-based | [Platform](https://www.datadoghq.com/product/): "Navigate seamlessly between logs, metrics, and request traces". |
+| Data ownership | Datadog regional site; BYOC object storage for logs | [BYOC Log Management](https://www.datadoghq.com/product/byoc-logs/): "Retain logs entirely within your own infrastructure in regions like India, China, Vietnam, Malaysia, Brazil, South Africa, and Canada". |
+
+## Sentry <a id="src-sentry" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | SaaS, or Fair Source (FSL-1.1) self-host scoped to low-volume deployments | [getsentry/self-hosted](https://github.com/getsentry/self-hosted): "feature-complete and packaged up for low-volume deployments and proofs-of-concept". [Licensing](https://open.sentry.io/licensing/): FSL "is not among the OSI-approved licenses … turning into a bare Apache" after two years. |
+| Pricing | Tiered base (Team $26/mo, Business $80/mo) plus per-unit overage | [Pricing](https://sentry.io/pricing/): "+$0.50/GB additional" (logs), "+$0.0315/hr" (continuous profiling), "+$1.00/uptime alert", "+$0.78/monitor"; "Seer: AI debugging agent (subscription required)". |
+| Traces / APM | Tracing; OTLP traces and logs in open beta, no OTLP metrics | [OTLP](https://docs.sentry.io/concepts/otlp/): "This feature is currently in open beta." "Sentry does not support OTLP metrics at this time." |
+| Structured logs | Yes, trace-connected | [Logs](https://docs.sentry.io/product/logs/): "searchable, trace-connected, and viewable alongside your errors". |
+| AI / LLM | **Agent Tracing** plus **Seer** debugging agent | [Agents](https://docs.sentry.io/product/agents/): "Monitor agent runs, tool calls, model interactions, token usage, and errors." [Seer](https://sentry.io/product/seer/): "Seer is Sentry's debugging agent." |
+| Session replay | Yes, web and mobile (GA) | [Session Replay](https://docs.sentry.io/product/session-replay/): "Web … and Mobile (Android, iOS, React Native, and Flutter). Both are generally available and stable." |
+| Product analytics | Not marketed† | [Product index](https://sentry.io/welcome/) lists Error Monitoring, Logs, Seer, Session Replay, Tracing, Agent Tracing, Profiling, Cron Monitoring, Uptime Monitoring. |
+| Alerting | Issue alerts, uptime, crons | [Alerts](https://docs.sentry.io/product/monitors-and-alerts/alerts/): "An alert can send notifications, create tickets, call webhooks, or use other integrations for issues coming from projects or Monitors." |
+| Cross-signal | Within platform via trace ID | [Tracing](https://docs.sentry.io/concepts/key-terms/tracing/): "The trace ID connects all the actions that take place, starting from the moment a user performs an action on the frontend". |
+| Data ownership | Sentry cloud or your self-hosted install | [getsentry/self-hosted](https://github.com/getsentry/self-hosted) (Docker Compose distribution). |
+
+## PostHog <a id="src-posthog" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | Cloud-first; OSS self-host is a hobby deployment, officially unsupported, no paid-plan features | [Self-host](https://posthog.com/docs/self-host): "self-hosted deployments are officially unsupported"; "free Docker Compose deployment under an MIT license"; "All paid-plan features are Cloud-only." |
+| Pricing | Per-unit, per product, each with a monthly free tier | [Product analytics](https://posthog.com/product-analytics/pricing): "1,000,000 events free every month, then starting at $0.0000500/event". [Replay](https://posthog.com/session-replay/pricing): "$0.0050/recording". [Logs](https://posthog.com/logs/pricing): "$0.25/GB". [AI Observability](https://posthog.com/ai-observability/pricing): "$0.000350/event". [Error tracking](https://posthog.com/error-tracking/pricing): "$0.000370/exception". |
+| Traces / APM | **OTLP distributed tracing, beta since July 2026** (was LLM-scoped only) | [Tracing is now in beta](https://posthog.com/blog/traces-beta) (2026-07-16): "Distributed tracing is now in beta." [Docs](https://posthog.com/docs/distributed-tracing): "works with the OpenTelemetry Protocol (OTLP)". |
+| Structured logs | Yes, OTLP-native, GA since 2026-01-29 | [Logs GA](https://posthog.com/blog/logs-ga): "Logs is generally available, and it lives in the same place as your errors, session replays, and product data." |
+| AI / LLM | **AI Observability** (formerly LLM Analytics) | [AI Observability](https://posthog.com/ai-observability): "captures the full context of each trace and connects it to other PostHog products (like Session Replay). Evals score your live traffic". |
+| Session replay | Yes, rrweb-based | [Replay ingestion](https://posthog.com/docs/how-posthog-works/recordings-ingestion): "We use rrweb to collect "snapshot data" from the browser." |
+| Product analytics | Flagship: autocapture, funnels, retention, paths | [Product Analytics](https://posthog.com/product-analytics): "build trends, funnels, retention curves, paths, and SQL queries – then jump straight into the session recordings". |
+| Alerting | Insight alerts (trends, funnels, SQL) with anomaly detection, plus log alerts | [Alerts](https://posthog.com/docs/alerts): "Alerts are supported on trends, funnels (steps and trends views only), and SQL (HogQL) insights." [Logs](https://posthog.com/docs/logs): "set up alerts". |
+| Cross-signal | One project / event store | [Distributed tracing](https://posthog.com/docs/distributed-tracing): "Traces use the same OpenTelemetry ingestion as Logs, in the same PostHog project as session replays, errors, and analytics." |
+| Data ownership | PostHog Cloud or your (unsupported) self-host | [Self-host](https://posthog.com/docs/self-host): "you run or purchase your own infrastructure, manage deployments". |
+
+## Honeycomb <a id="src-honeycomb" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | SaaS, or Private Cloud (Honeycomb-managed or self-managed) inside your AWS account | [Private Cloud](https://www.honeycomb.io/platform/private-cloud): "Choose a Honeycomb-managed or self-managed deployment inside your AWS account." [Deployment models](https://docs.honeycomb.io/get-started/honeycomb/private-cloud/deployment-models): "Customer-Hosted … within your cloud account." |
+| Pricing | Per event volume: Free up to 20M events/mo; Pro from $150/mo | [Pricing](https://www.honeycomb.io/pricing): "Free … Up to 20M per month"; "Pro … Starting at $150 per month … Up to 750M per month". |
+| Traces / APM | OTLP-native (gRPC, HTTP/protobuf, HTTP/JSON) | [Send data with OpenTelemetry](https://docs.honeycomb.io/send-data/opentelemetry/): "OTLP, over gRPC, HTTP/protobuf, and HTTP/JSON." |
+| Structured logs | Log Analytics; logs stored as structured events | [Traces, Metrics, and Logs](https://docs.honeycomb.io/get-started/honeycomb/traces-metrics-logs): "traces and logs are stored as structured events: labeled JSON objects … indexed automatically on every field at ingest". |
+| AI / LLM | **Agent Timeline, GA since 2026-06-18** | [Agent Timeline GA](https://www.honeycomb.io/blog/agent-timeline-generally-available): "Agent Timeline is generally available to every Honeycomb customer". |
+| Session replay | Not marketed† | [Frontend Observability](https://www.honeycomb.io/platform/frontend-observability) markets traces, errors, Core Web Vitals, and user journeys; no replay page in the site's pages sitemap. |
+| Product analytics | Not marketed† | No product-analytics page in the site's pages sitemap on 2026-10-13. |
+| Alerting | Triggers (thresholds on any query) and BubbleUp outlier analysis | [Triggers](https://docs.honeycomb.io/notify/triggers): "receive notifications when your Honeycomb data crosses thresholds that you define." [BubbleUp](https://www.honeycomb.io/platform/bubbleup). |
+| Cross-signal | One event store for logs, traces, metrics | [Log Analytics](https://www.honeycomb.io/platform/log-analytics): "Use one unified tool to manage logs, traces, and metrics". |
+| Data ownership | Honeycomb US or EU, or your AWS account | [EU data residency](https://www.honeycomb.io/blog/honeycomb-launches-data-residency-europe): "store their data in the US, in Europe, or both"; Private Cloud: "Your telemetry data never leaves your cloud account." |
+
+## New Relic <a id="src-newrelic" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | SaaS with US, EU, and Japan regions | [Choose your data center](https://docs.newrelic.com/docs/accounts/accounts-billing/account-setup/choose-your-data-center/): "the United States (US) region, the European Union (EU) region, and the Japan (JP) region." |
+| Pricing | Per-GB ingest plus per-user seats, or the newer Compute model | [Pricing](https://newrelic.com/pricing): "100 GB of free data ingest per month and $0.40/GB ingested beyond"; Data Plus "$0.60/GB"; Core "$49/user"; Full platform Pro "$349/user"; "New Relic Compute … Pay only for the compute you use, with no user fees". |
+| Traces / APM | Native OTLP, recommended path | [OTLP](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/): "supports native OTLP ingest and recommends it as the preferred method". |
+| Structured logs | Yes; agents, forwarders, Log API, OTLP; server-side parsing | [Log management](https://docs.newrelic.com/docs/logs/get-started/get-started-log-management/); [Parsing](https://docs.newrelic.com/docs/logs/ui-data/parsing/): "Log parsing transforms unstructured log data into searchable attributes". |
+| AI / LLM | AI Monitoring ("APM for AI") | [AI monitoring](https://docs.newrelic.com/docs/ai-monitoring/intro-to-ai-monitoring/): "end-to-end visibility into performance, cost, and quality of supported models from vendors like OpenAI, Bedrock and DeepSeek." |
+| Session replay | Yes, DOM snapshot based, 8-day default retention | [Session replay](https://docs.newrelic.com/docs/browser/browser-monitoring/browser-pro-features/session-replay/get-started/): "takes a snapshot of the Document Object Model (DOM)"; "stored for 8 days". |
+| Product analytics | User journeys inside Browser Monitoring plus NRQL funnels; no standalone product found | [Browser Monitoring](https://newrelic.com/platform/browser-monitoring): "See how users navigate with Sankey diagrams and identify common routes and drop-offs." [NRQL funnels](https://docs.newrelic.com/docs/nrql/using-nrql/funnels-evaluate-data-series-related-events/). |
+| Alerting | NRQL alert conditions | [NRQL alert conditions](https://docs.newrelic.com/docs/alerts/create-alert/create-alert-condition/create-nrql-alert-conditions/): "We recommend creating an alert using a NRQL alert condition." |
+| Cross-signal | Via NRQL across all data | [NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/): "a SQL-like language for querying your New Relic data." |
+| Data ownership | New Relic US, EU, or JP region | Same data-center page: "You are solely responsible for the selection of the appropriate processing and storage region". |
+
+## Grafana Cloud <a id="src-grafana" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | Grafana Cloud, or self-host the OSS LGTM components | [Open source](https://grafana.com/oss/): "Loki, Tempo, Mimir, Faro, and Pyroscope"; "Grafana Alloy is an open source OpenTelemetery collector". |
+| Pricing | Pro $19/mo plus usage: per 1k series, per GB for logs/traces/profiles | [Pricing](https://grafana.com/pricing/): "$19/ month + usage"; "$6.50/ 1k series"; "$0.05/GB Process", "$0.40/GB Write", "$0.10/GB Retain"; Frontend Observability "$0.75/ 1k sessions"; Agent Observability "$1.50/ 1k generations". |
+| Traces / APM | Tempo; OTLP ingest | [OTLP](https://grafana.com/docs/grafana-cloud/send-data/otlp/): "supports the ingestion of metrics, logs, and traces through OTLP into Grafana Cloud." |
+| Structured logs | Loki | [Open source](https://grafana.com/oss/): "Loki is a horizontally scalable, highly available, multi-tenant log aggregation system". |
+| AI / LLM | **Agent Observability, GA since 2026-07-30** | [AI Observability blog](https://grafana.com/blog/ai-observability-for-agents-in-grafana-cloud/): "renamed Agent Observability … It became Generally Available on Thursday, July 30, 2026." |
+| Session replay | Session Replay add-on in **public preview**, enabled per stack | [Session Replay](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/session-replay/): "Session Replay is currently in public preview … breaking changes might occur prior to the feature being made generally available." |
+| Product analytics | Not marketed† | [Grafana Cloud products](https://grafana.com/products/cloud/) lists no product-analytics product; "product analytics" and "funnel" do not appear. |
+| Alerting | Grafana Alerting across data sources | [Alerting](https://grafana.com/docs/grafana-cloud/observe-and-act/alert-and-measure-reliability/alerting/): "queries and expressions from multiple data sources … alert on your metrics and logs". |
+| Cross-signal | Per-data-source links: trace to logs, metrics, profiles; exemplars | [Tempo data source](https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/): "Trace to logs: Navigate from spans to related logs in Loki or another log data source." |
+| Data ownership | Grafana Cloud or your self-hosted OSS stack | [Open source](https://grafana.com/oss/). |
+
+## SigNoz <a id="src-signoz" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | SigNoz Cloud, Enterprise BYOC or self-hosted, or OSS Community self-host | [SigNoz/signoz](https://github.com/SigNoz/signoz): "Enterprise Cloud, BYOC, or Enterprise Self-Hosted"; "Free open-source SigNoz that runs in your own infrastructure." |
+| Pricing | $49/mo minimum (includes $49 usage), then $0.30/GB logs and traces, $0.10 per million metric samples | [Pricing](https://signoz.io/pricing/): "Starts at $49/month, including $49 of usage"; "$0.30/GB"; "$0.10/mn samples". |
+| Traces / APM | OTLP-native | [Distributed tracing](https://signoz.io/distributed-tracing/): "Auto-instrument your applications with OpenTelemetry across all major languages and frameworks." |
+| Structured logs | Yes, Logs Explorer with query builder | [Logs Explorer](https://signoz.io/docs/userguide/logs_query_builder/): "a powerful interface for searching, filtering, and analyzing your log data." |
+| AI / LLM | LLM Observability | [LLM Observability](https://signoz.io/llm-observability/): "Instant setup for LangChain, LlamaIndex, CrewAI. Automatic instrumentation for OpenAI, Anthropic, Bedrock." |
+| Session replay | Not marketed† | No replay page in the docs or products sitemaps on 2026-10-13; a [2023 maintainer reply](https://github.com/SigNoz/signoz/discussions/3846) said it was "not in our near term roadmap". |
+| Product analytics | Not marketed† (Trace Funnels are trace-level, not user analytics) | [Trace Funnels](https://signoz.io/trace-funnels/): "Each step filters traces by service name, operation, HTTP status code". |
+| Alerting | Five alert types: metric, log, trace, exceptions, anomaly | [Alerts management](https://signoz.io/docs/userguide/alerts-management/). |
+| Cross-signal | Trace to logs via trace_id / span_id | [Correlate logs and traces](https://signoz.io/docs/traces-management/guides/correlate-traces-and-logs/): "jump from a trace directly to the logs that fired during it, and from a log entry back to the trace". |
+| Data ownership | Cloud in US, EU, or India; BYOC; or self-hosted | [Pricing](https://signoz.io/pricing/): "We have data centers in US, EU and India … You can also run Self Hosted SigNoz in your own cloud." |
+
+## Uptrace <a id="src-uptrace" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | Uptrace Cloud, OSS self-host (AGPL-3.0), or licensed on-prem | [uptrace/uptrace](https://github.com/uptrace/uptrace): "AGPL-3.0 license"; "ClickHouse database to store it … PostgreSQL database to store metadata". [Pricing FAQ](https://uptrace.dev/pricing): "Install Uptrace on-premises with a license." |
+| Pricing | Per GB ingested with automatic volume tiers; 50 GB free per month; no seat or host fees. We do not quote a starting rate: on 2026-10-13 the page's hero said one figure and its FAQ another. | [Pricing](https://uptrace.dev/pricing): hero "50 GB free every month, then from $0.075/GB. Volume discounts apply automatically."; FAQ "Rates start at $0.10/GB and drop to $0.016/GB at scale."; metrics "$0.025 per 1M datapoints"; "4 weeks (28 days)" default retention. |
+| Traces / APM | OTLP-native, gRPC and HTTP | [OpenTelemetry Go](https://uptrace.dev/get/opentelemetry-go): "export spans (traces), logs, and metrics to Uptrace using OTLP/gRPC"; HTTP endpoint documented as fallback. |
+| Structured logs | Yes | [Uptrace](https://uptrace.dev/): "unifies traces, metrics, and logs in a single platform." |
+| AI / LLM | OpenTelemetry GenAI / OpenAI instrumentation guides for sending LLM telemetry to Uptrace | [OpenTelemetry OpenAI guide](https://uptrace.dev/guides/opentelemetry-openai); [LLM cost monitoring](https://uptrace.dev/blog/llm-cost-monitoring). The home-page product navigation on 2026-10-13 listed APM, Tracing, Metrics, Errors and logs, Alerting, Infrastructure, MCP; we do not assert what is absent. |
+| Session replay | Not marketed† | No replay page in the 379-URL sitemap; not in product navigation. |
+| Product analytics | Not marketed† | Same. |
+| Alerting | Metric monitors and error monitors | [Alerting](https://uptrace.dev/features/alerting): "Metric monitors — threshold alerts on infrastructure and tracing metrics"; "Error monitors — alerts on log patterns and exceptions". |
+| Cross-signal | One store for traces, metrics, logs | [Uptrace](https://uptrace.dev/): "Traces, metrics, and logs in one place. No more jumping between tools". |
+| Data ownership | Cloud hosted in Germany, or your own servers | [Pricing FAQ](https://uptrace.dev/pricing): "Uptrace Cloud runs in Hetzner's Germany datacenters"; "Your telemetry never leaves your infrastructure." |
+
+## HyperDX <a id="src-hyperdx" />
+
+| Axis | Reviewed claim (2026-10-13) | Primary source and excerpt |
+|---|---|---|
+| Hosting | HyperDX Cloud, OSS self-host (MIT), or ClickStack in ClickHouse Cloud (managed, beta) | [OSS vs Cloud](https://www.hyperdx.io/docs/oss-vs-cloud): "both an self-hostable open source version … as well as a cloud hosted version". [ClickStack in ClickHouse Cloud](https://clickhouse.com/blog/announcing-clickstack-in-clickhouse-cloud): "Managed ClickStack is now in beta." |
+| Pricing | $20/mo flat for 50 GB, then $0.40/GB; no per-seat or per-host billing | [Pricing](https://www.hyperdx.io/pricing): "Includes 50 GB/mo … Unlimited Users, Flat Rate … $20/mo … $0.40 per additional 1 GB". |
+| Traces / APM | OTLP-native, HTTP and gRPC | [OpenTelemetry](https://www.hyperdx.io/docs/install/opentelemetry): "HTTP endpoint is hosted at https://in-otel.hyperdx.io (gRPC at port 4317)". |
+| Structured logs | Yes, ClickHouse-backed with JSON parsing, live tail, patterns | [hyperdxio/hyperdx](https://github.com/hyperdxio/hyperdx): "unifying session replays, logs, metrics, traces and errors powered by ClickHouse and OpenTelemetry." |
+| AI / LLM | Via OpenTelemetry LLM SDKs (OpenLLMetry, OpenLIT, Mirascope) | [OpenLLMetry integration](https://www.traceloop.com/docs/openllmetry/integrations/hyperdx); [HyperDX docs](https://www.hyperdx.io/docs) navigation lists "LLMs: Mirascope, OpenLIT, OpenLLMetry". |
+| Session replay | Yes, auto-linked to logs and traces | [HyperDX](https://www.hyperdx.io/): "Automatically link session replays with backend logs and traces." |
+| Product analytics | Not marketed† | [HyperDX docs](https://www.hyperdx.io/docs) navigation has no analytics section. |
+| Alerting | Search-based threshold and duration alerts | [Alerts](https://www.hyperdx.io/docs/alerts): "set the threshold, duration, and notification method for the alert (Slack, Email, PagerDuty or Slack Webhook)". |
+| Cross-signal | Auto-linked across signals | [HyperDX](https://www.hyperdx.io/): "Trace every request from a user's browser and phone to your backend servers and async workers, automatically." |
+| Data ownership | Cloud hosted in the United States, or your own ClickHouse | [DPA](https://www.hyperdx.io/terms/dpa): "DeploySentinel will host and process Customer Personal Data in the United States." |
+
+† Inferential negative: not marketed by the vendor on the pages, product index, or sitemaps read on 2026-10-13. Absence is not an explicit vendor statement. See [ledger section 4](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md).
+
+---
+
+## Where obs-unified fits
+
+obs-unified is the only tool in this comparison that is simultaneously self-hostable, OTLP-native, and ships session replay, AI / agent observability, and usage analytics in one stack. That is a shape, not a verdict; the trade-offs are real:
+
+- **Maturity:** early-stage software optimized for single-team deployments rather than complex enterprise organizations.
+- **Authentication and access control:** single-password or bearer token authentication. Enterprise SSO, SAML, and fine-grained RBAC are not implemented.
+- **Protocols:** ingestion is OTLP/HTTP only. gRPC exporters should be fronted with a standard OpenTelemetry Collector.
+- **Query and dashboarding:** analyses emphasize AI-assisted investigation, root-cause narratives, and trace traversal rather than arbitrary query builders (PromQL, NRQL, SQL panel editors).
+- **Storage and retention:** D1 is subject to database size limits; high-throughput or long-retention workloads should use the PostgreSQL adapter with retention pruning.
+
+### Buyer guidance (editorial)
+
+- Enterprise controls, broad integrations, per-host budgeting: **Datadog** or **New Relic**.
+- Errors, replay, and traces without running infrastructure: **Sentry**.
+- Product analytics first, with replay, logs, and now tracing alongside: **PostHog**.
+- Deep trace analysis and agent timelines on a wide-event store: **Honeycomb**.
+- OSS, OTel-native, ClickHouse-shaped pricing: **SigNoz**, **HyperDX**, or **Uptrace** (HyperDX is the only one of the three with session replay).
+- Composable LGTM stack you can scale per signal: **Grafana Cloud** or self-hosted Grafana.
+- Everything in one self-hosted telemetry graph built for agentic debugging: **obs-unified**, with the limitations above.
+
+---
+
+## How we keep this honest <a id="provenance" />
+
+- **Every cell is cited and dated.** Each vendor section carries the source URL and an excerpt read on the review date. If the excerpt no longer matches the source, the claim is wrong by construction; tell us.
+- **The ledger is public.** [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md) records, for all 90 cells, the historical claim, the verdict (TRUE 59 / PARTIALLY_TRUE 12 / OUTDATED 9 / FALSE 1 / UNVERIFIABLE 9), the corrected claim, the final URL read, and the excerpt. The earlier [2026-10-11 ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md), which recorded 0 of 90 cells verified, is preserved unchanged.
+- **Negatives are never inferred from silence alone.** The nine "Not marketed†" cells list exactly what was read.
+- **The method is reproducible.** The runbook is in [`apps/docs/scripts/COMPARISON_AUDIT.md`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs/scripts/). This pass was done manually (runbook Option B), one page at a time, with no multi-agent workflow.
+- **We score ourselves too.** See [Where obs-unified fits](#where-obs-unified-fits).
 
 ### Right of reply <a id="right-of-reply" />
 
-If you maintain or represent an observability tool and wish to provide verified primary source documentation for future comparison reviews, open a **[Comparison correction](https://github.com/dev-sawan-ruparel/obs-unified/issues/new?template=comparison_correction.yml)** issue. We log all verified primary updates in the open.
+If you work on one of these products, or you spot a stale or wrong cell, open a **[Comparison correction](https://github.com/dev-sawan-ruparel/obs-unified/issues/new?template=comparison_correction.yml)** issue with the cell, the current and correct claim, and a vendor source URL. Accepted corrections are logged below.
 
 ### Corrections log <a id="corrections" />
 
-Historical corrections logged in the repository baseline prior to withholding unverified tables:
-
-| Date | Item | Note |
-|------|------|------|
-| 2026-10-11 | Comparison matrix | All 90 competitor capability cells classified as unverified in [`docs/comparison-full-audit-2026-10-11.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md); unverified public matrix withheld from public rendering. |
-| 2026-10-11 | Targeted spot-checks | Historical partial updates logged in repository draft commits prior to full ledger audit. |
-| 2026-05-31 | Initial draft | Initial comparison draft established as non-validated baseline. |
+| Date | Vendor · cell | Was | Now and why |
+|------|---------------|-----|-------------|
+| 2026-10-13 | PostHog · traces | "LLM-scoped only" | **"OTLP distributed tracing (beta)"**: PostHog shipped general tracing in beta on 2026-07-16. Our negative was false. |
+| 2026-10-13 | Datadog · hosting / data ownership | "SaaS only" / "Datadog cloud" | **"SaaS · BYOC for logs"**: Datadog markets BYOC Log Management that keeps logs in the customer's environment. Our negative was outdated. |
+| 2026-10-13 | Datadog · traces | "OTLP in Preview" | **"OTLP via Agent/Collector or direct intake"**: preview wording no longer on the docs page. |
+| 2026-10-13 | Grafana · session replay | "Yes · Frontend Obs" | **"Public preview add-on"**: the docs say Session Replay is in public preview; we had overstated it and cited the wrong page. |
+| 2026-10-13 | Grafana · AI | "AI Observability (preview)" | **"Agent Observability (GA 2026-07-30)"**. |
+| 2026-10-13 | Honeycomb · AI | "Agent Obs (Early Access)" | **"Agent Timeline (GA 2026-06-18)"**. |
+| 2026-10-13 | PostHog · alerts | "On trends only" | **"Insight alerts (trends, funnels, SQL) + log alerts"**. |
+| 2026-10-13 | PostHog · AI; Datadog · AI; Sentry · AI | product names | Renamed to AI Observability, Agent Observability, Agent Tracing respectively. |
+| 2026-10-13 | New Relic · hosting / data ownership | "two regions", "SaaS only" | **"US · EU · JP"**; the unprovable "no BYOC" negative was dropped. |
+| 2026-10-13 | SigNoz · pricing; Uptrace · pricing; Honeycomb · pricing | "$0.30/GB", "$0.10/GB", "$130/mo" | "$49/mo minimum + $0.30/GB"; "per GB with volume tiers, no starting rate quoted (the page shows two)"; "Pro from $150/mo". |
+| 2026-10-13 | 9 negative cells | "—" | **"Not marketed†"** with the pages read, since absence cannot be verified. |
+| 2026-10-11 | Comparison matrix | published as reviewed | Withheld from public rendering after a ledger recorded 0 of 90 cells independently verified; see the preserved 2026-10-11 ledger. |
+| 2026-05-31 | Grafana · AI; Grafana · replay; Sentry · hosting; PostHog · hosting | various | Initial draft corrections (Grafana moved up twice; Sentry "Fair Source"; PostHog "hobby" self-host). |

@@ -1,22 +1,26 @@
 # Comparison audit runbook
 
-How to re-verify competitor claims extracted from the historical baseline against live vendor sources.
+How to re-verify competitor claims against live vendor sources.
 The audit re-checks each cell against the vendor's own live docs/pricing and flags drift
 (Preview → GA, renames, price changes, newly shipped capabilities that break a "—" cell).
 
-- **Evidence status ledger:** [`../../../docs/comparison-full-audit-2026-10-11.md`](../../../docs/comparison-full-audit-2026-10-11.md)
-  *(Note: this is the audit status record documenting 0/90 cells independently verified, not a parsable MDX claim source)*
+- **Current ledger (2026-10-13, manual pass):** [`../../../docs/comparison-full-audit-2026-10-13.md`](../../../docs/comparison-full-audit-2026-10-13.md)
+  — 81 of 90 cells directly source-checked against primary pages (historical claims compared with the live page and corrected where needed); 9 inferential negatives rendered as "Not marketed†".
+  Verdicts on the historical claims: TRUE 59 · PARTIALLY_TRUE 12 · OUTDATED 9 · FALSE 1 · UNVERIFIABLE 9.
+- **Historical ledger (2026-10-11):** [`../../../docs/comparison-full-audit-2026-10-11.md`](../../../docs/comparison-full-audit-2026-10-11.md)
+  *(preserved unchanged; recorded 0/90 verified and led to the matrix being withheld until this pass)*
 - **Historical claim baseline commit:** `e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58`
-- **Public evaluation doc:** [`../content/docs/comparison.mdx`](../content/docs/comparison.mdx)
-  *(Unverified competitor tables are withheld from public rendering for launch safety)*
-- **Automated runner:** [`./comparison-audit.workflow.js`](./comparison-audit.workflow.js)
-- **Status:** Unverified competitor claims withheld from public rendering; 0 of 90 vendor cells independently verified against live primary sources.
+- **Public evaluation doc:** [`../content/docs/comparison.mdx`](../content/docs/comparison.mdx) (per-vendor sections with anchors `src-<vendor>`, cited and dated)
+- **Landing-page table:** `apps/website/src/sections/compare.ts` (vendor headers link to the `src-<vendor>` anchors)
+- **Consistency check:** `pnpm --filter presence comparison:check` (also part of `pnpm check:surfaces`) verifies review-date parity, ledger existence, verdict counts, ledger indices exactly 1..90, and vendor anchors.
+- **Automated runner:** [`./comparison-audit.workflow.js`](./comparison-audit.workflow.js) (optional; billed, spawns ~11 agents, requires explicit opt-in)
+- **Next review:** 2027-01-13, or sooner on a right-of-reply correction.
 
 ---
 
 ## Baseline extraction
 
-Because public `comparison.mdx` withholds unverified competitor tables, the workflow runner requires an explicit path to an MDX file containing the 90-cell vendor baseline.
+The workflow runner parses the *historical* 90-anchor structure (`src-<vendor>-<axis>` headings). The current public `comparison.mdx` uses per-vendor tables with `src-<vendor>` anchors instead, so the runner requires an explicit path to an MDX file in the historical format.
 
 Extract the historical 90-cell baseline from pinned commit `e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58` to a temporary file:
 
@@ -82,13 +86,17 @@ If you cannot run the workflow, reproduce it by hand:
 
 ## Applying the results
 
-1. For each verified update, record the accepted primary source update, quoted excerpt, and verdict in the audit ledger (`docs/comparison-full-audit-2026-10-11.md`).
-2. When full audit runs independently verify capability cells against live primary sources, verified updates can be recorded in doc corrections.
-3. Update the `<Callout>` at the top of `comparison.mdx` with the updated audit status, verdict counts, and review dates.
-4. Commit doc + audit ledger together so citations and public claims never drift apart.
+1. Create a new dated ledger `docs/comparison-full-audit-YYYY-MM-DD.md` (never rewrite an older one). For each cell record: historical claim, verdict, corrected claim, final URL read (note redirects), access date, and a verbatim excerpt. Keep the verdict-count header line in the same format; `comparison-check.mjs` parses it.
+2. Negatives: never infer absence from silence. Record exactly what was read (product index, docs navigation, sitemap) and keep the verdict `UNVERIFIABLE`; public copy renders these as "Not marketed†".
+3. Update the vendor tables in `comparison.mdx` (claim, source link, excerpt) and the `<Callout>` review date / counts; append accepted changes to the Corrections log.
+4. Update `ROWS`, `LAST_REVIEWED`, `AUDIT_LEDGER_URL`, and the cell-count constants in `apps/website/src/sections/compare.ts`. Cells render as neutral text (no scoring marks); only inferential negatives get a †.
+5. Run `pnpm check:surfaces`, `pnpm --filter presence build`, and `pnpm --filter obs-unified-docs types:check && pnpm --filter obs-unified-docs build`.
+6. Commit doc, website, and ledger together so citations and public claims never drift apart.
 
 ---
 
-## Historical baseline context (2026-05-31 draft baseline)
+## History
 
-The initial comparison draft established the 9-vendor × 10-axis capability matrix. Under strict evidence integrity, the subsequent audit ledger in [`docs/comparison-full-audit-2026-10-11.md`](../../../docs/comparison-full-audit-2026-10-11.md) recorded 0 of 90 cells independently verified against live primary sources, leading to the launch-safety decision to withhold the unverified matrix from public rendering until complete primary source fetches are performed.
+- **2026-05-31:** initial draft baseline (9 vendors × 10 axes) published with citations.
+- **2026-10-11:** evidence-integrity review recorded 0 of 90 cells independently verified against live primary sources; the public matrix was withheld and replaced by a product-evaluation guide.
+- **2026-10-13:** full manual pass (runbook Option B, no workflow). Every cited page was fetched directly; 81/90 directly source-checked (59 still accurate, 12 tightened, 9 outdated, 1 false), 9 inferential negatives. Notable corrections: PostHog shipped OTLP distributed tracing (beta, Jul 2026); Datadog added BYOC Log Management; Grafana Session Replay is public preview (we had overstated it); Honeycomb Agent Timeline and Grafana Agent Observability reached GA. The matrix was restored to the public site with per-cell citations and the † convention.
