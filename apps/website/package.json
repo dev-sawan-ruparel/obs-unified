@@ -15,6 +15,7 @@
 		"preview": "vite preview",
 		"types:check": "tsc --noEmit",
 		"messaging:check": "node scripts/messaging-check.mjs",
+		"comparison:check": "node scripts/comparison-check.mjs",
 		"deploy": "node ../../scripts/deploy-pages.mjs website",
 		"deploy:preview": "node ../../scripts/deploy-pages.mjs website --preview"
 	},

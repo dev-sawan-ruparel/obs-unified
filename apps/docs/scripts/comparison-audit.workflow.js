@@ -24,8 +24,9 @@ export const meta = {
 //   Extract the baseline safely to a temporary file:
 //     git show e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58:apps/docs/content/docs/comparison.mdx > /tmp/comparison-baseline.mdx
 //
-//   Note: `docs/comparison-full-audit-2026-10-11.md` is the evidence status ledger
-//   (recording 0/90 verified cells), NOT a parsable MDX claim source.
+//   Note: the dated ledgers under `docs/comparison-full-audit-*.md` (2026-10-11:
+//   0/90 baseline; 2026-10-13: 81/90 source-checked, 9 inferential) are evidence
+//   records, NOT parsable MDX claim sources.
 //
 //   Launch from a Claude Code session with:
 //     Workflow({
