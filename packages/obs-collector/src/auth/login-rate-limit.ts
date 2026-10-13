@@ -86,9 +86,12 @@ export interface LoginClientKeyOptions {
 	/** Transport-level peer address (e.g. the TCP remote address on Node). */
 	clientAddress?: string;
 	/**
-	 * Honour `CF-Connecting-IP` / `X-Forwarded-For`. Only set this when a
-	 * trusted reverse proxy terminates every connection and rewrites those
-	 * headers; otherwise a direct client could pick its own bucket.
+	 * Honour `CF-Connecting-IP` / `X-Forwarded-For` ahead of `clientAddress`.
+	 * Only set this when a trusted reverse proxy terminates every connection
+	 * and rewrites those headers: behind such a proxy the transport peer is
+	 * the proxy itself, so the forwarded address is the real client. Left
+	 * off, those headers are ignored entirely and a direct client cannot pick
+	 * its own bucket.
 	 */
 	trustProxyHeaders?: boolean;
 }
@@ -100,10 +103,15 @@ export const isCloudflareWorkersRuntime = (): boolean =>
 	navigator.userAgent.startsWith("Cloudflare-Workers");
 
 /**
- * Client identity for limiting, most trustworthy source first:
- *   1. a peer address the host resolved from the connection;
- *   2. proxy headers, only when the host says a trusted proxy sets them;
+ * Client identity for limiting, most specific trustworthy source first:
+ *   1. proxy headers, only when the host says a trusted proxy sets them
+ *      (`CF-Connecting-IP`, then the first `X-Forwarded-For` hop);
+ *   2. the peer address the host resolved from the connection — the default
+ *      on Node, and the fallback when a trusted proxy sent no header;
  *   3. `CF-Connecting-IP` when running on Cloudflare Workers (edge-set).
+ *
+ * With `trustProxyHeaders` unset, forwarding headers never influence the key,
+ * so a direct client cannot escape its bucket by forging them.
  *
  * Returns `null` when none of these apply. There is deliberately no shared
  * fallback bucket: one bucket for every client would let an anonymous
@@ -116,14 +124,14 @@ export const loginClientKey = (
 	headers: { get(name: string): string | null },
 	options: LoginClientKeyOptions = {},
 ): string | null => {
-	const peer = options.clientAddress?.trim();
-	if (peer) return peer;
 	const cf = headers.get("cf-connecting-ip")?.trim();
 	if (options.trustProxyHeaders) {
 		if (cf) return cf;
 		const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
 		if (forwarded) return forwarded;
 	}
+	const peer = options.clientAddress?.trim();
+	if (peer) return peer;
 	if (cf && isCloudflareWorkersRuntime()) return cf;
 	return null;
 };

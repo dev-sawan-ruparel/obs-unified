@@ -43,4 +43,17 @@ describe("collector-node server env wiring", () => {
 		expect(block?.[1]).not.toContain("process.env");
 		expect(OPTIONAL_COLLECTOR_ENV_KEYS).not.toContain("INGEST_KEY");
 	});
+
+	it("hands @hono/node-server a fetch that forwards the adapter bindings", () => {
+		// Regression: `fetch: (request) => app.fetch(request, requestEnv)`
+		// dropped the adapter's `{ incoming, outgoing }` argument, so
+		// `getConnInfo` threw inside the login limiter and every
+		// POST /auth/login answered 500 (see node-host.test.ts).
+		const serveCall = /serve\(\s*\{([\s\S]*?)\},/.exec(source);
+		expect(serveCall).not.toBeNull();
+		expect(serveCall?.[1]).toContain("fetch: createNodeFetch(app, requestEnv)");
+		expect(source).not.toMatch(/app\.fetch\(/);
+		// The limiter resolves the peer through the same forwarded bindings.
+		expect(source).toContain("clientAddress: loginClientAddress");
+	});
 });
