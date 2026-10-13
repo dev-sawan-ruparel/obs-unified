@@ -1,5 +1,11 @@
 # @obsunified/mcp-server
 
+## 2.0.2
+
+### Patch Changes
+
+- 82c6d9d: Implement programmatic DASHBOARD_TOKEN / OBS_DASHBOARD_TOKEN Bearer authentication contract on collector /internal/\* routes and enforce strict rejection of ingest keys on read and admin endpoints.
+
 ## 2.0.1
 
 ### Patch Changes
