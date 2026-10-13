@@ -2,6 +2,7 @@ import type { StoredSpan, UsageEventRecord } from "@obsunified/types";
 import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import {
 	type ActionGraphPurgeSummary,
 	purgeExpiredActionGraph,
@@ -9,6 +10,10 @@ import {
 import { AIStore } from "../lib/ai-store";
 import { runAllDueAnalyses } from "../lib/analyses-runner";
 import { AnalysesStore } from "../lib/analyses-store";
+import {
+	type HousekeepingSummary,
+	purgeSecondaryRows,
+} from "../lib/housekeeping";
 import { LogsStore } from "../lib/logs-store";
 import { MetricsStore } from "../lib/metrics-store";
 import { aggregatePropagation } from "../lib/propagation-metric";
@@ -16,6 +21,7 @@ import { D1Adapter, dialectFor, type SqlDb, sqlDbFor } from "../lib/sql-db";
 import { TelemetryStore } from "../lib/store";
 import { UsageStore } from "../lib/usage-store";
 import type { CollectorEnv, CollectorRouteContext } from "./env";
+import { DEFAULT_MAX_BODY_BYTES, parseByteLimit } from "./limits";
 import {
 	type ChildSpanRunner,
 	consoleLogger,
@@ -107,6 +113,12 @@ export interface CollectorConfig {
 	 * a tracing layer at the storage seam.
 	 */
 	sqlDb?: SqlDbFactory;
+	/**
+	 * Raw request body cap for `/v1/*` and `/internal/*` in bytes. Defaults
+	 * to `MAX_BODY_BYTES` from the environment, then 10 MiB. Oversized
+	 * requests get a 413 before any handler buffers the body.
+	 */
+	maxBodyBytes?: number;
 }
 
 export class CollectorRuntime implements CollectorPluginContext {
@@ -225,6 +237,10 @@ export class CollectorRuntime implements CollectorPluginContext {
 	}
 }
 
+/** `/dashboard/login` and anything beneath it (the SPA's login route). */
+export const isDashboardLoginPath = (path: string): boolean =>
+	path === "/dashboard/login" || path.startsWith("/dashboard/login/");
+
 export const createTelemetryCollectorApp = (
 	pluginsOrConfig: CollectorPlugin[] | CollectorConfig,
 ): Hono<{ Bindings: CollectorEnv }> => {
@@ -289,6 +305,21 @@ export const createTelemetryCollectorApp = (
 		}
 	});
 
+	// Body size cap — before auth and every handler, so an oversized body is
+	// refused by Content-Length or cut off mid-stream instead of buffered.
+	const bodyCap: MiddlewareHandler<{ Bindings: CollectorEnv }> = (c, next) => {
+		const maxSize =
+			config.maxBodyBytes ??
+			parseByteLimit(c.env?.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES);
+		return bodyLimit({
+			maxSize,
+			onError: (ctx) =>
+				ctx.json({ error: `Payload too large (max ${maxSize} bytes)` }, 413),
+		})(c, next);
+	};
+	app.use("/v1/*", bodyCap);
+	app.use("/internal/*", bodyCap);
+
 	// Ingest auth (API key) — always on /v1/* when configured.
 	if (config.auth?.middleware) {
 		app.use("/v1/*", config.auth.middleware);
@@ -301,9 +332,18 @@ export const createTelemetryCollectorApp = (
 	// Routes for login/check/logout are always registered so the dashboard
 	// can authenticate regardless of subsequent middleware placement.
 	if (config.dashboardAuth) {
+		const { middleware } = config.dashboardAuth;
 		config.dashboardAuth.registerRoutes(app);
-		app.use("/dashboard/*", config.dashboardAuth.middleware);
-		app.use("/internal/*", config.dashboardAuth.middleware);
+		// The login page is where unauthenticated HTML requests get sent;
+		// guarding it with the same middleware redirects it to itself.
+		const guard: MiddlewareHandler<{
+			Bindings: CollectorEnv;
+			// biome-ignore lint/suspicious/noExplicitAny: same contravariant Variables shape as CollectorConfig.dashboardAuth.middleware
+			Variables: any;
+		}> = async (c, next) =>
+			isDashboardLoginPath(c.req.path) ? next() : middleware(c, next);
+		app.use("/dashboard/*", guard);
+		app.use("/internal/*", middleware);
 	} else {
 		// Fail closed for /internal/* and /dashboard/*: ingest keys must never grant read/admin access
 		app.use("/internal/*", async (c) => c.json({ error: "Unauthorized" }, 401));
@@ -361,6 +401,8 @@ export interface RetentionCleanupSummary {
 	/** Leaf rows removed with their actions: agent_runs, tool_calls,
 	 *  retrieval_events, eval_results and artifacts. */
 	action_leaves: number;
+	/** Secondary tables (see lib/housekeeping.ts); zeros when that step failed. */
+	housekeeping: HousekeepingSummary;
 }
 
 /**
@@ -369,6 +411,10 @@ export interface RetentionCleanupSummary {
  * `.run(env)` from a non-Workers host scheduler.
  * Source: AgentOwl + DecisionOps
  */
+/** Expired profile rows examined per sweep: pages × page size. */
+const PROFILE_PURGE_PAGE_SIZE = 500;
+const PROFILE_PURGE_MAX_PAGES = 10;
+
 export const createRetentionCleanupHandler = (options?: {
 	logger?: Logger;
 }): ScheduledTaskHandler<RetentionCleanupSummary> => {
@@ -402,29 +448,87 @@ export const createRetentionCleanupHandler = (options?: {
 		// foreign key on profile_trace_index handles the join rows;
 		// we still need to delete the R2 blobs, which we do
 		// best-effort by reading the URLs first.
+		// Rows go only for blobs whose delete settled, in pages, so a row never
+		// outlives its blob reference while the object is still in storage
+		// (previously one page of blobs was deleted and then every expired
+		// row, orphaning anything past the page).
 		let profilesPurged = 0;
 		try {
 			const dialect = dialectFor(db);
-			const expiredProfiles = await db
-				.prepare(
-					`SELECT id, blob_url FROM profile_blobs WHERE expires_at < ${dialect.now()} LIMIT 500`,
-				)
-				.all<{ id: string; blob_url: string }>();
-			if (expiredProfiles.results.length > 0 && env.PROFILES_BUCKET) {
-				await Promise.allSettled(
-					expiredProfiles.results.map((p) =>
-						env.PROFILES_BUCKET?.delete(p.blob_url),
-					),
+			if (!env.PROFILES_BUCKET) {
+				logger.warn(
+					"[retention-cleanup] PROFILES_BUCKET is not bound; expired profile rows are removed without deleting their blobs",
 				);
 			}
-			const deleted = await db
-				.prepare(
-					`DELETE FROM profile_blobs WHERE expires_at < ${dialect.now()}`,
+			for (let page = 0; page < PROFILE_PURGE_MAX_PAGES; page += 1) {
+				const expired = await db
+					.prepare(
+						`SELECT id, blob_url FROM profile_blobs WHERE expires_at < ${dialect.now()} LIMIT ${PROFILE_PURGE_PAGE_SIZE}`,
+					)
+					.all<{ id: string; blob_url: string }>();
+				if (expired.results.length === 0) break;
+				const removable: string[] = [];
+				if (env.PROFILES_BUCKET) {
+					const bucket = env.PROFILES_BUCKET;
+					const settled = await Promise.allSettled(
+						expired.results.map((p) => bucket.delete(p.blob_url)),
+					);
+					settled.forEach((outcome, i) => {
+						const row = expired.results[i];
+						if (!row) return;
+						if (outcome.status === "fulfilled") removable.push(row.id);
+						else
+							logger.warn(
+								"[retention-cleanup] profile blob delete failed; row kept for retry",
+								{
+									profile_id: row.id,
+									error:
+										outcome.reason instanceof Error
+											? outcome.reason.message
+											: String(outcome.reason),
+								},
+							);
+					});
+				} else {
+					removable.push(...expired.results.map((p) => p.id));
+				}
+				for (let i = 0; i < removable.length; i += 90) {
+					const chunk = removable.slice(i, i + 90);
+					const deleted = await db
+						.prepare(
+							`DELETE FROM profile_blobs WHERE id IN (${chunk.map(() => "?").join(", ")})`,
+						)
+						.bind(...chunk)
+						.run();
+					profilesPurged += deleted.meta.changes;
+				}
+				// A page with kept rows would be re-selected forever; stop here
+				// and let the next sweep retry the failed blobs.
+				if (
+					expired.results.length < PROFILE_PURGE_PAGE_SIZE ||
+					removable.length < expired.results.length
 				)
-				.run();
-			profilesPurged = deleted.meta.changes;
+					break;
+			}
 		} catch (err) {
 			logger.error("[retention-cleanup] profile purge failed", {
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
+
+		let housekeeping: HousekeepingSummary = {
+			alert_evaluations: 0,
+			ask_evidence_events: 0,
+			metric_series: 0,
+			evidence_refs: 0,
+			evidence_ref_expansions: 0,
+		};
+		try {
+			housekeeping = await purgeSecondaryRows(db, {
+				retentionHours: getConfiguredRetentionHours(env.RETENTION_HOURS),
+			});
+		} catch (err) {
+			logger.error("[retention-cleanup] housekeeping purge failed", {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
@@ -470,6 +574,7 @@ export const createRetentionCleanupHandler = (options?: {
 			metric_points: metricsPurged,
 			analysis_results: analysesPurged,
 			profile_blobs: profilesPurged,
+			housekeeping,
 			actions: actionGraph?.actions ?? 0,
 			action_leaves: actionGraph
 				? actionGraph.agent_runs +

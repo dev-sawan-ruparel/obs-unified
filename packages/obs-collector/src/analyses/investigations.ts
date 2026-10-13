@@ -48,7 +48,7 @@ const errorTopOffenders: AnalysisDefinition = {
 				COUNT(*) AS errors
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 				AND status_code = 2
 			GROUP BY service_name
 			ORDER BY errors DESC
@@ -59,8 +59,8 @@ const errorTopOffenders: AnalysisDefinition = {
 				COUNT(*) AS errors
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-1 hour')
-				AND received_at <  datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 				AND status_code = 2
 			GROUP BY service_name
 			ORDER BY errors DESC
@@ -128,7 +128,7 @@ const latencyOutlierAttribution: AnalysisDefinition = {
 				COUNT(*)    OVER ()                            AS n
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-15 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
 		),
 		p95_cut AS (
 			-- Conservatively call "tail" the slowest 5% of the window.
@@ -203,12 +203,12 @@ const logAnomalySummary: AnalysisDefinition = {
 				(SELECT l2.message FROM logs l2
 					WHERE l2.project_id = '{{PROJECT_ID}}'
 						AND COALESCE(l2.logger_name, '<unknown>') = COALESCE(l1.logger_name, '<unknown>')
-						AND l2.received_at >= datetime('now', '-5 minutes')
+						AND l2.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 						AND l2.severity_number >= 17
 					ORDER BY l2.received_at DESC LIMIT 1) AS sample_message
 			FROM logs l1
 			WHERE l1.project_id = '{{PROJECT_ID}}'
-				AND l1.received_at >= datetime('now', '-5 minutes')
+				AND l1.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 				AND l1.severity_number >= 17
 			GROUP BY l1.logger_name
 		),
@@ -216,8 +216,8 @@ const logAnomalySummary: AnalysisDefinition = {
 			SELECT DISTINCT COALESCE(logger_name, '<unknown>') AS logger
 			FROM logs
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-1 hour')
-				AND received_at <  datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 				AND severity_number >= 17
 		),
 		newcomers AS (

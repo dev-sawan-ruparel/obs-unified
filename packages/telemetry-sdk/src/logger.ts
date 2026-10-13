@@ -15,6 +15,7 @@ import {
 	ACTOR_TYPE_KEY,
 	AGENT_RUN_ID_KEY,
 } from "@obsunified/types/constants";
+import { handleExportResponse } from "./export-response";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 import { getActiveActionContext, getActiveSpan } from "./span";
 
@@ -98,12 +99,15 @@ export async function flushLogs() {
 			headers.Authorization = `Bearer ${logConfig.authToken}`;
 		}
 
-		await fetch(`${logConfig.collectorUrl}/v1/logs`, {
+		const response = await fetch(`${logConfig.collectorUrl}/v1/logs`, {
 			method: "POST",
 			headers,
 			body: JSON.stringify(payload),
 			signal: AbortSignal.timeout(10_000),
 		});
+		if (handleExportResponse("log", response, batch.length)) {
+			requeueLogs(batch);
+		}
 	} catch (err) {
 		console.error("Failed to flush logs:", err);
 		requeueLogs(batch);

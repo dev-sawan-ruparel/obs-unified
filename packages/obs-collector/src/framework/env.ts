@@ -32,6 +32,13 @@ export interface CollectorEnv {
 	ALLOWED_ORIGINS?: string;
 	/** Set to "true" to allow unauthenticated ingest (local dev only) */
 	ALLOW_UNAUTHENTICATED?: string;
+	/** Raw request body cap in bytes for /v1/* and /internal/* (default 10 MiB). */
+	MAX_BODY_BYTES?: string;
+	/**
+	 * Set to "true" to let alert webhooks target loopback / private / link-local
+	 * hosts (self-hosted receivers). Off by default to block SSRF.
+	 */
+	ALERT_WEBHOOK_ALLOW_PRIVATE?: string;
 	TELEMETRY_REDACT_FIELDS?: string;
 	/**
 	 * Local/test escape hatch for payload capture. Production should prefer the

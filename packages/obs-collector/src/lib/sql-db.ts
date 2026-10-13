@@ -96,11 +96,27 @@ export class D1Adapter implements SqlDb {
 export const sqlDbFor = (env: { DB: D1Database | SqlDb }): SqlDb =>
 	isSqlDb(env.DB) ? env.DB : new D1Adapter(env.DB);
 
+/**
+ * SQLite `strftime` format that reproduces `Date#toISOString()` output
+ * (`YYYY-MM-DDTHH:MM:SS.mmmZ`). Every stored timestamp column holds that
+ * shape, so time windows must be rendered the same way: `datetime('now')`
+ * yields `YYYY-MM-DD HH:MM:SS` and in a text comparison the space sorts
+ * before the `T`, which made "last 5 minutes" match the whole current UTC
+ * day on D1 and made `expires_at < now` purges run a day late.
+ */
+export const SQLITE_ISO_FORMAT = "%Y-%m-%dT%H:%M:%fZ";
+
+/** Render SQLite `now` (optionally shifted by a modifier expression) as ISO text. */
+export const sqliteIsoNow = (modifier?: string): string =>
+	modifier
+		? `strftime('${SQLITE_ISO_FORMAT}', 'now', ${modifier})`
+		: `strftime('${SQLITE_ISO_FORMAT}', 'now')`;
+
 export const sqliteDialect: SqlDialect = {
 	name: "sqlite",
-	now: () => "datetime('now')",
-	sinceHours: (param) => `datetime('now', '-' || ${param} || ' hours')`,
-	sinceMinutes: (param) => `datetime('now', '-' || ${param} || ' minutes')`,
+	now: () => sqliteIsoNow(),
+	sinceHours: (param) => sqliteIsoNow(`'-' || ${param} || ' hours'`),
+	sinceMinutes: (param) => sqliteIsoNow(`'-' || ${param} || ' minutes'`),
 	jsonText: (expr, path) => `json_extract(${expr}, '${path}')`,
 };
 

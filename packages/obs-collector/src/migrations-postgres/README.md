@@ -59,6 +59,15 @@ land alongside the first hosted-Postgres deployment.
   READ COMMITTED a concurrent insert into an already-expired tree can still
   land between that tree's leaf deletes and its spine delete; see the header
   of `src/lib/action-retention.ts`.
+- Row keys are project-scoped. `045`–`048` swap the single-column primary
+  keys for composite ones in place (`user_profiles (project_id, user_id)`;
+  `actions`, `agent_runs`, `tool_calls`, `retrieval_events`, `eval_results`,
+  `artifacts (project_id, id)`; `ai_span_payloads` and
+  `telemetry_spans (project_id, trace_id, span_id)`). Each file looks up the
+  current primary key by definition and is a no-op once the key is
+  composite; the D1 siblings rebuild the tables through `*_new` copies. The
+  stores upsert with `ON CONFLICT (project_id, …)`, so both backends must
+  carry these migrations before deploying collector 2.1.
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

@@ -21,6 +21,12 @@ import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import { alertEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import type { SqlDb } from "./sql-db";
+import { assertSafeWebhookUrl, WebhookUrlError } from "./webhook-url";
+
+export interface AlertsStoreOptions {
+	/** Permit webhook targets on loopback / private / link-local hosts. */
+	allowPrivateWebhookTargets?: boolean;
+}
 
 const parseJsonField = <T>(value: unknown): T => {
 	if (typeof value === "string") return JSON.parse(value) as T;
@@ -79,7 +85,10 @@ export function compareValue(
 }
 
 export class AlertsStore {
-	constructor(private readonly db: SqlDb) {}
+	constructor(
+		private readonly db: SqlDb,
+		private readonly options: AlertsStoreOptions = {},
+	) {}
 
 	validateInput(input: AlertRuleInput): void {
 		if (!input.name?.trim()) throw new Error("name is required");
@@ -96,8 +105,16 @@ export class AlertsStore {
 		for (const ch of input.channels) {
 			if (ch.type !== "webhook")
 				throw new Error(`unknown channel type: ${ch.type}`);
-			if (!ch.url || !/^https?:\/\//.test(ch.url))
+			if (!ch.url || typeof ch.url !== "string")
 				throw new Error("channel.url must be http(s)://");
+			try {
+				assertSafeWebhookUrl(ch.url, {
+					allowPrivateNetworks: this.options.allowPrivateWebhookTargets,
+				});
+			} catch (err) {
+				if (err instanceof WebhookUrlError) throw new Error(err.message);
+				throw err;
+			}
 		}
 	}
 
@@ -217,18 +234,30 @@ export class AlertsStore {
 	}
 
 	async deleteRule(id: string, projectId: string): Promise<boolean> {
+		// Only a rule the caller's project owns takes its state and
+		// evaluations with it; a miss must not touch another project's rows.
+		// Children go first because alert_state / alert_evaluations reference
+		// alert_rules(id) and SQLite enforces that on D1 and node:sqlite.
+		const owned = await this.db
+			.prepare(
+				`SELECT 1 AS ok FROM alert_rules WHERE id = ? AND project_id = ?`,
+			)
+			.bind(id, projectId)
+			.first<{ ok: number }>();
+		if (!owned) return false;
+		await this.db
+			.prepare(`DELETE FROM alert_state WHERE rule_id = ? AND project_id = ?`)
+			.bind(id, projectId)
+			.run();
+		await this.db
+			.prepare(
+				`DELETE FROM alert_evaluations WHERE rule_id = ? AND project_id = ?`,
+			)
+			.bind(id, projectId)
+			.run();
 		const result = await this.db
 			.prepare(`DELETE FROM alert_rules WHERE id = ? AND project_id = ?`)
 			.bind(id, projectId)
-			.run();
-		// Also clean up state and evaluations for this rule.
-		await this.db
-			.prepare(`DELETE FROM alert_state WHERE rule_id = ?`)
-			.bind(id)
-			.run();
-		await this.db
-			.prepare(`DELETE FROM alert_evaluations WHERE rule_id = ?`)
-			.bind(id)
 			.run();
 		return (result.meta?.changes ?? 0) > 0;
 	}

@@ -4,7 +4,7 @@ import { postgresDialect, sqliteDialect } from "./sql-db";
 describe("SqlDialect", () => {
 	it("renders native SQLite expressions", () => {
 		expect(sqliteDialect.sinceHours("?")).toBe(
-			"datetime('now', '-' || ? || ' hours')",
+			"strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' hours')",
 		);
 		expect(
 			sqliteDialect.jsonText("attributes_json", '$."llm.cost.total_usd"'),

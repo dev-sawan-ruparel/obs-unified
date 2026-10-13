@@ -38,7 +38,7 @@ export async function getAISpansOverview(
         p.output_json         AS output_json
       FROM ai_span_payloads p
       INNER JOIN telemetry_spans s
-        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+        ON s.project_id = p.project_id AND s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ?
         AND p.received_at >= ${dialect.sinceHours("?")}
     `;

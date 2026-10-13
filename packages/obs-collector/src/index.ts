@@ -223,3 +223,4 @@ export const createDefaultCollectorApp = (config?: Partial<CollectorConfig>) =>
 	});
 
 export default createTelemetryCollectorApp(allPlugins);
+export type { HostLookup } from "./lib/webhook-url";

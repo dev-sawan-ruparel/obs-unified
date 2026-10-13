@@ -12,6 +12,12 @@ import {
 } from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import { sqlDbFor } from "../lib/sql-db";
+import {
+	assertSafeWebhookUrl,
+	type HostLookup,
+	redactWebhookUrl,
+	resolveWebhookHost,
+} from "../lib/webhook-url";
 
 const DEFAULT_RULE_CONCURRENCY = 5;
 const DEFAULT_RULE_TIMEOUT_MS = 10_000;
@@ -65,12 +71,56 @@ interface WebhookPayload {
 	};
 }
 
+export interface WebhookDeliveryOptions {
+	/** Permit targets on loopback / private / link-local hosts. */
+	allowPrivateWebhookTargets?: boolean;
+	/**
+	 * Resolver used to refuse public names that point at private addresses.
+	 * Hosts that can resolve (Node: `dns.lookup`) pass one; Workers cannot
+	 * reach private networks from `fetch` and leave it unset.
+	 */
+	hostLookup?: HostLookup;
+}
+
 async function fireWebhook(
 	channel: AlertWebhookChannel,
 	payload: WebhookPayload,
 	logger: Logger,
 	tracer?: ChildSpanRunner,
+	delivery: WebhookDeliveryOptions = {},
 ): Promise<boolean> {
+	// Hook URLs carry secrets in the path (Slack, PagerDuty…): logs and span
+	// attributes only ever see the redacted form.
+	const target = redactWebhookUrl(channel.url);
+	// Re-check at fire time: rules created before the host guard existed
+	// (or with the opt-in later removed) must not reach internal addresses.
+	try {
+		const url = assertSafeWebhookUrl(channel.url, {
+			allowPrivateNetworks: delivery.allowPrivateWebhookTargets,
+		});
+		if (!delivery.allowPrivateWebhookTargets && delivery.hostLookup) {
+			const resolution = await resolveWebhookHost(
+				url.hostname,
+				delivery.hostLookup,
+			);
+			if (resolution === "private") {
+				throw new Error(
+					`channel.url host "${url.hostname}" resolves to a private address`,
+				);
+			}
+			if (resolution === "unresolvable") {
+				throw new Error(
+					`channel.url host "${url.hostname}" could not be resolved; refusing to deliver blind`,
+				);
+			}
+		}
+	} catch (err) {
+		logger.error("[alerts-evaluator] webhook target refused", {
+			url: target,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return false;
+	}
 	const exec = async (
 		span: { setAttribute(k: string, v: unknown): void } | null,
 	): Promise<boolean> => {
@@ -82,13 +132,24 @@ async function fireWebhook(
 					...(channel.headers ?? {}),
 				},
 				body: JSON.stringify(payload),
+				// Never follow redirects: a 3xx could re-aim the POST (and its
+				// headers) at an arbitrary host. A redirecting hook is a
+				// misconfiguration and counts as a failed delivery.
+				redirect: "manual",
 				signal: AbortSignal.timeout(5000),
 			});
 			if (span) span.setAttribute("http.response.status_code", response.status);
+			if (response.status >= 300 && response.status < 400) {
+				logger.error("[alerts-evaluator] webhook responded with a redirect", {
+					url: target,
+					status: response.status,
+				});
+				return false;
+			}
 			return response.ok;
 		} catch (err) {
 			logger.error("[alerts-evaluator] webhook delivery failed", {
-				url: channel.url,
+				url: target,
 				error: err instanceof Error ? err.message : String(err),
 			});
 			return false;
@@ -97,7 +158,7 @@ async function fireWebhook(
 	if (!tracer) return exec(null);
 	return tracer("webhook.alert", async (span) => exec(span), {
 		"http.method": "POST",
-		"http.url": channel.url,
+		"http.url": target,
 		"alert.state": payload.state,
 	});
 }
@@ -107,12 +168,13 @@ async function fireChannels(
 	payload: WebhookPayload,
 	logger: Logger,
 	tracer?: ChildSpanRunner,
+	delivery: WebhookDeliveryOptions = {},
 ): Promise<boolean> {
 	if (channels.length === 0) return true;
 	const results = await Promise.all(
 		channels
 			.filter((ch): ch is AlertWebhookChannel => ch.type === "webhook")
-			.map((ch) => fireWebhook(ch, payload, logger, tracer)),
+			.map((ch) => fireWebhook(ch, payload, logger, tracer, delivery)),
 	);
 	return results.every(Boolean);
 }
@@ -160,6 +222,7 @@ async function evaluateOneRule(
 	logger: Logger,
 	tracer: ChildSpanRunner | undefined,
 	ruleTimeoutMs: number,
+	delivery: WebhookDeliveryOptions,
 ): Promise<{ fired: number; resolved: number }> {
 	try {
 		const value = await withTimeout(
@@ -206,8 +269,11 @@ async function evaluateOneRule(
 				},
 				logger,
 				tracer,
+				delivery,
 			);
-			await store.transitionState(rule.id, rule.projectId, "firing", now);
+			// Only advance the state once the channels accepted the alert.
+			// Otherwise the next tick sees ok → firing again and retries; a
+			// transient webhook failure must not silence the alert forever.
 			await store.recordEvaluation(
 				rule.id,
 				rule.projectId,
@@ -215,6 +281,15 @@ async function evaluateOneRule(
 				"firing",
 				ok,
 			);
+			if (!ok) {
+				logger.warn("[alerts-evaluator] delivery failed; will retry", {
+					rule_id: rule.id,
+					project_id: rule.projectId,
+					state: "firing",
+				});
+				return { fired: 0, resolved: 0 };
+			}
+			await store.transitionState(rule.id, rule.projectId, "firing", now);
 			return { fired: 1, resolved: 0 };
 		}
 		if (previous === "firing" && next === "ok") {
@@ -232,9 +307,18 @@ async function evaluateOneRule(
 				},
 				logger,
 				tracer,
+				delivery,
 			);
-			await store.transitionState(rule.id, rule.projectId, "ok", now);
 			await store.recordEvaluation(rule.id, rule.projectId, value, "ok", ok);
+			if (!ok) {
+				logger.warn("[alerts-evaluator] delivery failed; will retry", {
+					rule_id: rule.id,
+					project_id: rule.projectId,
+					state: "ok",
+				});
+				return { fired: 0, resolved: 0 };
+			}
+			await store.transitionState(rule.id, rule.projectId, "ok", now);
 			return { fired: 0, resolved: 1 };
 		}
 
@@ -259,6 +343,8 @@ export async function evaluateRuleBatch(
 		tracer?: ChildSpanRunner;
 		concurrency?: number;
 		ruleTimeoutMs?: number;
+		allowPrivateWebhookTargets?: boolean;
+		hostLookup?: HostLookup;
 	},
 ): Promise<{
 	evaluated: number;
@@ -266,6 +352,10 @@ export async function evaluateRuleBatch(
 	resolved: number;
 }> {
 	const logger = options?.logger ?? consoleLogger;
+	const delivery: WebhookDeliveryOptions = {
+		allowPrivateWebhookTargets: options?.allowPrivateWebhookTargets,
+		hostLookup: options?.hostLookup,
+	};
 	const concurrency = Math.max(
 		1,
 		Math.floor(options?.concurrency ?? DEFAULT_RULE_CONCURRENCY),
@@ -275,7 +365,14 @@ export async function evaluateRuleBatch(
 		Math.floor(options?.ruleTimeoutMs ?? DEFAULT_RULE_TIMEOUT_MS),
 	);
 	const results = await mapWithConcurrency(rules, concurrency, (rule) =>
-		evaluateOneRule(store, rule, logger, options?.tracer, ruleTimeoutMs),
+		evaluateOneRule(
+			store,
+			rule,
+			logger,
+			options?.tracer,
+			ruleTimeoutMs,
+			delivery,
+		),
 	);
 	return {
 		evaluated: rules.length,
@@ -291,6 +388,7 @@ export async function evaluateAllRules(
 		tracer?: ChildSpanRunner;
 		concurrency?: number;
 		ruleTimeoutMs?: number;
+		hostLookup?: HostLookup;
 	},
 ): Promise<{
 	evaluated: number;
@@ -299,13 +397,16 @@ export async function evaluateAllRules(
 }> {
 	const logger = options?.logger ?? consoleLogger;
 	const tracer = options?.tracer;
-	const store = new AlertsStore(sqlDbFor(env));
+	const allowPrivateWebhookTargets = env.ALERT_WEBHOOK_ALLOW_PRIVATE === "true";
+	const store = new AlertsStore(sqlDbFor(env), { allowPrivateWebhookTargets });
 	const rules = await store.listEnabledRules();
 	return evaluateRuleBatch(store, rules, {
 		logger,
 		tracer,
 		concurrency: options?.concurrency,
 		ruleTimeoutMs: options?.ruleTimeoutMs,
+		allowPrivateWebhookTargets,
+		hostLookup: options?.hostLookup,
 	});
 }
 

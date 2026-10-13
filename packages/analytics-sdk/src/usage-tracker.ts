@@ -30,6 +30,17 @@ export type {
 
 // ── Tracker ──
 
+/** Fetch spec: keepalive bodies are capped at 64 KiB per origin in flight. */
+export const KEEPALIVE_MAX_BODY_BYTES = 60 * 1024;
+
+export const fitsKeepalive = (body: string): boolean => {
+	const bytes =
+		typeof TextEncoder === "function"
+			? new TextEncoder().encode(body).byteLength
+			: body.length;
+	return bytes <= KEEPALIVE_MAX_BODY_BYTES;
+};
+
 export class UsageTracker {
 	private readonly config: Required<
 		Pick<
@@ -447,16 +458,21 @@ export class UsageTracker {
 			const baseUrl = this.collectorBaseUrl();
 			const replayUrl = `${baseUrl}/replays`;
 			const headers = this.authHeaders();
+			const body = JSON.stringify({
+				sessionId,
+				visitorId: this.visitorId,
+				sequenceNumber: this.replaySequence++,
+				events,
+			});
 			const init: RequestInit = {
 				method: "POST",
 				headers,
-				body: JSON.stringify({
-					sessionId,
-					visitorId: this.visitorId,
-					sequenceNumber: this.replaySequence++,
-					events,
-				}),
-				keepalive: true,
+				body,
+				// Browsers reject keepalive requests whose body exceeds 64 KiB
+				// (fetch would throw and the chunk vanished). rrweb full
+				// snapshots routinely exceed that, so only ask for keepalive
+				// when the chunk is small enough to be eligible.
+				keepalive: fitsKeepalive(body),
 			};
 			if (this.config.credentials) {
 				init.credentials = this.config.credentials;

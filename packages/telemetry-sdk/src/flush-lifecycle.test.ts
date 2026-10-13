@@ -62,4 +62,45 @@ describe("telemetry SDK flush lifecycle", () => {
 			expect.objectContaining({ method: "POST" }),
 		);
 	});
+
+	it("attempts the final beforeExit flush once even when the collector is down", async () => {
+		vi.mocked(fetch).mockRejectedValue(new Error("ECONNREFUSED"));
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		const { createLogger, initLogger } = await import("./logger");
+		initLogger({
+			collectorUrl: "https://collector.example",
+			serviceName: "svc",
+			flushIntervalMs: 0,
+		});
+		createLogger("test").info("last words");
+
+		// Node emits beforeExit each time the loop drains; a requeued batch
+		// used to trigger another flush every time, keeping the process alive.
+		for (let drain = 0; drain < 3; drain += 1) {
+			process.emit("beforeExit", 0);
+			await vi.advanceTimersByTimeAsync(0);
+		}
+		expect(fetch).toHaveBeenCalledTimes(1);
+		errors.mockRestore();
+	});
+
+	it("requeues logs on a 503 so the next interval resends them", async () => {
+		vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }));
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		const { createLogger, initLogger } = await import("./logger");
+		initLogger({
+			collectorUrl: "https://collector.example",
+			serviceName: "svc",
+			flushIntervalMs: 1_000,
+		});
+		createLogger("test").warn("keep me");
+
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(fetch).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(fetch).toHaveBeenCalledTimes(2);
+		const body = JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body));
+		expect(JSON.stringify(body)).toContain("keep me");
+		errors.mockRestore();
+	});
 });

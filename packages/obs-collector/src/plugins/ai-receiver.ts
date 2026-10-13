@@ -15,18 +15,15 @@ import type { CollectorPlugin } from "../framework/collector";
 import { AIStore, type IngestEvaluation } from "../lib/ai-store";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
+import { readJsonObject } from "./_json";
 
 export const aiReceiverPlugin: CollectorPlugin = {
 	name: "ai-receiver",
 	register(app, _runtime) {
 		app.post("/v1/ai", async (c) => {
 			const projectId = getProjectId(c);
-			let payload: AICallPayload;
-			try {
-				payload = await c.req.json<AICallPayload>();
-			} catch {
-				return c.json({ error: "Invalid JSON body" }, 400);
-			}
+			const payload = await readJsonObject<AICallPayload>(c);
+			if (!payload) return c.json({ error: "Invalid JSON body" }, 400);
 			if (!payload.calls || !Array.isArray(payload.calls)) {
 				return c.json({ error: "Missing calls array" }, 400);
 			}
@@ -126,12 +123,8 @@ export const aiReceiverPlugin: CollectorPlugin = {
 		// one or both of score/label, and optional explanation + metadata.
 		app.post("/v1/ai/evaluations", async (c) => {
 			const projectId = getProjectId(c);
-			let payload: AIEvaluationPayload;
-			try {
-				payload = await c.req.json<AIEvaluationPayload>();
-			} catch {
-				return c.json({ error: "Invalid JSON body" }, 400);
-			}
+			const payload = await readJsonObject<AIEvaluationPayload>(c);
+			if (!payload) return c.json({ error: "Invalid JSON body" }, 400);
 			if (!payload.evaluations || !Array.isArray(payload.evaluations)) {
 				return c.json({ error: "Missing evaluations array" }, 400);
 			}

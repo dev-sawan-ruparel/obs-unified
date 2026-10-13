@@ -21,7 +21,14 @@ export interface FileBlobStoreOptions {
 }
 
 export class FileBlobStore implements BlobStore {
-	constructor(private readonly opts: FileBlobStoreOptions) {}
+	// An explicit field rather than a parameter property: `node src/server.ts`
+	// (the dev script) runs TypeScript in strip-only mode, which rejects
+	// parameter properties.
+	private readonly opts: FileBlobStoreOptions;
+
+	constructor(opts: FileBlobStoreOptions) {
+		this.opts = opts;
+	}
 
 	async put(
 		key: string,

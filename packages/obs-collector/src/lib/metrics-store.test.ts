@@ -38,8 +38,8 @@ describe("MetricsStore", () => {
 		const sqlite = new MemSqlDb({ run: () => ({ changes: 2 }) });
 		expect(await new MetricsStore(sqlite).purgeExpired()).toBe(4);
 		expect(sqlite.calls.map((c) => c.sql)).toEqual([
-			"DELETE FROM metric_exemplars WHERE expires_at < datetime('now')",
-			"DELETE FROM metric_point WHERE expires_at < datetime('now')",
+			"DELETE FROM metric_exemplars WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+			"DELETE FROM metric_point WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
 		]);
 
 		// metric_exemplars.received_at / expires_at are TEXT ISO on Postgres

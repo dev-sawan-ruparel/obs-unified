@@ -8,6 +8,7 @@ import type { Pool } from "pg";
 import { describe, expect, it } from "vitest";
 import { INVESTIGATION_ANALYSES } from "../analyses/investigations";
 import { TIER0_ANALYSES } from "../analyses/tier0";
+import { postgresDialect, sqliteDialect } from "./sql-db";
 import {
 	configurePostgresTypeParsers,
 	mixedCaseAliases,
@@ -73,6 +74,31 @@ describe("translateD1Sql — time windows against TEXT timestamp columns", () =>
 		).toBe(
 			`received_at >= to_char(${UTC_NOW} - ($1::text || ' hours')::interval, ${ISO})`,
 		);
+	});
+
+	it("renders the sqlite ISO strftime('now') forms as the same ISO text", () => {
+		// `sqliteDialect` and the shared analysis SQL now spell time windows
+		// as strftime('%Y-%m-%dT%H:%M:%fZ', 'now'[, modifier]) so SQLite
+		// compares ISO text to ISO text; Postgres gets postgresDialect's shape.
+		expect(
+			translate("expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"),
+		).toBe(`expires_at < to_char(${UTC_NOW}, ${ISO})`);
+		expect(
+			translate(
+				"received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')",
+			),
+		).toBe(`received_at >= to_char(${UTC_NOW} - INTERVAL '5 minutes', ${ISO})`);
+		expect(
+			translate(
+				"received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' hours')",
+			),
+		).toBe(
+			`received_at >= to_char(${UTC_NOW} - ($1::text || ' hours')::interval, ${ISO})`,
+		);
+		expect(translate(sqliteDialect.sinceMinutes("?"))).toBe(
+			postgresDialect.sinceMinutes("$1"),
+		);
+		expect(translate(sqliteDialect.now())).toBe(postgresDialect.now());
 	});
 
 	it("maps datetime(…, 'unixepoch') to to_timestamp", () => {

@@ -35,6 +35,7 @@ import type { Pool, QueryResultRow } from "pg";
 import {
 	postgresDialect,
 	postgresIsoText,
+	SQLITE_ISO_FORMAT,
 	type SqlDb,
 	type SqlStatement,
 } from "./sql-db";
@@ -416,8 +417,20 @@ const FUNCTION_REWRITES: Record<string, (args: string[]) => string | null> = {
 		return null;
 	},
 	strftime: (args) => {
+		const format = args.length >= 2 ? unquote(args[0]) : null;
+		// `strftime('%Y-%m-%dT%H:%M:%fZ', 'now'[, modifier])` is how the
+		// shared SQL and `sqliteDialect` render ISO-text time windows on
+		// SQLite; on Postgres that is the same `to_char(now - interval)`
+		// expression `postgresDialect` emits.
+		if (format === SQLITE_ISO_FORMAT && /^'now'$/i.test(args[1])) {
+			if (args.length === 2) return postgresIsoText(UTC_NOW);
+			if (args.length === 3) {
+				const interval = sqliteModifierToInterval(args[2]);
+				return interval ? postgresIsoText(`${UTC_NOW} - ${interval}`) : null;
+			}
+			return null;
+		}
 		if (args.length !== 2) return null;
-		const format = unquote(args[0]);
 		const render = format ? STRFTIME_FORMATS[format] : undefined;
 		return render ? render(args[1]) : null;
 	},

@@ -34,6 +34,14 @@ if (!databaseUrl) {
 const client = new pg.Client({ connectionString: databaseUrl });
 await client.connect();
 
+// Several replicas may start (and migrate) at once. A session-level advisory
+// lock serialises them; it is released on COMMIT of nothing — i.e. when the
+// session ends — so a crashed runner never leaves it held.
+const MIGRATION_LOCK_KEY = "obs-unified:migrations";
+await client.query("SELECT pg_advisory_lock(hashtext($1))", [
+	MIGRATION_LOCK_KEY,
+]);
+
 await client.query(`
 	CREATE TABLE IF NOT EXISTS schema_migrations (
 		name TEXT PRIMARY KEY,
@@ -71,6 +79,9 @@ for (const file of files) {
 	}
 }
 
+await client.query("SELECT pg_advisory_unlock(hashtext($1))", [
+	MIGRATION_LOCK_KEY,
+]);
 await client.end();
 console.log(`[migrate] done (${appliedCount} new of ${files.length} total)`);
 

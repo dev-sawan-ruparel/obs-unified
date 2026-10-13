@@ -4,6 +4,7 @@ import {
 	ACTION_ID_KEY,
 	ACTION_ROOT_ID_KEY,
 } from "@obsunified/types/constants";
+import { handleExportResponse } from "./export-response";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 import { getActiveActionContext, getActiveSpan } from "./span";
 
@@ -108,12 +109,15 @@ export async function flushAICalls() {
 			headers.Authorization = `Bearer ${aiConfig.authToken}`;
 		}
 
-		await fetch(`${aiConfig.collectorUrl}/v1/ai`, {
+		const response = await fetch(`${aiConfig.collectorUrl}/v1/ai`, {
 			method: "POST",
 			headers,
 			body: JSON.stringify(payload),
 			signal: AbortSignal.timeout(10_000),
 		});
+		if (handleExportResponse("AI call", response, batch.length)) {
+			requeueAICalls(batch);
+		}
 	} catch (err) {
 		console.error("Failed to flush AI calls:", err);
 		requeueAICalls(batch);

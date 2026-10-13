@@ -146,3 +146,25 @@ export function deriveAll() {
 export function readManifest() {
 	return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
 }
+
+/**
+ * The hand-maintained scopes block lives at `authored.scopes` (older drafts
+ * put it at the manifest root). Every `<key>.scope` must be a scope carried
+ * by a code-derived package, otherwise a stale block survives a scope rename
+ * unnoticed. Returns human-readable failure strings; empty when consistent.
+ */
+export function scopeIntegrityFailures(manifest) {
+	const derivedScopes = new Set(
+		(manifest?.derived?.packages ?? []).map((p) => p.scope).filter(Boolean),
+	);
+	const scopes = manifest?.authored?.scopes ?? manifest?.scopes ?? {};
+	const failures = [];
+	for (const [key, entry] of Object.entries(scopes)) {
+		if (entry?.scope && !derivedScopes.has(entry.scope)) {
+			failures.push(
+				`manifest.json authored.scopes.${key}.scope "${entry.scope}" is not the scope of any derived package`,
+			);
+		}
+	}
+	return failures;
+}

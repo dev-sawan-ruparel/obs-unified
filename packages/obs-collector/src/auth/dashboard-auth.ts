@@ -1,7 +1,12 @@
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import type { CollectorEnv } from "../framework/env";
 import { ProjectsStore } from "../lib/projects-store";
 import { type SqlDb, sqlDbFor } from "../lib/sql-db";
+import {
+	LoginRateLimiter,
+	type LoginRateLimitOptions,
+	loginClientKey,
+} from "./login-rate-limit";
 
 const SESSION_COOKIE = "obs_session";
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
@@ -107,6 +112,22 @@ function getCookie(
 export interface DashboardAuthConfig {
 	password?: string;
 	token?: string;
+	/**
+	 * Failed-login limiter for POST /auth/login (see login-rate-limit.ts).
+	 * Pass `false` to disable; defaults to 10 failures per 15 minutes.
+	 * `clientAddress` lets the host supply the connection's peer address;
+	 * `trustProxyHeaders` honours forwarding headers from a trusted proxy.
+	 * Without either, Workers use the edge-set client IP and every other
+	 * runtime shares one bucket.
+	 */
+	loginRateLimit?:
+		| (LoginRateLimitOptions & {
+				clientAddress?: (
+					c: Context<{ Bindings: CollectorEnv }>,
+				) => string | undefined;
+				trustProxyHeaders?: boolean;
+		  })
+		| false;
 }
 
 /**
@@ -261,21 +282,40 @@ export function createDashboardAuth(config?: DashboardAuthConfig): {
 	const registerRoutes = (
 		app: import("hono").Hono<{ Bindings: CollectorEnv }>,
 	) => {
+		const limiter =
+			config?.loginRateLimit === false
+				? null
+				: new LoginRateLimiter(config?.loginRateLimit ?? {});
+
 		app.post("/auth/login", async (c) => {
 			const configuredPassword = config?.password ?? c.env.DASHBOARD_PASSWORD;
 			if (!configuredPassword) {
 				return c.json({ error: "Dashboard password not configured" }, 500);
 			}
 
+			const limitConfig = config?.loginRateLimit || undefined;
+			const clientKey = loginClientKey(c.req.raw.headers, {
+				clientAddress: limitConfig?.clientAddress?.(c),
+				trustProxyHeaders: limitConfig?.trustProxyHeaders,
+			});
+			const verdict = limiter?.check(clientKey);
+			if (verdict && !verdict.allowed) {
+				c.header("Retry-After", String(verdict.retryAfterSeconds));
+				return c.json({ error: "Too many failed login attempts" }, 429);
+			}
+
 			const body = await c.req
 				.json<{ password?: string }>()
 				.catch(() => ({ password: undefined }));
 			if (
-				!body.password ||
+				!body?.password ||
+				typeof body.password !== "string" ||
 				!(await timingSafeEqualStr(body.password, configuredPassword))
 			) {
+				limiter?.recordFailure(clientKey);
 				return c.json({ error: "Invalid password" }, 401);
 			}
+			limiter?.reset(clientKey);
 
 			const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MAX_AGE;
 			const payload = createSessionToken(expiresAt);

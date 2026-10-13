@@ -272,20 +272,25 @@ export class MetricsStore {
 			}
 		}
 
-		// Insert missing series.
+		// Insert missing series. Two concurrent batches can both miss the
+		// lookup for a brand-new identity; UNIQUE(project_id, identity) would
+		// then fail the loser's whole batch. INSERT OR IGNORE lets the loser
+		// proceed, and the re-select below swaps in the winner's series id.
 		const insertStmt = this.db.prepare(`
-			INSERT INTO metric_series (
+			INSERT OR IGNORE INTO metric_series (
 				id, project_id, name, description, unit, type,
 				is_monotonic, temporality, scope_name, scope_version, service_name,
 				resource_attrs_json, attributes_json, identity, created_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
 		const toInsert: SqlStatement[] = [];
+		const attemptedIds = new Set<string>();
 		const createdAt = new Date().toISOString();
 		for (const [identity, p] of byIdentity.entries()) {
 			if (existing.has(identity)) continue;
 			const id = crypto.randomUUID();
 			existing.set(identity, { id, identity });
+			attemptedIds.add(identity);
 			toInsert.push(
 				insertStmt.bind(
 					id,
@@ -306,7 +311,26 @@ export class MetricsStore {
 				),
 			);
 		}
-		if (toInsert.length) await this.db.batch(toInsert);
+		if (toInsert.length === 0) return existing;
+		await this.db.batch(toInsert);
+
+		// Re-read the identities we tried to insert: an ignored insert means
+		// another writer won, and points must reference the stored id.
+		const attempted = identities.filter((identity) =>
+			attemptedIds.has(identity),
+		);
+		for (let i = 0; i < attempted.length; i += 50) {
+			const chunk = attempted.slice(i, i + 50);
+			const placeholders = chunk.map(() => "?").join(",");
+			const rows = await this.db
+				.prepare(
+					`SELECT id, identity FROM metric_series
+					 WHERE project_id = ? AND identity IN (${placeholders})`,
+				)
+				.bind(projectId, ...chunk)
+				.all<SeriesRow>();
+			for (const row of rows.results) existing.set(row.identity, row);
+		}
 		return existing;
 	}
 }

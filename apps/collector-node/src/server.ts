@@ -18,6 +18,7 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { serve } from "@hono/node-server";
+import { getConnInfo } from "@hono/node-server/conninfo";
 import {
 	BlobStoreToR2Adapter,
 	type CollectorEnv,
@@ -29,12 +30,16 @@ import {
 	S3BlobStore,
 } from "@obsunified/collector";
 import pg, { Pool } from "pg";
-import { readOptionalCollectorEnv } from "./collector-env";
-import { FileBlobStore } from "./file-blob-store";
+import {
+	type BlobStoreKind,
+	readOptionalCollectorEnv,
+	resolveBlobStore,
+} from "./collector-env.ts";
+import { FileBlobStore } from "./file-blob-store.ts";
 import {
 	createCollectorMaintenance,
 	readMaintenanceConfig,
-} from "./maintenance";
+} from "./maintenance.ts";
 
 const env = readEnv();
 
@@ -79,9 +84,9 @@ const blob =
 				bucket: env.S3_BUCKET,
 			});
 
-// INGEST_KEY is consumed by the auth layer via env-bootstrap; we
-// expose it on `process.env` so the middleware's lazy lookup finds it.
-process.env.INGEST_KEY = env.INGEST_KEY;
+// INGEST_KEY reaches the auth layer through `requestEnv` below (the
+// middleware bootstraps from `c.env.INGEST_KEY`); nothing reads it from
+// `process.env`, so the global environment is left untouched.
 
 const ingestAuth = createIngestAuth({
 	allowUnauthenticated: false,
@@ -89,6 +94,13 @@ const ingestAuth = createIngestAuth({
 const dashboardAuth = createDashboardAuth({
 	password: env.DASHBOARD_PASSWORD,
 	token: env.DASHBOARD_TOKEN,
+	loginRateLimit: {
+		// The TCP peer is the only identity a direct client cannot choose.
+		// Behind a reverse proxy that peer is the proxy itself, so operators
+		// set TRUST_PROXY=true to key on the forwarded client address instead.
+		clientAddress: (c) => getConnInfo(c).remote.address,
+		trustProxyHeaders: env.TRUST_PROXY,
+	},
 });
 
 const app = createDefaultCollectorApp({
@@ -200,7 +212,15 @@ function readEnv() {
 		}
 		return v;
 	};
-	const blobStore = process.env.BLOB_STORE === "s3" ? "s3" : "file";
+	let blobStore: BlobStoreKind;
+	try {
+		blobStore = resolveBlobStore(process.env.BLOB_STORE);
+	} catch (err) {
+		console.error(
+			`[obs-unified] ${err instanceof Error ? err.message : String(err)}`,
+		);
+		process.exit(1);
+	}
 	return {
 		PORT: readNumberEnv("PORT", 8790),
 		DATABASE_URL: required("DATABASE_URL"),
@@ -230,6 +250,7 @@ function readEnv() {
 			undefined,
 		ALLOWED_ORIGINS:
 			process.env.ALLOWED_ORIGINS?.split(",").map((s) => s.trim()) ?? [],
+		TRUST_PROXY: readBooleanEnv("TRUST_PROXY", false),
 	};
 }
 

@@ -28,7 +28,10 @@ WORKDIR /repo/apps/collector-node
 ENV NODE_ENV=production
 ENV PORT=8790
 RUN apk add --no-cache tini
-COPY --from=build /repo /repo
+COPY --from=build --chown=node:node /repo /repo
+# Unprivileged runtime. BLOB_DIR defaults to /tmp; mount /data for file blobs.
+RUN mkdir -p /data && chown node:node /data
+USER node
 EXPOSE 8790
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 	CMD wget -q -O- http://127.0.0.1:8790/health || exit 1

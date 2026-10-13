@@ -130,8 +130,7 @@ export const aiSpanPayloadsProcessorPlugin: CollectorPlugin = {
 								input_json, output_json, input_hash, output_hash, session_id, user_id,
 								received_at, expires_at, interaction_id, action_id
 							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-							ON CONFLICT(trace_id, span_id) DO UPDATE SET
-								project_id = excluded.project_id,
+							ON CONFLICT(project_id, trace_id, span_id) DO UPDATE SET
 								span_kind = excluded.span_kind,
 								input_json = excluded.input_json,
 								output_json = excluded.output_json,

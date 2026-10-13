@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 import prompts from "prompts";
 import { runDoctor, runKeys } from "./collector-commands";
+import { SCAFFOLD_SDK_RANGES } from "./scaffold-versions";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES = path.join(here, "..", "templates");
@@ -244,8 +245,7 @@ async function scaffoldApp(name: string) {
 					type: "module",
 					scripts: { dev: "vite", build: "vite build" },
 					dependencies: {
-						"@obsunified/analytics-sdk": "^1.0.0",
-						"@obsunified/telemetry-sdk": "^1.0.0",
+						...SCAFFOLD_SDK_RANGES,
 						react: "^19.0.0",
 						"react-dom": "^19.0.0",
 					},

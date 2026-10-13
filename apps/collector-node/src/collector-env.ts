@@ -27,6 +27,23 @@ export const OPTIONAL_COLLECTOR_ENV_KEYS = [
 	"NARRATIVE_BUDGET_PER_HOUR",
 ] as const satisfies readonly (keyof CollectorEnv)[];
 
+export type BlobStoreKind = "file" | "s3";
+
+/**
+ * `BLOB_STORE` selects the blob backend. Values are case-insensitive and
+ * trimmed; anything other than `file` / `s3` (or unset, which means `file`)
+ * is an error rather than a silent fall back to the local filesystem, so a
+ * typo like `S3 ` cannot route production replays onto a container disk.
+ */
+export function resolveBlobStore(raw: string | undefined): BlobStoreKind {
+	const value = (raw ?? "").trim().toLowerCase();
+	if (value === "" || value === "file") return "file";
+	if (value === "s3") return "s3";
+	throw new Error(
+		`BLOB_STORE="${raw}" is not supported; expected "file" or "s3"`,
+	);
+}
+
 export type OptionalCollectorEnvKey =
 	(typeof OPTIONAL_COLLECTOR_ENV_KEYS)[number];
 

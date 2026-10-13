@@ -66,4 +66,51 @@ describe("span exporter", () => {
 		const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
 		expect(body.resourceSpans).toHaveLength(1);
 	});
+
+	it("requeues the batch on a transient non-2xx and resends it on the next flush", async () => {
+		vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }));
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		initSpanExporter({
+			collectorUrl: "https://collector.example",
+			flushIntervalMs: 0,
+		});
+		createRequestSpan("svc", "GET /retry").end();
+
+		await flushSpans();
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(errors).toHaveBeenCalledWith(
+			expect.stringContaining("HTTP 503; 1 item(s) requeued"),
+		);
+
+		await flushSpans();
+		expect(fetch).toHaveBeenCalledTimes(2);
+		const body = JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body));
+		expect(body.resourceSpans[0].scopeSpans[0].spans[0].name).toBe(
+			"GET /retry",
+		);
+
+		// Accepted on the retry: nothing left to send.
+		await flushSpans();
+		expect(fetch).toHaveBeenCalledTimes(2);
+		errors.mockRestore();
+	});
+
+	it("drops the batch loudly on a permanent client error instead of retrying", async () => {
+		vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 401 }));
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		initSpanExporter({
+			collectorUrl: "https://collector.example",
+			authToken: "rotated",
+			flushIntervalMs: 0,
+		});
+		createRequestSpan("svc", "GET /rejected").end();
+
+		await flushSpans();
+		await flushSpans();
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(errors).toHaveBeenCalledWith(
+			expect.stringContaining("HTTP 401; dropping 1 item(s)"),
+		);
+		errors.mockRestore();
+	});
 });

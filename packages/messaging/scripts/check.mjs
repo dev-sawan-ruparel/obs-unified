@@ -18,7 +18,7 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { REPO_ROOT, readManifest } from "./lib.mjs";
+import { REPO_ROOT, readManifest, scopeIntegrityFailures } from "./lib.mjs";
 
 const m = readManifest();
 const tools = new Set(m.derived.mcpTools);
@@ -233,20 +233,10 @@ for (const t of tools) {
 	}
 }
 
-// 9. Scope integrity — the static scopes block must agree with the
+// 11. Scope integrity — the authored scopes block must agree with the
 // code-derived package scopes (catches a stale block after a scope rename).
-{
-	const derivedScopes = new Set(
-		m.derived.packages.map((p) => p.scope).filter(Boolean),
-	);
-	for (const [key, entry] of Object.entries(m.scopes ?? {})) {
-		if (entry?.scope && !derivedScopes.has(entry.scope)) {
-			fail(
-				`manifest.json scopes.${key}.scope "${entry.scope}" is not the scope of any derived package`,
-			);
-		}
-	}
-}
+// The block lives at `authored.scopes`; reading `m.scopes` made this a no-op.
+for (const f of scopeIntegrityFailures(m)) fail(f);
 
 if (failures.length) {
 	console.error(`messaging:check FAILED (${failures.length}):`);

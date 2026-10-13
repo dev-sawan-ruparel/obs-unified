@@ -22,6 +22,7 @@ import {
 	AGENT_RUN_ID_KEY,
 	INTERACTION_ID_KEY,
 } from "@obsunified/types/constants";
+import { handleExportResponse } from "./export-response";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
 
 const generateId = (bytes: number): string =>
@@ -78,12 +79,18 @@ export async function flushSpans(): Promise<void> {
 			headers.Authorization = `Bearer ${spanExporterConfig.authToken}`;
 		}
 
-		await fetch(`${spanExporterConfig.collectorUrl}/v1/traces`, {
-			method: "POST",
-			headers,
-			body: JSON.stringify(payload),
-			signal: AbortSignal.timeout(10_000),
-		});
+		const response = await fetch(
+			`${spanExporterConfig.collectorUrl}/v1/traces`,
+			{
+				method: "POST",
+				headers,
+				body: JSON.stringify(payload),
+				signal: AbortSignal.timeout(10_000),
+			},
+		);
+		if (handleExportResponse("span", response, batch.length)) {
+			requeueSpans(batch);
+		}
 	} catch (err) {
 		console.error("Failed to flush spans:", err);
 		requeueSpans(batch);

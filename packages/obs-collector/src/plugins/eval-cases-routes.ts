@@ -19,6 +19,7 @@ import { sourceLinkEvidenceReferences } from "../lib/evidence-references";
 import { randomHex } from "../lib/hash";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
+import { readJsonObject } from "./_json";
 
 interface EvalCaseRequestBody {
 	sourceEntityType?: unknown;
@@ -123,12 +124,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 	name: "eval-cases-routes",
 	register(app) {
 		app.post("/internal/eval-cases", async (c) => {
-			let body: EvalCaseRequestBody;
-			try {
-				body = (await c.req.json()) as EvalCaseRequestBody;
-			} catch {
-				return c.json(badRequest("body must be JSON"), 400);
-			}
+			const body = await readJsonObject<EvalCaseRequestBody>(c);
+			if (!body) return c.json(badRequest("body must be a JSON object"), 400);
 
 			const sourceType = body.sourceEntityType ?? body.source?.type;
 			if (!isEvalCaseSourceType(sourceType)) {
@@ -236,12 +233,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.post("/internal/eval-runs", async (c) => {
-			let body: EvalRunRequestBody;
-			try {
-				body = (await c.req.json()) as EvalRunRequestBody;
-			} catch {
-				return c.json(badRequest("body must be JSON"), 400);
-			}
+			const body = await readJsonObject<EvalRunRequestBody>(c);
+			if (!body) return c.json(badRequest("body must be a JSON object"), 400);
 
 			const id = asOptionalString(body.id ?? body.runId)?.trim();
 			if ((body.id ?? body.runId) !== undefined && !id) {
@@ -378,11 +371,9 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				actualOutcome?: unknown;
 				details?: unknown;
 			};
-			try {
-				body = (await c.req.json()) as typeof body;
-			} catch {
-				return c.json(badRequest("body must be JSON"), 400);
-			}
+			const parsed = await readJsonObject<typeof body>(c);
+			if (!parsed) return c.json(badRequest("body must be a JSON object"), 400);
+			body = parsed;
 
 			if (body.passed === undefined || typeof body.passed !== "boolean") {
 				return c.json(badRequest("passed must be a boolean"), 400);

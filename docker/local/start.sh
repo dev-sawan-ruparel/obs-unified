@@ -29,6 +29,14 @@ export OBS_COLLECTOR_URL="${OBS_COLLECTOR_URL:-http://127.0.0.1:8790}"
 
 mkdir -p /data/blobs
 chown -R postgres:postgres /var/lib/postgresql /var/run/postgresql
+# Everything the collector writes lives under /data; it runs as `node`.
+chown -R node:node /data
+
+# Run the Node processes unprivileged. The exported environment above is
+# inherited; only HOME/USER/SHELL are reset for the target user.
+run_node() {
+	runuser -u node -- "$@"
+}
 
 if [ ! -d "$PGDATA" ] || [ -z "$(ls -A "$PGDATA" 2>/dev/null)" ]; then
 	echo "[obs-unified] initializing postgres cluster at $PGDATA"
@@ -57,18 +65,20 @@ if ! run_pg psql -tAc "SELECT 1 FROM pg_database WHERE datname='obs_unified'" | 
 fi
 
 echo "[obs-unified] running migrations"
-node apps/collector-node/scripts/migrate-pg.mjs
+run_node node apps/collector-node/scripts/migrate-pg.mjs
 
-echo "[obs-unified] starting collector"
-node apps/collector-node/dist/server.js &
+echo "[obs-unified] starting collector (as node)"
+run_node node apps/collector-node/dist/server.js &
 collector_pid="$!"
 
-echo "[obs-unified] starting dashboard"
-node docker/local/serve-dashboard.mjs &
+echo "[obs-unified] starting dashboard (as node)"
+run_node node docker/local/serve-dashboard.mjs &
 dashboard_pid="$!"
 
 cleanup() {
 	kill "$collector_pid" "$dashboard_pid" 2>/dev/null || true
+	# runuser may not forward the signal to its child; stop those too.
+	pkill -u node node 2>/dev/null || true
 	pg_ctlcluster 15 main stop >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
@@ -79,7 +89,7 @@ done
 
 if [ "${OBS_LOCAL_SEED:-true}" = "true" ]; then
 	echo "[obs-unified] seeding local sample data"
-	node scripts/seed-everything/run.mjs \
+	run_node node scripts/seed-everything/run.mjs \
 		--collector "http://127.0.0.1:${PORT}" \
 		--password "$DASHBOARD_PASSWORD" \
 		--key "$INGEST_KEY" \

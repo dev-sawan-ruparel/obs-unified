@@ -12,6 +12,7 @@ import {
 import type { CollectorPlugin } from "../framework/collector";
 import { retentionExpiry } from "../lib/otlp";
 import { getProjectId } from "./_context";
+import { readJsonObject } from "./_json";
 
 const sanitizeIsoTimestamp = (value?: string): string => {
 	if (!value) return new Date().toISOString();
@@ -67,12 +68,8 @@ export const usageReceiverPlugin: CollectorPlugin = {
 
 		app.post("/v1/usage", async (c) => {
 			const projectId = getProjectId(c);
-			let payload: UsageEventPayload;
-			try {
-				payload = await c.req.json<UsageEventPayload>();
-			} catch {
-				return c.json({ error: "Invalid JSON body" }, 400);
-			}
+			const payload = await readJsonObject<UsageEventPayload>(c);
+			if (!payload) return c.json({ error: "Invalid JSON body" }, 400);
 			const rawEvents = payload.events || [];
 			if (rawEvents.length > 200) {
 				return c.json(

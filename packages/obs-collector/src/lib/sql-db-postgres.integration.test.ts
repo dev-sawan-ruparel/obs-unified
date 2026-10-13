@@ -25,17 +25,28 @@ import { fileURLToPath } from "node:url";
 import type {
 	AICallRecord,
 	AlertRule,
+	StoredSpan,
 	UsageEventRecord,
 } from "@obsunified/types";
+import type { MiddlewareHandler } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deriveAnalysesForProject } from "../analyses/derive";
 import { INVESTIGATION_ANALYSES } from "../analyses/investigations";
 import { TIER0_ANALYSES } from "../analyses/tier0";
+import {
+	type CollectorRuntime,
+	createTelemetryCollectorApp,
+	type SpanProcessorPlugin,
+} from "../framework/collector";
+import type { CollectorEnv, CollectorRouteContext } from "../framework/env";
 import type { DecodedMetricPoint } from "../otlp/decode";
+import { aiSpanPayloadsProcessorPlugin } from "../plugins/ai-span-payloads-processor";
+import { identityReceiverPlugin } from "../plugins/identity-receiver";
 import { purgeExpiredActionGraph } from "./action-retention";
 import { ActionStore } from "./actions-store";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
 import { purgeExpiredAIData } from "./ai-store/retention";
+import { getAISpansOverview } from "./ai-store/spans";
 import { AlertsStore } from "./alerts-store";
 import { runSqlAnalysis } from "./analyses-runner";
 import { sha256Hex } from "./hash";
@@ -45,6 +56,7 @@ import {
 	configurePostgresTypeParsers,
 	PostgresAdapter,
 } from "./sql-db-postgres";
+import { ingestTelemetrySpans } from "./store/ingest";
 import {
 	actionRecord,
 	agentRunRecord,
@@ -276,7 +288,8 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		const found = await store.findByKeyHash(await sha256Hex(minted.key));
 		expect(found).toEqual({ projectId: "default", keyId: minted.id });
 
-		expect(await store.revokeKey(minted.id)).toBe(true);
+		expect(await store.revokeKey(minted.id, "other-project")).toBe(false);
+		expect(await store.revokeKey(minted.id, "default")).toBe(true);
 		expect(await store.findByKeyHash(await sha256Hex(minted.key))).toBeNull();
 
 		const listed = await store.listKeys("default");
@@ -557,6 +570,248 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 			await admin.end();
 		}
 		expect((await indexed())?.indexname).toBe("idx_actions_started_at");
+	});
+
+	it("migrations 045–048 key profiles, action graph, payloads and spans by project and re-apply cleanly", async () => {
+		const expected: Record<string, string> = {
+			user_profiles: "PRIMARY KEY (project_id, user_id)",
+			actions: "PRIMARY KEY (project_id, id)",
+			agent_runs: "PRIMARY KEY (project_id, id)",
+			tool_calls: "PRIMARY KEY (project_id, id)",
+			retrieval_events: "PRIMARY KEY (project_id, id)",
+			eval_results: "PRIMARY KEY (project_id, id)",
+			artifacts: "PRIMARY KEY (project_id, id)",
+			ai_span_payloads: "PRIMARY KEY (project_id, trace_id, span_id)",
+			telemetry_spans: "PRIMARY KEY (project_id, trace_id, span_id)",
+		};
+		const primaryKeys = async () => {
+			const rows = await db
+				.prepare(
+					`SELECT c.conrelid::regclass::text AS table_name,
+					        pg_get_constraintdef(c.oid) AS pk
+					 FROM pg_constraint c
+					 JOIN pg_namespace n ON n.oid = c.connamespace
+					 WHERE c.contype = 'p' AND n.nspname = current_schema()`,
+				)
+				.all<{ table_name: string; pk: string }>();
+			return Object.fromEntries(
+				rows.results
+					.filter((r) => r.table_name in expected)
+					.map((r) => [r.table_name, r.pk]),
+			);
+		};
+		expect(await primaryKeys()).toEqual(expected);
+
+		// Upgrade path: re-running the four files on a converted database is
+		// a no-op (each looks the current key up by definition first).
+		const admin = await adminClient();
+		try {
+			for (const file of migrationFiles.filter(
+				(f) => f >= "045_" && f < "049_",
+			)) {
+				await admin.query(
+					await readFile(path.join(migrationsDir, file), "utf8"),
+				);
+			}
+		} finally {
+			await admin.end();
+		}
+		expect(await primaryKeys()).toEqual(expected);
+		const spanIndexes = await db
+			.prepare(
+				`SELECT indexname FROM pg_indexes
+				 WHERE schemaname = current_schema() AND tablename = 'telemetry_spans'
+				 ORDER BY indexname`,
+			)
+			.all<{ indexname: string }>();
+		expect(spanIndexes.results.map((r) => r.indexname)).toContain(
+			"idx_spans_project_received",
+		);
+	});
+
+	it("keeps colliding ids separate per project through the real write paths", async () => {
+		const cleanup = async () => {
+			for (const table of [
+				"actions",
+				"telemetry_spans",
+				"ai_span_payloads",
+				"user_profiles",
+			]) {
+				await db
+					.prepare(`DELETE FROM ${table} WHERE project_id IN (?, ?)`)
+					.bind("tenant-a", "tenant-b")
+					.run();
+			}
+		};
+		try {
+			const store = new ActionStore(db);
+			await store.upsertAction(
+				actionRecord({ id: "01SHARED", projectId: "tenant-a", name: "a run" }),
+			);
+			await store.upsertAction(
+				actionRecord({ id: "01SHARED", projectId: "tenant-b", name: "b run" }),
+			);
+			await store.upsertAction(
+				actionRecord({
+					id: "01SHARED",
+					projectId: "tenant-b",
+					name: "b run v2",
+				}),
+			);
+			expect((await store.getAction("tenant-a", "01SHARED"))?.name).toBe(
+				"a run",
+			);
+			expect((await store.getAction("tenant-b", "01SHARED"))?.name).toBe(
+				"b run v2",
+			);
+
+			const span = (projectId: string, spanName: string): StoredSpan => ({
+				projectId,
+				traceId: "trace-shared",
+				spanId: "span-shared",
+				parentSpanId: null,
+				traceState: null,
+				serviceName: "agent",
+				scopeName: null,
+				scopeVersion: null,
+				spanName,
+				spanKind: 1,
+				statusCode: 1,
+				statusMessage: null,
+				startTime: isoNow(),
+				endTime: isoNow(),
+				durationMs: 5,
+				attributesJson: JSON.stringify({
+					"openinference.span.kind": "LLM",
+					// An object: string payloads are stored verbatim, which JSONB rejects.
+					"ai.payload.input": { prompt: `${projectId} prompt` },
+				}),
+				droppedAttributesCount: 0,
+				resourceAttributesJson: "{}",
+				eventsJson: "[]",
+				droppedEventsCount: 0,
+				linksJson: "[]",
+				droppedLinksCount: 0,
+				receivedAt: isoNow(),
+				expiresAt: isoIn(60 * 60 * 1000),
+				sessionId: null,
+				interactionId: null,
+			});
+			// INSERT OR IGNORE → ON CONFLICT DO NOTHING used to drop tenant-b's span.
+			await ingestTelemetrySpans(db, [span("tenant-a", "a-llm")]);
+			await ingestTelemetrySpans(db, [span("tenant-b", "b-llm")]);
+			const names = await db
+				.prepare(
+					`SELECT project_id, span_name FROM telemetry_spans
+				 WHERE trace_id = ? AND span_id = ? ORDER BY project_id`,
+				)
+				.bind("trace-shared", "span-shared")
+				.all<{ project_id: string; span_name: string }>();
+			expect(names.results).toEqual([
+				{ project_id: "tenant-a", span_name: "a-llm" },
+				{ project_id: "tenant-b", span_name: "b-llm" },
+			]);
+
+			// Payload side table: the processor's upsert must stay per project.
+			const processors: SpanProcessorPlugin[] = [];
+			aiSpanPayloadsProcessorPlugin.register(
+				{} as Parameters<typeof aiSpanPayloadsProcessorPlugin.register>[0],
+				{
+					addSpanProcessor(p: SpanProcessorPlugin) {
+						processors.push(p);
+					},
+				} as unknown as CollectorRuntime,
+			);
+			const process = processors[0]?.process;
+			if (!process) throw new Error("span processor was not registered");
+			const ctx = {
+				env: { DB: db, OBS_PAYLOAD_CAPTURE_DEFAULT: "true" },
+				now: new Date(),
+				logger: console,
+			} as unknown as CollectorRouteContext;
+			await process([span("tenant-a", "a-llm")], ctx);
+			await process([span("tenant-b", "b-llm")], ctx);
+			const payloads = await db
+				.prepare(
+					`SELECT project_id, input_json FROM ai_span_payloads
+				 WHERE trace_id = ? AND span_id = ? ORDER BY project_id`,
+				)
+				.bind("trace-shared", "span-shared")
+				.all<{ project_id: string; input_json: string }>();
+			expect(
+				payloads.results.map((r) => [r.project_id, JSON.parse(r.input_json)]),
+			).toEqual([
+				["tenant-a", { prompt: "tenant-a prompt" }],
+				["tenant-b", { prompt: "tenant-b prompt" }],
+			]);
+			const aOverview = await getAISpansOverview(db, {
+				projectId: "tenant-a",
+				hours: 24,
+			});
+			expect(aOverview.spans.map((s) => s.spanName)).toEqual(["a-llm"]);
+
+			// /v1/identify: same userId in two projects → two profiles.
+			const setProject: MiddlewareHandler<{
+				Bindings: CollectorEnv;
+				Variables: { projectId: string };
+			}> = async (c, next) => {
+				const header = c.req.header("x-project-id");
+				if (header) c.set("projectId", header);
+				await next();
+			};
+			const app = createTelemetryCollectorApp({
+				plugins: [identityReceiverPlugin],
+				auth: { middleware: setProject },
+				dashboardAuth: { middleware: setProject, registerRoutes: () => {} },
+			});
+			const identify = (projectId: string, body: Record<string, unknown>) =>
+				app.request(
+					"/v1/identify",
+					{
+						method: "POST",
+						headers: {
+							"content-type": "application/json",
+							"x-project-id": projectId,
+						},
+						body: JSON.stringify(body),
+					},
+					{ DB: db as unknown as D1Database } as CollectorEnv,
+				);
+			const userId = "ada@example.com";
+			expect(
+				(
+					await identify("tenant-a", {
+						userId,
+						visitorId: "vis-a",
+						name: "Ada (a)",
+						properties: { plan: "a" },
+					})
+				).status,
+			).toBe(200);
+			expect(
+				(
+					await identify("tenant-b", {
+						userId,
+						visitorId: "vis-b",
+						name: "Ada (b)",
+					})
+				).status,
+			).toBe(200);
+			const profiles = await db
+				.prepare(
+					`SELECT project_id, visitor_id, name FROM user_profiles
+				 WHERE user_id = ? ORDER BY project_id`,
+				)
+				.bind(userId)
+				.all<{ project_id: string; visitor_id: string; name: string }>();
+			expect(profiles.results).toEqual([
+				{ project_id: "tenant-a", visitor_id: "vis-a", name: "Ada (a)" },
+				{ project_id: "tenant-b", visitor_id: "vis-b", name: "Ada (b)" },
+			]);
+		} finally {
+			// Leave no tenant rows behind for the purge / analysis tests below.
+			await cleanup();
+		}
 	});
 
 	it("purges expired action trees by TEXT started_at and keeps fresh, in-progress and eval-pinned trees", async () => {

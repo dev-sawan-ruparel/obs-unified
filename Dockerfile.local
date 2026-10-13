@@ -17,8 +17,11 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends postgresql curl ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /repo /repo
-RUN chmod +x /repo/docker/local/start.sh
+# The entrypoint stays root only to initialise and start PostgreSQL; it
+# drops to the unprivileged `node` user for migrations, the collector and the
+# dashboard (see docker/local/start.sh).
+COPY --from=build --chown=node:node /repo /repo
+RUN chmod +x /repo/docker/local/start.sh && mkdir -p /data && chown node:node /data
 
 VOLUME ["/data", "/var/lib/postgresql"]
 EXPOSE 5173 8790
