@@ -49,7 +49,7 @@
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
-		"hono": "^4.12.11",
+		"hono": "^4.13.13",
 		"tsup": "^8.3.5",
 		"typescript": "^6.0.2"
 	},

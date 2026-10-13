@@ -292,9 +292,9 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					const interactionManifest = span.interactionId
 						? await index.byInteraction(projectId, span.interactionId)
 						: null;
-					const parentSessionId =
-						interactionManifest?.usageEvents.find((e) => Boolean(e.sessionId))
-							?.sessionId;
+					const parentSessionId = interactionManifest?.usageEvents.find((e) =>
+						Boolean(e.sessionId),
+					)?.sessionId;
 
 					manifest.up = [
 						{

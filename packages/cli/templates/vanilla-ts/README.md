@@ -21,6 +21,6 @@ This template only sends browser analytics. Pair it with any of:
 - A React + Vite + Hono Node app (`obs-unified create my-app`)
 - A Hono on Cloudflare Workers API (`obs-unified create my-api`)
 - Your existing backend, instrumented per the
-  [Tier 1 SDK docs](https://obs-unified-docs.dev/docs/instrumenting) or one of
+  [Tier 1 SDK docs](https://docs.obsunified.com/docs/instrumenting) or one of
   the
   [Tier 3 recipes](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/docs/recipes).

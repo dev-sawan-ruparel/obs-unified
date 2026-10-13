@@ -78,5 +78,5 @@ spec.
 
 ## Full docs
 
-[https://obs-unified-docs.dev](https://obs-unified-docs.dev) (or the
-`obs-unified-docs` repo for self-hosting).
+[https://docs.obsunified.com](https://docs.obsunified.com) (source in
+`apps/docs` of the monorepo for self-hosting).

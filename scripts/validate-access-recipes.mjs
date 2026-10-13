@@ -86,7 +86,8 @@ assert(
 	"Doc covers Investigation MCP Server boundaries",
 );
 assert(
-	docMdContent.includes("CF-Access-Client-") || docMdContent.includes("service token"),
+	docMdContent.includes("CF-Access-Client-") ||
+		docMdContent.includes("service token"),
 	"Doc covers Cloudflare Access service token constraints",
 );
 assert(
@@ -95,14 +96,8 @@ assert(
 );
 
 // 1.4 Verify navigation meta.json files
-const opsMetaPath = path.join(
-	repoRoot,
-	"apps/docs/content/docs/ops/meta.json",
-);
-const docsMetaPath = path.join(
-	repoRoot,
-	"apps/docs/content/docs/meta.json",
-);
+const opsMetaPath = path.join(repoRoot, "apps/docs/content/docs/ops/meta.json");
+const docsMetaPath = path.join(repoRoot, "apps/docs/content/docs/meta.json");
 
 const opsMeta = JSON.parse(readFileSync(opsMetaPath, "utf-8"));
 assert(
@@ -289,7 +284,7 @@ console.log("\n=== 3. Simulating Route Policy & Boundary Enforcement ===");
  * - /internal/*: under dashboardAuth, REQUIRES obs_session cookie; ingest key or bearer token is rejected
  * - X-Project-Id: forwarded by proxy for project scoping (validated against DB)
  */
-function evaluateProxyDecision({ path, method, headers, hasSsoSession }) {
+function evaluateProxyDecision({ path, headers, hasSsoSession }) {
 	// 1. Health check: always public
 	if (path === "/health") {
 		return { action: "ALLOW_PUBLIC", upstream: "collector:8790" };
@@ -297,9 +292,13 @@ function evaluateProxyDecision({ path, method, headers, hasSsoSession }) {
 
 	// 2. Telemetry Ingest: bypasses SSO, passes to collector
 	if (path.startsWith("/v1/")) {
-		const authHeader = headers["authorization"] || headers["x-api-key"];
+		const authHeader = headers.authorization || headers["x-api-key"];
 		if (!authHeader) {
-			return { action: "COLLECTOR_INGEST_UNAUTHENTICATED", upstream: "collector:8790", status: 401 };
+			return {
+				action: "COLLECTOR_INGEST_UNAUTHENTICATED",
+				upstream: "collector:8790",
+				status: 401,
+			};
 		}
 		return { action: "ALLOW_INGEST", upstream: "collector:8790", status: 200 };
 	}
@@ -310,20 +309,32 @@ function evaluateProxyDecision({ path, method, headers, hasSsoSession }) {
 	}
 
 	// 4. Protected Paths: /internal/*, /auth/*, /
-	const isProtected = path.startsWith("/internal/") || path.startsWith("/auth/") || path === "/" || !path.includes(".");
+	const isProtected =
+		path.startsWith("/internal/") ||
+		path.startsWith("/auth/") ||
+		path === "/" ||
+		!path.includes(".");
 	if (isProtected) {
 		// Perimeter check: user must have valid SSO session
 		if (!hasSsoSession) {
-			return { action: "REDIRECT_SSO", status: 302, location: "/oauth2/sign_in" };
+			return {
+				action: "REDIRECT_SSO",
+				status: 302,
+				location: "/oauth2/sign_in",
+			};
 		}
 
 		// Internal collector endpoints require obs_session cookie under dashboardAuth
 		if (path.startsWith("/internal/")) {
-			const cookie = headers["cookie"] || "";
+			const cookie = headers.cookie || "";
 			const hasObsSession = cookie.includes("obs_session=");
 			// Ingest key or bearer token is NOT accepted by dashboardAuth on /internal/*
 			if (!hasObsSession) {
-				return { action: "COLLECTOR_DASHBOARD_UNAUTHENTICATED", upstream: "collector:8790", status: 401 };
+				return {
+					action: "COLLECTOR_DASHBOARD_UNAUTHENTICATED",
+					upstream: "collector:8790",
+					status: 401,
+				};
 			}
 			return {
 				action: "ALLOW_INTERNAL_QUERY",
@@ -334,10 +345,18 @@ function evaluateProxyDecision({ path, method, headers, hasSsoSession }) {
 		}
 
 		if (path.startsWith("/auth/")) {
-			return { action: "ALLOW_AUTH_ENDPOINT", upstream: "collector:8790", status: 200 };
+			return {
+				action: "ALLOW_AUTH_ENDPOINT",
+				upstream: "collector:8790",
+				status: 200,
+			};
 		}
 
-		return { action: "ALLOW_DASHBOARD_SPA", upstream: "dashboard:5173", status: 200 };
+		return {
+			action: "ALLOW_DASHBOARD_SPA",
+			upstream: "dashboard:5173",
+			status: 200,
+		};
 	}
 
 	return { action: "NOT_FOUND", status: 404 };
@@ -489,9 +508,17 @@ const allFilesToCheck = [
 
 for (const filePath of allFilesToCheck) {
 	const content = readFileSync(filePath, "utf-8");
-	assert(content.endsWith("\n"), `${path.basename(filePath)} ends with a newline`);
-	assert(!content.endsWith("\n\n"), `${path.basename(filePath)} has no blank line at EOF`);
+	assert(
+		content.endsWith("\n"),
+		`${path.basename(filePath)} ends with a newline`,
+	);
+	assert(
+		!content.endsWith("\n\n"),
+		`${path.basename(filePath)} has no blank line at EOF`,
+	);
 }
 
-console.log(`\n🎉 ALL VALIDATION CHECKS PASSED: ${passed}/${passed} tests`);
+console.log(
+	`\n🎉 ALL VALIDATION CHECKS PASSED: ${passed}/${passed + failed} tests`,
+);
 process.exit(0);

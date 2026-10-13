@@ -47,7 +47,9 @@ the host-injected adapter.
 - Unit tests live alongside source as `*.test.ts`.
 - Use `MemSqlDb` from `packages/obs-collector/src/lib/test-utils/mem-sql-db.ts`
   for store-level tests; never hand-roll a fake.
-- Run `pnpm -r run type-check` and `pnpm -r run test` before opening a PR.
+- Run `pnpm type-check` and `pnpm test` before opening a PR. The root
+  `type-check` script builds the packages first because workspace imports such
+  as `@obsunified/types/constants` resolve against each package's `dist/`.
 
 ## Commit style
 
