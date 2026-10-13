@@ -53,7 +53,7 @@ OBS_INGEST_KEY="$INGEST_KEY" pnpm seed
 
 DASHBOARD_PASSWORD="$DASHBOARD_PASSWORD" \
 OBS_INGEST_KEY="$INGEST_KEY" \
-MARKETING_SCREENSHOT_OUT=/Users/sawan/projects/obs-unified/presence/public/screenshots/app \
+MARKETING_SCREENSHOT_OUT="$PWD/apps/website/public/screenshots/app" \
 pnpm --filter @obs-demo/web run screenshots:marketing
 ```
 
