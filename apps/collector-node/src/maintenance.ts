@@ -15,6 +15,7 @@
  * `ExecutionContext` is fabricated.
  */
 
+import dns from "node:dns/promises";
 import {
 	type CollectorEnv,
 	consoleLogger,
@@ -27,7 +28,7 @@ import {
 	createMaintenanceScheduler,
 	type MaintenanceScheduler,
 	type ScheduledTask,
-} from "./scheduler";
+} from "./scheduler.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60 * SECOND;
@@ -118,7 +119,16 @@ export function createCollectorMaintenanceTasks(
 	return {
 		runAnalyses: (env) => analyses.run(env),
 		evaluateAlerts: async (env) => {
-			const summary = await evaluateAllRules(env, { logger });
+			const summary = await evaluateAllRules(env, {
+				logger,
+				// Public names that resolve to private addresses are refused
+				// before the POST (see lib/webhook-url.ts for the residual
+				// rebinding window).
+				hostLookup: async (hostname) =>
+					(await dns.lookup(hostname, { all: true, verbatim: true })).map(
+						(a) => a.address,
+					),
+			});
 			logger.info("[alerts] scheduled evaluation summary", {
 				evaluated: summary.evaluated,
 				fired: summary.fired,

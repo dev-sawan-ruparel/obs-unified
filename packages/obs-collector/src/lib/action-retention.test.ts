@@ -125,12 +125,15 @@ describe("purgeExpiredActionGraph (SQLite)", () => {
 			"043_metric_exemplars_text_timestamps.sql",
 		);
 		expect(indexNames(db)).not.toContain("idx_actions_started_at");
-		await seedTree(db, { rootId: "old" });
 
+		// 044 adds the index; 046 rebuilds the table on (project_id, id) and
+		// must carry it over. The store's upsert targets that composite key,
+		// so seeding happens after the upgrade tail is applied.
 		db.applyMigrations(
-			listSqliteMigrations().filter((f) => f.startsWith("044_")),
+			listSqliteMigrations().filter((f) => f >= "044_" && f < "049_"),
 		);
 		expect(indexNames(db)).toContain("idx_actions_started_at");
+		await seedTree(db, { rootId: "old" });
 
 		const summary = await purge(db);
 		expect(summary.actions).toBe(2);
@@ -145,8 +148,8 @@ describe("purgeExpiredActionGraph (SQLite)", () => {
 			rootId: "alpha-new",
 			rootStartedAt: FRESH_START,
 		});
-		// `actions.id` is a global primary key, so ids never collide across
-		// projects; beta gets its own fresh and expired trees instead.
+		// Keys are (project_id, id) since 046; beta gets its own fresh and
+		// expired trees so the per-project counts stay readable.
 		const otherFresh = await seedTree(db, {
 			projectId: "beta",
 			rootId: "beta-new",

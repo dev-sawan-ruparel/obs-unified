@@ -672,4 +672,110 @@ describe("dashboard-auth middleware & programmatic token contract", () => {
 			expect(res.status).toBe(401);
 		});
 	});
+
+	describe("Login rate limiting", () => {
+		it("answers 429 after repeated failures and lets the client back in later", async () => {
+			const db = createTestDb();
+			const env = makeEnv(db);
+			let now = 1_700_000_000_000;
+			const auth = createDashboardAuth({
+				password: TEST_PASSWORD,
+				loginRateLimit: {
+					maxFailures: 2,
+					windowMs: 60_000,
+					now: () => now,
+					// This test models a deployment behind a trusted proxy.
+					trustProxyHeaders: true,
+				},
+			});
+			const app = new Hono<{ Bindings: CollectorEnv }>();
+			auth.registerRoutes(app);
+			const login = (password: string, ip = "203.0.113.5") =>
+				app.fetch(
+					new Request("http://localhost/auth/login", {
+						method: "POST",
+						headers: {
+							"content-type": "application/json",
+							"cf-connecting-ip": ip,
+						},
+						body: JSON.stringify({ password }),
+					}),
+					env,
+				);
+
+			expect((await login("wrong")).status).toBe(401);
+			expect((await login("wrong")).status).toBe(401);
+			const blocked = await login(TEST_PASSWORD);
+			expect(blocked.status).toBe(429);
+			expect(blocked.headers.get("Retry-After")).toBe("60");
+			// A different client is not affected.
+			expect((await login(TEST_PASSWORD, "198.51.100.9")).status).toBe(200);
+			now += 60_000;
+			expect((await login(TEST_PASSWORD)).status).toBe(200);
+			// Success resets the budget.
+			expect((await login("wrong")).status).toBe(401);
+			expect((await login("wrong")).status).toBe(401);
+			expect((await login(TEST_PASSWORD)).status).toBe(429);
+		});
+
+		it("does not let a direct client rotate its bucket through forwarding headers", async () => {
+			const db = createTestDb();
+			const env = makeEnv(db);
+			const auth = createDashboardAuth({
+				password: TEST_PASSWORD,
+				loginRateLimit: { maxFailures: 2, windowMs: 60_000 },
+			});
+			const app = new Hono<{ Bindings: CollectorEnv }>();
+			auth.registerRoutes(app);
+			const login = (password: string, forwardedFor: string) =>
+				app.fetch(
+					new Request("http://localhost/auth/login", {
+						method: "POST",
+						headers: {
+							"content-type": "application/json",
+							"x-forwarded-for": forwardedFor,
+							"cf-connecting-ip": forwardedFor,
+						},
+						body: JSON.stringify({ password }),
+					}),
+					env,
+				);
+
+			expect((await login("wrong", "1.1.1.1")).status).toBe(401);
+			expect((await login("wrong", "2.2.2.2")).status).toBe(401);
+			// Rotating the header does not open a fresh budget.
+			expect((await login(TEST_PASSWORD, "3.3.3.3")).status).toBe(429);
+		});
+
+		it("keys on the host-resolved peer address when one is provided", async () => {
+			const db = createTestDb();
+			const env = makeEnv(db);
+			const auth = createDashboardAuth({
+				password: TEST_PASSWORD,
+				loginRateLimit: {
+					maxFailures: 1,
+					windowMs: 60_000,
+					clientAddress: (c) => c.req.header("x-test-peer") ?? undefined,
+				},
+			});
+			const app = new Hono<{ Bindings: CollectorEnv }>();
+			auth.registerRoutes(app);
+			const login = (password: string, peer: string) =>
+				app.fetch(
+					new Request("http://localhost/auth/login", {
+						method: "POST",
+						headers: {
+							"content-type": "application/json",
+							"x-test-peer": peer,
+							"x-forwarded-for": "9.9.9.9",
+						},
+						body: JSON.stringify({ password }),
+					}),
+					env,
+				);
+			expect((await login("wrong", "10.0.0.5")).status).toBe(401);
+			expect((await login(TEST_PASSWORD, "10.0.0.5")).status).toBe(429);
+			expect((await login(TEST_PASSWORD, "10.0.0.6")).status).toBe(200);
+		});
+	});
 });

@@ -158,12 +158,13 @@ export class ProjectsStore {
 		};
 	}
 
-	async revokeKey(keyId: string): Promise<boolean> {
+	async revokeKey(keyId: string, projectId: string): Promise<boolean> {
 		const result = await this.db
 			.prepare(
-				`UPDATE ingest_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`,
+				`UPDATE ingest_keys SET revoked_at = ?
+				 WHERE id = ? AND project_id = ? AND revoked_at IS NULL`,
 			)
-			.bind(new Date().toISOString(), keyId)
+			.bind(new Date().toISOString(), keyId, projectId)
 			.run();
 		return (result.meta?.changes ?? 0) > 0;
 	}

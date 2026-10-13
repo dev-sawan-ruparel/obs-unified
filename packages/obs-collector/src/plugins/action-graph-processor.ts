@@ -907,8 +907,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							span_id, session_id, interaction_id, user_id, agent_run_id, step_id,
 							tool_call_id, prompt_version, model_name, provider, total_cost_usd, attrs_json
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-						ON CONFLICT (id) DO UPDATE SET
-							project_id = excluded.project_id,
+						ON CONFLICT (project_id, id) DO UPDATE SET
 							root_action_id = excluded.root_action_id,
 							caused_by_action_id = excluded.caused_by_action_id,
 							actor_type = excluded.actor_type,
@@ -972,8 +971,7 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							id, project_id, agent_id, agent_name, agent_version, goal, outcome,
 							autonomy_level, status, error_message, total_cost_usd, total_duration_ms, metadata_json
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-						ON CONFLICT (id) DO UPDATE SET
-							project_id = excluded.project_id,
+						ON CONFLICT (project_id, id) DO UPDATE SET
 							agent_id = excluded.agent_id,
 							agent_name = excluded.agent_name,
 							agent_version = excluded.agent_version,
@@ -1015,9 +1013,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							mcp_audit_json, mutation_before_json, mutation_after_json,
 							mutation_diff_json, mutation_artifact_id
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-						ON CONFLICT (id) DO UPDATE SET
+						ON CONFLICT (project_id, id) DO UPDATE SET
 							action_id = excluded.action_id,
-							project_id = excluded.project_id,
 							tool_name = excluded.tool_name,
 							args_hash = excluded.args_hash,
 							result_hash = excluded.result_hash,
@@ -1062,9 +1059,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							id, action_id, project_id, retriever_name, query_hash, documents_json,
 							total_results, max_relevance_score, duration_ms
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-						ON CONFLICT (id) DO UPDATE SET
+						ON CONFLICT (project_id, id) DO UPDATE SET
 							action_id = excluded.action_id,
-							project_id = excluded.project_id,
 							retriever_name = excluded.retriever_name,
 							query_hash = excluded.query_hash,
 							documents_json = excluded.documents_json,
@@ -1095,9 +1091,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							id, action_id, project_id, evaluator_name, evaluator_version,
 							score, passed, reasoning, rubric_json
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-						ON CONFLICT (id) DO UPDATE SET
+						ON CONFLICT (project_id, id) DO UPDATE SET
 							action_id = excluded.action_id,
-							project_id = excluded.project_id,
 							evaluator_name = excluded.evaluator_name,
 							evaluator_version = excluded.evaluator_version,
 							score = excluded.score,
@@ -1128,9 +1123,8 @@ export const actionGraphProcessorPlugin: CollectorPlugin = {
 							id, action_id, project_id, artifact_name, artifact_type,
 							storage_ref, size_bytes, sha256_hash, content_preview
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-						ON CONFLICT (id) DO UPDATE SET
+						ON CONFLICT (project_id, id) DO UPDATE SET
 							action_id = excluded.action_id,
-							project_id = excluded.project_id,
 							artifact_name = excluded.artifact_name,
 							artifact_type = excluded.artifact_type,
 							storage_ref = excluded.storage_ref,

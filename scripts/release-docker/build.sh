@@ -60,7 +60,12 @@ done
 VERSION="${VERSION:-$DEFAULT_VERSION}"
 
 if [ -z "$COMMIT_SHA" ]; then
-	COMMIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo "e4ea903")"
+	# Never fall back to a made-up revision: the sha-* tag and the
+	# org.opencontainers.image.revision label must point at a real commit.
+	if ! COMMIT_SHA="$(git rev-parse --short HEAD 2>/dev/null)" || [ -z "$COMMIT_SHA" ]; then
+		echo "error: not inside a git checkout; pass --sha <git-sha>" >&2
+		exit 1
+	fi
 fi
 
 BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -112,6 +117,9 @@ if [ "$DRY_RUN" = true ]; then
 	echo "${BUILD_CMD[*]}"
 	exit 0
 fi
+
+echo "Checking build context for local secrets..."
+bash "$ROOT/scripts/release-docker/check-context.sh"
 
 echo "Executing build..."
 "${BUILD_CMD[@]}"

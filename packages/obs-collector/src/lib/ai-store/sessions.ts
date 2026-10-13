@@ -43,7 +43,7 @@ export async function listAISessions(
         COUNT(DISTINCT s.trace_id) AS trace_count
       FROM ai_span_payloads p
       INNER JOIN telemetry_spans s
-        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+        ON s.project_id = p.project_id AND s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ?
         AND p.session_id IS NOT NULL
         AND p.received_at >= ${dialect.sinceHours("?")}
@@ -118,7 +118,7 @@ export async function getAISessionDetail(
         p.user_id             AS user_id
       FROM ai_span_payloads p
       INNER JOIN telemetry_spans s
-        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+        ON s.project_id = p.project_id AND s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ? AND p.session_id = ?
       ORDER BY s.start_time ASC
       LIMIT 1000
@@ -177,7 +177,7 @@ async function loadSessionPreviews(
       SELECT p.session_id, p.input_json, s.start_time
       FROM ai_span_payloads p
       INNER JOIN telemetry_spans s
-        ON s.trace_id = p.trace_id AND s.span_id = p.span_id
+        ON s.project_id = p.project_id AND s.trace_id = p.trace_id AND s.span_id = p.span_id
       WHERE p.project_id = ?
         AND p.session_id IS NOT NULL
         AND p.session_id IN (${sessionIds.map(() => "?").join(", ")})

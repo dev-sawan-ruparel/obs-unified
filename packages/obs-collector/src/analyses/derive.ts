@@ -59,7 +59,7 @@ const fetchShape = async (
 			 FROM telemetry_spans
 			 WHERE project_id = ?
 			   AND service_name IS NOT NULL
-			   AND received_at >= datetime('now', '-1 hour')`,
+			   AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')`,
 		)
 		.bind(projectId)
 		.all<{ service_name: string }>();
@@ -83,7 +83,7 @@ const fetchShape = async (
 			  AND parent.trace_id   = child.trace_id
 			  AND parent.span_id    = child.parent_span_id
 			 WHERE child.project_id = ?
-			   AND child.received_at >= datetime('now', '-1 hour')
+			   AND child.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 			   AND parent.service_name IS NOT NULL
 			   AND child.service_name  IS NOT NULL
 			   AND parent.service_name <> child.service_name`,
@@ -101,7 +101,7 @@ const fetchShape = async (
 			`SELECT DISTINCT json_extract(attributes_json, '$."messaging.destination"') AS topic
 			 FROM telemetry_spans
 			 WHERE project_id = ?
-			   AND received_at >= datetime('now', '-1 hour')
+			   AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 			   AND json_extract(attributes_json, '$."messaging.destination"') IS NOT NULL`,
 		)
 		.bind(projectId)
@@ -121,7 +121,7 @@ const fetchShape = async (
 			`SELECT 1
 			 FROM telemetry_spans
 			 WHERE project_id = ?
-			   AND received_at >= datetime('now', '-1 hour')
+			   AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 			   AND (
 			     json_extract(attributes_json, '$."openinference.span.kind"') = 'LLM'
 			     OR json_extract(attributes_json, '$."gen_ai.system"') IS NOT NULL
@@ -194,7 +194,7 @@ const makeServiceErrorRate = (
 			FROM telemetry_spans
 			WHERE project_id   = '${sqlEscape(projectId)}'
 				AND service_name = '${sqlEscape(service)}'
-				AND received_at >= datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		base_window AS (
 			SELECT
@@ -203,8 +203,8 @@ const makeServiceErrorRate = (
 			FROM telemetry_spans
 			WHERE project_id   = '${sqlEscape(projectId)}'
 				AND service_name = '${sqlEscape(service)}'
-				AND received_at >= datetime('now', '-1 hour')
-				AND received_at <  datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		spark AS (
 			SELECT
@@ -214,7 +214,7 @@ const makeServiceErrorRate = (
 			FROM telemetry_spans
 			WHERE project_id   = '${sqlEscape(projectId)}'
 				AND service_name = '${sqlEscape(service)}'
-				AND received_at >= datetime('now', '-30 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
 			GROUP BY minute
 			ORDER BY minute ASC
 		)
@@ -280,7 +280,7 @@ const makeServiceLatencyP95 = (
 			FROM telemetry_spans
 			WHERE project_id   = '${sqlEscape(projectId)}'
 				AND service_name = '${sqlEscape(service)}'
-				AND received_at >= datetime('now', '-1 hour')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 		),
 		base AS (
 			SELECT duration_ms,
@@ -289,8 +289,8 @@ const makeServiceLatencyP95 = (
 			FROM telemetry_spans
 			WHERE project_id   = '${sqlEscape(projectId)}'
 				AND service_name = '${sqlEscape(service)}'
-				AND received_at >= datetime('now', '-25 hours')
-				AND received_at <  datetime('now', '-24 hours')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-25 hours')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-24 hours')
 		),
 		cur_p95 AS (
 			SELECT duration_ms FROM cur
@@ -360,7 +360,7 @@ const makeDependencyHealth = (
 			WHERE child.project_id   = '${sqlEscape(projectId)}'
 				AND parent.service_name = '${sqlEscape(source)}'
 				AND child.service_name  = '${sqlEscape(target)}'
-				AND child.received_at >= datetime('now', '-5 minutes')
+				AND child.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		edge_base AS (
 			SELECT child.status_code AS sc
@@ -372,8 +372,8 @@ const makeDependencyHealth = (
 			WHERE child.project_id   = '${sqlEscape(projectId)}'
 				AND parent.service_name = '${sqlEscape(source)}'
 				AND child.service_name  = '${sqlEscape(target)}'
-				AND child.received_at >= datetime('now', '-1 hour')
-				AND child.received_at <  datetime('now', '-5 minutes')
+				AND child.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND child.received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		now_agg AS (
 			SELECT COUNT(*) AS total,
@@ -438,7 +438,7 @@ const makeMessagingLag = (
 			WHERE project_id = '${sqlEscape(projectId)}'
 				AND span_kind = 4
 				AND json_extract(attributes_json, '$."messaging.destination"') = '${sqlEscape(topic)}'
-				AND received_at >= datetime('now', '-15 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
 		),
 		consumers AS (
 			SELECT trace_id,
@@ -448,7 +448,7 @@ const makeMessagingLag = (
 			WHERE project_id = '${sqlEscape(projectId)}'
 				AND span_kind = 5
 				AND json_extract(attributes_json, '$."messaging.destination"') = '${sqlEscape(topic)}'
-				AND received_at >= datetime('now', '-15 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
 		),
 		gaps AS (
 			SELECT
@@ -514,15 +514,15 @@ const makeAiCostBurn = (projectId: string): AnalysisDefinition => ({
 			       COUNT(*) AS n
 			FROM ai_calls
 			WHERE project_id = '${sqlEscape(projectId)}'
-				AND received_at >= datetime('now', '-1 hour')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 		),
 		prev AS (
 			SELECT COALESCE(SUM(total_cost_usd), 0) AS cost,
 			       COUNT(*) AS n
 			FROM ai_calls
 			WHERE project_id = '${sqlEscape(projectId)}'
-				AND received_at >= datetime('now', '-2 hours')
-				AND received_at <  datetime('now', '-1 hour')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 		),
 		delta AS (
 			SELECT CASE
@@ -570,7 +570,7 @@ const makeAiErrorRate = (projectId: string): AnalysisDefinition => ({
 				SUM(CASE WHEN is_error THEN 1 ELSE 0 END) AS errors
 			FROM ai_calls
 			WHERE project_id = '${sqlEscape(projectId)}'
-				AND received_at >= datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		base_window AS (
 			SELECT
@@ -578,8 +578,8 @@ const makeAiErrorRate = (projectId: string): AnalysisDefinition => ({
 				SUM(CASE WHEN is_error THEN 1 ELSE 0 END) AS errors
 			FROM ai_calls
 			WHERE project_id = '${sqlEscape(projectId)}'
-				AND received_at >= datetime('now', '-1 hour')
-				AND received_at <  datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		)
 		SELECT
 			CASE

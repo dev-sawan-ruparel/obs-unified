@@ -1,5 +1,10 @@
 import type { JsonValue } from "@bufbuild/protobuf";
 import type { Context } from "hono";
+import {
+	DEFAULT_MAX_BODY_BYTES,
+	DEFAULT_MAX_DECOMPRESSED_BYTES,
+	parseByteLimit,
+} from "../../framework/limits";
 
 export type OtlpWireFormat = "json" | "protobuf";
 
@@ -11,25 +16,50 @@ export interface ReadBodyResult {
 export class OtlpDecodeError extends Error {
 	constructor(
 		message: string,
-		public readonly status: 400 | 415,
+		public readonly status: 400 | 413 | 415,
 	) {
 		super(message);
 	}
 }
 
+export interface ReadBodyLimits {
+	/** Raw (compressed) body cap; defaults to `MAX_BODY_BYTES` / 10 MiB. */
+	maxBodyBytes?: number;
+	/** Gunzipped payload cap; defaults to 32 MiB. */
+	maxDecompressedBytes?: number;
+}
+
 /**
  * Reads and decompresses an OTLP request body, returning the raw bytes plus
  * the inferred wire format. Throws `OtlpDecodeError` for unsupported content-
- * types or malformed gzip.
+ * types, malformed gzip, or bodies over the raw / decompressed caps (413).
+ * The framework's body-limit middleware normally refuses oversized raw
+ * bodies first; the raw check here keeps the reader safe on its own, and
+ * the decompressed cap is what stops a gzip bomb.
  */
-export const readOtlpBody = async (c: Context): Promise<ReadBodyResult> => {
+export const readOtlpBody = async (
+	c: Context,
+	limits: ReadBodyLimits = {},
+): Promise<ReadBodyResult> => {
 	const contentType = (c.req.header("content-type") ?? "").toLowerCase();
 	const wireFormat = detectWireFormat(contentType);
+	const env = (c.env ?? {}) as { MAX_BODY_BYTES?: string };
+	const maxBodyBytes =
+		limits.maxBodyBytes ??
+		parseByteLimit(env.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES);
+	const maxDecompressedBytes =
+		limits.maxDecompressedBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
 
 	let body = await c.req.arrayBuffer();
+	if (body.byteLength > maxBodyBytes) {
+		throw new OtlpDecodeError(
+			`Payload too large (max ${maxBodyBytes} bytes)`,
+			413,
+		);
+	}
 	const encoding = (c.req.header("content-encoding") ?? "").toLowerCase();
 	if (encoding === "gzip") {
-		body = await gunzip(body);
+		body = await gunzip(body, maxDecompressedBytes);
 	} else if (encoding && encoding !== "identity") {
 		throw new OtlpDecodeError(`Unsupported content-encoding: ${encoding}`, 415);
 	}
@@ -46,12 +76,43 @@ const detectWireFormat = (contentType: string): OtlpWireFormat => {
 	);
 };
 
-const gunzip = async (input: ArrayBuffer): Promise<ArrayBuffer> => {
+/** Gunzip with a hard cap on output size; stops reading once exceeded. */
+const gunzip = async (
+	input: ArrayBuffer,
+	maxBytes: number,
+): Promise<ArrayBuffer> => {
 	const stream = new Response(input).body?.pipeThrough(
 		new DecompressionStream("gzip"),
 	);
 	if (!stream) throw new OtlpDecodeError("Empty gzip body", 400);
-	return new Response(stream).arrayBuffer();
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			total += value.byteLength;
+			if (total > maxBytes) {
+				await reader.cancel().catch(() => {});
+				throw new OtlpDecodeError(
+					`Decompressed payload too large (max ${maxBytes} bytes)`,
+					413,
+				);
+			}
+			chunks.push(value);
+		}
+	} catch (err) {
+		if (err instanceof OtlpDecodeError) throw err;
+		throw new OtlpDecodeError("Malformed gzip body", 400);
+	}
+	const out = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		out.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return out.buffer;
 };
 
 export const decodeJsonBody = (bytes: Uint8Array): JsonValue => {

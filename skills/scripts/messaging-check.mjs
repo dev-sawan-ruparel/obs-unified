@@ -52,7 +52,11 @@ const mcpTools = new Set(derived.mcpTools ?? []);
   const derivedScopes = new Set(
     (derived.packages ?? []).map((p) => p.scope).filter(Boolean),
   );
-  for (const [key, entry] of Object.entries(manifest.scopes ?? {})) {
+  // The block lives at authored.scopes; a root `scopes` key only exists in
+  // older drafts. Reading only the root made this check a silent no-op.
+  for (const [key, entry] of Object.entries(
+    manifest.authored?.scopes ?? manifest.scopes ?? {},
+  )) {
     if (entry?.scope && !derivedScopes.has(entry.scope)) {
       errors.push(
         `scopes.${key}.scope "${entry.scope}" is not the scope of any derived package (stale vendored manifest?)`,

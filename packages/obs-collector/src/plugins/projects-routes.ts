@@ -81,9 +81,10 @@ export const projectsRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.delete("/internal/projects/:id/keys/:keyId", async (c) => {
+			const projectId = c.req.param("id");
 			const keyId = c.req.param("keyId");
 			const store = new ProjectsStore(sqlDbFor(c.env));
-			const revoked = await store.revokeKey(keyId);
+			const revoked = await store.revokeKey(keyId, projectId);
 			if (!revoked)
 				return c.json({ error: "Key not found or already revoked" }, 404);
 			return c.json({ success: true });

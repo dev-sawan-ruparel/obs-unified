@@ -1,5 +1,23 @@
 import { getConfiguredRetentionHours } from "@obsunified/types/constants";
 import { describe, expect, it } from "vitest";
+import { resolveBlobStore } from "./collector-env";
+
+describe("resolveBlobStore", () => {
+	it("accepts file / s3 case-insensitively and defaults to file", () => {
+		expect(resolveBlobStore(undefined)).toBe("file");
+		expect(resolveBlobStore("")).toBe("file");
+		expect(resolveBlobStore("file")).toBe("file");
+		expect(resolveBlobStore("s3")).toBe("s3");
+		expect(resolveBlobStore("S3")).toBe("s3");
+		expect(resolveBlobStore(" S3 ")).toBe("s3");
+	});
+
+	it("refuses unknown values instead of silently using the filesystem", () => {
+		expect(() => resolveBlobStore("minio")).toThrow(/BLOB_STORE="minio"/);
+		expect(() => resolveBlobStore("s-3")).toThrow(/expected "file" or "s3"/);
+	});
+});
+
 import {
 	OPTIONAL_COLLECTOR_ENV_KEYS,
 	readOptionalCollectorEnv,

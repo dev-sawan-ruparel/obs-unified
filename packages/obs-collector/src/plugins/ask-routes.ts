@@ -22,6 +22,7 @@ import { runAsk } from "../lib/ask";
 import type { LlmConfig } from "../lib/llm";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
+import { readJsonObject } from "./_json";
 
 const MAX_QUESTION_CHARS = 1000;
 
@@ -29,12 +30,10 @@ export const askRoutesPlugin: CollectorPlugin = {
 	name: "ask-routes",
 	register(app, runtime) {
 		app.post("/internal/ask", async (c) => {
-			let body: Partial<AskRequest> = {};
-			try {
-				body = (await c.req.json()) as Partial<AskRequest>;
-			} catch {
+			const body = await readJsonObject<Partial<AskRequest>>(c);
+			if (!body) {
 				return c.json(
-					{ error: "Bad Request", message: "body must be JSON" },
+					{ error: "Bad Request", message: "body must be a JSON object" },
 					400,
 				);
 			}

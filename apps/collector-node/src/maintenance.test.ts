@@ -241,16 +241,24 @@ describe("createCollectorMaintenanceTasks (real collector handlers)", () => {
 			profile_blobs: 0,
 			actions: 0,
 			action_leaves: 0,
+			housekeeping: {
+				alert_evaluations: 0,
+				ask_evidence_events: 0,
+				metric_series: 0,
+				evidence_refs: 0,
+				evidence_ref_expansions: 0,
+			},
 		});
 		// The action graph sweep ran through the same SqlDb, scoped by the
 		// dialect-neutral started_at cutoff rather than a SQLite built-in.
 		expect(calls.some((sql) => /FROM actions a/i.test(sql))).toBe(true);
-		// Postgres dialect flowed through: the profile purge uses
-		// CURRENT_TIMESTAMP rather than SQLite's datetime('now').
+		// Postgres dialect flowed through: the expired-profile scan uses
+		// CURRENT_TIMESTAMP rather than SQLite's datetime('now'). (Rows are
+		// then deleted by id, after their blobs.)
 		expect(
 			calls.some(
 				(sql) =>
-					sql.includes("DELETE FROM profile_blobs") &&
+					sql.includes("FROM profile_blobs") &&
 					sql.includes("CURRENT_TIMESTAMP"),
 			),
 		).toBe(true);

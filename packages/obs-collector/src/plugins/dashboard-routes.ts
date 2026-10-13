@@ -29,8 +29,17 @@ export const dashboardRoutesPlugin: CollectorPlugin = {
 				url.pathname = "/dashboard/";
 				return assets.fetch(new Request(url.toString(), c.req.raw));
 			}
-			// Fallback: redirects to SPA root
-			return c.redirect("/dashboard/");
+			// No assets binding: there is nothing to serve. Redirecting to
+			// `/dashboard/` here would match this same route and loop forever
+			// (and bounce unauthenticated browsers between `/dashboard/` and
+			// `/dashboard/login` endlessly).
+			return c.json(
+				{
+					error:
+						"Dashboard assets are not configured on this collector. Serve @obsunified/dashboard separately or bind [assets] in wrangler.toml.",
+				},
+				404,
+			);
 		});
 
 		// Root redirect: visiting the collector root goes to dashboard

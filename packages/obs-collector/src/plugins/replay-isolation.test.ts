@@ -155,7 +155,9 @@ async function createPgTestHarness(): Promise<PgTestHarness | null> {
 			async close() {
 				try {
 					await client.query("RESET search_path").catch(() => {});
-					await client.query(`DROP SCHEMA IF EXISTS "${scratchSchema}" CASCADE`);
+					await client.query(
+						`DROP SCHEMA IF EXISTS "${scratchSchema}" CASCADE`,
+					);
 				} finally {
 					await client.end();
 				}
@@ -164,9 +166,7 @@ async function createPgTestHarness(): Promise<PgTestHarness | null> {
 	}
 
 	if (existsSync(pgliteEnvPath)) {
-		const { PGlite } = (await import(
-			/* @vite-ignore */ pgliteEnvPath
-		)) as {
+		const { PGlite } = (await import(/* @vite-ignore */ pgliteEnvPath)) as {
 			PGlite: {
 				create: () => Promise<{
 					query: <T = Record<string, unknown>>(
@@ -483,7 +483,10 @@ describe("Cross-Project Session Replay Isolation & Migration 042", () => {
 
 				// 4. Execute migration 042
 				const m042 = readFileSync(
-					resolve(pgMigrationsDir, "042_session_replay_project_composite_pk.sql"),
+					resolve(
+						pgMigrationsDir,
+						"042_session_replay_project_composite_pk.sql",
+					),
 					"utf8",
 				);
 				await pg.exec(m042);
@@ -576,7 +579,9 @@ describe("Cross-Project Session Replay Isolation & Migration 042", () => {
 				expect(afterExisting.rows[0]?.chunk_count).toBe(2);
 				expect(afterExisting.rows[0]?.events_count).toBe(20);
 				expect(afterExisting.rows[0]?.storage_bytes).toBe(2048);
-				expect(afterExisting.rows[0]?.last_chunk_at).toBe("2026-06-01T10:02:00Z");
+				expect(afterExisting.rows[0]?.last_chunk_at).toBe(
+					"2026-06-01T10:02:00Z",
+				);
 
 				// proj-other has its chunk count and bytes incremented
 				expect(afterOther.rows[0]?.chunk_count).toBe(2);

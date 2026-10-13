@@ -8,6 +8,7 @@
 		"generate": "node scripts/generate.mjs",
 		"generate:check": "node scripts/generate.mjs --check",
 		"check": "node scripts/check.mjs",
+		"test": "node --test \"scripts/*.test.mjs\"",
 		"sync": "node scripts/sync-to-projects.mjs",
 		"sync:check": "node scripts/sync-to-projects.mjs --check"
 	},

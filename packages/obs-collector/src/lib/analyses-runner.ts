@@ -42,6 +42,7 @@ import {
 	evaluateGate,
 	type NarrativeIntent,
 } from "./narrate-gate";
+import { ProjectsStore } from "./projects-store";
 import { type SqlDb, sqlDbFor } from "./sql-db";
 
 export interface AnalysisRunContext {
@@ -253,8 +254,10 @@ async function narratePass(
  * in-process registry (so newly-derived Tier 1 analyses become visible
  * to the dashboard within one tick), then runs whatever's due.
  *
- * Stage 1 has a single project ("default"). When a projects table is
- * available we'll iterate it here.
+ * Runs once per project in the `projects` table (falling back to the
+ * `default` project when the table is empty or unreadable), so analyses and
+ * the alert rules bound to them refresh for every tenant, not just the
+ * first one.
  */
 export async function runAllDueAnalyses(
 	ctx: {
@@ -274,7 +277,61 @@ export async function runAllDueAnalyses(
 	const logger = ctx.logger ?? consoleLogger;
 	const db = sqlDbFor(ctx.env);
 	const store = new AnalysesStore(db);
-	const projectId = "default";
+	const totals = { ran: 0, failed: 0, refreshed: 0, narrated: 0, skipped: 0 };
+	for (const projectId of await listAnalysisProjects(db, logger)) {
+		const summary = await runDueAnalysesForProject(projectId, {
+			ctx,
+			db,
+			store,
+			logger,
+		});
+		totals.ran += summary.ran;
+		totals.failed += summary.failed;
+		totals.refreshed += summary.refreshed;
+		totals.narrated += summary.narrated;
+		totals.skipped += summary.skipped ?? 0;
+	}
+	return totals;
+}
+
+/** Project ids to run analyses for; `default` when none can be listed. */
+async function listAnalysisProjects(
+	db: SqlDb,
+	logger: Logger,
+): Promise<string[]> {
+	try {
+		const ids = (await new ProjectsStore(db).listProjects())
+			.map((p) => p.id)
+			.filter((id) => typeof id === "string" && id.length > 0);
+		if (ids.length > 0) return ids;
+	} catch (error) {
+		logger.error("[analyses] failed to list projects; running default only", {
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
+	return ["default"];
+}
+
+async function runDueAnalysesForProject(
+	projectId: string,
+	deps: {
+		ctx: {
+			env: CollectorEnv;
+			retentionHours: number;
+			tracer?: ChildSpanRunner;
+		};
+		db: SqlDb;
+		store: AnalysesStore;
+		logger: Logger;
+	},
+): Promise<{
+	ran: number;
+	failed: number;
+	refreshed: number;
+	narrated: number;
+	skipped?: number;
+}> {
+	const { ctx, db, store, logger } = deps;
 	const now = Date.now();
 	const expiresAt = now + ctx.retentionHours * 3600 * 1000;
 

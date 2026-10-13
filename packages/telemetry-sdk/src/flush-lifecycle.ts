@@ -34,8 +34,19 @@ export function installFlushLifecycle({
 	}
 
 	if (typeof process !== "undefined") {
-		process.on("beforeExit", runFlush);
-		cleanup.push(() => process.off("beforeExit", runFlush));
+		// `beforeExit` fires every time the event loop drains. A final flush
+		// keeps the loop alive until the request settles, and if the collector
+		// is down the batch is requeued and the loop drains again — forever.
+		// Attempt the drain once; a failed final flush must not keep the
+		// process alive.
+		let finalFlushStarted = false;
+		const onBeforeExit = () => {
+			if (finalFlushStarted) return;
+			finalFlushStarted = true;
+			runFlush();
+		};
+		process.on("beforeExit", onBeforeExit);
+		cleanup.push(() => process.off("beforeExit", onBeforeExit));
 
 		// Do not install first signal listeners from inside the SDK: doing so
 		// changes Node's default SIGTERM/SIGINT exit behavior. If the host app

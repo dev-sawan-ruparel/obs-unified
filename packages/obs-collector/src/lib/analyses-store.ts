@@ -293,20 +293,27 @@ export class AnalysesStore {
 			);
 		if (analysisIds.length === 0) return new Map();
 
-		// Pull a recent window of rows for the requested analyses then group by
-		// analysis_id, taking the row with the largest generated_at per group.
-		// One query, no per-analysis round-trips.
+		// One row per analysis: join against the per-analysis MAX(generated_at)
+		// so the database returns only the newest result for each id instead
+		// of every retained row (a 60 s refresh over a 72 h window is ~4k rows
+		// per analysis). Ties on generated_at are broken in JS below.
 		const placeholders = analysisIds.map(() => "?").join(", ");
 		const result = await this.db
 			.prepare(
-				`SELECT id, project_id, analysis_id, generated_at, params_hash,
-					status, primary_value, baseline_value, delta_pct, payload_json,
-					narrative, narrative_signature, duration_ms, expires_at
-				FROM analysis_results
-				WHERE project_id = ? AND analysis_id IN (${placeholders})
-				ORDER BY generated_at DESC`,
+				`SELECT r.id, r.project_id, r.analysis_id, r.generated_at, r.params_hash,
+					r.status, r.primary_value, r.baseline_value, r.delta_pct, r.payload_json,
+					r.narrative, r.narrative_signature, r.duration_ms, r.expires_at
+				FROM analysis_results r
+				JOIN (
+					SELECT analysis_id, MAX(generated_at) AS latest_at
+					FROM analysis_results
+					WHERE project_id = ? AND analysis_id IN (${placeholders})
+					GROUP BY analysis_id
+				) m ON m.analysis_id = r.analysis_id AND m.latest_at = r.generated_at
+				WHERE r.project_id = ?
+				ORDER BY r.generated_at DESC, r.id DESC`,
 			)
-			.bind(projectId, ...analysisIds)
+			.bind(projectId, ...analysisIds, projectId)
 			.all<ResultRow>();
 
 		const latest = new Map<string, AnalysisResult>();

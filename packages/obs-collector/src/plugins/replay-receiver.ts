@@ -2,21 +2,21 @@ import type { ReplayChunkInput } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
+import { readJsonObject } from "./_json";
 
 export const replayReceiverPlugin: CollectorPlugin = {
 	name: "replay-receiver",
 	register(app, runtime) {
 		app.post("/v1/replays", async (c) => {
 			const projectId = getProjectId(c);
-			let payload: ReplayChunkInput;
-			try {
-				payload = await c.req.json<ReplayChunkInput>();
-			} catch {
-				return c.json({ error: "Invalid JSON body" }, 400);
-			}
+			const payload = await readJsonObject<ReplayChunkInput>(c);
+			if (!payload) return c.json({ error: "Invalid JSON body" }, 400);
+			// visitor_id is NOT NULL on session_replay_metadata; rejecting a
+			// missing visitorId here keeps the chunk out of blob storage instead
+			// of failing the metadata insert after the object was written.
 			if (
 				!isSafeId(payload.sessionId) ||
-				(payload.visitorId !== undefined && !isSafeId(payload.visitorId)) ||
+				!isSafeId(payload.visitorId) ||
 				!Number.isInteger(payload.sequenceNumber) ||
 				payload.sequenceNumber < 0 ||
 				!Array.isArray(payload.events)

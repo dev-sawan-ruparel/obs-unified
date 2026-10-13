@@ -50,7 +50,11 @@ const derived = manifest.derived ?? {};
 	const derivedScopes = new Set(
 		(derived.packages ?? []).map((p) => p.scope).filter(Boolean),
 	);
-	for (const [key, entry] of Object.entries(manifest.scopes ?? {})) {
+	// The block lives at authored.scopes; a root `scopes` key only exists in
+	// older drafts. Reading only the root made this check a silent no-op.
+	for (const [key, entry] of Object.entries(
+		manifest.authored?.scopes ?? manifest.scopes ?? {},
+	)) {
 		if (entry?.scope && !derivedScopes.has(entry.scope)) {
 			fail(
 				`scopes.${key}.scope "${entry.scope}" is not the scope of any derived package (stale vendored manifest?)`,
@@ -129,7 +133,7 @@ async function checkPackageScopes() {
 
 	if (unknown.size === 0) {
 		console.log(
-			`✓ CHECK 2 (package scopes): all @obs-unified package refs in ${files.length} docs are known`,
+			`✓ CHECK 2 (package scopes): all @obsunified package refs in ${files.length} docs are known`,
 		);
 		return;
 	}
@@ -189,7 +193,7 @@ async function checkDoctorCommand() {
 	for (const file of files) {
 		const text = await readText(file);
 		// Check for "obs-unified doctor" without "pnpm dlx @obsunified/cli" prefix
-		if (/(?<!pnpm dlx @obs-unified\/cli\s+)obs-unified\s+doctor\b/.test(text)) {
+		if (/(?<!@obsunified\/cli\s+)\bobs-unified\s+doctor\b/.test(text)) {
 			violations.push(file.replace(`${repoRoot}/`, ""));
 		}
 	}

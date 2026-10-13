@@ -13,10 +13,13 @@ export async function manifestByUser(
 	const sessionLimit = Math.max(1, Math.min(opts.sessions ?? 5, 20));
 
 	// Step 1 — resolve user_id → visitor_id. user_profiles is the only
-	// table that owns the user_id ↔ visitor_id binding.
+	// table that owns the user_id ↔ visitor_id binding, keyed per project
+	// (the same user_id can exist in several projects — migration 045).
 	const profile = await db
-		.prepare(`SELECT visitor_id FROM user_profiles WHERE user_id = ? LIMIT 1`)
-		.bind(userId)
+		.prepare(
+			`SELECT visitor_id FROM user_profiles WHERE project_id = ? AND user_id = ? LIMIT 1`,
+		)
+		.bind(projectId, userId)
 		.first<{ visitor_id: string }>();
 	if (!profile) {
 		return {

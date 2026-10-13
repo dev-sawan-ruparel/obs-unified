@@ -40,7 +40,7 @@ const overallErrorRate: AnalysisDefinition = {
 				SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS errors
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		base_window AS (
 			SELECT
@@ -48,8 +48,8 @@ const overallErrorRate: AnalysisDefinition = {
 				SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS errors
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-1 hour')
-				AND received_at <  datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		spark AS (
 			-- per-minute error rate over the last 30 minutes for sparkline rendering
@@ -59,7 +59,7 @@ const overallErrorRate: AnalysisDefinition = {
 				SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS errors
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-30 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
 			GROUP BY minute
 			ORDER BY minute ASC
 		)
@@ -123,7 +123,7 @@ const topErrorServices: AnalysisDefinition = {
 				SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS errors
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 			GROUP BY service
 		),
 		top5 AS (
@@ -183,7 +183,7 @@ const latencyP95Overall: AnalysisDefinition = {
 				COUNT(*)    OVER () AS n
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-1 hour')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 		),
 		base AS (
 			SELECT duration_ms,
@@ -191,8 +191,8 @@ const latencyP95Overall: AnalysisDefinition = {
 				COUNT(*)    OVER () AS n
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-25 hours')
-				AND received_at <  datetime('now', '-24 hours')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-25 hours')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-24 hours')
 		),
 		cur_p95 AS (
 			SELECT duration_ms FROM cur
@@ -214,7 +214,7 @@ const latencyP95Overall: AnalysisDefinition = {
 				COUNT(*) AS n
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-1 hour')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
 			GROUP BY bucket
 			ORDER BY bucket ASC
 		),
@@ -271,7 +271,7 @@ const throughputSlope: AnalysisDefinition = {
 				COUNT(*)    OVER () AS n
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-30 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
 		),
 		prev AS (
 			SELECT duration_ms,
@@ -279,8 +279,8 @@ const throughputSlope: AnalysisDefinition = {
 				COUNT(*)    OVER () AS n
 			FROM telemetry_spans
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-60 minutes')
-				AND received_at <  datetime('now', '-30 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 minutes')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
 		),
 		cur_n   AS (SELECT COALESCE((SELECT n FROM cur LIMIT 1), 0) AS n),
 		prev_n  AS (SELECT COALESCE((SELECT n FROM prev LIMIT 1), 0) AS n),
@@ -347,7 +347,7 @@ const activeSessions: AnalysisDefinition = {
 			SELECT COUNT(DISTINCT session_id) AS n
 			FROM usage_events
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-15 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
 		),
 		hourly AS (
 			SELECT
@@ -355,7 +355,7 @@ const activeSessions: AnalysisDefinition = {
 				COUNT(DISTINCT session_id) AS sessions
 			FROM usage_events
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-24 hours')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-24 hours')
 			GROUP BY hour
 			ORDER BY hour ASC
 		)
@@ -400,7 +400,7 @@ const logErrorRate: AnalysisDefinition = {
 				SUM(CASE WHEN severity_number >= 17 THEN 1 ELSE 0 END) AS errors
 			FROM logs
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		base_window AS (
 			SELECT
@@ -408,8 +408,8 @@ const logErrorRate: AnalysisDefinition = {
 				SUM(CASE WHEN severity_number >= 17 THEN 1 ELSE 0 END) AS errors
 			FROM logs
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-1 hour')
-				AND received_at <  datetime('now', '-5 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 		),
 		spark AS (
 			SELECT
@@ -418,7 +418,7 @@ const logErrorRate: AnalysisDefinition = {
 				SUM(CASE WHEN severity_number >= 17 THEN 1 ELSE 0 END) AS errors
 			FROM logs
 			WHERE project_id = '{{PROJECT_ID}}'
-				AND received_at >= datetime('now', '-30 minutes')
+				AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
 			GROUP BY minute
 			ORDER BY minute ASC
 		)
@@ -490,19 +490,19 @@ const serviceCpuUtilization: AnalysisDefinition = {
 			WHERE s.project_id = '{{PROJECT_ID}}'
 				AND s.name = 'process.cpu.utilization'
 				AND s.service_name IS NOT NULL
-				AND p.received_at >= datetime('now', '-30 minutes')
+				AND p.received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
 		),
 		now_window AS (
 			SELECT service_name, AVG(value) AS avg_util
 			FROM cpu_points
-			WHERE received_at >= datetime('now', '-5 minutes')
+			WHERE received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 			GROUP BY service_name
 		),
 		base_window AS (
 			SELECT service_name, AVG(value) AS avg_util
 			FROM cpu_points
-			WHERE received_at >= datetime('now', '-30 minutes')
-				AND received_at <  datetime('now', '-5 minutes')
+			WHERE received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes')
+				AND received_at <  strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
 			GROUP BY service_name
 		),
 			top_now AS (

@@ -36,7 +36,19 @@ const NO_CTX = undefined as unknown as ExecutionContext;
 describe("createRetentionCleanupHandler", () => {
 	it("run(env) purges each table and returns the per-table counts", async () => {
 		const logger = makeLogger();
-		const db = new MemSqlDb({ run: () => ({ changes: 3 }), all: () => [] });
+		// Profile rows are deleted by id after their blobs are handled, so the
+		// sweep must see expired rows to count them.
+		const db = new MemSqlDb({
+			run: () => ({ changes: 3 }),
+			all: (sql) =>
+				sql.includes("FROM profile_blobs")
+					? [
+							{ id: "p1", blob_url: "default/1/p1" },
+							{ id: "p2", blob_url: "default/2/p2" },
+							{ id: "p3", blob_url: "default/3/p3" },
+						]
+					: [],
+		});
 		const handler = createRetentionCleanupHandler({ logger });
 
 		const summary = await handler.run(envFor(db));
@@ -238,6 +250,44 @@ describe("createRetentionCleanupHandler", () => {
 		expect(summary.profile_blobs).toBe(2);
 		expect(bucketDelete).toHaveBeenCalledTimes(2);
 		expect(bucketDelete).toHaveBeenCalledWith("default/1/p1.pprof.gz");
+		// Rows are deleted by id for the blobs that were removed, never by a
+		// blanket expires_at predicate that could outrun the blob page.
+		const deletes = db.callsMatching("DELETE FROM profile_blobs");
+		expect(deletes).toHaveLength(1);
+		expect(deletes[0]?.sql).toContain("WHERE id IN (?, ?)");
+		expect(deletes[0]?.binds).toEqual(["p1", "p2"]);
+	});
+
+	it("keeps the profile row when its blob could not be deleted", async () => {
+		const db = new MemSqlDb({
+			all: (sql) =>
+				sql.includes("FROM profile_blobs")
+					? [
+							{ id: "p1", blob_url: "default/1/p1.pprof.gz" },
+							{ id: "p2", blob_url: "default/2/p2.pprof.gz" },
+						]
+					: [],
+			run: () => ({ changes: 1 }),
+		});
+		const bucketDelete = vi.fn(async (key: string) => {
+			if (key.includes("p2")) throw new Error("r2 unavailable");
+		});
+		const logger = makeLogger();
+		const env = {
+			DB: db,
+			PROFILES_BUCKET: { delete: bucketDelete },
+		} as unknown as CollectorEnv;
+
+		const summary = await createRetentionCleanupHandler({ logger }).run(env);
+
+		expect(summary.profile_blobs).toBe(1);
+		const deletes = db.callsMatching("DELETE FROM profile_blobs");
+		expect(deletes).toHaveLength(1);
+		expect(deletes[0]?.binds).toEqual(["p1"]);
+		expect(logger.warn).toHaveBeenCalledWith(
+			"[retention-cleanup] profile blob delete failed; row kept for retry",
+			expect.objectContaining({ profile_id: "p2" }),
+		);
 	});
 });
 

@@ -44,7 +44,11 @@ console.log("CHECK 0 — manifest scope integrity");
 	const derivedScopes = new Set(
 		(manifest?.derived?.packages ?? []).map((p) => p.scope).filter(Boolean),
 	);
-	for (const [key, entry] of Object.entries(manifest?.scopes ?? {})) {
+	// The block lives at authored.scopes; a root `scopes` key only exists in
+	// older drafts. Reading only the root made this check a silent no-op.
+	for (const [key, entry] of Object.entries(
+		manifest?.authored?.scopes ?? manifest?.scopes ?? {},
+	)) {
 		if (!entry?.scope) continue;
 		if (derivedScopes.has(entry.scope)) {
 			ok(`scopes.${key}.scope ${entry.scope} matches a derived package scope`);

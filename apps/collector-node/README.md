@@ -53,6 +53,7 @@ pnpm --filter @obs-demo/collector-node run start
 | `DASHBOARD_PASSWORD`   | yes           | —                        | Dashboard login password                                    |
 | `DASHBOARD_TOKEN`      | no            | —                        | Programmatic read/admin bearer token for /internal/* (MCP)  |
 | `ALLOWED_ORIGINS`      | no            | —                        | Comma-separated CORS origins                                |
+| `TRUST_PROXY`          | no            | `false`                  | Set `true` only behind a trusted reverse proxy; login rate limiting then keys on `X-Forwarded-For` / `CF-Connecting-IP` instead of the TCP peer |
 | `PORT`                 | no            | 8790                     | HTTP listen port                                            |
 | `RETENTION_HOURS`      | no            | 72                       | Retention window for rows and blobs (1–720); also bounds dashboard query ranges |
 | `ANTHROPIC_API_KEY`    | no            | —                        | Enables the analyses narrate pass and `/internal/ask` via Anthropic |

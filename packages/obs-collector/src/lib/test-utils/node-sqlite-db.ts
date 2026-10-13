@@ -11,9 +11,24 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import type { SqlDb, SqlStatement } from "../sql-db";
+import { type SqlDb, type SqlStatement, sqliteDialect } from "../sql-db";
 
 type SqliteBind = string | number | bigint | null | Uint8Array;
+
+/** D1 accepts `undefined` and booleans in `bind`; node:sqlite does not. */
+const toBind = (value: unknown): SqliteBind => {
+	if (value === undefined || value === null) return null;
+	if (typeof value === "boolean") return value ? 1 : 0;
+	if (
+		typeof value === "number" ||
+		typeof value === "bigint" ||
+		typeof value === "string" ||
+		value instanceof Uint8Array
+	) {
+		return value;
+	}
+	return JSON.stringify(value);
+};
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const SQLITE_MIGRATIONS_DIR = path.resolve(here, "../../migrations");
@@ -25,8 +40,65 @@ export const listSqliteMigrations = (through?: string): string[] =>
 		.filter((f) => through === undefined || f <= through)
 		.sort();
 
+export interface ApplyMigrationsOptions {
+	/** Apply files whose numeric prefix is `>= from` (inclusive, e.g. "045"). */
+	from?: string;
+	/** Apply files whose numeric prefix is `<= upTo` (inclusive, e.g. "044"). */
+	upTo?: string;
+}
+
+/** Apply `migrations/*.sql` in sorted order; returns the file names applied. */
+export function applySqliteMigrations(
+	db: DatabaseSync,
+	options: ApplyMigrationsOptions = {},
+): string[] {
+	const applied: string[] = [];
+	for (const file of listSqliteMigrations()) {
+		const prefix = file.slice(0, 3);
+		if (options.from && prefix < options.from) continue;
+		if (options.upTo && prefix > options.upTo) continue;
+		db.exec(readFileSync(path.join(SQLITE_MIGRATIONS_DIR, file), "utf8"));
+		applied.push(file);
+	}
+	return applied;
+}
+
+/** Fresh in-memory database with the selected D1 migrations applied. */
+export const createMigratedSqliteDb = (
+	options: ApplyMigrationsOptions = {},
+): NodeSqliteDb => {
+	const db = new NodeSqliteDb();
+	applySqliteMigrations(db.raw, options);
+	return db;
+};
+
+/** Column names of a table's PRIMARY KEY in key order. */
+export const primaryKeyColumns = (db: DatabaseSync, table: string): string[] =>
+	(
+		db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+			name: string;
+			pk: number;
+		}>
+	)
+		.filter((c) => c.pk > 0)
+		.sort((a, b) => a.pk - b.pk)
+		.map((c) => c.name);
+
+/** Index names declared on a table (SQLite auto-indexes excluded). */
+export const indexNames = (db: DatabaseSync, table: string): string[] =>
+	(db.prepare(`PRAGMA index_list(${table})`).all() as Array<{ name: string }>)
+		.map((i) => i.name)
+		.filter((n) => !n.startsWith("sqlite_autoindex"))
+		.sort();
+
 export class NodeSqliteDb implements SqlDb {
+	readonly dialect = sqliteDialect;
+
 	constructor(readonly raw: DatabaseSync = new DatabaseSync(":memory:")) {}
+
+	close(): void {
+		this.raw.close();
+	}
 
 	/** Apply `migrations/*.sql` in order. `through` applies up to that file. */
 	static migrated(through?: string): NodeSqliteDb {
@@ -47,19 +119,32 @@ export class NodeSqliteDb implements SqlDb {
 		return new NodeSqliteStatement(this.raw, sql, []);
 	}
 
-	async batch(
+	/** Batches are serialized and run without yielding, like D1's atomic batch. */
+	private batchQueue: Promise<unknown> = Promise.resolve();
+
+	batch(
 		statements: SqlStatement[],
 	): Promise<Array<{ meta: { changes: number } }>> {
-		const results: Array<{ meta: { changes: number } }> = [];
-		this.raw.exec("BEGIN");
-		try {
-			for (const stmt of statements) results.push(await stmt.run());
-			this.raw.exec("COMMIT");
-		} catch (err) {
-			this.raw.exec("ROLLBACK");
-			throw err;
-		}
-		return results;
+		const run = () => {
+			const results: Array<{ meta: { changes: number } }> = [];
+			this.raw.exec("BEGIN");
+			try {
+				for (const stmt of statements) {
+					if (!(stmt instanceof NodeSqliteStatement)) {
+						throw new Error("NodeSqliteDb.batch: foreign statement");
+					}
+					results.push(stmt.runSync());
+				}
+				this.raw.exec("COMMIT");
+			} catch (err) {
+				this.raw.exec("ROLLBACK");
+				throw err;
+			}
+			return results;
+		};
+		const next = this.batchQueue.then(run, run);
+		this.batchQueue = next.catch(() => undefined);
+		return next;
 	}
 
 	/** Convenience for assertions: `SELECT COUNT(*)` with an optional filter. */
@@ -79,7 +164,7 @@ class NodeSqliteStatement implements SqlStatement {
 	) {}
 
 	bind(...args: unknown[]): SqlStatement {
-		return new NodeSqliteStatement(this.db, this.sql, args);
+		return new NodeSqliteStatement(this.db, this.sql, args.map(toBind));
 	}
 
 	async first<T = Record<string, unknown>>(): Promise<T | null> {
@@ -92,8 +177,12 @@ class NodeSqliteStatement implements SqlStatement {
 		return { results: rows as T[] };
 	}
 
-	async run(): Promise<{ meta: { changes: number } }> {
+	runSync(): { meta: { changes: number } } {
 		const info = this.db.prepare(this.sql).run(...(this.binds as SqliteBind[]));
 		return { meta: { changes: Number(info.changes) } };
+	}
+
+	async run(): Promise<{ meta: { changes: number } }> {
+		return this.runSync();
 	}
 }
