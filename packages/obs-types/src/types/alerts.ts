@@ -118,6 +118,12 @@ export interface AlertStateRow {
 	project_id: string;
 	current_state: AlertState;
 	last_state_change: string;
+	/**
+	 * 1 once the channels accepted the notification for `current_state`,
+	 * 0 while it is still owed (migration 049). Absent on a database that
+	 * has not applied 049 yet; readers treat that as delivered.
+	 */
+	notified?: number;
 }
 
 export interface AlertTestResponse {

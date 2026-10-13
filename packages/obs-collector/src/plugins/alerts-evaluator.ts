@@ -25,7 +25,22 @@ const DEFAULT_RULE_TIMEOUT_MS = 10_000;
 interface AlertEvaluatorStore {
 	listEnabledRules(): Promise<AlertRule[]>;
 	evaluateRule(rule: AlertRule): Promise<number>;
-	getState(ruleId: string): Promise<{ current_state: AlertState } | null>;
+	getState(
+		ruleId: string,
+		projectId: string,
+	): Promise<{
+		current_state: AlertState;
+		last_state_change: string;
+		/** 0 while the transition's notification is owed; absent pre-049 (= delivered). */
+		notified?: number;
+	} | null>;
+	/** Flip the exact transition `(state, lastStateChange)` to delivered. */
+	markNotified(
+		ruleId: string,
+		projectId: string,
+		state: AlertState,
+		lastStateChange: string,
+	): Promise<boolean>;
 	getAnalysisNarrative(
 		projectId: string,
 		analysisId: string,
@@ -223,7 +238,8 @@ async function evaluateOneRule(
 	tracer: ChildSpanRunner | undefined,
 	ruleTimeoutMs: number,
 	delivery: WebhookDeliveryOptions,
-): Promise<{ fired: number; resolved: number }> {
+): Promise<{ fired: number; resolved: number; redelivered: number }> {
+	const none = { fired: 0, resolved: 0, redelivered: 0 };
 	try {
 		const value = await withTimeout(
 			store.evaluateRule(rule),
@@ -231,7 +247,7 @@ async function evaluateOneRule(
 			`rule evaluation timed out after ${ruleTimeoutMs}ms`,
 		);
 		const shouldFire = compareValue(value, rule.threshold, rule.comparison);
-		const priorState = await store.getState(rule.id);
+		const priorState = await store.getState(rule.id, rule.projectId);
 		const previous: AlertState = priorState?.current_state ?? "ok";
 		const next: AlertState = shouldFire ? "firing" : "ok";
 		const now = new Date().toISOString();
@@ -254,15 +270,15 @@ async function evaluateOneRule(
 					.catch(() => undefined)
 			: undefined;
 
-		if (previous === "ok" && next === "firing") {
-			const ok = await fireChannels(
+		const deliver = (state: AlertState) =>
+			fireChannels(
 				rule.channels,
 				{
 					rule: { id: rule.id, name: rule.name, signal: rule.signal },
 					value,
 					threshold: rule.threshold,
 					comparison: rule.comparison,
-					state: "firing",
+					state,
 					evaluatedAt: now,
 					projectId: rule.projectId,
 					analysis: analysisAttachment,
@@ -271,58 +287,61 @@ async function evaluateOneRule(
 				tracer,
 				delivery,
 			);
-			// Only advance the state once the channels accepted the alert.
-			// Otherwise the next tick sees ok → firing again and retries; a
-			// transient webhook failure must not silence the alert forever.
-			await store.recordEvaluation(
-				rule.id,
-				rule.projectId,
-				value,
-				"firing",
-				ok,
-			);
-			if (!ok) {
-				logger.warn("[alerts-evaluator] delivery failed; will retry", {
-					rule_id: rule.id,
-					project_id: rule.projectId,
-					state: "firing",
-				});
-				return { fired: 0, resolved: 0 };
+
+		if (previous !== next) {
+			// The stored state is what the dashboard shows and must follow the
+			// signal, not the webhook: record the transition first (with its
+			// notification outstanding, `alert_state.notified = 0`), then
+			// notify. On accepted delivery the flag is flipped for exactly this
+			// transition; otherwise the same-state branch below retries on the
+			// next tick without a second transition.
+			await store.transitionState(rule.id, rule.projectId, next, now);
+			const ok = await deliver(next);
+			// Acknowledge before writing history: if the evaluation insert
+			// fails, the delivered flag is already durable and the next tick
+			// will not send the same alert again.
+			if (ok) {
+				await store.markNotified(rule.id, rule.projectId, next, now);
 			}
-			await store.transitionState(rule.id, rule.projectId, "firing", now);
-			return { fired: 1, resolved: 0 };
-		}
-		if (previous === "firing" && next === "ok") {
-			const ok = await fireChannels(
-				rule.channels,
-				{
-					rule: { id: rule.id, name: rule.name, signal: rule.signal },
-					value,
-					threshold: rule.threshold,
-					comparison: rule.comparison,
-					state: "ok",
-					evaluatedAt: now,
-					projectId: rule.projectId,
-					analysis: analysisAttachment,
-				},
-				logger,
-				tracer,
-				delivery,
-			);
-			await store.recordEvaluation(rule.id, rule.projectId, value, "ok", ok);
+			await store.recordEvaluation(rule.id, rule.projectId, value, next, ok);
 			if (!ok) {
-				logger.warn("[alerts-evaluator] delivery failed; will retry", {
-					rule_id: rule.id,
-					project_id: rule.projectId,
-					state: "ok",
-				});
-				return { fired: 0, resolved: 0 };
+				logger.warn(
+					"[alerts-evaluator] state recorded but delivery failed; will retry",
+					{ rule_id: rule.id, project_id: rule.projectId, state: next },
+				);
 			}
-			await store.transitionState(rule.id, rule.projectId, "ok", now);
-			return { fired: 0, resolved: 1 };
+			return next === "firing"
+				? { fired: 1, resolved: 0, redelivered: 0 }
+				: { fired: 0, resolved: 1, redelivered: 0 };
 		}
 
-		// Same state — write an evaluation but do not fire channels.
+		// Same state. While the transition into it is still marked undelivered,
+		// retry the notification; the state itself is already correct. A row
+		// without the flag (schema before migration 049) counts as delivered.
+		const owed = priorState !== null && priorState.notified === 0;
+		if (owed) {
+			const ok = await deliver(previous);
+			if (ok) {
+				await store.markNotified(
+					rule.id,
+					rule.projectId,
+					previous,
+					priorState.last_state_change,
+				);
+			}
+			await store.recordEvaluation(rule.id, rule.projectId, value, next, ok);
+			if (!ok) {
+				logger.warn("[alerts-evaluator] delivery retry failed; will retry", {
+					rule_id: rule.id,
+					project_id: rule.projectId,
+					state: previous,
+				});
+				return none;
+			}
+			return { fired: 0, resolved: 0, redelivered: 1 };
+		}
+
+		// Same state, already notified — write an evaluation, do not fire.
 		await store.recordEvaluation(rule.id, rule.projectId, value, next, false);
 	} catch (err) {
 		logger.error("[alerts-evaluator] rule evaluation failed", {
@@ -332,7 +351,7 @@ async function evaluateOneRule(
 		});
 	}
 
-	return { fired: 0, resolved: 0 };
+	return none;
 }
 
 export async function evaluateRuleBatch(
@@ -350,6 +369,8 @@ export async function evaluateRuleBatch(
 	evaluated: number;
 	fired: number;
 	resolved: number;
+	/** Notifications for an earlier transition that were delivered on this tick. */
+	redelivered: number;
 }> {
 	const logger = options?.logger ?? consoleLogger;
 	const delivery: WebhookDeliveryOptions = {
@@ -378,6 +399,7 @@ export async function evaluateRuleBatch(
 		evaluated: rules.length,
 		fired: results.reduce((sum, result) => sum + result.fired, 0),
 		resolved: results.reduce((sum, result) => sum + result.resolved, 0),
+		redelivered: results.reduce((sum, result) => sum + result.redelivered, 0),
 	};
 }
 
@@ -394,6 +416,7 @@ export async function evaluateAllRules(
 	evaluated: number;
 	fired: number;
 	resolved: number;
+	redelivered: number;
 }> {
 	const logger = options?.logger ?? consoleLogger;
 	const tracer = options?.tracer;

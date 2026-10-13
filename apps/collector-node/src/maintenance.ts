@@ -133,6 +133,7 @@ export function createCollectorMaintenanceTasks(
 				evaluated: summary.evaluated,
 				fired: summary.fired,
 				resolved: summary.resolved,
+				redelivered: summary.redelivered,
 			});
 			return summary;
 		},

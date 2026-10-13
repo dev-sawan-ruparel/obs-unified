@@ -718,12 +718,17 @@ describe("dashboard-auth middleware & programmatic token contract", () => {
 			expect((await login(TEST_PASSWORD)).status).toBe(429);
 		});
 
-		it("does not let a direct client rotate its bucket through forwarding headers", async () => {
+		it("never shares one bucket across clients it cannot tell apart, and warns once", async () => {
 			const db = createTestDb();
 			const env = makeEnv(db);
+			const warnings: string[] = [];
 			const auth = createDashboardAuth({
 				password: TEST_PASSWORD,
-				loginRateLimit: { maxFailures: 2, windowMs: 60_000 },
+				loginRateLimit: {
+					maxFailures: 2,
+					windowMs: 60_000,
+					warn: (m) => warnings.push(m),
+				},
 			});
 			const app = new Hono<{ Bindings: CollectorEnv }>();
 			auth.registerRoutes(app);
@@ -741,10 +746,15 @@ describe("dashboard-auth middleware & programmatic token contract", () => {
 					env,
 				);
 
+			// Attacker-chosen headers are ignored, and without a peer address
+			// there is no bucket at all: wrong passwords from "anyone" must not
+			// lock the real operator out (a shared bucket would 429 here).
 			expect((await login("wrong", "1.1.1.1")).status).toBe(401);
 			expect((await login("wrong", "2.2.2.2")).status).toBe(401);
-			// Rotating the header does not open a fresh budget.
-			expect((await login(TEST_PASSWORD, "3.3.3.3")).status).toBe(429);
+			expect((await login("wrong", "3.3.3.3")).status).toBe(401);
+			expect((await login(TEST_PASSWORD, "4.4.4.4")).status).toBe(200);
+			expect(warnings).toHaveLength(1);
+			expect(warnings[0]).toContain("login rate limiting is inactive");
 		});
 
 		it("keys on the host-resolved peer address when one is provided", async () => {
