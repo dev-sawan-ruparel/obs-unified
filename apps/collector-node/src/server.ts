@@ -18,7 +18,6 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { serve } from "@hono/node-server";
-import { getConnInfo } from "@hono/node-server/conninfo";
 import {
 	BlobStoreToR2Adapter,
 	type CollectorEnv,
@@ -40,6 +39,7 @@ import {
 	createCollectorMaintenance,
 	readMaintenanceConfig,
 } from "./maintenance.ts";
+import { createNodeFetch, loginClientAddress } from "./node-host.ts";
 
 const env = readEnv();
 
@@ -98,7 +98,9 @@ const dashboardAuth = createDashboardAuth({
 		// The TCP peer is the only identity a direct client cannot choose.
 		// Behind a reverse proxy that peer is the proxy itself, so operators
 		// set TRUST_PROXY=true to key on the forwarded client address instead.
-		clientAddress: (c) => getConnInfo(c).remote.address,
+		// Resolving the peer needs the Node adapter bindings forwarded by
+		// `createNodeFetch` below.
+		clientAddress: loginClientAddress,
 		trustProxyHeaders: env.TRUST_PROXY,
 	},
 });
@@ -140,7 +142,9 @@ const requestEnv: CollectorEnv = {
 const port = env.PORT;
 const server = serve(
 	{
-		fetch: (request) => app.fetch(request, requestEnv),
+		// Forward the adapter's `{ incoming, outgoing }` bindings together with
+		// `requestEnv`; `getConnInfo` needs them to read the TCP peer.
+		fetch: createNodeFetch(app, requestEnv),
 		port,
 	},
 	({ port }) => {

@@ -291,11 +291,16 @@ describe("createCollectorMaintenanceTasks (real collector handlers)", () => {
 
 		const summary = await tasks.evaluateAlerts(makeEnv(db));
 
-		expect(summary).toEqual({ evaluated: 0, fired: 0, resolved: 0 });
+		expect(summary).toEqual({
+			evaluated: 0,
+			fired: 0,
+			resolved: 0,
+			redelivered: 0,
+		});
 		expect(calls.some((sql) => /FROM alert_rules/i.test(sql))).toBe(true);
 		expect(logger.info).toHaveBeenCalledWith(
 			"[alerts] scheduled evaluation summary",
-			{ evaluated: 0, fired: 0, resolved: 0 },
+			{ evaluated: 0, fired: 0, resolved: 0, redelivered: 0 },
 		);
 	});
 

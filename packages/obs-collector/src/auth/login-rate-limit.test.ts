@@ -50,10 +50,52 @@ describe("LoginRateLimiter", () => {
 			vi.unstubAllGlobals();
 		});
 
-		it("prefers the connection peer the host resolved", () => {
+		it("keys on the connection peer and ignores spoofed headers by default", () => {
 			expect(loginClientKey(spoofed, { clientAddress: "203.0.113.7" })).toBe(
 				"203.0.113.7",
 			);
+			expect(
+				loginClientKey(spoofed, {
+					clientAddress: "203.0.113.7",
+					trustProxyHeaders: false,
+				}),
+			).toBe("203.0.113.7");
+		});
+
+		it("prefers the trusted forwarded client over the proxy peer", () => {
+			// Behind a trusted proxy the peer is the proxy itself; the
+			// forwarded address is the real client.
+			expect(
+				loginClientKey(spoofed, {
+					clientAddress: "10.0.0.1",
+					trustProxyHeaders: true,
+				}),
+			).toBe("9.9.9.9");
+			expect(
+				loginClientKey(headers({ "x-forwarded-for": "8.8.8.8, 10.0.0.1" }), {
+					clientAddress: "10.0.0.1",
+					trustProxyHeaders: true,
+				}),
+			).toBe("8.8.8.8");
+			// Whitespace-only / empty header values do not count as forwarded.
+			expect(
+				loginClientKey(headers({ "x-forwarded-for": "  " }), {
+					clientAddress: "10.0.0.1",
+					trustProxyHeaders: true,
+				}),
+			).toBe("10.0.0.1");
+		});
+
+		it("falls back to the peer when a trusted proxy sent no headers", () => {
+			expect(
+				loginClientKey(headers({}), {
+					clientAddress: "10.0.0.1",
+					trustProxyHeaders: true,
+				}),
+			).toBe("10.0.0.1");
+			expect(
+				loginClientKey(headers({}), { trustProxyHeaders: true }),
+			).toBeNull();
 		});
 
 		it("ignores forwarding headers unless a trusted proxy is declared", () => {
@@ -77,6 +119,11 @@ describe("LoginRateLimiter", () => {
 			expect(
 				loginClientKey(headers({ "x-forwarded-for": "8.8.8.8" })),
 			).toBeNull();
+			// A host-resolved peer still wins over the edge header on Workers
+			// unless the embedder opts into trusting proxy headers.
+			expect(loginClientKey(spoofed, { clientAddress: "203.0.113.7" })).toBe(
+				"203.0.113.7",
+			);
 		});
 	});
 });
