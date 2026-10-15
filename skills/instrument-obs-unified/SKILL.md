@@ -19,59 +19,63 @@ Stop and point elsewhere if:
 
 Use TodoWrite to track progress when the project touches more than ~3 files.
 
-### 1. Detect the stack
+### 1. Detect the stack & check compatibility tier
 
-Read `package.json`. Classify the signals:
+Read `package.json` (or `pyproject.toml` / `go.mod` / `Cargo.toml`). Classify the signals against the 3-Tier Compatibility Matrix:
 
-- **Frontend**: `react`, `vite`, `next`, `solid-js`, `@remix-run/*`
-- **Backend**: `hono`, `express`, `fastify`, `koa`, `elysia`
-- **AI/LLM**: `openai`, `@anthropic-ai/sdk`, `@google/genai`, `langchain`, `@vercel/ai`, `ai`
-- **Cloudflare Workers**: `wrangler`, `@cloudflare/workers-types`
+- **Tier 1 (Full First-Party Unified Stack):**
+  - **Frontend**: `react`, `vite`, `next`, `solid-js`, `vue`, `svelte`, `@remix-run/*` (`@obsunified/analytics-sdk` — page views, clicks, `x-obs-interaction`, `rrweb` DOM replay)
+  - **Backend**: `hono`, `express`, `fastify`, `koa`, `elysia`, Cloudflare Workers (`@obsunified/telemetry-sdk` or `@obsunified/sdk`), or Go/Rust (`sdks/go`, `sdks/rust`)
+  - **AI/LLM**: `openai`, `@anthropic-ai/sdk`, `@google/genai`, `langchain`, `@vercel/ai`, `ai`
+- **Tier 2 (Standard OpenTelemetry Backends):** Python, Java/Kotlin, .NET, Ruby, PHP, C++ via OTLP HTTP/JSON (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`) + `obs.interaction.id` span attribute from `x-obs-interaction`.
+- **Tier 3 (Partial or Constrained Shapes — report to user before editing):**
+  - **Native mobile (`react-native`, `expo`, Swift, Kotlin, Flutter):** Backend traces/logs/AI calls work; `rrweb` DOM session replay is **not supported**.
+  - **CLI / Cron / Headless workers:** Backend traces/logs/AI calls/Action Graph (`triggerKind: "cron" | "queue"`) work; browser replay is N/A.
+  - **Async queues (Kafka, SQS, BullMQ, RabbitMQ):** Require explicit propagation of `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message metadata.
 
-The primary path (React+Vite + Hono on Workers) is the doc's running example. If the stack is adjacent, tell the user up front: "I'll adapt the patterns from `docs/howto/instrument-react-hono.md` — the SDK API is the same, the middleware shape differs slightly for `<framework>`. Confirm to proceed."
+The primary path (React+Vite + Hono on Workers) is the doc's running example. If the stack is adjacent, tell the user up front: "I'll adapt the patterns from `docs/howto/instrument-react-hono.md` — the SDK API is the same, the middleware shape differs slightly for `<framework>`."
 
 For monorepos, treat each workspace package independently. If one package has both frontend and backend imports, instrument both sides there.
 
 If only one side has signals (a Workers-only backend with no UI, or a static SPA hitting third-party APIs), skip the absent side's workflow step entirely. Note the skip in the final report so the user knows you didn't forget — they may add the other side later and want to re-invoke the skill.
 
-### 2. Confirm prerequisites with the user
+### 2. Provision or verify collector prerequisites (Autonomous vs. Human boundaries)
 
-Don't install anything until you have a reachable collector and an ingest key that resolves to a real project. Skipping this turns step 8 (verification) into a guessing game.
+Don't install anything until you have a reachable collector, a write-only ingest key (`OBS_INGEST_KEY` for `/v1/*`), and a read bearer token (`OBS_DASHBOARD_TOKEN` for `/internal/*` verification and MCP).
 
 **Required values:**
 
-- `OBS_COLLECTOR_URL` — where signals are sent.
-- `OBS_INGEST_KEY` — write key for a project on that collector.
-- `OBS_DASHBOARD_URL` — where the user opens the UI. Often the same host as the collector with a `/dashboard` path, but not always. Needed for the final deep-link in step 8's report.
+- `OBS_COLLECTOR_URL` — where signals are sent (default local: `http://localhost:8790`).
+- `OBS_INGEST_KEY` — write-only key for `/v1/*` telemetry ingestion (default local: `dev-ingest-key`).
+- `OBS_DASHBOARD_TOKEN` — read bearer token for `/internal/*` verification and `@obsunified/mcp-server` (default local: `e2e-dashboard-token`).
+- `OBS_DASHBOARD_URL` — where the user opens the UI (default local: `http://localhost:5173`).
 
-**Where does obs-unified itself run?** Walk the user through the options so they pick one before you proceed:
+**Where does obs-unified itself run?**
 
-| Option | When it fits | What to do |
+| Option | Autonomous vs. Human | What to do |
 | --- | --- | --- |
-| **Local dev — sibling repo** | The user has a working copy of obs-unified on the same machine. | `pnpm dev:collector` (collector → `http://localhost:8790`) and `pnpm dev:web` (dashboard → `http://localhost:5173`) in the obs-unified repo. Fastest iteration loop. |
-| **Self-hosted — deployed** | The user wants a persistent collector/dashboard for a team. | Point at the obs-unified [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector). This skill does **not** deploy obs-unified itself. Have them complete deploy + project creation, then come back with the URLs and key. |
-| **Hosted service** | If/when a managed obs-unified offering exists. | Use the URLs the service provides; the skill is otherwise identical. |
+| **Local dev — Prebuilt GHCR Docker image (Recommended default)** | **100% Autonomous if Docker is running** (ask human only if `docker info` fails). | Run `docker run -d --name obs-unified -p 5173:5173 -p 8790:8790 -e INGEST_KEY=dev-ingest-key -e DASHBOARD_PASSWORD=e2e-test-pass -e DASHBOARD_TOKEN=e2e-dashboard-token ghcr.io/dev-sawan-ruparel/obs-unified:latest`. |
+| **Local dev — sibling repo** | **100% Autonomous** if repo is cloned locally. | `pnpm dev:collector` (collector → `http://localhost:8790`) and `pnpm dev:web` (dashboard → `http://localhost:5173`) in the obs-unified repo. |
+| **Self-hosted — production cloud** | **Requires Human Intervention** for cloud OAuth (`wrangler login`), DNS, and production secrets (`wrangler secret put`). | Point at [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector) or [Production operations](https://docs.obsunified.com/docs/ops/production). |
 
-If the user doesn't know which option fits, default-recommend local dev for a first integration — it's the fastest way to see end-to-end data without committing to infrastructure choices.
+If the user hasn't specified a collector URL and `http://localhost:8790/health` is not already running, check `docker info` and boot the `ghcr.io/dev-sawan-ruparel/obs-unified:latest` container automatically so the developer gets a working setup without manual steps.
 
-**Pre-flight probe — do this before installing anything.** A wrong URL or missing project burns minutes of debug time later; catch it now:
+**Pre-flight probe — do this before installing anything:**
 
 ```bash
-# 1. Collector is reachable
-curl -sf "$OBS_COLLECTOR_URL/health" || echo "FAIL: collector unreachable"
+# 1. Run CLI doctor (checks /health, CORS for app origin, OTLP ingest, and /internal read auth)
+OBS_ADMIN_TOKEN="$OBS_DASHBOARD_TOKEN" pnpm dlx @obsunified/cli doctor "$OBS_COLLECTOR_URL" --origin "${APP_ORIGIN:-http://localhost:3000}"
 
-# 2. Ingest key resolves to a project (any 200 response is enough; a 401/403 means the key is wrong)
-curl -sf -H "X-Obs-Ingest-Key: $OBS_INGEST_KEY" \
-  "$OBS_COLLECTOR_URL/internal/telemetry/overview" \
-  > /dev/null && echo "OK: key valid" || echo "FAIL: key invalid or no project"
+# 2. Verify read token against /internal/telemetry/overview (Note: /internal/* requires Bearer $OBS_DASHBOARD_TOKEN, NOT X-Obs-Ingest-Key)
+curl -sf -H "Authorization: Bearer $OBS_DASHBOARD_TOKEN" \
+  "$OBS_COLLECTOR_URL/internal/telemetry/overview?hours=1&limit=1" \
+  > /dev/null && echo "OK: read token valid" || echo "FAIL: read token invalid"
 
 # 3. Dashboard is reachable (optional but cheap)
 curl -sf -I "$OBS_DASHBOARD_URL" > /dev/null && echo "OK: dashboard reachable"
 ```
 
-If any of these fail, stop and walk the user through the fix (most often: collector isn't running, or the ingest key was copy-pasted with whitespace, or the user is pointing at a collector that has no projects yet — see the obs-unified repo's onboarding for `wrangler d1 execute` project-seed commands).
-
-Only proceed past this gate once all three checks pass.
+If any of these fail, fix local Docker or walk the user through the credential fix before proceeding.
 
 ### 3. Install SDK packages
 
@@ -82,7 +86,7 @@ pnpm add @obsunified/analytics-sdk     # wherever browser code runs
 pnpm add @obsunified/telemetry-sdk     # wherever server code runs
 ```
 
-In a monorepo, install per package, not at the root.
+In a monorepo, install per package, not at the root. (If scaffolding a brand-new project from scratch, always pass `--yes` and `--template` so the CLI never blocks on interactive TTY prompts: `pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes`.)
 
 ### 4. Frontend wire-up
 
@@ -111,8 +115,8 @@ Replay is **off by default** — only call `startReplay()` if the user explicitl
 
 Find the server entry. Add the two middlewares from §3 of the doc:
 
-- **A**: `initObservability({ collectorUrl, apiKey, serviceName })` per request. Idempotent — safe to call on every request.
-- **B**: per-request span via `createRequestSpan` → `stampInteractionFromRequest(span, c.req.raw)` → `runWithSpan(span, () => next())` → `flushLogs() + flushAICalls()` in `finally`.
+- **A**: `initObservability({ collectorUrl, apiKey, serviceName, environment, serviceVersion, commitSha })` per request. Idempotent — safe to call on every request.
+- **B**: per-request span via `createRequestSpan` → `stampInteractionFromRequest(span, c.req.raw)` → `runWithSpan(span, () => next())` → `flushSpans() + flushLogs() + flushAICalls()` in `finally` (or `c.executionCtx.waitUntil(Promise.all([flushSpans(), flushLogs(), flushAICalls()]))` on Cloudflare Workers).
 
 **Add a `x-obs-trace-id` response header from middleware B**, even though the doc doesn't require it. The doc is the canonical SDK pattern; this header is an instrumentation-time convenience that makes the verification step in §8 deterministic instead of fishing through logs. One line after creating the span:
 
@@ -244,10 +248,10 @@ This is the test half of the task — don't claim success without doing it.
 
    Fallback paths if for some reason the header isn't set: tail backend logs with `initObservability({ debug: true })` temporarily, or query `GET /internal/telemetry/overview` and pick the most recent trace.
 
-5. **Query the collector**:
+5. **Query the collector** (using the read bearer token `OBS_DASHBOARD_TOKEN`, since `OBS_INGEST_KEY` is write-only):
 
    ```bash
-   curl -H "X-Obs-Ingest-Key: $OBS_INGEST_KEY" \
+   curl -sf -H "Authorization: Bearer $OBS_DASHBOARD_TOKEN" \
      "$OBS_COLLECTOR_URL/internal/telemetry/traces/<traceId>" | jq
    ```
 

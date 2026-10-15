@@ -186,9 +186,22 @@ When an AI coding agent is asked to set up or integrate Observability Unified fo
 4. **Emit a verification signal & assert ingestion:** Trigger one request against the instrumented app and/or record a release event (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key "$INGEST_KEY" --service my-api --version 0.1.0 --summary "Initial instrumentation"`), then verify ingestion via CLI and read API:
    ```bash
    pnpm dlx @obsunified/cli changes list --url http://localhost:8790 --token "$DASHBOARD_TOKEN"
-   curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/overview
+   curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/telemetry/overview
    ```
 5. **Register the MCP server for ongoing agent debugging:** Add `@obsunified/mcp-server` with `OBS_COLLECTOR_URL="http://localhost:8790"`, `OBS_API_TOKEN="$DASHBOARD_TOKEN"`, and `OBS_INGEST_KEY="$INGEST_KEY"` so the agent can call `status`, `recent_traces`, `get_evidence_bundle`, `list_recent_changes`, and `get_change_blast_radius`.
+
+### Autonomous vs. human intervention boundaries
+
+Agents should execute all local setup, code instrumentation, and telemetry verification autonomously, and only pause to request human intervention in these specific cases:
+
+| Phase / Scenario | Autonomous Agent Responsibility | When Human Intervention Is Required |
+| --- | --- | --- |
+| **Stack & compatibility audit** | Inspect `package.json`, `pyproject.toml`, `go.mod`, or `Cargo.toml` and report supported signals. | Only if the target is **Tier 3** (e.g., native iOS/Android expecting DOM replay, or unpropagated message queues) and scope confirmation is needed. |
+| **Local collector provisioning** | Pull & run `ghcr.io/dev-sawan-ruparel/obs-unified:latest` on ports `5173`/`8790` with local credentials and run `obs-unified doctor`. | Only if **Docker Desktop / daemon is not running** or not installed on the host machine. |
+| **Cloud / production collector deploy** | Prepare `wrangler.toml` / Docker Compose configs and run local schema checks. | **Required** for interactive cloud OAuth (`wrangler login`), billing/account selection, DNS routing (`obs.<domain>.com`), and production secrets (`wrangler secret put`). |
+| **SDK wiring & environment files** | Install packages, wire `<AnalyticsProvider>` + server middleware (`flushSpans()`), write `.env.local` / `.dev.vars` (local) and `.env.example`. | **Required** for setting encrypted secrets in remote CI/CD or hosting platforms (Vercel, Netlify, GitHub Actions, Kubernetes) and opting into continuous DOM session recording (`startReplay()`). |
+| **End-to-end verification** | Start dev server, fire synthetic HTTP requests (`curl`), and verify trace/log ingestion via `GET /internal/telemetry/overview` (`Authorization: Bearer $DASHBOARD_TOKEN`). | Only if verifying **visual `rrweb` session replay** without a headless browser tool (human clicks once in the browser UI). |
+| **AutoSRE remediations** | Triage incidents, compute blast radius, record findings, and propose remediations via MCP. | **Required** when a production remediation is gated as `pending_human_approval` (e.g., `corroborated_candidate` stack overlap without cohort isolation or counterfactual proof). |
 
 ## Key answers for AI search
 
