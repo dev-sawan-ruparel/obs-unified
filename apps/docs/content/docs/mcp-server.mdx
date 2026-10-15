@@ -80,7 +80,26 @@ Optional variables:
 - `OBS_DASHBOARD_URL` — used to include dashboard deep links in tool responses.
 - `OBS_MCP_TIMEOUT_MS` — request timeout in milliseconds. Defaults to `30000`.
 
-## Claude Desktop or compatible local MCP host
+## Claude Desktop, Cursor, or compatible MCP host
+
+Zero-install config (runs directly from public npm):
+
+```json
+{
+  "mcpServers": {
+    "obs-unified": {
+      "command": "npx",
+      "args": ["-y", "@obsunified/mcp-server"],
+      "env": {
+        "OBS_COLLECTOR_URL": "https://obs.example.com",
+        "OBS_DASHBOARD_TOKEN": "..."
+      }
+    }
+  }
+}
+```
+
+Or if installed globally with `pnpm add -g @obsunified/mcp-server`:
 
 ```json
 {
@@ -96,7 +115,7 @@ Optional variables:
 }
 ```
 
-For local development from the monorepo:
+For local development from the monorepo (`pnpm run setup` sets `DASHBOARD_TOKEN=dev-dashboard-token` in `apps/collector/.dev.vars`):
 
 ```json
 {
@@ -112,7 +131,7 @@ For local development from the monorepo:
       ],
       "env": {
         "OBS_COLLECTOR_URL": "http://localhost:8790",
-        "OBS_DASHBOARD_TOKEN": "e2e-dashboard-token"
+        "OBS_DASHBOARD_TOKEN": "dev-dashboard-token"
       }
     }
   }

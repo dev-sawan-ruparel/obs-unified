@@ -106,7 +106,7 @@ Collector:  http://localhost:${PORT}
 Auth:       configured via environment (credentials masked in logs)
 
 Verify:
-  obs-unified doctor http://localhost:${PORT} --origin http://localhost:${OBS_DASHBOARD_PORT}
+  pnpm dlx @obsunified/cli doctor http://localhost:${PORT} --origin http://localhost:${OBS_DASHBOARD_PORT}
 
 EOF
 else
@@ -120,7 +120,7 @@ Ingest key: ${INGEST_KEY}
 Password:   ${DASHBOARD_PASSWORD}
 
 Verify:
-  obs-unified doctor http://localhost:${PORT} --origin http://localhost:${OBS_DASHBOARD_PORT}
+  pnpm dlx @obsunified/cli doctor http://localhost:${PORT} --origin http://localhost:${OBS_DASHBOARD_PORT}
 
 EOF
 fi

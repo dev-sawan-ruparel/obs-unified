@@ -49,4 +49,33 @@ describe("scaffold SDK versions", () => {
 	it("the inline fallback scaffold uses the same ranges", () => {
 		expectCurrentMajor("inline fallback", SCAFFOLD_SDK_RANGES);
 	});
+
+	it("frontend templates ship index.html, @hono/node-server, and avoid port 5173 dashboard collision", () => {
+		const reactIndex = readFileSync(
+			path.join(templatesDir, "react-vite", "index.html"),
+			"utf8",
+		);
+		expect(reactIndex).toContain('/src/main.tsx"');
+
+		const reactPkg = JSON.parse(
+			readFileSync(
+				path.join(templatesDir, "react-vite", "package.json"),
+				"utf8",
+			),
+		) as { dependencies: Record<string, string> };
+		expect(reactPkg.dependencies["@hono/node-server"]).toBeDefined();
+
+		const reactServer = readFileSync(
+			path.join(templatesDir, "react-vite", "src", "server.ts"),
+			"utf8",
+		);
+		expect(reactServer).toContain('from "@hono/node-server"');
+		expect(reactServer).toContain("serve(");
+
+		const reactVite = readFileSync(
+			path.join(templatesDir, "react-vite", "vite.config.ts"),
+			"utf8",
+		);
+		expect(reactVite).toContain("port: 5174");
+	});
 });

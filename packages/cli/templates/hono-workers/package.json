@@ -8,7 +8,7 @@
 		"deploy": "wrangler deploy"
 	},
 	"dependencies": {
-		"@obsunified/telemetry-sdk": "^2.0.0",
+		"@obsunified/telemetry-sdk": "^2.1.0",
 		"hono": "^4.12.11"
 	},
 	"devDependencies": {

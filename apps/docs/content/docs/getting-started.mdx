@@ -42,20 +42,24 @@ and fails closed without your own credentials:
 ```bash
 export INGEST_KEY="pick-a-long-random-ingest-key"
 export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+export DASHBOARD_TOKEN="pick-a-read-token-for-mcp-and-cli"
 
 docker run --rm \
   -p 5173:5173 \
   -p 8790:8790 \
   -e INGEST_KEY \
   -e DASHBOARD_PASSWORD \
+  -e DASHBOARD_TOKEN \
+  -e OBS_LOCAL_SEED=true \
   -v obs-unified-db:/var/lib/postgresql \
   -v obs-unified-blobs:/data \
   ghcr.io/dev-sawan-ruparel/obs-unified:latest
 ```
 
 Dashboard at `http://localhost:5173`, collector at `http://localhost:8790`.
-The prebuilt image starts empty; pick **Astronomy Shop** or **your own app**
-below for data, or build the local image to get seeded sample data.
+Passing `-e OBS_LOCAL_SEED=true` populates all demo scenarios (traces, logs, AI
+calls, Agent Action Graph, and AutoSRE Scenario D) immediately on first boot;
+omit it when you want an empty collector for **Astronomy Shop** or **your own app**.
 
 ### Build the local image with sample data
 

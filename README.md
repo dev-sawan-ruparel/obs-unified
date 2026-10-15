@@ -175,11 +175,12 @@ closed, so pick your own credentials:
 ```bash
 export INGEST_KEY="pick-a-long-random-ingest-key"
 export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+export DASHBOARD_TOKEN="pick-a-read-token-for-mcp-and-cli"
 docker run --rm -p 5173:5173 -p 8790:8790 \
-  -e INGEST_KEY -e DASHBOARD_PASSWORD \
+  -e INGEST_KEY -e DASHBOARD_PASSWORD -e DASHBOARD_TOKEN -e OBS_LOCAL_SEED=true \
   -v obs-unified-db:/var/lib/postgresql -v obs-unified-blobs:/data \
   ghcr.io/dev-sawan-ruparel/obs-unified:latest
-# → http://localhost:5173 (log in with DASHBOARD_PASSWORD)
+# → http://localhost:5173 (log in with DASHBOARD_PASSWORD; omit -e OBS_LOCAL_SEED=true for an empty DB)
 ```
 
 Or build the local image with seeded sample data from this repository:

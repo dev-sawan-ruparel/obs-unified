@@ -243,6 +243,12 @@ async function scaffoldApp(name: string) {
 			__APP_NAME__: name,
 			__COLLECTOR_URL__: response.collectorUrl,
 		});
+		const envExample = path.join(target, ".env.example");
+		const envLocal = path.join(target, ".env.local");
+		if (existsSync(envExample) && !existsSync(envLocal)) {
+			const envContent = await readFile(envExample, "utf8");
+			await writeFile(envLocal, envContent);
+		}
 	} else {
 		// Minimal inline template if the directory hasn't been populated
 		// yet — keeps the CLI usable while real templates ship.

@@ -138,13 +138,20 @@ import {
   createRequestSpan,
   flushAICalls,
   flushLogs,
+  flushSpans,
   initObservability,
   runWithSpan,
   stampInteractionFromRequest,
 } from "@obsunified/telemetry-sdk";
 import { Hono } from "hono";
 
-type Env = { OBS_COLLECTOR_URL: string; OBS_INGEST_KEY: string };
+type Env = {
+  OBS_COLLECTOR_URL: string;
+  OBS_INGEST_KEY: string;
+  OBS_ENVIRONMENT?: string;
+  OBS_SERVICE_VERSION?: string;
+  OBS_COMMIT_SHA?: string;
+};
 const app = new Hono<{ Bindings: Env }>();
 const logger = createLogger("my-api");
 
@@ -154,6 +161,9 @@ app.use("*", async (c, next) => {
     collectorUrl: c.env.OBS_COLLECTOR_URL,
     apiKey: c.env.OBS_INGEST_KEY,
     serviceName: "my-api",
+    environment: c.env.OBS_ENVIRONMENT ?? "prod",
+    serviceVersion: c.env.OBS_SERVICE_VERSION ?? "1.0.0",
+    commitSha: c.env.OBS_COMMIT_SHA,
   });
   await next();
 });
@@ -167,7 +177,7 @@ app.use("*", async (c, next) => {
     span.setStatus(c.res.status >= 400 ? 2 : 1);
   } finally {
     span.end();
-    await Promise.all([flushLogs(), flushAICalls()]);
+    await Promise.all([flushSpans(), flushLogs(), flushAICalls()]);
   }
 });
 
