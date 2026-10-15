@@ -1,5 +1,11 @@
 # @obsunified/sdk
 
+## 0.3.0
+
+### Minor Changes
+
+- Implement RFC 0013 AutoSRE causal ontology, change correlation (`change_events`), traffic-normalized cohort lift, noisy-neighbor contention checks, counterfactual verification (`investigation_findings`), durable incident lease coordination (`incident_investigations`), and pre-execution CAS remediation grants (`remediation_proposals`).
+
 ## 0.2.2
 
 ### Patch Changes
