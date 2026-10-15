@@ -13,11 +13,16 @@ For the agent-facing investigation surface, see [MCP server](/docs/mcp-server).
 
 | Language | Install | Registry | Where it runs |
 | --- | --- | --- | --- |
-| **TypeScript** | `pnpm add @obsunified/telemetry-sdk` | [npm](https://www.npmjs.com/package/@obsunified/telemetry-sdk) | Node.js · Bun · Deno · Cloudflare Workers |
+| **TypeScript (Fetch / Edge / Node)** | `pnpm add @obsunified/telemetry-sdk` | [npm](https://www.npmjs.com/package/@obsunified/telemetry-sdk) | Cloudflare Workers · Hono · Next.js · Bun · Deno · Node.js |
+| **TypeScript (Node OTel SDK wrapper)** | `pnpm add @obsunified/sdk` | [npm](https://www.npmjs.com/package/@obsunified/sdk) | Node.js 20+ with `@opentelemetry/sdk-node` auto-instrumentation (Express, Fastify, NestJS, `pg`) |
 | **Go** | `go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest` | [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go) | Any Go 1.22+ binary |
 | **Rust** | `cargo add obs-unified` | [crates.io](https://crates.io/crates/obs-unified) | Any Rust 1.75+ binary (Tokio runtime) |
 
-All three expose the **same API surface**, so muscle memory ports across runtimes:
+**Which TypeScript backend package should I choose?**
+- Choose **`@obsunified/telemetry-sdk`** for **Cloudflare Workers, Hono, Next.js, Bun, Deno, or lightweight Node.js** services where you want zero-dependency fetch-based OTLP export, structured logging, AI call tracking, and runtime lineage in one package.
+- Choose **`@obsunified/sdk`** when your Node.js service already uses **`@opentelemetry/sdk-node` auto-instrumentation** (Express, Fastify, NestJS, `pg`, `ioredis`) and you want a 1-line wrapper that wires the standard Node OpenTelemetry SDK to the obs-unified collector.
+
+All backend SDKs expose the **same core surface**, so muscle memory ports across runtimes:
 
 | Concept | TypeScript | Go | Rust |
 | --- | --- | --- | --- |
@@ -27,9 +32,9 @@ All three expose the **same API surface**, so muscle memory ports across runtime
 | Tool span | `startToolSpan(name, opts)` | `obs.StartToolSpan(ctx, name, opts)` | `start_tool_span(name, opts)` |
 | Project ID | `extraHeaders: { "x-project-id": id }` | `obs.SetProjectID(ctx, id)` | `set_project_id(id)` |
 
-These are deliberately **thin wrappers around OpenTelemetry**: one-line collector init, OpenInference-shaped helpers so LLM/tool spans render in the dashboard's AI tab, project-id propagation for multi-tenant, and the loop-guard header for services that ingest their own telemetry. HTTP server/client and database instrumentation come from the OTel ecosystem of your language (`@opentelemetry/instrumentation-http`, `otelhttp`, `tower-http` + `tracing-opentelemetry`, etc.).
+These are deliberately **thin wrappers around OpenTelemetry**: one-line collector init, OpenInference-shaped helpers so LLM/tool spans render in the dashboard's AI tab, runtime lineage (`service.version`, `vcs.commit.id`, `deployment.environment.name`) for AutoSRE change correlation, project-id propagation for multi-tenant, and the loop-guard header for services that ingest their own telemetry.
 
-If your backend language isn't listed, any OTLP-compatible OpenTelemetry SDK works as a fallback — you just lose the `x-obs-interaction` click-to-trace stitching unless you set the header yourself.
+If your backend is in **Python, Java/JVM, .NET, Ruby, PHP, or Elixir**, standard OpenTelemetry OTLP/HTTP exporters work natively with **100% feature parity**—simply copy the inbound `x-obs-interaction` request header onto the active span as `obs.interaction.id` (see the [Python Flask walkthrough](/docs/instrument-python-flask) for a 4-line request hook).
 
 ## Browser SDK
 
@@ -198,8 +203,10 @@ pnpm add @obsunified/telemetry-sdk
 import {
 	createRequestSpan,
 	initObservability,
+	recordFeatureFlag,
 	runWithSpan,
 	stampInteractionFromRequest,
+	flushSpans,
 	flushLogs,
 	flushAICalls,
 } from "@obsunified/telemetry-sdk";
@@ -209,6 +216,9 @@ app.use("*", async (c, next) => {
 		collectorUrl: c.env.OBS_COLLECTOR_URL,
 		apiKey: c.env.OBS_INGEST_KEY,
 		serviceName: "checkout-api",
+		environment: c.env.OBS_ENVIRONMENT ?? "prod",
+		serviceVersion: c.env.OBS_SERVICE_VERSION ?? "2.4.1",
+		commitSha: c.env.OBS_COMMIT_SHA,
 	});
 	await next();
 });
@@ -224,8 +234,7 @@ app.use("*", async (c, next) => {
 		span.setStatus(c.res.status >= 400 ? 2 : 1);
 	} finally {
 		span.end();
-		await exportSpan(c.env, span);
-		await Promise.all([flushLogs(), flushAICalls()]);
+		await Promise.all([flushSpans(), flushLogs(), flushAICalls()]);
 	}
 });
 ```
@@ -295,7 +304,7 @@ The collector accepts standard OTLP/HTTP at:
 - `POST /v1/traces` — protobuf or JSON OTLP traces
 - `POST /v1/logs` — protobuf or JSON OTLP logs
 
-So any OTel-compatible producer (the Go collector, OpenInference instrumentations, Beyla eBPF agent) works alongside the obs SDKs. The obs SDKs add the `x-obs-interaction` header and the `obs.interaction.id` span attribute — native OTel SDKs don't, which is why the [click-to-trace pivot is gated on the obs SDKs](/docs/what-to-expect#scenario-a).
+So any OTel-compatible producer (Python, Java/JVM, .NET, the Go collector, OpenInference instrumentations, Beyla eBPF agent) works alongside the first-party SDKs. To enable the [click-to-trace pivot](/docs/what-to-expect#scenario-a) in a native OTel SDK, copy the inbound `x-obs-interaction` request header onto the server span as `obs.interaction.id` (see [Python Flask instrumentation](/docs/instrument-python-flask)).
 
 ## IDE deep-linking configuration
 

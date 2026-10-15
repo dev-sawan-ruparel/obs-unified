@@ -1,5 +1,11 @@
 # @obsunified/cli
 
+## 1.1.2
+
+### Patch Changes
+
+- Add non-interactive CLI flags (`--template` / `-t`, `--collector-url` / `--url` / `-u`, and `--yes` / `-y`) and non-TTY defaults to `obs-unified create` so AI agents and CI pipelines can scaffold projects without blocking on interactive stdin prompts.
+
 ## 1.1.1
 
 ### Patch Changes

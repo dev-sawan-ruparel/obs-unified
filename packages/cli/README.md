@@ -5,7 +5,7 @@ Command-line entry point for
 
 ```bash
 obs-unified up                       # spin up the repo-local collector stack
-pnpm dlx @obsunified/cli create my-app   # scaffold an app
+pnpm dlx @obsunified/cli create my-app --template react-vite --yes   # scaffold an app non-interactively
 pnpm dlx @obsunified/cli doctor     # diagnose a collector
 ```
 
@@ -15,9 +15,11 @@ pnpm dlx @obsunified/cli doctor     # diagnose a collector
 | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `obs-unified up`                                          | `docker compose up` against the repo-local Postgres+MinIO+collector stack      |
 | `obs-unified down`                                        | tear down                                                                      |
-| `obs-unified create <name>`                               | scaffold a new app from React+Hono, vanilla frontend, or Workers API templates |
+| `obs-unified create <name> [--template <t>] [--collector-url <url>] [--yes]` | scaffold a new app (`react-vite`, `vanilla-ts`, `hono-workers`); skips prompts with `--yes` or in non-TTY shells |
 | `obs-unified keys mint [--project <id>] [--name <label>] [--json]` | mint a new ingest key for a project on a running collector            |
 | `obs-unified keys list [--project <id>] [--json]`         | list a project's ingest keys                                                   |
+| `obs-unified changes record --service <name> [options]`   | record a release/config/feature-flag change event (`POST /v1/changes`)         |
+| `obs-unified changes list [options]`                      | list recent change events (`GET /internal/changes`)                            |
 | `obs-unified doctor [url] [--origin <origin>]`            | smoke-test a collector — health, browser ingest CORS, OTLP, dashboard API      |
 
 ## Ingest keys

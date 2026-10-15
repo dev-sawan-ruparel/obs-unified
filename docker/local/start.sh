@@ -17,12 +17,14 @@ if [ "${REQUIRE_AUTH_CONFIG:-false}" = "true" ]; then
 	export INGEST_KEY
 	export OBS_INGEST_KEY="${OBS_INGEST_KEY:-$INGEST_KEY}"
 	export DASHBOARD_PASSWORD
+	export DASHBOARD_TOKEN="${DASHBOARD_TOKEN:-}"
 else
 	export INGEST_KEY="${INGEST_KEY:-dev-ingest-key}"
 	export OBS_INGEST_KEY="${OBS_INGEST_KEY:-$INGEST_KEY}"
 	export DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-e2e-test-pass}"
+	export DASHBOARD_TOKEN="${DASHBOARD_TOKEN:-e2e-dashboard-token}"
 fi
-export ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+export ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:3000,http://127.0.0.1:3000}"
 export PORT="${PORT:-8790}"
 export OBS_DASHBOARD_PORT="${OBS_DASHBOARD_PORT:-5173}"
 export OBS_COLLECTOR_URL="${OBS_COLLECTOR_URL:-http://127.0.0.1:8790}"
