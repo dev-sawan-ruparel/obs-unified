@@ -44,29 +44,38 @@ installAutoCorrelate({ tracker });
 
 ### Backend / server-side
 
-Initialize the standard telemetry exporter pipeline once at application startup.
+Initialize the standard telemetry exporter pipeline once at application startup (or per request in serverless runtimes). Passing `environment`, `serviceVersion`, `commitSha`, and `configDigest` stamps release lineage on every span for [AutoSRE cohort attribution](/docs/autosre).
 
 ```ts
-import { initObservability } from "@obsunified/telemetry-sdk";
+import { initObservability, recordFeatureFlag } from "@obsunified/telemetry-sdk";
 
 initObservability({
   collectorUrl: "https://obs.my-app.com",
   apiKey: process.env.OBS_INGEST_KEY!,
   serviceName: "checkout-api",
-  serviceVersion: "1.2.0",
+  environment: process.env.OBS_ENVIRONMENT ?? "prod",
+  serviceVersion: process.env.OBS_SERVICE_VERSION ?? "1.2.0",
+  commitSha: process.env.OBS_COMMIT_SHA,
+  configDigest: process.env.OBS_CONFIG_DIGEST,
   flushIntervalMs: 5000,
 });
+
+// Stamp feature-flag evaluations onto the active span and cohort context:
+recordFeatureFlag("new_checkout_flow", true, { providerName: "launchdarkly" });
 ```
 
 ## Click-to-trace context
 
 ### Server-side HTTP ingress
 
-Extract `x-obs-interaction` and bind it onto the active trace context.
+Extract `x-obs-interaction`, bind it onto the active trace context, and flush buffered spans/logs/AI calls before serverless isolates terminate:
 
 ```ts
 import {
   createRequestSpan,
+  flushAICalls,
+  flushLogs,
+  flushSpans,
   runWithSpan,
   stampInteractionFromRequest,
 } from "@obsunified/telemetry-sdk";
@@ -74,9 +83,14 @@ import {
 const span = createRequestSpan("my-service", `${req.method} ${req.path}`);
 stampInteractionFromRequest(span, req);
 
-runWithSpan(span, () => {
-  // Child spans and logs created here inherit the interaction id.
-});
+try {
+  await runWithSpan(span, async () => {
+    // Child spans, logs, and feature flags created here inherit the interaction id.
+  });
+} finally {
+  span.end();
+  await Promise.all([flushSpans(), flushLogs(), flushAICalls()]);
+}
 ```
 
 ### Client-side async continuity
