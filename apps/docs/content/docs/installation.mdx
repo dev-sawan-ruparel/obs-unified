@@ -24,12 +24,15 @@ key and dashboard password.
 ```bash
 export INGEST_KEY="pick-a-long-random-ingest-key"
 export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+export DASHBOARD_TOKEN="pick-a-read-token-for-mcp-and-cli"
 
 docker run --rm \
   -p 5173:5173 \
   -p 8790:8790 \
   -e INGEST_KEY \
   -e DASHBOARD_PASSWORD \
+  -e DASHBOARD_TOKEN \
+  -e OBS_LOCAL_SEED=true \
   -v obs-unified-db:/var/lib/postgresql \
   -v obs-unified-blobs:/data \
   ghcr.io/dev-sawan-ruparel/obs-unified:latest
@@ -40,15 +43,15 @@ docker run --rm \
 | Dashboard | `http://localhost:5173` |
 | Collector ingest | `http://localhost:8790` |
 
-Log in to the dashboard with `DASHBOARD_PASSWORD`, and point SDKs or OTLP
-exporters at `http://localhost:8790` with `INGEST_KEY`.
+Log in to the dashboard with `DASHBOARD_PASSWORD`, point SDKs or OTLP
+exporters at `http://localhost:8790` with `INGEST_KEY`, and pass `DASHBOARD_TOKEN`
+to `@obsunified/mcp-server` or `@obsunified/cli`.
 
 Tags: `latest`, a version tag that tracks the collector release
-(for example `2.1.1`), and an immutable `sha-<commit>` tag. Pin a version or
-sha tag for anything you intend to keep running. The prebuilt image does not
-seed sample data; use the local image below if you want populated dashboards
-before sending your own telemetry. Runtime variables, volumes, and rollback
-notes are in the
+(for example `2.2.0`), and an immutable `sha-<commit>` tag. Pin a version or
+sha tag for anything you intend to keep running. Omit `-e OBS_LOCAL_SEED=true`
+(the default is `false`) when you want a clean database before sending your own
+telemetry. Runtime variables, volumes, and rollback notes are in the
 [Docker release guide](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/ops/docker-release.md).
 
 ## Local image with sample data

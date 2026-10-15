@@ -1,5 +1,11 @@
 # @obsunified/cli
 
+## 1.1.1
+
+### Patch Changes
+
+- Fix `obs-unified create` scaffold templates: add `index.html` and `@hono/node-server` `serve()` to `react-vite`, default frontend dev server port to `5174` to avoid colliding with the collector dashboard on `5173`, auto-populate `.env.local`, and include runtime lineage and feature-flag correlation defaults.
+
 ## 1.1.0
 
 ### Minor Changes

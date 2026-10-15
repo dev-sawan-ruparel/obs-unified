@@ -6,13 +6,12 @@ pre-wired with `@obsunified/analytics-sdk` and `@obsunified/telemetry-sdk`.
 ## Run
 
 ```bash
-cp .env.example .env.local
 pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173`. Click the button. Then open your obs-unified
-dashboard (`__COLLECTOR_URL__`) and you'll see:
+Open `http://localhost:5174`. Click the button. Then open your obs-unified
+dashboard (`__COLLECTOR_URL__` or `http://localhost:5173`) and you'll see:
 
 - A usage event on the **Usage** tab
 - A root span + child spans on the **Traces** tab, both stamped with the same

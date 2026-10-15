@@ -4,12 +4,12 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
+		"dev": "vite --port 5174",
 		"build": "vite build",
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@obsunified/analytics-sdk": "^2.0.0"
+		"@obsunified/analytics-sdk": "^2.1.0"
 	},
 	"devDependencies": {
 		"typescript": "^6.0.0",

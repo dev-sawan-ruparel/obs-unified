@@ -11,8 +11,9 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@obsunified/analytics-sdk": "^2.0.0",
-		"@obsunified/telemetry-sdk": "^2.0.0",
+		"@hono/node-server": "^1.14.0",
+		"@obsunified/analytics-sdk": "^2.1.0",
+		"@obsunified/telemetry-sdk": "^2.1.0",
 		"hono": "^4.12.11",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0"

@@ -1,15 +1,14 @@
-import { GHCR_IMAGE, GHCR_PACKAGE_URL, GITHUB_REPO_LINK, EXAMPLES_URL, GETTING_STARTED_URL, INSTALLATION_URL, SDK_DOCS_URL } from "../config";
+import { GHCR_IMAGE, GHCR_PACKAGE_URL, EXAMPLES_URL, GETTING_STARTED_URL, INSTALLATION_URL, SDK_DOCS_URL } from "../config";
 
-const FIRST_RUN = `# Run the prebuilt all-in-one image
+const FIRST_RUN = `# Run the prebuilt all-in-one image (with seeded sample data)
 export INGEST_KEY="pick-a-long-random-ingest-key"
 export DASHBOARD_PASSWORD="pick-a-dashboard-password"
 docker run --rm -p 5173:5173 -p 8790:8790 \\
-  -e INGEST_KEY -e DASHBOARD_PASSWORD \\
+  -e INGEST_KEY -e DASHBOARD_PASSWORD -e OBS_LOCAL_SEED=true \\
   ${GHCR_IMAGE}:latest
 
-# Or build it with sample data from the monorepo
-git clone ${GITHUB_REPO_LINK}.git && cd obs-unified
-pnpm install --frozen-lockfile && pnpm local:image && pnpm local:run`;
+# Or scaffold a new pre-wired app in one command
+pnpm dlx @obsunified/cli create my-app`;
 
 const SDK_PATHS = `Backend:
   TypeScript  pnpm add @obsunified/telemetry-sdk
@@ -20,7 +19,12 @@ Browser:
   React/vanilla  pnpm add @obsunified/analytics-sdk`;
 
 const INSTRUMENT = `// Backend
-initObservability({ serviceName: "checkout-api" });
+initObservability({
+  serviceName: "checkout-api",
+  environment: "prod",
+  serviceVersion: "2.4.1",
+});
+recordFeatureFlag("enable_legacy_tax_fallback", false);
 const log = createLogger("checkout");
 const llm = startLLMSpan("checkout.assistant");
 log.info("charge.starting", { interaction_id });

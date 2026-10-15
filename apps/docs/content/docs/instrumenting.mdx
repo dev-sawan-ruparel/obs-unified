@@ -138,8 +138,10 @@ import { cors } from "hono/cors";
 import {
 	createRequestSpan,
 	initObservability,
+	recordFeatureFlag,
 	runWithSpan,
 	stampInteractionFromRequest,
+	flushSpans,
 	flushLogs,
 	flushAICalls,
 } from "@obsunified/telemetry-sdk";
@@ -157,12 +159,15 @@ app.use(
 	}),
 );
 
-// Bootstrap the SDK once per request.
+// Bootstrap the SDK once per request (stamps runtime lineage for AutoSRE change correlation).
 app.use("*", async (c, next) => {
 	initObservability({
 		collectorUrl: c.env.OBS_COLLECTOR_URL,
 		apiKey: c.env.OBS_INGEST_KEY,
 		serviceName: "checkout-api",
+		environment: c.env.OBS_ENVIRONMENT ?? "prod",
+		serviceVersion: c.env.OBS_SERVICE_VERSION ?? "2.4.1",
+		commitSha: c.env.OBS_COMMIT_SHA,
 	});
 	await next();
 });
@@ -185,8 +190,7 @@ app.use("*", async (c, next) => {
 		throw err;
 	} finally {
 		span.end();
-		await exportSpan(c.env, span);
-		await Promise.all([flushLogs(), flushAICalls()]).catch(() => {});
+		await Promise.all([flushSpans(), flushLogs(), flushAICalls()]).catch(() => {});
 	}
 });
 ```
@@ -194,12 +198,13 @@ app.use("*", async (c, next) => {
 ### 2. Child spans + logs in your handlers
 
 ```ts
-import { withChildSpan, createLogger } from "@obsunified/telemetry-sdk";
+import { withChildSpan, createLogger, recordFeatureFlag } from "@obsunified/telemetry-sdk";
 
 const log = createLogger("checkout-api");
 
 app.post("/api/checkout", async (c) => {
 	const { items } = await c.req.json();
+	recordFeatureFlag("enable_legacy_tax_fallback", false);
 
 	const user = await withChildSpan("db.query.user", async (child) => {
 		child.setAttribute("db.system", "postgres");
