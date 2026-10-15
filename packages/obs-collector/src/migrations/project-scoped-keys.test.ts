@@ -259,7 +259,7 @@ describe("migrations 045–048 (project-scoped composite keys)", () => {
 		).toEqual({ input_hash: "hash", action_id: "01ACTION" });
 
 		// Re-applying the rebuild files is a no-op in effect.
-		applySqliteMigrations(raw, { from: "045" });
+		applySqliteMigrations(raw, { from: "045", upTo: "048" });
 		for (const [table, key] of Object.entries(EXPECTED_KEYS)) {
 			expect(primaryKeyColumns(raw, table), table).toEqual(key);
 			expect(

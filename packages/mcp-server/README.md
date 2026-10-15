@@ -192,6 +192,12 @@ Build the package first with `pnpm --filter @obsunified/mcp-server build`.
 - `get_agent_run`
 - `get_action`
 - `get_tool_call`
+- `list_recent_changes` — list recent service deploys, rollbacks, config updates, feature-flag toggles, and prompt rollouts.
+- `get_change_blast_radius` — compute traffic-normalized cohort lift, noisy-neighbor contention, and code-path overlap for a change.
+- `search_similar_findings` — search historical investigation findings by recurrence fingerprint, symptom, root cause, or verification status.
+- `record_investigation_finding` — record a structured investigation finding with causal chain, cited evidence, and optional counterfactual verification.
+- `propose_remediation_action` — propose a policy-gated remediation action with expected and desired state preconditions.
+- `claim_remediation_grant` — claim, complete, or fail a remediation proposal using its single-use grant token.
 
 ## Reporting guidance for agents
 

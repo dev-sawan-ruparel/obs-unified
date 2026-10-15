@@ -1,4 +1,8 @@
 import type {
+	CausalProofTier,
+	RelationshipCertainty,
+} from "@obsunified/types";
+import type {
 	ActionRef,
 	AICallRef,
 	ArtifactRef,
@@ -26,7 +30,10 @@ export type ConnectedEntityKind =
 	| "user"
 	| "action"
 	| "agent_run"
-	| "tool_call";
+	| "tool_call"
+	| "change"
+	| "finding"
+	| "incident";
 
 export const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"span",
@@ -41,6 +48,9 @@ export const KNOWN_KINDS: ReadonlySet<string> = new Set<ConnectedEntityKind>([
 	"action",
 	"agent_run",
 	"tool_call",
+	"change",
+	"finding",
+	"incident",
 ]);
 
 export interface ConnectedLink {
@@ -54,6 +64,8 @@ export interface ConnectedLink {
 	confidence?: number;
 	reason?: string;
 	causalConfidence?: CausalConfidence;
+	relationshipCertainty?: RelationshipCertainty;
+	causalProofTier?: CausalProofTier;
 }
 
 export interface ConnectedSection {

@@ -5,6 +5,10 @@ import {
 	Stat,
 	UpdatedChip,
 } from "../components/primitives";
+import {
+	RemediationApprovalQueue,
+	type RemediationProposalView,
+} from "../components/RemediationApprovalCard";
 import { EmptyState } from "../components/states";
 import { useApi } from "../use-api";
 
@@ -49,9 +53,10 @@ interface Props {
 		toolCallId?: string;
 		traceId?: string;
 	}) => void;
+	proposals?: RemediationProposalView[];
 }
 
-export function AutonomousReviewDashboard({ onNavigate }: Props) {
+export function AutonomousReviewDashboard({ onNavigate, proposals }: Props) {
 	const api = useApi();
 	const [data, setData] = useState<AutonomousReviewData | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -179,6 +184,9 @@ export function AutonomousReviewDashboard({ onNavigate }: Props) {
 					accent="primary"
 				/>
 			</div>
+
+			{/* 1-Click Human Approval Queue for AutoSRE Remediation Proposals */}
+			<RemediationApprovalQueue proposals={proposals} />
 
 			{/* High Density Review Table Card */}
 			<Card className="flex-1 flex flex-col p-3 overflow-hidden min-w-0">

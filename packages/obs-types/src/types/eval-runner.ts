@@ -36,6 +36,10 @@ export interface EvalRunSourceCase {
 export interface EvalRun {
 	id: string;
 	projectId: string;
+	environment?: string;
+	serviceVersion?: string | null;
+	commitSha?: string | null;
+	configDigest?: string | null;
 	evalCaseId: string | null;
 	status: EvalRunStatus;
 	candidate: EvalRunCandidate;
@@ -54,6 +58,10 @@ export interface EvalRun {
 
 export interface EvalRunInput {
 	id?: string;
+	environment?: string;
+	serviceVersion?: string | null;
+	commitSha?: string | null;
+	configDigest?: string | null;
 	evalCaseId?: string | null;
 	status?: EvalRunStatus;
 	candidate?: Partial<EvalRunCandidate>;
@@ -68,6 +76,7 @@ export interface EvalRunInput {
 
 export interface EvalRunsListOptions {
 	projectId: string;
+	environment?: string;
 	evalCaseId?: string;
 	status?: EvalRunStatus;
 	limit?: number;

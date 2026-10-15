@@ -217,10 +217,30 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 				"Return compact evidence for an anchor, investigation intent, and token budget.",
 			inputSchema: {
 				anchor: z.object({
-					entityKind: z.enum(["trace", "action", "agent_run", "tool_call"]),
+					entityKind: z.enum([
+						"trace",
+						"action",
+						"agent_run",
+						"tool_call",
+						"change",
+						"finding",
+						"incident",
+					]),
 					entityId: z.string().min(1),
 				}),
-				intent: z.string().min(1).optional(),
+				intent: z
+					.enum([
+						"debug_failure",
+						"explain_latency",
+						"explain_cost",
+						"inspect_agent_run",
+						"inspect_tool_call",
+						"find_instrumentation_gap",
+						"triage_incident",
+						"general",
+					])
+					.or(z.string().min(1))
+					.optional(),
 				budget: z
 					.object({
 						targetTokens: positiveInt(4000, 500, 30_000),
@@ -749,7 +769,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 		"connected_signals",
 		{
 			description:
-				"Pivot from one entity to related traces, logs, AI calls, users, replays, profiles, actions, agent runs, and tool calls.",
+				"Pivot from one entity to related traces, logs, AI calls, users, replays, profiles, actions, agent runs, tool calls, changes, findings, and incidents.",
 			inputSchema: {
 				kind: z.enum([
 					"span",
@@ -764,6 +784,9 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"action",
 					"agent_run",
 					"tool_call",
+					"change",
+					"finding",
+					"incident",
 				]),
 				id: z
 					.string()
@@ -864,6 +887,394 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					{ toolCallId },
 					"{ data: ToolCallDetail }",
 					{ data },
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"list_recent_changes",
+		{
+			description:
+				"List recent service deploys, rollbacks, config updates, feature-flag toggles, and prompt rollouts.",
+			inputSchema: {
+				environment: z.string().optional(),
+				serviceName: z.string().optional(),
+				targetNodeId: z.string().optional(),
+				kind: z.string().optional(),
+				since: z.string().optional(),
+				limit: positiveInt(20, 1, 500),
+			},
+		},
+		async ({ environment, serviceName, targetNodeId, kind, since, limit }) => {
+			try {
+				const data = await client.get("/internal/changes", {
+					environment,
+					serviceName,
+					targetNodeId,
+					kind,
+					since,
+					limit,
+				});
+				return toolResult(
+					"list_recent_changes",
+					{ environment, serviceName, targetNodeId, kind, since, limit },
+					"{ data: { changes: ChangeEvent[] }, dashboardUrl?: string }",
+					{
+						...(data && typeof data === "object" && !Array.isArray(data)
+							? (data as Record<string, unknown>)
+							: {}),
+						data,
+						dashboardUrl: client.dashboardLink("changes"),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"get_change_blast_radius",
+		{
+			description:
+				"Compute traffic-normalized cohort lift, noisy-neighbor contention, and code-path overlap for a change.",
+			inputSchema: {
+				changeId: z.string().min(1),
+				environment: z.string().optional(),
+				minSample: z.number().int().positive().optional(),
+			},
+		},
+		async ({ changeId, environment, minSample }) => {
+			try {
+				const data = await client.get(
+					`/internal/changes/${encodeURIComponent(changeId)}/blast-radius`,
+					{ environment, minSample },
+				);
+				return toolResult(
+					"get_change_blast_radius",
+					{ changeId, environment, minSample },
+					"{ data: ChangeBlastRadiusResult, dashboardUrl?: string }",
+					{
+						...(data && typeof data === "object" && !Array.isArray(data)
+							? (data as Record<string, unknown>)
+							: {}),
+						data,
+						dashboardUrl: client.dashboardLink(
+							`changes/${encodeURIComponent(changeId)}`,
+						),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"search_similar_findings",
+		{
+			description:
+				"Search historical investigation findings by recurrence fingerprint, symptom, root cause, or verification status.",
+			inputSchema: {
+				environment: z.string().optional(),
+				fingerprint: z.string().optional(),
+				symptomEntityId: z.string().optional(),
+				rootCauseEntityId: z.string().optional(),
+				causalVerificationStatus: z.string().optional(),
+				limit: positiveInt(20, 1, 500),
+			},
+		},
+		async ({
+			environment,
+			fingerprint,
+			symptomEntityId,
+			rootCauseEntityId,
+			causalVerificationStatus,
+			limit,
+		}) => {
+			try {
+				const data = await client.get("/internal/findings", {
+					environment,
+					fingerprint,
+					symptomEntityId,
+					rootCauseEntityId,
+					causalVerificationStatus,
+					limit,
+				});
+				return toolResult(
+					"search_similar_findings",
+					{
+						environment,
+						fingerprint,
+						symptomEntityId,
+						rootCauseEntityId,
+						causalVerificationStatus,
+						limit,
+					},
+					"{ data: { findings: InvestigationFinding[] }, dashboardUrl?: string }",
+					{
+						...(data && typeof data === "object" && !Array.isArray(data)
+							? (data as Record<string, unknown>)
+							: {}),
+						data,
+						dashboardUrl: client.dashboardLink("findings"),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"record_investigation_finding",
+		{
+			description:
+				"Record a structured investigation finding with causal chain, cited evidence, and optional counterfactual verification.",
+			inputSchema: {
+				environment: z.string().optional(),
+				incidentId: z.string().optional(),
+				title: z.string().min(1),
+				summary: z.string().min(1),
+				causalProofTier: z
+					.enum([
+						"counterfactual_verified",
+						"cohort_rate_isolated",
+						"corroborated_candidate",
+						"unverified_locus",
+					])
+					.optional(),
+				confidence: z.number().min(0).max(1).optional(),
+				symptomEntityKind: z.string().min(1),
+				symptomEntityId: z.string().min(1),
+				faultLocusEntityKind: z.string().min(1),
+				faultLocusEntityId: z.string().min(1),
+				rootCauseEntityKind: z.string().optional(),
+				rootCauseEntityId: z.string().optional(),
+				contributingChangeId: z.string().optional(),
+				cohortVerdict: z.string().optional(),
+				contendingTraceId: z.string().optional(),
+				fingerprintInput: z
+					.object({
+						environment: z.string(),
+						originatingNodeId: z.string(),
+						normalizedOperation: z.string(),
+						errorSignature: z.string(),
+						downstreamTargetNodeId: z.string().nullable().optional(),
+					})
+					.optional(),
+				causalChain: z.array(z.record(z.unknown())),
+				citedEvidenceIds: z.array(z.string()),
+				agentRunId: z.string().optional(),
+				counterfactual: z
+					.object({
+						evalCaseId: z.string().min(1),
+						failingRunId: z.string().min(1),
+						passingRunIds: z.array(z.string()),
+						requiredTrials: z.number().int().positive().optional(),
+					})
+					.optional(),
+			},
+		},
+		async (params) => {
+			try {
+				const { counterfactual, ...findingPayload } = params;
+				const created = await client.post<Record<string, unknown>>(
+					"/internal/findings",
+					findingPayload,
+				);
+				const findingObj =
+					created &&
+					typeof created === "object" &&
+					"finding" in created &&
+					created.finding &&
+					typeof created.finding === "object"
+						? (created.finding as Record<string, unknown>)
+						: created;
+				const findingId =
+					typeof findingObj?.id === "string"
+						? findingObj.id
+						: typeof created?.id === "string"
+							? created.id
+							: undefined;
+
+				let counterfactualResult: unknown;
+				if (counterfactual && findingId) {
+					counterfactualResult = await client.post(
+						`/internal/findings/${encodeURIComponent(findingId)}/counterfactual`,
+						counterfactual,
+					);
+				}
+
+				const data = counterfactualResult
+					? {
+							...(typeof created === "object" && created !== null
+								? created
+								: {}),
+							...(typeof counterfactualResult === "object" &&
+							counterfactualResult !== null
+								? counterfactualResult
+								: {}),
+							finding:
+								typeof counterfactualResult === "object" &&
+								counterfactualResult !== null &&
+								"finding" in counterfactualResult
+									? (counterfactualResult as Record<string, unknown>).finding
+									: typeof counterfactualResult === "object" &&
+											counterfactualResult !== null &&
+											"id" in counterfactualResult
+										? counterfactualResult
+										: findingObj,
+							counterfactual: counterfactualResult,
+						}
+					: created;
+
+				return toolResult(
+					"record_investigation_finding",
+					params as Record<string, unknown>,
+					"{ data: InvestigationFinding, dashboardUrl?: string }",
+					{
+						...(data && typeof data === "object" && !Array.isArray(data)
+							? (data as Record<string, unknown>)
+							: {}),
+						data,
+						dashboardUrl: findingId
+							? client.dashboardLink(
+									`findings/${encodeURIComponent(findingId)}`,
+								)
+							: client.dashboardLink("findings"),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"propose_remediation_action",
+		{
+			description:
+				"Propose a policy-gated remediation action with expected and desired state preconditions.",
+			inputSchema: {
+				environment: z.string().optional(),
+				incidentId: z.string().min(1),
+				findingId: z.string().min(1),
+				idempotencyKey: z.string().min(1),
+				actionKind: z.enum([
+					"open_code_pr",
+					"toggle_feature_flag",
+					"rollback_deploy",
+					"apply_config",
+					"promote_agent_prompt",
+				]),
+				targetNodeId: z.string().min(1),
+				expectedCurrentState: z.record(z.unknown()),
+				desiredTargetState: z.record(z.unknown()),
+				requestedAutonomy: z
+					.enum([
+						"read_only",
+						"suggested_action",
+						"human_approved_write",
+						"autonomous_write",
+						"blocked_by_policy",
+					])
+					.optional(),
+			},
+		},
+		async (params) => {
+			try {
+				const data = await client.post(
+					"/internal/remediations/propose",
+					params,
+				);
+				return toolResult(
+					"propose_remediation_action",
+					params as Record<string, unknown>,
+					"{ data: RemediationProposal, dashboardUrl?: string }",
+					{
+						...(data && typeof data === "object" && !Array.isArray(data)
+							? (data as Record<string, unknown>)
+							: {}),
+						data,
+						dashboardUrl: client.dashboardLink("remediations"),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"claim_remediation_grant",
+		{
+			description:
+				"Claim, complete, or fail a remediation proposal using its single-use grant token.",
+			inputSchema: {
+				proposalId: z.string().min(1),
+				operation: z
+					.enum(["claim", "complete", "fail"])
+					.optional()
+					.default("claim"),
+				environment: z.string().optional(),
+				grantToken: z.string().optional(),
+				runnerId: z.string().optional(),
+				resultingChangeId: z.string().optional(),
+				remediationAgentRunId: z.string().optional(),
+				failureReason: z.string().optional(),
+			},
+		},
+		async ({
+			proposalId,
+			operation,
+			environment,
+			grantToken,
+			runnerId,
+			resultingChangeId,
+			remediationAgentRunId,
+			failureReason,
+		}) => {
+			try {
+				if (operation === "claim" && !grantToken?.trim()) {
+					throw new Error("grantToken is required when operation is 'claim'");
+				}
+				const data = await client.post(
+					`/internal/remediations/${encodeURIComponent(proposalId)}/${operation}`,
+					{
+						environment,
+						grantToken,
+						runnerId,
+						resultingChangeId,
+						remediationAgentRunId,
+						failureReason,
+					},
+				);
+				return toolResult(
+					"claim_remediation_grant",
+					{
+						proposalId,
+						operation,
+						environment,
+						grantToken,
+						runnerId,
+						resultingChangeId,
+						remediationAgentRunId,
+						failureReason,
+					},
+					"{ data: RemediationProposal, dashboardUrl?: string }",
+					{
+						...(data && typeof data === "object" && !Array.isArray(data)
+							? (data as Record<string, unknown>)
+							: {}),
+						data,
+						dashboardUrl: client.dashboardLink(
+							`remediations/${encodeURIComponent(proposalId)}`,
+						),
+					},
 				);
 			} catch (err) {
 				return errorToolResult(err);

@@ -7,6 +7,7 @@ import type {
 } from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button";
+import { ChangeMarkersBar } from "../components/ChangeMarkersBar";
 import { SectionTitle, UpdatedChip } from "../components/primitives";
 import { EmptyState } from "../components/states";
 import { useApi } from "../use-api";
@@ -206,6 +207,8 @@ export function HealthDashboard() {
 					</Button>
 				</div>
 			</div>
+
+			<ChangeMarkersBar />
 
 			{error && (
 				<div className="p-3 bg-sys-error/10 border-l-[4px] border-sys-error mb-2">

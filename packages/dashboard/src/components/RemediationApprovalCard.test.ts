@@ -1,0 +1,157 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import {
+	approveRemediationProposal,
+	formatRemediationStateDiff,
+	RemediationApprovalCard,
+	RemediationApprovalQueue,
+	type RemediationProposalView,
+	rejectRemediationProposal,
+} from "./RemediationApprovalCard";
+
+const samplePendingProposal: RemediationProposalView = {
+	id: "rem_01",
+	projectId: "default",
+	environment: "prod",
+	incidentId: "inc_01",
+	findingId: "fnd_01",
+	idempotencyKey: "idem_01",
+	actionKind: "rollback_deploy",
+	targetNodeId: "service:prod:default:checkout",
+	expectedCurrentState: {
+		version: "v2.4.1",
+		commitSha: "a1b2c3d",
+	},
+	desiredTargetState: {
+		version: "v2.4.0",
+		commitSha: "9f8e7d6",
+	},
+	requestedAutonomy: "autonomous_write",
+	effectiveAutonomy: "human_approved_write",
+	policyDecisionReason:
+		"Rollback in prod requires human approval unless counterfactual proof is verified",
+	status: "pending_human_approval",
+	grantExpiresAt: null,
+	approvedByUserId: null,
+	approvedAt: null,
+	claimedByRunnerId: null,
+	claimedAt: null,
+	claimExpiresAt: null,
+	remediationAgentRunId: null,
+	resultingChangeId: null,
+	failureReason: null,
+	createdAt: "2026-10-15T04:00:00.000Z",
+	updatedAt: "2026-10-15T04:00:00.000Z",
+	expiresAt: "2026-10-15T04:30:00.000Z",
+};
+
+describe("RemediationApprovalCard & RemediationApprovalQueue", () => {
+	it("computes expectedCurrentState vs desiredTargetState diff entries", () => {
+		const diffs = formatRemediationStateDiff(
+			samplePendingProposal.expectedCurrentState,
+			samplePendingProposal.desiredTargetState,
+		);
+		expect(diffs).toEqual([
+			{ field: "version", before: "v2.4.1", after: "v2.4.0" },
+			{ field: "commitSha", before: "a1b2c3d", after: "9f8e7d6" },
+		]);
+	});
+
+	it("renders pending_human_approval proposal details and Approve/Reject buttons", () => {
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalCard, {
+				proposal: samplePendingProposal,
+			}),
+		);
+
+		expect(html).toContain("rollback_deploy");
+		expect(html).toContain("env:prod");
+		expect(html).toContain("service:prod:default:checkout");
+		expect(html).toContain("human approved_write");
+		expect(html).toContain("pending_human_approval");
+		expect(html).toContain(
+			"Rollback in prod requires human approval unless counterfactual proof is verified",
+		);
+		expect(html).toContain("v2.4.1");
+		expect(html).toContain("v2.4.0");
+		expect(html).toContain("Finding: fnd_01");
+		expect(html).toContain("Incident: inc_01");
+		expect(html).toContain('data-action="approve-remediation"');
+		expect(html).toContain('data-action="reject-remediation"');
+	});
+
+	it("renders recent completed and timed-out proposals with watchdog/recovery status", () => {
+		const completedProposal: RemediationProposalView = {
+			...samplePendingProposal,
+			id: "rem_02",
+			status: "completed",
+			resultingChangeId: "chg_rollback_01",
+			recoveryStatus: "recovered",
+		};
+		const timedOutProposal: RemediationProposalView = {
+			...samplePendingProposal,
+			id: "rem_03",
+			status: "execution_timed_out",
+			failureReason: "Claim lease expired after 10m",
+		};
+
+		const queueHtml = renderToStaticMarkup(
+			createElement(RemediationApprovalQueue, {
+				proposals: [samplePendingProposal, completedProposal, timedOutProposal],
+			}),
+		);
+
+		expect(queueHtml).toContain("1 pending human approval · 3 total");
+		expect(queueHtml).toContain("watchdog: recovered");
+		expect(queueHtml).toContain("Change: chg_rollback_01");
+		expect(queueHtml).toContain("watchdog: lease timed out");
+		expect(queueHtml).toContain("Claim lease expired after 10m");
+	});
+
+	it("invokes POST /internal/remediations/:id/approve and /reject with credentials: include", async () => {
+		const mockFetcher = vi.fn().mockImplementation(async (url: string) => {
+			const isApprove = url.endsWith("/approve");
+			return new Response(
+				JSON.stringify({
+					proposal: {
+						...samplePendingProposal,
+						status: isApprove ? "grant_issued" : "rejected",
+					},
+				}),
+				{ status: 200, headers: { "Content-Type": "application/json" } },
+			);
+		});
+
+		const approved = await approveRemediationProposal("rem_01", {
+			basePath: "/internal",
+			fetcher: mockFetcher as unknown as typeof fetch,
+		});
+		expect(approved?.status).toBe("grant_issued");
+		expect(mockFetcher).toHaveBeenCalledWith(
+			"/internal/remediations/rem_01/approve",
+			expect.objectContaining({
+				method: "POST",
+				credentials: "include",
+			}),
+		);
+
+		const rejected = await rejectRemediationProposal(
+			"rem_01",
+			"False alarm during load test",
+			{
+				basePath: "/internal",
+				fetcher: mockFetcher as unknown as typeof fetch,
+			},
+		);
+		expect(rejected?.status).toBe("rejected");
+		expect(mockFetcher).toHaveBeenCalledWith(
+			"/internal/remediations/rem_01/reject",
+			expect.objectContaining({
+				method: "POST",
+				credentials: "include",
+				body: JSON.stringify({ reason: "False alarm during load test" }),
+			}),
+		);
+	});
+});

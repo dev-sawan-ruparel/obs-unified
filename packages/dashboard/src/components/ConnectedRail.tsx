@@ -14,6 +14,7 @@
  *     filtered list view rather than scrolling 200 inline items.
  */
 
+import type { CausalProofTier, RelationshipCertainty } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import { useApi } from "../use-api";
 
@@ -31,15 +32,92 @@ export type ConnectedEntityKind =
 	| "user"
 	| "action"
 	| "agent_run"
-	| "tool_call";
+	| "tool_call"
+	| "change"
+	| "finding"
+	| "incident";
 
-interface ConnectedLink {
+export const CONNECTED_ENTITY_LABELS: Record<ConnectedEntityKind, string> = {
+	span: "Span",
+	profile: "Profile",
+	log: "Log",
+	usage: "Usage Event",
+	ai_call: "AI Call",
+	replay: "Session Replay",
+	alert: "Alert",
+	analysis: "Analysis",
+	user: "User",
+	action: "Action",
+	agent_run: "Agent Run",
+	tool_call: "Tool Call",
+	change: "Change Event",
+	finding: "Finding",
+	incident: "Incident",
+};
+
+export const CONNECTED_ENTITY_ICONS: Record<ConnectedEntityKind, string> = {
+	span: "⚡",
+	profile: "🔥",
+	log: "📄",
+	usage: "🖱️",
+	ai_call: "✨",
+	replay: "🎬",
+	alert: "🚨",
+	analysis: "📊",
+	user: "👤",
+	action: "🎯",
+	agent_run: "🤖",
+	tool_call: "🛠️",
+	change: "🚀",
+	finding: "🔍",
+	incident: "🔥",
+};
+
+export function getConnectedEntityLabel(kind: ConnectedEntityKind): string {
+	return CONNECTED_ENTITY_LABELS[kind] ?? kind;
+}
+
+export function getConnectedEntityIcon(kind: ConnectedEntityKind): string {
+	return CONNECTED_ENTITY_ICONS[kind] ?? "•";
+}
+
+export const RELATIONSHIP_CERTAINTY_LABELS: Record<
+	RelationshipCertainty,
+	string
+> = {
+	exact: "exact link",
+	inferred: "inferred link",
+	heuristic: "temporal heuristic",
+};
+
+export const CAUSAL_PROOF_TIER_LABELS: Record<CausalProofTier, string> = {
+	counterfactual_verified: "counterfactual verified",
+	cohort_rate_isolated: "cohort isolated",
+	corroborated_candidate: "corroborated candidate",
+	unverified_locus: "fault locus",
+};
+
+export function formatRelationshipCertaintyBadge(
+	certainty: RelationshipCertainty,
+): string {
+	return RELATIONSHIP_CERTAINTY_LABELS[certainty] ?? certainty;
+}
+
+export function formatCausalProofTierBadge(tier: CausalProofTier): string {
+	return CAUSAL_PROOF_TIER_LABELS[tier] ?? tier;
+}
+
+export interface ConnectedLink {
 	label: string;
 	href: string;
 	count?: number;
 	sample?: string;
+	entityKind?: ConnectedEntityKind | "trace" | "eval";
+	entityId?: string;
 	confidence?: number;
 	causalConfidence?: "explicit" | "fallback" | string;
+	relationshipCertainty?: RelationshipCertainty;
+	causalProofTier?: CausalProofTier;
 }
 
 export interface ConnectedSection {
@@ -75,6 +153,48 @@ export interface ConnectedRailProps {
 	extraRelatedSections?: ConnectedSection[];
 }
 
+export function RelationshipCertaintyBadge({
+	certainty,
+}: {
+	certainty: RelationshipCertainty;
+}) {
+	const style =
+		certainty === "exact"
+			? "bg-sys-primary/10 border-sys-primary/25 text-sys-primary"
+			: certainty === "inferred"
+				? "bg-sys-accent/10 border-sys-accent/25 text-sys-accent"
+				: "bg-sys-warning/10 border-sys-warning/25 text-sys-warning";
+	return (
+		<span
+			data-badge-kind="relationship-certainty"
+			data-certainty={certainty}
+			className={`px-1 py-0 text-[0.5625rem] font-bold uppercase rounded-sm border flex-none ${style}`}
+		>
+			{formatRelationshipCertaintyBadge(certainty)}
+		</span>
+	);
+}
+
+export function CausalProofTierBadge({ tier }: { tier: CausalProofTier }) {
+	const style =
+		tier === "counterfactual_verified"
+			? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700"
+			: tier === "cohort_rate_isolated"
+				? "bg-sys-primary/15 border-sys-primary/30 text-sys-primary"
+				: tier === "corroborated_candidate"
+					? "bg-amber-500/15 border-amber-500/30 text-amber-700"
+					: "bg-sys-outline/10 border-sys-outline/25 text-sys-on-surface-muted";
+	return (
+		<span
+			data-badge-kind="causal-proof-tier"
+			data-proof-tier={tier}
+			className={`px-1 py-0 text-[0.5625rem] font-bold uppercase rounded-sm border flex-none ${style}`}
+		>
+			{formatCausalProofTierBadge(tier)}
+		</span>
+	);
+}
+
 // Title-case the four canonical section names so the group label can be
 // compared against its parent section header. When the only group inside
 // a section is a placeholder labeled identically to its section ("Up" /
@@ -88,7 +208,7 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => (
 	</div>
 );
 
-const SectionGroup = ({
+export const SectionGroup = ({
 	section,
 	suppressLabel,
 	onNavigate,
@@ -122,6 +242,15 @@ const SectionGroup = ({
 			<div className="flex flex-col gap-1">
 				{section.links.map((link) => {
 					const conf = link.causalConfidence;
+					const hasDualBadges =
+						Boolean(link.relationshipCertainty) ||
+						Boolean(link.causalProofTier);
+					const entityIcon =
+						link.entityKind &&
+						link.entityKind !== "trace" &&
+						link.entityKind !== "eval"
+							? getConnectedEntityIcon(link.entityKind)
+							: null;
 					return (
 						<button
 							type="button"
@@ -131,22 +260,37 @@ const SectionGroup = ({
 							title={link.sample ?? link.label}
 						>
 							<span className="truncate flex-1">
+								{entityIcon && (
+									<span className="mr-1" aria-hidden="true">
+										{entityIcon}
+									</span>
+								)}
 								{link.count !== undefined && (
 									<span className="font-bold mr-1.5">{link.count}×</span>
 								)}
 								{link.label}
 							</span>
-							{conf && (
-								<span
-									className={`px-1 py-0 text-[0.5625rem] font-bold uppercase rounded-sm border flex-none ${
-										conf === "explicit"
-											? "bg-sys-primary/10 border-sys-primary/20 text-sys-primary"
-											: "bg-sys-outline/10 border-sys-outline/20 text-sys-on-surface-muted"
-									}`}
-								>
-									{conf}
-								</span>
-							)}
+							<span className="flex items-center gap-1 flex-none">
+								{link.relationshipCertainty && (
+									<RelationshipCertaintyBadge
+										certainty={link.relationshipCertainty}
+									/>
+								)}
+								{link.causalProofTier && (
+									<CausalProofTierBadge tier={link.causalProofTier} />
+								)}
+								{!hasDualBadges && conf && (
+									<span
+										className={`px-1 py-0 text-[0.5625rem] font-bold uppercase rounded-sm border flex-none ${
+											conf === "explicit"
+												? "bg-sys-primary/10 border-sys-primary/20 text-sys-primary"
+												: "bg-sys-outline/10 border-sys-outline/20 text-sys-on-surface-muted"
+										}`}
+									>
+										{conf}
+									</span>
+								)}
+							</span>
 						</button>
 					);
 				})}
@@ -326,8 +470,11 @@ export function ConnectedRail({
 
 	return (
 		<aside className="w-full md:w-[260px] md:min-w-[260px] flex-none bg-sys-surface border-[1px] border-sys-outline p-2 overflow-y-auto">
-			<div className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-50 mb-2">
-				Connected — {entityKind}
+			<div className="text-[0.625rem] uppercase font-bold tracking-[0.05em] opacity-50 mb-2 flex items-center gap-1">
+				<span aria-hidden="true">{getConnectedEntityIcon(entityKind)}</span>
+				<span>
+					Connected — {getConnectedEntityLabel(entityKind)} ({entityKind})
+				</span>
 			</div>
 			<div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 md:flex md:flex-col">
 				<div>

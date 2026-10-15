@@ -19,7 +19,12 @@
  * pending spans flush before the process exits.
  */
 
-import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
+import {
+	type Context,
+	DiagConsoleLogger,
+	DiagLogLevel,
+	diag,
+} from "@opentelemetry/api";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { Resource } from "@opentelemetry/resources";
@@ -30,15 +35,21 @@ import {
 import { NodeSDK, type NodeSDKConfiguration } from "@opentelemetry/sdk-node";
 import {
 	BatchSpanProcessor,
+	type ReadableSpan,
+	type Span,
 	type SpanProcessor,
 	TraceIdRatioBasedSampler,
 } from "@opentelemetry/sdk-trace-base";
+import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 import {
-	ATTR_SERVICE_NAME,
-	ATTR_SERVICE_VERSION,
-} from "@opentelemetry/semantic-conventions";
+	buildLineageAttributes,
+	clearRecordedFeatureFlags,
+	type ObservabilityLineageConfig,
+	setConfiguredLineage,
+	stampActiveFeatureFlagsAndLineage,
+} from "./lineage.js";
 
-export interface InitConfig {
+export interface InitConfig extends ObservabilityLineageConfig {
 	/** Base URL of your obs-unified collector (no trailing slash). */
 	collectorUrl: string;
 	/** Ingest key from the collector's keys UI. Sent as `Authorization: Bearer ...`. */
@@ -49,6 +60,8 @@ export interface InitConfig {
 	serviceVersion?: string;
 	/** Optional deployment environment (e.g. `production`, `staging`). */
 	environment?: string;
+	/** Optional runtime lineage configuration (RFC 0013). */
+	lineage?: ObservabilityLineageConfig;
 	/** Optional default project id. Stamped as a resource attribute. */
 	projectId?: string;
 	/** Extra resource attributes merged onto every emitted span / log. */
@@ -82,22 +95,42 @@ const headers = (cfg: InitConfig): Record<string, string> => {
 	return base;
 };
 
+export const buildResourceAttributes = (
+	cfg: InitConfig,
+	env?: Record<string, string | undefined>,
+): Record<string, string | number | boolean> => {
+	const lineageAttrs = buildLineageAttributes(cfg, env);
+	return {
+		[ATTR_SERVICE_NAME]: cfg.serviceName,
+		...lineageAttrs,
+		...(cfg.projectId ? { "project.id": cfg.projectId } : {}),
+		...(cfg.resourceAttributes ?? {}),
+	};
+};
+
+class LineageAndFeatureFlagSpanProcessor implements SpanProcessor {
+	constructor(private readonly cfg: InitConfig) {}
+
+	onStart(span: Span, _parentContext: Context): void {
+		stampActiveFeatureFlagsAndLineage(span, this.cfg);
+	}
+
+	onEnd(_span: ReadableSpan): void {}
+
+	async shutdown(): Promise<void> {}
+
+	async forceFlush(): Promise<void> {}
+}
+
 export const init = (cfg: InitConfig): Shutdown => {
 	if (cfg.debug) {
 		diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 	}
 
-	const baseUrl = cfg.collectorUrl.replace(/\/$/, "");
+	setConfiguredLineage(cfg);
 
-	const resourceAttrs: Record<string, string | number | boolean> = {
-		[ATTR_SERVICE_NAME]: cfg.serviceName,
-		...(cfg.serviceVersion
-			? { [ATTR_SERVICE_VERSION]: cfg.serviceVersion }
-			: {}),
-		...(cfg.environment ? { "deployment.environment": cfg.environment } : {}),
-		...(cfg.projectId ? { "project.id": cfg.projectId } : {}),
-		...(cfg.resourceAttributes ?? {}),
-	};
+	const baseUrl = cfg.collectorUrl.replace(/\/$/, "");
+	const resourceAttrs = buildResourceAttributes(cfg);
 
 	const traceExporter = new OTLPTraceExporter({
 		url: `${baseUrl}/v1/traces`,
@@ -109,6 +142,7 @@ export const init = (cfg: InitConfig): Shutdown => {
 	});
 
 	const spanProcessors: SpanProcessor[] = [
+		new LineageAndFeatureFlagSpanProcessor(cfg),
 		new BatchSpanProcessor(traceExporter),
 	];
 	const logRecordProcessors: LogRecordProcessor[] = [
@@ -131,6 +165,8 @@ export const init = (cfg: InitConfig): Shutdown => {
 	sdk.start();
 
 	return async () => {
+		setConfiguredLineage(undefined);
+		clearRecordedFeatureFlags();
 		await sdk.shutdown();
 	};
 };

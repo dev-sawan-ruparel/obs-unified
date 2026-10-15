@@ -50,6 +50,8 @@ interface EvalCaseResultResponse {
 	passed: boolean;
 	score: number | null;
 	actualOutcome: string | null;
+	inputPayloadHash: string | null;
+	failureFingerprint: string | null;
 	details: unknown;
 	createdAt: string;
 	evidenceReferences?: EvidenceReference[];
@@ -62,6 +64,12 @@ interface EvalRunRequestBody {
 	evalCaseId?: unknown;
 	status?: unknown;
 	candidate?: unknown;
+	environment?: unknown;
+	serviceVersion?: unknown;
+	commitSha?: unknown;
+	configDigest?: unknown;
+	inputPayloadHash?: unknown;
+	failureFingerprint?: unknown;
 	startedAt?: unknown;
 	endedAt?: unknown;
 	totalCount?: unknown;
@@ -294,6 +302,20 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				id: id ?? undefined,
 				evalCaseId,
 				status,
+				environment:
+					asOptionalString(body.environment) ??
+					asOptionalString(candidate.environment),
+				serviceVersion:
+					asOptionalString(body.serviceVersion) ??
+					asOptionalString(candidate.serviceVersion),
+				commitSha:
+					asOptionalString(body.commitSha) ??
+					asOptionalString(candidate.commitSha),
+				configDigest:
+					asOptionalString(body.configDigest) ??
+					asOptionalString(candidate.configDigest),
+				inputPayloadHash: asOptionalString(body.inputPayloadHash),
+				failureFingerprint: asOptionalString(body.failureFingerprint),
 				candidate: {
 					agentId: asOptionalString(candidate.agentId),
 					agentVersion: asOptionalString(candidate.agentVersion),
@@ -302,6 +324,18 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					modelProvider: asOptionalString(candidate.modelProvider),
 					model: asOptionalString(candidate.model),
 					modelVersion: asOptionalString(candidate.modelVersion),
+					environment:
+						asOptionalString(candidate.environment) ??
+						asOptionalString(body.environment),
+					serviceVersion:
+						asOptionalString(candidate.serviceVersion) ??
+						asOptionalString(body.serviceVersion),
+					commitSha:
+						asOptionalString(candidate.commitSha) ??
+						asOptionalString(body.commitSha),
+					configDigest:
+						asOptionalString(candidate.configDigest) ??
+						asOptionalString(body.configDigest),
 				},
 				startedAt: asOptionalString(body.startedAt),
 				endedAt: asOptionalString(body.endedAt),
@@ -369,6 +403,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				passed?: unknown;
 				score?: unknown;
 				actualOutcome?: unknown;
+				inputPayloadHash?: unknown;
+				failureFingerprint?: unknown;
 				details?: unknown;
 			};
 			const parsed = await readJsonObject<typeof body>(c);
@@ -411,6 +447,16 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					: null;
 			const actualOutcome =
 				typeof body.actualOutcome === "string" ? body.actualOutcome : null;
+			const inputPayloadHash =
+				typeof body.inputPayloadHash === "string" &&
+				body.inputPayloadHash.trim()
+					? body.inputPayloadHash.trim()
+					: null;
+			const failureFingerprint =
+				typeof body.failureFingerprint === "string" &&
+				body.failureFingerprint.trim()
+					? body.failureFingerprint.trim()
+					: null;
 			const details_json =
 				body.details === undefined ? null : JSON.stringify(body.details);
 			const now = new Date().toISOString();
@@ -418,8 +464,9 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 			await db
 				.prepare(
 					`INSERT INTO eval_case_results (
-					id, project_id, eval_case_id, run_id, passed, score, actual_outcome, details_json, created_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					id, project_id, eval_case_id, run_id, passed, score, actual_outcome,
+					input_payload_hash, failure_fingerprint, details_json, created_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 				.bind(
 					id,
@@ -429,6 +476,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					passed,
 					score,
 					actualOutcome,
+					inputPayloadHash,
+					failureFingerprint,
 					details_json,
 					now,
 				)
@@ -446,6 +495,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				passed: body.passed,
 				score,
 				actualOutcome,
+				inputPayloadHash,
+				failureFingerprint,
 				details: body.details ?? null,
 				createdAt: now,
 				evidenceReferences: evalCaseResultEvidenceReferences(evalCase, id),
@@ -482,6 +533,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					passed: number;
 					score: number | null;
 					actual_outcome: string | null;
+					input_payload_hash?: string | null;
+					failure_fingerprint?: string | null;
 					details_json: string | null;
 					created_at: string;
 				}>();
@@ -504,6 +557,8 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					passed: row.passed === 1,
 					score: row.score,
 					actualOutcome: row.actual_outcome,
+					inputPayloadHash: row.input_payload_hash ?? null,
+					failureFingerprint: row.failure_fingerprint ?? null,
 					details: parseJsonMaybe(row.details_json),
 					createdAt: row.created_at,
 					evidenceReferences: evalCaseResultEvidenceReferences(

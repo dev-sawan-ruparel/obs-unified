@@ -128,7 +128,7 @@ pnpm --filter @obsunified/mcp-server build
 ## Tools
 
 - `obs_status`
-- `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`, or `tool_call` anchor, scoped to an investigation intent and token budget.
+- `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`, `tool_call`, `change`, `finding`, or `incident` anchor, scoped to an investigation intent (`debug_failure`, `explain_latency`, `audit_agent_run`, `prepare_eval_case`, `triage_incident`) and token budget.
 - `retrieve_evidence_ref` — expand a bundle retrieval ref into raw, less-compacted, or redacted records (`chunkOffset` paginates replay event windows).
 - `search_evidence_ref` — search within a log retrieval ref without expanding the full evidence slice.
 - `get_evidence_stats` — issued/expanded evidence-ref telemetry for the active project.
@@ -147,6 +147,13 @@ pnpm --filter @obsunified/mcp-server build
 - `get_agent_run`
 - `get_action`
 - `get_tool_call`
+- `list_recent_changes` — list recent change events (`deploy`, `rollback`, `feature_flag`, `config_change`, `prompt_change`) filtered by environment, service, or target node.
+- `get_change_blast_radius` — traffic-normalized cohort error lift, noisy-neighbor contention check, and code-path overlap for a change event.
+- `search_similar_findings` — search historical `InvestigationFinding`s by fingerprint, symptom entity, or root-cause entity.
+- `record_investigation_finding` — persist a structured `InvestigationFinding` with `relationshipCertainty`, `causalProofTier`, and optional counterfactual verification.
+- `propose_remediation_action` — propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, `apply_config`, `promote_agent_prompt`) evaluated against the pre-execution policy gate.
+- `claim_remediation_grant` — claim a single-use cryptographic `grantToken` (with target-version CAS) or complete/fail an active remediation execution.
 
 For package-level details, see the
 [MCP server README](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/mcp-server/README.md).
+

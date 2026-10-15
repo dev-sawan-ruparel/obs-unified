@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import type { RecordFeatureFlagOptions } from "../lineage";
 import type { UsageTracker } from "../usage-tracker";
 
 type AnyHandler = (...args: never[]) => unknown;
@@ -16,6 +17,11 @@ export interface AnalyticsContextValue {
 	identify: (userId: string, properties?: Record<string, unknown>) => void;
 	startReplay: () => void;
 	fetch: typeof window.fetch;
+	recordFeatureFlag: (
+		flagKey: string,
+		variant: string | boolean | number,
+		options?: RecordFeatureFlagOptions,
+	) => void;
 	/**
 	 * RFC 0004 Mode B — wrap a click handler so the interaction_id active
 	 * at invocation time stays bound for the handler's full execution

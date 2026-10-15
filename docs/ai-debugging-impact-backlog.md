@@ -381,3 +381,30 @@ comparisons explain how it changed for the same input case.
 - [x] Dashboard can compare step sequences, tool choices, costs, evals, and
       traces side-by-side.
 - [x] Each differing step links back to source production/eval evidence.
+
+## 16. Closed-Loop AutoSRE Causal Ontology, Change Correlation, and Incident Memory (RFC 0013)
+
+**Status:** [x] Implemented.
+
+**Why it matters:** Moves AI agents from passive symptom inspection to governed,
+closed-loop root-cause isolation, change correlation, counterfactual proof, and
+verified production remediation.
+
+**Acceptance checklist:**
+
+- [x] Orthogonal `relationshipCertainty` and `causalProofTier` dimensions prevent
+      structural overlap from masquerading as causal proof.
+- [x] Environment-scoped canonical resource identities and general directed
+      topology graph with cycle-safe trace-level fault localization.
+- [x] First-class Change Plane (`/v1/changes`, `/internal/changes/:id/blast-radius`,
+      `obs-unified changes record|list`) with traffic-normalized cohort lift and
+      noisy-neighbor contention joins.
+- [x] Durable incident state machine (`incident_investigations`), recurring
+      finding memory (`investigation_findings` with normalized `fingerprint`),
+      and paired baseline+candidate counterfactual verification.
+- [x] Pre-execution remediation gate (`remediation_proposals`, single-use
+      `remediation_grants`, human session approval enforcement, and watchdog
+      separation of service recovery vs. causal verification).
+- [x] 6 AutoSRE MCP tools, `triage_incident` CCR intent, Connected Rail + Dashboard
+      UX, and Scenario D seed fixture (`scripts/seed-everything/run.mjs --scenario autosre`).
+

@@ -14,9 +14,27 @@ export { AskBox } from "./components/AskBox";
 export type { ButtonSize, ButtonVariant } from "./components/Button";
 export { Button } from "./components/Button";
 export {
+	CHANGE_KIND_LABELS,
+	ChangeMarkersBar,
+	type ChangeMarkersBarProps,
+	formatChangeVersionLabel,
+} from "./components/ChangeMarkersBar";
+export {
+	CAUSAL_PROOF_TIER_LABELS,
+	CausalProofTierBadge,
+	CONNECTED_ENTITY_ICONS,
+	CONNECTED_ENTITY_LABELS,
 	type ConnectedEntityKind,
+	type ConnectedLink,
 	ConnectedRail,
 	type ConnectedRailProps,
+	type ConnectedSection,
+	formatCausalProofTierBadge,
+	formatRelationshipCertaintyBadge,
+	getConnectedEntityIcon,
+	getConnectedEntityLabel,
+	RELATIONSHIP_CERTAINTY_LABELS,
+	RelationshipCertaintyBadge,
 } from "./components/ConnectedRail";
 export type { Column, ColumnAlign, ColumnFont } from "./components/DataTable";
 export { DataTable } from "./components/DataTable";
@@ -33,6 +51,17 @@ export {
 	TextField,
 } from "./components/forms";
 export { ProjectSwitcher } from "./components/ProjectSwitcher";
+export {
+	approveRemediationProposal,
+	formatRemediationStateDiff,
+	RemediationApprovalCard,
+	type RemediationApprovalCardProps,
+	RemediationApprovalQueue,
+	type RemediationApprovalQueueProps,
+	type RemediationProposalView,
+	type RemediationStateDiffEntry,
+	rejectRemediationProposal,
+} from "./components/RemediationApprovalCard";
 export { EmptyState, StateRow } from "./components/states";
 export type { TagTone } from "./components/Tag";
 export { Tag } from "./components/Tag";
@@ -51,6 +80,7 @@ export {
 } from "./dashboards/AgentRunDashboard";
 export { AIDashboard } from "./dashboards/AIDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
+export { AutonomousReviewDashboard } from "./dashboards/AutonomousReviewDashboard";
 export { EvaluationsDashboard } from "./dashboards/EvaluationsDashboard";
 export { EvidenceDashboard } from "./dashboards/EvidenceDashboard";
 export { HealthDashboard } from "./dashboards/HealthDashboard";

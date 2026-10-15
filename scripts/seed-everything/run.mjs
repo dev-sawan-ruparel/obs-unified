@@ -1274,13 +1274,268 @@ const seedUserProfiles = async (sessionWindows) => {
 	return `${created} profiles (1 heavy spender)`;
 };
 
+// ── RFC 0013 Scenario D — Closed-Loop AutoSRE ──────────────────────
+
+const seedAutoSreScenarioD = async (cookie) => {
+	const env = "prod";
+	const nowMs = Date.now();
+	const baselineSpans = [];
+	const candidateSpans = [];
+
+	// 1. Seed 50 baseline (v2.4.0, 2% error) and 50 candidate (v2.4.1, 40% error) spans
+	for (let i = 0; i < 50; i++) {
+		const bTraceId = `0d00000000000000000000000000b${String(i).padStart(3, "0")}`;
+		const bSpanId = `0d0000000000b${String(i).padStart(3, "0")}`;
+		const bErr = i === 0;
+		const bStartMs = 15 * 60_000 + i * 200;
+		baselineSpans.push({
+			traceId: bTraceId,
+			spanId: bSpanId,
+			name: "POST /api/checkout",
+			kind: 2,
+			startTimeUnixNano: agoNs(bStartMs + 120),
+			endTimeUnixNano: agoNs(bStartMs),
+			status: { code: bErr ? 2 : 1, message: bErr ? "Transient timeout" : "" },
+			attributes: [
+				kv("http.request.method", "POST"),
+				kv("http.route", "/api/checkout"),
+				kv("http.response.status_code", bErr ? 500 : 200),
+				kv("code.filepath", "src/checkout/charge.ts"),
+				kv("seed.scenario", "D"),
+			],
+		});
+
+		const cTraceId = `0d00000000000000000000000000c${String(i).padStart(3, "0")}`;
+		const cSpanId = `0d0000000000c${String(i).padStart(3, "0")}`;
+		const cErr = i < 20;
+		const cStartMs = 4 * 60_000 + i * 200;
+		candidateSpans.push({
+			traceId: cTraceId,
+			spanId: cSpanId,
+			name: "POST /api/checkout",
+			kind: 2,
+			startTimeUnixNano: agoNs(cStartMs + 340),
+			endTimeUnixNano: agoNs(cStartMs),
+			status: {
+				code: cErr ? 2 : 1,
+				message: cErr ? "NullPointerError in chargeCard after 500ms" : "",
+			},
+			attributes: [
+				kv("http.request.method", "POST"),
+				kv("http.route", "/api/checkout"),
+				kv("http.response.status_code", cErr ? 500 : 200),
+				kv("code.filepath", "src/checkout/charge.ts"),
+				kv("feature_flag.key", "new-checkout-flow"),
+				kv("feature_flag.variant", "treatment"),
+				kv("seed.scenario", "D"),
+			],
+		});
+	}
+
+	await ingestPost("/v1/traces", {
+		resourceSpans: [
+			{
+				resource: {
+					attributes: [
+						kv("service.name", "checkout-api"),
+						kv("deployment.environment.name", env),
+						kv("service.version", "2.4.0"),
+						kv("vcs.commit.id", "1111111"),
+					],
+				},
+				scopeSpans: [{ scope: { name: "seed-scenario-d-v240" }, spans: baselineSpans }],
+			},
+			{
+				resource: {
+					attributes: [
+						kv("service.name", "checkout-api"),
+						kv("deployment.environment.name", env),
+						kv("service.version", "2.4.1"),
+						kv("vcs.commit.id", "2222222"),
+					],
+				},
+				scopeSpans: [{ scope: { name: "seed-scenario-d-v241" }, spans: candidateSpans }],
+			},
+		],
+	});
+
+	// 2. Record the v2.4.1 deployment change event via /v1/changes
+	const changeRes = await ingestPost("/v1/changes", {
+		id: "chg_scenario_d_deploy_241",
+		environment: env,
+		kind: "deploy",
+		serviceName: "checkout-api",
+		version: "2.4.1",
+		previousVersion: "2.4.0",
+		commitSha: "2222222",
+		previousCommitSha: "1111111",
+		summary: "Deploy checkout-api v2.4.1 with refactored chargeCard handler",
+		actor: "github-actions",
+		touchedPaths: ["src/checkout/charge.ts", "src/checkout/index.ts"],
+		occurredAt: new Date(nowMs - 8 * 60_000).toISOString(),
+	});
+	const changeId = changeRes.change?.id ?? "chg_scenario_d_deploy_241";
+
+	// 3. Dispatch durable incident investigation + record structured finding
+	const exemplarTraceId = "0d00000000000000000000000000c000";
+	const exemplarSpanId = "0d0000000000c000";
+	const incRes = await dashFetch(cookie, "/internal/incidents", {
+		method: "POST",
+		body: JSON.stringify({
+			id: "inc_scenario_d",
+			environment: env,
+			dedupeKey: "scenario-d:prod:checkout-api:error-spike",
+			triggerKind: "alert_evaluation",
+			triggerEntityId: "alt_eval_scenario_d",
+			targetNodeId: "service:prod:default:checkout-api",
+		}),
+	});
+	const incidentId = incRes.incident?.id ?? "inc_scenario_d";
+
+	const findingRes = await dashFetch(cookie, "/internal/findings", {
+		method: "POST",
+		body: JSON.stringify({
+			id: "fnd_scenario_d",
+			environment: env,
+			incidentId,
+			title: "checkout-api v2.4.1 NullPointerError regression in chargeCard",
+			summary:
+				"Cohort error rate jumped from 2.0% (v2.4.0) to 40.0% (v2.4.1) on POST /api/checkout with stack overlap on src/checkout/charge.ts.",
+			causalProofTier: "cohort_rate_isolated",
+			confidence: 0.94,
+			symptomEntityKind: "span",
+			symptomEntityId: `${exemplarTraceId}:${exemplarSpanId}`,
+			faultLocusEntityKind: "span",
+			faultLocusEntityId: `${exemplarTraceId}:${exemplarSpanId}`,
+			rootCauseEntityKind: "change",
+			rootCauseEntityId: changeId,
+			contributingChangeId: changeId,
+			cohortVerdict: "attributable_to_change",
+			fingerprintInput: {
+				environment: env,
+				originatingNodeId: "service:prod:default:checkout-api",
+				normalizedOperation: "POST /api/checkout",
+				errorSignature: "NullPointerError in chargeCard after 500ms",
+				downstreamTargetNodeId: null,
+			},
+			causalChain: [
+				{
+					subjectKind: "change",
+					subjectId: changeId,
+					predicate: "introduced_by_change",
+					objectKind: "span",
+					objectId: `${exemplarTraceId}:${exemplarSpanId}`,
+					relationshipCertainty: "inferred",
+					causalProofTier: "cohort_rate_isolated",
+					evidenceCitations: [changeId, `${exemplarTraceId}:${exemplarSpanId}`],
+				},
+			],
+			citedEvidenceIds: [changeId, `${exemplarTraceId}:${exemplarSpanId}`],
+		}),
+	});
+	const findingId = findingRes.finding?.id ?? "fnd_scenario_d";
+
+	// 4. Counterfactual verification via paired baseline + candidate eval runs
+	const evalCaseRes = await dashFetch(cookie, "/internal/eval-cases", {
+		method: "POST",
+		body: JSON.stringify({
+			name: "Scenario D checkout-api chargeCard reproducer",
+			sourceKind: "trace",
+			sourceId: exemplarTraceId,
+			inputPayload: { route: "POST /api/checkout", amountCents: 4999 },
+			expectedChecks: { status: 200 },
+		}),
+	});
+	const evalCaseId = evalCaseRes.case?.id;
+	if (evalCaseId) {
+		const failingRunRes = await dashFetch(cookie, "/internal/eval-runs", {
+			method: "POST",
+			body: JSON.stringify({
+				name: "Scenario D baseline reproducer on v2.4.1",
+				environment: env,
+				serviceVersion: "2.4.1",
+				commitSha: "2222222",
+				reproducerFingerprint: "fp_scenario_d_reproducer",
+				status: "completed",
+			}),
+		});
+		const failingRunId = failingRunRes.run?.id;
+
+		const passingRunRes = await dashFetch(cookie, "/internal/eval-runs", {
+			method: "POST",
+			body: JSON.stringify({
+				name: "Scenario D rollback candidate on v2.4.0",
+				environment: env,
+				serviceVersion: "2.4.0",
+				commitSha: "1111111",
+				reproducerFingerprint: "fp_scenario_d_reproducer",
+				status: "completed",
+			}),
+		});
+		const passingRunId = passingRunRes.run?.id;
+
+		if (failingRunId && passingRunId) {
+			await dashFetch(cookie, `/internal/eval-cases/${evalCaseId}/results`, {
+				method: "POST",
+				body: JSON.stringify({
+					evalRunId: failingRunId,
+					passed: false,
+					score: 0,
+					reasoning: "Reproduced NullPointerError on v2.4.1",
+				}),
+			});
+			await dashFetch(cookie, `/internal/eval-cases/${evalCaseId}/results`, {
+				method: "POST",
+				body: JSON.stringify({
+					evalRunId: passingRunId,
+					passed: true,
+					score: 1,
+					reasoning: "Passed cleanly on rollback candidate v2.4.0",
+				}),
+			});
+			await dashFetch(cookie, `/internal/findings/${findingId}/counterfactual`, {
+				method: "POST",
+				body: JSON.stringify({
+					evalCaseId,
+					failingRunId,
+					passingRunIds: [passingRunId],
+					requiredTrials: 1,
+				}),
+			});
+		}
+	}
+
+	// 5. Propose a pending human-approval rollback so the Autonomous Review Queue shows an actionable card
+	await dashFetch(cookie, "/internal/remediations/propose", {
+		method: "POST",
+		body: JSON.stringify({
+			environment: env,
+			incidentId,
+			findingId,
+			idempotencyKey: "idem_scenario_d_rollback_prod",
+			actionKind: "rollback_deploy",
+			targetNodeId: "service:prod:default:checkout-api",
+			expectedCurrentState: { version: "2.4.1", commitSha: "2222222" },
+			desiredTargetState: { version: "2.4.0", commitSha: "1111111" },
+			requestedAutonomy: "human_approved_write",
+		}),
+	});
+
+	return `change ${changeId}, incident ${incidentId}, finding ${findingId} (counterfactual_verified) + 1 pending rollback proposal`;
+};
+
 // ── main ────────────────────────────────────────────────────────────
+
+const SCENARIO_ONLY = arg("scenario", null);
 
 console.log();
 console.log(`  ${dim("collector:")} ${COLLECTOR}`);
 console.log(`  ${dim("demo:")}      ${DEMO}`);
 console.log(`  ${dim("password:")}  ${PASSWORD}`);
 console.log(`  ${dim("rounds:")}    ${ROUNDS}`);
+if (SCENARIO_ONLY) {
+	console.log(`  ${dim("scenario:")}  ${SCENARIO_ONLY}`);
+}
 console.log();
 
 await tracer.startActiveSpan("seed.run", async (rootSpan) => {
@@ -1301,33 +1556,42 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 			process.exit(1);
 		}
 
-		// Seed usage first so we have session windows. Spans + logs then get
-		// stamped with session.id matching those windows — that's what makes
-		// the Timeline tab show a real cross-signal join (frontend events
-		// alongside backend spans/logs in the same session).
-		const usageResult = await step(
-			"usage / sessions / timeline (/v1/usage)",
-			seedUsage,
-		);
-		const sessionWindows = usageResult?.sessions ?? [];
+		if (SCENARIO_ONLY === "autosre" || SCENARIO_ONLY === "D") {
+			await step("Scenario D AutoSRE closed-loop (/v1/changes + /internal/findings)", () =>
+				seedAutoSreScenarioD(cookie),
+			);
+		} else {
+			// Seed usage first so we have session windows. Spans + logs then get
+			// stamped with session.id matching those windows — that's what makes
+			// the Timeline tab show a real cross-signal join (frontend events
+			// alongside backend spans/logs in the same session).
+			const usageResult = await step(
+				"usage / sessions / timeline (/v1/usage)",
+				seedUsage,
+			);
+			const sessionWindows = usageResult?.sessions ?? [];
 
-		const tracesResult = await step(
-			"traces / service map / issues (/v1/traces)",
-			() => seedTraces(sessionWindows),
-		);
-		await step("CPU profile for Scenario A (/v1/profiles/pprof)", () =>
-			seedProfiles(tracesResult?.scenarioA),
-		);
-		await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
-		await step("AI calls (/v1/traces with LLM kind)", () =>
-			seedAi(sessionWindows),
-		);
-		await step("user profiles (/v1/identify)", () =>
-			seedUserProfiles(sessionWindows),
-		);
-		await step("alert rules (/internal/alerts/rules)", () =>
-			seedAlerts(cookie),
-		);
+			const tracesResult = await step(
+				"traces / service map / issues (/v1/traces)",
+				() => seedTraces(sessionWindows),
+			);
+			await step("CPU profile for Scenario A (/v1/profiles/pprof)", () =>
+				seedProfiles(tracesResult?.scenarioA),
+			);
+			await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
+			await step("AI calls (/v1/traces with LLM kind)", () =>
+				seedAi(sessionWindows),
+			);
+			await step("user profiles (/v1/identify)", () =>
+				seedUserProfiles(sessionWindows),
+			);
+			await step("alert rules (/internal/alerts/rules)", () =>
+				seedAlerts(cookie),
+			);
+			await step("Scenario D AutoSRE closed-loop (/v1/changes + /internal/findings)", () =>
+				seedAutoSreScenarioD(cookie),
+			);
+		}
 		rootSpan.setStatus({ code: SpanStatusCode.OK });
 	} finally {
 		rootSpan.end();
@@ -1343,3 +1607,4 @@ console.log(
 );
 console.log(`         and click "Start replay" — rrweb chunks need a real DOM`);
 console.log();
+

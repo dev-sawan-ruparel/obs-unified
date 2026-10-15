@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+	CausalProofTierSchema,
+	ChangeEventKindSchema,
+	CohortAttributionVerdictSchema,
+	EvidencePredicateSchema,
+	RelationshipCertaintySchema,
+} from "./autosre";
 
 export type JsonSchema = Record<string, unknown>;
 
@@ -31,6 +38,9 @@ export const EvidenceEntityKindSchema = z.enum([
 	"service",
 	"log",
 	"docs",
+	"change",
+	"finding",
+	"incident",
 ]);
 
 export type EvidenceEntityKind = z.infer<typeof EvidenceEntityKindSchema>;
@@ -68,6 +78,9 @@ export const EvidenceReferenceSchema = z.object({
 	route: z.string(),
 	source: z.string(),
 	confidence: z.number().min(0).max(1),
+	relationshipCertainty: RelationshipCertaintySchema.optional(),
+	causalProofTier: CausalProofTierSchema.optional(),
+	predicate: EvidencePredicateSchema.optional(),
 	reason: z.string(),
 	citations: z.array(EvidenceCitationSchema),
 	suggestedNextPivots: z.array(EvidenceNextPivotSchema),
@@ -158,6 +171,7 @@ export const EvidenceBundleIntentSchema = z.enum([
 	"inspect_agent_run",
 	"inspect_tool_call",
 	"find_instrumentation_gap",
+	"triage_incident",
 	"general",
 ]);
 
@@ -191,9 +205,63 @@ export const EvidenceBundleClaimSchema = z.object({
 
 export type EvidenceBundleClaim = z.infer<typeof EvidenceBundleClaimSchema>;
 
+export const EvidenceBundleAutosreSchema = z.object({
+	faultLocus: z
+		.object({
+			nodeId: z.string(),
+			spanId: z.string().optional(),
+			actionId: z.string().optional(),
+			relationshipCertainty: RelationshipCertaintySchema,
+			isBlackoutSuspected: z.boolean(),
+		})
+		.optional(),
+	candidateChanges: z.array(
+		z.object({
+			changeId: z.string(),
+			kind: ChangeEventKindSchema,
+			version: z.string().nullable().optional(),
+			previousVersion: z.string().nullable().optional(),
+			occurredAt: z.string(),
+			cohortVerdict: CohortAttributionVerdictSchema,
+			causalProofTier: CausalProofTierSchema,
+			rateNew: z.number().nullable().optional(),
+			rateOld: z.number().nullable().optional(),
+			sampleNew: z.number().int().nonnegative(),
+			sampleOld: z.number().int().nonnegative(),
+			overlappingCodePaths: z.array(z.string()),
+		}),
+	),
+	contentionCandidates: z.array(
+		z.object({
+			aggressorTraceId: z.string(),
+			aggressorSpanId: z.string(),
+			aggressorServiceName: z.string().nullable(),
+			sharedTargetNodeId: z.string(),
+			relationshipCertainty: RelationshipCertaintySchema,
+			totalResourceTimeMs: z.number(),
+		}),
+	),
+	priorFindings: z.array(
+		z.object({
+			findingId: z.string(),
+			title: z.string(),
+			causalProofTier: CausalProofTierSchema,
+			causalVerificationStatus: z.string(),
+			recoveryStatus: z.string(),
+			contributingChangeId: z.string().nullable().optional(),
+			occurredAt: z.string(),
+		}),
+	),
+});
+
+export type EvidenceBundleAutosre = z.infer<typeof EvidenceBundleAutosreSchema>;
+
 export const EvidenceBundleSchema = z.object({
 	schemaVersion: z.literal(EVIDENCE_BUNDLE_SCHEMA_VERSION),
 	intent: EvidenceBundleIntentSchema,
+	environment: z.string().optional(),
+	incidentId: z.string().optional(),
+	symptomFingerprint: z.string().optional(),
 	anchor: EvidenceAnchorSchema.optional(),
 	budget: EvidenceBundleBudgetSchema.optional(),
 	summary: z.string(),
@@ -203,6 +271,7 @@ export const EvidenceBundleSchema = z.object({
 	evidenceReferences: z.array(EvidenceReferenceSchema),
 	retrievalRefs: z.array(EvidenceRetrievalRefSchema),
 	suggestedNextPivots: z.array(EvidenceNextPivotSchema),
+	autosre: EvidenceBundleAutosreSchema.optional(),
 	dashboardUrl: z.string().optional(),
 });
 
@@ -277,6 +346,18 @@ export const EvidenceReferenceJsonSchema = {
 		route: { type: "string" },
 		source: { type: "string" },
 		confidence: { type: "number", minimum: 0, maximum: 1 },
+		relationshipCertainty: {
+			type: "string",
+			enum: RelationshipCertaintySchema.options,
+		},
+		causalProofTier: {
+			type: "string",
+			enum: CausalProofTierSchema.options,
+		},
+		predicate: {
+			type: "string",
+			enum: EvidencePredicateSchema.options,
+		},
 		reason: { type: "string" },
 		citations: {
 			type: "array",
@@ -415,6 +496,9 @@ export const EvidenceBundleJsonSchema = {
 			type: "string",
 			enum: EvidenceBundleIntentSchema.options,
 		},
+		environment: { type: "string" },
+		incidentId: { type: "string" },
+		symptomFingerprint: { type: "string" },
 		anchor: EvidenceAnchorJsonSchema,
 		budget: {
 			type: "object",
@@ -462,6 +546,10 @@ export const EvidenceBundleJsonSchema = {
 		},
 		suggestedNextPivots:
 			EvidenceReferenceJsonSchema.properties.suggestedNextPivots,
+		autosre: {
+			type: "object",
+			additionalProperties: true,
+		},
 		dashboardUrl: { type: "string" },
 	},
 } as const satisfies JsonSchema;

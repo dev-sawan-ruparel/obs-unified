@@ -22,7 +22,13 @@
 			"connected_signals",
 			"get_agent_run",
 			"get_action",
-			"get_tool_call"
+			"get_tool_call",
+			"list_recent_changes",
+			"get_change_blast_radius",
+			"search_similar_findings",
+			"record_investigation_finding",
+			"propose_remediation_action",
+			"claim_remediation_grant"
 		],
 		"connectedKinds": [
 			"span",
@@ -36,7 +42,10 @@
 			"user",
 			"action",
 			"agent_run",
-			"tool_call"
+			"tool_call",
+			"change",
+			"finding",
+			"incident"
 		],
 		"evidenceReferenceFields": [
 			"evidenceId",

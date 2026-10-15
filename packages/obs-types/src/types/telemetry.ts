@@ -46,6 +46,16 @@ export interface StoredSpan {
 	 * kernel-observed traffic without re-parsing JSON on every map render.
 	 */
 	telemetrySdkName?: string | null;
+	/** RFC 0013 — denormalized deployment environment (default "default"). */
+	environment?: string | null;
+	/** RFC 0013 — denormalized service.version / obs.service.version. */
+	serviceVersion?: string | null;
+	/** RFC 0013 — denormalized vcs.commit.id / git.commit.sha / obs.commit.sha. */
+	commitSha?: string | null;
+	/** RFC 0013 — canonical downstream target node ID for client/DB/queue spans. */
+	targetNodeId?: string | null;
+	/** RFC 0013 — normalized error signature for status_code = 2 spans. */
+	errorSignature?: string | null;
 }
 
 // ── Database Row Types ──

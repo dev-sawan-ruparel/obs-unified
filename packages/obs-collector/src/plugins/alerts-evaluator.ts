@@ -11,6 +11,7 @@ import {
 	type Logger,
 } from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
+import { openOrDeduplicateIncident } from "../lib/autosre-remediation-gate";
 import { sqlDbFor } from "../lib/sql-db";
 import {
 	assertSafeWebhookUrl,
@@ -238,6 +239,7 @@ async function evaluateOneRule(
 	tracer: ChildSpanRunner | undefined,
 	ruleTimeoutMs: number,
 	delivery: WebhookDeliveryOptions,
+	onAlertFiring?: (rule: AlertRule) => Promise<void>,
 ): Promise<{ fired: number; resolved: number; redelivered: number }> {
 	const none = { fired: 0, resolved: 0, redelivered: 0 };
 	try {
@@ -296,6 +298,9 @@ async function evaluateOneRule(
 			// transition; otherwise the same-state branch below retries on the
 			// next tick without a second transition.
 			await store.transitionState(rule.id, rule.projectId, next, now);
+			if (next === "firing" && onAlertFiring) {
+				await onAlertFiring(rule).catch(() => undefined);
+			}
 			const ok = await deliver(next);
 			// Acknowledge before writing history: if the evaluation insert
 			// fails, the delivered flag is already durable and the next tick
@@ -364,6 +369,7 @@ export async function evaluateRuleBatch(
 		ruleTimeoutMs?: number;
 		allowPrivateWebhookTargets?: boolean;
 		hostLookup?: HostLookup;
+		onAlertFiring?: (rule: AlertRule) => Promise<void>;
 	},
 ): Promise<{
 	evaluated: number;
@@ -393,6 +399,7 @@ export async function evaluateRuleBatch(
 			options?.tracer,
 			ruleTimeoutMs,
 			delivery,
+			options?.onAlertFiring,
 		),
 	);
 	return {
@@ -421,7 +428,8 @@ export async function evaluateAllRules(
 	const logger = options?.logger ?? consoleLogger;
 	const tracer = options?.tracer;
 	const allowPrivateWebhookTargets = env.ALERT_WEBHOOK_ALLOW_PRIVATE === "true";
-	const store = new AlertsStore(sqlDbFor(env), { allowPrivateWebhookTargets });
+	const db = sqlDbFor(env);
+	const store = new AlertsStore(db, { allowPrivateWebhookTargets });
 	const rules = await store.listEnabledRules();
 	return evaluateRuleBatch(store, rules, {
 		logger,
@@ -430,6 +438,14 @@ export async function evaluateAllRules(
 		ruleTimeoutMs: options?.ruleTimeoutMs,
 		allowPrivateWebhookTargets,
 		hostLookup: options?.hostLookup,
+		onAlertFiring: async (rule) => {
+			await openOrDeduplicateIncident(db, rule.projectId, {
+				environment: "default",
+				targetNodeId: `alert:${rule.id}`,
+				symptomAnchorKind: "alert",
+				symptomAnchorId: rule.id,
+			});
+		},
 	});
 }
 

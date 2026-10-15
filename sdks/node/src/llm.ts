@@ -33,6 +33,7 @@
  */
 
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { stampActiveFeatureFlagsAndLineage } from "./lineage.js";
 
 const TRACER_NAME = "@obsunified/sdk";
 
@@ -83,6 +84,7 @@ export const withLLMSpan = async <T>(
 		`llm.${opts.provider}.chat`,
 		{ kind: SpanKind.CLIENT },
 		async (otelSpan) => {
+			stampActiveFeatureFlagsAndLineage(otelSpan);
 			otelSpan.setAttribute("openinference.span.kind", "LLM");
 			otelSpan.setAttribute("gen_ai.system", opts.provider);
 			otelSpan.setAttribute("gen_ai.request.model", opts.model);
@@ -180,6 +182,7 @@ export const withToolSpan = async <T>(
 		`tool.${opts.name}`,
 		{ kind: SpanKind.INTERNAL },
 		async (otelSpan) => {
+			stampActiveFeatureFlagsAndLineage(otelSpan);
 			otelSpan.setAttribute("openinference.span.kind", "TOOL");
 			otelSpan.setAttribute("tool.name", opts.name);
 			if (opts.args !== undefined)
