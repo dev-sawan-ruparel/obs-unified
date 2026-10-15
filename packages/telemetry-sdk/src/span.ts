@@ -48,7 +48,10 @@ export interface SpanExporterConfig extends ObservabilityLineageConfig {
 	extraHeaders?: Record<string, string>;
 	/** Periodic flush interval in milliseconds. Set to 0 to disable. */
 	flushIntervalMs?: number;
-	/** Optional runtime lineage configuration (RFC 0013). */
+	/**
+	 * Optional runtime lineage configuration (RFC 0013).
+	 * @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead.
+	 */
 	lineage?: ObservabilityLineageConfig;
 }
 
@@ -471,24 +474,20 @@ export function createRequestSpan(
 	const childSpans: ChildSpanRecord[] = [];
 	let exported = false;
 
-	const initialLineageAttrs = buildLineageAttributes(lineage);
-	for (const [k, v] of Object.entries(initialLineageAttrs)) {
-		setOrReplaceKv(attributes, k, v);
-	}
 	for (const flag of getRecordedFeatureFlagEntries()) {
 		setOrReplaceKv(attributes, "feature_flag.key", flag.key);
 		setOrReplaceKv(attributes, "feature_flag.variant", String(flag.variant));
 		if (flag.providerName) {
-			setOrReplaceKv(attributes, "feature_flag.provider_name", flag.providerName);
+			setOrReplaceKv(
+				attributes,
+				"feature_flag.provider_name",
+				flag.providerName,
+			);
 		}
 		if (flag.contextId) {
 			setOrReplaceKv(attributes, "feature_flag.context.id", flag.contextId);
 		}
-		setOrReplaceKv(
-			attributes,
-			`obs.feature_flags.${flag.key}`,
-			flag.variant,
-		);
+		setOrReplaceKv(attributes, `obs.feature_flags.${flag.key}`, flag.variant);
 	}
 
 	return {
@@ -528,10 +527,6 @@ export function createRequestSpan(
 				statusCode: 0,
 			};
 
-			const childLineageAttrs = buildLineageAttributes(lineage);
-			for (const [k, v] of Object.entries(childLineageAttrs)) {
-				setOrReplaceKv(child.attributes, k, v);
-			}
 			for (const flag of getRecordedFeatureFlagEntries()) {
 				setOrReplaceKv(child.attributes, "feature_flag.key", flag.key);
 				setOrReplaceKv(

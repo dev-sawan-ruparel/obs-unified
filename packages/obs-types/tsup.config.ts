@@ -5,6 +5,7 @@ export default defineConfig({
 		"src/index.ts",
 		"src/constants.ts",
 		"src/api-client.ts",
+		"src/lineage.ts",
 		"src/schema-version.ts",
 	],
 	format: ["esm"],

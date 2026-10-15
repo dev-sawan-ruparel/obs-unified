@@ -27,7 +27,10 @@ export interface ObservabilityConfig extends ObservabilityLineageConfig {
 	serviceName: string;
 	/** Optional service version */
 	serviceVersion?: string;
-	/** Optional runtime lineage configuration (RFC 0013). */
+	/**
+	 * Optional runtime lineage configuration (RFC 0013).
+	 * @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead.
+	 */
 	lineage?: ObservabilityLineageConfig;
 	/** Periodic flush interval in milliseconds for logs and AI calls. Set to 0 to disable. */
 	flushIntervalMs?: number;

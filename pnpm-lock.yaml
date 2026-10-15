@@ -485,7 +485,7 @@ importers:
     dependencies:
       '@hono/otel':
         specifier: ^1.0.0
-        version: 1.1.1(hono@4.12.11)
+        version: 1.1.1(hono@4.13.13)
       '@microlabs/otel-cf-workers':
         specifier: ^1.0.0-rc.40
         version: 1.0.0-rc.52(@opentelemetry/api@1.9.1)
@@ -511,6 +511,9 @@ importers:
 
   sdks/node:
     dependencies:
+      '@obsunified/types':
+        specifier: workspace:*
+        version: link:../../packages/obs-types
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -4824,10 +4827,6 @@ packages:
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
-  hono@4.12.11:
-    resolution: {integrity: sha512-r4xbIa3mGGGoH9nN4A14DOg2wx7y2oQyJEb5O57C/xzETG/qx4c7CVDQ5WMeKHZ7ORk2W0hZ/sQKXTav3cmYBA==}
-    engines: {node: '>=16.9.0'}
-
   hono@4.13.13:
     resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
@@ -7896,11 +7895,11 @@ snapshots:
     dependencies:
       hono: 4.13.13
 
-  '@hono/otel@1.1.1(hono@4.12.11)':
+  '@hono/otel@1.1.1(hono@4.13.13)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
-      hono: 4.12.11
+      hono: 4.13.13
 
   '@iconify/types@2.0.0': {}
 
@@ -11021,8 +11020,6 @@ snapshots:
       hast-util-parse-selector: 4.0.0
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
-
-  hono@4.12.11: {}
 
   hono@4.13.13: {}
 

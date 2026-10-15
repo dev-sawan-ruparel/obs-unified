@@ -15,8 +15,8 @@ For the agent-facing investigation surface, see [MCP server](/docs/mcp-server).
 | --- | --- | --- | --- |
 | **TypeScript (Fetch / Edge / Node)** | `pnpm add @obsunified/telemetry-sdk` | [npm](https://www.npmjs.com/package/@obsunified/telemetry-sdk) | Cloudflare Workers · Hono · Next.js · Bun · Deno · Node.js |
 | **TypeScript (Node OTel SDK wrapper)** | `pnpm add @obsunified/sdk` | [npm](https://www.npmjs.com/package/@obsunified/sdk) | Node.js 20+ with `@opentelemetry/sdk-node` auto-instrumentation (Express, Fastify, NestJS, `pg`) |
-| **Go** | `go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest` | [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go) | Any Go 1.22+ binary |
-| **Rust** | `cargo add obs-unified` | [crates.io](https://crates.io/crates/obs-unified) | Any Rust 1.75+ binary (Tokio runtime) |
+| **Go** | `go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest` | [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go) | Any Go 1.22+ binary (no `vcs.commit.id` / `obs.config.digest` or feature-flag cohorts yet) |
+| **Rust** | `cargo add obs-unified` | [crates.io](https://crates.io/crates/obs-unified) | Any Rust 1.75+ binary (Tokio runtime; no `vcs.commit.id` / `obs.config.digest` or feature-flag cohorts yet) |
 
 **Which TypeScript backend package should I choose?**
 - Choose **`@obsunified/telemetry-sdk`** for **Cloudflare Workers, Hono, Next.js, Bun, Deno, or lightweight Node.js** services where you want zero-dependency fetch-based OTLP export, structured logging, AI call tracking, and runtime lineage in one package.
@@ -31,6 +31,8 @@ All backend SDKs expose the **same core surface**, so muscle memory ports across
 | LLM span | `startLLMSpan(name, opts)` | `obs.StartLLMSpan(ctx, name, opts)` | `start_llm_span(name, opts)` |
 | Tool span | `startToolSpan(name, opts)` | `obs.StartToolSpan(ctx, name, opts)` | `start_tool_span(name, opts)` |
 | Project ID | `extraHeaders: { "x-project-id": id }` | `obs.SetProjectID(ctx, id)` | `set_project_id(id)` |
+
+> **Go and Rust lineage gap.** The Go and Rust SDKs do not yet emit `vcs.commit.id`, `obs.config.digest`, or feature-flag cohort attributes, so change correlation by commit and by flag cohort works for TypeScript services only today. They still send `service.version` and the environment.
 
 These are deliberately **thin wrappers around OpenTelemetry**: one-line collector init, OpenInference-shaped helpers so LLM/tool spans render in the dashboard's AI tab, runtime lineage (`service.version`, `vcs.commit.id`, `deployment.environment.name`) for AutoSRE change correlation, project-id propagation for multi-tenant, and the loop-guard header for services that ingest their own telemetry.
 

@@ -9,6 +9,7 @@ import { createResolveConfig } from "./otel-config";
 export interface TelemetryPluginOptions extends ObservabilityLineageConfig {
 	defaultServiceName?: string;
 	defaultServiceVersion?: string;
+	/** @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead. */
 	lineage?: ObservabilityLineageConfig;
 }
 

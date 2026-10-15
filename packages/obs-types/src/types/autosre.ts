@@ -339,6 +339,8 @@ export interface ConfidenceBreakdown {
 	finalConfidence: number;
 }
 
+export type InvestigationActorType = "agent" | "user" | "system";
+
 export interface InvestigationFindingInput {
 	id?: string;
 	environment?: string;
@@ -361,7 +363,7 @@ export interface InvestigationFindingInput {
 	causalChain: CausalTriple[];
 	citedEvidenceIds: string[];
 	codeReferences?: TelemetryCodeReference[];
-	actorType?: "agent" | "user" | "system";
+	actorType?: InvestigationActorType;
 	actorId?: string;
 	agentRunId?: string | null;
 }
@@ -508,6 +510,11 @@ export interface CanonicalNodeIdentity {
 	isScopedIdentity: boolean;
 }
 
+const cleanRoute = (value: string | null | undefined): string => {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed.replace(/\s+/g, "_") : "/";
+};
+
 const cleanSegment = (
 	value: string | number | null | undefined,
 	fallback = "default",
@@ -515,7 +522,13 @@ const cleanSegment = (
 	if (value === null || value === undefined) return fallback;
 	const trimmed = String(value).trim();
 	if (!trimmed) return fallback;
-	return trimmed.replace(/\s+/g, "_");
+	// Percent-encode the delimiter characters so segment content can never
+	// collide with the `:` / `/` separators of canonical node ids.
+	return trimmed
+		.replace(/\s+/g, "_")
+		.replace(/%/g, "%25")
+		.replace(/:/g, "%3A")
+		.replace(/\//g, "%2F");
 };
 
 export const normalizeRouteSegment = (raw: string): string => {
@@ -554,9 +567,8 @@ export function buildCanonicalNodeId(
 		case "endpoint": {
 			const svc = cleanSegment(input.serviceName, "unknown-service");
 			const method = cleanSegment(input.methodOrRpc, "CALL").toUpperCase();
-			const route = normalizeRouteSegment(
-				cleanSegment(input.routeOrSpanName, "/"),
-			);
+			// Route is the trailing id segment and legitimately contains `/` and `:`.
+			const route = normalizeRouteSegment(cleanRoute(input.routeOrSpanName));
 			return {
 				id: `endpoint:${env}:${ns}:${svc}:${method}:${route}`,
 				environment: env,
@@ -666,10 +678,7 @@ export function buildCanonicalNodeId(
 			};
 		}
 		case "tool": {
-			const owner = cleanSegment(
-				input.agentId ?? input.serviceName,
-				"default",
-			);
+			const owner = cleanSegment(input.agentId ?? input.serviceName, "default");
 			const toolName = cleanSegment(input.toolName, "unknown-tool");
 			return {
 				id: `tool:${env}:${owner}:${toolName}`,
@@ -719,6 +728,7 @@ export const normalizeErrorSignature = (raw: string): string => {
 		)
 		.replace(/\b[0-9A-HJKMNP-TV-Z]{26}\b/g, "<ulid>")
 		.replace(/\b0x[0-9a-f]+\b/gi, "<hex>")
+		.replace(/\b[0-9a-f]{16,}\b/gi, "<hex>")
 		.replace(/\b\d+(?:\.\d+)?(?:ms|s|us|ns)\b/gi, "<num>")
 		.replace(/\d{4,}/g, "<num>")
 		.slice(0, 160);

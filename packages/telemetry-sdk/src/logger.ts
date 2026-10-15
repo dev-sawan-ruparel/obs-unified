@@ -51,7 +51,10 @@ export interface LoggerConfig extends ObservabilityLineageConfig {
 	 * See apps/collector/SELF_INSTRUMENTATION.md.
 	 */
 	extraHeaders?: Record<string, string>;
-	/** Optional runtime lineage configuration (RFC 0013). */
+	/**
+	 * Optional runtime lineage configuration (RFC 0013).
+	 * @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead.
+	 */
 	lineage?: ObservabilityLineageConfig;
 }
 

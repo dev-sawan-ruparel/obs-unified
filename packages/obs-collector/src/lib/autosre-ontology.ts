@@ -9,7 +9,11 @@ import type {
 	RelationshipCertainty,
 	StoredSpan,
 } from "@obsunified/types";
-import { buildCanonicalNodeId, normalizeErrorSignature } from "@obsunified/types";
+import {
+	buildCanonicalNodeId,
+	normalizeErrorSignature,
+} from "@obsunified/types";
+import { normalizeEnvironment } from "@obsunified/types/lineage";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonRecord } from "./json";
 import type { SqlDb, SqlStatement } from "./sql-db";
@@ -53,22 +57,22 @@ export function extractSpanLineageAndTopology(
 	const attrs = parseJsonRecord(span.attributesJson);
 	const resource = parseJsonRecord(span.resourceAttributesJson);
 
-	const environment = (
+	const environment = normalizeEnvironment(
 		span.environment ??
-		pickStr(
-			resource,
-			"deployment.environment.name",
-			"deployment.environment",
-			"obs.environment",
-		) ??
-		pickStr(
-			attrs,
-			"deployment.environment.name",
-			"deployment.environment",
-			"obs.environment",
-		) ??
-		"default"
-	).toLowerCase();
+			pickStr(
+				resource,
+				"deployment.environment.name",
+				"deployment.environment",
+				"obs.environment",
+			) ??
+			pickStr(
+				attrs,
+				"deployment.environment.name",
+				"deployment.environment",
+				"obs.environment",
+			) ??
+			undefined,
+	);
 
 	const namespace =
 		pickStr(resource, "service.namespace") ??
@@ -144,11 +148,8 @@ export function extractSpanLineageAndTopology(
 			environment,
 			messagingSystem,
 			messagingDestination:
-				pickStr(
-					attrs,
-					"messaging.destination.name",
-					"messaging.destination",
-				) ?? "default",
+				pickStr(attrs, "messaging.destination.name", "messaging.destination") ??
+				"default",
 			serverAddress,
 		});
 		edgePredicate =
@@ -207,8 +208,7 @@ export function extractSpanLineageAndTopology(
 								? (evObj.attributes as Record<string, JsonValue>)
 								: {};
 						rawErr =
-							pickStr(evAttrs, "exception.type", "exception.message") ??
-							rawErr;
+							pickStr(evAttrs, "exception.type", "exception.message") ?? rawErr;
 					}
 				}
 			}
@@ -236,6 +236,20 @@ export function extractSpanLineageAndTopology(
 // 60-second isolate cache to avoid repeating identical ontology node upserts on every span
 const NODE_UPSERT_CACHE = new Map<string, number>();
 const CACHE_TTL_MS = 60_000;
+const NODE_UPSERT_CACHE_MAX = 5_000;
+
+function rememberUpserts(keys: Iterable<string>, nowMs: number): void {
+	for (const key of keys) {
+		// Re-insert so Map iteration order tracks recency; evict oldest past the cap.
+		NODE_UPSERT_CACHE.delete(key);
+		NODE_UPSERT_CACHE.set(key, nowMs);
+	}
+	while (NODE_UPSERT_CACHE.size > NODE_UPSERT_CACHE_MAX) {
+		const oldest = NODE_UPSERT_CACHE.keys().next().value;
+		if (oldest === undefined) break;
+		NODE_UPSERT_CACHE.delete(oldest);
+	}
+}
 
 export function clearOntologyUpsertCache(): void {
 	NODE_UPSERT_CACHE.clear();
@@ -254,6 +268,8 @@ export async function upsertOntologyFromSpans(
 
 	const nowMs = Date.now();
 	const statements: SqlStatement[] = [];
+	// Cache keys are only remembered once the batch has been written successfully.
+	const pendingCacheKeys = new Set<string>();
 	const edgeAggregates = new Map<
 		string,
 		{
@@ -293,8 +309,11 @@ export async function upsertOntologyFromSpans(
 		if (lineage.sourceNode) {
 			const cacheKey = `${span.projectId}::${lineage.environment}::${lineage.sourceNode.id}::${lineage.serviceVersion ?? ""}::${lineage.commitSha ?? ""}::${lineage.configDigest ?? ""}`;
 			const cachedAt = NODE_UPSERT_CACHE.get(cacheKey);
-			if (options.bypassCache || !cachedAt || nowMs - cachedAt > CACHE_TTL_MS) {
-				NODE_UPSERT_CACHE.set(cacheKey, nowMs);
+			if (
+				!pendingCacheKeys.has(cacheKey) &&
+				(options.bypassCache || !cachedAt || nowMs - cachedAt > CACHE_TTL_MS)
+			) {
+				pendingCacheKeys.add(cacheKey);
 				serviceNodesToCheck.set(
 					`${span.projectId}::${lineage.environment}::${lineage.sourceNode.id}`,
 					{
@@ -313,8 +332,11 @@ export async function upsertOntologyFromSpans(
 		if (lineage.targetNode) {
 			const targetCacheKey = `${span.projectId}::${lineage.environment}::${lineage.targetNode.id}`;
 			const cachedAt = NODE_UPSERT_CACHE.get(targetCacheKey);
-			if (options.bypassCache || !cachedAt || nowMs - cachedAt > CACHE_TTL_MS) {
-				NODE_UPSERT_CACHE.set(targetCacheKey, nowMs);
+			if (
+				!pendingCacheKeys.has(targetCacheKey) &&
+				(options.bypassCache || !cachedAt || nowMs - cachedAt > CACHE_TTL_MS)
+			) {
+				pendingCacheKeys.add(targetCacheKey);
 				statements.push(
 					db
 						.prepare(
@@ -511,6 +533,7 @@ export async function upsertOntologyFromSpans(
 	if (statements.length > 0) {
 		await db.batch(statements);
 	}
+	rememberUpserts(pendingCacheKeys, nowMs);
 }
 
 /**
