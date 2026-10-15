@@ -222,7 +222,8 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 
 		// Verify unscoped DB contention caps relationshipCertainty at "inferred"
 		const baseMs = Date.parse("2026-10-15T01:10:00.000Z");
-		const unscopedNodeId = unscopedCtx.targetNode!.id;
+		const unscopedNodeId = unscopedCtx.targetNode?.id;
+		if (!unscopedNodeId) throw new Error("expected an unscoped target node");
 		for (let i = 0; i < 6; i++) {
 			insertSpan(db, {
 				traceId: "tr_aggressor_unscoped",

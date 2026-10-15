@@ -247,6 +247,15 @@ describe("createCollectorMaintenanceTasks (real collector handlers)", () => {
 				metric_series: 0,
 				evidence_refs: 0,
 				evidence_ref_expansions: 0,
+				// RFC 0013 tables are reported too now that housekeeping no longer
+				// swallows errors for them (PR #41).
+				ontology_edges: 0,
+				ontology_nodes: 0,
+				change_events: 0,
+				incident_investigations: 0,
+				incident_leases_reaped: 0,
+				investigation_findings: 0,
+				remediation_proposals: 0,
 			},
 		});
 		// The action graph sweep ran through the same SqlDb, scoped by the

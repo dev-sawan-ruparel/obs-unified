@@ -1,7 +1,4 @@
-import type {
-	CausalProofTier,
-	RelationshipCertainty,
-} from "@obsunified/types";
+import type { CausalProofTier, RelationshipCertainty } from "@obsunified/types";
 import type {
 	ActionRef,
 	AICallRef,

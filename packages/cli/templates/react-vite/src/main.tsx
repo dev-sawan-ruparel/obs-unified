@@ -10,9 +10,7 @@ if (!rootEl) throw new Error("missing #root element");
 
 createRoot(rootEl).render(
 	<AnalyticsProvider
-		collectorUrl={
-			import.meta.env.VITE_OBS_COLLECTOR_URL ?? "__COLLECTOR_URL__"
-		}
+		collectorUrl={import.meta.env.VITE_OBS_COLLECTOR_URL ?? "__COLLECTOR_URL__"}
 		apiKey={import.meta.env.VITE_OBS_INGEST_KEY ?? "dev-ingest-key"}
 		trackPageViews
 		captureErrors
