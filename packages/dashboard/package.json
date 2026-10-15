@@ -1,6 +1,6 @@
 {
 	"name": "@obsunified/dashboard",
-	"version": "1.1.3",
+	"version": "1.2.0",
 	"description": "Observability dashboard UI — React components for embedding telemetry views in your own admin panel.",
 	"license": "MIT",
 	"repository": {
