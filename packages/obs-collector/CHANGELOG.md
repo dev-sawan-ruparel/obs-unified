@@ -1,5 +1,13 @@
 # @obsunified/collector
 
+## 2.1.1
+
+### Patch Changes
+
+- Updated dependencies [c2c3f66]
+  - @obsunified/types@2.0.2
+  - @obsunified/pprof-decoder@2.0.2
+
 ## 2.1.0
 
 ### Minor Changes
