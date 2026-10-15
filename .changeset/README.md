@@ -12,8 +12,10 @@ This folder is managed by
 3. Commit the changeset alongside your code change in the same PR.
 4. After the PR merges to `main`, a maintainer runs `pnpm version-packages`
    in a worktree to consume pending changesets, bump versions, and update
-   changelogs, merges that version PR, then runs `pnpm release` with npm
-   publish access. There is no GitHub Actions release workflow; see
+   changelogs, merges that version PR, then runs `pnpm release` from an
+   interactive terminal. `pnpm release` publishes packages sequentially via
+   `scripts/release-npm/publish-sequential.sh` (not `changeset publish`) and
+   tags them. There is no GitHub Actions release workflow; see
    [docs/release.md](../docs/release.md).
 
 ## Internal-only packages

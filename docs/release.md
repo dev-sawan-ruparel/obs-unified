@@ -23,13 +23,36 @@ make -C skills lint validate build
 
 Public packages retain the `@obsunified` scope. Add a changeset for behavior
 changes, run `pnpm version-packages` in a worktree, and merge the version
-changes through a PR. Authenticate to npm with scope publishing access and
-run `pnpm release`. Website/docs are private workspace members and are
+changes through a PR. Website/docs are private workspace members and are
 excluded from publishing.
 
-The standalone Node wrapper is versioned separately: build with
-`pnpm --filter @obsunified/sdk build`, then publish from `sdks/node` with
-`npm publish --access public`. Check existing published versions before retrying.
+Publish from a normal interactive terminal on `main`:
+
+```bash
+npm login        # once per machine; the token in ~/.npmrc expires
+pnpm release     # builds, then runs scripts/release-npm/publish-sequential.sh
+git push origin --tags
+```
+
+`pnpm release` publishes the packages one at a time in dependency order rather
+than through `changeset publish`, for two reasons:
+
+- `changeset publish` runs every `pnpm publish` in parallel. Each package's
+  `prepublishOnly` rebuilds with tsup (`clean: true`), so a dependency's
+  `dist/` can be wiped while a dependent is still bundling against it.
+- The npm account uses 2FA in "auth-and-writes" mode with a passkey. There is
+  no TOTP code to pass with `--otp`; npm opens a browser prompt per publish and
+  needs an interactive TTY. Twelve parallel prompts are unusable, and the
+  Claude Code `!` shell is not a TTY.
+
+The script skips any package whose local version is already on the registry,
+so re-run it after an interrupted publish. Once every package is published it
+runs `changeset tag`; push the tags afterwards. Registry read replicas can lag
+a minute or two behind a publish, so a `npm view` immediately afterwards may
+still show the previous version.
+
+`@obsunified/sdk` (`sdks/node`) is part of the workspace and is included in the
+sequence; it does not need a separate `npm publish`.
 
 ## Go SDK
 

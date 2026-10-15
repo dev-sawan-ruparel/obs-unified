@@ -18,7 +18,7 @@
 		"build": "pnpm -r run build",
 		"changeset": "changeset",
 		"version-packages": "changeset version",
-		"release": "pnpm -r --filter '!presence' --filter '!obs-unified-docs' run build && changeset publish",
+		"release": "pnpm build:packages && bash scripts/release-npm/publish-sequential.sh",
 		"dev:collector": "pnpm --filter @obs-demo/collector run dev",
 		"dev:demo": "pnpm --filter @obs-demo/app run dev",
 		"dev:web": "pnpm --filter @obs-demo/web run dev",
