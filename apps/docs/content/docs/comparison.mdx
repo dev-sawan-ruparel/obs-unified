@@ -30,7 +30,7 @@ A long-form companion to the comparison table on [obsunified.com](https://obsuni
 
 ## obs-unified
 
-Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage. Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability (Agent Action Graph); usage analytics; alerts; CPU/off-CPU profiles; and an MCP server, all joined through one identity chain (`trace_id`, `span_id`, `session_id`, `interaction_id`). MIT-licensed; you pay only your own infrastructure bill. Limitations are listed in [Where obs-unified fits](#where-obs-unified-fits).
+Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage (including a zero-clone all-in-one Docker image on GHCR). Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability ([Agent Action Graph](/docs/agent-action-graph)); [compressed context retrieval (CCR)](/docs/evidence-retrieval); [AutoSRE causal ontology](/docs/autosre) (change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, recurring incident memory, counterfactual eval verification, and pre-execution cryptographic remediation grants); usage analytics; alerts; CPU/off-CPU profiles; and a 26-tool [MCP server](/docs/mcp-server), all joined through one identity chain (`user_id → session_id → interaction_id → trace_id → span_id → action_id`). MIT-licensed; you pay only your own infrastructure bill. Limitations and what teams need to configure are listed in [Where obs-unified fits](#where-obs-unified-fits).
 
 ---
 
@@ -175,23 +175,47 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 
 ## Where obs-unified fits
 
-obs-unified is the only tool in this comparison that is simultaneously self-hostable, OTLP-native, and ships session replay, AI / agent observability, and usage analytics in one stack. That is a shape, not a verdict; the trade-offs are real:
+obs-unified is the only tool in this comparison that is simultaneously self-hostable, OTLP-native, and ships session replay, AI / agent observability, usage analytics, compressed context retrieval (CCR), and an AutoSRE causal ontology with governed remediation grants in one stack.
+
+### What AutoSRE & agentic onboarding add (beyond signal colocation)
+
+Colocating traces, logs, and replays in one database is necessary for agentic debugging, but not sufficient for safe autonomous operations. Recent updates ([RFC 0013](/docs/autosre)) add a deterministic causal and governance layer designed specifically for AI SRE and coding agents:
+
+1. **Traffic-normalized cohort attribution (`v_new` vs. `v_old`):** Instead of blaming a old release that happens to serve 90% of traffic during a 10% canary rollout, `get_change_blast_radius` compares per-request error rates across `service.version`, `vcs.commit.id`, and `feature_flag.variant` cohorts with minimum sample-size gates.
+2. **Noisy-neighbor contention vs. code regression:** Cross-checks whether co-hosted or downstream database/cache spans slowed down across *unaffected* callers at the same time (`shared_failure_or_contention`), preventing false rollbacks during infrastructure saturation.
+3. **Orthogonal epistemic model (`relationshipCertainty` $\times$ `causalProofTier`):** Separates *link provenance* (`exact`, `inferred`, `heuristic`) from *causal proof* (`unverified_locus`, `corroborated_candidate`, `cohort_rate_isolated`, `counterfactual_verified`). A stack trace touching a modified file is an `exact` structural link, but only reaches `corroborated_candidate` and **cannot** self-authorize an autonomous production rollback.
+4. **Paired counterfactual verification:** Upgrades findings to `counterfactual_verified` only when linked to an `eval_case` with a failing baseline run and $K \ge 2$ passing candidate runs.
+5. **Pre-execution cryptographic remediation grants & 1-click approval queue:** Side-effecting actions (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`) must be proposed via `propose_remediation_action` with CAS state (`expectedCurrentState`) and either earn an autonomous single-use `grantToken` or wait in the dashboard's **Autonomous Review** 1-click human approval queue.
+6. **Zero-friction AI agent onboarding:** Ships machine-readable docs (`/llms.txt`, `/llms-full.txt`), a 3-Tier Application Compatibility Matrix, non-interactive CLI scaffolding (`pnpm dlx @obsunified/cli create --yes`), and an explicit Autonomous vs. Human Intervention contract.
+
+### What teams need to take care of to enable AutoSRE
+
+AutoSRE's trace fault localization works out-of-the-box on any OpenTelemetry spans, but to unlock **cohort blast radius** and **change correlation**, teams (or their onboarding AI agent) should wire three lightweight inputs:
+
+- **Runtime release lineage on spans:** Pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` to `initObservability(...)` and `<AnalyticsProvider>` (or set `OBS_ENVIRONMENT`, `OBS_SERVICE_VERSION`, `OBS_COMMIT_SHA` in your environment).
+- **Feature-flag evaluations:** Call `recordFeatureFlag(flagKey, variant, { providerName })` when evaluating flags so spans carry `feature_flag.key` and `feature_flag.variant`.
+- **Release & config change events:** Emit a change event from your CI/CD deploy step via `pnpm dlx @obsunified/cli changes record --service <name> --version <ver> --commit-sha <sha> --touched-paths <files>` (or `POST /v1/changes`).
+
+### Trade-offs and current limitations
+
+That is a shape, not a verdict; the trade-offs are real:
 
 - **Maturity:** early-stage software optimized for single-team deployments rather than complex enterprise organizations.
 - **Authentication and access control:** single-password or bearer token authentication. Enterprise SSO, SAML, and fine-grained RBAC are not implemented.
 - **Protocols:** ingestion is OTLP/HTTP only. gRPC exporters should be fronted with a standard OpenTelemetry Collector.
+- **Native mobile replay:** `rrweb` session replay requires a browser DOM; native iOS/Android/React Native apps are supported for backend traces, logs, AI calls, and HTTP usage events, but not DOM replay.
 - **Query and dashboarding:** analyses emphasize AI-assisted investigation, root-cause narratives, and trace traversal rather than arbitrary query builders (PromQL, NRQL, SQL panel editors).
 - **Storage and retention:** D1 is subject to database size limits; high-throughput or long-retention workloads should use the PostgreSQL adapter with retention pruning.
 
 ### Buyer guidance (editorial)
 
 - Enterprise controls, broad integrations, per-host budgeting: **Datadog** or **New Relic**.
-- Errors, replay, and traces without running infrastructure: **Sentry**.
+- Errors, replay (including mobile), and traces without running infrastructure: **Sentry**.
 - Product analytics first, with replay, logs, and now tracing alongside: **PostHog**.
 - Deep trace analysis and agent timelines on a wide-event store: **Honeycomb**.
 - OSS, OTel-native, ClickHouse-shaped pricing: **SigNoz**, **HyperDX**, or **Uptrace** (HyperDX is the only one of the three with session replay).
 - Composable LGTM stack you can scale per signal: **Grafana Cloud** or self-hosted Grafana.
-- Everything in one self-hosted telemetry graph built for agentic debugging: **obs-unified**, with the limitations above.
+- Everything in one self-hosted telemetry graph built for agentic debugging, compact CCR evidence bundles, and governed AutoSRE change correlation: **obs-unified**, with the limitations above.
 
 ---
 

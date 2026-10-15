@@ -469,6 +469,7 @@ Set environment variables:
 | ----------------------- | ----------- | --------------------------------- |
 | `INGEST_KEY`            | Yes (prod)  | Write-only API key for SDKs       |
 | `DASHBOARD_PASSWORD`    | Yes (prod)  | Password for dashboard login      |
+| `DASHBOARD_TOKEN`       | Recommended | Read bearer token for `/internal/*`, `@obsunified/mcp-server`, and `@obsunified/cli` |
 | `ALLOWED_ORIGINS`       | Recommended | Comma-separated CORS origins      |
 | `RETENTION_HOURS`       | No          | Data retention window, default 72 |
 | `ALLOW_UNAUTHENTICATED` | No          | Set `"true"` for local dev        |
@@ -480,14 +481,14 @@ All public packages are on npm under the
 
 - [`@obsunified/collector`](https://www.npmjs.com/package/@obsunified/collector): Collector service. Receives telemetry, stores it in
   D1/SQLite or Postgres, and serves dashboard APIs.
-- [`@obsunified/telemetry-sdk`](https://www.npmjs.com/package/@obsunified/telemetry-sdk): Backend SDK for Cloudflare Workers. Provides
-  structured logging, request spans, D1/R2/fetch wrappers, and AI call tracking.
+- [`@obsunified/telemetry-sdk`](https://www.npmjs.com/package/@obsunified/telemetry-sdk): Backend SDK for Cloudflare Workers, Hono, Next.js, and Node.js. Provides
+  structured logging, request spans, `flushSpans()`, D1/R2/fetch wrappers, AI call tracking, runtime release lineage, and `recordFeatureFlag()`.
 - [`@obsunified/analytics-sdk`](https://www.npmjs.com/package/@obsunified/analytics-sdk): Frontend SDK for page views, interactions,
-  browser errors, and session replay.
+  browser errors, session replay, and feature-flag context.
 - [`@obsunified/dashboard`](https://www.npmjs.com/package/@obsunified/dashboard): React dashboard components, also used by the
   standalone dashboard SPA.
-- [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server): Read-only MCP server for agent investigations.
-- [`@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli): `obs-unified doctor`, `keys`, and app scaffolding.
+- [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server): 26-tool MCP server for agent investigations and governed AutoSRE remediations.
+- [`@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli): `obs-unified doctor`, non-interactive `create` (`--template`, `--collector-url`, `--yes`), `keys`, and `changes` (`record`, `list`).
 - [`@obsunified/agents-langgraph`](https://www.npmjs.com/package/@obsunified/agents-langgraph) and
   [`@obsunified/agents-vercel-ai`](https://www.npmjs.com/package/@obsunified/agents-vercel-ai): Agent framework adapters.
 - [`@obsunified/types`](https://www.npmjs.com/package/@obsunified/types): Shared TypeScript types and constants.
@@ -598,9 +599,9 @@ pnpm run dev       # Start collector (:8790), API (:8787), web (:5173)
 
 ### Emitted Telemetry
 
-Applications emit these signals through SDKs, OpenTelemetry integrations, or profiler exporters (telemetry is not collected automatically without instrumentation):
+Applications and CI/CD pipelines emit these signals through SDKs, OpenTelemetry integrations, CLI commands, or profiler exporters (telemetry is not collected automatically without instrumentation):
 
-- **Traces** — Request spans with timing, status, and attributes (OTLP format)
+- **Traces** — Request spans with timing, status, runtime release lineage (`service.version`, `vcs.commit.id`, `deployment.environment.name`), feature-flag evaluations (`feature_flag.*`), and attributes (OTLP format)
 - **Logs** — Structured logs with severity, trace correlation, and attributes
 - **Metrics** — Runtime, host, and custom metrics (OTLP format)
 - **Usage** — Page views, interactions, frontend errors, and UTM parameters
@@ -608,6 +609,7 @@ Applications emit these signals through SDKs, OpenTelemetry integrations, or pro
 - **AI Calls** — Model name, provider, tokens, cost, latency, errors, and optional prompt/response payloads (when configured)
 - **Profiles** — CPU and off-CPU profiling data (pprof format) correlated with traces
 - **Agent Action Graphs** — Causal workflow spans and records linking agent runs, steps, LLM calls, tool calls, retrievals, and evals
+- **Change Events (`/v1/changes`)** — Deployments, rollbacks, feature-flag toggles, config updates, and prompt version changes with `touchedPaths` for AutoSRE code-path correlation
 - **User Profiles** — Identity linking associating visitor sessions with user IDs and traits
 
 ### Derived Investigation State
@@ -616,6 +618,7 @@ The platform computes and maintains product evaluations and investigation state 
 
 - **Alerts** — Alert rule evaluations, threshold checks, and firing states computed across signals
 - **Analyses** — Application-aware anomaly detection, diagnostic run results, and instrumentation gap findings
+- **AutoSRE Causal Ontology** — Environment-scoped topology (`ontology_nodes`, `ontology_edges`), traffic-normalized cohort blast radius (`v_new` vs `v_old`), noisy-neighbor contention checks, recurring `InvestigationFinding` memory, paired counterfactual verification, and governed `RemediationProposal` grants
 
 > [!NOTE]
 > Capabilities such as the **investigation MCP server**, **evidence retrieval (CCR)**, and structured **evidence references** (`EvidenceReference`) are investigation and retrieval surfaces rather than additional telemetry types. They query, compact, and navigate the unified telemetry graph rather than acting as separate collected signal streams.

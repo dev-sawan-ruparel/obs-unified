@@ -23,7 +23,7 @@ can expand only if it needs the raw rows.
 
 ```mermaid
 flowchart LR
-  anchor["anchor (trace / action / agent_run / tool_call)"] --> bundle["evidence bundle\n(findings + exemplars + refs)"]
+  anchor["anchor (trace / action / agent_run / tool_call / change / finding / incident)"] --> bundle["evidence bundle\n(findings + exemplars + refs)"]
   bundle --> refs["retrieval refs"]
   refs --> expand["expand on demand\n(raw / redacted / paginated)"]
 ```
@@ -33,7 +33,9 @@ flowchart LR
 The [MCP server](/docs/mcp-server) exposes four read-only tools for this layer:
 
 - `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`,
-  or `tool_call` anchor, scoped to an investigation intent and a token budget.
+  `tool_call`, `change`, `finding`, or `incident` anchor, scoped to an
+  investigation intent (`debug_failure`, `explain_latency`, `audit_agent_run`,
+  `prepare_eval_case`, or `triage_incident`) and a token budget.
 - `retrieve_evidence_ref` — expand a bundle retrieval ref into raw,
   less-compacted, or redacted records. `chunkOffset` paginates replay event
   windows.
@@ -43,10 +45,11 @@ The [MCP server](/docs/mcp-server) exposes four read-only tools for this layer:
   project.
 
 Bundles and refs use the [`EvidenceReference`](/docs/evidence-reference) contract
-(`@obsunified/types`), so confidence, citations, and `suggestedNextPivots` carry
-through. Retrieval is project-scoped: replay event windows and profile frame
-summaries require explicit expansion, AI raw request/response data stays
-redacted, and tool expansion returns hashes plus redacted args/results.
+(`@obsunified/types`), so confidence, `relationshipCertainty`, `causalProofTier`,
+citations, and `suggestedNextPivots` carry through. Retrieval is project-scoped:
+replay event windows and profile frame summaries require explicit expansion, AI
+raw request/response data stays redacted, and tool expansion returns hashes plus
+redacted args/results.
 
 ## What a bundle preserves
 
@@ -55,6 +58,11 @@ redacted, and tool expansion returns hashes plus redacted args/results.
 - Log exemplars with compaction provenance (how many records collapsed into each).
 - Causal context for action/agent-run/tool-call anchors: side-effect, approval,
   eval, trace, and log links.
+- For `triage_incident` and AutoSRE anchors (`change`, `finding`, `incident`):
+  explicit separation between the unverified `faultLocus` (`unverified_locus`),
+  ranked `candidateRootCauses` (`corroborated_candidate` / `cohort_rate_isolated` /
+  `counterfactual_verified`), recent change blast-radius metrics, and recurring
+  historical findings.
 
 ## Reduction, measured
 
