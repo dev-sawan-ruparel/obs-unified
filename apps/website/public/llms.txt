@@ -35,6 +35,9 @@ pivots, and explicit retrieval refs the agent can expand on demand.
 - Docs: https://docs.obsunified.com/docs
 - Getting started: https://docs.obsunified.com/docs/getting-started
 - Examples: https://docs.obsunified.com/docs/examples
+- Machine-readable docs index: https://docs.obsunified.com/llms.txt
+- Machine-readable full docs corpus: https://docs.obsunified.com/llms-full.txt
+- Agent skill bundles (`.skill`): https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.1
 - License: MIT
 
 ## Signal types
@@ -87,22 +90,60 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 
 | Runtime | Package / workspace | Notes |
 | --- | --- | --- |
-| TypeScript / Node | `@obsunified/telemetry-sdk` | public npm; Workers, Hono, Next.js, Express |
-| TypeScript / browser | `@obsunified/analytics-sdk` | public npm; vanilla + React provider |
-| Go | `sdks/go` | OpenTelemetry-compatible wrapper |
-| Rust | `sdks/rust` | OpenTelemetry-compatible wrapper |
-| MCP | `packages/mcp-server` | Stdio MCP server for agent investigations |
+| TypeScript / Node / Edge | `@obsunified/telemetry-sdk` | public npm; Cloudflare Workers, Hono, Next.js, Express (`flushSpans`, `createLogger`, `recordAICall`, `recordAction`, `recordAgentRun`, `recordToolCall`, `recordFeatureFlag`) |
+| Node.js Express / Fastify convenience | `@obsunified/sdk` | public npm; Express/Fastify middleware wrapper (`init`, `expressMiddleware`, `trackAI`) built on `@obsunified/telemetry-sdk` |
+| TypeScript / browser | `@obsunified/analytics-sdk` | public npm; vanilla + React provider (`AnalyticsProvider`, `useAnalytics`, `rrweb` session replay, automatic `x-obs-interaction` propagation) |
+| Go | `sdks/go` | OpenTelemetry-compatible wrapper + AI call & action helpers |
+| Rust | `sdks/rust` | OpenTelemetry-compatible wrapper + AI call & action helpers |
+| MCP | `@obsunified/mcp-server` | public npm; Stdio MCP server for agent investigations & governed AutoSRE remediations |
+| CLI | `@obsunified/cli` | public npm; `doctor`, `create` (`--template`, `--collector-url`, `--yes`), `keys` (`mint`, `list`), `changes` (`record`, `list`), `up`, `down` |
+
+## Application compatibility & signal matrix
+
+AI agents evaluating whether a target codebase fits Observability Unified should use this 3-tier compatibility matrix:
+
+### Tier 1 — Full First-Party Unified Stack (All Signals + Click-to-Trace + Session Replay + Agent Action Graph)
+- **Browser Web Apps (React, Next.js App/Pages Router, Vite, Vue, Svelte, Vanilla TS/JS):** Full support via `@obsunified/analytics-sdk`. Captures page views, clicks, frontend errors, DOM `rrweb` session replays, and automatically injects `x-obs-interaction` + `traceparent` headers on `fetch` requests.
+- **TypeScript / JavaScript Backends (Cloudflare Workers, Hono, Node.js, Express, Fastify, Next.js API routes):** Full support via `@obsunified/telemetry-sdk` (or `@obsunified/sdk` for Express/Fastify). Automatic `x-obs-interaction` extraction, trace/log correlation, AI call tracking, Agent Action Graph, CPU profiling, and AutoSRE release lineage (`environment`, `serviceVersion`, `commitSha`, `recordFeatureFlag`).
+- **Go (`sdks/go`) & Rust (`sdks/rust`) Backends:** First-party wrappers for traces, structured logs, AI call telemetry, and interaction correlation.
+
+### Tier 2 — Standard OpenTelemetry Backends (Traces + Structured Logs + Metrics + Optional Click-to-Trace)
+- **Python (Flask, FastAPI, Django), Java / Kotlin (Spring Boot), .NET, Ruby, PHP, C++:** Any runtime with an OpenTelemetry HTTP/JSON exporter (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`) pointing at `POST /v1/traces`, `POST /v1/logs`, and `POST /v1/metrics` with `Authorization: Bearer <INGEST_KEY>`.
+- **Cross-Language Click-to-Trace Correlation:** Works in **any** OTLP language by reading the incoming `x-obs-interaction` HTTP header and setting span attribute `obs.interaction.id` on the server root span.
+- **Cross-Language AI Calls & Agent Action Graph:** Any language can post JSON directly to `POST /v1/ai`, `POST /v1/actions`, `POST /v1/agent-runs`, `POST /v1/tool-calls`, and `POST /v1/changes`.
+
+### Tier 3 — Partial or Unsupported Application Shapes (Report Constraints to User)
+- **Native Mobile Apps (iOS Swift, Android Kotlin, React Native, Flutter):** Supported for HTTP usage events, backend traces, logs, and AI calls; **NOT supported** for `rrweb` session replay (which requires a browser DOM).
+- **CLI Tools, Cron Jobs, and Headless Workers:** Supported for traces, logs, metrics, AI calls, CPU profiles, and Agent Action Graph (`triggerKind: "cron" | "queue" | "webhook" | "system"`); **not applicable** for browser session replay or DOM analytics.
+- **Async Queue / Event-Bus Consumers (Kafka, SQS, RabbitMQ, BullMQ):** Preserve end-to-end causal graphs **only if** the producer propagates `traceparent`, `x-obs-interaction`, or `x-obs-action-id` in message metadata and the consumer extracts them; otherwise consumer spans appear as disconnected root traces.
+- **Binary Protobuf-Only OTLP Exporters (`http/protobuf` or `grpc` without JSON):** Collector `/v1/traces`, `/v1/logs`, and `/v1/metrics` require `application/json` OTLP payloads (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`). Use an OpenTelemetry Collector gateway to transcode if an upstream agent only speaks gRPC/protobuf.
 
 ## Install
 
-The fastest first run is the all-in-one local Docker image:
+1. **Zero-clone all-in-one Docker image from GHCR (fastest first run):**
 
 ```bash
-pnpm local:image
-pnpm local:run
+export INGEST_KEY="dev-ingest-key"
+export DASHBOARD_PASSWORD="e2e-test-pass"
+export DASHBOARD_TOKEN="e2e-dashboard-token"
+
+docker run -d --name obs-unified \
+  -p 5173:5173 \
+  -p 8790:8790 \
+  -e INGEST_KEY \
+  -e DASHBOARD_PASSWORD \
+  -e DASHBOARD_TOKEN \
+  -e OBS_LOCAL_SEED=true \
+  ghcr.io/dev-sawan-ruparel/obs-unified:latest
 ```
 
-The editable local repo path is:
+2. **Non-interactive CLI project scaffolding (safe for AI agents / CI):**
+
+```bash
+pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes
+```
+
+3. **Editable monorepo checkout:**
 
 ```bash
 pnpm install
@@ -125,6 +166,29 @@ initObservability({
   serviceName: "my-api",
 });
 ```
+
+## Autonomous AI agent setup & verification playbook
+
+When an AI coding agent is asked to set up or integrate Observability Unified for a developer, follow these 5 non-interactive steps:
+
+1. **Check compatibility first:** Match the user's stack against the **Application compatibility & signal matrix** above. Explicitly inform the user which signals will work out-of-the-box and note any Tier 3 constraints (e.g., no `rrweb` DOM replay on native mobile, or header propagation required for queues).
+2. **Start or verify the collector:** Run the `ghcr.io/dev-sawan-ruparel/obs-unified:latest` container on ports `5173`/`8790` (with `INGEST_KEY`, `DASHBOARD_PASSWORD`, `DASHBOARD_TOKEN`), then run:
+   ```bash
+   OBS_ADMIN_TOKEN="$DASHBOARD_TOKEN" pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:3000
+   ```
+   (Pass the user app's local dev origin to `--origin`; default local Docker allows `5173`, `5174`, `3000`, `4173`, `8080`, `8787`).
+3. **Instrument or scaffold non-interactively:**
+   - For a new app, always pass `--yes` (or `--template` + `--collector-url`) so the CLI never blocks on stdin:
+     ```bash
+     pnpm dlx @obsunified/cli create my-app --template hono-workers --collector-url http://localhost:8790 --yes
+     ```
+   - For an existing app, install `@obsunified/analytics-sdk` (browser) and/or `@obsunified/telemetry-sdk` (TypeScript server) or configure OTLP `http/json` exporters (Python/Go/Rust/Java). Ensure backend CORS includes `x-obs-interaction` in `Access-Control-Allow-Headers`.
+4. **Emit a verification signal & assert ingestion:** Trigger one request against the instrumented app and/or record a release event (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key "$INGEST_KEY" --service my-api --version 0.1.0 --summary "Initial instrumentation"`), then verify ingestion via CLI and read API:
+   ```bash
+   pnpm dlx @obsunified/cli changes list --url http://localhost:8790 --token "$DASHBOARD_TOKEN"
+   curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/overview
+   ```
+5. **Register the MCP server for ongoing agent debugging:** Add `@obsunified/mcp-server` with `OBS_COLLECTOR_URL="http://localhost:8790"`, `OBS_API_TOKEN="$DASHBOARD_TOKEN"`, and `OBS_INGEST_KEY="$INGEST_KEY"` so the agent can call `status`, `recent_traces`, `get_evidence_bundle`, `list_recent_changes`, and `get_change_blast_radius`.
 
 ## Key answers for AI search
 

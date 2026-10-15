@@ -26,7 +26,11 @@ import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 import prompts from "prompts";
 import { runChanges, runDoctor, runKeys } from "./collector-commands";
-import { SCAFFOLD_SDK_RANGES } from "./scaffold-versions";
+import {
+	type ParsedCreateArgs,
+	parseCreateArgs,
+	SCAFFOLD_SDK_RANGES,
+} from "./scaffold-versions";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES = path.join(here, "..", "templates");
@@ -42,7 +46,8 @@ Usage: ${kleur.cyan("obs-unified")} <command> [options]
 Commands:
   ${kleur.cyan("up")}                    Start the local stack (Postgres + MinIO + collector)
   ${kleur.cyan("down")}                  Stop the local stack
-  ${kleur.cyan("create")} <app-name>     Scaffold a new React + Hono app pre-wired with the SDKs
+  ${kleur.cyan("create")} <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--yes]
+                        Scaffold a new app pre-wired with the SDKs (non-interactive when --template or --yes is passed)
   ${kleur.cyan("keys mint")} [--project <id>] [--name <label>] [--json]
                         Mint a new ingest key for a project
   ${kleur.cyan("keys list")} [--project <id>] [--json]
@@ -118,12 +123,20 @@ switch (subcommand) {
 	}
 
 	case "create": {
-		const appName = rest[0];
-		if (!appName) {
-			console.error(kleur.red("usage: obs-unified create <app-name>"));
+		const parsed = parseCreateArgs(rest);
+		if (parsed.error) {
+			console.error(kleur.red(parsed.error));
 			process.exit(1);
 		}
-		await scaffoldApp(appName);
+		if (!parsed.appName) {
+			console.error(
+				kleur.red(
+					"usage: obs-unified create <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--yes]",
+				),
+			);
+			process.exit(1);
+		}
+		await scaffoldApp(parsed.appName, parsed);
 		break;
 	}
 
@@ -195,7 +208,7 @@ function parseComposeFileArg(args: string[]): string | null {
 	return null;
 }
 
-async function scaffoldApp(name: string) {
+async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 	const target = path.resolve(name);
 	const cwd = process.cwd();
 	const relativeTarget = path.relative(cwd, target);
@@ -213,35 +226,51 @@ async function scaffoldApp(name: string) {
 		process.exit(1);
 	}
 
-	const response = await prompts([
-		{
-			type: "select",
-			name: "template",
-			message: "Template",
-			choices: [
-				{ title: "React + Vite + Hono on Node.js", value: "react-vite" },
-				{ title: "Vanilla TypeScript frontend", value: "vanilla-ts" },
-				{ title: "Hono on Cloudflare Workers API", value: "hono-workers" },
-			],
-		},
-		{
-			type: "text",
-			name: "collectorUrl",
-			message: "Default collector URL",
-			initial: "http://localhost:8790",
-		},
-	]);
-	if (!response.template || !response.collectorUrl) {
+	const defaultCollectorUrl =
+		options.collectorUrl ??
+		process.env.OBS_COLLECTOR_URL ??
+		"http://localhost:8790";
+
+	let selectedTemplate = options.template;
+	let selectedCollectorUrl = options.collectorUrl;
+
+	if (options.yes || !process.stdin.isTTY || selectedTemplate) {
+		selectedTemplate = selectedTemplate ?? "react-vite";
+		selectedCollectorUrl = selectedCollectorUrl ?? defaultCollectorUrl;
+	} else {
+		const response = await prompts([
+			{
+				type: "select",
+				name: "template",
+				message: "Template",
+				choices: [
+					{ title: "React + Vite + Hono on Node.js", value: "react-vite" },
+					{ title: "Vanilla TypeScript frontend", value: "vanilla-ts" },
+					{ title: "Hono on Cloudflare Workers API", value: "hono-workers" },
+				],
+			},
+			{
+				type: "text",
+				name: "collectorUrl",
+				message: "Default collector URL",
+				initial: defaultCollectorUrl,
+			},
+		]);
+		selectedTemplate = response.template;
+		selectedCollectorUrl = response.collectorUrl;
+	}
+
+	if (!selectedTemplate || !selectedCollectorUrl) {
 		console.error(kleur.yellow("scaffold cancelled"));
 		process.exit(1);
 	}
 
 	await mkdir(target, { recursive: true });
-	const templateDir = path.join(TEMPLATES, response.template);
+	const templateDir = path.join(TEMPLATES, selectedTemplate);
 	if (existsSync(templateDir)) {
 		await copyTemplate(templateDir, target, {
 			__APP_NAME__: name,
-			__COLLECTOR_URL__: response.collectorUrl,
+			__COLLECTOR_URL__: selectedCollectorUrl,
 		});
 		const envExample = path.join(target, ".env.example");
 		const envLocal = path.join(target, ".env.local");
@@ -272,7 +301,7 @@ async function scaffoldApp(name: string) {
 		);
 		await writeFile(
 			path.join(target, "README.md"),
-			`# ${name}\n\nScaffolded by \`obs-unified create\`. Collector: \`${response.collectorUrl}\`.\n`,
+			`# ${name}\n\nScaffolded by \`obs-unified create\`. Collector: \`${selectedCollectorUrl}\`.\n`,
 		);
 	}
 

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { SCAFFOLD_SDK_RANGES } from "./scaffold-versions";
+import { parseCreateArgs, SCAFFOLD_SDK_RANGES } from "./scaffold-versions";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const templatesDir = path.resolve(here, "../templates");
@@ -77,5 +77,36 @@ describe("scaffold SDK versions", () => {
 			"utf8",
 		);
 		expect(reactVite).toContain("port: 5174");
+	});
+
+	it("parses non-interactive create flags (--template, --collector-url, --yes) for AI agents", () => {
+		expect(
+			parseCreateArgs([
+				"my-app",
+				"--template",
+				"hono-workers",
+				"--collector-url",
+				"http://localhost:8790",
+				"--yes",
+			]),
+		).toEqual({
+			appName: "my-app",
+			template: "hono-workers",
+			collectorUrl: "http://localhost:8790",
+			yes: true,
+		});
+
+		expect(
+			parseCreateArgs(["--template=vanilla-ts", "--url=https://obs.example.com", "demo"]),
+		).toEqual({
+			appName: "demo",
+			template: "vanilla-ts",
+			collectorUrl: "https://obs.example.com",
+			yes: false,
+		});
+
+		expect(parseCreateArgs(["my-app", "--template", "invalid"]).error).toContain(
+			'invalid template "invalid"',
+		);
 	});
 });

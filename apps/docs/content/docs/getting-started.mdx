@@ -89,10 +89,11 @@ Access the interfaces:
 
 Default local credentials:
 
-| Credential | Value |
-| --- | --- |
-| Ingest write key | `dev-ingest-key` |
-| Dashboard password | `e2e-test-pass` |
+| Credential | Environment Variable | Default Local Value |
+| --- | --- | --- |
+| Ingest write key | `INGEST_KEY` / `OBS_INGEST_KEY` | `dev-ingest-key` |
+| Dashboard password | `DASHBOARD_PASSWORD` | `e2e-test-pass` |
+| Read bearer token (MCP & CLI) | `DASHBOARD_TOKEN` / `OBS_API_TOKEN` | `e2e-dashboard-token` |
 
 To persist local database and blob storage state across container restarts:
 
@@ -203,17 +204,48 @@ This is a data path that sends telemetry to whichever collector you started abov
 | TypeScript backend | [Telemetry SDK reference](/docs/sdks#obs-unifiedtelemetry-sdk) |
 | Polyglot recipes | [Examples](/docs/examples#language-recipes) |
 
-The common wiring is:
+### Application compatibility & signal matrix
+
+Before instrumenting an application (or when an AI agent scouts your repository), use this matrix to verify which signals are supported for your architecture:
+
+| Tier | Application shape | Supported signals | Notes & constraints |
+| --- | --- | --- | --- |
+| **Tier 1 — Full First-Party Unified Stack** | Browser SPAs & SSR web apps (React, Next.js, Vite, Vue, Svelte, Vanilla TS/JS) + TypeScript/Node/Edge backends (Cloudflare Workers, Hono, Express, Fastify) or Go/Rust services | Traces, Structured Logs, Metrics, Usage Events, `rrweb` DOM Session Replay, Click-to-Trace (`x-obs-interaction`), AI Calls, Agent Action Graph, CPU Profiles, AutoSRE Release Lineage & Feature Flags | Full out-of-the-box correlation via `@obsunified/analytics-sdk`, `@obsunified/telemetry-sdk`, `@obsunified/sdk`, `sdks/go`, and `sdks/rust`. |
+| **Tier 2 — Standard OpenTelemetry Backends** | Python (Flask, FastAPI, Django), Java/Kotlin (Spring Boot), .NET, Ruby, PHP, C++ | OTLP JSON Traces (`/v1/traces`), Logs (`/v1/logs`), Metrics (`/v1/metrics`), plus HTTP JSON ingest for AI Calls (`/v1/ai`) and Agent Action Graph (`/v1/actions`, `/v1/agent-runs`, `/v1/tool-calls`) | Use `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`. For browser click-to-trace correlation, read the incoming `x-obs-interaction` HTTP header and set span attribute `obs.interaction.id`. |
+| **Tier 3 — Partial or Constrained Shapes** | **Native Mobile** (iOS, Android, React Native, Flutter)<br/>**Headless / CLI / Cron**<br/>**Async Message Queues** (Kafka, SQS, RabbitMQ, BullMQ)<br/>**Protobuf-only OTLP** | Backend traces, logs, metrics, AI calls, and Action Graph (`triggerKind: "cron" \| "queue" \| "webhook"`) | **Native mobile:** No `rrweb` session replay (requires browser DOM).<br/>**Queues:** Producer must propagate `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message headers or consumer spans appear as disconnected roots.<br/>**Protobuf OTLP:** Collector requires `application/json`; place an OTel Collector gateway in front if agents only emit binary gRPC/protobuf. |
+
+### Common wiring & non-interactive scaffolding
 
 1. Deploy or run an accessible collector endpoint.
-2. Install the appropriate client or server SDK package.
-3. Configure `OBS_COLLECTOR_URL` and a write-only ingest key.
-4. Ensure API CORS policies allow `x-obs-interaction`.
-5. Verify connectivity:
+2. Scaffold a pre-wired template (supports non-interactive flags for CI and AI agents) or install the SDKs into an existing app:
 
 ```bash
-pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:5173
+pnpm dlx @obsunified/cli create my-app \
+  --template react-vite \
+  --collector-url http://localhost:8790 \
+  --yes
 ```
+
+Available `--template` (`-t`) values: `react-vite`, `vanilla-ts`, `hono-workers`.
+
+3. Configure `OBS_COLLECTOR_URL` and a write-only ingest key (`INGEST_KEY`).
+4. Ensure API CORS policies allow `x-obs-interaction` and your app's local dev origin (local Docker includes `5173`, `5174`, `3000`, `4173`, `8080`, `8787` by default).
+5. Verify connectivity and CORS headers:
+
+```bash
+pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:3000
+```
+
+## Autonomous AI agent setup & verification playbook
+
+If you are an AI coding agent (Claude Code, Cursor, Codex, Antigravity, Windsurf) tasked with setting up Observability Unified for a user:
+
+- **Machine-readable documentation:** Fetch [`https://obsunified.com/llms.txt`](https://obsunified.com/llms.txt), [`https://docs.obsunified.com/llms.txt`](https://docs.obsunified.com/llms.txt), or [`https://docs.obsunified.com/llms-full.txt`](https://docs.obsunified.com/llms-full.txt), or install the prebuilt `.skill` bundles from the [`skills-v0.1.1` release](https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.1).
+- **Step 1 (Assess fit):** Inspect the user's `package.json`, `pyproject.toml`, `go.mod`, or `Cargo.toml` against the **Application compatibility & signal matrix** above. Report clearly to the user which signals are supported and call out any Tier 3 constraints before editing code.
+- **Step 2 (Boot collector & verify):** Start the GHCR container with `INGEST_KEY`, `DASHBOARD_PASSWORD`, and `DASHBOARD_TOKEN` set, then run `pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin <user-app-origin>`.
+- **Step 3 (Instrument without blocking on TTY prompts):** Always pass `--yes` (`-y`) and `--template` when running `obs-unified create`. When instrumenting Cloudflare Workers or Hono, register `app.use("*", async (c, next) => { await next(); c.executionCtx.waitUntil(flushSpans()); })`.
+- **Step 4 (Verify ingestion end-to-end):** Trigger a test request or record a release change (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key $INGEST_KEY --service my-api --version 0.1.0 --summary "Agent onboarding verification"`), then confirm non-zero telemetry with `pnpm dlx @obsunified/cli changes list --url http://localhost:8790 --token $DASHBOARD_TOKEN` and `curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/overview`.
+- **Step 5 (Connect MCP server):** Configure `@obsunified/mcp-server` with `OBS_COLLECTOR_URL`, `OBS_API_TOKEN` (`$DASHBOARD_TOKEN`), and `OBS_INGEST_KEY` (`$INGEST_KEY`) — see [MCP Server](/docs/mcp-server).
 
 ## Standalone Node collector variant
 
