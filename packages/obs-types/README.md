@@ -23,3 +23,12 @@ Three subpath entries:
 
 The `./api-client` entry has an optional peer-dep on `hono` for its `Context`
 type when used inside a Worker; standalone consumers don't need it.
+
+## Runtime lineage
+
+`@obsunified/types/lineage` holds the pure helpers shared by all SDKs and the collector. It never reads `process`; callers pass `env`.
+
+- `normalizeEnvironment(raw)`: lowercase and trim, `production` to `prod`, `development` to `dev`, `test` unchanged, empty to `default`.
+- `resolveLineageFromSources(config, env, configured?)` and `buildLineageAttributesFromSources(config, env, configured?)`: resolve `environment`, `serviceVersion`, `commitSha`, `configDigest` and emit the wire attributes.
+
+Options: `environment`, `serviceVersion`, `commitSha`, `configDigest`. Env vars read: `OBS_ENVIRONMENT`, `NODE_ENV`, `OBS_SERVICE_VERSION`, `OTEL_SERVICE_VERSION`, `OBS_COMMIT_SHA`, `GITHUB_SHA`, `OBS_CONFIG_DIGEST`. See the SDK READMEs for `recordFeatureFlag`.

@@ -17,7 +17,6 @@ import {
 	type ObservabilityLineageConfig,
 	type RecordFeatureFlagOptions,
 	recordFeatureFlag as recordGlobalFeatureFlag,
-	resolveLineageConfig,
 	setConfiguredLineage,
 } from "./lineage";
 import type {
@@ -540,25 +539,13 @@ export class UsageTracker {
 	}
 
 	private buildEventContext(): Record<string, unknown> {
-		const resolvedLineage = resolveLineageConfig(this.lineageConfig);
+		// Lineage wire keys are emitted once, here; properties do not repeat them.
 		const lineageAttrs = buildLineageAttributes(this.lineageConfig);
 		const flagAttrs = buildFeatureFlagAttributes();
 		const flags = getRecordedFeatureFlags();
 		return {
 			...getViewportContext(),
 			...lineageAttrs,
-			...(resolvedLineage.environment
-				? { environment: resolvedLineage.environment }
-				: {}),
-			...(resolvedLineage.serviceVersion
-				? { serviceVersion: resolvedLineage.serviceVersion }
-				: {}),
-			...(resolvedLineage.commitSha
-				? { commitSha: resolvedLineage.commitSha }
-				: {}),
-			...(resolvedLineage.configDigest
-				? { configDigest: resolvedLineage.configDigest }
-				: {}),
 			...flagAttrs,
 			...(Object.keys(flags).length > 0 ? { featureFlags: flags } : {}),
 		};
@@ -567,10 +554,8 @@ export class UsageTracker {
 	private buildEventProperties(
 		properties?: Record<string, unknown>,
 	): Record<string, unknown> | undefined {
-		const lineageAttrs = buildLineageAttributes(this.lineageConfig);
 		const flagAttrs = buildFeatureFlagAttributes();
 		const merged = {
-			...lineageAttrs,
 			...flagAttrs,
 			...(properties ?? {}),
 		};

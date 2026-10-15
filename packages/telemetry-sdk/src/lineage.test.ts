@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	buildLineageAttributes,
 	clearRecordedFeatureFlags,
@@ -18,10 +19,12 @@ import {
 } from "./span";
 
 const getAttr = (
-	attrs: Array<{ key: string; value?: Record<string, unknown> }> | undefined,
+	attrs: Array<{ key: string; value?: unknown }> | undefined,
 	key: string,
 ): unknown => {
-	const found = attrs?.find((a) => a.key === key)?.value;
+	const found = attrs?.find((a) => a.key === key)?.value as
+		| Record<string, unknown>
+		| undefined;
 	if (!found) return undefined;
 	return (
 		found.stringValue ?? found.boolValue ?? found.intValue ?? found.doubleValue
@@ -92,18 +95,82 @@ describe("RFC 0013 Goal 1.3 — telemetry-sdk runtime lineage & feature flags", 
 		const spanAttrs =
 			exportReq.resourceSpans?.[0]?.scopeSpans?.[0]?.spans?.[0]?.attributes;
 
-		for (const attrs of [resourceAttrs, spanAttrs]) {
-			expect(getAttr(attrs, "deployment.environment.name")).toBe("prod");
-			expect(getAttr(attrs, "obs.environment")).toBe("prod");
-			expect(getAttr(attrs, "service.version")).toBe("2.4.1");
-			expect(getAttr(attrs, "obs.service.version")).toBe("2.4.1");
-			expect(getAttr(attrs, "vcs.commit.id")).toBe("8f3a1b2");
-			expect(getAttr(attrs, "obs.commit.sha")).toBe("8f3a1b2");
-			expect(getAttr(attrs, "obs.config.digest")).toBe("cfg_99a1");
+		const attrs = resourceAttrs;
+		expect(getAttr(attrs, "deployment.environment.name")).toBe("prod");
+		expect(getAttr(attrs, "obs.environment")).toBe("prod");
+		expect(getAttr(attrs, "service.version")).toBe("2.4.1");
+		expect(getAttr(attrs, "obs.service.version")).toBe("2.4.1");
+		expect(getAttr(attrs, "vcs.commit.id")).toBe("8f3a1b2");
+		expect(getAttr(attrs, "obs.commit.sha")).toBe("8f3a1b2");
+		expect(getAttr(attrs, "obs.config.digest")).toBe("cfg_99a1");
+
+		// Lineage is resource-level only: not repeated on spans.
+		for (const key of [
+			"deployment.environment.name",
+			"obs.environment",
+			"service.version",
+			"vcs.commit.id",
+			"obs.commit.sha",
+			"obs.config.digest",
+		]) {
+			expect(getAttr(spanAttrs, key)).toBeUndefined();
 		}
 	});
 
-	it("wires lineage attributes into createResolveConfig for Workers", () => {
+	it("does not stamp lineage on child spans", async () => {
+		initObservability({
+			collectorUrl: "https://collector.example",
+			apiKey: "key-1",
+			serviceName: "svc",
+			commitSha: "abc",
+			flushIntervalMs: 0,
+		});
+		const requestSpan = createRequestSpan("svc", "GET /x");
+		await runWithSpan(requestSpan, async () => {
+			await withChildSpan("child", async () => {});
+		});
+		const spans =
+			requestSpan.toOtlpExportRequest().resourceSpans?.[0]?.scopeSpans?.[0]
+				?.spans ?? [];
+		expect(spans.length).toBe(2);
+		for (const sp of spans) {
+			expect(getAttr(sp.attributes, "vcs.commit.id")).toBeUndefined();
+		}
+	});
+
+	it("normalizes NODE_ENV=production to prod", () => {
+		expect(
+			resolveLineageConfig(undefined, { NODE_ENV: "production" }).environment,
+		).toBe("prod");
+	});
+
+	it("falls back to a module-level store when AsyncLocalStorage.enterWith is unavailable", () => {
+		const spy = vi
+			.spyOn(AsyncLocalStorage.prototype, "enterWith")
+			.mockImplementation(() => {
+				throw new Error("enterWith not implemented");
+			});
+		try {
+			recordFeatureFlag("workers_flag", "on");
+			expect(getRecordedFeatureFlags()).toEqual({ workers_flag: "on" });
+			// Node's own `run` uses `enterWith` internally; Workers implements `run`.
+			spy.mockRestore();
+			withFeatureFlagScope(() => {
+				recordFeatureFlag("scoped", 1);
+				expect(getRecordedFeatureFlags()).toEqual({
+					workers_flag: "on",
+					scoped: 1,
+				});
+			});
+			expect(getRecordedFeatureFlags()).toEqual({ workers_flag: "on" });
+			clearRecordedFeatureFlags();
+			expect(getRecordedFeatureFlags()).toEqual({});
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("stamps lineage onto spans via postProcessor in createResolveConfig for Workers", () => {
 		const resolveConfig = createResolveConfig({
 			defaultServiceName: "worker-api",
 			lineage: {
@@ -123,9 +190,15 @@ describe("RFC 0013 Goal 1.3 — telemetry-sdk runtime lineage & feature flags", 
 			name: "worker-api",
 			version: "3.0.0",
 		});
-		expect(resolved.resource?.attributes).toEqual({
+		expect((resolved as { resource?: unknown }).resource).toBeUndefined();
+		const spans = [
+			{ attributes: { "http.method": "GET", "obs.environment": "kept" } },
+		];
+		const out = resolved.postProcessor?.(spans as never) as typeof spans;
+		expect(out[0]?.attributes).toEqual({
+			"http.method": "GET",
 			"deployment.environment.name": "preview",
-			"obs.environment": "preview",
+			"obs.environment": "kept",
 			"service.version": "3.0.0",
 			"obs.service.version": "3.0.0",
 			"vcs.commit.id": "abc1234",
@@ -160,12 +233,12 @@ describe("RFC 0013 Goal 1.3 — telemetry-sdk runtime lineage & feature flags", 
 		expect(rootSpan).toBeDefined();
 		expect(childSpan).toBeDefined();
 
-		expect(getAttr(rootSpan?.attributes, "obs.feature_flags.new_checkout_flow")).toBe(
-			true,
-		);
-		expect(getAttr(rootSpan?.attributes, "obs.feature_flags.retry_backoff_ms")).toBe(
-			"250",
-		);
+		expect(
+			getAttr(rootSpan?.attributes, "obs.feature_flags.new_checkout_flow"),
+		).toBe(true);
+		expect(
+			getAttr(rootSpan?.attributes, "obs.feature_flags.retry_backoff_ms"),
+		).toBe("250");
 		expect(getAttr(rootSpan?.attributes, "feature_flag.provider_name")).toBe(
 			"openfeature",
 		);
@@ -196,9 +269,9 @@ describe("RFC 0013 Goal 1.3 — telemetry-sdk runtime lineage & feature flags", 
 				"canary_router",
 			);
 			expect(getAttr(exported?.attributes, "feature_flag.variant")).toBe("v2");
-			expect(
-				getAttr(exported?.attributes, "feature_flag.provider_name"),
-			).toBe("flagd");
+			expect(getAttr(exported?.attributes, "feature_flag.provider_name")).toBe(
+				"flagd",
+			);
 			expect(
 				getAttr(exported?.attributes, "obs.feature_flags.canary_router"),
 			).toBe("v2");

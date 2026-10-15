@@ -70,7 +70,10 @@ export interface UsageTrackerConfig extends ObservabilityLineageConfig {
 	 * SDK. See {@link ReplayPrivacyOptions}.
 	 */
 	replayPrivacyOptions?: ReplayPrivacyOptions;
-	/** Optional runtime lineage configuration (RFC 0013). */
+	/**
+	 * Optional runtime lineage configuration (RFC 0013).
+	 * @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead.
+	 */
 	lineage?: ObservabilityLineageConfig;
 }
 

@@ -1,9 +1,11 @@
 import { z } from "zod";
 import {
 	CausalProofTierSchema,
+	CausalVerificationStatusSchema,
 	ChangeEventKindSchema,
 	CohortAttributionVerdictSchema,
 	EvidencePredicateSchema,
+	RecoveryStatusSchema,
 	RelationshipCertaintySchema,
 } from "./autosre";
 
@@ -246,13 +248,132 @@ export const EvidenceBundleAutosreSchema = z.object({
 			findingId: z.string(),
 			title: z.string(),
 			causalProofTier: CausalProofTierSchema,
-			causalVerificationStatus: z.string(),
-			recoveryStatus: z.string(),
+			causalVerificationStatus: CausalVerificationStatusSchema,
+			recoveryStatus: RecoveryStatusSchema,
 			contributingChangeId: z.string().nullable().optional(),
 			occurredAt: z.string(),
 		}),
 	),
 });
+
+const EvidenceBundleAutosreJsonSchema = {
+	type: "object",
+	additionalProperties: false,
+	required: ["candidateChanges", "contentionCandidates", "priorFindings"],
+	properties: {
+		faultLocus: {
+			type: "object",
+			additionalProperties: false,
+			required: ["nodeId", "relationshipCertainty", "isBlackoutSuspected"],
+			properties: {
+				nodeId: { type: "string" },
+				spanId: { type: "string" },
+				actionId: { type: "string" },
+				relationshipCertainty: {
+					type: "string",
+					enum: RelationshipCertaintySchema.options,
+				},
+				isBlackoutSuspected: { type: "boolean" },
+			},
+		},
+		candidateChanges: {
+			type: "array",
+			items: {
+				type: "object",
+				additionalProperties: false,
+				required: [
+					"changeId",
+					"kind",
+					"occurredAt",
+					"cohortVerdict",
+					"causalProofTier",
+					"sampleNew",
+					"sampleOld",
+					"overlappingCodePaths",
+				],
+				properties: {
+					changeId: { type: "string" },
+					kind: { type: "string", enum: ChangeEventKindSchema.options },
+					version: { type: ["string", "null"] },
+					previousVersion: { type: ["string", "null"] },
+					occurredAt: { type: "string" },
+					cohortVerdict: {
+						type: "string",
+						enum: CohortAttributionVerdictSchema.options,
+					},
+					causalProofTier: {
+						type: "string",
+						enum: CausalProofTierSchema.options,
+					},
+					rateNew: { type: ["number", "null"] },
+					rateOld: { type: ["number", "null"] },
+					sampleNew: { type: "integer", minimum: 0 },
+					sampleOld: { type: "integer", minimum: 0 },
+					overlappingCodePaths: { type: "array", items: { type: "string" } },
+				},
+			},
+		},
+		contentionCandidates: {
+			type: "array",
+			items: {
+				type: "object",
+				additionalProperties: false,
+				required: [
+					"aggressorTraceId",
+					"aggressorSpanId",
+					"aggressorServiceName",
+					"sharedTargetNodeId",
+					"relationshipCertainty",
+					"totalResourceTimeMs",
+				],
+				properties: {
+					aggressorTraceId: { type: "string" },
+					aggressorSpanId: { type: "string" },
+					aggressorServiceName: { type: ["string", "null"] },
+					sharedTargetNodeId: { type: "string" },
+					relationshipCertainty: {
+						type: "string",
+						enum: RelationshipCertaintySchema.options,
+					},
+					totalResourceTimeMs: { type: "number" },
+				},
+			},
+		},
+		priorFindings: {
+			type: "array",
+			items: {
+				type: "object",
+				additionalProperties: false,
+				required: [
+					"findingId",
+					"title",
+					"causalProofTier",
+					"causalVerificationStatus",
+					"recoveryStatus",
+					"occurredAt",
+				],
+				properties: {
+					findingId: { type: "string" },
+					title: { type: "string" },
+					causalProofTier: {
+						type: "string",
+						enum: CausalProofTierSchema.options,
+					},
+					causalVerificationStatus: {
+						type: "string",
+						enum: CausalVerificationStatusSchema.options,
+					},
+					recoveryStatus: {
+						type: "string",
+						enum: RecoveryStatusSchema.options,
+					},
+					contributingChangeId: { type: ["string", "null"] },
+					occurredAt: { type: "string" },
+				},
+			},
+		},
+	},
+} as const satisfies JsonSchema;
 
 export type EvidenceBundleAutosre = z.infer<typeof EvidenceBundleAutosreSchema>;
 
@@ -546,10 +667,7 @@ export const EvidenceBundleJsonSchema = {
 		},
 		suggestedNextPivots:
 			EvidenceReferenceJsonSchema.properties.suggestedNextPivots,
-		autosre: {
-			type: "object",
-			additionalProperties: true,
-		},
+		autosre: EvidenceBundleAutosreJsonSchema,
 		dashboardUrl: { type: "string" },
 	},
 } as const satisfies JsonSchema;

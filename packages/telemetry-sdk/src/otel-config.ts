@@ -28,6 +28,7 @@ export interface OtelEnv {
 export interface ResolveConfigOptions extends ObservabilityLineageConfig {
 	defaultServiceName?: string;
 	defaultServiceVersion?: string;
+	/** @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead. */
 	lineage?: ObservabilityLineageConfig;
 }
 
@@ -71,15 +72,35 @@ export const createResolveConfig = <E extends OtelEnv>(
 					options?.defaultServiceVersion ||
 					"0.0.0",
 			},
-			resource: {
-				attributes: lineageAttributes,
-			},
+			// `@microlabs/otel-cf-workers` has no `resource` hook, so lineage is
+			// stamped onto each exported span instead.
+			postProcessor: createLineagePostProcessor(lineageAttributes),
 			sampling: {
 				headSampler: { acceptRemote: true, ratio: sampleRatio },
 			},
 		};
 	};
 };
+
+/**
+ * Builds an otel-cf-workers `postProcessor` that stamps lineage attributes
+ * (environment, version, commit, config digest) onto every exported span.
+ * Attributes already set on a span are left untouched. Mutates in place
+ * because `SpanImpl` relies on prototype methods that a copy would lose.
+ */
+export const createLineagePostProcessor =
+	(lineageAttributes: Record<string, string>) =>
+	<T extends { attributes: object }>(spans: T[]): T[] => {
+		const entries = Object.entries(lineageAttributes);
+		if (entries.length === 0) return spans;
+		for (const span of spans) {
+			const attrs = span.attributes as Record<string, unknown>;
+			for (const [k, v] of entries) {
+				if (attrs[k] === undefined) attrs[k] = v;
+			}
+		}
+		return spans;
+	};
 
 /**
  * Annotate the active span with error details (from Presence).

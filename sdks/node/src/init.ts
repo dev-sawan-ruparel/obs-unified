@@ -46,7 +46,7 @@ import {
 	clearRecordedFeatureFlags,
 	type ObservabilityLineageConfig,
 	setConfiguredLineage,
-	stampActiveFeatureFlagsAndLineage,
+	stampActiveFeatureFlags,
 } from "./lineage.js";
 
 export interface InitConfig extends ObservabilityLineageConfig {
@@ -60,7 +60,10 @@ export interface InitConfig extends ObservabilityLineageConfig {
 	serviceVersion?: string;
 	/** Optional deployment environment (e.g. `production`, `staging`). */
 	environment?: string;
-	/** Optional runtime lineage configuration (RFC 0013). */
+	/**
+	 * Optional runtime lineage configuration (RFC 0013).
+	 * @deprecated Use the flat `environment`, `serviceVersion`, `commitSha` and `configDigest` options instead.
+	 */
 	lineage?: ObservabilityLineageConfig;
 	/** Optional default project id. Stamped as a resource attribute. */
 	projectId?: string;
@@ -108,11 +111,9 @@ export const buildResourceAttributes = (
 	};
 };
 
-class LineageAndFeatureFlagSpanProcessor implements SpanProcessor {
-	constructor(private readonly cfg: InitConfig) {}
-
+class FeatureFlagSpanProcessor implements SpanProcessor {
 	onStart(span: Span, _parentContext: Context): void {
-		stampActiveFeatureFlagsAndLineage(span, this.cfg);
+		stampActiveFeatureFlags(span);
 	}
 
 	onEnd(_span: ReadableSpan): void {}
@@ -142,7 +143,7 @@ export const init = (cfg: InitConfig): Shutdown => {
 	});
 
 	const spanProcessors: SpanProcessor[] = [
-		new LineageAndFeatureFlagSpanProcessor(cfg),
+		new FeatureFlagSpanProcessor(),
 		new BatchSpanProcessor(traceExporter),
 	];
 	const logRecordProcessors: LogRecordProcessor[] = [

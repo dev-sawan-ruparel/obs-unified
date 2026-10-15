@@ -108,6 +108,11 @@ export {
 	RemediationActionKindSchema,
 	RemediationProposalStatusSchema,
 } from "./types/autosre";
+export {
+	ChangeEventInputSchema,
+	InvestigationFindingInputSchema,
+	RemediationProposalInputSchema,
+} from "./types/autosre-inputs";
 export type {
 	EvalRun,
 	EvalRunCandidate,

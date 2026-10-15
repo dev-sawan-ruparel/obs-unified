@@ -132,20 +132,31 @@ describe("RFC 0013 Goal 1.3 — analytics-sdk runtime lineage & feature flags", 
 		};
 
 		const event = body.events[0];
+		expect(event.properties).toMatchObject({ buttonId: "pay-now" });
+		// Lineage wire keys live in context only, not duplicated in properties.
+		for (const key of [
+			"deployment.environment.name",
+			"obs.environment",
+			"service.version",
+			"obs.service.version",
+			"vcs.commit.id",
+			"obs.commit.sha",
+			"obs.config.digest",
+		]) {
+			expect(event.properties).not.toHaveProperty(key);
+			expect(event.context).toHaveProperty(key);
+		}
+		for (const key of [
+			"environment",
+			"serviceVersion",
+			"commitSha",
+			"configDigest",
+		]) {
+			expect(event.context).not.toHaveProperty(key);
+		}
 		expect(event.properties).toMatchObject({
-			buttonId: "pay-now",
-			"deployment.environment.name": "staging",
-			"obs.environment": "staging",
-			"service.version": "2.4.1",
-			"obs.service.version": "2.4.1",
-			"vcs.commit.id": "8f3a1b2",
-			"obs.commit.sha": "8f3a1b2",
-			"obs.config.digest": "cfg_99a1",
 			"obs.feature_flags.checkout_redesign": "variant-b",
 			"feature_flag.key": "checkout_redesign",
-			"feature_flag.variant": "variant-b",
-			"feature_flag.provider_name": "launchdarkly",
-			"feature_flag.context.id": "usr_123",
 		});
 		expect(event.context).toMatchObject({
 			"deployment.environment.name": "staging",

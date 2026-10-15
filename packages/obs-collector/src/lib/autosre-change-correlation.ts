@@ -12,6 +12,7 @@ import type {
 	RelationshipCertainty,
 } from "@obsunified/types";
 import { buildCanonicalNodeId } from "@obsunified/types";
+import { normalizeEnvironment } from "@obsunified/types/lineage";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";
@@ -80,7 +81,7 @@ export async function recordChangeEvent(
 ): Promise<ChangeEvent> {
 	const nowIso = new Date().toISOString();
 	const occurredAt = input.occurredAt || nowIso;
-	const environment = (input.environment || "default").trim().toLowerCase();
+	const environment = normalizeEnvironment(input.environment);
 	const namespace = (input.namespace || "default").trim();
 	const serviceName = input.serviceName?.trim() || null;
 

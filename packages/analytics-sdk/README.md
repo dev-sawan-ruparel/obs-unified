@@ -80,3 +80,20 @@ spec.
 
 [https://docs.obsunified.com](https://docs.obsunified.com) (source in
 `apps/docs` of the monorepo for self-hosting).
+
+## Runtime lineage
+
+Lineage is attached once per event under `context`, using the wire attribute names below. It is not duplicated into `properties`. Env vars are read only where `process.env` exists (for example SSR); in the browser pass the options explicitly.
+
+Every option is optional. Pass them flat on the init config (the nested `lineage` option still works but is deprecated):
+
+| Option | Env vars read automatically (first match wins) | Wire attributes |
+| --- | --- | --- |
+| `environment` | `OBS_ENVIRONMENT`, `NODE_ENV` | `deployment.environment.name`, `obs.environment` |
+| `serviceVersion` | `OBS_SERVICE_VERSION`, `OTEL_SERVICE_VERSION` | `service.version`, `obs.service.version` |
+| `commitSha` | `OBS_COMMIT_SHA`, `GITHUB_SHA` | `vcs.commit.id`, `obs.commit.sha` |
+| `configDigest` | `OBS_CONFIG_DIGEST` | `obs.config.digest` |
+
+Explicit options win over env vars. `environment` is normalised so spans and change events join: lowercased and trimmed, `production` becomes `prod`, `development` becomes `dev`, `test` is unchanged, and an empty value becomes `default`. So `NODE_ENV=production` and a change posted as `prod` land in the same environment.
+
+Call `recordFeatureFlag(key, variant, { providerName, contextId })` when you evaluate a flag. The evaluation is attached to the active span as `feature_flag.*` and `obs.feature_flags.<key>` attributes, so AutoSRE can compute flag cohorts.

@@ -20,6 +20,10 @@
 			"types": "./dist/constants.d.ts",
 			"import": "./dist/constants.js"
 		},
+		"./lineage": {
+			"types": "./dist/lineage.d.ts",
+			"import": "./dist/lineage.js"
+		},
 		"./api-client": {
 			"types": "./dist/api-client.d.ts",
 			"import": "./dist/api-client.js"

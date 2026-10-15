@@ -10,6 +10,7 @@ import {
 	stampActiveFeatureFlagsAndLineage,
 	withFeatureFlagScope,
 } from "./index.js";
+import { stampActiveFeatureFlags } from "./lineage.js";
 
 describe("RFC 0013 Goal 1.3 — @obsunified/sdk runtime lineage & feature flags", () => {
 	afterEach(() => {
@@ -64,8 +65,10 @@ describe("RFC 0013 Goal 1.3 — @obsunified/sdk runtime lineage & feature flags"
 
 	it("records feature flag evaluations on the active OTel span and active scope", () => {
 		const attrs = new Map<string, unknown>();
-		const events: Array<{ name: string; attributes?: Record<string, unknown> }> =
-			[];
+		const events: Array<{
+			name: string;
+			attributes?: Record<string, unknown>;
+		}> = [];
 		const mockSpan = {
 			isRecording: () => true,
 			setAttribute: (k: string, v: unknown) => {
@@ -120,5 +123,28 @@ describe("RFC 0013 Goal 1.3 — @obsunified/sdk runtime lineage & feature flags"
 			expect(childAttrs.get("obs.commit.sha")).toBe("8f3a1b2");
 			expect(childAttrs.get("vcs.commit.id")).toBe("8f3a1b2");
 		});
+	});
+
+	it("normalizes NODE_ENV=production to prod in resource attributes", () => {
+		const attrs = buildLineageAttributes(undefined, { NODE_ENV: "production" });
+		expect(attrs["obs.environment"]).toBe("prod");
+		expect(attrs["deployment.environment"]).toBe("prod");
+	});
+
+	it("stampActiveFeatureFlags stamps flags but not lineage", () => {
+		const attrs = new Map<string, unknown>();
+		const span = {
+			isRecording: () => true,
+			setAttribute: (k: string, v: unknown) => {
+				attrs.set(k, v);
+			},
+		};
+		withFeatureFlagScope(() => {
+			recordFeatureFlag("beta", "on");
+			stampActiveFeatureFlags(span as never);
+		});
+		expect(attrs.get("obs.feature_flags.beta")).toBe("on");
+		expect(attrs.has("obs.environment")).toBe(false);
+		expect(attrs.has("vcs.commit.id")).toBe(false);
 	});
 });

@@ -5,8 +5,14 @@ import {
 	CausalProofTierSchema,
 	CohortAttributionVerdictSchema,
 	EvidencePredicateSchema,
+	normalizeErrorSignature,
 	RelationshipCertaintySchema,
 } from "./autosre";
+import {
+	ChangeEventInputSchema,
+	InvestigationFindingInputSchema,
+	RemediationProposalInputSchema,
+} from "./autosre-inputs";
 import {
 	EVIDENCE_BUNDLE_SCHEMA_VERSION,
 	EvidenceBundleSchema,
@@ -248,6 +254,91 @@ describe("RFC 0013 AutoSRE Types & Deterministic Identity/Fingerprint Helpers", 
 			});
 
 			expect(bundle.success).toBe(true);
+		});
+	});
+
+	describe("normalizeErrorSignature", () => {
+		it("scrubs undashed hex of length >= 16 but keeps short words", () => {
+			expect(
+				normalizeErrorSignature(
+					"failed trace 4bf92f3577b34da6a3ce929d0e0e4736 on abcdef",
+				),
+			).toBe("failed trace <hex> on abcdef");
+			expect(normalizeErrorSignature("id deadbeefdeadbeef")).toBe("id <hex>");
+		});
+	});
+
+	describe("buildCanonicalNodeId segment escaping", () => {
+		it("percent-encodes delimiters so segments cannot collide", () => {
+			const a = buildCanonicalNodeId({
+				kind: "service",
+				environment: "prod",
+				namespace: "a:b",
+				serviceName: "c",
+			});
+			const b = buildCanonicalNodeId({
+				kind: "service",
+				environment: "prod",
+				namespace: "a",
+				serviceName: "b:c",
+			});
+			expect(a.id).not.toBe(b.id);
+			expect(a.id).toBe("service:prod:a%3Ab:c");
+			const q = buildCanonicalNodeId({
+				kind: "queue_topic",
+				environment: "prod",
+				messagingSystem: "kafka",
+				serverAddress: "h",
+				messagingDestination: "x/y",
+			});
+			expect(q.id).toBe("queue:prod:kafka:h/x%2Fy");
+		});
+		it("leaves endpoint routes readable", () => {
+			const e = buildCanonicalNodeId({
+				kind: "endpoint",
+				environment: "prod",
+				serviceName: "api",
+				methodOrRpc: "get",
+				routeOrSpanName: "/users/42",
+			});
+			expect(e.id).toBe("endpoint:prod:default:api:GET:/users/:id");
+		});
+	});
+
+	describe("input zod schemas", () => {
+		it("accepts valid inputs and rejects bad enums", () => {
+			expect(
+				ChangeEventInputSchema.safeParse({ kind: "deploy", summary: "x" })
+					.success,
+			).toBe(true);
+			expect(
+				ChangeEventInputSchema.safeParse({ kind: "nope", summary: "x" })
+					.success,
+			).toBe(false);
+			expect(
+				InvestigationFindingInputSchema.safeParse({
+					title: "t",
+					summary: "s",
+					symptomEntityKind: "service",
+					symptomEntityId: "a",
+					faultLocusEntityKind: "service",
+					faultLocusEntityId: "b",
+					causalChain: [],
+					citedEvidenceIds: [],
+					actorType: "robot",
+				}).success,
+			).toBe(false);
+			expect(
+				RemediationProposalInputSchema.safeParse({
+					incidentId: "i",
+					findingId: "f",
+					idempotencyKey: "k",
+					actionKind: "rollback_deploy",
+					targetNodeId: "n",
+					expectedCurrentState: {},
+					desiredTargetState: { version: "1" },
+				}).success,
+			).toBe(true);
 		});
 	});
 });
