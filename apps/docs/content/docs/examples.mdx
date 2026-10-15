@@ -10,7 +10,8 @@ Use this page to pick the right starting point. Runnable examples are things you
 | Goal | Start here | Type |
 | --- | --- | --- |
 | First run from a fresh checkout | [Getting started](/docs/getting-started) | Guide |
-| Run everything from one local image | `Dockerfile.local` via `pnpm local:image && pnpm local:run` | Runnable image |
+| Run the prebuilt image without cloning | [`ghcr.io/dev-sawan-ruparel/obs-unified`](/docs/installation#fastest-first-run-prebuilt-image) | Prebuilt image |
+| Run everything from one local image with sample data | `Dockerfile.local` via `pnpm local:image && pnpm local:run` | Runnable image |
 | Try obs-unified with realistic traffic | `demo/` | Runnable demo |
 | Scaffold a new React + Hono app | `obs-unified create`, choose React + Vite + Hono | Runnable template |
 | Add obs-unified to an existing React + Hono app | [React + Hono walkthrough](/docs/instrumenting) | Walkthrough |
@@ -23,6 +24,7 @@ Use this page to pick the right starting point. Runnable examples are things you
 
 | Example | What it shows | Run / entry point |
 | --- | --- | --- |
+| `ghcr.io/dev-sawan-ruparel/obs-unified` | Prebuilt all-in-one release image: Node collector, dashboard, embedded Postgres, file blob storage. Fails closed without `INGEST_KEY` and `DASHBOARD_PASSWORD`. | `docker run` per [Installation](/docs/installation#fastest-first-run-prebuilt-image) |
 | `Dockerfile.local` | All-in-one local image with Postgres, collector, dashboard, file blob storage, and seed data. | `pnpm local:image && pnpm local:run` |
 | `packages/cli/templates/react-vite/` | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation. | `obs-unified create my-app`, choose React + Vite + Hono |
 | `packages/cli/templates/vanilla-ts/` | Browser-only Vite + TypeScript analytics. | `obs-unified create my-app`, choose Vanilla TypeScript |

@@ -161,13 +161,26 @@ Start locally, then choose one of two production paths:
 
 | Path | Storage | Best for |
 | --- | --- | --- |
-| Local all-in-one image | Postgres + blob storage in one container | Evaluation, screenshots, demos, local development |
+| All-in-one image ([`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified)) | Postgres + blob storage in one container | Evaluation, screenshots, demos, small self-hosted setups |
 | Cloudflare collector | Workers + D1 + R2 | Low-ops hosted deployments on Cloudflare |
 | Node collector | Postgres + S3-compatible object storage | AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud with Postgres and object storage |
 
 ## Try it
 
-Build and run the all-in-one stack from this repository:
+Run the prebuilt all-in-one image from GitHub Container Registry. It fails
+closed, so pick your own credentials:
+
+```bash
+export INGEST_KEY="pick-a-long-random-ingest-key"
+export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+docker run --rm -p 5173:5173 -p 8790:8790 \
+  -e INGEST_KEY -e DASHBOARD_PASSWORD \
+  -v obs-unified-db:/var/lib/postgresql -v obs-unified-blobs:/data \
+  ghcr.io/dev-sawan-ruparel/obs-unified:latest
+# → http://localhost:5173 (log in with DASHBOARD_PASSWORD)
+```
+
+Or build the local image with seeded sample data from this repository:
 
 ```bash
 git clone https://github.com/dev-sawan-ruparel/obs-unified.git
@@ -179,7 +192,8 @@ pnpm local:run
 ```
 
 See [getting started](docs/getting-started.md) for development servers and
-sample data. Container registry publication is a separate release step.
+sample data, and [docs/ops/docker-release.md](docs/ops/docker-release.md) for
+image tags, volumes, and rollback.
 
 > Installing the SDKs into **your own** app uses public npm packages — no
 > registry login or token required.
@@ -458,15 +472,25 @@ Set environment variables:
 
 ## Packages
 
-- `@obsunified/collector`: Collector service. Receives telemetry, stores it in
+All public packages are on npm under the
+[`@obsunified` organization](https://www.npmjs.com/org/obsunified):
+
+- [`@obsunified/collector`](https://www.npmjs.com/package/@obsunified/collector): Collector service. Receives telemetry, stores it in
   D1/SQLite or Postgres, and serves dashboard APIs.
-- `@obsunified/telemetry-sdk`: Backend SDK for Cloudflare Workers. Provides
+- [`@obsunified/telemetry-sdk`](https://www.npmjs.com/package/@obsunified/telemetry-sdk): Backend SDK for Cloudflare Workers. Provides
   structured logging, request spans, D1/R2/fetch wrappers, and AI call tracking.
-- `@obsunified/analytics-sdk`: Frontend SDK for page views, interactions,
+- [`@obsunified/analytics-sdk`](https://www.npmjs.com/package/@obsunified/analytics-sdk): Frontend SDK for page views, interactions,
   browser errors, and session replay.
-- `@obsunified/dashboard`: React dashboard components, also used by the
+- [`@obsunified/dashboard`](https://www.npmjs.com/package/@obsunified/dashboard): React dashboard components, also used by the
   standalone dashboard SPA.
-- `@obsunified/types`: Shared TypeScript types and constants.
+- [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server): Read-only MCP server for agent investigations.
+- [`@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli): `obs-unified doctor`, `keys`, and app scaffolding.
+- [`@obsunified/agents-langgraph`](https://www.npmjs.com/package/@obsunified/agents-langgraph) and
+  [`@obsunified/agents-vercel-ai`](https://www.npmjs.com/package/@obsunified/agents-vercel-ai): Agent framework adapters.
+- [`@obsunified/types`](https://www.npmjs.com/package/@obsunified/types): Shared TypeScript types and constants.
+
+The all-in-one container image is published to
+[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified).
 
 ## Polyglot SDKs ([`sdks/`](./sdks))
 
@@ -477,9 +501,9 @@ comes from the OTel ecosystem of each language.
 
 | Language             | Path                       | Package                                      |
 | -------------------- | -------------------------- | -------------------------------------------- |
-| Node.js / TypeScript | [`sdks/node`](./sdks/node) | `@obsunified/sdk`                           |
-| Go                   | [`sdks/go`](./sdks/go)     | `github.com/dev-sawan-ruparel/obs-unified/sdks/go` |
-| Rust                 | [`sdks/rust`](./sdks/rust) | `obs-unified`                                |
+| Node.js / TypeScript | [`sdks/node`](./sdks/node) | [`@obsunified/sdk`](https://www.npmjs.com/package/@obsunified/sdk) on npm |
+| Go                   | [`sdks/go`](./sdks/go)     | [`github.com/dev-sawan-ruparel/obs-unified/sdks/go`](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go) on pkg.go.dev |
+| Rust                 | [`sdks/rust`](./sdks/rust) | [`obs-unified`](https://crates.io/crates/obs-unified) on crates.io |
 
 Each SDK exposes the same surface — see [`sdks/README.md`](./sdks/README.md) for
 the cross-language API map. The instrumentation philosophy (what's auto vs.

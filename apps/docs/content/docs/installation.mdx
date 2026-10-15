@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Run obs-unified with the all-in-one Docker image, or install the editable local repo.
+description: Pull the prebuilt image from GHCR, build the all-in-one local image with sample data, or install the editable local repo.
 ---
 
 This page is the shortest install path. For a guided decision tree across runtime and data options, start with [Getting started](/docs/getting-started). If you only want to instrument a service with an SDK, jump to [SDKs](/docs/sdks).
@@ -11,16 +11,56 @@ This page is the shortest install path. For a guided decision tree across runtim
 - **Node.js 22+ and pnpm 10+** for local repo development and scripts.
 - A POSIX shell such as bash or zsh.
 
-## Fastest first run: Docker image
+## Fastest first run: prebuilt image
 
-Build and run the local image:
+The release image is published to GitHub Container Registry as
+[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified).
+It packages the Node collector, the dashboard, embedded Postgres, and filesystem
+blob storage in one container. No clone or Node.js toolchain is needed.
+
+The image fails closed: it refuses to start unless you supply your own ingest
+key and dashboard password.
+
+```bash
+export INGEST_KEY="pick-a-long-random-ingest-key"
+export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+
+docker run --rm \
+  -p 5173:5173 \
+  -p 8790:8790 \
+  -e INGEST_KEY \
+  -e DASHBOARD_PASSWORD \
+  -v obs-unified-db:/var/lib/postgresql \
+  -v obs-unified-blobs:/data \
+  ghcr.io/dev-sawan-ruparel/obs-unified:latest
+```
+
+| Interface | URL |
+| --- | --- |
+| Dashboard | `http://localhost:5173` |
+| Collector ingest | `http://localhost:8790` |
+
+Log in to the dashboard with `DASHBOARD_PASSWORD`, and point SDKs or OTLP
+exporters at `http://localhost:8790` with `INGEST_KEY`.
+
+Tags: `latest`, a version tag that tracks the collector release
+(for example `2.1.1`), and an immutable `sha-<commit>` tag. Pin a version or
+sha tag for anything you intend to keep running. The prebuilt image does not
+seed sample data; use the local image below if you want populated dashboards
+before sending your own telemetry. Runtime variables, volumes, and rollback
+notes are in the
+[Docker release guide](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/ops/docker-release.md).
+
+## Local image with sample data
+
+Build and run the local image from a clone:
 
 ```bash
 pnpm local:image
 pnpm local:run
 ```
 
-This starts Postgres, the collector, the dashboard, a filesystem blob store, and seeded sample data in one container.
+This starts Postgres, the collector, the dashboard, a filesystem blob store, and seeded sample data in one container. It uses fixed development credentials, so keep it on your own machine.
 
 | Interface | URL |
 | --- | --- |
@@ -102,6 +142,29 @@ cd apps/collector-node
 docker compose up -d
 docker compose logs -f collector
 ```
+
+## Packages and registries
+
+Everything a client needs is published; cloning the repo is only required for
+the editable install and the seeded local image.
+
+| Artifact | Where | Install |
+| --- | --- | --- |
+| All-in-one container image | [GHCR: `dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified) | `docker pull ghcr.io/dev-sawan-ruparel/obs-unified:latest` |
+| Collector (Workers runtime) | [npm: `@obsunified/collector`](https://www.npmjs.com/package/@obsunified/collector) | `pnpm add @obsunified/collector` |
+| Dashboard components | [npm: `@obsunified/dashboard`](https://www.npmjs.com/package/@obsunified/dashboard) | `pnpm add @obsunified/dashboard` |
+| Browser SDK | [npm: `@obsunified/analytics-sdk`](https://www.npmjs.com/package/@obsunified/analytics-sdk) | `pnpm add @obsunified/analytics-sdk` |
+| TypeScript server SDK | [npm: `@obsunified/telemetry-sdk`](https://www.npmjs.com/package/@obsunified/telemetry-sdk) | `pnpm add @obsunified/telemetry-sdk` |
+| Node OTel wrapper | [npm: `@obsunified/sdk`](https://www.npmjs.com/package/@obsunified/sdk) | `pnpm add @obsunified/sdk` |
+| Agent framework adapters | [npm: `@obsunified/agents-langgraph`](https://www.npmjs.com/package/@obsunified/agents-langgraph), [`@obsunified/agents-vercel-ai`](https://www.npmjs.com/package/@obsunified/agents-vercel-ai) | `pnpm add @obsunified/agents-langgraph` |
+| MCP server | [npm: `@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server) | `pnpm add -g @obsunified/mcp-server` |
+| CLI | [npm: `@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli) | `pnpm dlx @obsunified/cli doctor` |
+| Shared types and schemas | [npm: `@obsunified/types`](https://www.npmjs.com/package/@obsunified/types) | `pnpm add @obsunified/types` |
+| Go SDK | [pkg.go.dev: `sdks/go`](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go) | `go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest` |
+| Rust SDK | [crates.io: `obs-unified`](https://crates.io/crates/obs-unified) | `cargo add obs-unified` |
+| Agent skills | [GitHub Releases](https://github.com/dev-sawan-ruparel/obs-unified/releases) (`skills-v*` tags) | Download the `.skill` bundles |
+
+All npm packages live under the [`@obsunified` organization](https://www.npmjs.com/org/obsunified).
 
 ## Production deployment
 

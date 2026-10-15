@@ -1,11 +1,15 @@
-import { GITHUB_REPO_LINK, EXAMPLES_URL, GETTING_STARTED_URL, SDK_DOCS_URL } from "../config";
+import { GHCR_IMAGE, GHCR_PACKAGE_URL, GITHUB_REPO_LINK, EXAMPLES_URL, GETTING_STARTED_URL, INSTALLATION_URL, SDK_DOCS_URL } from "../config";
 
-const FIRST_RUN = `# Build and run the local stack
-git clone ${GITHUB_REPO_LINK}.git
-cd obs-unified
-pnpm install --frozen-lockfile
-pnpm local:image
-pnpm local:run`;
+const FIRST_RUN = `# Run the prebuilt all-in-one image
+export INGEST_KEY="pick-a-long-random-ingest-key"
+export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+docker run --rm -p 5173:5173 -p 8790:8790 \\
+  -e INGEST_KEY -e DASHBOARD_PASSWORD \\
+  ${GHCR_IMAGE}:latest
+
+# Or build it with sample data from the monorepo
+git clone ${GITHUB_REPO_LINK}.git && cd obs-unified
+pnpm install --frozen-lockfile && pnpm local:image && pnpm local:run`;
 
 const SDK_PATHS = `Backend:
   TypeScript  pnpm add @obsunified/telemetry-sdk
@@ -60,7 +64,7 @@ export function renderPreview(): string {
     <div class="preview-grid">
       <div class="preview-card">
         <div class="preview-step"><span class="step-num">1</span> Run the local stack</div>
-        <p class="preview-step-note">Build the all-in-one stack from the monorepo.</p>
+        <p class="preview-step-note">Pull the <a href="${GHCR_PACKAGE_URL}">prebuilt image from GHCR</a>, or build the seeded local image. Details in <a href="${INSTALLATION_URL}">Installation</a>.</p>
         ${code("bash", FIRST_RUN)}
       </div>
       <div class="preview-card">

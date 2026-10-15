@@ -10,7 +10,7 @@ Self-hosting is the deployment model, not the whole pitch: the default hosted pa
 ## What's in this documentation
 
 - [Getting started](/docs/getting-started) — choose Docker or local dev, then choose seeded data, Astronomy Shop, or your own app.
-- [Installation](/docs/installation) — the shortest current install path for the all-in-one local image and the editable local repo.
+- [Installation](/docs/installation) — the prebuilt GHCR image, the seeded local image, the editable local repo, and where every package is published (npm, GHCR, crates.io, Go modules).
 - [Examples](/docs/examples) — runnable demos, scaffold templates, SDK examples, recipes, and migration guides.
 - [SDKs](/docs/sdks) — `@obsunified/analytics-sdk` (browser, click + interaction propagation), `@obsunified/telemetry-sdk` (Node/Workers), plus Go and Rust.
 - [SDK API reference](/docs/sdk-reference) — compact method map for init, interaction stamping, LLM/tool spans, MCP context propagation, and Cloudflare wrappers.
@@ -48,5 +48,5 @@ flowchart LR
 ```
 
 <Callout type="info">
-This documentation describes the platform as it ships on `main` today. For the fastest first run, use the all-in-one Docker image from [Getting started](/docs/getting-started).
+This documentation describes the platform as it ships on `main` today. For the fastest first run, pull the prebuilt image `ghcr.io/dev-sawan-ruparel/obs-unified` as shown in [Installation](/docs/installation), or follow [Getting started](/docs/getting-started) to choose a runtime and data path.
 </Callout>
