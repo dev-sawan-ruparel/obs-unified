@@ -1,5 +1,15 @@
 # @obsunified/pprof-decoder
 
+## 2.0.2
+
+### Patch Changes
+
+- c2c3f66: Republish with package metadata pointing at the personal monorepo. The
+  `repository` and `homepage` fields of every currently published `@obsunified/*`
+  version still link to the retired `obs-unified/obs-unified` organization repo,
+  and the published READMEs reference the retired `obs-unified-docs.dev` domain.
+  No runtime changes.
+
 ## 2.0.1
 
 ### Patch Changes
@@ -11,7 +21,6 @@
 ### Major Changes
 
 - 4ac9a67: Initial publishable release.
-
   - Scope renamed from `@obs/*` to `@obsunified/*` (no longer reserves the
     shorter `@obs` scope on npm — see `docs/migrate/from-obs-scope.md`).
   - All five packages now ship compiled `dist/` artifacts via `tsup` (was: raw

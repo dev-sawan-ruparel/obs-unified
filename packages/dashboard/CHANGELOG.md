@@ -1,5 +1,22 @@
 # @obsunified/dashboard
 
+## 1.1.3
+
+### Patch Changes
+
+- c2c3f66: Onboarding dashboard now includes agent investigation guidance: capability
+  cards link to the product surface, MCP tool, and docs for each signal so a new
+  team can see what the dashboard and the investigation MCP server expose before
+  instrumenting anything.
+- c2c3f66: Republish with package metadata pointing at the personal monorepo. The
+  `repository` and `homepage` fields of every currently published `@obsunified/*`
+  version still link to the retired `obs-unified/obs-unified` organization repo,
+  and the published READMEs reference the retired `obs-unified-docs.dev` domain.
+  No runtime changes.
+- Updated dependencies [c2c3f66]
+  - @obsunified/types@2.0.2
+  - @obsunified/pprof-decoder@2.0.2
+
 ## 1.1.2
 
 ### Patch Changes

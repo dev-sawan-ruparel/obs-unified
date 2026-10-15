@@ -1,5 +1,17 @@
 # @obsunified/agents-vercel-ai
 
+## 2.0.4
+
+### Patch Changes
+
+- c2c3f66: Republish with package metadata pointing at the personal monorepo. The
+  `repository` and `homepage` fields of every currently published `@obsunified/*`
+  version still link to the retired `obs-unified/obs-unified` organization repo,
+  and the published READMEs reference the retired `obs-unified-docs.dev` domain.
+  No runtime changes.
+- Updated dependencies [c2c3f66]
+  - @obsunified/telemetry-sdk@2.0.4
+
 ## 2.0.3
 
 ### Patch Changes
