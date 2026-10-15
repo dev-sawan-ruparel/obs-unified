@@ -488,7 +488,7 @@ All public packages are on npm under the
 - [`@obsunified/dashboard`](https://www.npmjs.com/package/@obsunified/dashboard): React dashboard components, also used by the
   standalone dashboard SPA.
 - [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server): 26-tool MCP server for agent investigations and governed AutoSRE remediations.
-- [`@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli): `obs-unified doctor`, non-interactive `create` (`--template`, `--collector-url`, `--yes`), `keys`, and `changes` (`record`, `list`).
+- [`@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli): `obs-unified doctor`, non-interactive `create` (`--template`, `--collector-url`, `--yes`; requires 1.1.2 or newer), `keys`, and `changes` (`record`, `list`).
 - [`@obsunified/agents-langgraph`](https://www.npmjs.com/package/@obsunified/agents-langgraph) and
   [`@obsunified/agents-vercel-ai`](https://www.npmjs.com/package/@obsunified/agents-vercel-ai): Agent framework adapters.
 - [`@obsunified/types`](https://www.npmjs.com/package/@obsunified/types): Shared TypeScript types and constants.

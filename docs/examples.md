@@ -20,12 +20,14 @@ copy into an existing app.
 
 ## Runnable Examples
 
+The `--template` / `--yes` scaffolding flags require `@obsunified/cli` 1.1.2 or newer (omit them to scaffold interactively on 1.1.1).
+
 | Example                                                                           | What it shows                                                                                            | Run / entry point                                              |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | [`Dockerfile.local`](../Dockerfile.local)                                         | All-in-one local image with Postgres, collector, dashboard, file blob storage, and seed data             | `pnpm local:image && pnpm local:run`                           |
-| [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/)     | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation | `pnpm dlx @obsunified/cli create my-app`, choose React + Vite + Hono        |
-| [`packages/cli/templates/vanilla-ts/`](../packages/cli/templates/vanilla-ts/)     | Browser-only Vite + TypeScript analytics                                                                 | `pnpm dlx @obsunified/cli create my-app`, choose Vanilla TypeScript         |
-| [`packages/cli/templates/hono-workers/`](../packages/cli/templates/hono-workers/) | Hono on Cloudflare Workers with backend telemetry wiring                                                 | `pnpm dlx @obsunified/cli create my-api`, choose Hono on Workers            |
+| [`packages/cli/templates/react-vite/`](../packages/cli/templates/react-vite/)     | React + Vite frontend, Hono Node API, `AnalyticsProvider`, backend spans, and click-to-trace propagation | `pnpm dlx @obsunified/cli create my-app --template react-vite --yes`        |
+| [`packages/cli/templates/vanilla-ts/`](../packages/cli/templates/vanilla-ts/)     | Browser-only Vite + TypeScript analytics                                                                 | `pnpm dlx @obsunified/cli create my-app --template vanilla-ts --yes`         |
+| [`packages/cli/templates/hono-workers/`](../packages/cli/templates/hono-workers/) | Hono on Cloudflare Workers with backend telemetry wiring                                                 | `pnpm dlx @obsunified/cli create my-api --template hono-workers --yes`            |
 | [`apps/obs-demo/`](../apps/obs-demo/)                                             | AI calls, RAG, tool calls, session tracking, and evaluation scenarios                                    | `pnpm dev`, then `curl http://127.0.0.1:8787/api/demo/run-all` |
 | [`apps/collector-node/`](../apps/collector-node/)                                 | Standalone Node collector with Postgres + MinIO                                                          | `docker compose up -d` from `apps/collector-node`              |
 | [`demo/`](../demo/)                                                               | OpenTelemetry Astronomy Shop feeding obs-unified with polyglot microservice traffic                      | `pnpm demo:setup`, `pnpm demo:preflight`, `pnpm demo:up`       |

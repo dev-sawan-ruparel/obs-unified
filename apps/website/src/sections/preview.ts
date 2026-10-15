@@ -3,12 +3,13 @@ import { GHCR_IMAGE, GHCR_PACKAGE_URL, EXAMPLES_URL, GETTING_STARTED_URL, INSTAL
 const FIRST_RUN = `# Run the prebuilt all-in-one image (with seeded sample data)
 export INGEST_KEY="pick-a-long-random-ingest-key"
 export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+export DASHBOARD_TOKEN="pick-a-read-token-for-mcp-and-cli"
 docker run --rm -p 5173:5173 -p 8790:8790 \\
-  -e INGEST_KEY -e DASHBOARD_PASSWORD -e OBS_LOCAL_SEED=true \\
+  -e INGEST_KEY -e DASHBOARD_PASSWORD -e DASHBOARD_TOKEN -e OBS_LOCAL_SEED=true \\
   ${GHCR_IMAGE}:latest
 
-# Or scaffold a new pre-wired app in one command
-pnpm dlx @obsunified/cli create my-app`;
+# Or scaffold a new pre-wired app non-interactively (needs @obsunified/cli 1.1.2 or newer)
+pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes`;
 
 const SDK_PATHS = `Backend:
   TypeScript  pnpm add @obsunified/telemetry-sdk

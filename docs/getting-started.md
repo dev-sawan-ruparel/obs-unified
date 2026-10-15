@@ -69,6 +69,9 @@ docker run --rm -p 5173:5173 -p 8790:8790 obs-unified/local:dev
 
 - **Ingest Write Key:** `dev-ingest-key`
 - **Dashboard Password:** `e2e-test-pass`
+- **Read bearer token (`DASHBOARD_TOKEN`):** `e2e-dashboard-token` (pass as `OBS_DASHBOARD_TOKEN` to the MCP server)
+
+These fixed values apply to the locally built image only. The prebuilt GHCR image refuses to start with them; see the installation guide.
 
 ### 3. Persistent Storage (Optional)
 
@@ -269,6 +272,7 @@ docker compose logs -f collector
 - **Endpoint:** `http://localhost:8790`
 - **Ingest Key:** `dev-ingest-key`
 - **Password:** `e2e-test-pass`
+- **Read token (`DASHBOARD_TOKEN`):** set it in the compose environment; the CLI and MCP server send it as a bearer token
 
 ### 2. Launch Dashboard
 

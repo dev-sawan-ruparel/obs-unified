@@ -9,7 +9,9 @@ This folder is managed by
 2. Run `pnpm changeset` and pick the affected packages + bump level (`patch` /
    `minor` / `major`). Changesets writes a markdown file under `.changeset/`
    capturing intent.
-3. Commit the changeset alongside your code change in the same PR.
+3. Commit the changeset alongside your code change in the same PR. Every PR
+   that changes a published package must include one; never hand-edit package
+   versions (PR #32 was hand-versioned and bypassed `pnpm version-packages`).
 4. After the PR merges to `main`, a maintainer runs `pnpm version-packages`
    in a worktree to consume pending changesets, bump versions, and update
    changelogs, merges that version PR, then runs `pnpm release` from an

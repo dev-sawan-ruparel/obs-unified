@@ -70,13 +70,15 @@ This starts Postgres, the collector, the dashboard, a filesystem blob store, and
 | Dashboard | `http://localhost:5173` |
 | Collector ingest | `http://localhost:8790` |
 
-Default local credentials:
+Credentials for the locally built image (`pnpm local:run` only; the prebuilt GHCR image rejects these values and requires your own, see the prebuilt image section above):
 
-| Credential | Environment Variable | Default Local Value |
+| Credential | Environment Variable | Local image value |
 | --- | --- | --- |
 | Ingest write key | `INGEST_KEY` / `OBS_INGEST_KEY` | `dev-ingest-key` |
 | Dashboard password | `DASHBOARD_PASSWORD` | `e2e-test-pass` |
-| Read bearer token (MCP & CLI) | `DASHBOARD_TOKEN` / `OBS_API_TOKEN` | `e2e-dashboard-token` |
+| Read bearer token | `DASHBOARD_TOKEN` on the collector | `e2e-dashboard-token` |
+
+Pass the read token as `OBS_DASHBOARD_TOKEN` to `@obsunified/mcp-server`, `OBS_ADMIN_TOKEN` to `obs-unified keys` / `doctor`, and `OBS_API_TOKEN` (or `OBS_ADMIN_TOKEN`) to `obs-unified changes list`.
 
 Run the local image smoke test when you want a full outside-the-container verification:
 

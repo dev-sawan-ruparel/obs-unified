@@ -46,15 +46,15 @@ Don't install anything until you have a reachable collector, a write-only ingest
 **Required values:**
 
 - `OBS_COLLECTOR_URL` — where signals are sent (default local: `http://localhost:8790`).
-- `OBS_INGEST_KEY` — write-only key for `/v1/*` telemetry ingestion (default local: `dev-ingest-key`).
-- `OBS_DASHBOARD_TOKEN` — read bearer token for `/internal/*` verification and `@obsunified/mcp-server` (default local: `e2e-dashboard-token`).
+- `OBS_INGEST_KEY` — write-only key for `/v1/*` telemetry ingestion (for the locally built image `pnpm local:run` only the default is `dev-ingest-key`; with the GHCR image use the value you chose).
+- `OBS_DASHBOARD_TOKEN` — read bearer token for `/internal/*` verification and `@obsunified/mcp-server` (local image only default: `e2e-dashboard-token`; with GHCR use the value you chose for `DASHBOARD_TOKEN`).
 - `OBS_DASHBOARD_URL` — where the user opens the UI (default local: `http://localhost:5173`).
 
 **Where does obs-unified itself run?**
 
 | Option | Autonomous vs. Human | What to do |
 | --- | --- | --- |
-| **Local dev — Prebuilt GHCR Docker image (Recommended default)** | **100% Autonomous if Docker is running** (ask human only if `docker info` fails). | Run `docker run -d --name obs-unified -p 5173:5173 -p 8790:8790 -e INGEST_KEY=dev-ingest-key -e DASHBOARD_PASSWORD=e2e-test-pass -e DASHBOARD_TOKEN=e2e-dashboard-token ghcr.io/dev-sawan-ruparel/obs-unified:latest`. |
+| **Local dev — Prebuilt GHCR Docker image (Recommended default)** | **100% Autonomous if Docker is running** (ask human only if `docker info` fails). | Pick your own secrets (the release image refuses `dev-ingest-key` / `e2e-test-pass`, which only work for the locally built image via `pnpm local:run`), then run `export INGEST_KEY="pick-a-long-random-ingest-key" DASHBOARD_PASSWORD="pick-a-dashboard-password" DASHBOARD_TOKEN="pick-a-read-token-for-mcp-and-cli"` and `docker run -d --name obs-unified -p 5173:5173 -p 8790:8790 -e INGEST_KEY -e DASHBOARD_PASSWORD -e DASHBOARD_TOKEN ghcr.io/dev-sawan-ruparel/obs-unified:latest`. |
 | **Local dev — sibling repo** | **100% Autonomous** if repo is cloned locally. | `pnpm dev:collector` (collector → `http://localhost:8790`) and `pnpm dev:web` (dashboard → `http://localhost:5173`) in the obs-unified repo. |
 | **Self-hosted — production cloud** | **Requires Human Intervention** for cloud OAuth (`wrangler login`), DNS, and production secrets (`wrangler secret put`). | Point at [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector) or [Production operations](https://docs.obsunified.com/docs/ops/production). |
 
@@ -86,7 +86,7 @@ pnpm add @obsunified/analytics-sdk     # wherever browser code runs
 pnpm add @obsunified/telemetry-sdk     # wherever server code runs
 ```
 
-In a monorepo, install per package, not at the root. (If scaffolding a brand-new project from scratch, always pass `--yes` and `--template` so the CLI never blocks on interactive TTY prompts: `pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes`.)
+In a monorepo, install per package, not at the root. (If scaffolding a brand-new project from scratch, always pass `--yes` and `--template` so the CLI never blocks on interactive TTY prompts: `pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes`; these flags require `@obsunified/cli` 1.1.2 or newer, on 1.1.1 scaffold interactively.)
 
 ### 4. Frontend wire-up
 
