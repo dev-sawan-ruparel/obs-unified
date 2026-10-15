@@ -34,8 +34,9 @@ The [MCP server](/docs/mcp-server) exposes four read-only tools for this layer:
 
 - `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`,
   `tool_call`, `change`, `finding`, or `incident` anchor, scoped to an
-  investigation intent (`debug_failure`, `explain_latency`, `audit_agent_run`,
-  `prepare_eval_case`, or `triage_incident`) and a token budget.
+  investigation intent (`debug_failure`, `triage_incident`, `explain_latency`,
+  `explain_cost`, `inspect_agent_run`, `inspect_tool_call`,
+  `find_instrumentation_gap`, or `general`) and a token budget.
 - `retrieve_evidence_ref` — expand a bundle retrieval ref into raw,
   less-compacted, or redacted records. `chunkOffset` paginates replay event
   windows.
@@ -58,11 +59,12 @@ redacted args/results.
 - Log exemplars with compaction provenance (how many records collapsed into each).
 - Causal context for action/agent-run/tool-call anchors: side-effect, approval,
   eval, trace, and log links.
-- For `triage_incident` and AutoSRE anchors (`change`, `finding`, `incident`):
-  explicit separation between the unverified `faultLocus` (`unverified_locus`),
-  ranked `candidateRootCauses` (`corroborated_candidate` / `cohort_rate_isolated` /
-  `counterfactual_verified`), recent change blast-radius metrics, and recurring
-  historical findings.
+- For `triage_incident` and AutoSRE anchors (`change`, `finding`, `incident`),
+  `bundle.autosre` separates:
+  - `faultLocus` (`unverified_locus` — deepest error span)
+  - `candidateChanges` (`corroborated_candidate` / `cohort_rate_isolated` / `counterfactual_verified`, with change blast-radius metrics)
+  - `contentionCandidates` (noisy-neighbor traces hitting the same downstream service within ±30s)
+  - `priorFindings` (historical `InvestigationFinding`s matching the environment/service or fingerprint)
 
 ## Reduction, measured
 

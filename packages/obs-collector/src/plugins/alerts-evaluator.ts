@@ -11,7 +11,10 @@ import {
 	type Logger,
 } from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
-import { openOrDeduplicateIncident } from "../lib/autosre-remediation-gate";
+import {
+	evaluateRemediationWatchdogs,
+	openOrDeduplicateIncident,
+} from "../lib/autosre-remediation-gate";
 import { sqlDbFor } from "../lib/sql-db";
 import {
 	assertSafeWebhookUrl,
@@ -431,6 +434,7 @@ export async function evaluateAllRules(
 	const db = sqlDbFor(env);
 	const store = new AlertsStore(db, { allowPrivateWebhookTargets });
 	const rules = await store.listEnabledRules();
+	await evaluateRemediationWatchdogs(db).catch(() => undefined);
 	return evaluateRuleBatch(store, rules, {
 		logger,
 		tracer,

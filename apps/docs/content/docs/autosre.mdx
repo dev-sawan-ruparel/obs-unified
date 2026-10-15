@@ -21,21 +21,22 @@ Standard APM tools and naive LLM incident responders fail in five recurring prod
 
 **The challenge:** Suppose release `v2.4.1` is rolled out to handle **95% of production traffic**, while `v2.4.0` serves the remaining **5%**. During an outage caused by an upstream payment gateway or expired certificate, `v2.4.1` will naturally account for **95% of all errors**. A naive agent that checks "which version has the most errors?" will blame and roll back `v2.4.1`, even though both versions have the exact same per-request error rate.
 
-**How AutoSRE solves it:** The blast-radius evaluator (`GET /internal/changes/:id/blast-radius` / `get_change_blast_radius`) computes **traffic-normalized cohort error-rate lift** across a minimum sample size (`N >= 30` requests per cohort by default):
+**How AutoSRE solves it:** The blast-radius evaluator (`GET /internal/changes/:id/blast-radius` / `get_change_blast_radius`) computes **traffic-normalized cohort error-rate lift** across a minimum sample size (`N >= 50` requests per cohort by default, configurable via `minSample`):
 
 ```text
 ErrorRate(v) = error_requests(v) / total_requests(v)
-Lift         = ErrorRate(v_new) / max(ErrorRate(v_prev), 0.001)
+RelativeRisk = ErrorRate(v_new) / max(ErrorRate(v_prev), 0.001)
 ```
 
-- If `v2.4.1` has a 12% error rate and `v2.4.0` has a 0.08% error rate (`Lift >= 3.0` and absolute delta `>= 2%`), the cohort verdict is **`isolated_to_new_version`**, promoting the finding to `cohort_rate_isolated`.
-- If both `v2.4.1` and `v2.4.0` fail at ~12%, the cohort verdict is **`shared_across_versions`**, blocking naive version rollback and triggering downstream contention analysis.
+- If `v2.4.1` has a 12% error rate and `v2.4.0` has a 0.08% error rate (`RelativeRisk >= 5.0` and absolute rate difference `>= 5%`, or `p95Ratio >= 2.5`), the cohort verdict is **`isolated_to_new_version`**, promoting the finding to `cohort_rate_isolated`.
+- If an instant 100% cutover occurs (`oldCohort.requestCount < N` but pre-change baseline `preBaseline.requestCount >= N`) and the same thresholds hold against pre-change baseline, the cohort verdict is **`sequential_post_cutover_regression`** (`corroborated_candidate`).
+- If both `v2.4.1` and `v2.4.0` fail (`errorRate >= 5%` on both), AutoSRE distinguishes between noisy-neighbor contention (**`shared_degradation_new_version_aggressor`**) and an external upstream outage (**`shared_degradation_external_cause`**).
 
 ### 2. Noisy-neighbor shared database contention
 
 **The challenge:** Sometimes a bad deploy (`v2.4.1`) introduces an unindexed query or connection pool leak that exhausts a shared PostgreSQL instance (`db:prod:postgresql:orders-primary:5432/orders`). Once the database saturates, requests on the old version (`v2.4.0`) *also* start failing with connection timeouts. If an agent treats "old version is also failing" as proof that the deploy is innocent, it will miss the real culprit.
 
-**How AutoSRE solves it:** Instead of refuting the deploy when errors are shared across versions, AutoSRE runs a **shared-resource contention join** across canonical resource identities (`environment + namespace + kind + name`). When `v2.4.1` exhibits a `>= 2x` latency/connection amplification on a shared database or queue node while `v2.4.0` fails downstream on that same node, AutoSRE emits `cohortVerdict: "shared_resource_contention"` with an explicit `contends_for` causal triple pointing to the contending trace.
+**How AutoSRE solves it:** Instead of refuting the deploy when errors are shared across versions, AutoSRE runs a **shared-resource contention join** across canonical resource identities (`environment + namespace + kind + name`). When `v2.4.1` exhibits a `>= 3x` downstream call fanout or duration amplification (`fanoutRatio >= 3.0 || durationRatio >= 3.0`) on a shared database or queue node while `v2.4.0` fails downstream on that same node, AutoSRE emits `cohortVerdict: "shared_degradation_new_version_aggressor"` (`corroborated_candidate`) and populates `sharedResourceAggressors` with the contending trace/span (`contended_on_shared_resource` / `induced_shared_resource_contention`).
 
 ### 3. Structural code overlap without causal proof
 
@@ -48,7 +49,7 @@ Lift         = ErrorRate(v_new) / max(ErrorRate(v_prev), 0.001)
 | **`relationshipCertainty`** | `exact`, `inferred`, `heuristic` | How was the graph edge constructed? (`exact` = shared trace/span ID or exact `code.filepath` match). |
 | **`causalProofTier`** | `counterfactual_verified`, `cohort_rate_isolated`, `corroborated_candidate`, `unverified_locus` | Has the root-cause hypothesis been proven via paired counterfactual replay or cohort rate isolation? |
 
-Code-path overlap alone is capped at `causalProofTier: "corroborated_candidate"`. It can never authorize an autonomous rollback or flag flip without cohort rate isolation (`cohort_rate_isolated`) or counterfactual replay (`counterfactual_verified`).
+Code-path overlap (`touched_same_code_path`) alone is capped at `causalProofTier: "corroborated_candidate"`. It can never authorize an autonomous rollback or flag flip without cohort rate isolation (`cohort_rate_isolated`) or counterfactual replay (`counterfactual_verified`).
 
 ### 4. Paired baseline-fail + candidate-pass counterfactual verification
 
@@ -56,17 +57,17 @@ Code-path overlap alone is capped at `causalProofTier: "corroborated_candidate"`
 
 **How AutoSRE solves it:** Upgrading a finding to `counterfactual_verified` (`POST /internal/findings/:id/counterfactual`) requires a **paired evaluation**:
 
-1. **Baseline failure (`failingRunId`):** An `eval_runs` record against the incident's broken `serviceVersion` / `commitSha` / `flagVariant` that reproduces the failure (`passed = 0`).
-2. **Candidate pass (`passingRunIds`):** `K` consecutive passing `eval_runs` (`passed = 1`) of the exact same `eval_case_id` against the candidate remediation state.
+1. **Baseline failure (`failingRunId`):** An `eval_runs` record against the incident's broken `serviceVersion` / `commitSha` / `candidateAgentVersion` that reproduces the failure (`passed = 0`) with a matching `input_payload_hash` and `failure_fingerprint`.
+2. **Candidate pass (`passingRunIds`):** `K` passing `eval_runs` (`passed = 1`, `requiredTrials >= 1`) of the exact same `eval_case_id` and `input_payload_hash` against the candidate remediation state.
 
 ### 5. Competing alerts, state drift, and post-remediation regressions
 
 **The challenge:** During an outage, webhook retries or multi-symptom alerts can spawn duplicate agent runs that race to roll back the same service. Or a human operator may manually deploy `v2.4.2` while an agent is still deciding to roll back `v2.4.1`.
 
 **How AutoSRE solves it:**
-- **Durable incident lease (`incident_investigations`):** Deduplicates alert dispatches by `(project_id, environment, dedup_key)` and enforces a single lease owner with heartbeats.
-- **Pre-execution CAS grant (`remediation_proposals`):** `propose_remediation_action` binds an action to `expectedCurrentState` (e.g. `{ version: "2.4.1", commitSha: "8f3a1b2" }`), evaluates policy, and either queues the proposal for **1-Click Human Approval** in the dashboard (`pending_human_approval`) or issues a short-lived cryptographic `grantToken`.
-- **Execution claim & watchdog (`claim_remediation_grant`):** The runner claims the token (`claimed_executing`), verifies CAS state, and records completion (`completed`). A post-execution watchdog monitors the target service and records `recoveryVerificationStatus` (`recovered_unverified`, `regressed`, or `inconclusive_low_traffic`), keeping operational recovery distinct from causal proof.
+- **Durable incident lease (`incident_investigations`):** Deduplicates firing alerts by `(project_id, environment, dedup_key)` and enforces an exclusive runner lease (`POST /internal/incidents/:id/lease`).
+- **Pre-execution CAS policy gate (`remediation_proposals`):** `propose_remediation_action` binds an action to `expectedCurrentState` (e.g. `{ version: "2.4.1", commitSha: "8f3a1b2" }`), evaluates the action-specific policy matrix (plus a 3-proposal/hour circuit breaker), and either parks the proposal for **1-Click Human Approval** in the dashboard (`/#/autonomous-review`, `status: "pending_human_approval"`) or issues a 5-minute single-use `grantToken` (`status: "grant_issued"`).
+- **External runner claim & collector watchdog (`claim_remediation_grant`):** The collector acts as the **stateful authorization gate**, while your external agent or CI/CD runner claims the single-use `grantToken` (`operation: "claim"`, verifying `expectedCurrentState` against `ontology_nodes`), executes the actual infrastructure rollback/flag-toggle/PR, and records `operation: "complete"`. Completing a proposal arms the post-remediation watchdog (`+2m / +5m / +15m`, evaluated on every alert-evaluator tick, hourly sweep, or via `POST /internal/remediations/watchdog`), which updates `recoveryStatus` (`monitoring`, `recovered`, `still_degraded`, or `inconclusive_low_traffic`) and `causalVerificationStatus` (`operationally_corroborated` vs. `refuted`) without conflating operational recovery with `counterfactual_verified`.
 
 ---
 
@@ -74,7 +75,7 @@ Code-path overlap alone is capped at `causalProofTier: "corroborated_candidate"`
 
 ### 1. Stamp lineage and feature flags in your SDK
 
-Pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` (or set `OBS_ENVIRONMENT`, `OBS_SERVICE_VERSION`, `OBS_COMMIT_SHA`, `OBS_CONFIG_DIGEST`) when initializing `@obsunified/telemetry-sdk`, `@obsunified/analytics-sdk`, or `@obsunified/sdk`:
+In **TypeScript / JavaScript** (`@obsunified/telemetry-sdk`, `@obsunified/analytics-sdk`, or `@obsunified/sdk`), pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` (or set `OBS_ENVIRONMENT`, `OBS_SERVICE_VERSION`, `OBS_COMMIT_SHA`, `OBS_CONFIG_DIGEST`) when initializing, and call `recordFeatureFlag(...)` inside request scope:
 
 ```ts
 import { initObservability, recordFeatureFlag } from "@obsunified/telemetry-sdk";
@@ -93,6 +94,8 @@ recordFeatureFlag("enable_legacy_tax_fallback", false, {
   providerName: "openfeature",
 });
 ```
+
+In **non-JS OpenTelemetry SDKs** (`Python`, `Go`, `Rust`, `Java`, `.NET`, `PHP`, `Ruby`, `Elixir`, `Swift`, `Kotlin`), set standard OpenTelemetry resource/span attributes directly (`service.version`, `deployment.environment.name`, `vcs.commit.id`, `obs.config.digest`, and `feature_flag.key` + `feature_flag.variant` or `obs.feature_flags.<key>`).
 
 ### 2. Record deploys, config changes, or flag flips from CI/CD
 
@@ -119,11 +122,11 @@ pnpm dlx @obsunified/cli changes record \
 
 The `@obsunified/mcp-server` exposes six AutoSRE tools alongside `get_evidence_bundle` (`intent: "triage_incident"`):
 
-1. **`get_evidence_bundle`** (`intent: "triage_incident"`) — Returns a token-budgeted incident bundle with `faultLocus` (`unverified_locus`), `candidateRootCauses`, `recentChanges`, `cohortComparison`, and `historicalMatches`.
+1. **`get_evidence_bundle`** (`intent: "triage_incident"`) — Returns a token-budgeted incident bundle with `bundle.autosre` (`faultLocus`, `candidateChanges`, `contentionCandidates`, and `priorFindings`) across `trace`, `action`, `agent_run`, `tool_call`, `change`, `finding`, or `incident` anchors.
 2. **`list_recent_changes`** — Lists recent deploys, flag flips, config updates, and prompt releases scoped by `environment` and `serviceName`.
-3. **`get_change_blast_radius`** — Computes traffic-normalized cohort error-rate lift (`isolated_to_new_version`, `shared_across_versions`, `shared_resource_contention`, or `insufficient_sample`), noisy-neighbor contention, and stack-frame `touchedPaths` overlap.
+3. **`get_change_blast_radius`** — Computes traffic-normalized cohort error-rate lift (`isolated_to_new_version`, `sequential_post_cutover_regression`, `shared_degradation_new_version_aggressor`, `shared_degradation_external_cause`, `no_regression_detected`, or `insufficient_sample`), noisy-neighbor contention, and stack-frame `touchedPaths` overlap.
 4. **`search_similar_findings`** — Queries historical `InvestigationFinding` records by stable `fingerprint` (`environment + originatingNodeId + normalizedOperation + errorSignature + downstreamTargetNodeId`) so recurring incidents immediately surface proven prior fixes.
-5. **`record_investigation_finding`** — Persists a structured finding with `causalChain` triples (`introduced_by`, `triggered_by_flag`, `contends_for`, `propagates_to`), `citedEvidenceIds`, and optional paired counterfactual eval run IDs.
+5. **`record_investigation_finding`** — Persists a structured finding with `causalChain` triples (`degraded_after_change`, `isolated_to_version_cohort`, `touched_same_code_path`, `contended_on_shared_resource`, `induced_shared_resource_contention`, `originated_fault_in_span`, `verified_by_counterfactual`, `mitigated_by_change`, `remediated_by_agent_run`), `citedEvidenceIds`, and optional paired counterfactual eval run IDs.
 6. **`propose_remediation_action`** & **`claim_remediation_grant`** — Evaluates the pre-execution policy matrix and manages the CAS execution grant lifecycle (`claim`, `complete`, `fail`).
 
 ---
