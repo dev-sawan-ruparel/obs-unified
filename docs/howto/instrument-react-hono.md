@@ -323,7 +323,7 @@ After all the above is wired:
    endpoint at `/internal/telemetry/traces/:traceId`:
 
    ```bash
-   curl -H "X-Obs-Ingest-Key: $OBS_INGEST_KEY" \
+   curl -sf -H "Authorization: Bearer $OBS_DASHBOARD_TOKEN" \
      "$OBS_COLLECTOR_URL/internal/telemetry/traces/<traceId>" | jq
    ```
 

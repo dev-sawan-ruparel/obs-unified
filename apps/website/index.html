@@ -13,6 +13,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="canonical" href="https://obsunified.com/" />
+    <link rel="alternate" type="text/plain" href="https://obsunified.com/llms.txt" title="LLMs.txt — Machine-readable guide for AI agents" />
 
     <title>Observability Unified — a telemetry graph agents can debug with</title>
     <meta
@@ -43,6 +44,33 @@
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <div id="app"></div>
+    <noscript>
+      <main>
+        <h1>Observability Unified — Unified Telemetry Graph &amp; AutoSRE for Humans and AI Agents</h1>
+        <p>
+          Observability Unified is an open-source, self-hostable observability platform connecting OpenTelemetry traces, structured logs, LLM/AI calls, frontend usage events, rrweb session replays, alerts, CPU profiles, Agent Action Graph records, and AutoSRE causal ontology through one collector, one dashboard, and one MCP server (<code>@obsunified/mcp-server</code>).
+        </p>
+        <h2>Machine-Readable Entry Points for AI Coding Agents (Claude Code, Codex, Antigravity, Cursor)</h2>
+        <ul>
+          <li><a href="https://obsunified.com/llms.txt">https://obsunified.com/llms.txt</a> — Primary AI agent guide, compatibility matrix, and 5-step setup playbook</li>
+          <li><a href="https://docs.obsunified.com/llms.txt">https://docs.obsunified.com/llms.txt</a> — Machine-readable documentation index</li>
+          <li><a href="https://docs.obsunified.com/llms-full.txt">https://docs.obsunified.com/llms-full.txt</a> — Complete documentation corpus in plain Markdown</li>
+          <li><a href="https://docs.obsunified.com/docs/getting-started">https://docs.obsunified.com/docs/getting-started</a> — Getting Started &amp; Compatibility Guide</li>
+          <li><a href="https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.1">Agent Skill Bundles (.skill)</a> — Prebuilt <code>instrument-obs-unified</code> and <code>investigate-obs-unified</code> skills</li>
+        </ul>
+        <h2>Application Compatibility &amp; Signal Matrix</h2>
+        <ul>
+          <li><strong>Tier 1 — Full First-Party Unified Stack:</strong> Browser web apps (React, Next.js, Vite, Vue, Svelte, Vanilla TS/JS via <code>@obsunified/analytics-sdk</code>), TypeScript/Node/Cloudflare Workers/Hono/Express/Fastify backends (<code>@obsunified/telemetry-sdk</code> or <code>@obsunified/sdk</code>), and Go/Rust backends. Supports all signals including click-to-trace (<code>x-obs-interaction</code>), DOM session replay (<code>rrweb</code>), AI calls, Agent Action Graph, and AutoSRE release lineage.</li>
+          <li><strong>Tier 2 — Standard OpenTelemetry Backends:</strong> Python (Flask, FastAPI, Django), Java/Kotlin (Spring Boot), .NET, Ruby, PHP, C++ via OTLP HTTP/JSON (<code>POST /v1/traces</code>, <code>POST /v1/logs</code>, <code>POST /v1/metrics</code> with <code>OTEL_EXPORTER_OTLP_PROTOCOL=http/json</code>). Cross-language click-to-trace works by stamping <code>obs.interaction.id</code> from the incoming <code>x-obs-interaction</code> HTTP header.</li>
+          <li><strong>Tier 3 — Partial or Constrained Shapes (Report to User):</strong> Native mobile apps (iOS/Android/React Native/Flutter do not support browser DOM <code>rrweb</code> session replay); CLI/cron/headless jobs (no browser replay); async message queues (require propagating <code>traceparent</code> / <code>x-obs-interaction</code> / <code>x-obs-action-id</code> in message headers); binary Protobuf-only OTLP exporters (require JSON or an OTel Collector gateway).</li>
+        </ul>
+        <h2>Autonomous Setup vs. Human Intervention</h2>
+        <ul>
+          <li><strong>100% Autonomous (Local Dev with Docker):</strong> Start <code>ghcr.io/dev-sawan-ruparel/obs-unified:latest</code> on ports <code>5173</code>/<code>8790</code> (default local credentials: <code>INGEST_KEY=dev-ingest-key</code>, <code>DASHBOARD_PASSWORD=e2e-test-pass</code>, <code>DASHBOARD_TOKEN=e2e-dashboard-token</code>), verify with <code>OBS_ADMIN_TOKEN=e2e-dashboard-token pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:3000</code>, scaffold with <code>pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes</code> or wire existing app SDKs, verify trace ingestion via <code>GET /internal/telemetry/overview</code> with <code>Authorization: Bearer e2e-dashboard-token</code>, and register <code>@obsunified/mcp-server</code>.</li>
+          <li><strong>When Human Intervention Is Required:</strong> (1) Starting Docker Desktop if the local Docker daemon is stopped; (2) Cloud/production deployment credentials (<code>wrangler login</code>, DNS routing, <code>wrangler secret put</code>, or Vercel/GitHub Actions encrypted secrets); (3) Opting into continuous browser DOM recording (<code>startReplay()</code>); (4) Approving high-risk production AutoSRE rollbacks when causal proof is below cohort isolation or counterfactual verification.</li>
+        </ul>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

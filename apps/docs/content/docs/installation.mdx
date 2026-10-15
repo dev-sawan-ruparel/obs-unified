@@ -72,10 +72,11 @@ This starts Postgres, the collector, the dashboard, a filesystem blob store, and
 
 Default local credentials:
 
-| Credential | Value |
-| --- | --- |
-| Ingest write key | `dev-ingest-key` |
-| Dashboard password | `e2e-test-pass` |
+| Credential | Environment Variable | Default Local Value |
+| --- | --- | --- |
+| Ingest write key | `INGEST_KEY` / `OBS_INGEST_KEY` | `dev-ingest-key` |
+| Dashboard password | `DASHBOARD_PASSWORD` | `e2e-test-pass` |
+| Read bearer token (MCP & CLI) | `DASHBOARD_TOKEN` / `OBS_API_TOKEN` | `e2e-dashboard-token` |
 
 Run the local image smoke test when you want a full outside-the-container verification:
 
