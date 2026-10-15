@@ -1,6 +1,6 @@
 # RFC 0013: AutoSRE causal ontology, change correlation, and incident memory
 
-- **Status:** Draft (Rev 4 — Complete End-to-End Specification)
+- **Status:** Implemented (2026-10-15, PR #31; hardening PRs follow). Rev 4 — Complete End-to-End Specification
 - **Author:** @sawanruparel
 - **Created:** 2026-10-14
 - **Updated:** 2026-10-15
@@ -1018,44 +1018,53 @@ closed-loop AutoSRE system** — broken down into five co-dependent sub-goals th
 
 ## Acceptance Criteria
 
-- [ ] **Relationship vs. Causal Separation ([P1 #1]):** `touched_same_code_path`
+- [x] **Relationship vs. Causal Separation ([P1 #1]):** `touched_same_code_path`
       and `originated_fault_in_span` produce `relationshipCertainty: "exact"`
       but `causalProofTier: "unverified_locus"` (or `"corroborated_candidate"`),
       and cannot authorize `autonomous_write` rollbacks or flag flips on their
       own.
-- [ ] **Traffic-Normalized Cohort Lift & Shared Degradation ([P1 #2]):** A canary
+      _Evidence:_ Verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (Criterion 2: `unverified_locus` locus; `rollback_deploy` blocked_by_policy) and the end-to-end flow (unverified rollback proposal rejected).
+- [x] **Traffic-Normalized Cohort Lift & Shared Degradation ([P1 #2]):** A canary
       serving 95% of traffic with an unchanged per-request error rate produces
       `no_regression_detected`. When both `v_new` and `v_old` fail concurrently,
       the evaluator checks whether `v_new` is a cross-trace contention aggressor
       (`shared_degradation_new_version_aggressor`) rather than blindly refuting
       `v_new`.
-- [ ] **Paired Counterfactual & Comparable Recovery Traffic ([P1 #3]):**
+      _Evidence:_ Verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (Criterion 3: equal-rate case yields `no_regression_detected`; shared DB degradation yields `shared_degradation_new_version_aggressor`).
+- [~] **Paired Counterfactual & Comparable Recovery Traffic ([P1 #3]):**
       `POST /internal/findings/:id/counterfactual` verifies in SQL that
       `failingRunId` failed with matching `failure_fingerprint` and
       `passingRunIds` passed on the same `eval_case_id` and `input_payload_hash`.
       Watchdog checks with traffic below `minComparableRequests` resolve to
       `recoveryStatus: "inconclusive_low_traffic"`.
-- [ ] **Pre-Execution Enforcement & Human Approval Boundary ([P1 #4]):**
+      _Evidence:_ Partially verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (end-to-end flow: paired counterfactual and watchdog `inconclusive_low_traffic`); SQL matching is in `autosre-routes.ts` / `autosre-remediation-gate.ts`.
+- [~] **Pre-Execution Enforcement & Human Approval Boundary ([P1 #4]):**
       `POST /internal/remediations/propose` enforces action-specific proof
       requirements before execution; agent bearer tokens are rejected on
       `POST /internal/remediations/:id/approve`; `claim` rejects stale
       `expectedCurrentState.version` or replayed `idempotencyKey`s; and expired
       claims transition to `execution_timed_out`.
-- [ ] **Canonical Environment & Endpoint Scoping ([P1 #5]):** `staging` and
+      _Evidence:_ Partially verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (agent bearer `/approve` returns 403; replayed `grantToken` claim returns 409). `execution_timed_out` is implemented in `autosre-remediation-gate.ts` without a dedicated test.
+- [x] **Canonical Environment & Endpoint Scoping ([P1 #5]):** `staging` and
       `prod` services and two Postgres clusters both named `orders` produce
       distinct `(project_id, environment, id)` rows and never cross-join in
       contention or blast-radius queries.
-- [ ] **Cycle-Safe Topology Traversal ([P2 #6]):** Cyclic `ontology_edges`
+      _Evidence:_ Verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (Criterion 1: staging vs prod and distinct `host:port` canonical node IDs).
+- [x] **Cycle-Safe Topology Traversal ([P2 #6]):** Cyclic `ontology_edges`
       (`A → B → A` or `A → Queue → A`) terminate deterministically via Tarjan
       SCC condensation without infinite loops.
-- [ ] **Durable Incident Deduplication & Leases ([P2 #7]):** Concurrent firing
+      _Evidence:_ Verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (Criterion 2: `computeTarjanScc`).
+- [x] **Durable Incident Deduplication & Leases ([P2 #7]):** Concurrent firing
       alerts for the same `(project_id, environment, dedup_key)` attach to a
       single `incident_investigation`, and competing runners cannot claim an
       active lease before `lease_expires_at`.
-- [ ] **Stable Recurrence Fingerprint ([P2 #8]):** Two separate traces failing on
+      _Evidence:_ Verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (incident dedup and runner lease; second runner gets 409).
+- [x] **Stable Recurrence Fingerprint ([P2 #8]):** Two separate traces failing on
       the same `(environment, originatingNodeId, normalizedOperation, errorSignature, downstreamTargetNodeId)`
       produce the exact same `fingerprint` despite having different `trace_id`,
       `span_id`, and `action_id` UUIDs.
-- [ ] **Dialect-Portable Indexing & Surface Sync:** Cohort and contention queries
+      _Evidence:_ Verified by `packages/obs-collector/src/__tests__/autosre-closed-loop.test.ts` (Criterion 6: `buildFindingFingerprint`).
+- [~] **Dialect-Portable Indexing & Surface Sync:** Cohort and contention queries
       use indexed columns (`idx_spans_cohort_attribution`, `idx_spans_contention_lookup`)
       in both SQLite/D1 and Postgres, and `pnpm check:surfaces` passes.
+      _Evidence:_ Partially met: indexes are defined in both `migrations/050_autosre_causal_ontology.sql` and `migrations-postgres/050_autosre_causal_ontology.sql`, and `pnpm check:surfaces` passes, but only the SQLite/D1 harness executes the queries in tests (Postgres execution is not yet covered).

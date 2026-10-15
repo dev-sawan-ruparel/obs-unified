@@ -28,7 +28,7 @@ ErrorRate(v) = error_requests(v) / total_requests(v)
 RelativeRisk = ErrorRate(v_new) / max(ErrorRate(v_prev), 0.001)
 ```
 
-- If `v2.4.1` has a 12% error rate and `v2.4.0` has a 0.08% error rate (`RelativeRisk >= 5.0` and absolute rate difference `>= 5%`, or `p95Ratio >= 2.5`), the cohort verdict is **`isolated_to_new_version`**, promoting the finding to `cohort_rate_isolated`.
+- If `v2.4.1` has a 12% error rate and `v2.4.0` has a 0.08% error rate (absolute rate difference `>= 5%` or `p95Ratio >= 2.5`, **and** `RelativeRisk >= 5.0` or `p95Ratio >= 2.5`), the cohort verdict is **`isolated_to_new_version`**, promoting the finding to `cohort_rate_isolated`.
 - If an instant 100% cutover occurs (`oldCohort.requestCount < N` but pre-change baseline `preBaseline.requestCount >= N`) and the same thresholds hold against pre-change baseline, the cohort verdict is **`sequential_post_cutover_regression`** (`corroborated_candidate`).
 - If both `v2.4.1` and `v2.4.0` fail (`errorRate >= 5%` on both), AutoSRE distinguishes between noisy-neighbor contention (**`shared_degradation_new_version_aggressor`**) and an external upstream outage (**`shared_degradation_external_cause`**).
 
@@ -113,7 +113,7 @@ pnpm dlx @obsunified/cli changes record \
   --commit-sha 8f3a1b2c \
   --previous-commit-sha 7d2e0a1b \
   --summary "Switch tax rounding to strict decimal mode" \
-  --touched-paths "src/checkout/tax.ts,src/checkout/charge.ts"
+  --touched-paths "src/checkout/charge.ts"
 ```
 
 ---
@@ -133,10 +133,10 @@ The `@obsunified/mcp-server` exposes six AutoSRE tools alongside `get_evidence_b
 
 ## Verifying locally with the E2E testbed
 
-You can run the full 9-stage live D1 + Wrangler testbed (`Scenario D`) locally with a single command:
+You can run the full 10-stage live D1 + Wrangler testbed (`Scenario D`) locally with a single command:
 
 ```bash
 pnpm e2e:autosre
 ```
 
-This spins up a temporary local D1 database, applies all migrations through `050_autosre_causal_ontology.sql`, seeds `Scenario D` (canary rollout `v2.4.0` vs. `v2.4.1`, stack-trace overlap on `src/checkout/tax.ts`, and paired counterfactual eval runs), and verifies every AutoSRE endpoint end-to-end.
+The script needs `jq`, `curl`, and `wrangler` on your PATH and builds `@obsunified/cli` first. It creates an isolated local D1 database under `.dev/e2e-autosre/d1` (your normal `apps/collector/.wrangler` state is left untouched), applies every migration, starts `wrangler dev` on port 8795 against it, seeds `Scenario D` (canary rollout `v2.4.0` vs. `v2.4.1`, stack-trace overlap on `src/checkout/charge.ts`, and paired counterfactual eval runs; change `chg_scenario_d_deploy_241`, incident `inc_scenario_d`, finding `fnd_scenario_d`), and verifies the AutoSRE endpoints end-to-end. The ingest key is read from `apps/collector/.dev.vars`.

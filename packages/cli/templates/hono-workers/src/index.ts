@@ -14,6 +14,9 @@ import { cors } from "hono/cors";
 interface Env {
 	OBS_COLLECTOR_URL: string;
 	OBS_INGEST_KEY: string;
+	OBS_ENVIRONMENT?: string;
+	OBS_SERVICE_VERSION?: string;
+	OBS_COMMIT_SHA?: string;
 }
 
 const log = createLogger("__APP_NAME__");
@@ -35,6 +38,10 @@ app.use("*", async (c, next) => {
 		collectorUrl: c.env.OBS_COLLECTOR_URL,
 		apiKey: c.env.OBS_INGEST_KEY,
 		serviceName: "__APP_NAME__",
+		// Release lineage powers AutoSRE change correlation and cohort attribution.
+		environment: c.env.OBS_ENVIRONMENT ?? "dev",
+		serviceVersion: c.env.OBS_SERVICE_VERSION ?? "0.1.0",
+		commitSha: c.env.OBS_COMMIT_SHA,
 	});
 	await next();
 });

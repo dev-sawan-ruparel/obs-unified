@@ -1344,7 +1344,9 @@ const seedAutoSreScenarioD = async (cookie) => {
 						kv("vcs.commit.id", "1111111"),
 					],
 				},
-				scopeSpans: [{ scope: { name: "seed-scenario-d-v240" }, spans: baselineSpans }],
+				scopeSpans: [
+					{ scope: { name: "seed-scenario-d-v240" }, spans: baselineSpans },
+				],
 			},
 			{
 				resource: {
@@ -1355,7 +1357,9 @@ const seedAutoSreScenarioD = async (cookie) => {
 						kv("vcs.commit.id", "2222222"),
 					],
 				},
-				scopeSpans: [{ scope: { name: "seed-scenario-d-v241" }, spans: candidateSpans }],
+				scopeSpans: [
+					{ scope: { name: "seed-scenario-d-v241" }, spans: candidateSpans },
+				],
 			},
 		],
 	});
@@ -1416,13 +1420,14 @@ const seedAutoSreScenarioD = async (cookie) => {
 				{
 					subjectKind: "change",
 					subjectId: changeId,
-					predicate: "introduced_by_change",
+					predicate: "degraded_after_change",
 					objectKind: "span",
 					objectId: exemplarSpanId,
 					relationshipCertainty: "exact",
 					causalProofTier: "cohort_rate_isolated",
 					confidence: 0.94,
-					reason: "Canary cohort lift 20x + stackframe overlap on src/checkout/charge.ts",
+					reason:
+						"Canary cohort lift 20x + stackframe overlap on src/checkout/charge.ts",
 				},
 			],
 			citedEvidenceIds: [changeId, exemplarTraceId, exemplarSpanId],
@@ -1432,18 +1437,31 @@ const seedAutoSreScenarioD = async (cookie) => {
 	const findingFingerprint = findingRes.finding?.fingerprint ?? "fp_scenario_d";
 
 	// 4. Counterfactual verification via paired baseline + candidate eval runs
-	const evalCaseRes = await dashFetch(cookie, "/internal/eval-cases", {
-		method: "POST",
-		body: JSON.stringify({
-			name: "Scenario D checkout-api chargeCard reproducer",
-			sourceEntityType: "trace",
-			sourceEntityId: exemplarTraceId,
-			referencePayload: { route: "POST /api/checkout", amountCents: 4999 },
-			expectedOutcome: "HTTP 200 without NullPointerError",
-		}),
-	});
-	const evalCaseId = evalCaseRes.evalCase?.id ?? evalCaseRes.case?.id;
-	if (evalCaseId) {
+	// Idempotent: reuse an existing reproducer case (same source trace + name)
+	// and skip re-creating its runs/results/counterfactual on re-seed.
+	const evalCaseName = "Scenario D checkout-api chargeCard reproducer";
+	const existingCases = await dashFetch(
+		cookie,
+		`/internal/eval-cases?sourceEntityType=trace&sourceEntityId=${encodeURIComponent(exemplarTraceId)}`,
+	);
+	const existingCase = (existingCases.evalCases ?? []).find(
+		(c) => c.name === evalCaseName,
+	);
+	let evalCaseId = existingCase?.id;
+	if (!existingCase) {
+		const evalCaseRes = await dashFetch(cookie, "/internal/eval-cases", {
+			method: "POST",
+			body: JSON.stringify({
+				name: evalCaseName,
+				sourceEntityType: "trace",
+				sourceEntityId: exemplarTraceId,
+				referencePayload: { route: "POST /api/checkout", amountCents: 4999 },
+				expectedOutcome: "HTTP 200 without NullPointerError",
+			}),
+		});
+		evalCaseId = evalCaseRes.evalCase?.id ?? evalCaseRes.case?.id;
+	}
+	if (evalCaseId && !existingCase) {
 		const failingRunRes = await dashFetch(cookie, "/internal/eval-runs", {
 			method: "POST",
 			body: JSON.stringify({
@@ -1499,16 +1517,20 @@ const seedAutoSreScenarioD = async (cookie) => {
 					actualOutcome: "Passed cleanly on rollback candidate v2.4.0",
 				}),
 			});
-			await dashFetch(cookie, `/internal/findings/${findingId}/counterfactual`, {
-				method: "POST",
-				body: JSON.stringify({
-					environment: env,
-					evalCaseId,
-					failingRunId,
-					passingRunIds: [passingRunId],
-					requiredTrials: 1,
-				}),
-			});
+			await dashFetch(
+				cookie,
+				`/internal/findings/${findingId}/counterfactual`,
+				{
+					method: "POST",
+					body: JSON.stringify({
+						environment: env,
+						evalCaseId,
+						failingRunId,
+						passingRunIds: [passingRunId],
+						requiredTrials: 1,
+					}),
+				},
+			);
 		}
 	}
 
@@ -1564,8 +1586,9 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 		}
 
 		if (SCENARIO_ONLY === "autosre" || SCENARIO_ONLY === "D") {
-			await step("Scenario D AutoSRE closed-loop (/v1/changes + /internal/findings)", () =>
-				seedAutoSreScenarioD(cookie),
+			await step(
+				"Scenario D AutoSRE closed-loop (/v1/changes + /internal/findings)",
+				() => seedAutoSreScenarioD(cookie),
 			);
 		} else {
 			// Seed usage first so we have session windows. Spans + logs then get
@@ -1595,8 +1618,9 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 			await step("alert rules (/internal/alerts/rules)", () =>
 				seedAlerts(cookie),
 			);
-			await step("Scenario D AutoSRE closed-loop (/v1/changes + /internal/findings)", () =>
-				seedAutoSreScenarioD(cookie),
+			await step(
+				"Scenario D AutoSRE closed-loop (/v1/changes + /internal/findings)",
+				() => seedAutoSreScenarioD(cookie),
 			);
 		}
 		rootSpan.setStatus({ code: SpanStatusCode.OK });
@@ -1614,4 +1638,3 @@ console.log(
 );
 console.log(`         and click "Start replay" — rrweb chunks need a real DOM`);
 console.log();
-

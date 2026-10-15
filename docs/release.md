@@ -21,7 +21,12 @@ make -C skills lint validate build
 
 ## npm packages
 
-Public packages retain the `@obsunified` scope. Add a changeset for behavior
+Public packages retain the `@obsunified` scope. **Every PR that changes a
+published package (source, templates, README shipped in the tarball, or
+dependencies) must include a changeset** (`pnpm changeset`); do not hand-edit
+package versions or changelogs. PR #32 was hand-versioned instead, which
+bypassed `pnpm version-packages` and is the failure this rule prevents. Add a
+changeset for behavior
 changes, run `pnpm version-packages` in a worktree, and merge the version
 changes through a PR. Website/docs are private workspace members and are
 excluded from publishing.

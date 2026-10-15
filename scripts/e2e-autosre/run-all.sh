@@ -1,7 +1,9 @@
 #!/bin/bash
 # Orchestrator for the RFC 0013 AutoSRE Closed-Loop E2E testbed.
-# Resets local D1, applies all migrations (001..050), starts `wrangler dev`,
-# runs `scripts/e2e-autosre/run.sh`, and tears down cleanly on exit.
+# Creates an isolated local D1 under $STATE_DIR/d1 (your shared
+# apps/collector/.wrangler state is never touched), applies every migration,
+# starts `wrangler dev` against it, runs `scripts/e2e-autosre/run.sh`, and
+# tears down cleanly on exit.
 
 set -eu
 set -o pipefail
@@ -15,9 +17,28 @@ COLLECTOR_PORT="${COLLECTOR_PORT:-8795}"
 DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-e2e-test-pass}"
 DASHBOARD_TOKEN="${DASHBOARD_TOKEN:-e2e-dashboard-token}"
 
+# ── preflight ──
+for tool in jq wrangler curl; do
+  if [ "$tool" = "wrangler" ]; then
+    (cd "$COLLECTOR_DIR" && npx --no-install wrangler --version >/dev/null 2>&1) \
+      || { echo "missing required tool: wrangler (run pnpm install)" >&2; exit 1; }
+  else
+    command -v "$tool" >/dev/null 2>&1 \
+      || { echo "missing required tool: $tool" >&2; exit 1; }
+  fi
+done
+
 mkdir -p "$STATE_DIR"
 
 bash "$REPO_ROOT/scripts/setup-local-dev.sh"
+
+INGEST_KEY="${INGEST_KEY:-$({ grep -E '^INGEST_KEY=' "$COLLECTOR_DIR/.dev.vars" | head -1 | cut -d= -f2- ; })}"
+[ -n "$INGEST_KEY" ] || { echo "INGEST_KEY not set and not found in apps/collector/.dev.vars" >&2; exit 1; }
+
+echo "── build @obsunified/cli (used by run.sh) ──"
+(cd "$REPO_ROOT" && pnpm --filter @obsunified/cli build >/dev/null)
+[ -f "$REPO_ROOT/packages/cli/dist/cli.js" ] \
+  || { echo "packages/cli/dist/cli.js missing after build" >&2; exit 1; }
 
 WRANGLER_PID=""
 
@@ -29,13 +50,18 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "── reset local D1 and apply migrations (including 050_autosre_causal_ontology.sql) ──"
+D1_STATE="$STATE_DIR/d1"
+echo "── reset isolated local D1 ($D1_STATE) and apply migrations ──"
 cd "$COLLECTOR_DIR"
-rm -rf .wrangler
-pnpm db:setup >/dev/null
+rm -rf "$D1_STATE"
+for migration in "$REPO_ROOT"/packages/obs-collector/src/migrations/*.sql; do
+  npx wrangler d1 execute obs-collector-db --local --persist-to "$D1_STATE" \
+    --file "$migration" >/dev/null \
+    || { echo "migration failed: $(basename "$migration")" >&2; exit 1; }
+done
 
 echo "── start collector (wrangler dev) on :$COLLECTOR_PORT ──"
-npx wrangler dev --port "$COLLECTOR_PORT" --local --test-scheduled \
+npx wrangler dev --port "$COLLECTOR_PORT" --local --persist-to "$D1_STATE" --test-scheduled \
   >"$STATE_DIR/collector.stdout" 2>&1 &
 WRANGLER_PID=$!
 
@@ -54,5 +80,6 @@ echo "  ready (after ${ATTEMPTS}s)"
 COLLECTOR_URL="http://localhost:$COLLECTOR_PORT" \
 DASHBOARD_PASSWORD="$DASHBOARD_PASSWORD" \
 DASHBOARD_TOKEN="$DASHBOARD_TOKEN" \
+INGEST_KEY="$INGEST_KEY" \
 STATE_DIR="$STATE_DIR" \
   bash "$SCRIPT_DIR/run.sh"

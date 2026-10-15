@@ -6,3 +6,6 @@ compatibility_date = "2025-01-01"
 # [vars] is for non-secret defaults only.
 [vars]
 OBS_COLLECTOR_URL = "__COLLECTOR_URL__"
+OBS_ENVIRONMENT = "dev"
+OBS_SERVICE_VERSION = "0.1.0"
+# Set OBS_COMMIT_SHA at deploy time (for example `wrangler deploy --var OBS_COMMIT_SHA:$(git rev-parse --short HEAD)`).

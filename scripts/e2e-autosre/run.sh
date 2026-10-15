@@ -13,7 +13,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 COLLECTOR_URL="${COLLECTOR_URL:-http://localhost:8790}"
 DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-e2e-test-pass}"
 DASHBOARD_TOKEN="${DASHBOARD_TOKEN:-e2e-dashboard-token}"
-INGEST_KEY="${INGEST_KEY:-obs_default_60738b1b3c903a2f6e8a504e92d8444872e17871acd04504}"
+if [ -z "${INGEST_KEY:-}" ]; then
+  INGEST_KEY="$(grep -E '^INGEST_KEY=' "$REPO_ROOT/apps/collector/.dev.vars" 2>/dev/null | head -1 | cut -d= -f2-)"
+fi
+[ -n "$INGEST_KEY" ] || { echo "INGEST_KEY not set and not found in apps/collector/.dev.vars" >&2; exit 1; }
 STATE_DIR="${STATE_DIR:-$REPO_ROOT/.dev/e2e-autosre}"
 COOKIE_JAR="$STATE_DIR/cookies.txt"
 
