@@ -80,6 +80,7 @@ export type ChangeEventKind = z.infer<typeof ChangeEventKindSchema>;
 
 export const ChangeEventSourceSchema = z.enum([
 	"explicit_api",
+	"ci_webhook",
 	"inferred_telemetry",
 	"autosre_remediation",
 ]);

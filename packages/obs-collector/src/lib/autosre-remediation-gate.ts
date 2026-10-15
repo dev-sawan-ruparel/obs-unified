@@ -9,12 +9,18 @@ import type {
 	RemediationProposalStatus,
 	RemediationStateSpec,
 } from "@obsunified/types";
+import { buildCanonicalNodeId } from "@obsunified/types";
 import { AgentAutonomyLevel } from "@obsunified/types/constants";
+import { consoleLogger, type Logger } from "../framework/logger";
 import { getInvestigationFinding } from "./autosre-findings";
 import { randomHex, sha256Hex } from "./hash";
 import { parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";
-import { assertSafeWebhookUrl } from "./webhook-url";
+import {
+	assertSafeWebhookUrl,
+	type HostLookup,
+	resolveWebhookHost,
+} from "./webhook-url";
 
 interface IncidentRow {
 	project_id: string;
@@ -70,6 +76,89 @@ export const ACTIVE_INCIDENT_STATUSES: ReadonlySet<IncidentStatus> = new Set([
 	"verifying",
 ]);
 
+const ACTIVE_STATUS_SQL =
+	"('open', 'dispatched', 'leased', 'remediating', 'verifying')";
+
+/**
+ * Constant-time comparison for equal-purpose hex digests. Length is not secret
+ * (always a SHA-256 hex digest), so a length mismatch returns early.
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+	if (a.length !== b.length) return false;
+	let diff = 0;
+	for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	return diff === 0;
+}
+
+async function loadProposalRow(
+	db: SqlDb,
+	projectId: string,
+	proposalId: string,
+	environment?: string,
+): Promise<ProposalRow | null> {
+	return environment
+		? await db
+				.prepare(
+					`SELECT * FROM remediation_proposals
+					 WHERE project_id = ? AND environment = ? AND id = ?`,
+				)
+				.bind(projectId, environment.toLowerCase(), proposalId)
+				.first<ProposalRow>()
+		: await db
+				.prepare(
+					`SELECT * FROM remediation_proposals
+					 WHERE project_id = ? AND id = ?
+					 ORDER BY created_at DESC
+					 LIMIT 1`,
+				)
+				.bind(projectId, proposalId)
+				.first<ProposalRow>();
+}
+
+/**
+ * Resolves the environment and canonical node id an alert/analysis-triggered
+ * incident should target. The environment is taken from the most recent span of
+ * the service (rules and analyses carry no environment of their own); with no
+ * service or no spans it falls back to `default` and the supplied node id.
+ */
+export async function resolveServiceIncidentTarget(
+	db: SqlDb,
+	projectId: string,
+	serviceName: string | null | undefined,
+	fallbackNodeId: string,
+	logger: Logger = consoleLogger,
+): Promise<{ environment: string; targetNodeId: string }> {
+	const service = serviceName?.trim();
+	if (!service) return { environment: "default", targetNodeId: fallbackNodeId };
+	let environment = "default";
+	try {
+		const row = await db
+			.prepare(
+				`SELECT environment FROM telemetry_spans
+				 WHERE project_id = ? AND service_name = ?
+				 ORDER BY received_at DESC
+				 LIMIT 1`,
+			)
+			.bind(projectId, service)
+			.first<{ environment: string | null }>();
+		if (row?.environment) environment = row.environment.trim().toLowerCase();
+	} catch (err) {
+		logger.warn("[autosre] could not resolve incident environment", {
+			projectId,
+			service,
+			error: err instanceof Error ? err.message : String(err),
+		});
+	}
+	return {
+		environment,
+		targetNodeId: buildCanonicalNodeId({
+			kind: "service",
+			environment,
+			serviceName: service,
+		}).id,
+	};
+}
+
 /**
  * Opens or deduplicates an active `incident_investigation` (RFC 0013 § 6.A & P2 #7).
  * Multiple firing alerts or webhook retries for the same `(project_id, environment, target_node_id, symptom_category)`
@@ -100,20 +189,23 @@ export async function openOrDeduplicateIncident(
 		`${projectId}::${environment}::${input.targetNodeId}::${category}`,
 	);
 
-	const existing = await db
-		.prepare(
-			`SELECT * FROM incident_investigations
-			 WHERE project_id = ?
-			   AND environment = ?
-			   AND dedup_key = ?
-			   AND status IN ('open', 'dispatched', 'leased', 'remediating', 'verifying')
-			 ORDER BY opened_at DESC
-			 LIMIT 1`,
-		)
-		.bind(projectId, environment, dedupKey)
-		.first<IncidentRow>();
+	const selectActive = () =>
+		db
+			.prepare(
+				`SELECT * FROM incident_investigations
+				 WHERE project_id = ?
+				   AND environment = ?
+				   AND dedup_key = ?
+				   AND status IN ${ACTIVE_STATUS_SQL}
+				 ORDER BY opened_at DESC
+				 LIMIT 1`,
+			)
+			.bind(projectId, environment, dedupKey)
+			.first<IncidentRow>();
 
-	if (existing) {
+	const coalesceInto = async (
+		row: IncidentRow,
+	): Promise<{ incident: IncidentInvestigation; deduplicated: boolean }> => {
 		await db
 			.prepare(
 				`UPDATE incident_investigations
@@ -129,35 +221,39 @@ export async function openOrDeduplicateIncident(
 				nowIso,
 				projectId,
 				environment,
-				existing.id,
+				row.id,
 			)
 			.run();
 
 		const updated = await getIncidentInvestigation(
 			db,
 			projectId,
-			existing.id,
+			row.id,
 			environment,
 		);
 		return {
-			incident: updated ?? mapIncidentRow(existing),
+			incident: updated ?? mapIncidentRow(row),
 			deduplicated: true,
 		};
-	}
+	};
+
+	const existing = await selectActive();
+	if (existing) return coalesceInto(existing);
 
 	const id = input.id?.trim() || `inc_${randomHex(10)}`;
-	const expiresAt = new Date(
-		Date.now() + 30 * 24 * 3600_000,
-	).toISOString();
+	const expiresAt = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
 
-	await db
+	// The partial unique index uq_incidents_active_dedup (migration 051) makes
+	// a concurrent duplicate insert a no-op instead of a second active incident.
+	const inserted = await db
 		.prepare(
 			`INSERT INTO incident_investigations (
 				project_id, environment, id, dedup_key, status, target_node_id,
 				symptom_anchor_kind, symptom_anchor_id, symptom_fingerprint,
 				alert_count, latest_bundle_json, dispatch_attempts,
 				opened_at, updated_at, expires_at
-			) VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, 1, ?, 0, ?, ?, ?)`,
+			) VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, 1, ?, 0, ?, ?, ?)
+			ON CONFLICT DO NOTHING`,
 		)
 		.bind(
 			projectId,
@@ -175,7 +271,22 @@ export async function openOrDeduplicateIncident(
 		)
 		.run();
 
-	const created = await getIncidentInvestigation(db, projectId, id, environment);
+	if (inserted.meta.changes === 0) {
+		// Lost the race to a concurrent opener: coalesce into the winner.
+		const winner = await selectActive();
+		if (winner) return coalesceInto(winner);
+		throw new RemediationGateError(
+			`Incident id ${id} already exists in environment ${environment}`,
+			409,
+		);
+	}
+
+	const created = await getIncidentInvestigation(
+		db,
+		projectId,
+		id,
+		environment,
+	);
 	if (!created) {
 		throw new Error(`Failed to load created incident ${id}`);
 	}
@@ -229,7 +340,7 @@ export async function listIncidentInvestigations(
 		conditions.push("status = ?");
 		binds.push(options.status);
 	}
-	const limit = Math.max(1, Math.min(100, options.limit ?? 50));
+	const limit = Math.max(1, Math.min(200, options.limit ?? 50));
 	binds.push(limit);
 
 	const rows = await db
@@ -285,17 +396,12 @@ export async function acquireIncidentLease(
 		};
 	}
 
-	if (
-		incident.leaseOwnerId &&
-		incident.leaseOwnerId !== input.runnerId &&
-		incident.leaseExpiresAt &&
-		incident.leaseExpiresAt > nowIso
-	) {
+	if (!ACTIVE_INCIDENT_STATUSES.has(incident.status)) {
 		return {
 			acquired: false,
-			reason: `Incident ${incidentId} is already leased by runner ${incident.leaseOwnerId} until ${incident.leaseExpiresAt}`,
-			conflictOwnerId: incident.leaseOwnerId,
-			leaseExpiresAt: incident.leaseExpiresAt,
+			reason: `Incident ${incidentId} is ${incident.status} and can no longer be leased`,
+			conflictOwnerId: null,
+			leaseExpiresAt: null,
 		};
 	}
 
@@ -306,28 +412,32 @@ export async function acquireIncidentLease(
 	const leaseExpiresAt = new Date(
 		Date.parse(nowIso) + durationSec * 1000,
 	).toISOString();
-	const nextStatus: IncidentStatus =
-		incident.status === "open" || incident.status === "dispatched"
-			? "leased"
-			: incident.status;
 
-	await db
+	// The lease precondition lives in the UPDATE itself so two runners racing
+	// for the same incident cannot both succeed: only one sees changes === 1.
+	const res = await db
 		.prepare(
 			`UPDATE incident_investigations
 			 SET lease_owner_id = ?,
 			     lease_expires_at = ?,
-			     status = ?,
+			     status = CASE WHEN status IN ('open', 'dispatched') THEN 'leased' ELSE status END,
 			     updated_at = ?
-			 WHERE project_id = ? AND environment = ? AND id = ?`,
+			 WHERE project_id = ? AND environment = ? AND id = ?
+			   AND status IN ${ACTIVE_STATUS_SQL}
+			   AND (lease_owner_id IS NULL
+			        OR lease_owner_id = ?
+			        OR lease_expires_at IS NULL
+			        OR lease_expires_at <= ?)`,
 		)
 		.bind(
 			input.runnerId,
 			leaseExpiresAt,
-			nextStatus,
 			nowIso,
 			projectId,
 			incident.environment,
 			incident.id,
+			input.runnerId,
+			nowIso,
 		)
 		.run();
 
@@ -337,13 +447,20 @@ export async function acquireIncidentLease(
 		incident.id,
 		incident.environment,
 	);
+	if (res.meta.changes !== 1) {
+		return {
+			acquired: false,
+			reason: `Incident ${incidentId} is already leased by runner ${updated?.leaseOwnerId ?? "unknown"} until ${updated?.leaseExpiresAt ?? "unknown"}`,
+			conflictOwnerId: updated?.leaseOwnerId ?? null,
+			leaseExpiresAt: updated?.leaseExpiresAt ?? null,
+		};
+	}
 	return {
 		acquired: true,
 		incident: updated ?? {
 			...incident,
 			leaseOwnerId: input.runnerId,
 			leaseExpiresAt,
-			status: nextStatus,
 			updatedAt: nowIso,
 		},
 	};
@@ -369,8 +486,44 @@ async function computeHmacSha256Hex(
 }
 
 /**
+ * Resolves the DNS-classification hook for hosts that can resolve names
+ * (Node: `dns.lookup`). Workers cannot reach private networks from `fetch`, so
+ * there the hook is left unset. The specifier is built at runtime so bundlers
+ * for Workers do not try to resolve `node:dns` statically.
+ */
+async function defaultHostLookup(): Promise<HostLookup | undefined> {
+	if (typeof process === "undefined" || !process.versions?.node) {
+		return undefined;
+	}
+	try {
+		const specifier = "node:dns/promises";
+		const dns = (await import(/* @vite-ignore */ specifier)) as {
+			lookup: (
+				host: string,
+				opts: { all: true; verbatim: true },
+			) => Promise<Array<{ address: string }>>;
+		};
+		return async (hostname) =>
+			(await dns.lookup(hostname, { all: true, verbatim: true })).map(
+				(a) => a.address,
+			);
+	} catch {
+		return undefined;
+	}
+}
+
+/**
  * SSRF-safe, HMAC-SHA256 signed AutoSRE incident webhook outbox delivery
- * (RFC 0013 § 6.A).
+ * (RFC 0013 § 6.A). Mirrors the alert webhook delivery: literal host check,
+ * DNS classification (fail closed on private/unresolvable), no redirects and
+ * a 5s timeout.
+ *
+ * Grant handoff (RFC 0013 § 6.B): when `webhook.grant` is supplied the payload
+ * is an `autosre.remediation.grant_issued` event carrying `proposalId`,
+ * `status` and the plaintext `grantToken`. The plaintext token exists only at
+ * approve/propose time (the DB keeps its hash), so the caller that mints it
+ * must hand it to this function in the same request. Grant deliveries do not
+ * count against the incident's 5-attempt dispatch budget.
  */
 export async function dispatchIncidentWebhook(
 	db: SqlDb,
@@ -379,25 +532,63 @@ export async function dispatchIncidentWebhook(
 	webhook: {
 		url: string;
 		secret?: string;
+		environment?: string;
 		allowPrivateNetworks?: boolean;
+		hostLookup?: HostLookup;
 		fetchImpl?: typeof fetch;
+		logger?: Logger;
+		grant?: { proposalId: string; status: string; grantToken: string };
 	},
 ): Promise<{ delivered: boolean; status?: number; error?: string }> {
-	const incident = await getIncidentInvestigation(db, projectId, incidentId);
+	const logger = webhook.logger ?? consoleLogger;
+	const incident = await getIncidentInvestigation(
+		db,
+		projectId,
+		incidentId,
+		webhook.environment,
+	);
 	if (!incident) {
 		return { delivered: false, error: "Incident not found" };
 	}
-	if (incident.dispatchAttempts >= 5) {
+	if (!webhook.grant && incident.dispatchAttempts >= 5) {
 		return { delivered: false, error: "MAX_DISPATCH_ATTEMPTS (5) exceeded" };
 	}
 
-	const safeUrl = assertSafeWebhookUrl(webhook.url, {
-		allowPrivateNetworks: webhook.allowPrivateNetworks,
-	});
+	let safeUrl: URL;
+	try {
+		safeUrl = assertSafeWebhookUrl(webhook.url, {
+			allowPrivateNetworks: webhook.allowPrivateNetworks,
+		});
+		if (!webhook.allowPrivateNetworks) {
+			const lookup = webhook.hostLookup ?? (await defaultHostLookup());
+			if (lookup) {
+				const resolution = await resolveWebhookHost(safeUrl.hostname, lookup);
+				if (resolution === "private") {
+					throw new Error(
+						`webhook host "${safeUrl.hostname}" resolves to a private address`,
+					);
+				}
+				if (resolution === "unresolvable") {
+					throw new Error(
+						`webhook host "${safeUrl.hostname}" could not be resolved; refusing to deliver blind`,
+					);
+				}
+			}
+		}
+	} catch (err) {
+		const error = err instanceof Error ? err.message : String(err);
+		logger.warn("[autosre] incident webhook target refused", {
+			incidentId,
+			error,
+		});
+		return { delivered: false, error };
+	}
 
 	const nowIso = new Date().toISOString();
 	const body = JSON.stringify({
-		event: "autosre.incident.opened",
+		event: webhook.grant
+			? "autosre.remediation.grant_issued"
+			: "autosre.incident.opened",
 		incidentId: incident.id,
 		projectId: incident.projectId,
 		environment: incident.environment,
@@ -408,6 +599,13 @@ export async function dispatchIncidentWebhook(
 			id: incident.symptomAnchorId,
 		},
 		bundle: incident.latestBundle,
+		...(webhook.grant
+			? {
+					proposalId: webhook.grant.proposalId,
+					status: webhook.grant.status,
+					grantToken: webhook.grant.grantToken,
+				}
+			: {}),
 		dispatchedAt: nowIso,
 	});
 
@@ -431,14 +629,31 @@ export async function dispatchIncidentWebhook(
 			method: "POST",
 			headers,
 			body,
+			// Never follow redirects: a 3xx could re-aim the POST (and its
+			// signed body, which may carry a grant token) at another host.
+			redirect: "manual",
+			signal: AbortSignal.timeout(5000),
 		});
 		status = res.status;
-		delivered = res.ok;
-		if (!res.ok) {
-			errorMsg = `HTTP ${res.status}`;
+		if (res.status >= 300 && res.status < 400) {
+			errorMsg = `Redirect (HTTP ${res.status}) refused`;
+		} else {
+			delivered = res.ok;
+			if (!res.ok) errorMsg = `HTTP ${res.status}`;
 		}
 	} catch (err) {
 		errorMsg = err instanceof Error ? err.message : String(err);
+	}
+
+	if (!delivered) {
+		logger.warn("[autosre] incident webhook delivery failed", {
+			incidentId,
+			error: errorMsg,
+		});
+	}
+
+	if (webhook.grant) {
+		return { delivered, status, error: errorMsg };
 	}
 
 	await db
@@ -542,10 +757,12 @@ function evaluateActionPolicyMatrix(
 	effectiveAutonomy: AgentAutonomyLevel;
 	reason: string;
 } {
+	// `recentProposalsLastHour` counts prior proposals only, so this proposal
+	// would be the 4th within the hour once three already exist (max 3/hr).
 	if (recentProposalsLastHour >= 3) {
 		return {
 			effectiveAutonomy: AgentAutonomyLevel.BlockedByPolicy,
-			reason: `Circuit breaker tripped: ${recentProposalsLastHour} remediation proposals already recorded in the last hour for this target/fingerprint (max 3/hr)`,
+			reason: `Circuit breaker tripped: ${recentProposalsLastHour} remediation proposals of this action kind already recorded in the last hour for this finding fingerprint (max 3/hr)`,
 		};
 	}
 
@@ -630,20 +847,21 @@ export async function proposeRemediationAction(
 	db: SqlDb,
 	projectId: string,
 	input: RemediationProposalInput,
+	options: { logger?: Logger } = {},
 ): Promise<RemediationProposal> {
+	const logger = options.logger ?? consoleLogger;
 	const nowIso = new Date().toISOString();
 	const environment = (input.environment || "default").trim().toLowerCase();
 
-	// 1. Check idempotency key first
-	const existing = await db
-		.prepare(
-			`SELECT * FROM remediation_proposals
-			 WHERE project_id = ? AND environment = ? AND idempotency_key = ?`,
-		)
-		.bind(projectId, environment, input.idempotencyKey)
-		.first<ProposalRow>();
-
-	if (existing) {
+	const loadByIdempotencyKey = () =>
+		db
+			.prepare(
+				`SELECT * FROM remediation_proposals
+				 WHERE project_id = ? AND environment = ? AND idempotency_key = ?`,
+			)
+			.bind(projectId, environment, input.idempotencyKey)
+			.first<ProposalRow>();
+	const replayExisting = (existing: ProposalRow): RemediationProposal => {
 		if (
 			existing.action_kind !== input.actionKind ||
 			existing.target_node_id !== input.targetNodeId
@@ -654,6 +872,23 @@ export async function proposeRemediationAction(
 			);
 		}
 		return mapProposalRow(existing);
+	};
+
+	// 1. Check idempotency key first
+	const existing = await loadByIdempotencyKey();
+	if (existing) return replayExisting(existing);
+
+	const incident = await getIncidentInvestigation(
+		db,
+		projectId,
+		input.incidentId,
+		environment,
+	);
+	if (!incident) {
+		throw new RemediationGateError(
+			`Incident ${input.incidentId} not found in environment ${environment}`,
+			404,
+		);
 	}
 
 	const finding = await getInvestigationFinding(
@@ -669,17 +904,32 @@ export async function proposeRemediationAction(
 		);
 	}
 
-	// 2. Circuit breaker count in last 60 minutes
+	// 2. Circuit breaker: proposals of the same action kind for the same finding
+	// fingerprint in the last 60 minutes. Rejected and expired proposals never
+	// executed, so they do not count against the budget.
 	const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
 	const recentCountRow = await db
 		.prepare(
-			`SELECT COUNT(*) AS cnt FROM remediation_proposals
-			 WHERE project_id = ?
-			   AND environment = ?
-			   AND target_node_id = ?
-			   AND created_at >= ?`,
+			`SELECT COUNT(*) AS cnt
+			 FROM remediation_proposals p
+			 JOIN investigation_findings f
+			   ON f.project_id = p.project_id
+			  AND f.environment = p.environment
+			  AND f.id = p.finding_id
+			 WHERE p.project_id = ?
+			   AND p.environment = ?
+			   AND f.fingerprint = ?
+			   AND p.action_kind = ?
+			   AND p.status NOT IN ('rejected', 'expired')
+			   AND p.created_at >= ?`,
 		)
-		.bind(projectId, environment, input.targetNodeId, oneHourAgo)
+		.bind(
+			projectId,
+			environment,
+			finding.fingerprint,
+			input.actionKind,
+			oneHourAgo,
+		)
 		.first<{ cnt: number }>();
 
 	const recentCount = Number(recentCountRow?.cnt ?? 0);
@@ -701,6 +951,16 @@ export async function proposeRemediationAction(
 	) {
 		effectiveAutonomy = AgentAutonomyLevel.HumanApprovedWrite;
 		policyReason = `Caller explicitly requested human_approved_write (${policy.reason})`;
+	} else if (
+		(requestedAutonomy === AgentAutonomyLevel.ReadOnly ||
+			requestedAutonomy === AgentAutonomyLevel.SuggestedAction) &&
+		(effectiveAutonomy === AgentAutonomyLevel.AutonomousWrite ||
+			effectiveAutonomy === AgentAutonomyLevel.HumanApprovedWrite)
+	) {
+		// A caller that only asked to read or suggest never gets a write grant;
+		// a human can still approve the parked proposal explicitly.
+		effectiveAutonomy = requestedAutonomy;
+		policyReason = `Caller requested ${requestedAutonomy}; parked for human approval (${policy.reason})`;
 	}
 
 	let status: RemediationProposalStatus = "pending_human_approval";
@@ -718,11 +978,18 @@ export async function proposeRemediationAction(
 	}
 
 	const id = `rem_${randomHex(10)}`;
-	const expiresAt = new Date(
-		Date.now() + 30 * 24 * 3600_000,
-	).toISOString();
+	const expiresAt = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
 
-	await db
+	if (effectiveAutonomy === AgentAutonomyLevel.BlockedByPolicy) {
+		logger.warn("[autosre] remediation proposal blocked by policy", {
+			projectId,
+			incidentId: input.incidentId,
+			actionKind: input.actionKind,
+			reason: policyReason,
+		});
+	}
+
+	const insertRes = await db
 		.prepare(
 			`INSERT INTO remediation_proposals (
 				project_id, environment, id, incident_id, finding_id,
@@ -731,7 +998,8 @@ export async function proposeRemediationAction(
 				requested_autonomy, effective_autonomy, policy_decision_reason,
 				status, grant_token_hash, grant_expires_at,
 				created_at, updated_at, expires_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT DO NOTHING`,
 		)
 		.bind(
 			projectId,
@@ -755,6 +1023,17 @@ export async function proposeRemediationAction(
 			expiresAt,
 		)
 		.run();
+
+	if (insertRes.meta.changes === 0) {
+		// A concurrent request with the same idempotency key won the race
+		// (UNIQUE project_id, environment, idempotency_key): replay its row.
+		const winner = await loadByIdempotencyKey();
+		if (winner) return replayExisting(winner);
+		throw new RemediationGateError(
+			`Remediation proposal ${id} conflicted with an existing row`,
+			409,
+		);
+	}
 
 	const created = await db
 		.prepare(
@@ -828,7 +1107,7 @@ export async function listRemediationProposals(
 		binds.push(options.findingId);
 	}
 
-	const limit = Math.max(1, Math.min(100, options.limit ?? 50));
+	const limit = Math.max(1, Math.min(200, options.limit ?? 50));
 	binds.push(limit);
 
 	const rows = await db
@@ -847,6 +1126,10 @@ export async function listRemediationProposals(
 /**
  * Human dashboard session approval for `pending_human_approval` proposals
  * (RFC 0013 § 6.B & P1 #4). Mints a single-use `grantToken`.
+ *
+ * The status precondition lives in the UPDATE's WHERE clause (D1 and Postgres
+ * have no multi-statement transactions beyond `batch`), so two concurrent
+ * approvals cannot both mint a token: only one sees `meta.changes === 1`.
  */
 export async function approveRemediationProposal(
 	db: SqlDb,
@@ -857,23 +1140,12 @@ export async function approveRemediationProposal(
 		approvedByUserId: string;
 	},
 ): Promise<RemediationProposal> {
-	const row = options.environment
-		? await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
-				)
-				.bind(projectId, options.environment.toLowerCase(), proposalId)
-				.first<ProposalRow>()
-		: await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND id = ?
-					 LIMIT 1`,
-				)
-				.bind(projectId, proposalId)
-				.first<ProposalRow>();
-
+	const row = await loadProposalRow(
+		db,
+		projectId,
+		proposalId,
+		options.environment,
+	);
 	if (!row) {
 		throw new RemediationGateError(`Proposal ${proposalId} not found`, 404);
 	}
@@ -889,7 +1161,7 @@ export async function approveRemediationProposal(
 	const grantTokenHash = await sha256Hex(grantToken);
 	const grantExpiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
 
-	await db
+	const res = await db
 		.prepare(
 			`UPDATE remediation_proposals
 			 SET status = 'grant_issued',
@@ -898,7 +1170,8 @@ export async function approveRemediationProposal(
 			     approved_by_user_id = ?,
 			     approved_at = ?,
 			     updated_at = ?
-			 WHERE project_id = ? AND environment = ? AND id = ?`,
+			 WHERE project_id = ? AND environment = ? AND id = ?
+			   AND status = 'pending_human_approval'`,
 		)
 		.bind(
 			grantTokenHash,
@@ -911,6 +1184,12 @@ export async function approveRemediationProposal(
 			row.id,
 		)
 		.run();
+	if (res.meta.changes !== 1) {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} was modified concurrently and can no longer be approved`,
+			409,
+		);
+	}
 
 	const updated = await db
 		.prepare(
@@ -933,23 +1212,12 @@ export async function rejectRemediationProposal(
 		reason?: string;
 	},
 ): Promise<RemediationProposal> {
-	const row = options.environment
-		? await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
-				)
-				.bind(projectId, options.environment.toLowerCase(), proposalId)
-				.first<ProposalRow>()
-		: await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND id = ?
-					 LIMIT 1`,
-				)
-				.bind(projectId, proposalId)
-				.first<ProposalRow>();
-
+	const row = await loadProposalRow(
+		db,
+		projectId,
+		proposalId,
+		options.environment,
+	);
 	if (!row) {
 		throw new RemediationGateError(`Proposal ${proposalId} not found`, 404);
 	}
@@ -968,17 +1236,24 @@ export async function rejectRemediationProposal(
 		? `Rejected by ${options.rejectedByUserId}: ${options.reason}`
 		: `Rejected by ${options.rejectedByUserId}`;
 
-	await db
+	const res = await db
 		.prepare(
 			`UPDATE remediation_proposals
 			 SET status = 'rejected',
 			     grant_token_hash = NULL,
 			     failure_reason = ?,
 			     updated_at = ?
-			 WHERE project_id = ? AND environment = ? AND id = ?`,
+			 WHERE project_id = ? AND environment = ? AND id = ?
+			   AND status IN ('pending_human_approval', 'grant_issued')`,
 		)
 		.bind(reason, nowIso, projectId, row.environment, row.id)
 		.run();
+	if (res.meta.changes !== 1) {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} was modified concurrently and can no longer be rejected`,
+			409,
+		);
+	}
 
 	const updated = await db
 		.prepare(
@@ -994,6 +1269,12 @@ export async function rejectRemediationProposal(
 /**
  * Single-use grant redemption with optimistic `expectedCurrentState` verification
  * against `ontology_nodes` (RFC 0013 § 6.B & P1 #4).
+ *
+ * The status, token-hash and expiry preconditions are part of the claiming
+ * UPDATE, and the outcome is read from `meta.changes`: of N concurrent claims
+ * for one token exactly one sees `changes === 1`; the rest get a 409. The
+ * incident transition rides in the same `batch` and is guarded by an EXISTS on
+ * the winning claim, so a losing claim cannot touch the incident.
  */
 export async function claimRemediationGrant(
 	db: SqlDb,
@@ -1004,25 +1285,17 @@ export async function claimRemediationGrant(
 		grantToken: string;
 		runnerId?: string;
 		nowIso?: string;
+		logger?: Logger;
 	},
 ): Promise<RemediationProposal> {
+	const logger = options.logger ?? consoleLogger;
 	const nowIso = options.nowIso ?? new Date().toISOString();
-	const row = options.environment
-		? await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
-				)
-				.bind(projectId, options.environment.toLowerCase(), proposalId)
-				.first<ProposalRow>()
-		: await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND id = ?
-					 LIMIT 1`,
-				)
-				.bind(projectId, proposalId)
-				.first<ProposalRow>();
+	const row = await loadProposalRow(
+		db,
+		projectId,
+		proposalId,
+		options.environment,
+	);
 
 	if (!row) {
 		throw new RemediationGateError(`Proposal ${proposalId} not found`, 404);
@@ -1037,8 +1310,9 @@ export async function claimRemediationGrant(
 		await db
 			.prepare(
 				`UPDATE remediation_proposals
-				 SET status = 'expired', updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 SET status = 'expired', grant_token_hash = NULL, updated_at = ?
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND status = 'grant_issued'`,
 			)
 			.bind(nowIso, projectId, row.environment, row.id)
 			.run();
@@ -1049,7 +1323,10 @@ export async function claimRemediationGrant(
 	}
 
 	const incomingHash = await sha256Hex(options.grantToken);
-	if (!row.grant_token_hash || incomingHash !== row.grant_token_hash) {
+	if (
+		!row.grant_token_hash ||
+		!constantTimeEqual(incomingHash, row.grant_token_hash)
+	) {
 		throw new RemediationGateError("Invalid grantToken", 403);
 	}
 
@@ -1071,43 +1348,35 @@ export async function claimRemediationGrant(
 		}>();
 
 	if (targetNode) {
-		if (
+		const lockFailure =
 			expected.version &&
 			targetNode.current_version &&
 			targetNode.current_version !== expected.version
-		) {
-			throw new RemediationGateError(
-				`Optimistic version lock failed on ${row.target_node_id}: expected version "${expected.version}", but current version is "${targetNode.current_version}"`,
-				409,
-			);
-		}
-		if (
-			expected.commitSha &&
-			targetNode.current_commit_sha &&
-			targetNode.current_commit_sha !== expected.commitSha
-		) {
-			throw new RemediationGateError(
-				`Optimistic commit lock failed on ${row.target_node_id}: expected commit "${expected.commitSha}", but current commit is "${targetNode.current_commit_sha}"`,
-				409,
-			);
-		}
-		if (
-			expected.configDigest &&
-			targetNode.current_config_digest &&
-			targetNode.current_config_digest !== expected.configDigest
-		) {
-			throw new RemediationGateError(
-				`Optimistic config lock failed on ${row.target_node_id}: expected digest "${expected.configDigest}", but current digest is "${targetNode.current_config_digest}"`,
-				409,
-			);
+				? `Optimistic version lock failed on ${row.target_node_id}: expected version "${expected.version}", but current version is "${targetNode.current_version}"`
+				: expected.commitSha &&
+						targetNode.current_commit_sha &&
+						targetNode.current_commit_sha !== expected.commitSha
+					? `Optimistic commit lock failed on ${row.target_node_id}: expected commit "${expected.commitSha}", but current commit is "${targetNode.current_commit_sha}"`
+					: expected.configDigest &&
+							targetNode.current_config_digest &&
+							targetNode.current_config_digest !== expected.configDigest
+						? `Optimistic config lock failed on ${row.target_node_id}: expected digest "${expected.configDigest}", but current digest is "${targetNode.current_config_digest}"`
+						: null;
+		if (lockFailure) {
+			logger.warn("[autosre] remediation claim rejected by state lock", {
+				proposalId,
+				error: lockFailure,
+			});
+			throw new RemediationGateError(lockFailure, 409);
 		}
 	}
 
 	const claimExpiresAt = new Date(
 		Date.parse(nowIso) + 5 * 60_000,
 	).toISOString();
+	const runnerId = options.runnerId ?? "autosre-runner";
 
-	await db.batch([
+	const results = await db.batch([
 		db
 			.prepare(
 				`UPDATE remediation_proposals
@@ -1117,25 +1386,53 @@ export async function claimRemediationGrant(
 				     claimed_at = ?,
 				     claim_expires_at = ?,
 				     updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND status = 'grant_issued'
+				   AND grant_token_hash = ?
+				   AND (grant_expires_at IS NULL OR grant_expires_at > ?)`,
 			)
 			.bind(
-				options.runnerId ?? "autosre-runner",
+				runnerId,
 				nowIso,
 				claimExpiresAt,
 				nowIso,
 				projectId,
 				row.environment,
 				row.id,
+				row.grant_token_hash,
+				nowIso,
 			),
 		db
 			.prepare(
 				`UPDATE incident_investigations
 				 SET status = 'remediating', updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND EXISTS (
+				     SELECT 1 FROM remediation_proposals g
+				     WHERE g.project_id = ? AND g.environment = ? AND g.id = ?
+				       AND g.status = 'claimed_executing'
+				       AND g.claimed_by_runner_id = ?
+				       AND g.claimed_at = ?
+				   )`,
 			)
-			.bind(nowIso, projectId, row.environment, row.incident_id),
+			.bind(
+				nowIso,
+				projectId,
+				row.environment,
+				row.incident_id,
+				projectId,
+				row.environment,
+				row.id,
+				runnerId,
+				nowIso,
+			),
 	]);
+	if (results[0]?.meta.changes !== 1) {
+		throw new RemediationGateError(
+			`Grant for proposal ${proposalId} was already claimed or is no longer valid (grants are single-use)`,
+			409,
+		);
+	}
 
 	const updated = await db
 		.prepare(
@@ -1151,6 +1448,10 @@ export async function claimRemediationGrant(
 /**
  * Records remediation completion, updates `ontology_nodes` to desired state,
  * and arms the +2m/+5m/+15m post-remediation watchdog on the finding.
+ *
+ * Only the runner that holds the claim may complete, and only while the claim
+ * window is open (`now <= claim_expires_at`); otherwise 409. All follow-up
+ * writes are guarded on the completion UPDATE having applied.
  */
 export async function completeRemediationProposal(
 	db: SqlDb,
@@ -1158,6 +1459,7 @@ export async function completeRemediationProposal(
 	proposalId: string,
 	options: {
 		environment?: string;
+		runnerId?: string;
 		resultingChangeId?: string | null;
 		remediationAgentRunId?: string | null;
 		baselineRequestRatePerMin?: number | null;
@@ -1165,22 +1467,12 @@ export async function completeRemediationProposal(
 	},
 ): Promise<RemediationProposal> {
 	const nowIso = options.nowIso ?? new Date().toISOString();
-	const row = options.environment
-		? await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
-				)
-				.bind(projectId, options.environment.toLowerCase(), proposalId)
-				.first<ProposalRow>()
-		: await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND id = ?
-					 LIMIT 1`,
-				)
-				.bind(projectId, proposalId)
-				.first<ProposalRow>();
+	const row = await loadProposalRow(
+		db,
+		projectId,
+		proposalId,
+		options.environment,
+	);
 
 	if (!row) {
 		throw new RemediationGateError(`Proposal ${proposalId} not found`, 404);
@@ -1188,6 +1480,18 @@ export async function completeRemediationProposal(
 	if (row.status !== "claimed_executing") {
 		throw new RemediationGateError(
 			`Proposal ${proposalId} cannot be completed from status=${row.status} (must be claimed_executing)`,
+			409,
+		);
+	}
+	if (!options.runnerId || options.runnerId !== row.claimed_by_runner_id) {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} is claimed by a different runner; only the claiming runner may complete it`,
+			409,
+		);
+	}
+	if (row.claim_expires_at && row.claim_expires_at < nowIso) {
+		throw new RemediationGateError(
+			`Claim on proposal ${proposalId} expired at ${row.claim_expires_at}`,
 			409,
 		);
 	}
@@ -1233,7 +1537,15 @@ export async function completeRemediationProposal(
 		});
 	}
 
-	await db.batch([
+	// Follow-up writes only apply when the completion UPDATE below won.
+	const completedGuard = `EXISTS (
+		     SELECT 1 FROM remediation_proposals g
+		     WHERE g.project_id = ? AND g.environment = ? AND g.id = ?
+		       AND g.status = 'completed' AND g.updated_at = ?
+		   )`;
+	const guardBinds = [projectId, row.environment, row.id, nowIso];
+
+	const results = await db.batch([
 		db
 			.prepare(
 				`UPDATE remediation_proposals
@@ -1241,7 +1553,10 @@ export async function completeRemediationProposal(
 				     resulting_change_id = COALESCE(?, resulting_change_id),
 				     remediation_agent_run_id = COALESCE(?, remediation_agent_run_id),
 				     updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND status = 'claimed_executing'
+				   AND claimed_by_runner_id = ?
+				   AND (claim_expires_at IS NULL OR claim_expires_at >= ?)`,
 			)
 			.bind(
 				options.resultingChangeId ?? null,
@@ -1250,6 +1565,8 @@ export async function completeRemediationProposal(
 				projectId,
 				row.environment,
 				row.id,
+				options.runnerId,
+				nowIso,
 			),
 		db
 			.prepare(
@@ -1258,7 +1575,8 @@ export async function completeRemediationProposal(
 				     current_commit_sha = COALESCE(?, current_commit_sha),
 				     current_config_digest = COALESCE(?, current_config_digest),
 				     last_seen_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND ${completedGuard}`,
 			)
 			.bind(
 				desired.version ?? null,
@@ -1268,17 +1586,20 @@ export async function completeRemediationProposal(
 				projectId,
 				row.environment,
 				row.target_node_id,
+				...guardBinds,
 			),
 		db
 			.prepare(
 				`UPDATE investigation_findings
 				 SET recovery_status = 'monitoring',
 				     watchdog_step = 1,
+				     consecutive_ok_checks = 0,
 				     baseline_request_rate_per_min = COALESCE(?, baseline_request_rate_per_min),
 				     next_watchdog_check_at = ?,
 				     causal_chain_json = ?,
 				     updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND ${completedGuard}`,
 			)
 			.bind(
 				options.baselineRequestRatePerMin ?? null,
@@ -1288,15 +1609,23 @@ export async function completeRemediationProposal(
 				projectId,
 				row.environment,
 				row.finding_id,
+				...guardBinds,
 			),
 		db
 			.prepare(
 				`UPDATE incident_investigations
 				 SET status = 'verifying', updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND ${completedGuard}`,
 			)
-			.bind(nowIso, projectId, row.environment, row.incident_id),
+			.bind(nowIso, projectId, row.environment, row.incident_id, ...guardBinds),
 	]);
+	if (results[0]?.meta.changes !== 1) {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} changed state concurrently and can no longer be completed`,
+			409,
+		);
+	}
 
 	const updated = await db
 		.prepare(
@@ -1315,50 +1644,82 @@ export async function failRemediationProposal(
 	proposalId: string,
 	options: {
 		environment?: string;
+		runnerId?: string;
 		failureReason: string;
 		nowIso?: string;
 	},
 ): Promise<RemediationProposal> {
 	const nowIso = options.nowIso ?? new Date().toISOString();
-	const row = options.environment
-		? await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
-				)
-				.bind(projectId, options.environment.toLowerCase(), proposalId)
-				.first<ProposalRow>()
-		: await db
-				.prepare(
-					`SELECT * FROM remediation_proposals
-					 WHERE project_id = ? AND id = ?
-					 LIMIT 1`,
-				)
-				.bind(projectId, proposalId)
-				.first<ProposalRow>();
+	const row = await loadProposalRow(
+		db,
+		projectId,
+		proposalId,
+		options.environment,
+	);
 
 	if (!row) {
 		throw new RemediationGateError(`Proposal ${proposalId} not found`, 404);
 	}
+	if (row.status !== "claimed_executing") {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} cannot be failed from status=${row.status} (must be claimed_executing)`,
+			409,
+		);
+	}
+	if (!options.runnerId || options.runnerId !== row.claimed_by_runner_id) {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} is claimed by a different runner; only the claiming runner may fail it`,
+			409,
+		);
+	}
 
-	await db.batch([
+	const results = await db.batch([
 		db
 			.prepare(
 				`UPDATE remediation_proposals
 				 SET status = 'failed_execution',
 				     failure_reason = ?,
 				     updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND status = 'claimed_executing'
+				   AND claimed_by_runner_id = ?`,
 			)
-			.bind(options.failureReason, nowIso, projectId, row.environment, row.id),
+			.bind(
+				options.failureReason,
+				nowIso,
+				projectId,
+				row.environment,
+				row.id,
+				options.runnerId,
+			),
 		db
 			.prepare(
 				`UPDATE incident_investigations
 				 SET status = 'escalated', updated_at = ?
-				 WHERE project_id = ? AND environment = ? AND id = ?`,
+				 WHERE project_id = ? AND environment = ? AND id = ?
+				   AND EXISTS (
+				     SELECT 1 FROM remediation_proposals g
+				     WHERE g.project_id = ? AND g.environment = ? AND g.id = ?
+				       AND g.status = 'failed_execution' AND g.updated_at = ?
+				   )`,
 			)
-			.bind(nowIso, projectId, row.environment, row.incident_id),
+			.bind(
+				nowIso,
+				projectId,
+				row.environment,
+				row.incident_id,
+				projectId,
+				row.environment,
+				row.id,
+				nowIso,
+			),
 	]);
+	if (results[0]?.meta.changes !== 1) {
+		throw new RemediationGateError(
+			`Proposal ${proposalId} changed state concurrently and can no longer be failed`,
+			409,
+		);
+	}
 
 	const updated = await db
 		.prepare(
@@ -1378,7 +1739,18 @@ export interface WatchdogEvaluationSummary {
 	stillDegraded: number;
 	timedOutClaims: number;
 	expiredGrants: number;
+	/** Findings whose evaluation threw; logged and retried on the next tick. */
+	failed: number;
 }
+
+/** Watchdog checkpoints, in minutes after the remediation completed (RFC 0013 § 5.B). */
+const WATCHDOG_STEP_OFFSET_MINUTES: Record<number, number> = {
+	1: 2,
+	2: 5,
+	3: 15,
+};
+/** Consecutive sufficient-traffic healthy checkpoints required for `recovered`. */
+const REQUIRED_CONSECUTIVE_OK_CHECKS = 2;
 
 /**
  * Post-Remediation Watchdog & Lease/Claim Timeout Evaluator (RFC 0013 § 5.B, § 6.B & P1 #3).
@@ -1387,16 +1759,28 @@ export interface WatchdogEvaluationSummary {
  *  - `recovery_status`: whether the service recovered under comparable traffic (`N >= minComparableRequests`)
  *  - `causal_verification_status`: `"operationally_corroborated"` (never promoted to `"counterfactual_verified"`
  *    by telemetry recovery alone!).
+ *
+ * Checkpoints are scheduled at +2m/+5m/+15m measured from the remediation's
+ * completion time (not from whenever a tick happened to run), and a finding
+ * only becomes `recovered` after two consecutive healthy checkpoints that each
+ * had sufficient traffic. Pass `projectId` to scope the sweep to one tenant
+ * (HTTP path); the cron path omits it and sweeps every project.
  */
 export async function evaluateRemediationWatchdogs(
 	db: SqlDb,
 	options: {
 		nowIso?: string;
 		minComparableRequests?: number;
+		projectId?: string;
+		logger?: Logger;
 	} = {},
 ): Promise<WatchdogEvaluationSummary> {
+	const logger = options.logger ?? consoleLogger;
 	const nowIso = options.nowIso ?? new Date().toISOString();
 	const minComparableRequests = options.minComparableRequests ?? 50;
+	const projectId = options.projectId;
+	const projectClause = projectId ? " AND project_id = ?" : "";
+	const projectBinds = projectId ? [projectId] : [];
 
 	// 1. Expire unclaimed grants past grant_expires_at
 	const expiredGrantsRes = await db
@@ -1405,9 +1789,9 @@ export async function evaluateRemediationWatchdogs(
 			 SET status = 'expired', grant_token_hash = NULL, updated_at = ?
 			 WHERE status = 'grant_issued'
 			   AND grant_expires_at IS NOT NULL
-			   AND grant_expires_at <= ?`,
+			   AND grant_expires_at <= ?${projectClause}`,
 		)
-		.bind(nowIso, nowIso)
+		.bind(nowIso, nowIso, ...projectBinds)
 		.run();
 
 	// 2. Time out claimed_executing proposals past claim_expires_at and escalate their incidents
@@ -1417,9 +1801,9 @@ export async function evaluateRemediationWatchdogs(
 			 FROM remediation_proposals
 			 WHERE status = 'claimed_executing'
 			   AND claim_expires_at IS NOT NULL
-			   AND claim_expires_at <= ?`,
+			   AND claim_expires_at <= ?${projectClause}`,
 		)
-		.bind(nowIso)
+		.bind(nowIso, ...projectBinds)
 		.all<{
 			project_id: string;
 			environment: string;
@@ -1427,25 +1811,42 @@ export async function evaluateRemediationWatchdogs(
 			incident_id: string;
 		}>();
 
+	let timedOutClaims = 0;
 	for (const t of timedOutRows.results) {
-		await db.batch([
+		const res = await db.batch([
 			db
 				.prepare(
 					`UPDATE remediation_proposals
 					 SET status = 'execution_timed_out',
 					     failure_reason = 'Runner did not complete or fail within 5m claim window',
 					     updated_at = ?
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
+					 WHERE project_id = ? AND environment = ? AND id = ?
+					   AND status = 'claimed_executing'`,
 				)
 				.bind(nowIso, t.project_id, t.environment, t.id),
 			db
 				.prepare(
 					`UPDATE incident_investigations
 					 SET status = 'escalated', updated_at = ?
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
+					 WHERE project_id = ? AND environment = ? AND id = ?
+					   AND EXISTS (
+					     SELECT 1 FROM remediation_proposals g
+					     WHERE g.project_id = ? AND g.environment = ? AND g.id = ?
+					       AND g.status = 'execution_timed_out' AND g.updated_at = ?
+					   )`,
 				)
-				.bind(nowIso, t.project_id, t.environment, t.incident_id),
+				.bind(
+					nowIso,
+					t.project_id,
+					t.environment,
+					t.incident_id,
+					t.project_id,
+					t.environment,
+					t.id,
+					nowIso,
+				),
 		]);
+		if (res[0]?.meta.changes === 1) timedOutClaims += 1;
 	}
 
 	// 3. Evaluate findings in `monitoring` where `next_watchdog_check_at <= nowIso`
@@ -1454,15 +1855,15 @@ export async function evaluateRemediationWatchdogs(
 			`SELECT
 				project_id, environment, id, incident_id,
 				fault_locus_entity_id, root_cause_entity_id,
-				watchdog_step, baseline_request_rate_per_min,
+				watchdog_step, consecutive_ok_checks, baseline_request_rate_per_min,
 				causal_verification_status, updated_at
 			 FROM investigation_findings
 			 WHERE recovery_status = 'monitoring'
 			   AND next_watchdog_check_at IS NOT NULL
-			   AND next_watchdog_check_at <= ?
+			   AND next_watchdog_check_at <= ?${projectClause}
 			 LIMIT 50`,
 		)
-		.bind(nowIso)
+		.bind(nowIso, ...projectBinds)
 		.all<{
 			project_id: string;
 			environment: string;
@@ -1471,6 +1872,7 @@ export async function evaluateRemediationWatchdogs(
 			fault_locus_entity_id: string;
 			root_cause_entity_id: string | null;
 			watchdog_step: number;
+			consecutive_ok_checks: number | null;
 			baseline_request_rate_per_min: number | null;
 			causal_verification_status: string;
 			updated_at: string;
@@ -1479,141 +1881,193 @@ export async function evaluateRemediationWatchdogs(
 	let recovered = 0;
 	let inconclusiveLowTraffic = 0;
 	let stillDegraded = 0;
+	let failed = 0;
 
 	for (const f of dueFindings.results) {
-		// Find the completed remediation timestamp for this finding
-		const completedProposal = await db
-			.prepare(
-				`SELECT
-					p.updated_at,
-					p.target_node_id,
-					p.resulting_change_id,
-					c.occurred_at AS change_occurred_at
-				 FROM remediation_proposals p
-				 LEFT JOIN change_events c
-				   ON c.project_id = p.project_id
-				  AND c.environment = p.environment
-				  AND c.id = p.resulting_change_id
-				 WHERE p.project_id = ? AND p.environment = ? AND p.finding_id = ? AND p.status = 'completed'
-				 ORDER BY p.updated_at DESC
-				 LIMIT 1`,
-			)
-			.bind(f.project_id, f.environment, f.id)
-			.first<{
-				updated_at: string;
-				target_node_id: string;
-				resulting_change_id: string | null;
-				change_occurred_at: string | null;
-			}>();
+		try {
+			// Find the completed remediation timestamp for this finding
+			const completedProposal = await db
+				.prepare(
+					`SELECT
+						p.updated_at,
+						p.target_node_id,
+						p.resulting_change_id,
+						c.occurred_at AS change_occurred_at
+					 FROM remediation_proposals p
+					 LEFT JOIN change_events c
+					   ON c.project_id = p.project_id
+					  AND c.environment = p.environment
+					  AND c.id = p.resulting_change_id
+					 WHERE p.project_id = ? AND p.environment = ? AND p.finding_id = ? AND p.status = 'completed'
+					 ORDER BY p.updated_at DESC
+					 LIMIT 1`,
+				)
+				.bind(f.project_id, f.environment, f.id)
+				.first<{
+					updated_at: string;
+					target_node_id: string;
+					resulting_change_id: string | null;
+					change_occurred_at: string | null;
+				}>();
 
-		const sinceTs =
-			completedProposal?.change_occurred_at ??
-			completedProposal?.updated_at ??
-			f.updated_at;
-		const targetNodeId =
-			completedProposal?.target_node_id ?? f.fault_locus_entity_id;
-
-		// Extract service name from canonical service:{env}:{ns}:{serviceName} if applicable
-		const parts = targetNodeId.split(":");
-		const serviceName = parts[0] === "service" && parts.length >= 4 ? parts.slice(3).join(":") : null;
-
-		const stats = serviceName
-			? await db
-					.prepare(
-						`SELECT
-							COUNT(*) AS total_requests,
-							SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_requests
-						 FROM telemetry_spans
-						 WHERE project_id = ?
-						   AND environment = ?
-						   AND service_name = ?
-						   AND (parent_span_id IS NULL OR span_kind = 1)
-						   AND (start_time >= ? OR received_at >= ?)`,
-					)
-					.bind(f.project_id, f.environment, serviceName, sinceTs, sinceTs)
-					.first<{ total_requests: number; error_requests: number }>()
-			: await db
-					.prepare(
-						`SELECT
-							COUNT(*) AS total_requests,
-							SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_requests
-						 FROM telemetry_spans
-						 WHERE project_id = ?
-						   AND environment = ?
-						   AND (parent_span_id IS NULL OR span_kind = 1)
-						   AND (start_time >= ? OR received_at >= ?)`,
-					)
-					.bind(f.project_id, f.environment, sinceTs, sinceTs)
-					.first<{ total_requests: number; error_requests: number }>();
-
-		const totalReq = Number(stats?.total_requests ?? 0);
-		const errorReq = Number(stats?.error_requests ?? 0);
-		const errorRate = totalReq > 0 ? errorReq / totalReq : 0;
-
-		const requiredTraffic = Math.max(
-			minComparableRequests,
-			f.baseline_request_rate_per_min
-				? Math.floor(0.5 * f.baseline_request_rate_per_min * 5)
-				: minComparableRequests,
-		);
-
-		if (totalReq < requiredTraffic) {
-			if (f.watchdog_step < 3) {
-				const nextStep = f.watchdog_step + 1;
-				const offsetMins = nextStep === 2 ? 5 : 15;
-				const nextCheck = new Date(
-					Date.parse(nowIso) + offsetMins * 60_000,
+			// Traffic is measured since the remediation change took effect; the
+			// checkpoint schedule is anchored on when the remediation completed.
+			const sinceTs =
+				completedProposal?.change_occurred_at ??
+				completedProposal?.updated_at ??
+				f.updated_at;
+			const completedAtMs = Date.parse(
+				completedProposal?.updated_at ?? f.updated_at,
+			);
+			const nextCheckFor = (step: number): string =>
+				new Date(
+					completedAtMs + (WATCHDOG_STEP_OFFSET_MINUTES[step] ?? 15) * 60_000,
 				).toISOString();
+			const targetNodeId =
+				completedProposal?.target_node_id ?? f.fault_locus_entity_id;
+
+			// Extract service name from canonical service:{env}:{ns}:{serviceName} if applicable
+			const parts = targetNodeId.split(":");
+			const serviceName =
+				parts[0] === "service" && parts.length >= 4
+					? parts.slice(3).join(":")
+					: null;
+
+			const stats = serviceName
+				? await db
+						.prepare(
+							`SELECT
+								COUNT(*) AS total_requests,
+								SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_requests
+							 FROM telemetry_spans
+							 WHERE project_id = ?
+							   AND environment = ?
+							   AND service_name = ?
+							   AND (parent_span_id IS NULL OR span_kind = 1)
+							   AND (start_time >= ? OR received_at >= ?)`,
+						)
+						.bind(f.project_id, f.environment, serviceName, sinceTs, sinceTs)
+						.first<{ total_requests: number; error_requests: number }>()
+				: await db
+						.prepare(
+							`SELECT
+								COUNT(*) AS total_requests,
+								SUM(CASE WHEN status_code = 2 THEN 1 ELSE 0 END) AS error_requests
+							 FROM telemetry_spans
+							 WHERE project_id = ?
+							   AND environment = ?
+							   AND (parent_span_id IS NULL OR span_kind = 1)
+							   AND (start_time >= ? OR received_at >= ?)`,
+						)
+						.bind(f.project_id, f.environment, sinceTs, sinceTs)
+						.first<{ total_requests: number; error_requests: number }>();
+
+			const totalReq = Number(stats?.total_requests ?? 0);
+			const errorReq = Number(stats?.error_requests ?? 0);
+			const errorRate = totalReq > 0 ? errorReq / totalReq : 0;
+
+			const requiredTraffic = Math.max(
+				minComparableRequests,
+				f.baseline_request_rate_per_min
+					? Math.floor(0.5 * f.baseline_request_rate_per_min * 5)
+					: minComparableRequests,
+			);
+
+			if (totalReq < requiredTraffic) {
+				// Insufficient traffic breaks the consecutive-ok streak.
+				if (f.watchdog_step < 3) {
+					const nextStep = f.watchdog_step + 1;
+					await db
+						.prepare(
+							`UPDATE investigation_findings
+							 SET watchdog_step = ?, consecutive_ok_checks = 0,
+							     next_watchdog_check_at = ?, updated_at = ?
+							 WHERE project_id = ? AND environment = ? AND id = ?`,
+						)
+						.bind(
+							nextStep,
+							nextCheckFor(nextStep),
+							nowIso,
+							f.project_id,
+							f.environment,
+							f.id,
+						)
+						.run();
+				} else {
+					// Step 3 (+15m) with insufficient comparable traffic -> inconclusive_low_traffic
+					inconclusiveLowTraffic += 1;
+					await db
+						.prepare(
+							`UPDATE investigation_findings
+							 SET recovery_status = 'inconclusive_low_traffic',
+							     consecutive_ok_checks = 0,
+							     next_watchdog_check_at = NULL,
+							     updated_at = ?
+							 WHERE project_id = ? AND environment = ? AND id = ?`,
+						)
+						.bind(nowIso, f.project_id, f.environment, f.id)
+						.run();
+				}
+				continue;
+			}
+
+			if (errorRate >= 0.05) {
+				stillDegraded += 1;
 				await db
 					.prepare(
 						`UPDATE investigation_findings
-						 SET watchdog_step = ?, next_watchdog_check_at = ?, updated_at = ?
-						 WHERE project_id = ? AND environment = ? AND id = ?`,
-					)
-					.bind(nextStep, nextCheck, nowIso, f.project_id, f.environment, f.id)
-					.run();
-			} else {
-				// Step 3 (+15m) with insufficient comparable traffic -> inconclusive_low_traffic
-				inconclusiveLowTraffic += 1;
-				await db
-					.prepare(
-						`UPDATE investigation_findings
-						 SET recovery_status = 'inconclusive_low_traffic',
+						 SET recovery_status = 'still_degraded',
+						     causal_verification_status = 'refuted',
+						     consecutive_ok_checks = 0,
 						     next_watchdog_check_at = NULL,
 						     updated_at = ?
 						 WHERE project_id = ? AND environment = ? AND id = ?`,
 					)
 					.bind(nowIso, f.project_id, f.environment, f.id)
 					.run();
+				if (f.incident_id) {
+					await db
+						.prepare(
+							`UPDATE incident_investigations
+							 SET status = 'escalated', updated_at = ?
+							 WHERE project_id = ? AND environment = ? AND id = ?`,
+						)
+						.bind(nowIso, f.project_id, f.environment, f.incident_id)
+						.run();
+				}
+				continue;
 			}
-			continue;
-		}
 
-		if (errorRate >= 0.05) {
-			stillDegraded += 1;
-			await db
-				.prepare(
-					`UPDATE investigation_findings
-					 SET recovery_status = 'still_degraded',
-					     causal_verification_status = 'refuted',
-					     next_watchdog_check_at = NULL,
-					     updated_at = ?
-					 WHERE project_id = ? AND environment = ? AND id = ?`,
-				)
-				.bind(nowIso, f.project_id, f.environment, f.id)
-				.run();
-			if (f.incident_id) {
+			// Traffic is sufficient AND error rate is healthy (<5%) at this checkpoint.
+			const okChecks = Number(f.consecutive_ok_checks ?? 0) + 1;
+			if (okChecks < REQUIRED_CONSECUTIVE_OK_CHECKS) {
+				// Need one more healthy checkpoint. Advance along the schedule; past
+				// the last step, re-check shortly after now.
+				const nextStep = Math.min(3, f.watchdog_step + 1);
+				const nextCheck =
+					f.watchdog_step < 3
+						? nextCheckFor(nextStep)
+						: new Date(Date.parse(nowIso) + 5 * 60_000).toISOString();
 				await db
 					.prepare(
-						`UPDATE incident_investigations
-						 SET status = 'escalated', updated_at = ?
+						`UPDATE investigation_findings
+						 SET watchdog_step = ?, consecutive_ok_checks = ?,
+						     next_watchdog_check_at = ?, updated_at = ?
 						 WHERE project_id = ? AND environment = ? AND id = ?`,
 					)
-					.bind(nowIso, f.project_id, f.environment, f.incident_id)
+					.bind(
+						nextStep,
+						okChecks,
+						nextCheck,
+						nowIso,
+						f.project_id,
+						f.environment,
+						f.id,
+					)
 					.run();
+				continue;
 			}
-		} else {
-			// Traffic is sufficient AND error rate recovered (<5%)
+
 			recovered += 1;
 			const nextCausalVerification =
 				f.causal_verification_status === "counterfactual_verified"
@@ -1626,12 +2080,14 @@ export async function evaluateRemediationWatchdogs(
 					 SET recovery_status = 'recovered',
 					     causal_verification_status = ?,
 					     watchdog_step = 3,
+					     consecutive_ok_checks = ?,
 					     next_watchdog_check_at = NULL,
 					     updated_at = ?
 					 WHERE project_id = ? AND environment = ? AND id = ?`,
 				)
 				.bind(
 					nextCausalVerification,
+					okChecks,
 					nowIso,
 					f.project_id,
 					f.environment,
@@ -1649,6 +2105,13 @@ export async function evaluateRemediationWatchdogs(
 					.bind(nowIso, nowIso, f.project_id, f.environment, f.incident_id)
 					.run();
 			}
+		} catch (err) {
+			failed += 1;
+			logger.error("[autosre] watchdog evaluation failed for finding", {
+				findingId: f.id,
+				projectId: f.project_id,
+				error: err instanceof Error ? err.message : String(err),
+			});
 		}
 	}
 
@@ -1657,7 +2120,8 @@ export async function evaluateRemediationWatchdogs(
 		recovered,
 		inconclusiveLowTraffic,
 		stillDegraded,
-		timedOutClaims: timedOutRows.results.length,
+		timedOutClaims,
 		expiredGrants: expiredGrantsRes.meta.changes,
+		failed,
 	};
 }

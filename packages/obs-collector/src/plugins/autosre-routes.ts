@@ -11,11 +11,18 @@ import type {
 	RemediationProposalStatus,
 	RemediationStateSpec,
 } from "@obsunified/types";
+import {
+	ChangeEventKindSchema,
+	EvidencePredicateSchema,
+	RemediationActionKindSchema,
+} from "@obsunified/types";
 import { AgentAutonomyLevel } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import type { CollectorEnv } from "../framework/env";
 import {
 	computeChangeBlastRadius,
 	getChangeEvent,
+	InvalidTimestampError,
 	listChangeEvents,
 	recordChangeEvent,
 } from "../lib/autosre-change-correlation";
@@ -47,28 +54,16 @@ import {
 	RemediationGateError,
 	rejectRemediationProposal,
 } from "../lib/autosre-remediation-gate";
+import { sha256Hex } from "../lib/hash";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 import { readJsonObject } from "./_json";
 
-const CHANGE_KINDS = new Set<ChangeEventKind>([
-	"deploy",
-	"rollback",
-	"feature_flag",
-	"config_change",
-	"prompt_rollout",
-	"agent_version",
-	"schema_migration",
-	"infra_scale",
-]);
+const CHANGE_KINDS = new Set<string>(ChangeEventKindSchema.options);
 
-const REMEDIATION_ACTION_KINDS = new Set<RemediationActionKind>([
-	"open_code_pr",
-	"toggle_feature_flag",
-	"rollback_deploy",
-	"apply_config",
-	"promote_agent_prompt",
-]);
+const REMEDIATION_ACTION_KINDS = new Set<string>(
+	RemediationActionKindSchema.options,
+);
 
 const parseLimit = (raw: string | undefined, fallback = 50): number => {
 	const parsed = Number.parseInt(raw ?? String(fallback), 10);
@@ -85,9 +80,11 @@ const isAgentAutonomyLevel = (value: unknown): value is AgentAutonomyLevel =>
  * require an authenticated human dashboard session (`obs_session` cookie) and
  * reject programmatic agent/MCP bearer tokens (`403 Forbidden`).
  */
-function requireHumanDashboardSession(c: {
+async function requireHumanDashboardSession(c: {
 	req: { header: (name: string) => string | undefined };
-}): { ok: true; sessionActor: string } | { ok: false; message: string } {
+}): Promise<
+	{ ok: true; sessionActor: string } | { ok: false; message: string }
+> {
 	const authHeader = c.req.header("Authorization");
 	if (authHeader) {
 		return {
@@ -105,16 +102,62 @@ function requireHumanDashboardSession(c: {
 				"Human approval requires an authenticated human dashboard session (obs_session cookie).",
 		};
 	}
-	const explicitActor = c.req.header("X-Obs-User-Actor")?.trim();
-	const rawSession = decodeURIComponent(match[1]);
-	const sessionActor =
-		explicitActor || `dashboard_session:${rawSession.slice(0, 24)}`;
+	// The recorded approver is derived from the session itself. Client-supplied
+	// identities (X-Obs-User-Actor, body.approvedByUserId) are never trusted:
+	// they would let any session holder attribute an approval to someone else.
+	// Only a hash prefix is stored so the cookie value never reaches the DB.
+	let rawSession = match[1];
+	try {
+		rawSession = decodeURIComponent(rawSession);
+	} catch {
+		// keep the raw value; it is only hashed
+	}
+	const sessionActor = `dashboard_session:${(await sha256Hex(rawSession)).slice(0, 16)}`;
 	return { ok: true, sessionActor };
 }
 
 export const autosreRoutesPlugin: CollectorPlugin = {
 	name: "autosre-routes",
 	register(app, runtime) {
+		/**
+		 * Grant handoff: the plaintext grant token exists only in the response of
+		 * the request that mints it (propose with an autonomous grant, or human
+		 * approve). Incidents do not store a webhook, so the caller may pass
+		 * `webhookUrl` (+ optional `secret`) in that same request and the token is
+		 * pushed to the runner over the SSRF-guarded, HMAC-signed incident webhook.
+		 * Without a `webhookUrl` the token is simply returned in the response.
+		 */
+		const deliverGrant = async (
+			env: CollectorEnv | undefined,
+			db: ReturnType<typeof sqlDbFor>,
+			projectId: string,
+			body: Record<string, unknown>,
+			proposal: {
+				id: string;
+				incidentId: string;
+				environment: string;
+				status: string;
+				grantToken?: string;
+			},
+		) => {
+			const webhookUrl =
+				typeof body.webhookUrl === "string" ? body.webhookUrl.trim() : "";
+			if (!webhookUrl || !proposal.grantToken) return undefined;
+			if (proposal.status !== "grant_issued") return undefined;
+			return dispatchIncidentWebhook(db, projectId, proposal.incidentId, {
+				url: webhookUrl,
+				secret: typeof body.secret === "string" ? body.secret : undefined,
+				environment: proposal.environment,
+				allowPrivateNetworks: env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
+				logger: runtime.logger,
+				grant: {
+					proposalId: proposal.id,
+					status: proposal.status,
+					grantToken: proposal.grantToken,
+				},
+			});
+		};
+
 		// 1. Change Ingestion (Ingest Auth /v1/changes)
 		app.post("/v1/changes", async (c) => {
 			const projectId = getProjectId(c);
@@ -122,7 +165,8 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			if (!body) {
 				return c.json({ error: "Invalid JSON body" }, 400);
 			}
-			const rawKind = typeof body.kind === "string" ? body.kind.trim() : "deploy";
+			const rawKind =
+				typeof body.kind === "string" ? body.kind.trim() : "deploy";
 			const normalizedKind = (
 				rawKind === "agent_prompt_release" ? "prompt_rollout" : rawKind
 			) as ChangeEventKind;
@@ -181,47 +225,58 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						? body.actor
 						: null;
 
-			const changeEvent = await recordChangeEvent(db, projectId, {
-				id: typeof body.id === "string" ? body.id : undefined,
-				environment:
-					typeof body.environment === "string" ? body.environment : undefined,
-				kind: normalizedKind,
-				source:
-					body.source === "inferred_telemetry" ||
-					body.source === "autosre_remediation"
-						? body.source
-						: "explicit_api",
-				targetNodeId:
-					typeof body.targetNodeId === "string" ? body.targetNodeId : undefined,
-				serviceName,
-				namespace,
-				version: typeof body.version === "string" ? body.version : null,
-				previousVersion:
-					typeof body.previousVersion === "string"
-						? body.previousVersion
-						: null,
-				commitSha: typeof body.commitSha === "string" ? body.commitSha : null,
-				previousCommitSha:
-					typeof body.previousCommitSha === "string"
-						? body.previousCommitSha
-						: null,
-				configDigest:
-					typeof body.configDigest === "string" ? body.configDigest : null,
-				summary,
-				actorId,
-				repositoryUrl,
-				pullRequestUrl,
-				causedByActionId:
-					typeof body.causedByActionId === "string"
-						? body.causedByActionId
-						: null,
-				agentRunId:
-					typeof body.agentRunId === "string" ? body.agentRunId : null,
-				touchedPaths,
-				attributes,
-				occurredAt:
-					typeof body.occurredAt === "string" ? body.occurredAt : undefined,
-			});
+			let changeEvent: Awaited<ReturnType<typeof recordChangeEvent>>;
+			try {
+				changeEvent = await recordChangeEvent(db, projectId, {
+					id: typeof body.id === "string" ? body.id : undefined,
+					environment:
+						typeof body.environment === "string" ? body.environment : undefined,
+					kind: normalizedKind,
+					source:
+						body.source === "inferred_telemetry" ||
+						body.source === "autosre_remediation" ||
+						body.source === "ci_webhook"
+							? body.source
+							: "explicit_api",
+					targetNodeId:
+						typeof body.targetNodeId === "string"
+							? body.targetNodeId
+							: undefined,
+					serviceName,
+					namespace,
+					version: typeof body.version === "string" ? body.version : null,
+					previousVersion:
+						typeof body.previousVersion === "string"
+							? body.previousVersion
+							: null,
+					commitSha: typeof body.commitSha === "string" ? body.commitSha : null,
+					previousCommitSha:
+						typeof body.previousCommitSha === "string"
+							? body.previousCommitSha
+							: null,
+					configDigest:
+						typeof body.configDigest === "string" ? body.configDigest : null,
+					summary,
+					actorId,
+					repositoryUrl,
+					pullRequestUrl,
+					causedByActionId:
+						typeof body.causedByActionId === "string"
+							? body.causedByActionId
+							: null,
+					agentRunId:
+						typeof body.agentRunId === "string" ? body.agentRunId : null,
+					touchedPaths,
+					attributes,
+					occurredAt:
+						typeof body.occurredAt === "string" ? body.occurredAt : undefined,
+				});
+			} catch (err) {
+				if (err instanceof InvalidTimestampError) {
+					return c.json({ error: err.message }, 400);
+				}
+				throw err;
+			}
 
 			return c.json({ changeEvent, change: changeEvent }, 201);
 		});
@@ -254,23 +309,27 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			const rawKind = c.req.query("kind");
 			const normalizedKind =
 				rawKind === "agent_prompt_release" ? "prompt_rollout" : rawKind;
-			if (
-				normalizedKind &&
-				!CHANGE_KINDS.has(normalizedKind as ChangeEventKind)
-			) {
+			if (normalizedKind && !CHANGE_KINDS.has(normalizedKind)) {
 				return c.json({ error: `Invalid kind: ${rawKind}` }, 400);
 			}
-			const changes = await listChangeEvents(db, {
-				projectId,
-				environment: c.req.query("environment") || undefined,
-				serviceName:
-					c.req.query("serviceName") || c.req.query("service") || undefined,
-				targetNodeId: c.req.query("targetNodeId") || undefined,
-				kind: normalizedKind || undefined,
-				since: c.req.query("since") || undefined,
-				limit: parseLimit(c.req.query("limit"), 50),
-			});
-			return c.json({ changes });
+			try {
+				const changes = await listChangeEvents(db, {
+					projectId,
+					environment: c.req.query("environment") || undefined,
+					serviceName:
+						c.req.query("serviceName") || c.req.query("service") || undefined,
+					targetNodeId: c.req.query("targetNodeId") || undefined,
+					kind: normalizedKind || undefined,
+					since: c.req.query("since") || undefined,
+					limit: parseLimit(c.req.query("limit"), 50),
+				});
+				return c.json({ changes });
+			} catch (err) {
+				if (err instanceof InvalidTimestampError) {
+					return c.json({ error: err.message }, 400);
+				}
+				throw err;
+			}
 		});
 
 		app.get("/internal/changes/:id/blast-radius", async (c) => {
@@ -394,10 +453,13 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				typeof body.leaseDurationSeconds === "number" &&
 				Number.isFinite(body.leaseDurationSeconds)
 					? body.leaseDurationSeconds
-					: typeof body.leaseDurationMs === "number" &&
-							Number.isFinite(body.leaseDurationMs)
-						? Math.ceil(body.leaseDurationMs / 1000)
-						: undefined;
+					: typeof body.ttlSeconds === "number" &&
+							Number.isFinite(body.ttlSeconds)
+						? body.ttlSeconds
+						: typeof body.leaseDurationMs === "number" &&
+								Number.isFinite(body.leaseDurationMs)
+							? Math.ceil(body.leaseDurationMs / 1000)
+							: undefined;
 			const result = await acquireIncidentLease(db, projectId, incidentId, {
 				environment:
 					typeof body.environment === "string" ? body.environment : undefined,
@@ -424,9 +486,12 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			const result = await dispatchIncidentWebhook(db, projectId, incidentId, {
 				url: webhookUrl,
 				secret: typeof body?.secret === "string" ? body.secret : undefined,
-				allowPrivateNetworks: Boolean(
-					body?.allowPrivateNetworks ?? body?.allowPrivateWebhookTargets,
-				),
+				environment:
+					typeof body?.environment === "string" ? body.environment : undefined,
+				// Operator-level setting only: a request body must never be able to
+				// turn off the SSRF guard.
+				allowPrivateNetworks: c.env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
+				logger: runtime.logger,
 			});
 			return c.json(result, result.delivered ? 200 : 502);
 		});
@@ -497,6 +562,26 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				);
 			}
 
+			if (body.causalChain !== undefined && !Array.isArray(body.causalChain)) {
+				return c.json({ error: "causalChain must be an array" }, 400);
+			}
+			for (const [i, triple] of (
+				(body.causalChain as unknown[] | undefined) ?? []
+			).entries()) {
+				const predicate =
+					triple && typeof triple === "object"
+						? (triple as Record<string, unknown>).predicate
+						: undefined;
+				if (!EvidencePredicateSchema.safeParse(predicate).success) {
+					return c.json(
+						{
+							error: `causalChain[${i}].predicate is not a known evidence predicate: ${String(predicate)}`,
+						},
+						400,
+					);
+				}
+			}
+
 			const db = sqlDbFor(c.env);
 			const input: InvestigationFindingInput = {
 				id: typeof body.id === "string" ? body.id : undefined,
@@ -552,7 +637,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					typeof body.agentRunId === "string" ? body.agentRunId : null,
 			};
 
-			const finding = await recordInvestigationFinding(db, projectId, input);
+			const finding = await recordInvestigationFinding(db, projectId, input, {
+				logger: runtime.logger,
+			});
 			return c.json({ finding, id: finding.id }, 201);
 		});
 
@@ -701,12 +788,22 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			};
 
 			try {
-				const proposal = await proposeRemediationAction(db, projectId, input);
+				const proposal = await proposeRemediationAction(db, projectId, input, {
+					logger: runtime.logger,
+				});
+				const webhookDelivery = await deliverGrant(
+					c.env,
+					db,
+					projectId,
+					body,
+					proposal,
+				);
 				return c.json(
 					{
 						proposal,
 						...proposal,
 						grantToken: proposal.grantToken ?? null,
+						...(webhookDelivery ? { webhookDelivery } : {}),
 					},
 					201,
 				);
@@ -721,7 +818,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.post("/internal/remediations/:id/approve", async (c) => {
-			const sessionCheck = requireHumanDashboardSession(c);
+			const sessionCheck = await requireHumanDashboardSession(c);
 			if (!sessionCheck.ok) {
 				return c.json(
 					{ error: "Forbidden", message: sessionCheck.message },
@@ -735,14 +832,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				{};
 			const environment =
 				typeof body.environment === "string" ? body.environment : undefined;
-			const approvedByUserId =
-				typeof body.approvedByUserId === "string" &&
-				body.approvedByUserId.trim()
-					? body.approvedByUserId.trim()
-					: typeof body.approvedBySession === "string" &&
-							body.approvedBySession.trim()
-						? body.approvedBySession.trim()
-						: sessionCheck.sessionActor;
+			const approvedByUserId = sessionCheck.sessionActor;
 
 			const db = sqlDbFor(c.env);
 			try {
@@ -755,10 +845,18 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						approvedByUserId,
 					},
 				);
+				const webhookDelivery = await deliverGrant(
+					c.env,
+					db,
+					projectId,
+					body,
+					proposal,
+				);
 				return c.json({
 					proposal,
 					...proposal,
 					grantToken: proposal.grantToken ?? null,
+					...(webhookDelivery ? { webhookDelivery } : {}),
 				});
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
@@ -771,7 +869,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 		});
 
 		app.post("/internal/remediations/:id/reject", async (c) => {
-			const sessionCheck = requireHumanDashboardSession(c);
+			const sessionCheck = await requireHumanDashboardSession(c);
 			if (!sessionCheck.ok) {
 				return c.json(
 					{ error: "Forbidden", message: sessionCheck.message },
@@ -785,8 +883,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				{};
 			const environment =
 				typeof body.environment === "string" ? body.environment : undefined;
-			const reason =
-				typeof body.reason === "string" ? body.reason : undefined;
+			const reason = typeof body.reason === "string" ? body.reason : undefined;
 
 			const db = sqlDbFor(c.env);
 			try {
@@ -837,6 +934,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						grantToken,
 						runnerId:
 							typeof body.runnerId === "string" ? body.runnerId : undefined,
+						logger: runtime.logger,
 					},
 				);
 				return c.json({ claimed: true, proposal, ...proposal });
@@ -846,7 +944,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					err instanceof RemediationGateError
 						? (err.statusCode as 400 | 403 | 404 | 409 | 410)
 						: 409;
-				return c.json({ claimed: false, error: message, reason: message }, status);
+				return c.json(
+					{ claimed: false, error: message, reason: message },
+					status,
+				);
 			}
 		});
 
@@ -856,6 +957,11 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			const body =
 				(await readJsonObject<Record<string, unknown>>(c).catch(() => null)) ??
 				{};
+			const runnerId =
+				typeof body.runnerId === "string" ? body.runnerId.trim() : "";
+			if (!runnerId) {
+				return c.json({ error: "runnerId is required" }, 400);
+			}
 			const db = sqlDbFor(c.env);
 			try {
 				const proposal = await completeRemediationProposal(
@@ -867,6 +973,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 							typeof body.environment === "string"
 								? body.environment
 								: undefined,
+						runnerId,
 						resultingChangeId:
 							typeof body.resultingChangeId === "string"
 								? body.resultingChangeId
@@ -894,6 +1001,11 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			const body =
 				(await readJsonObject<Record<string, unknown>>(c).catch(() => null)) ??
 				{};
+			const runnerId =
+				typeof body.runnerId === "string" ? body.runnerId.trim() : "";
+			if (!runnerId) {
+				return c.json({ error: "runnerId is required" }, 400);
+			}
 			const db = sqlDbFor(c.env);
 			try {
 				const proposal = await failRemediationProposal(
@@ -905,6 +1017,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 							typeof body.environment === "string"
 								? body.environment
 								: undefined,
+						runnerId,
 						failureReason:
 							typeof body.failureReason === "string"
 								? body.failureReason
@@ -927,12 +1040,16 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			const body =
 				(await readJsonObject<Record<string, unknown>>(c).catch(() => null)) ??
 				{};
+			// Scoped to the caller's project; the clock is never client-controlled
+			// and the traffic floor can only be raised, never lowered, by a caller.
 			const summary = await evaluateRemediationWatchdogs(db, {
-				nowIso: typeof body.nowIso === "string" ? body.nowIso : undefined,
+				projectId: getProjectId(c),
 				minComparableRequests:
-					typeof body.minComparableRequests === "number"
-						? body.minComparableRequests
+					typeof body.minComparableRequests === "number" &&
+					Number.isFinite(body.minComparableRequests)
+						? Math.max(50, body.minComparableRequests)
 						: undefined,
+				logger: runtime.logger,
 			});
 			return c.json({ summary, ...summary });
 		});

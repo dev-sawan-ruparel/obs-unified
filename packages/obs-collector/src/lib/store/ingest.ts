@@ -8,6 +8,7 @@ import type { SqlDb } from "../sql-db";
 export async function ingestTelemetrySpans(
 	db: SqlDb,
 	spans: StoredSpan[],
+	logger: { warn: (message: string) => void } = console,
 ): Promise<{ inserted: number; traceCount: number }> {
 	if (spans.length === 0) return { inserted: 0, traceCount: 0 };
 
@@ -82,65 +83,16 @@ export async function ingestTelemetrySpans(
 			),
 	);
 
-	try {
-		await db.batch(statements);
-	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		if (msg.includes("no such column: environment")) {
-			// Fallback for unit tests running against pre-050 partial schemas
-			const legacyStatements = enrichedSpans.map((span) =>
-				db
-					.prepare(`
-            INSERT OR IGNORE INTO telemetry_spans (
-              project_id, trace_id, span_id, parent_span_id, trace_state,
-              service_name, scope_name, scope_version, span_name, span_kind,
-              status_code, status_message, start_time, end_time, duration_ms,
-              attributes_json, dropped_attributes_count,
-              resource_attributes_json, events_json, dropped_events_count,
-              links_json, dropped_links_count, received_at, expires_at,
-              session_id, interaction_id, telemetry_sdk_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `)
-					.bind(
-						span.projectId,
-						span.traceId,
-						span.spanId,
-						span.parentSpanId,
-						span.traceState,
-						span.serviceName,
-						span.scopeName,
-						span.scopeVersion,
-						span.spanName,
-						span.spanKind,
-						span.statusCode,
-						span.statusMessage,
-						span.startTime,
-						span.endTime,
-						span.durationMs,
-						span.attributesJson,
-						span.droppedAttributesCount,
-						span.resourceAttributesJson,
-						span.eventsJson,
-						span.droppedEventsCount,
-						span.linksJson,
-						span.droppedLinksCount,
-						span.receivedAt,
-						span.expiresAt,
-						span.sessionId ?? null,
-						span.interactionId ?? null,
-						span.telemetrySdkName ?? null,
-					),
-			);
-			await db.batch(legacyStatements);
-		} else {
-			throw err;
-		}
-	}
+	await db.batch(statements);
 
 	try {
 		await upsertOntologyFromSpans(db, enrichedSpans);
-	} catch {
-		// Non-fatal on partial-schema unit test DBs
+	} catch (err) {
+		// Ontology enrichment must never block span ingest, but a failure here
+		// means the causal graph is silently going stale, so surface it.
+		logger.warn(
+			`upsertOntologyFromSpans failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	// Trace instrumentation gaps are computed lazily at read time (see

@@ -13,7 +13,6 @@
  *    the signal they reference); expansions follow their ref.
  */
 
-import { evaluateRemediationWatchdogs } from "./autosre-remediation-gate";
 import type { SqlDb } from "./sql-db";
 
 export const ALERT_EVALUATIONS_MAX_AGE_HOURS = 720;
@@ -29,6 +28,8 @@ export interface HousekeepingSummary {
 	ontology_nodes?: number;
 	change_events?: number;
 	incident_investigations?: number;
+	/** `leased` incidents whose lease expired and were returned to `open` (RFC 0013 § 11). */
+	incident_leases_reaped?: number;
 	investigation_findings?: number;
 	remediation_proposals?: number;
 }
@@ -92,90 +93,96 @@ export async function purgeSecondaryRows(
 		.run();
 
 	// RFC 0013 — AutoSRE ontology, change events, incident investigations,
-	// investigation findings, and remediation proposals retention + watchdog.
+	// investigation findings, and remediation proposals retention, plus lease
+	// reaping. Errors propagate (the retention caller logs them); the
+	// post-remediation watchdog runs on the 1-minute analyses tick instead.
 	const thirtyDaysAgoIso = isoBefore(30 * 24);
 	const ninetyDaysAgoIso = isoBefore(90 * 24);
-	let ontologyEdgesPurged = 0;
-	let ontologyNodesPurged = 0;
-	let changeEventsPurged = 0;
-	let incidentInvestigationsPurged = 0;
-	let investigationFindingsPurged = 0;
-	let remediationProposalsPurged = 0;
-	try {
-		const edgesRes = await db
-			.prepare(`DELETE FROM ontology_edges WHERE last_seen_at < ?`)
-			.bind(thirtyDaysAgoIso)
-			.run();
-		ontologyEdgesPurged = changes(edgesRes);
+	const edgesRes = await db
+		.prepare(`DELETE FROM ontology_edges WHERE last_seen_at < ?`)
+		.bind(thirtyDaysAgoIso)
+		.run();
+	const ontologyEdgesPurged = changes(edgesRes);
 
-		const nodesRes = await db
-			.prepare(
-				`DELETE FROM ontology_nodes
-				 WHERE last_seen_at < ?
-				   AND NOT EXISTS (
-				     SELECT 1 FROM ontology_edges e
-				     WHERE e.project_id = ontology_nodes.project_id
-				       AND e.environment = ontology_nodes.environment
-				       AND (e.source_node_id = ontology_nodes.id OR e.target_node_id = ontology_nodes.id)
-				   )`,
-			)
-			.bind(thirtyDaysAgoIso)
-			.run();
-		ontologyNodesPurged = changes(nodesRes);
+	const nodesRes = await db
+		.prepare(
+			`DELETE FROM ontology_nodes
+			 WHERE last_seen_at < ?
+			   AND NOT EXISTS (
+			     SELECT 1 FROM ontology_edges e
+			     WHERE e.project_id = ontology_nodes.project_id
+			       AND e.environment = ontology_nodes.environment
+			       AND (e.source_node_id = ontology_nodes.id OR e.target_node_id = ontology_nodes.id)
+			   )`,
+		)
+		.bind(thirtyDaysAgoIso)
+		.run();
+	const ontologyNodesPurged = changes(nodesRes);
 
-		const proposalsRes = await db
-			.prepare(
-				`DELETE FROM remediation_proposals
-				 WHERE (expires_at IS NOT NULL AND expires_at < ?)
-				    OR (expires_at IS NULL AND created_at < ?)`,
-			)
-			.bind(nowIso, ninetyDaysAgoIso)
-			.run();
-		remediationProposalsPurged = changes(proposalsRes);
+	const proposalsRes = await db
+		.prepare(
+			`DELETE FROM remediation_proposals
+			 WHERE (expires_at IS NOT NULL AND expires_at < ?)
+			    OR (expires_at IS NULL AND created_at < ?)`,
+		)
+		.bind(nowIso, ninetyDaysAgoIso)
+		.run();
+	const remediationProposalsPurged = changes(proposalsRes);
 
-		const findingsRes = await db
-			.prepare(
-				`DELETE FROM investigation_findings
-				 WHERE causal_verification_status NOT IN ('counterfactual_verified', 'operationally_corroborated')
-				   AND ((expires_at IS NOT NULL AND expires_at < ?)
-				     OR (expires_at IS NULL AND created_at < ?))`,
-			)
-			.bind(nowIso, ninetyDaysAgoIso)
-			.run();
-		investigationFindingsPurged = changes(findingsRes);
+	const findingsRes = await db
+		.prepare(
+			`DELETE FROM investigation_findings
+			 WHERE causal_verification_status NOT IN ('counterfactual_verified', 'operationally_corroborated')
+			   AND ((expires_at IS NOT NULL AND expires_at < ?)
+			     OR (expires_at IS NULL AND created_at < ?))`,
+		)
+		.bind(nowIso, ninetyDaysAgoIso)
+		.run();
+	const investigationFindingsPurged = changes(findingsRes);
 
-		// Preserve change_events referenced by active investigation_findings
-		const changesRes = await db
-			.prepare(
-				`DELETE FROM change_events
-				 WHERE ((expires_at IS NOT NULL AND expires_at < ?)
-				     OR (expires_at IS NULL AND occurred_at < ?))
-				   AND NOT EXISTS (
-				     SELECT 1 FROM investigation_findings f
-				     WHERE f.project_id = change_events.project_id
-				       AND f.environment = change_events.environment
-				       AND f.contributing_change_id = change_events.id
-				   )`,
-			)
-			.bind(nowIso, ninetyDaysAgoIso)
-			.run();
-		changeEventsPurged = changes(changesRes);
+	// Preserve change_events referenced by active investigation_findings
+	const changesRes = await db
+		.prepare(
+			`DELETE FROM change_events
+			 WHERE ((expires_at IS NOT NULL AND expires_at < ?)
+			     OR (expires_at IS NULL AND occurred_at < ?))
+			   AND NOT EXISTS (
+			     SELECT 1 FROM investigation_findings f
+			     WHERE f.project_id = change_events.project_id
+			       AND f.environment = change_events.environment
+			       AND f.contributing_change_id = change_events.id
+			   )`,
+		)
+		.bind(nowIso, ninetyDaysAgoIso)
+		.run();
+	const changeEventsPurged = changes(changesRes);
 
-		const incidentsRes = await db
-			.prepare(
-				`DELETE FROM incident_investigations
-				 WHERE status IN ('resolved', 'escalated')
-				   AND ((expires_at IS NOT NULL AND expires_at < ?)
-				     OR (expires_at IS NULL AND updated_at < ?))`,
-			)
-			.bind(nowIso, ninetyDaysAgoIso)
-			.run();
-		incidentInvestigationsPurged = changes(incidentsRes);
+	const incidentsRes = await db
+		.prepare(
+			`DELETE FROM incident_investigations
+			 WHERE status IN ('resolved', 'escalated')
+			   AND ((expires_at IS NOT NULL AND expires_at < ?)
+			     OR (expires_at IS NULL AND updated_at < ?))`,
+		)
+		.bind(nowIso, ninetyDaysAgoIso)
+		.run();
+	const incidentInvestigationsPurged = changes(incidentsRes);
 
-		await evaluateRemediationWatchdogs(db, { nowIso });
-	} catch {
-		// Gracefully ignore when running against partial test schemas without 050
-	}
+	// Lease reaping (RFC 0013 § 11): a runner that died holding a lease must not
+	// strand the incident. Expired `leased` incidents go back to `open` so the
+	// next runner can pick them up. `remediating`/`verifying` are owned by the
+	// proposal claim/watchdog timeouts, not by this reaper.
+	const leasesRes = await db
+		.prepare(
+			`UPDATE incident_investigations
+			 SET status = 'open', lease_owner_id = NULL, lease_expires_at = NULL, updated_at = ?
+			 WHERE status = 'leased'
+			   AND lease_expires_at IS NOT NULL
+			   AND lease_expires_at < ?`,
+		)
+		.bind(nowIso, nowIso)
+		.run();
+	const incidentLeasesReaped = changes(leasesRes);
 
 	return {
 		alert_evaluations: changes(alertEvaluations),
@@ -187,6 +194,7 @@ export async function purgeSecondaryRows(
 		ontology_nodes: ontologyNodesPurged,
 		change_events: changeEventsPurged,
 		incident_investigations: incidentInvestigationsPurged,
+		incident_leases_reaped: incidentLeasesReaped,
 		investigation_findings: investigationFindingsPurged,
 		remediation_proposals: remediationProposalsPurged,
 	};

@@ -74,13 +74,29 @@ export const mapChangeEventRow = (row: ChangeEventRow): ChangeEvent => ({
 	expiresAt: row.expires_at,
 });
 
+export class InvalidTimestampError extends Error {
+	constructor(field: string, value: string) {
+		super(`${field} must be a valid ISO-8601 timestamp, got "${value}"`);
+		this.name = "InvalidTimestampError";
+	}
+}
+
+/** Canonicalizes a client timestamp to `toISOString()` form so string comparison in SQL is sound. */
+const normalizeTimestamp = (field: string, value: string): string => {
+	const ms = new Date(value).getTime();
+	if (!Number.isFinite(ms)) throw new InvalidTimestampError(field, value);
+	return new Date(ms).toISOString();
+};
+
 export async function recordChangeEvent(
 	db: SqlDb,
 	projectId: string,
 	input: ChangeEventInput,
 ): Promise<ChangeEvent> {
 	const nowIso = new Date().toISOString();
-	const occurredAt = input.occurredAt || nowIso;
+	const occurredAt = input.occurredAt
+		? normalizeTimestamp("occurredAt", input.occurredAt)
+		: nowIso;
 	const environment = normalizeEnvironment(input.environment);
 	const namespace = (input.namespace || "default").trim();
 	const serviceName = input.serviceName?.trim() || null;
@@ -258,7 +274,7 @@ export async function listChangeEvents(
 	}
 	if (options.since) {
 		conditions.push("occurred_at >= ?");
-		binds.push(options.since);
+		binds.push(normalizeTimestamp("since", options.since));
 	}
 
 	const limit = Math.max(1, Math.min(200, options.limit ?? 50));
@@ -347,8 +363,10 @@ const summarizeCohort = (
 		requestCount > 0 ? downstreamCount / requestCount : 0;
 	const avgDownstreamDurationMs =
 		downstreamCount > 0
-			? downstreamSpans.reduce((acc, s) => acc + Number(s.duration_ms ?? 0), 0) /
-				downstreamCount
+			? downstreamSpans.reduce(
+					(acc, s) => acc + Number(s.duration_ms ?? 0),
+					0,
+				) / downstreamCount
 			: null;
 
 	return {
@@ -434,7 +452,9 @@ export async function findCrossTraceContention(
 			}>(),
 	]);
 
-	const isScoped = nodeRow ? nodeRow.is_scoped_identity === 1 : !options.targetNodeId.includes(":unscoped/");
+	const isScoped = nodeRow
+		? nodeRow.is_scoped_identity === 1
+		: !options.targetNodeId.includes(":unscoped/");
 	const relationshipCertainty: RelationshipCertainty = isScoped
 		? "exact"
 		: "inferred";
@@ -456,7 +476,11 @@ export async function findCrossTraceContention(
 const extractFilePathsFromSpan = (span: SpanCohortSampleRow): string[] => {
 	const found: string[] = [];
 	const attrs = parseJsonRecord(span.attributes_json ?? "{}");
-	for (const key of ["code.filepath", "obs.code.filepath", "exception.stacktrace"]) {
+	for (const key of [
+		"code.filepath",
+		"obs.code.filepath",
+		"exception.stacktrace",
+	]) {
 		const val = attrs[key];
 		if (typeof val === "string") {
 			found.push(val);
@@ -557,9 +581,9 @@ export async function computeChangeBlastRadius(
 
 	const flagKey =
 		change.kind === "feature_flag"
-			? (typeof change.attributes.flagKey === "string"
+			? ((typeof change.attributes.flagKey === "string"
 					? change.attributes.flagKey
-					: change.serviceName) ?? "flag"
+					: change.serviceName) ?? "flag")
 			: null;
 
 	const newCohortKey =
@@ -578,7 +602,10 @@ export async function computeChangeBlastRadius(
 			const attrs = parseJsonRecord(s.attributes_json ?? "{}");
 			const direct = attrs[`obs.feature_flags.${flagKey}`];
 			if (direct !== undefined && direct !== null) return String(direct);
-			if (attrs["feature_flag.key"] === flagKey && attrs["feature_flag.variant"] !== undefined) {
+			if (
+				attrs["feature_flag.key"] === flagKey &&
+				attrs["feature_flag.variant"] !== undefined
+			) {
 				return String(attrs["feature_flag.variant"]);
 			}
 			const nested = attrs["obs.feature_flags"];
@@ -733,8 +760,7 @@ export async function computeChangeBlastRadius(
 	} else if (preBaseline.requestCount >= minSample) {
 		// Instant 100% cutover: compare post-change v_new vs pre-change baseline
 		rateDifference = newCohort.errorRate - preBaseline.errorRate;
-		relativeRisk =
-			newCohort.errorRate / Math.max(preBaseline.errorRate, 0.001);
+		relativeRisk = newCohort.errorRate / Math.max(preBaseline.errorRate, 0.001);
 		const p95Ratio =
 			newCohort.p95DurationMs !== null &&
 			preBaseline.p95DurationMs !== null &&

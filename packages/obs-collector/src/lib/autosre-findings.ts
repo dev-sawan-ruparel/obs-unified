@@ -12,7 +12,12 @@ import type {
 	RecoveryStatus,
 	TelemetryCodeReference,
 } from "@obsunified/types";
-import { buildCanonicalNodeId, buildFindingFingerprint } from "@obsunified/types";
+import {
+	buildCanonicalNodeId,
+	buildFindingFingerprint,
+} from "@obsunified/types";
+import { consoleLogger, type Logger } from "../framework/logger";
+import { computeChangeBlastRadius } from "./autosre-change-correlation";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";
@@ -148,14 +153,15 @@ export const mapFindingRow = (row: FindingRow): InvestigationFinding => {
 		cohortVerdict:
 			(row.cohort_verdict as CohortAttributionVerdict | null) ?? null,
 		contendingTraceId: row.contending_trace_id,
-		causalChain: parseJsonArray(row.causal_chain_json) as unknown as CausalTriple[],
+		causalChain: parseJsonArray(
+			row.causal_chain_json,
+		) as unknown as CausalTriple[],
 		citedEvidenceIds: parseJsonArray(row.cited_evidence_ids_json).map(String),
 		codeReferences: parseJsonArray(
 			row.code_references_json ?? "[]",
 		) as unknown as TelemetryCodeReference[],
 		counterfactualProof,
-		recoveryStatus: (row.recovery_status ||
-			"not_applicable") as RecoveryStatus,
+		recoveryStatus: (row.recovery_status || "not_applicable") as RecoveryStatus,
 		causalVerificationStatus: (row.causal_verification_status ||
 			"unverified") as CausalVerificationStatus,
 		watchdogStep: Number(row.watchdog_step ?? 0),
@@ -174,17 +180,24 @@ export const mapFindingRow = (row: FindingRow): InvestigationFinding => {
 };
 
 /**
- * Enforces P1 #1: Structural overlap (`touched_same_code_path` or `originated_fault_in_span`)
- * can never be promoted to `cohort_rate_isolated` or `counterfactual_verified` without
- * actual cohort isolation or SQL-verified counterfactual proof.
+ * Enforces P1 #1: the causal proof tier is server-derived. Nothing the client
+ * asserts (`cohortVerdict`, `causalProofTier`, an `isolated_to_version_cohort`
+ * triple) can raise the tier above `corroborated_candidate`. Only a verdict the
+ * collector recomputed itself from telemetry (`serverCohortVerdict`, produced by
+ * `computeChangeBlastRadius`) may yield `cohort_rate_isolated`, and only
+ * `verifyPairedCounterfactualProof` can reach `counterfactual_verified`.
  */
 function resolveSafeCausalProofTier(
 	input: InvestigationFindingInput,
+	serverCohortVerdict: CohortAttributionVerdict | null,
 ): CausalProofTier {
-	if (input.cohortVerdict === "isolated_to_new_version") {
+	if (serverCohortVerdict === "isolated_to_new_version") {
 		return "cohort_rate_isolated";
 	}
 	if (
+		serverCohortVerdict === "sequential_post_cutover_regression" ||
+		serverCohortVerdict === "shared_degradation_new_version_aggressor" ||
+		input.cohortVerdict === "isolated_to_new_version" ||
 		input.cohortVerdict === "sequential_post_cutover_regression" ||
 		input.cohortVerdict === "shared_degradation_new_version_aggressor"
 	) {
@@ -195,17 +208,12 @@ function resolveSafeCausalProofTier(
 			t.predicate === "touched_same_code_path" ||
 			t.predicate === "contended_on_shared_resource" ||
 			t.predicate === "induced_shared_resource_contention" ||
-			t.predicate === "degraded_after_change",
+			t.predicate === "degraded_after_change" ||
+			t.predicate === "isolated_to_version_cohort",
 	);
-	if (input.causalProofTier === "cohort_rate_isolated") {
-		// Only allow cohort_rate_isolated if a change or isolated_to_version_cohort triple is present
-		const hasIsolatedTriple = input.causalChain.some(
-			(t) => t.predicate === "isolated_to_version_cohort",
-		);
-		if (hasIsolatedTriple) return "cohort_rate_isolated";
-	}
 	if (
 		hasCodeOverlapOrContention ||
+		input.causalProofTier === "cohort_rate_isolated" ||
 		input.causalProofTier === "corroborated_candidate"
 	) {
 		return "corroborated_candidate";
@@ -217,7 +225,9 @@ export async function recordInvestigationFinding(
 	db: SqlDb,
 	projectId: string,
 	input: InvestigationFindingInput,
+	options: { logger?: Logger } = {},
 ): Promise<InvestigationFinding> {
+	const logger = options.logger ?? consoleLogger;
 	const nowIso = new Date().toISOString();
 	const environment = (
 		input.environment ??
@@ -256,7 +266,40 @@ export async function recordInvestigationFinding(
 		.bind(projectId, environment, fpResult.fingerprint)
 		.first<{ id: string; causal_verification_status: string }>();
 
-	const causalProofTier = resolveSafeCausalProofTier(input);
+	// Recompute the cohort verdict server-side; never trust the client's claim.
+	let serverCohortVerdict: CohortAttributionVerdict | null = null;
+	if (input.contributingChangeId) {
+		const blastRadius = await computeChangeBlastRadius(
+			db,
+			projectId,
+			input.contributingChangeId,
+			{ environment },
+		);
+		serverCohortVerdict = blastRadius?.cohortVerdict ?? null;
+	}
+	const causalProofTier = resolveSafeCausalProofTier(
+		input,
+		serverCohortVerdict,
+	);
+	if (
+		input.cohortVerdict === "isolated_to_new_version" &&
+		serverCohortVerdict !== "isolated_to_new_version"
+	) {
+		logger.warn(
+			"[autosre] client-asserted cohortVerdict=isolated_to_new_version was not corroborated server-side; capping proof tier",
+			{
+				projectId,
+				contributingChangeId: input.contributingChangeId ?? null,
+				serverCohortVerdict,
+			},
+		);
+	}
+	// An unverified client claim of isolation is not persisted as a verdict.
+	const storedCohortVerdict =
+		serverCohortVerdict ??
+		(input.cohortVerdict === "isolated_to_new_version"
+			? null
+			: (input.cohortVerdict ?? null));
 
 	const relationshipScore = input.causalChain.some(
 		(c) => c.relationshipCertainty === "exact",
@@ -304,9 +347,7 @@ export async function recordInvestigationFinding(
 	};
 
 	const id = input.id?.trim() || `fnd_${randomHex(10)}`;
-	const expiresAt = new Date(
-		Date.now() + 90 * 24 * 3600_000,
-	).toISOString();
+	const expiresAt = new Date(Date.now() + 90 * 24 * 3600_000).toISOString();
 
 	await db
 		.prepare(
@@ -352,7 +393,7 @@ export async function recordInvestigationFinding(
 			input.rootCauseEntityKind ?? null,
 			input.rootCauseEntityId ?? null,
 			input.contributingChangeId ?? null,
-			input.cohortVerdict ?? null,
+			storedCohortVerdict,
 			input.contendingTraceId ?? null,
 			JSON.stringify(input.causalChain),
 			JSON.stringify(input.citedEvidenceIds),
@@ -429,9 +470,7 @@ export async function searchInvestigationFindings(
 		binds.push(options.symptomEntityId);
 	}
 	if (options.rootCauseEntityId) {
-		conditions.push(
-			"(root_cause_entity_id = ? OR fault_locus_entity_id = ?)",
-		);
+		conditions.push("(root_cause_entity_id = ? OR fault_locus_entity_id = ?)");
 		binds.push(options.rootCauseEntityId, options.rootCauseEntityId);
 	}
 	if (options.causalVerificationStatus) {
@@ -443,7 +482,7 @@ export async function searchInvestigationFindings(
 		binds.push(options.incidentId);
 	}
 
-	const limit = Math.max(1, Math.min(100, options.limit ?? 25));
+	const limit = Math.max(1, Math.min(200, options.limit ?? 25));
 	binds.push(limit);
 
 	const rows = await db
@@ -575,7 +614,8 @@ export async function verifyPairedCounterfactualProof(
 	const failingPassed =
 		failingRow.result_passed !== null
 			? Number(failingRow.result_passed) === 1
-			: Number(failingRow.fail_count) === 0 && Number(failingRow.pass_count) > 0;
+			: Number(failingRow.fail_count) === 0 &&
+				Number(failingRow.pass_count) > 0;
 	if (failingPassed) {
 		throw new CounterfactualVerificationError(
 			`Baseline run ${input.failingRunId} did not fail (passed=1)`,
@@ -590,8 +630,7 @@ export async function verifyPairedCounterfactualProof(
 		);
 	}
 
-	const failingFp =
-		failingRow.result_failure_fp ?? failingRow.run_failure_fp;
+	const failingFp = failingRow.result_failure_fp ?? failingRow.run_failure_fp;
 	if (failingFp !== finding.fingerprint) {
 		throw new CounterfactualVerificationError(
 			`Failing run fingerprint (${failingFp ?? "null"}) does not match finding fingerprint (${finding.fingerprint})`,
@@ -627,8 +666,7 @@ export async function verifyPairedCounterfactualProof(
 				`Candidate run ${passRunId} did not pass`,
 			);
 		}
-		const passInputHash =
-			passRow.result_input_hash ?? passRow.run_input_hash;
+		const passInputHash = passRow.result_input_hash ?? passRow.run_input_hash;
 		if (passInputHash !== failingInputHash) {
 			throw new CounterfactualVerificationError(
 				`Candidate run ${passRunId} input_payload_hash (${passInputHash ?? "null"}) does not match failing run (${failingInputHash})`,
