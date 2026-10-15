@@ -10,6 +10,8 @@ describe("mcp-server configuration & auth contract", () => {
 		process.env = { ...ORIGINAL_ENV };
 		delete process.env.OBS_COLLECTOR_URL;
 		delete process.env.OBS_DASHBOARD_TOKEN;
+		delete process.env.OBS_API_TOKEN;
+		delete process.env.OBS_MCP_ENABLE_WRITES;
 		delete process.env.OBS_INGEST_KEY;
 		delete process.env.OBS_SESSION_COOKIE;
 		delete process.env.OBS_PROJECT_ID;
@@ -78,11 +80,19 @@ describe("mcp-server configuration & auth contract", () => {
 			);
 		});
 
+		it("accepts OBS_API_TOKEN as an alias, with OBS_DASHBOARD_TOKEN winning", () => {
+			process.env.OBS_COLLECTOR_URL = "http://localhost:8790";
+			process.env.OBS_API_TOKEN = "alias-token";
+			expect(readConfig().authHeaders.Authorization).toBe("Bearer alias-token");
+			process.env.OBS_DASHBOARD_TOKEN = "dash-token";
+			expect(readConfig().authHeaders.Authorization).toBe("Bearer dash-token");
+		});
+
 		it("throws when no read auth credential is provided", () => {
 			process.env.OBS_COLLECTOR_URL = "http://localhost:8790";
 
 			expect(() => readConfig()).toThrow(
-				/Set OBS_DASHBOARD_TOKEN or OBS_SESSION_COOKIE for collector read access/i,
+				/Set OBS_DASHBOARD_TOKEN .* or OBS_SESSION_COOKIE for collector read access/i,
 			);
 		});
 
@@ -199,6 +209,11 @@ describe("mcp-server configuration & auth contract", () => {
 	});
 
 	describe("AutoSRE MCP tools (RFC 0013 Goal 4.1)", () => {
+		const WRITE_TOOLS = [
+			"record_investigation_finding",
+			"propose_remediation_action",
+			"claim_remediation_grant",
+		];
 		interface CapturedTool {
 			description: string;
 			inputSchema: Record<string, z.ZodTypeAny>;
@@ -214,7 +229,9 @@ describe("mcp-server configuration & auth contract", () => {
 				url: URL;
 				body: unknown;
 			}) => unknown | Promise<unknown>,
+			writes = true,
 		) {
+			process.env.OBS_MCP_ENABLE_WRITES = writes ? "true" : "";
 			const calls: Array<{ method: string; url: URL; body: unknown }> = [];
 			const originalFetch = globalThis.fetch;
 			globalThis.fetch = (async (
@@ -322,6 +339,93 @@ describe("mcp-server configuration & auth contract", () => {
 			}
 		});
 
+		it("does not register write tools unless OBS_MCP_ENABLE_WRITES=true", () => {
+			const off = setupTools(() => ({}), false);
+			try {
+				for (const name of WRITE_TOOLS) expect(off.tools.has(name)).toBe(false);
+				expect(off.tools.has("list_recent_changes")).toBe(true);
+			} finally {
+				off.restore();
+			}
+			const on = setupTools(() => ({}), true);
+			try {
+				for (const name of WRITE_TOOLS) expect(on.tools.has(name)).toBe(true);
+			} finally {
+				on.restore();
+			}
+		});
+
+		it("validates enum inputs for write tools and bundle intent", async () => {
+			const h = setupTools(() => ({}));
+			try {
+				const finding = z.object(
+					h.tools.get("record_investigation_finding")?.inputSchema ?? {},
+				);
+				const base = {
+					title: "t",
+					summary: "s",
+					symptomEntityKind: "trace",
+					symptomEntityId: "tr",
+					faultLocusEntityKind: "span",
+					faultLocusEntityId: "sp",
+					causalChain: [],
+					citedEvidenceIds: [],
+				};
+				expect(finding.safeParse(base).success).toBe(true);
+				expect(
+					finding.safeParse({ ...base, cohortVerdict: "bogus" }).success,
+				).toBe(false);
+				expect(
+					finding.safeParse({
+						...base,
+						causalChain: [
+							{
+								subjectKind: "span",
+								subjectId: "a",
+								predicate: "not_a_predicate",
+								objectKind: "change",
+								objectId: "b",
+							},
+						],
+					}).success,
+				).toBe(false);
+				const propose = z.object(
+					h.tools.get("propose_remediation_action")?.inputSchema ?? {},
+				);
+				expect(
+					propose.safeParse({
+						incidentId: "i",
+						findingId: "f",
+						idempotencyKey: "k",
+						actionKind: "drop_database",
+						targetNodeId: "n",
+						expectedCurrentState: {},
+						desiredTargetState: {},
+					}).success,
+				).toBe(false);
+				const bundle = z.object(
+					h.tools.get("get_evidence_bundle")?.inputSchema ?? {},
+				);
+				expect(
+					bundle.safeParse({
+						anchor: { entityKind: "trace", entityId: "t" },
+						intent: "free_form",
+					}).success,
+				).toBe(false);
+				const changes = z.object(
+					h.tools.get("list_recent_changes")?.inputSchema ?? {},
+				);
+				expect(changes.safeParse({ kind: "prompt_change" }).success).toBe(
+					false,
+				);
+				expect(changes.safeParse({ kind: "prompt_rollout" }).success).toBe(
+					true,
+				);
+			} finally {
+				h.restore();
+			}
+		});
+
 		it("list_recent_changes queries GET /internal/changes with default limit 20", async () => {
 			const h = setupTools(() => ({
 				changes: [{ id: "chg_1", kind: "deploy", serviceName: "checkout" }],
@@ -339,7 +443,7 @@ describe("mcp-server configuration & auth contract", () => {
 				expect(h.calls[0].url.searchParams.get("serviceName")).toBe("checkout");
 				expect(h.calls[0].url.searchParams.get("kind")).toBe("deploy");
 				expect(h.calls[0].url.searchParams.get("limit")).toBe("20");
-				expect(res.json.changes).toHaveLength(1);
+				expect(res.json.data.changes).toHaveLength(1);
 				expect(res.json.data.changes[0].id).toBe("chg_1");
 			} finally {
 				h.restore();
@@ -366,7 +470,7 @@ describe("mcp-server configuration & auth contract", () => {
 				);
 				expect(h.calls[0].url.searchParams.get("environment")).toBe("prod");
 				expect(h.calls[0].url.searchParams.get("minSample")).toBe("25");
-				expect(res.json.cohortVerdict).toBe("isolated_to_new_version");
+				expect(res.json.data.cohortVerdict).toBe("isolated_to_new_version");
 				expect(res.json.data.overlappingCodePaths).toEqual([
 					"src/checkout/payment.ts",
 				]);
@@ -399,7 +503,7 @@ describe("mcp-server configuration & auth contract", () => {
 					h.calls[0].url.searchParams.get("causalVerificationStatus"),
 				).toBe("counterfactual_verified");
 				expect(h.calls[0].url.searchParams.get("limit")).toBe("20");
-				expect(res.json.findings[0].id).toBe("fnd_1");
+				expect(res.json.data.findings[0].id).toBe("fnd_1");
 			} finally {
 				h.restore();
 			}
@@ -474,7 +578,7 @@ describe("mcp-server configuration & auth contract", () => {
 					passingRunIds: ["run_pass_1", "run_pass_2", "run_pass_3"],
 					requiredTrials: 3,
 				});
-				expect(res.json.causalVerificationStatus).toBe(
+				expect(res.json.data.causalVerificationStatus).toBe(
 					"counterfactual_verified",
 				);
 			} finally {
@@ -504,8 +608,8 @@ describe("mcp-server configuration & auth contract", () => {
 				expect(h.calls).toHaveLength(1);
 				expect(h.calls[0].method).toBe("POST");
 				expect(h.calls[0].url.pathname).toBe("/internal/remediations/propose");
-				expect(res.json.grantToken).toBe("grant_secret_token");
-				expect(res.json.effectiveAutonomy).toBe("autonomous_write");
+				expect(res.json.data.grantToken).toBe("grant_secret_token");
+				expect(res.json.data.effectiveAutonomy).toBe("autonomous_write");
 			} finally {
 				h.restore();
 			}
@@ -535,7 +639,9 @@ describe("mcp-server configuration & auth contract", () => {
 					runnerId: "runner_1",
 				});
 				expect(claimRes.raw.isError).toBeUndefined();
-				expect(claimRes.json.path).toBe("/internal/remediations/prop_1/claim");
+				expect(claimRes.json.data.path).toBe(
+					"/internal/remediations/prop_1/claim",
+				);
 
 				const completeRes = await h.invoke("claim_remediation_grant", {
 					proposalId: "prop_1",
@@ -544,10 +650,10 @@ describe("mcp-server configuration & auth contract", () => {
 					remediationAgentRunId: "run_rem_1",
 				});
 				expect(completeRes.raw.isError).toBeUndefined();
-				expect(completeRes.json.path).toBe(
+				expect(completeRes.json.data.path).toBe(
 					"/internal/remediations/prop_1/complete",
 				);
-				expect(completeRes.json.status).toBe("completed");
+				expect(completeRes.json.data.status).toBe("completed");
 			} finally {
 				h.restore();
 			}

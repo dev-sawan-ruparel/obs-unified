@@ -519,6 +519,38 @@ describe("evidenceRetrievalRoutesPlugin", () => {
 		return (await bundleRes.json()) as EvidenceBundle;
 	};
 
+	it("attaches the AutoSRE triage section only for intent triage_incident", async () => {
+		const { app, env } = setup();
+		const post = async (intent: string, targetTokens = 4000) => {
+			const res = await app.request(
+				"/internal/evidence/bundle",
+				{
+					method: "POST",
+					body: JSON.stringify({
+						anchor: { entityKind: "trace", entityId: "trace-1" },
+						intent,
+						budget: { targetTokens, detailLevel: "standard" },
+					}),
+					headers: { "content-type": "application/json" },
+				},
+				env,
+			);
+			expect(res.status).toBe(200);
+			return (await res.json()) as EvidenceBundle;
+		};
+
+		const debug = await post("debug_failure");
+		expect(debug.autosre).toBeUndefined();
+
+		const triage = await post("triage_incident");
+		expect(triage.autosre).toBeDefined();
+		// No unfiltered prior-findings fallback: an empty memory yields none.
+		expect(triage.autosre?.priorFindings).toEqual([]);
+		expect(triage.autosre?.faultLocus?.isBlackoutSuspected ?? false).toBe(
+			false,
+		);
+	});
+
 	it("returns an incident-local trace bundle with log compaction provenance", async () => {
 		const { app, env } = setup();
 		const res = await app.request(

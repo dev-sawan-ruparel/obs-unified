@@ -45,7 +45,15 @@ function enumArrays(src) {
 
 /** MCP tool names, in registration order (authority: the server registration calls). */
 export function extractMcpTools() {
-	const src = read("packages/mcp-server/src/index.ts");
+	// Tools live in index.ts plus tools/*.ts (opt-in write tools).
+	const toolsDir = resolve(REPO_ROOT, "packages/mcp-server/src/tools");
+	const extra = existsSync(toolsDir)
+		? readdirSync(toolsDir)
+				.filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+				.sort()
+				.map((f) => read(`packages/mcp-server/src/tools/${f}`))
+		: [];
+	const src = [read("packages/mcp-server/src/index.ts"), ...extra].join("\n");
 	const names = [...src.matchAll(/registerTool\(\s*["']([a-z0-9_]+)["']/g)].map(
 		(m) => m[1],
 	);

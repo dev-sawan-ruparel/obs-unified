@@ -15,8 +15,12 @@
  * RFC 0006 § Connected rail / Empty-state.
  */
 
+import type { CausalProofTier } from "@obsunified/types";
 import { ActionConfidence } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { getChangeEvent } from "../lib/autosre-change-correlation";
+import { getInvestigationFinding } from "../lib/autosre-findings";
+import { getIncidentInvestigation } from "../lib/autosre-remediation-gate";
 import { IdentityIndex } from "../lib/identity-index";
 import {
 	mapAction,
@@ -1051,30 +1055,20 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 				}
 			} else if (kind === "change") {
 				const db = sqlDbFor(c.env);
-				const changeRow = await db
-					.prepare(
-						`SELECT * FROM change_events WHERE project_id = ? AND id = ? LIMIT 1`,
-					)
-					.bind(projectId, id)
-					.first<{
-						id: string;
-						environment: string;
-						kind: string;
-						target_node_id: string;
-						service_name: string | null;
-						version: string | null;
-						previous_version: string | null;
-						commit_sha: string | null;
-						summary: string;
-					}>();
+				const changeRow = await getChangeEvent(
+					db,
+					projectId,
+					id,
+					c.req.query("environment") || undefined,
+				);
 				if (changeRow) {
 					manifest.up = [
 						{
 							label: "Target Ontology Node",
 							links: [
 								{
-									label: `${changeRow.target_node_id} (${changeRow.environment})`,
-									href: `#/health?node=${encodeURIComponent(changeRow.target_node_id)}`,
+									label: `${changeRow.targetNodeId} (${changeRow.environment})`,
+									href: `#/health?node=${encodeURIComponent(changeRow.targetNodeId)}`,
 									relationshipCertainty: "exact",
 									reason: "Target node mutated by this change event.",
 								},
@@ -1107,8 +1101,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 								entityKind: "finding",
 								entityId: f.id,
 								relationshipCertainty: "exact",
-								causalProofTier:
-									f.causal_proof_tier as import("@obsunified/types").CausalProofTier,
+								causalProofTier: f.causal_proof_tier as CausalProofTier,
 								confidence: f.confidence,
 								reason: "Finding attributes this change event.",
 							})),
@@ -1156,54 +1149,39 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 				}
 			} else if (kind === "finding") {
 				const db = sqlDbFor(c.env);
-				const findingRow = await db
-					.prepare(
-						`SELECT * FROM investigation_findings WHERE project_id = ? AND id = ? LIMIT 1`,
-					)
-					.bind(projectId, id)
-					.first<{
-						id: string;
-						environment: string;
-						incident_id: string | null;
-						title: string;
-						causal_proof_tier: string;
-						confidence: number;
-						symptom_entity_kind: string;
-						symptom_entity_id: string;
-						fault_locus_entity_kind: string;
-						fault_locus_entity_id: string;
-						contributing_change_id: string | null;
-						contending_trace_id: string | null;
-						agent_run_id: string | null;
-					}>();
+				const findingRow = await getInvestigationFinding(
+					db,
+					projectId,
+					id,
+					c.req.query("environment") || undefined,
+				);
 				if (findingRow) {
-					const proofTier =
-						findingRow.causal_proof_tier as import("@obsunified/types").CausalProofTier;
+					const proofTier = findingRow.causalProofTier as CausalProofTier;
 					manifest.up = [];
-					if (findingRow.incident_id) {
+					if (findingRow.incidentId) {
 						manifest.up.push({
 							label: "Incident Investigation",
 							links: [
 								{
-									label: `incident ${findingRow.incident_id}`,
-									href: `#/incidents/${encodeURIComponent(findingRow.incident_id)}`,
+									label: `incident ${findingRow.incidentId}`,
+									href: `#/incidents/${encodeURIComponent(findingRow.incidentId)}`,
 									entityKind: "incident",
-									entityId: findingRow.incident_id,
+									entityId: findingRow.incidentId,
 									relationshipCertainty: "exact",
 									causalProofTier: proofTier,
 								},
 							],
 						});
 					}
-					if (findingRow.contributing_change_id) {
+					if (findingRow.contributingChangeId) {
 						manifest.up.push({
 							label: "Contributing Change",
 							links: [
 								{
-									label: `change ${findingRow.contributing_change_id}`,
-									href: `#/changes/${encodeURIComponent(findingRow.contributing_change_id)}`,
+									label: `change ${findingRow.contributingChangeId}`,
+									href: `#/changes/${encodeURIComponent(findingRow.contributingChangeId)}`,
 									entityKind: "change",
-									entityId: findingRow.contributing_change_id,
+									entityId: findingRow.contributingChangeId,
 									relationshipCertainty: "exact",
 									causalProofTier: proofTier,
 									confidence: findingRow.confidence,
@@ -1216,18 +1194,18 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							label: "Fault Locus & Symptom",
 							links: [
 								{
-									label: `fault locus: ${findingRow.fault_locus_entity_id}`,
-									href: `#/traces?q=${encodeURIComponent(findingRow.fault_locus_entity_id)}`,
+									label: `fault locus: ${findingRow.faultLocusEntityId}`,
+									href: `#/traces?q=${encodeURIComponent(findingRow.faultLocusEntityId)}`,
 									relationshipCertainty: "exact",
 									causalProofTier: proofTier,
 								},
-								...(findingRow.contending_trace_id
+								...(findingRow.contendingTraceId
 									? [
 											{
-												label: `contending trace ${findingRow.contending_trace_id}`,
-												href: `#/traces/${encodeURIComponent(findingRow.contending_trace_id)}`,
+												label: `contending trace ${findingRow.contendingTraceId}`,
+												href: `#/traces/${encodeURIComponent(findingRow.contendingTraceId)}`,
 												entityKind: "trace" as const,
-												entityId: findingRow.contending_trace_id,
+												entityId: findingRow.contendingTraceId,
 												relationshipCertainty: "inferred" as const,
 												causalProofTier: proofTier,
 											},
@@ -1240,17 +1218,17 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						{
 							label: "Agent Lineage",
 							links: [
-								...(findingRow.agent_run_id
+								...(findingRow.agentRunId
 									? [
 											{
-												...linkToAgentRun(findingRow.agent_run_id),
+												...linkToAgentRun(findingRow.agentRunId),
 												relationshipCertainty: "exact" as const,
 												causalProofTier: proofTier,
 											},
 										]
 									: []),
 							],
-							emptyReason: !findingRow.agent_run_id
+							emptyReason: !findingRow.agentRunId
 								? "No agent run linked to this finding."
 								: undefined,
 						},
@@ -1258,32 +1236,25 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 				}
 			} else if (kind === "incident") {
 				const db = sqlDbFor(c.env);
-				const incRow = await db
-					.prepare(
-						`SELECT * FROM incident_investigations WHERE project_id = ? AND id = ? LIMIT 1`,
-					)
-					.bind(projectId, id)
-					.first<{
-						id: string;
-						environment: string;
-						target_node_id: string;
-						symptom_anchor_kind: string;
-						symptom_anchor_id: string;
-						status: string;
-					}>();
+				const incRow = await getIncidentInvestigation(
+					db,
+					projectId,
+					id,
+					c.req.query("environment") || undefined,
+				);
 				if (incRow) {
 					manifest.up = [
 						{
 							label: "Trigger Signal",
 							links: [
 								{
-									label: `${incRow.symptom_anchor_kind}: ${incRow.symptom_anchor_id}`,
-									href: `#/alerts?id=${encodeURIComponent(incRow.symptom_anchor_id)}`,
+									label: `${incRow.symptomAnchorKind}: ${incRow.symptomAnchorId}`,
+									href: `#/alerts?id=${encodeURIComponent(incRow.symptomAnchorId)}`,
 									entityKind:
-										incRow.symptom_anchor_kind === "analysis"
+										incRow.symptomAnchorKind === "analysis"
 											? "analysis"
 											: "alert",
-									entityId: incRow.symptom_anchor_id,
+									entityId: incRow.symptomAnchorId,
 									relationshipCertainty: "exact",
 								},
 							],
@@ -1310,8 +1281,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 								entityKind: "finding" as const,
 								entityId: f.id,
 								relationshipCertainty: "exact" as const,
-								causalProofTier:
-									f.causal_proof_tier as import("@obsunified/types").CausalProofTier,
+								causalProofTier: f.causal_proof_tier as CausalProofTier,
 							})),
 							emptyReason:
 								incFindings.results.length > 0

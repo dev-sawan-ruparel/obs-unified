@@ -6,6 +6,8 @@ import type {
 } from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { useDashboard } from "../provider";
+import { hashRoutes } from "../routes";
+import { errorMessage, useApi } from "../use-api";
 import { AutonomyBadge } from "./action-graph/badges";
 import { normalizeConnectedHref } from "./ConnectedRail";
 import { Card, SectionTitle } from "./primitives";
@@ -61,10 +63,16 @@ export function formatRemediationStateDiff(
 	return diffs;
 }
 
-export async function approveRemediationProposal(
+export interface RemediationApproveResult {
+	proposal: RemediationProposalView | null;
+	/** Single-use grant token. The collector only returns it on approval. */
+	grantToken: string | null;
+}
+
+export async function approveRemediationProposalDetailed(
 	id: string,
 	options?: { basePath?: string; fetcher?: typeof fetch },
-): Promise<RemediationProposalView | null> {
+): Promise<RemediationApproveResult> {
 	const basePath = (options?.basePath ?? "/internal").replace(/\/$/, "");
 	const fn = options?.fetcher ?? fetch;
 	const res = await fn(
@@ -79,13 +87,27 @@ export async function approveRemediationProposal(
 		throw new Error(`Failed to approve remediation ${id}: ${res.status}`);
 	}
 	const body = (await res.json().catch(() => null)) as
-		| { proposal?: RemediationProposalView }
-		| RemediationProposalView
+		| (RemediationProposalView & {
+				proposal?: RemediationProposalView;
+				grantToken?: string | null;
+		  })
 		| null;
-	if (body && typeof body === "object" && "proposal" in body && body.proposal) {
-		return body.proposal;
-	}
-	return body as RemediationProposalView | null;
+	const proposal =
+		body && typeof body === "object" && body.proposal
+			? body.proposal
+			: (body as RemediationProposalView | null);
+	const grantToken =
+		(body && typeof body === "object" && body.grantToken) ||
+		proposal?.grantToken ||
+		null;
+	return { proposal, grantToken: grantToken || null };
+}
+
+export async function approveRemediationProposal(
+	id: string,
+	options?: { basePath?: string; fetcher?: typeof fetch },
+): Promise<RemediationProposalView | null> {
+	return (await approveRemediationProposalDetailed(id, options)).proposal;
 }
 
 export async function rejectRemediationProposal(
@@ -157,6 +179,71 @@ export interface RemediationApprovalCardProps {
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
 	busy?: boolean;
+	/** Hide approve/reject controls (e.g. no handlers were supplied). */
+	readOnly?: boolean;
+	/** Controlled error message; overrides the card's own action error. */
+	error?: string | null;
+	/** Controlled one-time grant token; overrides the token from onApprove. */
+	grantToken?: string | null;
+}
+
+const grantTokenFrom = (result: unknown): string | null => {
+	if (result && typeof result === "object" && "grantToken" in result) {
+		const token = (result as { grantToken?: unknown }).grantToken;
+		return typeof token === "string" && token ? token : null;
+	}
+	return null;
+};
+
+export function GrantTokenNotice({
+	token,
+	onDismiss,
+}: {
+	token: string;
+	onDismiss?: () => void;
+}) {
+	const [copied, setCopied] = useState(false);
+	const copy = async () => {
+		try {
+			await navigator.clipboard.writeText(token);
+			setCopied(true);
+		} catch {
+			setCopied(false);
+		}
+	};
+	return (
+		<div
+			data-grant-token
+			className="border border-sys-warning/40 bg-sys-warning/10 p-2 font-mono text-[0.6875rem] flex flex-col gap-1"
+		>
+			<div className="font-semibold text-sys-warning">
+				Grant token. Shown only once; copy it now, it cannot be retrieved again.
+			</div>
+			<div className="flex flex-wrap items-center gap-2">
+				<code data-grant-token-value className="break-all select-all">
+					{token}
+				</code>
+				<button
+					type="button"
+					data-action="copy-grant-token"
+					onClick={copy}
+					className="px-2 py-0.5 border border-sys-outline cursor-pointer"
+				>
+					{copied ? "Copied" : "Copy"}
+				</button>
+				{onDismiss && (
+					<button
+						type="button"
+						data-action="dismiss-grant-token"
+						onClick={onDismiss}
+						className="px-2 py-0.5 border border-sys-outline cursor-pointer"
+					>
+						Dismiss
+					</button>
+				)}
+			</div>
+		</div>
+	);
 }
 
 const triggerHref = (href: string, onNavigate?: (href: string) => void) => {
@@ -180,7 +267,49 @@ export function RemediationApprovalCard({
 	onReject,
 	onNavigate,
 	busy = false,
+	readOnly = false,
+	error,
+	grantToken,
 }: RemediationApprovalCardProps) {
+	const [confirming, setConfirming] = useState<"approve" | "reject" | null>(
+		null,
+	);
+	const [reason, setReason] = useState("");
+	const [submitting, setSubmitting] = useState(false);
+	const [actionError, setActionError] = useState<string | null>(null);
+	const [issuedToken, setIssuedToken] = useState<string | null>(null);
+	const shownError = error !== undefined ? error : actionError;
+	const shownToken = grantToken !== undefined ? grantToken : issuedToken;
+	const controlsDisabled = busy || submitting;
+
+	const runApprove = async () => {
+		setSubmitting(true);
+		setActionError(null);
+		try {
+			const result = await onApprove?.(proposal.id);
+			setIssuedToken(grantTokenFrom(result));
+			setConfirming(null);
+		} catch (err) {
+			setActionError(errorMessage(err));
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	const runReject = async () => {
+		setSubmitting(true);
+		setActionError(null);
+		try {
+			await onReject?.(proposal.id, reason.trim());
+			setConfirming(null);
+			setReason("");
+		} catch (err) {
+			setActionError(errorMessage(err));
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
 	const diffs = formatRemediationStateDiff(
 		proposal.expectedCurrentState,
 		proposal.desiredTargetState,
@@ -276,10 +405,7 @@ export function RemediationApprovalCard({
 					<button
 						type="button"
 						onClick={() =>
-							triggerHref(
-								`#/findings/${encodeURIComponent(proposal.findingId)}`,
-								onNavigate,
-							)
+							triggerHref(hashRoutes.finding(proposal.findingId), onNavigate)
 						}
 						className="underline hover:text-sys-primary cursor-pointer"
 					>
@@ -289,10 +415,7 @@ export function RemediationApprovalCard({
 					<button
 						type="button"
 						onClick={() =>
-							triggerHref(
-								`#/incidents/${encodeURIComponent(proposal.incidentId)}`,
-								onNavigate,
-							)
+							triggerHref(hashRoutes.incident(proposal.incidentId), onNavigate)
 						}
 						className="underline hover:text-sys-primary cursor-pointer"
 					>
@@ -305,9 +428,7 @@ export function RemediationApprovalCard({
 								type="button"
 								onClick={() =>
 									triggerHref(
-										`#/changes/${encodeURIComponent(
-											proposal.resultingChangeId ?? "",
-										)}`,
+										hashRoutes.change(proposal.resultingChangeId ?? ""),
 										onNavigate,
 									)
 								}
@@ -319,35 +440,119 @@ export function RemediationApprovalCard({
 					)}
 				</div>
 
-				{isPendingApproval && (
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							disabled={busy}
-							data-action="approve-remediation"
-							onClick={() => onApprove?.(proposal.id)}
-							className="px-2.5 py-1 text-[0.6875rem] font-mono font-bold uppercase bg-sys-primary text-white border border-sys-primary hover:opacity-90 cursor-pointer disabled:opacity-50"
-						>
-							Approve
-						</button>
-						<button
-							type="button"
-							disabled={busy}
-							data-action="reject-remediation"
-							onClick={() => onReject?.(proposal.id)}
-							className="px-2.5 py-1 text-[0.6875rem] font-mono font-bold uppercase bg-sys-error/15 text-sys-error border border-sys-error/40 hover:bg-sys-error hover:text-white cursor-pointer disabled:opacity-50"
-						>
-							Reject
-						</button>
+				{isPendingApproval && !readOnly && (
+					<div className="flex flex-wrap items-center gap-2">
+						{confirming === null && (
+							<>
+								<button
+									type="button"
+									disabled={controlsDisabled}
+									data-action="approve-remediation"
+									onClick={() => setConfirming("approve")}
+									className="px-2.5 py-1 text-[0.6875rem] font-mono font-bold uppercase bg-sys-primary text-white border border-sys-primary hover:opacity-90 cursor-pointer disabled:opacity-50"
+								>
+									Approve
+								</button>
+								<button
+									type="button"
+									disabled={controlsDisabled}
+									data-action="reject-remediation"
+									onClick={() => setConfirming("reject")}
+									className="px-2.5 py-1 text-[0.6875rem] font-mono font-bold uppercase bg-sys-error/15 text-sys-error border border-sys-error/40 hover:bg-sys-error hover:text-white cursor-pointer disabled:opacity-50"
+								>
+									Reject
+								</button>
+							</>
+						)}
+						{confirming === "approve" && (
+							<>
+								<span
+									data-confirm-approve
+									className="font-mono text-[0.6875rem] text-sys-warning font-semibold"
+								>
+									This authorizes a production change. Confirm?
+								</span>
+								<button
+									type="button"
+									disabled={controlsDisabled}
+									data-action="confirm-approve-remediation"
+									onClick={runApprove}
+									className="px-2.5 py-1 text-[0.6875rem] font-mono font-bold uppercase bg-sys-primary text-white border border-sys-primary cursor-pointer disabled:opacity-50"
+								>
+									Confirm approve
+								</button>
+								<button
+									type="button"
+									disabled={controlsDisabled}
+									onClick={() => setConfirming(null)}
+									className="px-2.5 py-1 text-[0.6875rem] font-mono uppercase border border-sys-outline cursor-pointer"
+								>
+									Cancel
+								</button>
+							</>
+						)}
+						{confirming === "reject" && (
+							<>
+								<input
+									type="text"
+									data-reject-reason
+									aria-label="Rejection reason"
+									placeholder="Reason for rejecting"
+									value={reason}
+									onChange={(e) => setReason(e.target.value)}
+									className="px-2 py-1 text-[0.6875rem] font-mono border border-sys-outline bg-sys-surface"
+								/>
+								<button
+									type="button"
+									disabled={controlsDisabled || reason.trim() === ""}
+									data-action="confirm-reject-remediation"
+									onClick={runReject}
+									className="px-2.5 py-1 text-[0.6875rem] font-mono font-bold uppercase bg-sys-error/15 text-sys-error border border-sys-error/40 cursor-pointer disabled:opacity-50"
+								>
+									Confirm reject
+								</button>
+								<button
+									type="button"
+									disabled={controlsDisabled}
+									onClick={() => setConfirming(null)}
+									className="px-2.5 py-1 text-[0.6875rem] font-mono uppercase border border-sys-outline cursor-pointer"
+								>
+									Cancel
+								</button>
+							</>
+						)}
 					</div>
 				)}
 			</div>
+
+			{shownError && (
+				<div
+					role="alert"
+					data-remediation-error
+					className="px-2 py-1 font-mono text-[0.6875rem] text-sys-error bg-sys-error/10 border border-sys-error/30"
+				>
+					{shownError}
+				</div>
+			)}
+			{shownToken && (
+				<GrantTokenNotice
+					token={shownToken}
+					onDismiss={
+						grantToken === undefined ? () => setIssuedToken(null) : undefined
+					}
+				/>
+			)}
 		</div>
 	);
 }
 
 export interface RemediationApprovalQueueProps {
 	proposals?: RemediationProposalView[];
+	/**
+	 * When `proposals` is supplied the queue does no fetching of its own (and
+	 * has no project-scoped fetcher). Supply both handlers to enable actions;
+	 * otherwise the cards render read-only.
+	 */
 	onApprove?: (id: string) => unknown;
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
@@ -356,12 +561,14 @@ export interface RemediationApprovalQueueProps {
 function RemediationApprovalQueueContent({
 	proposals,
 	busyId,
+	readOnly,
 	onApprove,
 	onReject,
 	onNavigate,
 }: {
 	proposals: RemediationProposalView[];
 	busyId?: string | null;
+	readOnly?: boolean;
 	onApprove?: (id: string) => unknown;
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
@@ -386,6 +593,7 @@ function RemediationApprovalQueueContent({
 						key={proposal.id}
 						proposal={proposal}
 						busy={busyId === proposal.id}
+						readOnly={readOnly}
 						onApprove={onApprove}
 						onReject={onReject}
 						onNavigate={onNavigate}
@@ -402,22 +610,21 @@ function AutoFetchedRemediationApprovalQueue({
 	onNavigate,
 }: Omit<RemediationApprovalQueueProps, "proposals">) {
 	const { basePath, fetcher } = useDashboard();
+	const api = useApi();
 	const [proposals, setProposals] = useState<RemediationProposalView[]>([]);
 	const [busyId, setBusyId] = useState<string | null>(null);
 
 	useEffect(() => {
 		let active = true;
-		const url = `${basePath.replace(/\/$/, "")}/remediations`;
-		fetcher(url, { credentials: "include" })
-			.then(async (res) => {
-				if (!res.ok) return [];
-				const body = (await res.json().catch(() => null)) as
-					| {
-							proposals?: RemediationProposalView[];
-							rows?: RemediationProposalView[];
-					  }
-					| RemediationProposalView[]
-					| null;
+		api<
+			| {
+					proposals?: RemediationProposalView[];
+					rows?: RemediationProposalView[];
+			  }
+			| RemediationProposalView[]
+			| null
+		>("/remediations")
+			.then((body) => {
 				if (Array.isArray(body)) return body;
 				if (body && Array.isArray(body.proposals)) return body.proposals;
 				if (body && Array.isArray(body.rows)) return body.rows;
@@ -432,27 +639,22 @@ function AutoFetchedRemediationApprovalQueue({
 		return () => {
 			active = false;
 		};
-	}, [basePath, fetcher]);
+	}, [api]);
 
+	// Handlers rethrow so the card can render the failure to the operator.
 	const handleApprove = useCallback(
 		async (id: string) => {
-			if (externalApprove) {
-				await externalApprove(id);
-				return;
-			}
+			if (externalApprove) return externalApprove(id);
 			setBusyId(id);
 			try {
-				const updated = await approveRemediationProposal(id, {
-					basePath,
-					fetcher,
-				});
+				const { proposal, grantToken } =
+					await approveRemediationProposalDetailed(id, { basePath, fetcher });
 				setProposals((prev) =>
 					prev.map((p) =>
-						p.id === id ? (updated ?? { ...p, status: "grant_issued" }) : p,
+						p.id === id ? (proposal ?? { ...p, status: "grant_issued" }) : p,
 					),
 				);
-			} catch {
-				// Keep current state on failure
+				return { grantToken };
 			} finally {
 				setBusyId(null);
 			}
@@ -462,10 +664,7 @@ function AutoFetchedRemediationApprovalQueue({
 
 	const handleReject = useCallback(
 		async (id: string, reason?: string) => {
-			if (externalReject) {
-				await externalReject(id, reason);
-				return;
-			}
+			if (externalReject) return externalReject(id, reason);
 			setBusyId(id);
 			try {
 				const updated = await rejectRemediationProposal(id, reason, {
@@ -477,8 +676,6 @@ function AutoFetchedRemediationApprovalQueue({
 						p.id === id ? (updated ?? { ...p, status: "rejected" }) : p,
 					),
 				);
-			} catch {
-				// Keep current state on failure
 			} finally {
 				setBusyId(null);
 			}
@@ -499,11 +696,16 @@ function AutoFetchedRemediationApprovalQueue({
 
 export function RemediationApprovalQueue(props: RemediationApprovalQueueProps) {
 	if (props.proposals !== undefined) {
+		// Externally supplied proposals: never fall back to bare fetch(), which
+		// would drop the project-scoped fetcher (X-Project-Id). Without both
+		// handlers the cards are read-only.
+		const readOnly = !props.onApprove || !props.onReject;
 		return (
 			<RemediationApprovalQueueContent
 				proposals={props.proposals}
-				onApprove={props.onApprove ?? approveRemediationProposal}
-				onReject={props.onReject ?? rejectRemediationProposal}
+				readOnly={readOnly}
+				onApprove={props.onApprove}
+				onReject={props.onReject}
 				onNavigate={props.onNavigate}
 			/>
 		);

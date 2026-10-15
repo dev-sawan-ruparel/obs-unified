@@ -18,19 +18,14 @@ const workspaceVersion = (name: string): string => {
 	return pkg.version;
 };
 
-const major = (v: string): string => v.replace(/^[\^~]/, "").split(".")[0];
-
-/** Every @obsunified range must sit on the major the workspace publishes. */
+/** Every @obsunified range must pin ^<exact workspace version>, not major-only. */
 const expectCurrentMajor = (label: string, deps: Record<string, string>) => {
 	const obs = Object.entries(deps).filter(([n]) =>
 		n.startsWith("@obsunified/"),
 	);
 	expect(obs.length, `${label} has no @obsunified deps`).toBeGreaterThan(0);
 	for (const [name, range] of obs) {
-		expect(range, `${label}: ${name}`).toMatch(/^\^\d+\.\d+\.\d+$/);
-		expect(major(range), `${label}: ${name} ${range}`).toBe(
-			major(workspaceVersion(name)),
-		);
+		expect(range, `${label}: ${name}`).toBe(`^${workspaceVersion(name)}`);
 	}
 };
 
@@ -97,7 +92,11 @@ describe("scaffold SDK versions", () => {
 		});
 
 		expect(
-			parseCreateArgs(["--template=vanilla-ts", "--url=https://obs.example.com", "demo"]),
+			parseCreateArgs([
+				"--template=vanilla-ts",
+				"--url=https://obs.example.com",
+				"demo",
+			]),
 		).toEqual({
 			appName: "demo",
 			template: "vanilla-ts",
@@ -105,8 +104,8 @@ describe("scaffold SDK versions", () => {
 			yes: false,
 		});
 
-		expect(parseCreateArgs(["my-app", "--template", "invalid"]).error).toContain(
-			'invalid template "invalid"',
-		);
+		expect(
+			parseCreateArgs(["my-app", "--template", "invalid"]).error,
+		).toContain('invalid template "invalid"');
 	});
 });

@@ -45,9 +45,7 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 					error: `missing value for ${arg} (expected: ${VALID_SCAFFOLD_TEMPLATES.join(", ")})`,
 				};
 			}
-			if (
-				!VALID_SCAFFOLD_TEMPLATES.includes(val as ScaffoldTemplate)
-			) {
+			if (!VALID_SCAFFOLD_TEMPLATES.includes(val as ScaffoldTemplate)) {
 				return {
 					appName,
 					yes,
@@ -60,9 +58,7 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 		}
 		if (arg.startsWith("--template=")) {
 			const val = arg.slice("--template=".length);
-			if (
-				!VALID_SCAFFOLD_TEMPLATES.includes(val as ScaffoldTemplate)
-			) {
+			if (!VALID_SCAFFOLD_TEMPLATES.includes(val as ScaffoldTemplate)) {
 				return {
 					appName,
 					yes,

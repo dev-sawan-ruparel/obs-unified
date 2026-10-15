@@ -3,7 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
 	approveRemediationProposal,
+	approveRemediationProposalDetailed,
 	formatRemediationStateDiff,
+	GrantTokenNotice,
 	RemediationApprovalCard,
 	RemediationApprovalQueue,
 	type RemediationProposalView,
@@ -68,7 +70,7 @@ describe("RemediationApprovalCard & RemediationApprovalQueue", () => {
 		expect(html).toContain("rollback_deploy");
 		expect(html).toContain("env:prod");
 		expect(html).toContain("service:prod:default:checkout");
-		expect(html).toContain("human approved_write");
+		expect(html).toContain("human approved write");
 		expect(html).toContain("pending_human_approval");
 		expect(html).toContain(
 			"Rollback in prod requires human approval unless counterfactual proof is verified",
@@ -153,5 +155,80 @@ describe("RemediationApprovalCard & RemediationApprovalQueue", () => {
 				body: JSON.stringify({ reason: "False alarm during load test" }),
 			}),
 		);
+	});
+
+	it("renders an error banner on the card when an error is supplied", () => {
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalCard, {
+				proposal: samplePendingProposal,
+				error: "Failed to approve remediation rem_01: 409",
+			}),
+		);
+		expect(html).toContain("data-remediation-error");
+		expect(html).toContain('role="alert"');
+		expect(html).toContain("Failed to approve remediation rem_01: 409");
+	});
+
+	it("does not render an error banner by default and requires a confirm step", () => {
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalCard, {
+				proposal: samplePendingProposal,
+			}),
+		);
+		expect(html).not.toContain("data-remediation-error");
+		expect(html).not.toContain("confirm-approve-remediation");
+		expect(html).not.toContain("data-reject-reason");
+	});
+
+	it("renders the grant token once with a copy button and one-time note", () => {
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalCard, {
+				proposal: { ...samplePendingProposal, status: "grant_issued" },
+				grantToken: "grant_secret_123",
+			}),
+		);
+		expect(html).toContain("grant_secret_123");
+		expect(html).toContain('data-action="copy-grant-token"');
+		expect(html).toMatch(/Shown only once/i);
+		expect(
+			renderToStaticMarkup(
+				createElement(GrantTokenNotice, { token: "abc", onDismiss: () => {} }),
+			),
+		).toContain('data-action="dismiss-grant-token"');
+	});
+
+	it("extracts grantToken from the approve response", async () => {
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					proposal: { ...samplePendingProposal, status: "grant_issued" },
+					grantToken: "tok_1",
+				}),
+				{ status: 200 },
+			),
+		);
+		const out = await approveRemediationProposalDetailed("rem_01", {
+			fetcher: fetcher as unknown as typeof fetch,
+		});
+		expect(out.grantToken).toBe("tok_1");
+		expect(out.proposal?.status).toBe("grant_issued");
+	});
+
+	it("renders externally supplied proposals read-only when handlers are missing", () => {
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalQueue, {
+				proposals: [samplePendingProposal],
+			}),
+		);
+		expect(html).toContain("rem_01");
+		expect(html).not.toContain('data-action="approve-remediation"');
+		const withHandlers = renderToStaticMarkup(
+			createElement(RemediationApprovalQueue, {
+				proposals: [samplePendingProposal],
+				onApprove: () => {},
+				onReject: () => {},
+			}),
+		);
+		expect(withHandlers).toContain('data-action="approve-remediation"');
 	});
 });

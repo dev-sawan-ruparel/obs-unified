@@ -21,7 +21,7 @@ export function AutonomyBadge({ level }: { level: string }) {
 		<span
 			className={`inline-block px-2 py-0.5 text-[0.55rem] uppercase tracking-wider rounded ${badgeStyle}`}
 		>
-			{normalized.replace("_", " ")}
+			{normalized.replaceAll("_", " ")}
 		</span>
 	);
 }
@@ -47,7 +47,7 @@ export function ApprovalBadge({ state }: { state: string | null }) {
 		<span
 			className={`inline-block px-1.5 py-0.2 text-[0.5rem] uppercase tracking-wider rounded ${badgeStyle}`}
 		>
-			{normalized.replace("_", " ")}
+			{normalized.replaceAll("_", " ")}
 		</span>
 	);
 }
