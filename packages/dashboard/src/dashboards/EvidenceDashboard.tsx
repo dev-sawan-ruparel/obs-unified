@@ -10,7 +10,19 @@ import {
 import { EmptyState, StateRow } from "../components/states";
 import { useApi } from "../use-api";
 
-type AnchorKind = "trace" | "action" | "agent_run" | "tool_call";
+export type AnchorKind =
+	| "trace"
+	| "action"
+	| "agent_run"
+	| "tool_call"
+	| "change"
+	| "finding"
+	| "incident";
+
+export interface EvidenceDashboardProps {
+	initialAnchorKind?: AnchorKind;
+	initialAnchorId?: string;
+}
 
 interface EvidenceStats {
 	projectId: string;
@@ -67,13 +79,18 @@ function JsonPreview({ value }: { value: unknown }) {
 	);
 }
 
-export function EvidenceDashboard() {
+export function EvidenceDashboard({
+	initialAnchorKind,
+	initialAnchorId,
+}: EvidenceDashboardProps = {}) {
 	const api = useApi();
 	const [stats, setStats] = useState<EvidenceStats | null>(null);
 	const [statsError, setStatsError] = useState<string | null>(null);
 	const [loadingStats, setLoadingStats] = useState(true);
-	const [anchorKind, setAnchorKind] = useState<AnchorKind>("trace");
-	const [anchorId, setAnchorId] = useState("");
+	const [anchorKind, setAnchorKind] = useState<AnchorKind>(
+		initialAnchorKind ?? "trace",
+	);
+	const [anchorId, setAnchorId] = useState(initialAnchorId ?? "");
 	const [bundle, setBundle] = useState<EvidenceBundle | null>(null);
 	const [bundleError, setBundleError] = useState<string | null>(null);
 	const [loadingBundle, setLoadingBundle] = useState(false);
@@ -102,6 +119,40 @@ export function EvidenceDashboard() {
 			active = false;
 		};
 	}, [api]);
+
+	useEffect(() => {
+		if (initialAnchorKind) setAnchorKind(initialAnchorKind);
+		if (initialAnchorId !== undefined) setAnchorId(initialAnchorId);
+		if (!initialAnchorId?.trim()) return;
+		const kindToLoad = initialAnchorKind ?? "trace";
+		const idToLoad = initialAnchorId.trim();
+		let active = true;
+		setLoadingBundle(true);
+		setBundleError(null);
+		setExpanded({});
+		api<EvidenceBundle>("/evidence/bundle", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				anchor: { entityKind: kindToLoad, entityId: idToLoad },
+			}),
+		})
+			.then((next) => {
+				if (active) setBundle(next);
+			})
+			.catch((err) => {
+				if (active) {
+					setBundle(null);
+					setBundleError(err instanceof Error ? err.message : String(err));
+				}
+			})
+			.finally(() => {
+				if (active) setLoadingBundle(false);
+			});
+		return () => {
+			active = false;
+		};
+	}, [api, initialAnchorKind, initialAnchorId]);
 
 	const totals = useMemo(() => {
 		const issued =
@@ -187,6 +238,9 @@ export function EvidenceDashboard() {
 							<option value="action">action</option>
 							<option value="agent_run">agent_run</option>
 							<option value="tool_call">tool_call</option>
+							<option value="change">change</option>
+							<option value="finding">finding</option>
+							<option value="incident">incident</option>
 						</select>
 						<input
 							value={anchorId}

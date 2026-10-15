@@ -16,6 +16,12 @@ export type Route = {
 	actionId?: string;
 	toolCallId?: string;
 	profileId?: string;
+	changeId?: string;
+	findingId?: string;
+	incidentId?: string;
+	remediationId?: string;
+	evidenceKind?: string;
+	evidenceId?: string;
 };
 
 export const KNOWN_TABS = new Set([
@@ -45,6 +51,10 @@ export const KNOWN_TABS = new Set([
 	"autonomous-review",
 	"agent-version-diff",
 	"evaluations",
+	"changes",
+	"findings",
+	"incidents",
+	"remediations",
 ]);
 
 export function parseHash(): Route {
@@ -77,6 +87,22 @@ export function parseHash(): Route {
 		tab === "profiles" && segments.length > 1
 			? decodeURIComponent(segments.slice(1).join("/"))
 			: undefined;
+	const changeId =
+		tab === "changes" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
+	const findingId =
+		tab === "findings" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
+	const incidentId =
+		tab === "incidents" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
+	const remediationId =
+		tab === "remediations" && segments.length > 1
+			? decodeURIComponent(segments.slice(1).join("/"))
+			: undefined;
 	return {
 		tab,
 		traceId: params.get("trace") ?? params.get("trace_id") ?? undefined,
@@ -89,6 +115,12 @@ export function parseHash(): Route {
 		actionId,
 		toolCallId,
 		profileId,
+		changeId,
+		findingId,
+		incidentId,
+		remediationId,
+		evidenceKind: params.get("kind") ?? undefined,
+		evidenceId: params.get("id") ?? undefined,
 	};
 }
 
@@ -114,6 +146,18 @@ export function navigate(route: Partial<Route>) {
 	if (next.tab === "profiles" && next.profileId) {
 		hash += `/${encodeURIComponent(next.profileId)}`;
 	}
+	if (next.tab === "changes" && next.changeId) {
+		hash += `/${encodeURIComponent(next.changeId)}`;
+	}
+	if (next.tab === "findings" && next.findingId) {
+		hash += `/${encodeURIComponent(next.findingId)}`;
+	}
+	if (next.tab === "incidents" && next.incidentId) {
+		hash += `/${encodeURIComponent(next.incidentId)}`;
+	}
+	if (next.tab === "remediations" && next.remediationId) {
+		hash += `/${encodeURIComponent(next.remediationId)}`;
+	}
 	const params = new URLSearchParams();
 	if (next.traceId) {
 		params.set(next.tab === "profiles" ? "trace_id" : "trace", next.traceId);
@@ -121,6 +165,12 @@ export function navigate(route: Partial<Route>) {
 	if (next.issueId) params.set("issue", next.issueId);
 	if (next.sessionId) params.set("session", next.sessionId);
 	if (next.service) params.set("service", next.service);
+	if (next.tab === "evidence" && next.evidenceKind) {
+		params.set("kind", next.evidenceKind);
+	}
+	if (next.tab === "evidence" && next.evidenceId) {
+		params.set("id", next.evidenceId);
+	}
 	const qs = params.toString();
 	if (qs) hash += `?${qs}`;
 	location.hash = hash;

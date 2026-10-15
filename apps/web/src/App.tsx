@@ -275,7 +275,40 @@ export function App() {
 						)}
 						{route.tab === "logs" && <LogsDashboard />}
 						{route.tab === "ai" && <AIDashboard />}
-						{route.tab === "evidence" && <EvidenceDashboard />}
+						{route.tab === "evidence" && (
+							<EvidenceDashboard
+								initialAnchorKind={
+									(route.evidenceKind as
+										| "trace"
+										| "action"
+										| "agent_run"
+										| "tool_call"
+										| "change"
+										| "finding"
+										| "incident"
+										| undefined) ?? undefined
+								}
+								initialAnchorId={route.evidenceId}
+							/>
+						)}
+						{route.tab === "changes" && (
+							<EvidenceDashboard
+								initialAnchorKind="change"
+								initialAnchorId={route.changeId}
+							/>
+						)}
+						{route.tab === "findings" && (
+							<EvidenceDashboard
+								initialAnchorKind="finding"
+								initialAnchorId={route.findingId}
+							/>
+						)}
+						{route.tab === "incidents" && (
+							<EvidenceDashboard
+								initialAnchorKind="incident"
+								initialAnchorId={route.incidentId}
+							/>
+						)}
 						{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
 						{route.tab === "replay" && (
 							<ReplayDashboard
@@ -319,6 +352,9 @@ export function App() {
 								}}
 							/>
 						)}
+						{route.tab === "actions" && !route.actionId && (
+							<AutonomousReviewDashboard onNavigate={navigate} />
+						)}
 						{route.tab === "tool-calls" && route.toolCallId && (
 							<ToolCallDashboard
 								toolCallId={route.toolCallId}
@@ -350,7 +386,8 @@ export function App() {
 								}}
 							/>
 						)}
-						{route.tab === "autonomous-review" && (
+						{(route.tab === "autonomous-review" ||
+							route.tab === "remediations") && (
 							<AutonomousReviewDashboard onNavigate={navigate} />
 						)}
 						{route.tab === "agent-version-diff" && (

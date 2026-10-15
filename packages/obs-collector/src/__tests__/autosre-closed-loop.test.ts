@@ -1270,6 +1270,62 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 			),
 		).toBe(true);
 
+		const changeBundleRes = await app.request(
+			`/internal/evidence/bundle`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					intent: "triage_incident",
+					anchor: {
+						entityKind: "change",
+						entityId: "chg_deploy_241",
+					},
+				}),
+			},
+			env,
+		);
+		expect(changeBundleRes.status).toBe(200);
+		const changeBundleBody = (await changeBundleRes.json()) as {
+			anchor: { entityKind: string; entityId: string };
+			summary: string;
+		};
+		expect(changeBundleBody.anchor).toEqual({
+			entityKind: "change",
+			entityId: "chg_deploy_241",
+		});
+		expect(changeBundleBody.summary).toContain("chg_deploy_241");
+
+		const findingBundleRes = await app.request(
+			`/internal/evidence/bundle`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					intent: "triage_incident",
+					anchor: {
+						entityKind: "finding",
+						entityId: finding.id,
+					},
+				}),
+			},
+			env,
+		);
+		expect(findingBundleRes.status).toBe(200);
+		const findingBundleBody = (await findingBundleRes.json()) as {
+			anchor: { entityKind: string; entityId: string };
+			findings: Array<{ title: string }>;
+		};
+		expect(findingBundleBody.anchor).toEqual({
+			entityKind: "finding",
+			entityId: finding.id,
+		});
+		expect(
+			findingBundleBody.findings.some((f) =>
+				f.title.includes("Remediation proposal"),
+			),
+		).toBe(true);
+
 		db.close();
 	});
 });

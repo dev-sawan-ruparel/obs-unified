@@ -14,11 +14,18 @@ import type {
 import type { CollectorPlugin } from "../framework/collector";
 import {
 	computeChangeBlastRadius,
+	getChangeEvent,
 	listChangeEvents,
 } from "../lib/autosre-change-correlation";
-import { searchInvestigationFindings } from "../lib/autosre-findings";
+import {
+	getInvestigationFinding,
+	searchInvestigationFindings,
+} from "../lib/autosre-findings";
 import { loadTraceFaultLocusFromDb } from "../lib/autosre-ontology";
-import { getIncidentInvestigation } from "../lib/autosre-remediation-gate";
+import {
+	getIncidentInvestigation,
+	listRemediationProposals,
+} from "../lib/autosre-remediation-gate";
 import type {
 	ActionRef,
 	EntityManifestExtended,
@@ -1851,12 +1858,245 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 				return c.json(await materializeBundle(db, projectId, enriched));
 			}
 
+			if (anchor.entityKind === "change") {
+				const change = await getChangeEvent(db, projectId, anchor.entityId);
+				if (!change) {
+					return c.json(
+						{ error: "Not Found", message: "Change event not found" },
+						404,
+					);
+				}
+				const blastRadius = await computeChangeBlastRadius(
+					db,
+					projectId,
+					change.id,
+					{ environment: change.environment },
+				);
+				const recentErrSpan = await db
+					.prepare(
+						`SELECT trace_id FROM telemetry_spans
+						 WHERE project_id = ? AND environment = ? AND status_code = 2
+						 ORDER BY start_time DESC LIMIT 1`,
+					)
+					.bind(projectId, change.environment)
+					.first<{ trace_id: string }>();
+
+				const changeRoute = `#/changes/${encodeURIComponent(change.id)}`;
+				const summary =
+					blastRadius?.summary ??
+					`Change ${change.id} (${change.kind} ${change.version ?? ""}) in ${change.environment}: ${change.summary}`;
+				const baseBundle: EvidenceBundle = {
+					schemaVersion: BUNDLE_SCHEMA_VERSION,
+					intent,
+					environment: change.environment,
+					anchor: { entityKind: "change", entityId: change.id },
+					budget: { targetTokens, detailLevel },
+					summary,
+					derivedSummaries: [
+						{
+							title: `Change ${change.id} (${change.kind})`,
+							reason: summary,
+							confidence:
+								blastRadius?.cohortVerdict === "isolated_to_new_version"
+									? 0.9
+									: 0.7,
+							evidenceIds: [`change:${change.id}`],
+							retrievalRefIds: [],
+						},
+					],
+					findings: blastRadius
+						? [
+								{
+									title: `Blast radius (${blastRadius.cohortVerdict})`,
+									reason: blastRadius.summary,
+									confidence:
+										blastRadius.cohortVerdict === "isolated_to_new_version"
+											? 0.9
+											: 0.65,
+									evidenceIds: [`change:${change.id}`],
+									retrievalRefIds: [],
+								},
+							]
+						: [],
+					compactions: [],
+					evidenceReferences: [
+						{
+							evidenceId: `change:${change.id}`,
+							entityKind: "change",
+							entityId: change.id,
+							route: changeRoute,
+							source: "change_events",
+							confidence: 1.0,
+							relationshipCertainty:
+								blastRadius?.relationshipCertainty ??
+								change.relationshipCertainty,
+							causalProofTier: blastRadius?.causalProofTier,
+							reason: summary,
+							citations: [
+								{
+									label: `${change.kind} ${change.version ?? change.id}`,
+									entityKind: "change",
+									entityId: change.id,
+									route: changeRoute,
+								},
+							],
+							suggestedNextPivots: [
+								{
+									label: "Inspect change blast radius",
+									entityKind: "change",
+									entityId: change.id,
+									route: changeRoute,
+									reason:
+										"Inspect traffic-normalized cohort lift and contention.",
+								},
+							],
+						},
+					],
+					retrievalRefs: [],
+					suggestedNextPivots: [
+						{
+							label: "Inspect change blast radius",
+							entityKind: "change",
+							entityId: change.id,
+							route: changeRoute,
+							reason: "Inspect traffic-normalized cohort lift and contention.",
+						},
+					],
+				};
+				const enriched = await attachAutoSreTriageContext(
+					db,
+					projectId,
+					recentErrSpan?.trace_id ?? null,
+					baseBundle,
+				);
+				return c.json(await materializeBundle(db, projectId, enriched));
+			}
+
+			if (anchor.entityKind === "finding") {
+				const finding = await getInvestigationFinding(
+					db,
+					projectId,
+					anchor.entityId,
+				);
+				if (!finding) {
+					return c.json(
+						{ error: "Not Found", message: "Finding not found" },
+						404,
+					);
+				}
+				const proposals = await listRemediationProposals(db, {
+					projectId,
+					environment: finding.environment,
+					findingId: finding.id,
+					limit: 10,
+				});
+				const recentErrSpan = await db
+					.prepare(
+						`SELECT trace_id FROM telemetry_spans
+						 WHERE project_id = ? AND environment = ? AND status_code = 2
+						 ORDER BY start_time DESC LIMIT 1`,
+					)
+					.bind(projectId, finding.environment)
+					.first<{ trace_id: string }>();
+
+				const findingRoute = `#/findings/${encodeURIComponent(finding.id)}`;
+				const summary = `${finding.title} (${finding.causalProofTier}, verification=${finding.causalVerificationStatus}, recovery=${finding.recoveryStatus}): ${finding.summary}`;
+				const baseBundle: EvidenceBundle = {
+					schemaVersion: BUNDLE_SCHEMA_VERSION,
+					intent,
+					environment: finding.environment,
+					incidentId: finding.incidentId ?? undefined,
+					symptomFingerprint: finding.fingerprint,
+					anchor: { entityKind: "finding", entityId: finding.id },
+					budget: { targetTokens, detailLevel },
+					summary,
+					derivedSummaries: [
+						{
+							title: finding.title,
+							reason: summary,
+							confidence: finding.confidence,
+							evidenceIds: [`finding:${finding.id}`],
+							retrievalRefIds: [],
+						},
+					],
+					findings: [
+						{
+							title: finding.title,
+							reason: finding.summary,
+							confidence: finding.confidence,
+							evidenceIds: [
+								`finding:${finding.id}`,
+								...finding.citedEvidenceIds,
+							],
+							retrievalRefIds: [],
+						},
+						...proposals.map((p) => ({
+							title: `Remediation proposal ${p.id} (${p.actionKind})`,
+							reason: `status=${p.status}, autonomy=${p.effectiveAutonomy} — ${p.policyDecisionReason}`,
+							confidence: finding.confidence,
+							evidenceIds: [`finding:${finding.id}`],
+							retrievalRefIds: [],
+						})),
+					],
+					compactions: [],
+					evidenceReferences: [
+						{
+							evidenceId: `finding:${finding.id}`,
+							entityKind: "finding",
+							entityId: finding.id,
+							route: findingRoute,
+							source: "investigation_findings",
+							confidence: finding.confidence,
+							relationshipCertainty: "exact",
+							causalProofTier: finding.causalProofTier,
+							reason: summary,
+							citations: [
+								{
+									label: finding.title,
+									entityKind: "finding",
+									entityId: finding.id,
+									route: findingRoute,
+								},
+							],
+							suggestedNextPivots: [
+								{
+									label: "Open finding",
+									entityKind: "finding",
+									entityId: finding.id,
+									route: findingRoute,
+									reason:
+										"Inspect causal chain, counterfactual verification, and remediation proposals.",
+								},
+							],
+						},
+					],
+					retrievalRefs: [],
+					suggestedNextPivots: [
+						{
+							label: "Open finding",
+							entityKind: "finding",
+							entityId: finding.id,
+							route: findingRoute,
+							reason:
+								"Inspect causal chain, counterfactual verification, and remediation proposals.",
+						},
+					],
+				};
+				const enriched = await attachAutoSreTriageContext(
+					db,
+					projectId,
+					recentErrSpan?.trace_id ?? null,
+					baseBundle,
+				);
+				return c.json(await materializeBundle(db, projectId, enriched));
+			}
+
 			if (anchor.entityKind !== "trace") {
 				return c.json(
 					{
 						error: "Bad Request",
 						message:
-							"Supported evidence bundle anchors are trace, action, agent_run, tool_call, and incident.",
+							"Supported evidence bundle anchors are trace, action, agent_run, tool_call, change, finding, and incident.",
 					},
 					400,
 				);
