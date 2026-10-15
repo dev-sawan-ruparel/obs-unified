@@ -1283,11 +1283,12 @@ const seedAutoSreScenarioD = async (cookie) => {
 	const candidateSpans = [];
 
 	// 1. Seed 50 baseline (v2.4.0, 2% error) and 50 candidate (v2.4.1, 40% error) spans
+	// Both cohorts run concurrently after the deploy timestamp (8m ago) so canary cohort lift is isolated.
 	for (let i = 0; i < 50; i++) {
 		const bTraceId = `0d00000000000000000000000000b${String(i).padStart(3, "0")}`;
 		const bSpanId = `0d0000000000b${String(i).padStart(3, "0")}`;
 		const bErr = i === 0;
-		const bStartMs = 15 * 60_000 + i * 200;
+		const bStartMs = 4 * 60_000 + i * 200;
 		baselineSpans.push({
 			traceId: bTraceId,
 			spanId: bSpanId,
@@ -1384,10 +1385,10 @@ const seedAutoSreScenarioD = async (cookie) => {
 		body: JSON.stringify({
 			id: "inc_scenario_d",
 			environment: env,
-			dedupeKey: "scenario-d:prod:checkout-api:error-spike",
-			triggerKind: "alert_evaluation",
-			triggerEntityId: "alt_eval_scenario_d",
 			targetNodeId: "service:prod:default:checkout-api",
+			symptomAnchorKind: "trace",
+			symptomAnchorId: exemplarTraceId,
+			symptomFingerprint: "fp_scenario_d_checkout_nullpointer",
 		}),
 	});
 	const incidentId = incRes.incident?.id ?? "inc_scenario_d";
@@ -1403,99 +1404,105 @@ const seedAutoSreScenarioD = async (cookie) => {
 				"Cohort error rate jumped from 2.0% (v2.4.0) to 40.0% (v2.4.1) on POST /api/checkout with stack overlap on src/checkout/charge.ts.",
 			causalProofTier: "cohort_rate_isolated",
 			confidence: 0.94,
-			symptomEntityKind: "span",
-			symptomEntityId: `${exemplarTraceId}:${exemplarSpanId}`,
+			symptomEntityKind: "trace",
+			symptomEntityId: exemplarTraceId,
 			faultLocusEntityKind: "span",
-			faultLocusEntityId: `${exemplarTraceId}:${exemplarSpanId}`,
+			faultLocusEntityId: exemplarSpanId,
 			rootCauseEntityKind: "change",
 			rootCauseEntityId: changeId,
 			contributingChangeId: changeId,
-			cohortVerdict: "attributable_to_change",
-			fingerprintInput: {
-				environment: env,
-				originatingNodeId: "service:prod:default:checkout-api",
-				normalizedOperation: "POST /api/checkout",
-				errorSignature: "NullPointerError in chargeCard after 500ms",
-				downstreamTargetNodeId: null,
-			},
+			cohortVerdict: "isolated_to_new_version",
 			causalChain: [
 				{
 					subjectKind: "change",
 					subjectId: changeId,
 					predicate: "introduced_by_change",
 					objectKind: "span",
-					objectId: `${exemplarTraceId}:${exemplarSpanId}`,
-					relationshipCertainty: "inferred",
+					objectId: exemplarSpanId,
+					relationshipCertainty: "exact",
 					causalProofTier: "cohort_rate_isolated",
-					evidenceCitations: [changeId, `${exemplarTraceId}:${exemplarSpanId}`],
+					confidence: 0.94,
+					reason: "Canary cohort lift 20x + stackframe overlap on src/checkout/charge.ts",
 				},
 			],
-			citedEvidenceIds: [changeId, `${exemplarTraceId}:${exemplarSpanId}`],
+			citedEvidenceIds: [changeId, exemplarTraceId, exemplarSpanId],
 		}),
 	});
 	const findingId = findingRes.finding?.id ?? "fnd_scenario_d";
+	const findingFingerprint = findingRes.finding?.fingerprint ?? "fp_scenario_d";
 
 	// 4. Counterfactual verification via paired baseline + candidate eval runs
 	const evalCaseRes = await dashFetch(cookie, "/internal/eval-cases", {
 		method: "POST",
 		body: JSON.stringify({
 			name: "Scenario D checkout-api chargeCard reproducer",
-			sourceKind: "trace",
-			sourceId: exemplarTraceId,
-			inputPayload: { route: "POST /api/checkout", amountCents: 4999 },
-			expectedChecks: { status: 200 },
+			sourceEntityType: "trace",
+			sourceEntityId: exemplarTraceId,
+			referencePayload: { route: "POST /api/checkout", amountCents: 4999 },
+			expectedOutcome: "HTTP 200 without NullPointerError",
 		}),
 	});
-	const evalCaseId = evalCaseRes.case?.id;
+	const evalCaseId = evalCaseRes.evalCase?.id ?? evalCaseRes.case?.id;
 	if (evalCaseId) {
 		const failingRunRes = await dashFetch(cookie, "/internal/eval-runs", {
 			method: "POST",
 			body: JSON.stringify({
-				name: "Scenario D baseline reproducer on v2.4.1",
+				evalCaseId,
 				environment: env,
 				serviceVersion: "2.4.1",
 				commitSha: "2222222",
-				reproducerFingerprint: "fp_scenario_d_reproducer",
-				status: "completed",
+				inputPayloadHash: "fp_scenario_d_reproducer",
+				failureFingerprint: findingFingerprint,
+				status: "failed",
+				totalCount: 1,
+				passCount: 0,
+				failCount: 1,
 			}),
 		});
-		const failingRunId = failingRunRes.run?.id;
+		const failingRunId = failingRunRes.evalRun?.id ?? failingRunRes.run?.id;
 
 		const passingRunRes = await dashFetch(cookie, "/internal/eval-runs", {
 			method: "POST",
 			body: JSON.stringify({
-				name: "Scenario D rollback candidate on v2.4.0",
+				evalCaseId,
 				environment: env,
 				serviceVersion: "2.4.0",
 				commitSha: "1111111",
-				reproducerFingerprint: "fp_scenario_d_reproducer",
+				inputPayloadHash: "fp_scenario_d_reproducer",
 				status: "completed",
+				totalCount: 1,
+				passCount: 1,
+				failCount: 0,
 			}),
 		});
-		const passingRunId = passingRunRes.run?.id;
+		const passingRunId = passingRunRes.evalRun?.id ?? passingRunRes.run?.id;
 
 		if (failingRunId && passingRunId) {
 			await dashFetch(cookie, `/internal/eval-cases/${evalCaseId}/results`, {
 				method: "POST",
 				body: JSON.stringify({
-					evalRunId: failingRunId,
+					runId: failingRunId,
 					passed: false,
 					score: 0,
-					reasoning: "Reproduced NullPointerError on v2.4.1",
+					inputPayloadHash: "fp_scenario_d_reproducer",
+					failureFingerprint: findingFingerprint,
+					actualOutcome: "Reproduced NullPointerError on v2.4.1",
 				}),
 			});
 			await dashFetch(cookie, `/internal/eval-cases/${evalCaseId}/results`, {
 				method: "POST",
 				body: JSON.stringify({
-					evalRunId: passingRunId,
+					runId: passingRunId,
 					passed: true,
 					score: 1,
-					reasoning: "Passed cleanly on rollback candidate v2.4.0",
+					inputPayloadHash: "fp_scenario_d_reproducer",
+					actualOutcome: "Passed cleanly on rollback candidate v2.4.0",
 				}),
 			});
 			await dashFetch(cookie, `/internal/findings/${findingId}/counterfactual`, {
 				method: "POST",
 				body: JSON.stringify({
+					environment: env,
 					evalCaseId,
 					failingRunId,
 					passingRunIds: [passingRunId],
