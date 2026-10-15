@@ -27,7 +27,7 @@ flowchart LR
   actionGraph --> profile["CPU profile"]
 ```
 
-The MCP server is a **read boundary**. It lets agents traverse evidence without
+The MCP server is a **read boundary by default**. It lets agents traverse evidence without
 granting write access to telemetry ingest.
 
 ## Install
@@ -68,9 +68,11 @@ export OBS_DASHBOARD_TOKEN="..."
 
 Supported auth variables, in priority order:
 
-- `OBS_DASHBOARD_TOKEN` — programmatic read/admin token, sent as `Authorization: Bearer <token>`. Must equal the collector server-side `DASHBOARD_TOKEN` (note: CLI clients use `OBS_ADMIN_TOKEN` for the same collector secret).
+- `OBS_DASHBOARD_TOKEN` — programmatic read/admin token, sent as `Authorization: Bearer <token>`. Must equal the collector server-side `DASHBOARD_TOKEN` (note: CLI clients use `OBS_ADMIN_TOKEN` for the same collector secret). `OBS_API_TOKEN` is accepted as an alias; if both are set, `OBS_DASHBOARD_TOKEN` wins.
 - `OBS_SESSION_COOKIE` — dashboard `obs_session` cookie value for ad-hoc local
-  use.
+  use. A cookie-configured MCP host is indistinguishable from a human dashboard
+  session on the collector's remediation approve/reject routes, so **do not use
+  it for autonomous agents**; use a bearer token instead.
 
 Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion (`/v1/*`) and are rejected on collector read/admin endpoints (`/internal/*`).
 
@@ -79,6 +81,7 @@ Optional variables:
 - `OBS_PROJECT_ID` — sent as `X-Project-Id` for multi-project collectors.
 - `OBS_DASHBOARD_URL` — used to include dashboard deep links in tool responses.
 - `OBS_MCP_TIMEOUT_MS` — request timeout in milliseconds. Defaults to `30000`.
+- `OBS_MCP_ENABLE_WRITES` — set to `true` to register the opt-in write tools (see below). Defaults to off.
 
 ## Claude Desktop, Cursor, or compatible MCP host
 
@@ -147,7 +150,7 @@ pnpm --filter @obsunified/mcp-server build
 ## Tools
 
 - `obs_status`
-- `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`, `tool_call`, `change`, `finding`, or `incident` anchor, scoped to an investigation intent (`debug_failure`, `explain_latency`, `audit_agent_run`, `prepare_eval_case`, `triage_incident`) and token budget.
+- `get_evidence_bundle` — compact evidence for a `trace`, `action`, `agent_run`, `tool_call`, `change`, `finding`, or `incident` anchor, scoped to an investigation intent (`debug_failure`, `explain_latency`, `explain_cost`, `inspect_agent_run`, `inspect_tool_call`, `find_instrumentation_gap`, `triage_incident`, `general`) and token budget.
 - `retrieve_evidence_ref` — expand a bundle retrieval ref into raw, less-compacted, or redacted records (`chunkOffset` paginates replay event windows).
 - `search_evidence_ref` — search within a log retrieval ref without expanding the full evidence slice.
 - `get_evidence_stats` — issued/expanded evidence-ref telemetry for the active project.
@@ -166,12 +169,25 @@ pnpm --filter @obsunified/mcp-server build
 - `get_agent_run`
 - `get_action`
 - `get_tool_call`
-- `list_recent_changes` — list recent change events (`deploy`, `rollback`, `feature_flag`, `config_change`, `prompt_change`) filtered by environment, service, or target node.
+- `list_recent_changes` — list recent change events (`deploy`, `rollback`, `feature_flag`, `config_change`, `prompt_rollout`) filtered by environment, service, or target node.
 - `get_change_blast_radius` — traffic-normalized cohort error lift, noisy-neighbor contention check, and code-path overlap for a change event.
 - `search_similar_findings` — search historical `InvestigationFinding`s by fingerprint, symptom entity, or root-cause entity.
-- `record_investigation_finding` — persist a structured `InvestigationFinding` with `relationshipCertainty`, `causalProofTier`, and optional counterfactual verification.
-- `propose_remediation_action` — propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, `apply_config`, `promote_agent_prompt`) evaluated against the pre-execution policy gate.
-- `claim_remediation_grant` — claim a single-use cryptographic `grantToken` (with target-version CAS) or complete/fail an active remediation execution.
+- `record_investigation_finding` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) persist a structured `InvestigationFinding` with `relationshipCertainty`, `causalProofTier`, and optional counterfactual verification.
+- `propose_remediation_action` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, `apply_config`, `promote_agent_prompt`) evaluated against the pre-execution policy gate.
+- `claim_remediation_grant` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) claim a single-use cryptographic `grantToken` (with target-version CAS) or complete/fail an active remediation execution.
+
+## Write tools (opt-in)
+
+The server is read-only by default. Three tools can change collector state, and
+they are **not registered at all** unless you set `OBS_MCP_ENABLE_WRITES=true`:
+
+- `record_investigation_finding` — persists an `InvestigationFinding` (and can chain counterfactual verification).
+- `propose_remediation_action` — creates a policy-gated remediation proposal (rollback, flag toggle, config, prompt promotion, code PR).
+- `claim_remediation_grant` — claims, completes, or fails a proposal using its single-use `grantToken`.
+
+These calls require the dashboard bearer token (`OBS_DASHBOARD_TOKEN` or its alias `OBS_API_TOKEN`).
+Enable them only for agents you intend to let record findings or drive remediation, and keep
+the collector's remediation policy gate and human approval requirements in place.
 
 For package-level details, see the
 [MCP server README](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/mcp-server/README.md).

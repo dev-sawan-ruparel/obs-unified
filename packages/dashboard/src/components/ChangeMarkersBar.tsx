@@ -1,6 +1,7 @@
 import type { ChangeEvent, ChangeEventKind } from "@obsunified/types";
 import { useEffect, useState } from "react";
-import { useDashboard } from "../provider";
+import { hashRoutes } from "../routes";
+import { useApi } from "../use-api";
 import {
 	normalizeConnectedHref,
 	RelationshipCertaintyBadge,
@@ -90,7 +91,7 @@ function ChangeMarkersBarContent({
 			<div className="flex flex-wrap items-center gap-1.5 min-w-0">
 				{changes.map((chg) => {
 					const versionLabel = formatChangeVersionLabel(chg);
-					const href = `#/changes/${encodeURIComponent(chg.id)}`;
+					const href = hashRoutes.change(chg.id);
 					return (
 						<a
 							key={chg.id}
@@ -148,7 +149,7 @@ function AutoFetchedChangeMarkersBar({
 	onNavigate,
 	onSelectChange,
 }: Omit<ChangeMarkersBarProps, "changes">) {
-	const { basePath, fetcher } = useDashboard();
+	const api = useApi();
 	const [changes, setChanges] = useState<ChangeEvent[]>([]);
 
 	useEffect(() => {
@@ -156,15 +157,10 @@ function AutoFetchedChangeMarkersBar({
 		const params = new URLSearchParams();
 		if (environment) params.set("environment", environment);
 		params.set("limit", "10");
-		const qs = params.toString();
-		const url = `${basePath.replace(/\/$/, "")}/changes${qs ? `?${qs}` : ""}`;
-		fetcher(url, { credentials: "include" })
-			.then(async (res) => {
-				if (!res.ok) return [];
-				const body = (await res.json().catch(() => null)) as
-					| { changes?: ChangeEvent[]; rows?: ChangeEvent[] }
-					| ChangeEvent[]
-					| null;
+		api<
+			{ changes?: ChangeEvent[]; rows?: ChangeEvent[] } | ChangeEvent[] | null
+		>(`/changes?${params.toString()}`)
+			.then((body) => {
 				if (Array.isArray(body)) return body;
 				if (body && Array.isArray(body.changes)) return body.changes;
 				if (body && Array.isArray(body.rows)) return body.rows;
@@ -179,7 +175,7 @@ function AutoFetchedChangeMarkersBar({
 		return () => {
 			active = false;
 		};
-	}, [basePath, fetcher, environment]);
+	}, [api, environment]);
 
 	return (
 		<ChangeMarkersBarContent

@@ -6,6 +6,8 @@ import {
 	parseChangesArgs,
 	parseDoctorArgs,
 	parseKeysArgs,
+	resolveAdminToken,
+	resolveIngestKey,
 	runChanges,
 	runDoctor,
 	runKeys,
@@ -810,7 +812,7 @@ describe("changes record", () => {
 		expect(calls[0].method).toBe("POST");
 		expect(calls[0].url).toBe(`${COLLECTOR}/v1/changes`);
 		expect(calls[0].headers.authorization).toBe(`Bearer ${INGEST_KEY}`);
-		expect(calls[0].headers["x-api-key"]).toBe(INGEST_KEY);
+		expect(calls[0].headers["x-api-key"]).toBeUndefined();
 		expect(JSON.parse(calls[0].body ?? "")).toEqual({
 			environment: "prod",
 			kind: "deploy",
@@ -851,7 +853,7 @@ describe("changes record", () => {
 		);
 		expect(code).toBe(0);
 		expect(calls[0].url).toBe("http://custom.collector:8790/v1/changes");
-		expect(calls[0].headers["x-api-key"]).toBe("flag-ingest-key");
+		expect(calls[0].headers.authorization).toBe("Bearer flag-ingest-key");
 		expect(JSON.parse(calls[0].body ?? "")).toMatchObject({
 			kind: "feature_flag",
 			serviceName: "web",
@@ -963,5 +965,77 @@ describe("changes list", () => {
 			limit: 5,
 			json: true,
 		});
+	});
+});
+
+describe("credential resolvers", () => {
+	it("resolveAdminToken prefers the flag, then OBS_API_TOKEN, OBS_ADMIN_TOKEN, OBS_DASHBOARD_TOKEN", () => {
+		const env = {
+			OBS_API_TOKEN: "a",
+			OBS_ADMIN_TOKEN: "b",
+			OBS_DASHBOARD_TOKEN: "c",
+		};
+		expect(resolveAdminToken(env, " flagged ")).toEqual({
+			value: "flagged",
+			source: "--token",
+		});
+		expect(resolveAdminToken(env)).toEqual({
+			value: "a",
+			source: "OBS_API_TOKEN",
+		});
+		expect(resolveAdminToken({ OBS_ADMIN_TOKEN: "b" })).toEqual({
+			value: "b",
+			source: "OBS_ADMIN_TOKEN",
+		});
+		expect(resolveAdminToken({ OBS_DASHBOARD_TOKEN: "c" })?.source).toBe(
+			"OBS_DASHBOARD_TOKEN",
+		);
+		expect(resolveAdminToken({ OBS_ADMIN_TOKEN: "  " })).toBeUndefined();
+	});
+
+	it("resolveIngestKey reads the flag, OBS_INGEST_KEY, then OBS_API_KEY", () => {
+		expect(resolveIngestKey({ OBS_API_KEY: "k" })?.source).toBe("OBS_API_KEY");
+		expect(
+			resolveIngestKey({ OBS_API_KEY: "k", OBS_INGEST_KEY: "i" })?.source,
+		).toBe("OBS_INGEST_KEY");
+		expect(resolveIngestKey({}, "x")).toEqual({
+			value: "x",
+			source: "--api-key",
+		});
+	});
+
+	it("describeFailure names the token source that was rejected", () => {
+		const msg = describeFailure({
+			status: 401,
+			body: undefined,
+			method: "GET",
+			path: "/internal/changes",
+			collectorUrl: COLLECTOR,
+			tokenSource: "OBS_API_TOKEN",
+		});
+		expect(msg).toContain("rejected OBS_API_TOKEN");
+		expect(msg).not.toContain("OBS_ADMIN_TOKEN");
+	});
+
+	it("changes list names the env var that supplied a rejected token and warns on --token", async () => {
+		const rejected = fakeFetch({
+			"GET /internal/changes": () => json(401, {}),
+		});
+		const t1 = makeIo();
+		await runChanges(["list"], {
+			fetch: rejected.fetch,
+			env: { OBS_COLLECTOR_URL: COLLECTOR, OBS_DASHBOARD_TOKEN: "x" },
+			io: t1.io,
+		});
+		expect(t1.stderr()).toContain("rejected OBS_DASHBOARD_TOKEN");
+
+		const t2 = makeIo();
+		await runChanges(["list", "--token", "secret"], {
+			fetch: rejected.fetch,
+			env: { OBS_COLLECTOR_URL: COLLECTOR },
+			io: t2.io,
+		});
+		expect(t2.stderr()).toContain("rejected --token");
+		expect(t2.stderr()).toContain("shell history");
 	});
 });

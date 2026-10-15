@@ -118,9 +118,11 @@ export OBS_DASHBOARD_TOKEN="..."
 
 Supported auth variables, in priority order:
 
-- `OBS_DASHBOARD_TOKEN` — programmatic read/admin token, sent as `Authorization: Bearer <token>`. Must equal the collector server-side `DASHBOARD_TOKEN` (note: CLI clients use `OBS_ADMIN_TOKEN` for the same collector secret).
+- `OBS_DASHBOARD_TOKEN` — programmatic read/admin token, sent as `Authorization: Bearer <token>`. Must equal the collector server-side `DASHBOARD_TOKEN` (note: CLI clients use `OBS_ADMIN_TOKEN` for the same collector secret). `OBS_API_TOKEN` is accepted as an alias; if both are set, `OBS_DASHBOARD_TOKEN` wins.
 - `OBS_SESSION_COOKIE` — dashboard `obs_session` cookie value for ad-hoc local
-  use.
+  use. A cookie-configured MCP host is indistinguishable from a human dashboard
+  session on the collector's remediation approve/reject routes, so **do not use
+  it for autonomous agents**; use a bearer token instead.
 
 Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion (`/v1/*`) and are rejected on collector read/admin endpoints (`/internal/*`).
 
@@ -129,6 +131,7 @@ Optional variables:
 - `OBS_PROJECT_ID` — sent as `X-Project-Id` for multi-project collectors.
 - `OBS_DASHBOARD_URL` — used to include dashboard deep links in tool responses.
 - `OBS_MCP_TIMEOUT_MS` — request timeout in milliseconds. Defaults to `30000`.
+- `OBS_MCP_ENABLE_WRITES` — set to `true` to register the opt-in write tools (see below). Defaults to off.
 
 ## Claude Desktop / compatible local MCP host
 
@@ -195,9 +198,22 @@ Build the package first with `pnpm --filter @obsunified/mcp-server build`.
 - `list_recent_changes` — list recent service deploys, rollbacks, config updates, feature-flag toggles, and prompt rollouts.
 - `get_change_blast_radius` — compute traffic-normalized cohort lift, noisy-neighbor contention, and code-path overlap for a change.
 - `search_similar_findings` — search historical investigation findings by recurrence fingerprint, symptom, root cause, or verification status.
-- `record_investigation_finding` — record a structured investigation finding with causal chain, cited evidence, and optional counterfactual verification.
-- `propose_remediation_action` — propose a policy-gated remediation action with expected and desired state preconditions.
-- `claim_remediation_grant` — claim, complete, or fail a remediation proposal using its single-use grant token.
+- `record_investigation_finding` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) record a structured investigation finding with causal chain, cited evidence, and optional counterfactual verification.
+- `propose_remediation_action` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) propose a policy-gated remediation action with expected and desired state preconditions.
+- `claim_remediation_grant` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) claim, complete, or fail a remediation proposal using its single-use grant token.
+
+## Write tools (opt-in)
+
+The server is read-only by default. Three tools can change collector state, and
+they are **not registered at all** unless you set `OBS_MCP_ENABLE_WRITES=true`:
+
+- `record_investigation_finding` — persists an `InvestigationFinding` (and can chain counterfactual verification).
+- `propose_remediation_action` — creates a policy-gated remediation proposal (rollback, flag toggle, config, prompt promotion, code PR).
+- `claim_remediation_grant` — claims, completes, or fails a proposal using its single-use `grantToken`.
+
+These calls require the dashboard bearer token (`OBS_DASHBOARD_TOKEN` or its alias `OBS_API_TOKEN`).
+Enable them only for agents you intend to let record findings or drive remediation, and keep
+the collector's remediation policy gate and human approval requirements in place.
 
 ## Reporting guidance for agents
 

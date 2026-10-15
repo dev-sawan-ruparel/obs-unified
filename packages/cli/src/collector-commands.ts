@@ -88,6 +88,67 @@ const resolveDeps = (deps: CommandDeps) => ({
 export const normalizeCollectorUrl = (url: string): string =>
 	url.trim().replace(/\/+$/, "");
 
+/** A credential plus the flag or env var that supplied it. */
+export interface ResolvedCredential {
+	value: string;
+	/** e.g. "--token", "OBS_ADMIN_TOKEN" */
+	source: string;
+}
+
+/** Env vars accepted for the collector bearer token, in precedence order. */
+export const ADMIN_TOKEN_ENV_VARS = [
+	"OBS_API_TOKEN",
+	"OBS_ADMIN_TOKEN",
+	"OBS_DASHBOARD_TOKEN",
+] as const;
+
+/** Env vars accepted for the ingest key, in precedence order. */
+export const INGEST_KEY_ENV_VARS = ["OBS_INGEST_KEY", "OBS_API_KEY"] as const;
+
+const resolveCredential = (
+	flagName: string,
+	flagValue: string | undefined,
+	envNames: readonly string[],
+	env: NodeJS.ProcessEnv,
+): ResolvedCredential | undefined => {
+	const fromFlag = flagValue?.trim();
+	if (fromFlag) return { value: fromFlag, source: flagName };
+	for (const name of envNames) {
+		const value = env[name]?.trim();
+		if (value) return { value, source: name };
+	}
+	return undefined;
+};
+
+/** Shared by `changes list`, `keys`, and `doctor`. */
+export const resolveAdminToken = (
+	env: NodeJS.ProcessEnv,
+	flagValue?: string,
+): ResolvedCredential | undefined =>
+	resolveCredential("--token", flagValue, ADMIN_TOKEN_ENV_VARS, env);
+
+/** Used by `changes record`. */
+export const resolveIngestKey = (
+	env: NodeJS.ProcessEnv,
+	flagValue?: string,
+): ResolvedCredential | undefined =>
+	resolveCredential("--api-key", flagValue, INGEST_KEY_ENV_VARS, env);
+
+/** Credentials passed as flags land in shell history; say so once. */
+const warnIfFlagCredential = (
+	io: CommandIo,
+	cred: ResolvedCredential | undefined,
+	envHint: string,
+): void => {
+	if (cred?.source.startsWith("--")) {
+		io.err(
+			kleur.yellow(
+				`warning: ${cred.source} may be saved in your shell history; prefer ${envHint}`,
+			),
+		);
+	}
+};
+
 const adminHeaders = (adminToken: string): Record<string, string> => ({
 	Authorization: `Bearer ${adminToken}`,
 	Accept: "application/json",
@@ -126,13 +187,16 @@ export const describeFailure = (input: {
 	path: string;
 	collectorUrl: string;
 	projectId?: string;
+	/** Flag or env var that supplied the rejected token. */
+	tokenSource?: string;
 }): string => {
 	const { status, body, method, path, collectorUrl, projectId } = input;
+	const tokenSource = input.tokenSource ?? "OBS_ADMIN_TOKEN";
 	const message = errorMessageOf(body);
 	const projectMissing = message?.toLowerCase().includes("project not found");
 
 	if (status === 401 || status === 403) {
-		return `unauthorized (HTTP ${status}): ${collectorUrl} rejected OBS_ADMIN_TOKEN${
+		return `unauthorized (HTTP ${status}): ${collectorUrl} rejected ${tokenSource}${
 			message ? ` — ${message}` : ""
 		}`;
 	}
@@ -223,6 +287,7 @@ async function resolveProject(input: {
 	env: NodeJS.ProcessEnv;
 	collectorUrl: string;
 	adminToken: string;
+	tokenSource?: string;
 	fetch: typeof fetch;
 }): Promise<ProjectResolution> {
 	if (input.explicit) return { projectId: input.explicit, source: "--project" };
@@ -248,6 +313,7 @@ async function resolveProject(input: {
 				method: "GET",
 				path,
 				collectorUrl: input.collectorUrl,
+				tokenSource: input.tokenSource,
 			}),
 		);
 	}
@@ -294,15 +360,16 @@ export async function runKeys(
 	const collectorUrl = normalizeCollectorUrl(
 		env.OBS_COLLECTOR_URL || DEFAULT_COLLECTOR_URL,
 	);
-	const adminToken = env.OBS_ADMIN_TOKEN?.trim();
-	if (!adminToken) {
+	const credential = resolveAdminToken(env);
+	if (!credential) {
 		io.err(
 			kleur.red(
-				"OBS_ADMIN_TOKEN env var required (collector dashboard auth token)",
+				"OBS_ADMIN_TOKEN env var required (collector dashboard auth token; OBS_API_TOKEN and OBS_DASHBOARD_TOKEN are also accepted)",
 			),
 		);
 		return 1;
 	}
+	const adminToken = credential.value;
 
 	let project: ProjectResolution;
 	try {
@@ -311,6 +378,7 @@ export async function runKeys(
 			env,
 			collectorUrl,
 			adminToken,
+			tokenSource: credential.source,
 			fetch,
 		});
 	} catch (err) {
@@ -350,6 +418,7 @@ export async function runKeys(
 					path,
 					collectorUrl,
 					projectId: project.projectId,
+					tokenSource: credential.source,
 				})}`,
 			),
 		);
@@ -523,7 +592,9 @@ export async function checkDashboardReadApi(input: {
 	fetch: typeof globalThis.fetch;
 	url: string;
 	adminToken?: string;
+	tokenSource?: string;
 }): Promise<string> {
+	const tokenSource = input.tokenSource ?? "OBS_ADMIN_TOKEN";
 	const path = "/internal/projects";
 	const headers: Record<string, string> = { Accept: "application/json" };
 	if (input.adminToken) {
@@ -543,7 +614,7 @@ export async function checkDashboardReadApi(input: {
 	if (r.status === 401 || r.status === 403) {
 		if (input.adminToken) {
 			throw new Error(
-				`HTTP ${r.status} — OBS_ADMIN_TOKEN rejected${
+				`HTTP ${r.status} — ${tokenSource} rejected${
 					errorMessageOf(body) ? ` (${errorMessageOf(body)})` : ""
 				}`,
 			);
@@ -563,7 +634,7 @@ export async function checkDashboardReadApi(input: {
 			`HTTP ${r.status} without credentials — ${input.url} exposes the internal API unauthenticated (${count}); set DASHBOARD_TOKEN on the collector`,
 		);
 	}
-	return `ok (OBS_ADMIN_TOKEN accepted, ${count})`;
+	return `ok (${tokenSource} accepted, ${count})`;
 }
 
 export async function runDoctor(
@@ -584,7 +655,8 @@ export async function runDoctor(
 		throw err;
 	}
 	const { url, origins } = parsed;
-	const adminToken = env.OBS_ADMIN_TOKEN?.trim() || undefined;
+	const credential = resolveAdminToken(env);
+	const adminToken = credential?.value;
 
 	io.out(`Checking ${url}…`);
 	io.out(`CORS origins: ${origins.join(", ")}\n`);
@@ -629,7 +701,13 @@ export async function runDoctor(
 		],
 		[
 			"dashboard read API (GET /internal/projects)",
-			() => checkDashboardReadApi({ fetch, url, adminToken }),
+			() =>
+				checkDashboardReadApi({
+					fetch,
+					url,
+					adminToken,
+					tokenSource: credential?.source,
+				}),
 		],
 	];
 	let failed = 0;
@@ -879,7 +957,8 @@ export function parseChangesArgs(args: string[]): ChangesArgs {
 		}
 	}
 
-	if (!action) throw new UsageError("missing subcommand: changes <record|list>");
+	if (!action)
+		throw new UsageError("missing subcommand: changes <record|list>");
 
 	if (action === "record") {
 		return {
@@ -942,11 +1021,9 @@ export async function runChanges(
 	);
 
 	if (parsed.action === "record") {
-		const apiKey =
-			parsed.apiKey ||
-			env.OBS_INGEST_KEY?.trim() ||
-			env.OBS_API_KEY?.trim();
-		if (!apiKey) {
+		const ingest = resolveIngestKey(env, parsed.apiKey);
+		const apiKey = ingest?.value;
+		if (!ingest || !apiKey) {
 			io.err(
 				kleur.red(
 					"ingest key required for changes record (pass --api-key or set OBS_INGEST_KEY / OBS_API_KEY)",
@@ -954,6 +1031,7 @@ export async function runChanges(
 			);
 			return 1;
 		}
+		warnIfFlagCredential(io, ingest, "OBS_INGEST_KEY");
 
 		const summary =
 			parsed.summary ??
@@ -989,8 +1067,8 @@ export async function runChanges(
 			r = await fetch(`${collectorUrl}${path}`, {
 				method: "POST",
 				headers: {
+					// The ingest middleware accepts Bearer or X-API-Key; send it once.
 					Authorization: `Bearer ${apiKey}`,
-					"X-API-Key": apiKey,
 					"Content-Type": "application/json",
 					Accept: "application/json",
 				},
@@ -1011,6 +1089,7 @@ export async function runChanges(
 						method: "POST",
 						path,
 						collectorUrl,
+						tokenSource: ingest.source,
 					})}`,
 				),
 			);
@@ -1033,12 +1112,8 @@ export async function runChanges(
 		return 0;
 	}
 
-	const token =
-		parsed.token ||
-		env.OBS_API_TOKEN?.trim() ||
-		env.OBS_ADMIN_TOKEN?.trim() ||
-		env.OBS_DASHBOARD_TOKEN?.trim();
-	if (!token) {
+	const credential = resolveAdminToken(env, parsed.token);
+	if (!credential) {
 		io.err(
 			kleur.red(
 				"bearer token required for changes list (pass --token or set OBS_API_TOKEN / OBS_ADMIN_TOKEN)",
@@ -1046,6 +1121,8 @@ export async function runChanges(
 		);
 		return 1;
 	}
+	const token = credential.value;
+	warnIfFlagCredential(io, credential, "OBS_API_TOKEN");
 
 	const search = new URLSearchParams();
 	if (parsed.environment) search.set("environment", parsed.environment);
@@ -1079,6 +1156,7 @@ export async function runChanges(
 					method: "GET",
 					path: "/internal/changes",
 					collectorUrl,
+					tokenSource: credential.source,
 				})}`,
 			),
 		);
