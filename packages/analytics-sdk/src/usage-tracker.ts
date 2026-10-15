@@ -14,13 +14,11 @@ import {
 	buildLineageAttributes,
 	getRecordedFeatureFlags,
 	type LineageConfigInput,
-	type ObservabilityLineageConfig,
 	type RecordFeatureFlagOptions,
 	recordFeatureFlag as recordGlobalFeatureFlag,
 	setConfiguredLineage,
 } from "./lineage";
 import type {
-	AnalyticsConfig,
 	ReplayPrivacyOptions,
 	UsageTrackerConfig,
 } from "./usage-tracker/config";

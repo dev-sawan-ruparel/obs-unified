@@ -95,7 +95,7 @@ async function requireHumanDashboardSession(c: {
 	}
 	const cookieHeader = c.req.header("Cookie") ?? "";
 	const match = cookieHeader.match(/(?:^|;\s*)obs_session=([^;]*)/);
-	if (!match || !match[1]) {
+	if (!match?.[1]) {
 		return {
 			ok: false,
 			message:

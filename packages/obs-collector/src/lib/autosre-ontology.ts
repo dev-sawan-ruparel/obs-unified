@@ -600,7 +600,8 @@ export function computeTarjanScc(
 		if (lowlink.get(nodeId) === indices.get(nodeId)) {
 			const component: string[] = [];
 			while (stack.length > 0) {
-				const w = stack.pop()!;
+				const w = stack.pop();
+				if (w === undefined) break;
 				onStack.delete(w);
 				component.push(w);
 				if (w === nodeId) break;

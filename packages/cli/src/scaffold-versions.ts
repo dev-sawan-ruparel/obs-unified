@@ -4,8 +4,8 @@
  * `scaffold-versions.test.ts` fails when they drift behind a release.
  */
 export const SCAFFOLD_SDK_RANGES: Record<string, string> = {
-	"@obsunified/analytics-sdk": "^2.1.0",
-	"@obsunified/telemetry-sdk": "^2.1.0",
+	"@obsunified/analytics-sdk": "^2.1.1",
+	"@obsunified/telemetry-sdk": "^2.1.1",
 };
 
 export const VALID_SCAFFOLD_TEMPLATES = [

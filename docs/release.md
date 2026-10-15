@@ -31,6 +31,12 @@ changes, run `pnpm version-packages` in a worktree, and merge the version
 changes through a PR. Website/docs are private workspace members and are
 excluded from publishing.
 
+When `pnpm version-packages` bumps `@obsunified/analytics-sdk` or
+`@obsunified/telemetry-sdk`, also bump the caret ranges in
+`packages/cli/src/scaffold-versions.ts` and `packages/cli/templates/*/package.json`
+to the new version; `packages/cli/src/scaffold-versions.test.ts` fails until the
+scaffold pins match the workspace exactly.
+
 Publish from a normal interactive terminal on `main`:
 
 ```bash
