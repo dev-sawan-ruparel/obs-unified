@@ -13,7 +13,7 @@ There are two decisions:
 
 | Runtime path | Use when | Starts |
 | --- | --- | --- |
-| **Option 1 — Docker image** | You want the quickest first run with the fewest host dependencies. | Postgres, collector, dashboard, filesystem blob store, and sample data in one container. |
+| **Option 1 — Docker image** | You want the quickest first run with the fewest host dependencies. | Postgres, collector, dashboard, and filesystem blob store in one container: pull the prebuilt image from GHCR, or build the local image to include sample data. |
 | **Option 2 — local install** | You want to edit code, run dev servers, or inspect internals while using the repo. | Local collector, demo API, and Vite dashboard from the workspace. |
 
 ## Choose what to observe
@@ -32,6 +32,32 @@ There are two decisions:
 ## Option 1 — Docker image
 
 This packages the full local stack into one container. It is the lowest-friction first run.
+
+### Prebuilt image from GHCR
+
+No clone needed. The release image is published as
+[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified)
+and fails closed without your own credentials:
+
+```bash
+export INGEST_KEY="pick-a-long-random-ingest-key"
+export DASHBOARD_PASSWORD="pick-a-dashboard-password"
+
+docker run --rm \
+  -p 5173:5173 \
+  -p 8790:8790 \
+  -e INGEST_KEY \
+  -e DASHBOARD_PASSWORD \
+  -v obs-unified-db:/var/lib/postgresql \
+  -v obs-unified-blobs:/data \
+  ghcr.io/dev-sawan-ruparel/obs-unified:latest
+```
+
+Dashboard at `http://localhost:5173`, collector at `http://localhost:8790`.
+The prebuilt image starts empty; pick **Astronomy Shop** or **your own app**
+below for data, or build the local image to get seeded sample data.
+
+### Build the local image with sample data
 
 Build and run from the personal monorepo:
 

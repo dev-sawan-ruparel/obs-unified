@@ -11,11 +11,11 @@ For the agent-facing investigation surface, see [MCP server](/docs/mcp-server).
 
 ## Backend SDKs
 
-| Language | Install | Where it runs |
-| --- | --- | --- |
-| **TypeScript** | `pnpm add @obsunified/telemetry-sdk` from npm | Node.js · Bun · Deno · Cloudflare Workers |
-| **Go** | `go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest` | Any Go 1.22+ binary |
-| **Rust** | `cargo add obs-unified` | Any Rust 1.75+ binary (Tokio runtime) |
+| Language | Install | Registry | Where it runs |
+| --- | --- | --- | --- |
+| **TypeScript** | `pnpm add @obsunified/telemetry-sdk` | [npm](https://www.npmjs.com/package/@obsunified/telemetry-sdk) | Node.js · Bun · Deno · Cloudflare Workers |
+| **Go** | `go get github.com/dev-sawan-ruparel/obs-unified/sdks/go@latest` | [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go) | Any Go 1.22+ binary |
+| **Rust** | `cargo add obs-unified` | [crates.io](https://crates.io/crates/obs-unified) | Any Rust 1.75+ binary (Tokio runtime) |
 
 All three expose the **same API surface**, so muscle memory ports across runtimes:
 
@@ -35,17 +35,17 @@ If your backend language isn't listed, any OTLP-compatible OpenTelemetry SDK wor
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| `@obsunified/analytics-sdk` | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
+| [`@obsunified/analytics-sdk`](https://www.npmjs.com/package/@obsunified/analytics-sdk) | Browser (React or vanilla) | Tracks usage events, identifies users, mints **interaction_id** on every click, auto-injects `x-obs-interaction` on outbound `fetch`/XHR |
 
 This one is browser-only by definition — there's no parallel Go/Rust analytics SDK because that surface area is the web.
 
-All four packages live in the obs-unified monorepo. The TypeScript packages publish to public npm under `@obsunified/*`. The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.1`. The Rust SDK publishes to crates.io as `obs-unified`.
+All four packages live in the obs-unified monorepo. The TypeScript packages publish to public npm under the [`@obsunified` organization](https://www.npmjs.com/org/obsunified). The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.1` and is indexed on [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go). The Rust SDK publishes to crates.io as [`obs-unified`](https://crates.io/crates/obs-unified). The full list of published artifacts, including the all-in-one container image on GHCR, is in [Installation](/docs/installation#packages-and-registries).
 
 ## MCP server
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| `@obsunified/mcp-server` | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, compact evidence bundles, connected signals, agent runs, actions, and tool calls |
+| [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server) | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, compact evidence bundles, connected signals, agent runs, actions, and tool calls |
 
 The MCP server is intentionally a **read boundary**. Agents can inspect the same graph a human sees in the dashboard, but they do not need the write-only telemetry ingest key used by app SDKs. Configure it with a dashboard token, a compatible read bearer, or a local `obs_session` cookie for development.
 
