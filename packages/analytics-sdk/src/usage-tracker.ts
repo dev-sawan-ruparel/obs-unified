@@ -9,8 +9,19 @@
  */
 import { record } from "rrweb";
 import { currentInteractionContext } from "./interaction";
-
+import {
+	buildFeatureFlagAttributes,
+	buildLineageAttributes,
+	getRecordedFeatureFlags,
+	type LineageConfigInput,
+	type ObservabilityLineageConfig,
+	type RecordFeatureFlagOptions,
+	recordFeatureFlag as recordGlobalFeatureFlag,
+	resolveLineageConfig,
+	setConfiguredLineage,
+} from "./lineage";
 import type {
+	AnalyticsConfig,
 	ReplayPrivacyOptions,
 	UsageTrackerConfig,
 } from "./usage-tracker/config";
@@ -24,6 +35,8 @@ import {
 import type { UsageEventPayload } from "./usage-tracker/types";
 
 export type {
+	AnalyticsConfig,
+	ObservabilityLineageConfig,
 	ReplayPrivacyOptions,
 	UsageTrackerConfig,
 } from "./usage-tracker/config";
@@ -49,6 +62,7 @@ export class UsageTracker {
 		>
 	> &
 		Pick<UsageTrackerConfig, "errorEndpoint" | "credentials" | "errorFilter">;
+	private readonly lineageConfig: LineageConfigInput;
 	private lastPagePath: string | null = null;
 	private readonly onceKeys = new Set<string>();
 
@@ -82,6 +96,14 @@ export class UsageTracker {
 			: (config.endpoint ?? "");
 		this.apiKey = config.apiKey;
 		this.dispatchDisabled = Boolean(config.collectorUrl && !config.apiKey);
+		this.lineageConfig = {
+			environment: config.environment,
+			serviceVersion: config.serviceVersion,
+			commitSha: config.commitSha,
+			configDigest: config.configDigest,
+			lineage: config.lineage,
+		};
+		setConfiguredLineage(this.lineageConfig);
 
 		this.config = {
 			endpoint: resolvedEndpoint,
@@ -509,6 +531,52 @@ export class UsageTracker {
 		return headers;
 	}
 
+	recordFeatureFlag(
+		flagKey: string,
+		variant: string | boolean | number,
+		options?: RecordFeatureFlagOptions,
+	): void {
+		recordGlobalFeatureFlag(flagKey, variant, options);
+	}
+
+	private buildEventContext(): Record<string, unknown> {
+		const resolvedLineage = resolveLineageConfig(this.lineageConfig);
+		const lineageAttrs = buildLineageAttributes(this.lineageConfig);
+		const flagAttrs = buildFeatureFlagAttributes();
+		const flags = getRecordedFeatureFlags();
+		return {
+			...getViewportContext(),
+			...lineageAttrs,
+			...(resolvedLineage.environment
+				? { environment: resolvedLineage.environment }
+				: {}),
+			...(resolvedLineage.serviceVersion
+				? { serviceVersion: resolvedLineage.serviceVersion }
+				: {}),
+			...(resolvedLineage.commitSha
+				? { commitSha: resolvedLineage.commitSha }
+				: {}),
+			...(resolvedLineage.configDigest
+				? { configDigest: resolvedLineage.configDigest }
+				: {}),
+			...flagAttrs,
+			...(Object.keys(flags).length > 0 ? { featureFlags: flags } : {}),
+		};
+	}
+
+	private buildEventProperties(
+		properties?: Record<string, unknown>,
+	): Record<string, unknown> | undefined {
+		const lineageAttrs = buildLineageAttributes(this.lineageConfig);
+		const flagAttrs = buildFeatureFlagAttributes();
+		const merged = {
+			...lineageAttrs,
+			...flagAttrs,
+			...(properties ?? {}),
+		};
+		return Object.keys(merged).length > 0 ? merged : undefined;
+	}
+
 	trackPageView(path: string, title: string): void {
 		// Page view deduplication (from P)
 		if (this.lastPagePath === path) return;
@@ -536,13 +604,13 @@ export class UsageTracker {
 				referrer: document.referrer || null,
 				occurredAt: this.getNowAdjusted(),
 				severity: "info",
-				properties: {
+				properties: this.buildEventProperties({
 					...getUtmParams(),
 					...(typeof loadTime === "number" && Number.isFinite(loadTime)
 						? { loadTimeMs: Math.round(loadTime) }
 						: {}),
-				},
-				context: getViewportContext(),
+				}),
+				context: this.buildEventContext(),
 				interactionId: actionContext?.interactionId,
 				rootActionId: actionContext?.rootActionId,
 				actionId: actionContext?.actionId,
@@ -564,10 +632,10 @@ export class UsageTracker {
 				occurredAt: this.getNowAdjusted(),
 				severity: "info",
 				properties: normalizeMetadata(
-					properties,
+					this.buildEventProperties(properties),
 					this.config.maxMetadataLength,
 				),
-				context: getViewportContext(),
+				context: this.buildEventContext(),
 				interactionId: actionContext?.interactionId,
 				rootActionId: actionContext?.rootActionId,
 				actionId: actionContext?.actionId,
@@ -620,16 +688,16 @@ export class UsageTracker {
 				occurredAt: this.getNowAdjusted(),
 				severity: "error",
 				properties: normalizeMetadata(
-					{
+					this.buildEventProperties({
 						errorName: error.name,
 						errorMessage: error.message,
 						errorStack: error.stack,
 						component: error.component,
 						errorSource: error.source,
-					},
+					}),
 					this.config.maxMetadataLength,
 				),
-				context: getViewportContext(),
+				context: this.buildEventContext(),
 				interactionId: actionContext?.interactionId,
 				rootActionId: actionContext?.rootActionId,
 				actionId: actionContext?.actionId,

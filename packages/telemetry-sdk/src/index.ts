@@ -1,10 +1,24 @@
 // ── Unified init ──
 
 import { type AILoggerConfig, initAI } from "./ai";
+import {
+	buildLineageAttributes,
+	clearRecordedFeatureFlags,
+	getConfiguredLineage,
+	getRecordedFeatureFlagEntries,
+	getRecordedFeatureFlags,
+	type ObservabilityLineageConfig,
+	type RecordedFeatureFlag,
+	type RecordFeatureFlagOptions,
+	recordFeatureFlag,
+	resolveLineageConfig,
+	setConfiguredLineage,
+	withFeatureFlagScope,
+} from "./lineage";
 import { initLogger, type LoggerConfig } from "./logger";
 import { initSpanExporter, type SpanExporterConfig } from "./span";
 
-export interface ObservabilityConfig {
+export interface ObservabilityConfig extends ObservabilityLineageConfig {
 	/** URL of your collector (e.g. "https://obs.my-app.com") */
 	collectorUrl: string;
 	/** Write-only API key for the collector */
@@ -13,6 +27,8 @@ export interface ObservabilityConfig {
 	serviceName: string;
 	/** Optional service version */
 	serviceVersion?: string;
+	/** Optional runtime lineage configuration (RFC 0013). */
+	lineage?: ObservabilityLineageConfig;
 	/** Periodic flush interval in milliseconds for logs and AI calls. Set to 0 to disable. */
 	flushIntervalMs?: number;
 	/**
@@ -25,6 +41,23 @@ export interface ObservabilityConfig {
 	 */
 	extraHeaders?: Record<string, string>;
 }
+
+export type TelemetryConfig = ObservabilityConfig;
+
+export {
+	buildLineageAttributes,
+	clearRecordedFeatureFlags,
+	getConfiguredLineage,
+	getRecordedFeatureFlagEntries,
+	getRecordedFeatureFlags,
+	type ObservabilityLineageConfig,
+	type RecordedFeatureFlag,
+	type RecordFeatureFlagOptions,
+	recordFeatureFlag,
+	resolveLineageConfig,
+	setConfiguredLineage,
+	withFeatureFlagScope,
+};
 
 /**
  * Initialize all observability subsystems in one call.
@@ -45,12 +78,18 @@ export interface ObservabilityConfig {
  * ```
  */
 export function initObservability(config: ObservabilityConfig): void {
+	setConfiguredLineage(config);
 	const loggerConfig: LoggerConfig = {
 		collectorUrl: config.collectorUrl,
 		authToken: config.apiKey,
 		serviceName: config.serviceName,
 		extraHeaders: config.extraHeaders,
 		flushIntervalMs: config.flushIntervalMs,
+		environment: config.environment,
+		serviceVersion: config.serviceVersion,
+		commitSha: config.commitSha,
+		configDigest: config.configDigest,
+		lineage: config.lineage,
 	};
 	const aiConfig: AILoggerConfig = {
 		collectorUrl: config.collectorUrl,
@@ -64,6 +103,11 @@ export function initObservability(config: ObservabilityConfig): void {
 		authToken: config.apiKey,
 		extraHeaders: config.extraHeaders,
 		flushIntervalMs: config.flushIntervalMs,
+		environment: config.environment,
+		serviceVersion: config.serviceVersion,
+		commitSha: config.commitSha,
+		configDigest: config.configDigest,
+		lineage: config.lineage,
 	};
 	initSpanExporter(spanConfig);
 	initLogger(loggerConfig);

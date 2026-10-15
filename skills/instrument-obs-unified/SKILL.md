@@ -191,7 +191,16 @@ If the app has multi-turn conversations, call `setAISessionContext({ sessionId, 
 
 **Do not use `trackAICall`** — it's `@deprecated` in [`packages/telemetry-sdk/src/ai.ts`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/src/ai.ts) and predates the OpenInference helpers.
 
-### 7. Env var stubs
+### 7. Runtime lineage, feature flags, and change plane (RFC 0013)
+
+To enable cohort attribution (`service.version` / `vcs.commit.id`) and change blast-radius correlation:
+
+- Pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` (or `lineage: { environment, serviceVersion, commitSha, configDigest }`) to `initObservability(...)` and `<AnalyticsProvider>` so spans and usage events carry `deployment.environment.name`, `service.version`, `vcs.commit.id`, and `obs.config.digest`.
+- Where feature flags are evaluated, call `recordFeatureFlag(flagKey, variant, { providerName })` from `@obsunified/telemetry-sdk` or `@obsunified/analytics-sdk` so active spans carry `feature_flag.key`, `feature_flag.variant`, and `obs.feature_flags.<key>`.
+- In deploy scripts or release hooks, record change events with the CLI:
+  ```bash
+  obs-unified changes record --environment prod --kind deploy --service <service-name> --version "$VERSION" --commit-sha "$COMMIT_SHA" --summary "Deploy $VERSION"
+  ```
 
 Add to `.env.example` (or `.dev.vars` for Workers projects using wrangler):
 
@@ -199,6 +208,10 @@ Add to `.env.example` (or `.dev.vars` for Workers projects using wrangler):
 # obs-unified collector — server-side
 OBS_COLLECTOR_URL=
 OBS_INGEST_KEY=
+OBS_ENVIRONMENT=
+OBS_SERVICE_VERSION=
+OBS_COMMIT_SHA=
+OBS_CONFIG_DIGEST=
 
 # obs-unified dashboard — used by the app to build deep-links into the UI
 OBS_DASHBOARD_URL=

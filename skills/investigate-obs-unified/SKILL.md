@@ -202,7 +202,7 @@ the raw rows.
 
 | Endpoint | Purpose | Key params |
 | --- | --- | --- |
-| `POST /internal/evidence/bundle` | Compact evidence for an anchor (`trace`/`action`/`agent_run`/`tool_call`), scoped to an intent + token budget; returns findings, exemplars, and retrieval refs | body: anchor kind/id, intent, token budget |
+| `POST /internal/evidence/bundle` | Compact evidence for an anchor (`trace`/`action`/`agent_run`/`tool_call`/`change`/`finding`/`incident`), scoped to an intent (`debug_failure`, `explain_latency`, `audit_agent_run`, `prepare_eval_case`, `triage_incident`) + token budget; returns findings, exemplars, and retrieval refs | body: anchor kind/id, intent, token budget |
 | `GET /internal/evidence/refs/:refId` | Expand a retrieval ref into raw/less-compacted/redacted records | `chunkOffset` (paginates replay event windows) |
 | `POST /internal/evidence/refs/:refId/search` | Search within a log retrieval ref without expanding the full slice | body: query |
 | `GET /internal/evidence/stats` | Issued/expanded evidence-ref telemetry for the project | (none) |
@@ -211,6 +211,23 @@ Equivalent MCP tools: `get_evidence_bundle`, `retrieve_evidence_ref`,
 `search_evidence_ref`, `get_evidence_stats`. Retrieval is project-scoped; AI raw
 request/response stays redacted and tool expansion returns hashes + redacted
 args/results.
+
+### AutoSRE Changes / Findings / Incidents / Remediations (RFC 0013)
+
+| Endpoint | Purpose | Key params |
+| --- | --- | --- |
+| `GET /internal/changes` | Recent deployments, rollbacks, flag toggles, config/prompt changes | `environment`, `serviceName`, `targetNodeId`, `kind`, `since`, `limit` |
+| `GET /internal/changes/:id/blast-radius` | Traffic-normalized cohort error lift, noisy-neighbor contention check, and code-path overlap | `environment`, `minSample` |
+| `GET /internal/ontology/topology` | Environment-scoped resource topology graph (`ontology_nodes`, `ontology_edges`, cycle diagnostics) | `environment`, `nodeId` |
+| `GET /internal/findings` | Search recurring `InvestigationFinding`s by fingerprint or symptom/root-cause entity | `environment`, `fingerprint`, `symptomEntityId`, `rootCauseEntityId` |
+| `POST /internal/findings` | Record a structured `InvestigationFinding` with `relationshipCertainty` and `causalProofTier` | body: finding payload |
+| `POST /internal/findings/:id/counterfactual` | Upgrade finding to `counterfactual_verified` using paired failing baseline + passing candidate eval runs | body: `evalCaseId`, `failingRunId`, `passingRunIds`, `requiredTrials` |
+| `POST /internal/remediations/propose` | Propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, etc.) | body: proposal payload + `expectedCurrentState` |
+| `POST /internal/remediations/:id/claim` | Claim a single-use cryptographic `grantToken` with target-version CAS before executing a write | body: `grantToken`, `runnerId` |
+
+Equivalent MCP tools: `list_recent_changes`, `get_change_blast_radius`,
+`search_similar_findings`, `record_investigation_finding`,
+`propose_remediation_action`, `claim_remediation_grant`.
 
 ### Usage events / users / replay
 
@@ -228,7 +245,7 @@ args/results.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /internal/connected/:kind/:id` | Get all signals connected to an anchor. `kind ∈ { span, log, usage, ai_call, replay, alert, analysis, user, profile, action, agent_run, tool_call }`. For `span`, id is `<traceId>:<spanId>`. There is no plain `trace` kind — use a span from the trace instead. The cheapest way to do a cross-signal pivot. |
+| `GET /internal/connected/:kind/:id` | Get all signals connected to an anchor. `kind ∈ { span, log, usage, ai_call, replay, alert, analysis, user, profile, action, agent_run, tool_call, change, finding, incident }`. For `span`, id is `<traceId>:<spanId>`. There is no plain `trace` kind — use a span from the trace instead. The cheapest way to do a cross-signal pivot. |
 
 ### Analyses / alerts
 
@@ -241,7 +258,7 @@ args/results.
 | `GET /internal/alerts/rules` | List configured alert rules |
 | `GET /internal/alerts/evaluations` | Recent alert evaluations (which rules fired) |
 
-For the canonical source — exact param names, response shapes, edge cases — read the relevant plugin in `packages/obs-collector/src/plugins/`. The files are short and routed: `query-routes.ts`, `connected-routes.ts`, `analyses-routes.ts`, etc.
+For the canonical source — exact param names, response shapes, edge cases — read the relevant plugin in `packages/obs-collector/src/plugins/`. The files are short and routed: `query-routes.ts`, `connected-routes.ts`, `analyses-routes.ts`, `autosre-routes.ts`, etc.
 
 ## Investigation playbooks
 
@@ -302,6 +319,15 @@ Common questions and the query sequence that answers them:
 2. Compare costs, latency, tool choices, eval outcomes, and differing steps.
 3. Open exemplar actions or agent runs for both sides.
 4. Report the changed behavior in terms of evidence: step sequence, tool calls, evals, traces, and source production links.
+
+### "Closed-loop AutoSRE incident triage & governed remediation (RFC 0013)"
+
+1. **Symptom & Recurrence Match**: Query `POST /internal/evidence/bundle` with `intent: "triage_incident"` (or MCP `get_evidence_bundle` / `search_similar_findings`) to get the compact incident bundle and any matching historical `InvestigationFinding`s by structural fingerprint.
+2. **Fault Localization**: Inspect the trace-level fault locus (`originated_in` / deepest error root span) and check `GET /internal/ontology/topology?environment=<env>` for service/dependency edges and SCC cycles.
+3. **Change & Cohort Correlation**: Call `GET /internal/changes?environment=<env>&serviceName=<svc>` (`list_recent_changes`) and `GET /internal/changes/:id/blast-radius` (`get_change_blast_radius`). Distinguish `attributable_to_change` (traffic-normalized `cohortLiftRatio >= 3.0`) from `shared_failure_or_contention` (noisy-neighbor shared database/host saturation).
+4. **Counterfactual Verification**: Record a finding via `POST /internal/findings` (`record_investigation_finding`). When an eval reproducer exists, run paired failing baseline + passing candidate `eval_runs` and call `POST /internal/findings/:id/counterfactual` to upgrade `causalProofTier` to `counterfactual_verified`.
+5. **Governed Remediation**: Call `POST /internal/remediations/propose` (`propose_remediation_action`). Never treat structural overlap (`corroborated_candidate`) as sufficient for autonomous rollback; require `cohort_rate_isolated` + `attributable_to_change` or `counterfactual_verified`, or wait for a human operator to approve in the Autonomous Review queue.
+6. **Execution & Operational Recovery**: Claim the single-use `grantToken` via `POST /internal/remediations/:id/claim` (`claim_remediation_grant`) before executing the change, then complete the proposal (`POST /internal/remediations/:id/complete`) so the recovery watchdog tracks `recoveryStatus` separately from `causalVerificationStatus`.
 
 ### "Verify my instrumentation is working"
 

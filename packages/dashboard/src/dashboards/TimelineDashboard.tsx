@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button";
+import { ChangeMarkersBar } from "../components/ChangeMarkersBar";
 import { Input, Select } from "../components/forms";
 import {
 	Card,
@@ -327,6 +328,8 @@ export function TimelineDashboard({ initialSessionId, onNavigate }: Props) {
 					<UpdatedChip at={data?.timestamp ?? null} />
 				</div>
 			</div>
+
+			<ChangeMarkersBar />
 
 			{!sessionId && recentSessions.length === 0 && !loading && (
 				<Card className="p-3">

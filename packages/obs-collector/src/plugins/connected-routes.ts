@@ -1049,6 +1049,277 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 						manifest.rawManifest = actionManifest;
 					}
 				}
+			} else if (kind === "change") {
+				const db = sqlDbFor(c.env);
+				const changeRow = await db
+					.prepare(
+						`SELECT * FROM change_events WHERE project_id = ? AND id = ? LIMIT 1`,
+					)
+					.bind(projectId, id)
+					.first<{
+						id: string;
+						environment: string;
+						kind: string;
+						target_node_id: string;
+						service_name: string | null;
+						version: string | null;
+						previous_version: string | null;
+						commit_sha: string | null;
+						summary: string;
+					}>();
+				if (changeRow) {
+					manifest.up = [
+						{
+							label: "Target Ontology Node",
+							links: [
+								{
+									label: `${changeRow.target_node_id} (${changeRow.environment})`,
+									href: `#/health?node=${encodeURIComponent(changeRow.target_node_id)}`,
+									relationshipCertainty: "exact",
+									reason: "Target node mutated by this change event.",
+								},
+							],
+						},
+					];
+
+					const findings = await db
+						.prepare(
+							`SELECT id, title, causal_proof_tier, confidence, incident_id
+							 FROM investigation_findings
+							 WHERE project_id = ? AND environment = ? AND contributing_change_id = ?
+							 ORDER BY created_at DESC LIMIT 10`,
+						)
+						.bind(projectId, changeRow.environment, changeRow.id)
+						.all<{
+							id: string;
+							title: string;
+							causal_proof_tier: string;
+							confidence: number;
+							incident_id: string | null;
+						}>();
+
+					manifest.down = [
+						{
+							label: "Attributed Findings",
+							links: findings.results.map((f) => ({
+								label: f.title,
+								href: `#/findings/${encodeURIComponent(f.id)}`,
+								entityKind: "finding",
+								entityId: f.id,
+								relationshipCertainty: "exact",
+								causalProofTier:
+									f.causal_proof_tier as import("@obsunified/types").CausalProofTier,
+								confidence: f.confidence,
+								reason: "Finding attributes this change event.",
+							})),
+							emptyReason:
+								findings.results.length === 0
+									? "No investigation findings cite this change event."
+									: undefined,
+						},
+					];
+
+					const spans = changeRow.version
+						? await db
+								.prepare(
+									`SELECT DISTINCT trace_id, span_id, service_name, span_name
+									 FROM telemetry_spans
+									 WHERE project_id = ? AND environment = ? AND service_version = ? AND status_code = 2
+									 ORDER BY start_time DESC LIMIT 5`,
+								)
+								.bind(projectId, changeRow.environment, changeRow.version)
+								.all<{
+									trace_id: string;
+									span_id: string;
+									service_name: string;
+									span_name: string;
+								}>()
+						: { results: [] };
+
+					manifest.across = [
+						{
+							label: "Failing Spans on Cohort Version",
+							links: spans.results.map((s) => ({
+								label: `${s.service_name} · ${s.span_name}`,
+								href: `#/traces/${s.trace_id}#span=${s.span_id}`,
+								entityKind: "span",
+								entityId: `${s.trace_id}:${s.span_id}`,
+								relationshipCertainty: "exact",
+								reason: `Span executed on version ${changeRow.version}.`,
+							})),
+							emptyReason:
+								spans.results.length === 0
+									? "No failing spans recorded on this change version."
+									: undefined,
+						},
+					];
+				}
+			} else if (kind === "finding") {
+				const db = sqlDbFor(c.env);
+				const findingRow = await db
+					.prepare(
+						`SELECT * FROM investigation_findings WHERE project_id = ? AND id = ? LIMIT 1`,
+					)
+					.bind(projectId, id)
+					.first<{
+						id: string;
+						environment: string;
+						incident_id: string | null;
+						title: string;
+						causal_proof_tier: string;
+						confidence: number;
+						symptom_entity_kind: string;
+						symptom_entity_id: string;
+						fault_locus_entity_kind: string;
+						fault_locus_entity_id: string;
+						contributing_change_id: string | null;
+						contending_trace_id: string | null;
+						agent_run_id: string | null;
+					}>();
+				if (findingRow) {
+					const proofTier =
+						findingRow.causal_proof_tier as import("@obsunified/types").CausalProofTier;
+					manifest.up = [];
+					if (findingRow.incident_id) {
+						manifest.up.push({
+							label: "Incident Investigation",
+							links: [
+								{
+									label: `incident ${findingRow.incident_id}`,
+									href: `#/incidents/${encodeURIComponent(findingRow.incident_id)}`,
+									entityKind: "incident",
+									entityId: findingRow.incident_id,
+									relationshipCertainty: "exact",
+									causalProofTier: proofTier,
+								},
+							],
+						});
+					}
+					if (findingRow.contributing_change_id) {
+						manifest.up.push({
+							label: "Contributing Change",
+							links: [
+								{
+									label: `change ${findingRow.contributing_change_id}`,
+									href: `#/changes/${encodeURIComponent(findingRow.contributing_change_id)}`,
+									entityKind: "change",
+									entityId: findingRow.contributing_change_id,
+									relationshipCertainty: "exact",
+									causalProofTier: proofTier,
+									confidence: findingRow.confidence,
+								},
+							],
+						});
+					}
+					manifest.across = [
+						{
+							label: "Fault Locus & Symptom",
+							links: [
+								{
+									label: `fault locus: ${findingRow.fault_locus_entity_id}`,
+									href: `#/traces?q=${encodeURIComponent(findingRow.fault_locus_entity_id)}`,
+									relationshipCertainty: "exact",
+									causalProofTier: proofTier,
+								},
+								...(findingRow.contending_trace_id
+									? [
+											{
+												label: `contending trace ${findingRow.contending_trace_id}`,
+												href: `#/traces/${encodeURIComponent(findingRow.contending_trace_id)}`,
+												entityKind: "trace" as const,
+												entityId: findingRow.contending_trace_id,
+												relationshipCertainty: "inferred" as const,
+												causalProofTier: proofTier,
+											},
+										]
+									: []),
+							],
+						},
+					];
+					manifest.down = [
+						{
+							label: "Agent Lineage",
+							links: [
+								...(findingRow.agent_run_id
+									? [
+											{
+												...linkToAgentRun(findingRow.agent_run_id),
+												relationshipCertainty: "exact" as const,
+												causalProofTier: proofTier,
+											},
+										]
+									: []),
+							],
+							emptyReason: !findingRow.agent_run_id
+								? "No agent run linked to this finding."
+								: undefined,
+						},
+					];
+				}
+			} else if (kind === "incident") {
+				const db = sqlDbFor(c.env);
+				const incRow = await db
+					.prepare(
+						`SELECT * FROM incident_investigations WHERE project_id = ? AND id = ? LIMIT 1`,
+					)
+					.bind(projectId, id)
+					.first<{
+						id: string;
+						environment: string;
+						target_node_id: string;
+						symptom_anchor_kind: string;
+						symptom_anchor_id: string;
+						status: string;
+					}>();
+				if (incRow) {
+					manifest.up = [
+						{
+							label: "Trigger Signal",
+							links: [
+								{
+									label: `${incRow.symptom_anchor_kind}: ${incRow.symptom_anchor_id}`,
+									href: `#/alerts?id=${encodeURIComponent(incRow.symptom_anchor_id)}`,
+									entityKind:
+										incRow.symptom_anchor_kind === "analysis"
+											? "analysis"
+											: "alert",
+									entityId: incRow.symptom_anchor_id,
+									relationshipCertainty: "exact",
+								},
+							],
+						},
+					];
+					const incFindings = await db
+						.prepare(
+							`SELECT id, title, causal_proof_tier FROM investigation_findings
+							 WHERE project_id = ? AND incident_id = ?
+							 ORDER BY created_at DESC LIMIT 5`,
+						)
+						.bind(projectId, incRow.id)
+						.all<{
+							id: string;
+							title: string;
+							causal_proof_tier: string;
+						}>();
+					manifest.across = [
+						{
+							label: "Findings",
+							links: incFindings.results.map((f) => ({
+								label: f.title,
+								href: `#/findings/${encodeURIComponent(f.id)}`,
+								entityKind: "finding" as const,
+								entityId: f.id,
+								relationshipCertainty: "exact" as const,
+								causalProofTier:
+									f.causal_proof_tier as import("@obsunified/types").CausalProofTier,
+							})),
+							emptyReason:
+								incFindings.results.length > 0
+									? undefined
+									: "No finding recorded for this incident yet.",
+						},
+					];
+				}
 			} else if (kind === "alert" || kind === "analysis") {
 				// Alerts and Analyses are topic-related, not identity-related.
 				// Their connections come from the alert_rules.analysis_id and

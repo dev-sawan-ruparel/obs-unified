@@ -38,6 +38,11 @@ export function AnalyticsProvider({
 		storagePrefix: config.storagePrefix,
 		credentials: config.credentials,
 		maxMetadataLength: config.maxMetadataLength,
+		environment: config.environment,
+		serviceVersion: config.serviceVersion,
+		commitSha: config.commitSha,
+		configDigest: config.configDigest,
+		lineage: config.lineage,
 	});
 	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild transport only when endpoint/auth primitives change.
 	const tracker = useMemo(() => new UsageTracker(config), [trackerConfigKey]);
@@ -160,6 +165,8 @@ export function AnalyticsProvider({
 				headers.set("X-Obs-Session-Id", tracker.sessionId);
 				return window.fetch(input, { ...init, headers });
 			},
+			recordFeatureFlag: (flagKey, variant, options) =>
+				tracker.recordFeatureFlag(flagKey, variant, options),
 			withInteraction: wrapInteraction,
 		}),
 		[tracker],

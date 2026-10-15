@@ -10,6 +10,7 @@
 		"sdk-reference",
 		"evidence-reference",
 		"agent-action-graph",
+		"autosre",
 		"mcp-server",
 		"instrumenting",
 		"instrument-python-flask",

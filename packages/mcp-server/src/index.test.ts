@@ -1,5 +1,7 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { CollectorClient, readConfig } from "./index";
+import { z } from "zod";
+import { CollectorClient, readConfig, registerTools } from "./index";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -192,6 +194,362 @@ describe("mcp-server configuration & auth contract", () => {
 				).rejects.toThrow(/Collector request failed: 401/i);
 			} finally {
 				globalThis.fetch = originalFetch;
+			}
+		});
+	});
+
+	describe("AutoSRE MCP tools (RFC 0013 Goal 4.1)", () => {
+		interface CapturedTool {
+			description: string;
+			inputSchema: Record<string, z.ZodTypeAny>;
+			handler: (args: Record<string, unknown>) => Promise<{
+				isError?: boolean;
+				content: Array<{ type: "text"; text: string }>;
+			}>;
+		}
+
+		function setupTools(
+			responder: (req: {
+				method: string;
+				url: URL;
+				body: unknown;
+			}) => unknown | Promise<unknown>,
+		) {
+			const calls: Array<{ method: string; url: URL; body: unknown }> = [];
+			const originalFetch = globalThis.fetch;
+			globalThis.fetch = (async (
+				input: RequestInfo | URL,
+				init?: RequestInit,
+			) => {
+				const url = new URL(String(input));
+				const method = (init?.method ?? "GET").toUpperCase();
+				const body =
+					typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
+				const call = { method, url, body };
+				calls.push(call);
+				const out = await responder(call);
+				return new Response(JSON.stringify(out), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				});
+			}) as typeof fetch;
+
+			const client = new CollectorClient({
+				baseUrl: "http://localhost:8790",
+				authHeaders: {
+					Accept: "application/json",
+					Authorization: "Bearer test-token",
+				},
+				dashboardUrl: "https://dashboard.example.com",
+				timeoutMs: 5000,
+			});
+
+			const server = new McpServer({ name: "obs-unified", version: "1.0.0" });
+			const tools = new Map<string, CapturedTool>();
+			const origRegister = server.registerTool.bind(server);
+			server.registerTool = ((
+				name: string,
+				config: {
+					description: string;
+					inputSchema: Record<string, z.ZodTypeAny>;
+				},
+				handler: CapturedTool["handler"],
+			) => {
+				tools.set(name, {
+					description: config.description,
+					inputSchema: config.inputSchema,
+					handler,
+				});
+				return origRegister(
+					name,
+					config as Parameters<typeof origRegister>[1],
+					handler as Parameters<typeof origRegister>[2],
+				);
+			}) as typeof server.registerTool;
+
+			registerTools(server, client);
+
+			const invoke = async (name: string, rawArgs: Record<string, unknown>) => {
+				const tool = tools.get(name);
+				if (!tool) throw new Error(`Tool ${name} not registered`);
+				const parsed = z.object(tool.inputSchema).parse(rawArgs);
+				const res = await tool.handler(parsed);
+				return {
+					raw: res,
+					json: res.isError ? null : JSON.parse(res.content[0].text),
+				};
+			};
+
+			return {
+				tools,
+				calls,
+				invoke,
+				restore: () => {
+					globalThis.fetch = originalFetch;
+				},
+			};
+		}
+
+		it("extends connected_signals kind enum and get_evidence_bundle with change, finding, and incident", async () => {
+			const h = setupTools(({ url, body }) => ({
+				path: url.pathname,
+				body,
+			}));
+			try {
+				for (const kind of ["change", "finding", "incident"] as const) {
+					const res = await h.invoke("connected_signals", {
+						kind,
+						id: `${kind}_123`,
+					});
+					expect(res.raw.isError).toBeUndefined();
+					expect(res.json.data.path).toBe(
+						`/internal/connected/${kind}/${kind}_123`,
+					);
+				}
+
+				const bundleRes = await h.invoke("get_evidence_bundle", {
+					anchor: { entityKind: "incident", entityId: "inc_42" },
+					intent: "triage_incident",
+				});
+				expect(bundleRes.raw.isError).toBeUndefined();
+				expect(bundleRes.json.data.path).toBe("/internal/evidence/bundle");
+				expect(bundleRes.json.data.body).toMatchObject({
+					anchor: { entityKind: "incident", entityId: "inc_42" },
+					intent: "triage_incident",
+				});
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("list_recent_changes queries GET /internal/changes with default limit 20", async () => {
+			const h = setupTools(() => ({
+				changes: [{ id: "chg_1", kind: "deploy", serviceName: "checkout" }],
+			}));
+			try {
+				const res = await h.invoke("list_recent_changes", {
+					environment: "prod",
+					serviceName: "checkout",
+					kind: "deploy",
+				});
+				expect(h.calls).toHaveLength(1);
+				expect(h.calls[0].method).toBe("GET");
+				expect(h.calls[0].url.pathname).toBe("/internal/changes");
+				expect(h.calls[0].url.searchParams.get("environment")).toBe("prod");
+				expect(h.calls[0].url.searchParams.get("serviceName")).toBe("checkout");
+				expect(h.calls[0].url.searchParams.get("kind")).toBe("deploy");
+				expect(h.calls[0].url.searchParams.get("limit")).toBe("20");
+				expect(res.json.changes).toHaveLength(1);
+				expect(res.json.data.changes[0].id).toBe("chg_1");
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("get_change_blast_radius queries GET /internal/changes/:changeId/blast-radius", async () => {
+			const h = setupTools(() => ({
+				cohortVerdict: "isolated_to_new_version",
+				causalProofTier: "cohort_rate_isolated",
+				rateDifference: 0.14,
+				overlappingCodePaths: ["src/checkout/payment.ts"],
+			}));
+			try {
+				const res = await h.invoke("get_change_blast_radius", {
+					changeId: "chg_payment_241",
+					environment: "prod",
+					minSample: 25,
+				});
+				expect(h.calls).toHaveLength(1);
+				expect(h.calls[0].method).toBe("GET");
+				expect(h.calls[0].url.pathname).toBe(
+					"/internal/changes/chg_payment_241/blast-radius",
+				);
+				expect(h.calls[0].url.searchParams.get("environment")).toBe("prod");
+				expect(h.calls[0].url.searchParams.get("minSample")).toBe("25");
+				expect(res.json.cohortVerdict).toBe("isolated_to_new_version");
+				expect(res.json.data.overlappingCodePaths).toEqual([
+					"src/checkout/payment.ts",
+				]);
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("search_similar_findings queries GET /internal/findings", async () => {
+			const h = setupTools(() => ({
+				findings: [
+					{
+						id: "fnd_1",
+						fingerprint: "fp_abc",
+						causalVerificationStatus: "counterfactual_verified",
+					},
+				],
+			}));
+			try {
+				const res = await h.invoke("search_similar_findings", {
+					environment: "prod",
+					fingerprint: "fp_abc",
+					causalVerificationStatus: "counterfactual_verified",
+				});
+				expect(h.calls).toHaveLength(1);
+				expect(h.calls[0].method).toBe("GET");
+				expect(h.calls[0].url.pathname).toBe("/internal/findings");
+				expect(h.calls[0].url.searchParams.get("fingerprint")).toBe("fp_abc");
+				expect(
+					h.calls[0].url.searchParams.get("causalVerificationStatus"),
+				).toBe("counterfactual_verified");
+				expect(h.calls[0].url.searchParams.get("limit")).toBe("20");
+				expect(res.json.findings[0].id).toBe("fnd_1");
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("record_investigation_finding posts finding and chains counterfactual verification when provided", async () => {
+			const h = setupTools(({ url }) => {
+				if (url.pathname === "/internal/findings") {
+					return {
+						id: "fnd_99",
+						title: "Null pointer in checkout",
+						causalVerificationStatus: "unverified",
+					};
+				}
+				return {
+					id: "fnd_99",
+					title: "Null pointer in checkout",
+					causalVerificationStatus: "counterfactual_verified",
+					counterfactualProof: {
+						evalCaseId: "eval_1",
+						failingRunId: "run_fail",
+						passingRunIds: ["run_pass_1", "run_pass_2", "run_pass_3"],
+					},
+				};
+			});
+			try {
+				const res = await h.invoke("record_investigation_finding", {
+					environment: "prod",
+					incidentId: "inc_1",
+					title: "Null pointer in checkout",
+					summary: "Deploy v2.4.1 introduced null deref",
+					causalProofTier: "counterfactual_verified",
+					confidence: 0.95,
+					symptomEntityKind: "trace",
+					symptomEntityId: "tr_1",
+					faultLocusEntityKind: "span",
+					faultLocusEntityId: "sp_1",
+					rootCauseEntityKind: "change",
+					rootCauseEntityId: "chg_241",
+					contributingChangeId: "chg_241",
+					causalChain: [
+						{
+							subjectKind: "span",
+							subjectId: "sp_1",
+							predicate: "degraded_after_change",
+							objectKind: "change",
+							objectId: "chg_241",
+						},
+					],
+					citedEvidenceIds: ["ev_1"],
+					counterfactual: {
+						evalCaseId: "eval_1",
+						failingRunId: "run_fail",
+						passingRunIds: ["run_pass_1", "run_pass_2", "run_pass_3"],
+						requiredTrials: 3,
+					},
+				});
+
+				expect(h.calls).toHaveLength(2);
+				expect(h.calls[0].method).toBe("POST");
+				expect(h.calls[0].url.pathname).toBe("/internal/findings");
+				expect(
+					(h.calls[0].body as Record<string, unknown>).counterfactual,
+				).toBeUndefined();
+				expect(h.calls[1].method).toBe("POST");
+				expect(h.calls[1].url.pathname).toBe(
+					"/internal/findings/fnd_99/counterfactual",
+				);
+				expect(h.calls[1].body).toEqual({
+					evalCaseId: "eval_1",
+					failingRunId: "run_fail",
+					passingRunIds: ["run_pass_1", "run_pass_2", "run_pass_3"],
+					requiredTrials: 3,
+				});
+				expect(res.json.causalVerificationStatus).toBe(
+					"counterfactual_verified",
+				);
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("propose_remediation_action posts to /internal/remediations/propose", async () => {
+			const h = setupTools(() => ({
+				id: "prop_1",
+				status: "grant_issued",
+				effectiveAutonomy: "autonomous_write",
+				grantToken: "grant_secret_token",
+			}));
+			try {
+				const res = await h.invoke("propose_remediation_action", {
+					environment: "prod",
+					incidentId: "inc_1",
+					findingId: "fnd_99",
+					idempotencyKey: "idem_1",
+					actionKind: "rollback_deploy",
+					targetNodeId: "service:prod:default:checkout",
+					expectedCurrentState: { version: "2.4.1" },
+					desiredTargetState: { version: "2.4.0" },
+					requestedAutonomy: "autonomous_write",
+				});
+				expect(h.calls).toHaveLength(1);
+				expect(h.calls[0].method).toBe("POST");
+				expect(h.calls[0].url.pathname).toBe("/internal/remediations/propose");
+				expect(res.json.grantToken).toBe("grant_secret_token");
+				expect(res.json.effectiveAutonomy).toBe("autonomous_write");
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("claim_remediation_grant supports claim, complete, and fail operations", async () => {
+			const h = setupTools(({ url, body }) => ({
+				path: url.pathname,
+				body,
+				status: url.pathname.endsWith("/complete")
+					? "completed"
+					: "claimed_executing",
+			}));
+			try {
+				// Missing grantToken on claim returns tool error
+				const errRes = await h.invoke("claim_remediation_grant", {
+					proposalId: "prop_1",
+					operation: "claim",
+				});
+				expect(errRes.raw.isError).toBe(true);
+				expect(errRes.raw.content[0].text).toMatch(/grantToken is required/i);
+
+				const claimRes = await h.invoke("claim_remediation_grant", {
+					proposalId: "prop_1",
+					operation: "claim",
+					grantToken: "grant_secret_token",
+					runnerId: "runner_1",
+				});
+				expect(claimRes.raw.isError).toBeUndefined();
+				expect(claimRes.json.path).toBe("/internal/remediations/prop_1/claim");
+
+				const completeRes = await h.invoke("claim_remediation_grant", {
+					proposalId: "prop_1",
+					operation: "complete",
+					resultingChangeId: "chg_rollback_240",
+					remediationAgentRunId: "run_rem_1",
+				});
+				expect(completeRes.raw.isError).toBeUndefined();
+				expect(completeRes.json.path).toBe(
+					"/internal/remediations/prop_1/complete",
+				);
+				expect(completeRes.json.status).toBe("completed");
+			} finally {
+				h.restore();
 			}
 		});
 	});

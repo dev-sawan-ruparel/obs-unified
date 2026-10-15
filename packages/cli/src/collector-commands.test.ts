@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	checkDashboardReadApi,
 	describeFailure,
+	parseChangesArgs,
 	parseDoctorArgs,
 	parseKeysArgs,
+	runChanges,
 	runDoctor,
 	runKeys,
 } from "./collector-commands";
@@ -749,5 +751,217 @@ describe("doctor", () => {
 		expect(calls).toHaveLength(0);
 		expect(t.stderr()).toContain("unknown doctor option: --nope");
 		expect(t.stderr()).toContain("usage: obs-unified doctor");
+	});
+});
+
+// ── changes ───────────────────────────────────────────────────────────────
+
+describe("changes record", () => {
+	const INGEST_KEY = "obs_default_ingest_key_123";
+
+	it("POSTs /v1/changes with ingest key, default kind 'deploy', and parsed touchedPaths", async () => {
+		const { fetch, calls } = fakeFetch({
+			"POST /v1/changes": () =>
+				json(201, {
+					id: "chg_241",
+					kind: "deploy",
+					serviceName: "checkout",
+					version: "2.4.1",
+				}),
+		});
+		const t = makeIo();
+		const code = await runChanges(
+			[
+				"record",
+				"--environment",
+				"prod",
+				"--service",
+				"checkout",
+				"--namespace",
+				"payments",
+				"--version",
+				"2.4.1",
+				"--previous-version",
+				"2.4.0",
+				"--commit-sha",
+				"abc1234",
+				"--previous-commit-sha",
+				"def5678",
+				"--summary",
+				"Deploy checkout 2.4.1",
+				"--repo-url",
+				"https://github.com/acme/checkout",
+				"--pr-url",
+				"https://github.com/acme/checkout/pull/42",
+				"--actor",
+				"ci-bot",
+				"--touched-paths",
+				"src/checkout.ts, src/payment.ts ",
+			],
+			{
+				fetch,
+				env: { OBS_COLLECTOR_URL: COLLECTOR, OBS_INGEST_KEY: INGEST_KEY },
+				io: t.io,
+			},
+		);
+
+		expect(code).toBe(0);
+		expect(calls).toHaveLength(1);
+		expect(calls[0].method).toBe("POST");
+		expect(calls[0].url).toBe(`${COLLECTOR}/v1/changes`);
+		expect(calls[0].headers.authorization).toBe(`Bearer ${INGEST_KEY}`);
+		expect(calls[0].headers["x-api-key"]).toBe(INGEST_KEY);
+		expect(JSON.parse(calls[0].body ?? "")).toEqual({
+			environment: "prod",
+			kind: "deploy",
+			serviceName: "checkout",
+			namespace: "payments",
+			version: "2.4.1",
+			previousVersion: "2.4.0",
+			commitSha: "abc1234",
+			previousCommitSha: "def5678",
+			summary: "Deploy checkout 2.4.1",
+			repositoryUrl: "https://github.com/acme/checkout",
+			pullRequestUrl: "https://github.com/acme/checkout/pull/42",
+			actorId: "ci-bot",
+			touchedPaths: ["src/checkout.ts", "src/payment.ts"],
+		});
+		expect(t.stdout()).toContain("recorded change chg_241");
+	});
+
+	it("accepts --api-key and --url flags and OBS_API_KEY fallback", async () => {
+		const { fetch, calls } = fakeFetch({
+			"POST /v1/changes": () => json(201, { id: "chg_flag" }),
+		});
+		const t = makeIo();
+		const code = await runChanges(
+			[
+				"record",
+				"--url",
+				"http://custom.collector:8790/",
+				"--api-key",
+				"flag-ingest-key",
+				"--kind",
+				"feature_flag",
+				"--service",
+				"web",
+				"--json",
+			],
+			{ fetch, env: {}, io: t.io },
+		);
+		expect(code).toBe(0);
+		expect(calls[0].url).toBe("http://custom.collector:8790/v1/changes");
+		expect(calls[0].headers["x-api-key"]).toBe("flag-ingest-key");
+		expect(JSON.parse(calls[0].body ?? "")).toMatchObject({
+			kind: "feature_flag",
+			serviceName: "web",
+			summary: "feature_flag web",
+		});
+		expect(JSON.parse(t.stdout())).toEqual({ id: "chg_flag" });
+	});
+
+	it("requires an ingest key before sending a request", async () => {
+		const { fetch, calls } = fakeFetch({});
+		const t = makeIo();
+		const code = await runChanges(["record", "--service", "checkout"], {
+			fetch,
+			env: { OBS_COLLECTOR_URL: COLLECTOR },
+			io: t.io,
+		});
+		expect(code).toBe(1);
+		expect(calls).toHaveLength(0);
+		expect(t.stderr()).toContain("ingest key required");
+	});
+});
+
+describe("changes list", () => {
+	const API_TOKEN = "read-bearer-token";
+
+	it("GETs /internal/changes with bearer token and query filters", async () => {
+		const { fetch, calls } = fakeFetch({
+			"GET /internal/changes": () =>
+				json(200, {
+					changes: [
+						{
+							id: "chg_241",
+							kind: "deploy",
+							environment: "prod",
+							serviceName: "checkout",
+							version: "2.4.1",
+							occurredAt: "2026-10-15T01:00:00.000Z",
+							summary: "Deploy 2.4.1",
+						},
+					],
+				}),
+		});
+		const t = makeIo();
+		const code = await runChanges(
+			[
+				"list",
+				"--environment",
+				"prod",
+				"--service",
+				"checkout",
+				"--kind",
+				"deploy",
+				"--limit",
+				"10",
+			],
+			{
+				fetch,
+				env: { OBS_COLLECTOR_URL: COLLECTOR, OBS_API_TOKEN: API_TOKEN },
+				io: t.io,
+			},
+		);
+
+		expect(code).toBe(0);
+		expect(calls).toHaveLength(1);
+		expect(calls[0].method).toBe("GET");
+		const calledUrl = new URL(calls[0].url);
+		expect(calledUrl.pathname).toBe("/internal/changes");
+		expect(calledUrl.searchParams.get("environment")).toBe("prod");
+		expect(calledUrl.searchParams.get("serviceName")).toBe("checkout");
+		expect(calledUrl.searchParams.get("kind")).toBe("deploy");
+		expect(calledUrl.searchParams.get("limit")).toBe("10");
+		expect(calls[0].headers.authorization).toBe(`Bearer ${API_TOKEN}`);
+		expect(t.stdout()).toContain(
+			"chg_241\tdeploy\tprod\tcheckout\t2.4.1\t2026-10-15T01:00:00.000Z\tDeploy 2.4.1",
+		);
+	});
+
+	it("requires a bearer token for changes list", async () => {
+		const { fetch, calls } = fakeFetch({});
+		const t = makeIo();
+		const code = await runChanges(["list"], {
+			fetch,
+			env: { OBS_COLLECTOR_URL: COLLECTOR },
+			io: t.io,
+		});
+		expect(code).toBe(1);
+		expect(calls).toHaveLength(0);
+		expect(t.stderr()).toContain("bearer token required");
+	});
+
+	it("parses changes arguments accurately", () => {
+		expect(
+			parseChangesArgs([
+				"record",
+				"--service=api",
+				"--touched-paths=a.ts,b.ts",
+			]),
+		).toMatchObject({
+			action: "record",
+			kind: "deploy",
+			service: "api",
+			touchedPaths: ["a.ts", "b.ts"],
+		});
+		expect(
+			parseChangesArgs(["list", "--token", "tok", "--limit", "5", "--json"]),
+		).toMatchObject({
+			action: "list",
+			token: "tok",
+			limit: 5,
+			json: true,
+		});
 	});
 });

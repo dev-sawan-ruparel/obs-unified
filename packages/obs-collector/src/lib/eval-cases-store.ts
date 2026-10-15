@@ -76,6 +76,10 @@ export interface EvalRunCandidate {
 	modelProvider: string | null;
 	model: string | null;
 	modelVersion: string | null;
+	environment?: string | null;
+	serviceVersion?: string | null;
+	commitSha?: string | null;
+	configDigest?: string | null;
 }
 
 export interface EvalRunSourceCase {
@@ -99,6 +103,12 @@ export interface EvalRun {
 	evalCaseId: string | null;
 	status: EvalRunStatus;
 	candidate: EvalRunCandidate;
+	environment?: string;
+	serviceVersion?: string | null;
+	commitSha?: string | null;
+	configDigest?: string | null;
+	inputPayloadHash?: string | null;
+	failureFingerprint?: string | null;
 	startedAt: string | null;
 	endedAt: string | null;
 	totalCount: number;
@@ -117,6 +127,12 @@ export interface EvalRunInput {
 	evalCaseId?: string | null;
 	status?: EvalRunStatus;
 	candidate?: Partial<EvalRunCandidate>;
+	environment?: string | null;
+	serviceVersion?: string | null;
+	commitSha?: string | null;
+	configDigest?: string | null;
+	inputPayloadHash?: string | null;
+	failureFingerprint?: string | null;
 	startedAt?: string | null;
 	endedAt?: string | null;
 	totalCount?: number;
@@ -144,6 +160,12 @@ interface EvalRunRow {
 	candidate_model_provider: string | null;
 	candidate_model: string | null;
 	candidate_model_version: string | null;
+	environment?: string | null;
+	service_version?: string | null;
+	commit_sha?: string | null;
+	config_digest?: string | null;
+	input_payload_hash?: string | null;
+	failure_fingerprint?: string | null;
 	status: string;
 	started_at: string | null;
 	ended_at: string | null;
@@ -412,7 +434,17 @@ const rowToEvalRun = (row: EvalRunRow): EvalRun => {
 			modelProvider: row.candidate_model_provider ?? null,
 			model: row.candidate_model ?? null,
 			modelVersion: row.candidate_model_version ?? null,
+			environment: row.environment ?? "default",
+			serviceVersion: row.service_version ?? null,
+			commitSha: row.commit_sha ?? null,
+			configDigest: row.config_digest ?? null,
 		},
+		environment: row.environment ?? "default",
+		serviceVersion: row.service_version ?? null,
+		commitSha: row.commit_sha ?? null,
+		configDigest: row.config_digest ?? null,
+		inputPayloadHash: row.input_payload_hash ?? null,
+		failureFingerprint: row.failure_fingerprint ?? null,
 		startedAt: row.started_at ?? null,
 		endedAt: row.ended_at ?? null,
 		totalCount: row.total_count ?? 0,
@@ -560,6 +592,16 @@ export class EvalCasesStore {
 		}
 
 		const candidate = input.candidate ?? {};
+		const environment =
+			input.environment?.trim() || candidate.environment?.trim() || "default";
+		const serviceVersion =
+			input.serviceVersion?.trim() || candidate.serviceVersion?.trim() || null;
+		const commitSha =
+			input.commitSha?.trim() || candidate.commitSha?.trim() || null;
+		const configDigest =
+			input.configDigest?.trim() || candidate.configDigest?.trim() || null;
+		const inputPayloadHash = input.inputPayloadHash?.trim() || null;
+		const failureFingerprint = input.failureFingerprint?.trim() || null;
 		const totalCount = nonNegativeInteger(input.totalCount);
 		const passCount = nonNegativeInteger(input.passCount);
 		const failCount = nonNegativeInteger(input.failCount);
@@ -580,10 +622,12 @@ export class EvalCasesStore {
 					candidate_agent_id, candidate_agent_version,
 					candidate_prompt_id, candidate_prompt_version,
 					candidate_model_provider, candidate_model, candidate_model_version,
+					environment, service_version, commit_sha, config_digest,
+					input_payload_hash, failure_fingerprint,
 					status, started_at, ended_at,
 					total_count, pass_count, fail_count, average_score,
 					metadata_json, created_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.bind(
 				id,
@@ -596,6 +640,12 @@ export class EvalCasesStore {
 				candidate.modelProvider ?? null,
 				candidate.model ?? null,
 				candidate.modelVersion ?? null,
+				environment,
+				serviceVersion,
+				commitSha,
+				configDigest,
+				inputPayloadHash,
+				failureFingerprint,
 				status,
 				startedAt,
 				endedAt,
@@ -679,10 +729,22 @@ export class EvalCasesStore {
 					average_score = (
 						SELECT AVG(score) FROM eval_case_results
 						WHERE project_id = ? AND run_id = ? AND score IS NOT NULL
+					),
+					input_payload_hash = COALESCE(
+						input_payload_hash,
+						(SELECT input_payload_hash FROM eval_case_results WHERE project_id = ? AND run_id = ? AND input_payload_hash IS NOT NULL LIMIT 1)
+					),
+					failure_fingerprint = COALESCE(
+						failure_fingerprint,
+						(SELECT failure_fingerprint FROM eval_case_results WHERE project_id = ? AND run_id = ? AND failure_fingerprint IS NOT NULL LIMIT 1)
 					)
 				WHERE project_id = ? AND id = ?`,
 			)
 			.bind(
+				projectId,
+				id,
+				projectId,
+				id,
 				projectId,
 				id,
 				projectId,

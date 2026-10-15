@@ -664,3 +664,457 @@ export async function runDoctor(
 	io.out(kleur.green("all clear"));
 	return 0;
 }
+
+// ── changes ───────────────────────────────────────────────────────────────
+
+export const CHANGES_USAGE = `usage:
+  obs-unified changes record [--url <url>] [--api-key <key>] [--environment <env>] [--kind <kind>] [--service <name>] [--namespace <ns>] [--version <ver>] [--previous-version <ver>] [--commit-sha <sha>] [--previous-commit-sha <sha>] [--summary <text>] [--repo-url <url>] [--pr-url <url>] [--actor <id>] [--touched-paths <p1,p2,...>] [--json]
+  obs-unified changes list [--url <url>] [--token <token>] [--environment <env>] [--service <name>] [--kind <kind>] [--limit <n>] [--json]
+
+  record  POST /v1/changes       — record a deploy, config change, feature-flag toggle, or rollback
+  list    GET  /internal/changes — list recent change events from the collector
+
+Environment:
+  OBS_COLLECTOR_URL              collector base URL (default ${DEFAULT_COLLECTOR_URL})
+  OBS_INGEST_KEY / OBS_API_KEY   ingest key for 'changes record'
+  OBS_API_TOKEN / OBS_ADMIN_TOKEN bearer token for 'changes list'`;
+
+export interface ChangesRecordArgs {
+	action: "record";
+	url?: string;
+	apiKey?: string;
+	environment?: string;
+	kind: string;
+	service?: string;
+	namespace?: string;
+	targetNodeId?: string;
+	version?: string;
+	previousVersion?: string;
+	commitSha?: string;
+	previousCommitSha?: string;
+	configDigest?: string;
+	summary?: string;
+	repoUrl?: string;
+	prUrl?: string;
+	actor?: string;
+	touchedPaths?: string[];
+	json: boolean;
+}
+
+export interface ChangesListArgs {
+	action: "list";
+	url?: string;
+	token?: string;
+	environment?: string;
+	service?: string;
+	targetNodeId?: string;
+	kind?: string;
+	since?: string;
+	limit?: number;
+	json: boolean;
+}
+
+export type ChangesArgs = ChangesRecordArgs | ChangesListArgs;
+
+export function parseChangesArgs(args: string[]): ChangesArgs {
+	let action: "record" | "list" | undefined;
+	let url: string | undefined;
+	let apiKey: string | undefined;
+	let token: string | undefined;
+	let environment: string | undefined;
+	let kind: string | undefined;
+	let service: string | undefined;
+	let namespace: string | undefined;
+	let targetNodeId: string | undefined;
+	let version: string | undefined;
+	let previousVersion: string | undefined;
+	let commitSha: string | undefined;
+	let previousCommitSha: string | undefined;
+	let configDigest: string | undefined;
+	let summary: string | undefined;
+	let repoUrl: string | undefined;
+	let prUrl: string | undefined;
+	let actor: string | undefined;
+	let touchedPaths: string[] | undefined;
+	let since: string | undefined;
+	let limit: number | undefined;
+	let json = false;
+
+	const takeValue = (flag: string, inline: string | undefined, i: number) => {
+		if (inline !== undefined) return { value: inline, consumed: 0 };
+		const next = args[i + 1];
+		if (next === undefined || next.startsWith("-")) {
+			throw new UsageError(`${flag} requires a value`);
+		}
+		return { value: next, consumed: 1 };
+	};
+
+	for (let i = 0; i < args.length; i += 1) {
+		const arg = args[i];
+		const eq = arg.indexOf("=");
+		const flag = arg.startsWith("--") && eq > 0 ? arg.slice(0, eq) : arg;
+		const inline =
+			arg.startsWith("--") && eq > 0 ? arg.slice(eq + 1) : undefined;
+
+		if (flag === "--url") {
+			const { value, consumed } = takeValue("--url", inline, i);
+			if (!value.trim()) throw new UsageError("--url requires a value");
+			url = value.trim();
+			i += consumed;
+		} else if (flag === "--api-key") {
+			const { value, consumed } = takeValue("--api-key", inline, i);
+			if (!value.trim()) throw new UsageError("--api-key requires a value");
+			apiKey = value.trim();
+			i += consumed;
+		} else if (flag === "--token") {
+			const { value, consumed } = takeValue("--token", inline, i);
+			if (!value.trim()) throw new UsageError("--token requires a value");
+			token = value.trim();
+			i += consumed;
+		} else if (flag === "--environment" || flag === "--env") {
+			const { value, consumed } = takeValue("--environment", inline, i);
+			if (!value.trim()) throw new UsageError("--environment requires a value");
+			environment = value.trim();
+			i += consumed;
+		} else if (flag === "--kind") {
+			const { value, consumed } = takeValue("--kind", inline, i);
+			if (!value.trim()) throw new UsageError("--kind requires a value");
+			kind = value.trim();
+			i += consumed;
+		} else if (flag === "--service" || flag === "--service-name") {
+			const { value, consumed } = takeValue("--service", inline, i);
+			if (!value.trim()) throw new UsageError("--service requires a value");
+			service = value.trim();
+			i += consumed;
+		} else if (flag === "--namespace") {
+			const { value, consumed } = takeValue("--namespace", inline, i);
+			if (!value.trim()) throw new UsageError("--namespace requires a value");
+			namespace = value.trim();
+			i += consumed;
+		} else if (flag === "--target-node-id") {
+			const { value, consumed } = takeValue("--target-node-id", inline, i);
+			if (!value.trim())
+				throw new UsageError("--target-node-id requires a value");
+			targetNodeId = value.trim();
+			i += consumed;
+		} else if (flag === "--version") {
+			const { value, consumed } = takeValue("--version", inline, i);
+			if (!value.trim()) throw new UsageError("--version requires a value");
+			version = value.trim();
+			i += consumed;
+		} else if (flag === "--previous-version") {
+			const { value, consumed } = takeValue("--previous-version", inline, i);
+			if (!value.trim())
+				throw new UsageError("--previous-version requires a value");
+			previousVersion = value.trim();
+			i += consumed;
+		} else if (flag === "--commit-sha") {
+			const { value, consumed } = takeValue("--commit-sha", inline, i);
+			if (!value.trim()) throw new UsageError("--commit-sha requires a value");
+			commitSha = value.trim();
+			i += consumed;
+		} else if (flag === "--previous-commit-sha") {
+			const { value, consumed } = takeValue("--previous-commit-sha", inline, i);
+			if (!value.trim())
+				throw new UsageError("--previous-commit-sha requires a value");
+			previousCommitSha = value.trim();
+			i += consumed;
+		} else if (flag === "--config-digest") {
+			const { value, consumed } = takeValue("--config-digest", inline, i);
+			if (!value.trim())
+				throw new UsageError("--config-digest requires a value");
+			configDigest = value.trim();
+			i += consumed;
+		} else if (flag === "--summary") {
+			const { value, consumed } = takeValue("--summary", inline, i);
+			if (!value.trim()) throw new UsageError("--summary requires a value");
+			summary = value.trim();
+			i += consumed;
+		} else if (flag === "--repo-url") {
+			const { value, consumed } = takeValue("--repo-url", inline, i);
+			if (!value.trim()) throw new UsageError("--repo-url requires a value");
+			repoUrl = value.trim();
+			i += consumed;
+		} else if (flag === "--pr-url") {
+			const { value, consumed } = takeValue("--pr-url", inline, i);
+			if (!value.trim()) throw new UsageError("--pr-url requires a value");
+			prUrl = value.trim();
+			i += consumed;
+		} else if (flag === "--actor") {
+			const { value, consumed } = takeValue("--actor", inline, i);
+			if (!value.trim()) throw new UsageError("--actor requires a value");
+			actor = value.trim();
+			i += consumed;
+		} else if (flag === "--touched-paths") {
+			const { value, consumed } = takeValue("--touched-paths", inline, i);
+			touchedPaths = value
+				.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean);
+			i += consumed;
+		} else if (flag === "--since") {
+			const { value, consumed } = takeValue("--since", inline, i);
+			if (!value.trim()) throw new UsageError("--since requires a value");
+			since = value.trim();
+			i += consumed;
+		} else if (flag === "--limit") {
+			const { value, consumed } = takeValue("--limit", inline, i);
+			const n = Number.parseInt(value, 10);
+			if (!Number.isFinite(n) || n <= 0) {
+				throw new UsageError("--limit must be a positive integer");
+			}
+			limit = n;
+			i += consumed;
+		} else if (flag === "--json") {
+			json = true;
+		} else if (arg.startsWith("-")) {
+			throw new UsageError(`unknown changes option: ${arg}`);
+		} else if (action === undefined) {
+			if (arg !== "record" && arg !== "list") {
+				throw new UsageError(`unknown subcommand: changes ${arg}`);
+			}
+			action = arg;
+		} else {
+			throw new UsageError(`unexpected argument: ${arg}`);
+		}
+	}
+
+	if (!action) throw new UsageError("missing subcommand: changes <record|list>");
+
+	if (action === "record") {
+		return {
+			action: "record",
+			url,
+			apiKey,
+			environment,
+			kind: kind ?? "deploy",
+			service,
+			namespace,
+			targetNodeId,
+			version,
+			previousVersion,
+			commitSha,
+			previousCommitSha,
+			configDigest,
+			summary,
+			repoUrl,
+			prUrl,
+			actor,
+			touchedPaths,
+			json,
+		};
+	}
+
+	return {
+		action: "list",
+		url,
+		token,
+		environment,
+		service,
+		targetNodeId,
+		kind,
+		since,
+		limit,
+		json,
+	};
+}
+
+export async function runChanges(
+	args: string[],
+	deps: CommandDeps = {},
+): Promise<number> {
+	const { fetch, io, env } = resolveDeps(deps);
+
+	let parsed: ChangesArgs;
+	try {
+		parsed = parseChangesArgs(args);
+	} catch (err) {
+		if (err instanceof UsageError) {
+			io.err(kleur.red(err.message));
+			io.err(CHANGES_USAGE);
+			return 1;
+		}
+		throw err;
+	}
+
+	const collectorUrl = normalizeCollectorUrl(
+		parsed.url || env.OBS_COLLECTOR_URL || DEFAULT_COLLECTOR_URL,
+	);
+
+	if (parsed.action === "record") {
+		const apiKey =
+			parsed.apiKey ||
+			env.OBS_INGEST_KEY?.trim() ||
+			env.OBS_API_KEY?.trim();
+		if (!apiKey) {
+			io.err(
+				kleur.red(
+					"ingest key required for changes record (pass --api-key or set OBS_INGEST_KEY / OBS_API_KEY)",
+				),
+			);
+			return 1;
+		}
+
+		const summary =
+			parsed.summary ??
+			`${parsed.kind}${parsed.service ? ` ${parsed.service}` : ""}${parsed.version ? ` ${parsed.version}` : ""}`.trim();
+
+		const payload: Record<string, unknown> = {
+			kind: parsed.kind,
+			summary,
+		};
+		if (parsed.environment !== undefined)
+			payload.environment = parsed.environment;
+		if (parsed.service !== undefined) payload.serviceName = parsed.service;
+		if (parsed.namespace !== undefined) payload.namespace = parsed.namespace;
+		if (parsed.targetNodeId !== undefined)
+			payload.targetNodeId = parsed.targetNodeId;
+		if (parsed.version !== undefined) payload.version = parsed.version;
+		if (parsed.previousVersion !== undefined)
+			payload.previousVersion = parsed.previousVersion;
+		if (parsed.commitSha !== undefined) payload.commitSha = parsed.commitSha;
+		if (parsed.previousCommitSha !== undefined)
+			payload.previousCommitSha = parsed.previousCommitSha;
+		if (parsed.configDigest !== undefined)
+			payload.configDigest = parsed.configDigest;
+		if (parsed.repoUrl !== undefined) payload.repositoryUrl = parsed.repoUrl;
+		if (parsed.prUrl !== undefined) payload.pullRequestUrl = parsed.prUrl;
+		if (parsed.actor !== undefined) payload.actorId = parsed.actor;
+		if (parsed.touchedPaths !== undefined)
+			payload.touchedPaths = parsed.touchedPaths;
+
+		const path = "/v1/changes";
+		let r: Response;
+		try {
+			r = await fetch(`${collectorUrl}${path}`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"X-API-Key": apiKey,
+					"Content-Type": "application/json",
+					Accept: "application/json",
+				},
+				body: JSON.stringify(payload),
+			});
+		} catch (err) {
+			io.err(kleur.red(describeNetworkError(collectorUrl, err)));
+			return 1;
+		}
+
+		const body = await readJson(r);
+		if (!r.ok) {
+			io.err(
+				kleur.red(
+					`changes record failed: ${describeFailure({
+						status: r.status,
+						body,
+						method: "POST",
+						path,
+						collectorUrl,
+					})}`,
+				),
+			);
+			return 1;
+		}
+
+		if (parsed.json) {
+			io.out(JSON.stringify(body, null, 2));
+			return 0;
+		}
+
+		const rec =
+			body && typeof body === "object" && "change" in body
+				? (body as { change?: Record<string, unknown> }).change
+				: (body as Record<string, unknown> | undefined);
+		const changeId = typeof rec?.id === "string" ? rec.id : "ok";
+		io.out(
+			`${kleur.green("✓")} recorded change ${changeId} (${parsed.kind}${parsed.service ? ` ${parsed.service}` : ""}) — ${summary}`,
+		);
+		return 0;
+	}
+
+	const token =
+		parsed.token ||
+		env.OBS_API_TOKEN?.trim() ||
+		env.OBS_ADMIN_TOKEN?.trim() ||
+		env.OBS_DASHBOARD_TOKEN?.trim();
+	if (!token) {
+		io.err(
+			kleur.red(
+				"bearer token required for changes list (pass --token or set OBS_API_TOKEN / OBS_ADMIN_TOKEN)",
+			),
+		);
+		return 1;
+	}
+
+	const search = new URLSearchParams();
+	if (parsed.environment) search.set("environment", parsed.environment);
+	if (parsed.service) search.set("serviceName", parsed.service);
+	if (parsed.targetNodeId) search.set("targetNodeId", parsed.targetNodeId);
+	if (parsed.kind) search.set("kind", parsed.kind);
+	if (parsed.since) search.set("since", parsed.since);
+	if (parsed.limit !== undefined) search.set("limit", String(parsed.limit));
+
+	const query = search.toString();
+	const path = query ? `/internal/changes?${query}` : "/internal/changes";
+
+	let r: Response;
+	try {
+		r = await fetch(`${collectorUrl}${path}`, {
+			method: "GET",
+			headers: adminHeaders(token),
+		});
+	} catch (err) {
+		io.err(kleur.red(describeNetworkError(collectorUrl, err)));
+		return 1;
+	}
+
+	const body = await readJson(r);
+	if (!r.ok) {
+		io.err(
+			kleur.red(
+				`changes list failed: ${describeFailure({
+					status: r.status,
+					body,
+					method: "GET",
+					path: "/internal/changes",
+					collectorUrl,
+				})}`,
+			),
+		);
+		return 1;
+	}
+
+	if (parsed.json) {
+		io.out(JSON.stringify(body, null, 2));
+		return 0;
+	}
+
+	const changes = Array.isArray(body)
+		? body
+		: (body as { changes?: Array<Record<string, unknown>> } | undefined)
+				?.changes;
+	if (!Array.isArray(changes)) {
+		io.err(
+			kleur.red(
+				"unexpected response from GET /internal/changes: expected { changes: [...] }",
+			),
+		);
+		return 1;
+	}
+
+	if (changes.length === 0) {
+		io.out(`no changes found on ${collectorUrl}`);
+		return 0;
+	}
+
+	io.out(
+		kleur.gray("id\tkind\tenvironment\tservice\tversion\toccurredAt\tsummary"),
+	);
+	for (const c of changes) {
+		io.out(
+			`${c.id ?? "?"}\t${c.kind ?? "-"}\t${c.environment ?? "default"}\t${c.serviceName ?? c.targetNodeId ?? "-"}\t${c.version ?? "-"}\t${c.occurredAt ?? "-"}\t${c.summary ?? ""}`,
+		);
+	}
+	return 0;
+}

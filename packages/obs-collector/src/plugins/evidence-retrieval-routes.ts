@@ -12,6 +12,13 @@ import type {
 	TelemetryTraceDetailResponse,
 } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
+import {
+	computeChangeBlastRadius,
+	listChangeEvents,
+} from "../lib/autosre-change-correlation";
+import { searchInvestigationFindings } from "../lib/autosre-findings";
+import { loadTraceFaultLocusFromDb } from "../lib/autosre-ontology";
+import { getIncidentInvestigation } from "../lib/autosre-remediation-gate";
 import type {
 	ActionRef,
 	EntityManifestExtended,
@@ -75,7 +82,7 @@ interface ReplayEvidenceRow {
 
 interface AICallEvidenceRow {
 	call_id: string;
-	trace_id: string | null;
+	trace_id: string;
 	span_id?: string | null;
 	service_name?: string | null;
 	model_name: string;
@@ -105,6 +112,7 @@ const DEFAULT_PROFILE_FRAME_LIMIT = 50;
 const MAX_PROFILE_FRAME_LIMIT = 200;
 const EVIDENCE_INTENTS = new Set<EvidenceBundleIntent>([
 	"debug_failure",
+	"triage_incident",
 	"explain_latency",
 	"explain_cost",
 	"inspect_agent_run",
@@ -1460,6 +1468,187 @@ const buildActionGraphBundle = (
 	return bundle;
 };
 
+const attachAutoSreTriageContext = async (
+	db: SqlDb,
+	projectId: string,
+	traceId: string | null,
+	bundle: EvidenceBundle,
+): Promise<EvidenceBundle> => {
+	try {
+		const faultLocus = traceId
+			? await loadTraceFaultLocusFromDb(db, projectId, traceId)
+			: null;
+		const environment = (
+			faultLocus?.faultLocusSpan?.environment ??
+			bundle.environment ??
+			"default"
+		).toLowerCase();
+		const recentChanges = await listChangeEvents(db, {
+			projectId,
+			environment,
+			limit: 5,
+		});
+		const blastRadii = (
+			await Promise.all(
+				recentChanges
+					.slice(0, 3)
+					.map((ch) =>
+						computeChangeBlastRadius(db, projectId, ch.id, { environment }),
+					),
+			)
+		).filter((br): br is NonNullable<typeof br> => Boolean(br));
+
+		const candidateChanges = blastRadii.map((br) => ({
+			changeId: br.change.id,
+			kind: br.change.kind,
+			version: br.change.version,
+			previousVersion: br.change.previousVersion,
+			occurredAt: br.change.occurredAt,
+			cohortVerdict: br.cohortVerdict,
+			causalProofTier: br.causalProofTier,
+			rateNew: br.newCohort.errorRate,
+			rateOld: br.oldCohort.errorRate,
+			sampleNew: br.newCohort.requestCount,
+			sampleOld: br.oldCohort.requestCount,
+			overlappingCodePaths: br.overlappingCodePaths,
+		}));
+		const contentionCandidates = blastRadii
+			.flatMap((br) => br.sharedResourceAggressors)
+			.map((ag) => ({
+				aggressorTraceId: ag.aggressorTraceId,
+				aggressorSpanId: ag.aggressorSpanId,
+				aggressorServiceName: ag.aggressorServiceName,
+				sharedTargetNodeId: ag.sharedTargetNodeId,
+				relationshipCertainty: ag.relationshipCertainty,
+				totalResourceTimeMs: ag.totalResourceTimeMs,
+			}));
+		let priorFindingsList = await searchInvestigationFindings(db, {
+			projectId,
+			environment,
+			rootCauseEntityId:
+				faultLocus?.faultLocusNodeId ??
+				faultLocus?.faultLocusSpan?.span_id ??
+				undefined,
+			limit: 5,
+		});
+		if (priorFindingsList.length === 0 && faultLocus?.faultLocusSpan?.span_id) {
+			priorFindingsList = await searchInvestigationFindings(db, {
+				projectId,
+				environment,
+				rootCauseEntityId: faultLocus.faultLocusSpan.span_id,
+				limit: 5,
+			});
+		}
+		if (priorFindingsList.length === 0) {
+			priorFindingsList = await searchInvestigationFindings(db, {
+				projectId,
+				environment,
+				limit: 5,
+			});
+		}
+		const priorFindings = priorFindingsList.map((f) => ({
+			findingId: f.id,
+			title: f.title,
+			causalProofTier: f.causalProofTier,
+			causalVerificationStatus: f.causalVerificationStatus,
+			recoveryStatus: f.recoveryStatus,
+			contributingChangeId: f.contributingChangeId,
+			occurredAt: f.createdAt,
+		}));
+
+		for (const br of blastRadii) {
+			const changeId = br.change.id;
+			const changeRoute = `#/changes/${encodeURIComponent(changeId)}`;
+			bundle.evidenceReferences.push({
+				evidenceId: `change:${changeId}`,
+				entityKind: "change",
+				entityId: changeId,
+				route: changeRoute,
+				source: br.overlappingCodePaths.length
+					? "stack_frame_overlap"
+					: "cohort_comparison",
+				confidence:
+					br.cohortVerdict === "isolated_to_new_version" ? 0.9 : 0.65,
+				relationshipCertainty: br.relationshipCertainty,
+				causalProofTier: br.causalProofTier,
+				reason: br.summary,
+				citations: [
+					{
+						label: `change ${changeId} (${br.change.version ?? br.change.kind})`,
+						entityKind: "change",
+						entityId: changeId,
+						route: changeRoute,
+					},
+				],
+				suggestedNextPivots: [
+					{
+						label: "Inspect change blast radius",
+						entityKind: "change",
+						entityId: changeId,
+						route: changeRoute,
+						reason: "Inspect traffic-normalized cohort lift and contention.",
+					},
+				],
+			});
+		}
+
+		for (const finding of priorFindingsList) {
+			const findingRoute = `#/findings/${encodeURIComponent(finding.id)}`;
+			bundle.evidenceReferences.push({
+				evidenceId: `finding:${finding.id}`,
+				entityKind: "finding",
+				entityId: finding.id,
+				route: findingRoute,
+				source: "incident_memory_fingerprint",
+				confidence: finding.confidence,
+				relationshipCertainty: "exact",
+				causalProofTier: finding.causalProofTier,
+				reason: `Prior finding (${finding.causalProofTier}): ${finding.title}`,
+				citations: [
+					{
+						label: finding.title,
+						entityKind: "finding",
+						entityId: finding.id,
+						route: findingRoute,
+					},
+				],
+				suggestedNextPivots: [
+					{
+						label: "Open prior finding",
+						entityKind: "finding",
+						entityId: finding.id,
+						route: findingRoute,
+						reason: "Search incident memory for similar recurring findings.",
+					},
+				],
+			});
+		}
+
+		bundle.autosre = {
+			faultLocus: faultLocus?.faultLocusNodeId
+				? {
+						nodeId: faultLocus.faultLocusNodeId,
+						spanId: faultLocus.faultLocusSpan?.span_id,
+						relationshipCertainty: faultLocus.relationshipCertainty,
+						isBlackoutSuspected: false,
+					}
+				: undefined,
+			candidateChanges,
+			contentionCandidates,
+			priorFindings,
+		};
+		if (bundle.budget) {
+			bundle.budget = {
+				...bundle.budget,
+				estimatedTokens: estimateTokens(bundle),
+			};
+		}
+	} catch {
+		// Gracefully degrade if AutoSRE tables are absent in minimal test setups
+	}
+	return bundle;
+};
+
 const parseBundleRequest = async (request: Request) => {
 	try {
 		const body = await request.json();
@@ -1550,7 +1739,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 							all.findIndex((candidate) => candidate.id === profile.id) ===
 							index,
 					);
-				const bundle = buildActionGraphBundle(
+				let bundle = buildActionGraphBundle(
 					projectId,
 					anchor.entityKind,
 					anchor.entityId,
@@ -1560,7 +1749,106 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					targetTokens,
 					detailLevel,
 				);
+				if (intent === "triage_incident") {
+					bundle = await attachAutoSreTriageContext(
+						db,
+						projectId,
+						traceIds[0] ?? null,
+						bundle,
+					);
+				}
 				return c.json(await materializeBundle(db, projectId, bundle));
+			}
+
+			if (anchor.entityKind === "incident") {
+				const incident = await getIncidentInvestigation(
+					db,
+					projectId,
+					anchor.entityId,
+				);
+				if (!incident) {
+					return c.json(
+						{ error: "Not Found", message: "Incident not found" },
+						404,
+					);
+				}
+				const recentErrSpan = await db
+					.prepare(
+						`SELECT trace_id FROM telemetry_spans
+						 WHERE project_id = ? AND environment = ? AND status_code = 2
+						 ORDER BY start_time DESC LIMIT 1`,
+					)
+					.bind(projectId, incident.environment)
+					.first<{ trace_id: string }>();
+
+				const incRoute = `#/incidents/${encodeURIComponent(incident.id)}`;
+				const baseBundle: EvidenceBundle = {
+					schemaVersion: BUNDLE_SCHEMA_VERSION,
+					intent,
+					environment: incident.environment,
+					incidentId: incident.id,
+					symptomFingerprint: incident.symptomFingerprint ?? undefined,
+					anchor: { entityKind: "incident", entityId: incident.id },
+					budget: { targetTokens, detailLevel },
+					summary: `Incident ${incident.id} (${incident.status}) on ${incident.targetNodeId} in environment ${incident.environment}.`,
+					derivedSummaries: [
+						{
+							title: `Incident ${incident.id}`,
+							reason: `Trigger ${incident.symptomAnchorKind}:${incident.symptomAnchorId} on ${incident.targetNodeId} (status=${incident.status}).`,
+							confidence: 1.0,
+							evidenceIds: [`incident:${incident.id}`],
+							retrievalRefIds: [],
+						},
+					],
+					findings: [],
+					compactions: [],
+					evidenceReferences: [
+						{
+							evidenceId: `incident:${incident.id}`,
+							entityKind: "incident",
+							entityId: incident.id,
+							route: incRoute,
+							source: "incident_investigations",
+							confidence: 1.0,
+							relationshipCertainty: "exact",
+							reason: `Incident triggered by ${incident.symptomAnchorKind}:${incident.symptomAnchorId}.`,
+							citations: [
+								{
+									label: incident.targetNodeId,
+									entityKind: "incident",
+									entityId: incident.id,
+									route: incRoute,
+								},
+							],
+							suggestedNextPivots: [
+								{
+									label: "Open incident",
+									entityKind: "incident",
+									entityId: incident.id,
+									route: incRoute,
+									reason: "Inspect incident investigation and candidate changes.",
+								},
+							],
+						},
+					],
+					retrievalRefs: [],
+					suggestedNextPivots: [
+						{
+							label: "Open incident",
+							entityKind: "incident",
+							entityId: incident.id,
+							route: incRoute,
+							reason: "Inspect incident investigation and candidate changes.",
+						},
+					],
+				};
+				const enriched = await attachAutoSreTriageContext(
+					db,
+					projectId,
+					recentErrSpan?.trace_id ?? null,
+					baseBundle,
+				);
+				return c.json(await materializeBundle(db, projectId, enriched));
 			}
 
 			if (anchor.entityKind !== "trace") {
@@ -1568,7 +1856,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					{
 						error: "Bad Request",
 						message:
-							"Supported evidence bundle anchors are trace, action, agent_run, and tool_call.",
+							"Supported evidence bundle anchors are trace, action, agent_run, tool_call, and incident.",
 					},
 					400,
 				);
@@ -1588,7 +1876,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 				limit: MAX_LOGS_FOR_BUNDLE,
 			});
 			const profiles = await profilesForTrace(db, projectId, traceId);
-			const bundle = await buildTraceBundle(
+			let bundle = await buildTraceBundle(
 				projectId,
 				detail,
 				logs.logs,
@@ -1598,6 +1886,14 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 				detailLevel,
 				hours,
 			);
+			if (intent === "triage_incident" || intent === "debug_failure") {
+				bundle = await attachAutoSreTriageContext(
+					db,
+					projectId,
+					traceId,
+					bundle,
+				);
+			}
 			return c.json(await materializeBundle(db, projectId, bundle));
 		});
 

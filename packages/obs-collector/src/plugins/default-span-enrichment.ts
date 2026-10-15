@@ -4,6 +4,7 @@ import {
 	SESSION_ID_KEY,
 } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
+import { extractSpanLineageAndTopology } from "../lib/autosre-ontology";
 import { parseJsonRecord } from "../lib/json";
 
 export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
@@ -77,13 +78,24 @@ export const defaultSpanEnrichmentPlugin: CollectorPlugin = {
 							? (resourceAttributes["telemetry.sdk.name"] as string)
 							: null;
 
-					return {
+					const candidate: StoredSpan = {
 						...span,
 						serviceName,
 						attributesJson: JSON.stringify(normalizedAttributes),
 						sessionId,
 						interactionId,
 						telemetrySdkName,
+					};
+
+					const lineage = extractSpanLineageAndTopology(candidate);
+
+					return {
+						...candidate,
+						environment: lineage.environment,
+						serviceVersion: lineage.serviceVersion,
+						commitSha: lineage.commitSha,
+						targetNodeId: lineage.targetNode?.id ?? null,
+						errorSignature: lineage.errorSignature,
 					};
 				});
 			},

@@ -44,9 +44,9 @@ describe("migration 049 (alert_state.notified)", () => {
 			.map((c) => (c as { name: string }).name);
 		expect(columnsBefore).not.toContain("notified");
 
-		expect(applySqliteMigrations(db.raw, { from: "049" })).toEqual([
-			"049_alert_state_notified.sql",
-		]);
+		expect(
+			applySqliteMigrations(db.raw, { from: "049", upTo: "049" }),
+		).toEqual(["049_alert_state_notified.sql"]);
 
 		const notified = db.raw
 			.prepare("PRAGMA table_info(alert_state)")

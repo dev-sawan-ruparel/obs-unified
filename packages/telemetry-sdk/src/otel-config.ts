@@ -1,4 +1,9 @@
 import { trace } from "@opentelemetry/api";
+import {
+	buildLineageAttributes,
+	type ObservabilityLineageConfig,
+	resolveLineageConfig,
+} from "./lineage";
 
 /**
  * OTEL configuration helpers for Cloudflare Workers (from Presence).
@@ -12,11 +17,18 @@ export interface OtelEnv {
 	OTEL_SERVICE_NAME?: string;
 	OTEL_SERVICE_VERSION?: string;
 	OTEL_SAMPLE_RATIO?: string;
+	OBS_ENVIRONMENT?: string;
+	NODE_ENV?: string;
+	OBS_SERVICE_VERSION?: string;
+	OBS_COMMIT_SHA?: string;
+	GITHUB_SHA?: string;
+	OBS_CONFIG_DIGEST?: string;
 }
 
-interface ResolveConfigOptions {
+export interface ResolveConfigOptions extends ObservabilityLineageConfig {
 	defaultServiceName?: string;
 	defaultServiceVersion?: string;
+	lineage?: ObservabilityLineageConfig;
 }
 
 export const createResolveConfig = <E extends OtelEnv>(
@@ -42,6 +54,10 @@ export const createResolveConfig = <E extends OtelEnv>(
 			Math.min(1, Number.parseFloat(env.OTEL_SAMPLE_RATIO || "1") || 1),
 		);
 
+		const envMap = env as unknown as Record<string, string | undefined>;
+		const resolvedLineage = resolveLineageConfig(options, envMap);
+		const lineageAttributes = buildLineageAttributes(options, envMap);
+
 		return {
 			exporter: {
 				url: exporterUrl,
@@ -50,7 +66,13 @@ export const createResolveConfig = <E extends OtelEnv>(
 			service: {
 				name: env.OTEL_SERVICE_NAME || options?.defaultServiceName || "unknown",
 				version:
-					env.OTEL_SERVICE_VERSION || options?.defaultServiceVersion || "0.0.0",
+					resolvedLineage.serviceVersion ||
+					env.OTEL_SERVICE_VERSION ||
+					options?.defaultServiceVersion ||
+					"0.0.0",
+			},
+			resource: {
+				attributes: lineageAttributes,
 			},
 			sampling: {
 				headSampler: { acceptRemote: true, ratio: sampleRatio },

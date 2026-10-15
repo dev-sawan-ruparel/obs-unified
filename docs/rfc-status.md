@@ -162,3 +162,15 @@ For the RFC implementation status of record, this file is the single source of t
 - [x] Messaging parity scripts validate every monorepo surface locally.
 - [x] Lint checks for Skills repository `SKILL.md` files asserting correct packages, tools, and fields.
 - [x] Complete synchronization of dev ingest keys and CLI command invocations across all repositories.
+
+## RFC 0013 — AutoSRE Causal Ontology, Change Correlation, and Incident Memory
+
+- [x] Orthogonal epistemic dimensions (`relationshipCertainty` and `causalProofTier`) and `EvidencePredicate` across `@obsunified/types`, collector, MCP, and dashboard.
+- [x] Canonical environment-scoped resource identities (`service:<env>:<ns>:<name>`, `db:<env>:<sys>:<host>:<name>`, `host:<env>:<id>`, `queue:<env>:<sys>:<name>`, `external_api:<env>:<host>`) and general directed ontology graph (`ontology_nodes`, `ontology_edges`) with SCC cycle detection and trace-level dynamic fault localization.
+- [x] Change Plane (`change_events`, `POST /v1/changes`, `GET /internal/changes`, `GET /internal/changes/:id/blast-radius`), CLI `obs-unified changes record|list`, and SDK runtime lineage (`ObservabilityLineageConfig`) + `recordFeatureFlag`.
+- [x] Traffic-normalized cohort attribution (`cohortLiftRatio`, `attributable_to_change`, `shared_failure_or_contention`, `insufficient_traffic`, `refuted`) and shared-resource contention detection.
+- [x] Durable incident state machine (`incident_investigations` with `dedupe_key`, `lease_owner`, `lease_expires_at`, `attempt_count`) and recurring finding memory (`investigation_findings` with normalized structural `fingerprint` and paired baseline+candidate counterfactual verification).
+- [x] Pre-execution remediation authorization gate (`remediation_proposals`, `remediation_grants` with SHA-256 single-use tokens, target version CAS, human dashboard session approval enforcement, and watchdog recovery + causal verification separation).
+- [x] 6 AutoSRE MCP tools (`list_recent_changes`, `get_change_blast_radius`, `search_similar_findings`, `record_investigation_finding`, `propose_remediation_action`, `claim_remediation_grant`), Connected Rail + CCR `triage_incident` integration, and Dashboard UI (`<ConnectedRail />` dual epistemic badges, `<RemediationApprovalCard />`, `<ChangeMarkersBar />`).
+- [x] Scenario D closed-loop seed fixture (`scripts/seed-everything/run.mjs --scenario autosre`) and 18 end-to-end closed-loop invariants verified in `autosre-closed-loop.test.ts`.
+

@@ -27,10 +27,17 @@ The `EvidenceReference` is a Zod schema defined in [`packages/obs-types/src/type
   - `"service"` (logical service/system node)
   - `"log"` (individual log line record)
   - `"docs"` (documentation page or reference file)
+  - `"change"` (deployment, rollback, feature-flag flip, config change, or prompt release in `change_events`)
+  - `"finding"` (persisted `InvestigationFinding` in incident memory)
+  - `"incident"` (durable `IncidentInvestigation` coordination record)
 - **`entityId`** (string): The stable database key or identifier of the referenced entity.
 - **`route`** (string): The dashboard deep-link path for the entity (e.g. `"/dashboard/traces/trace-123"`).
 - **`source`** (string): Description of the engine or rule that generated this evidence (e.g. `"collector.analyses.self_time"`).
 - **`confidence`** (number): A float strictly bounded between `0.0` (no confidence) and `1.0` (absolute certainty/explicit propagation).
+- **`relationshipCertainty`** (optional, `"exact" | "inferred" | "heuristic"`): How the graph link was constructed (`"exact"` for shared trace/span IDs or exact file-path match; `"inferred"` for statistical cohort isolation; `"heuristic"` for temporal window proximity).
+- **`causalProofTier`** (optional, `"counterfactual_verified" | "cohort_rate_isolated" | "corroborated_candidate" | "unverified_locus"`): How strongly causality has been proven for root-cause attribution and remediation gating (see [AutoSRE causal ontology](/docs/autosre)).
+- **`evidencePredicate`** (optional, `"caused_by" | "introduced_by" | "triggered_by_flag" | "contends_for" | "propagates_to" | "mitigated_by" | "corroborated_by"`): Typed causal relation between the anchor entity and this evidence node.
+- **`environment`** (optional, string): Canonical deployment environment scope (e.g. `"prod"`, `"staging"`).
 - **`reason`** (string): Human-readable summary explaining why this evidence is relevant.
 - **`citations`** (array of citations): Supporting files, traces, or documentation that support this evidence.
 - **`suggestedNextPivots`** (array of pivots): Recommended exploration routes to help investigate from this anchor.

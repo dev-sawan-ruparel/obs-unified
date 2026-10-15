@@ -1,5 +1,10 @@
 // ── Init ─────────────────────────────────────────────────────────────────────
-export { type InitConfig, init, type Shutdown } from "./init.js";
+export {
+	buildResourceAttributes,
+	type InitConfig,
+	init,
+	type Shutdown,
+} from "./init.js";
 // ── Interaction-id propagation (spec/interaction-id.md) ──────────────────────
 export {
 	currentInteractionId,
@@ -8,6 +13,22 @@ export {
 	isValidInteractionId,
 	stampInteractionFromRequest,
 } from "./interaction.js";
+// ── Runtime lineage & feature flag recording (RFC 0013) ──────────────────────
+export {
+	buildLineageAttributes,
+	clearRecordedFeatureFlags,
+	getConfiguredLineage,
+	getRecordedFeatureFlagEntries,
+	getRecordedFeatureFlags,
+	type ObservabilityLineageConfig,
+	type RecordedFeatureFlag,
+	type RecordFeatureFlagOptions,
+	recordFeatureFlag,
+	resolveLineageConfig,
+	setConfiguredLineage,
+	stampActiveFeatureFlagsAndLineage,
+	withFeatureFlagScope,
+} from "./lineage.js";
 // ── LLM + tool spans (OpenInference) ─────────────────────────────────────────
 export {
 	type LLMOptions,

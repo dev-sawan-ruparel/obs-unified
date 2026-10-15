@@ -13,6 +13,7 @@ import {
 import { alertsRoutesPlugin } from "./plugins/alerts-routes";
 import { analysesRoutesPlugin } from "./plugins/analyses-routes";
 import { askRoutesPlugin } from "./plugins/ask-routes";
+import { autosreRoutesPlugin } from "./plugins/autosre-routes";
 import { botFilterPlugin } from "./plugins/bot-filter";
 import { connectedRoutesPlugin } from "./plugins/connected-routes";
 import { dashboardRoutesPlugin } from "./plugins/dashboard-routes";
@@ -92,6 +93,46 @@ export {
 } from "./lib/actions-store";
 export { AlertsStore, compareValue } from "./lib/alerts-store";
 export {
+	computeChangeBlastRadius,
+	findCrossTraceContention,
+	getChangeEvent,
+	listChangeEvents,
+	recordChangeEvent,
+} from "./lib/autosre-change-correlation";
+export {
+	CounterfactualVerificationError,
+	getInvestigationFinding,
+	recordInvestigationFinding,
+	searchInvestigationFindings,
+	verifyPairedCounterfactualProof,
+} from "./lib/autosre-findings";
+export {
+	computeTarjanScc,
+	extractSpanLineageAndTopology,
+	getOntologyGraph,
+	loadTraceFaultLocusFromDb,
+	localizeTraceFaultLocus,
+	upsertOntologyFromSpans,
+} from "./lib/autosre-ontology";
+export {
+	acquireIncidentLease,
+	approveRemediationProposal,
+	claimRemediationGrant,
+	completeRemediationProposal,
+	dispatchIncidentWebhook,
+	evaluateRemediationWatchdogs,
+	failRemediationProposal,
+	getIncidentInvestigation,
+	getRemediationProposal,
+	listIncidentInvestigations,
+	listRemediationProposals,
+	openOrDeduplicateIncident,
+	proposeRemediationAction,
+	RemediationGateError,
+	rejectRemediationProposal,
+	type WatchdogEvaluationSummary,
+} from "./lib/autosre-remediation-gate";
+export {
 	type BlobListOptions,
 	type BlobListResult,
 	type BlobObject,
@@ -134,6 +175,7 @@ export {
 	alertsRoutesPlugin,
 	analysesRoutesPlugin,
 	askRoutesPlugin,
+	autosreRoutesPlugin,
 	botFilterPlugin,
 	connectedRoutesPlugin,
 	createAlertEvaluatorHandler,
@@ -202,6 +244,7 @@ export const allPlugins = [
 	analysesRoutesPlugin,
 	actionRoutesPlugin,
 	evalCasesRoutesPlugin,
+	autosreRoutesPlugin,
 	evidenceRetrievalRoutesPlugin,
 	askRoutesPlugin,
 	tailRoutesPlugin,

@@ -45,6 +45,12 @@
         "icon": "<path d=\"M4 5h16M4 12h10M4 19h7\"/><path d=\"M16 15l2 2 4-5\"/>"
       },
       {
+        "capabilityId": "autosre",
+        "title": "AutoSRE & change correlation",
+        "body": "Correlate deploys, feature flags, and config changes with traffic-normalized cohort error lift, noisy-neighbor contention checks, paired counterfactual eval proofs, and pre-execution remediation grants.",
+        "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v4l3 3\"/>"
+      },
+      {
         "capabilityId": "replay",
         "title": "Session replay",
         "body": "Browser sessions recorded with rrweb, stored as DOM-mutation chunks in R2, and replayed inline next to the trace they belong to.",
@@ -77,7 +83,7 @@
       {
         "capabilityId": "mcp",
         "title": "SDKs and MCP server",
-        "body": "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, profiles, agent runs, actions, tools, and evals.",
+        "body": "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, profiles, agent runs, actions, tools, changes, and evals.",
         "icon": "<polyline points=\"8 18 2 12 8 6\"/><polyline points=\"16 6 22 12 16 18\"/><line x1=\"14\" y1=\"4\" x2=\"10\" y2=\"20\"/>"
       }
     ]
@@ -155,19 +161,23 @@
   "faq": [
     {
       "q": "What is Observability Unified?",
-      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with compact evidence bundles, stable IDs, confidence, citations, retrieval refs, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
+      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, change events, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with compact evidence bundles, stable IDs, confidence, citations, retrieval refs, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
     },
     {
       "q": "What is the Agent Action Graph?",
       "a": "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP."
     },
     {
+      "q": "How does AutoSRE prevent an AI agent from rolling back the wrong deploy?",
+      "a": "AutoSRE separates link provenance (relationshipCertainty: exact, inferred, heuristic) from causal proof (causalProofTier: unverified_locus, corroborated_candidate, cohort_rate_isolated, counterfactual_verified). A stack frame overlapping a changed file only reaches corroborated_candidate, which cannot authorize an autonomous rollback. To earn a single-use cryptographic remediation grant, the change must either demonstrate traffic-normalized cohort error lift (with minimum sample sizes and noisy-neighbor contention checks) or pass paired baseline-fail/candidate-pass counterfactual eval runs, or be explicitly approved by a human operator in the dashboard."
+    },
+    {
       "q": "Is this for debugging AI agents or for agents debugging software?",
-      "a": "Both. Observability Unified debugs AI agents by showing LLM calls, retrievals, tool calls, agent runs, evals, costs, latency, and failures in an Agent Action Graph. It also helps AI agents debug software by exposing MCP tools for traces, logs, service maps, users, replays, connected signals, agent runs, actions, and tool calls."
+      "a": "Both. Observability Unified debugs AI agents by showing LLM calls, retrievals, tool calls, agent runs, evals, costs, latency, and failures in an Agent Action Graph. It also helps AI agents debug software by exposing MCP tools for traces, logs, service maps, users, replays, connected signals, agent runs, actions, tool calls, change blast radius, and governed remediations."
     },
     {
       "q": "Can AI agents inspect Observability Unified through MCP?",
-      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, tool calls, evidence bundles, retrieval refs, and evidence expansion stats. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
+      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, tool calls, evidence bundles, retrieval refs, evidence expansion stats, recent changes, change blast radius, similar findings, and remediation proposals. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
     },
     {
       "q": "What is CCR?",
@@ -220,6 +230,7 @@
       "One telemetry graph for humans and AI agents debugging software",
       "Structured evidence references with entity IDs, routes, confidence, citations, and suggested pivots",
       "Compressed context retrieval with evidence bundles, compaction provenance, retrieval refs, and expansion telemetry",
+      "AutoSRE causal ontology, traffic-normalized change blast radius, incident memory, and pre-execution remediation governance",
       "Agent Action Graph for debugging AI agent runs, LLM calls, retrievals, tool calls, guardrails, and eval cases",
       "MCP server for AI agents to inspect traces, logs, replays, connected signals, profiles, evals, agent runs, actions, and tool calls",
       "OpenTelemetry trace ingest over OTLP HTTP",

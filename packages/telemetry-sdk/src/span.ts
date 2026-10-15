@@ -24,6 +24,17 @@ import {
 } from "@obsunified/types/constants";
 import { handleExportResponse } from "./export-response";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
+import {
+	applyFeatureFlagToSpan,
+	buildLineageAttributes,
+	clearRecordedFeatureFlags,
+	getRecordedFeatureFlagEntries,
+	type LineageConfigInput,
+	type ObservabilityLineageConfig,
+	registerSpanGetters,
+	setConfiguredLineage,
+	withFeatureFlagScope,
+} from "./lineage";
 
 const generateId = (bytes: number): string =>
 	randomBytes(bytes).toString("hex");
@@ -31,12 +42,14 @@ const nowNano = (): string => (BigInt(Date.now()) * 1_000_000n).toString();
 const MAX_SPAN_BUFFER_SIZE = 200;
 const DEFAULT_FLUSH_INTERVAL_MS = 5_000;
 
-export interface SpanExporterConfig {
+export interface SpanExporterConfig extends ObservabilityLineageConfig {
 	collectorUrl: string;
 	authToken?: string;
 	extraHeaders?: Record<string, string>;
 	/** Periodic flush interval in milliseconds. Set to 0 to disable. */
 	flushIntervalMs?: number;
+	/** Optional runtime lineage configuration (RFC 0013). */
+	lineage?: ObservabilityLineageConfig;
 }
 
 let spanExporterConfig: SpanExporterConfig | null = null;
@@ -48,6 +61,7 @@ let spanFlushLifecycle: FlushLifecycle | null = null;
 
 export function initSpanExporter(config: SpanExporterConfig): void {
 	spanExporterConfig = config;
+	setConfiguredLineage(config);
 	spanFlushLifecycle?.stop();
 	spanFlushLifecycle = installFlushLifecycle({
 		name: "span telemetry",
@@ -65,6 +79,8 @@ export async function shutdownSpanExporter(): Promise<void> {
 	spanFlushLifecycle = null;
 	await flushSpans();
 	spanExporterConfig = null;
+	setConfiguredLineage(undefined);
+	clearRecordedFeatureFlags();
 }
 
 export async function flushSpans(): Promise<void> {
@@ -176,6 +192,7 @@ export interface RequestSpan {
 }
 
 const spanStorage = new AsyncLocalStorage<RequestSpan>();
+const activeChildSpanStorage = new AsyncLocalStorage<ChildSpan>();
 
 /**
  * The span_id of the current logical parent for any new child span. Defaults
@@ -188,8 +205,15 @@ const parentSpanIdStorage = new AsyncLocalStorage<string>();
 export const getActiveSpan = (): RequestSpan | undefined =>
 	spanStorage.getStore();
 
+registerSpanGetters(getActiveSpan, () => activeChildSpanStorage.getStore());
+
 export const runWithSpan = <T>(span: RequestSpan, fn: () => T): T =>
-	spanStorage.run(span, fn);
+	withFeatureFlagScope(() => {
+		for (const flag of getRecordedFeatureFlagEntries()) {
+			applyFeatureFlagToSpan(span, flag, false);
+		}
+		return spanStorage.run(span, fn);
+	});
 
 interface ChildSpanRecord {
 	spanId: string;
@@ -434,6 +458,7 @@ export function createRequestSpan(
 	serviceName: string,
 	spanName: string,
 	incoming?: IncomingTraceContext,
+	lineage?: LineageConfigInput,
 ): RequestSpan {
 	const traceId = incoming?.traceId ?? generateId(16);
 	const spanId = generateId(8);
@@ -445,6 +470,26 @@ export function createRequestSpan(
 	let statusMessage: string | undefined;
 	const childSpans: ChildSpanRecord[] = [];
 	let exported = false;
+
+	const initialLineageAttrs = buildLineageAttributes(lineage);
+	for (const [k, v] of Object.entries(initialLineageAttrs)) {
+		setOrReplaceKv(attributes, k, v);
+	}
+	for (const flag of getRecordedFeatureFlagEntries()) {
+		setOrReplaceKv(attributes, "feature_flag.key", flag.key);
+		setOrReplaceKv(attributes, "feature_flag.variant", String(flag.variant));
+		if (flag.providerName) {
+			setOrReplaceKv(attributes, "feature_flag.provider_name", flag.providerName);
+		}
+		if (flag.contextId) {
+			setOrReplaceKv(attributes, "feature_flag.context.id", flag.contextId);
+		}
+		setOrReplaceKv(
+			attributes,
+			`obs.feature_flags.${flag.key}`,
+			flag.variant,
+		);
+	}
 
 	return {
 		traceId,
@@ -482,6 +527,38 @@ export function createRequestSpan(
 				events: [],
 				statusCode: 0,
 			};
+
+			const childLineageAttrs = buildLineageAttributes(lineage);
+			for (const [k, v] of Object.entries(childLineageAttrs)) {
+				setOrReplaceKv(child.attributes, k, v);
+			}
+			for (const flag of getRecordedFeatureFlagEntries()) {
+				setOrReplaceKv(child.attributes, "feature_flag.key", flag.key);
+				setOrReplaceKv(
+					child.attributes,
+					"feature_flag.variant",
+					String(flag.variant),
+				);
+				if (flag.providerName) {
+					setOrReplaceKv(
+						child.attributes,
+						"feature_flag.provider_name",
+						flag.providerName,
+					);
+				}
+				if (flag.contextId) {
+					setOrReplaceKv(
+						child.attributes,
+						"feature_flag.context.id",
+						flag.contextId,
+					);
+				}
+				setOrReplaceKv(
+					child.attributes,
+					`obs.feature_flags.${flag.key}`,
+					flag.variant,
+				);
+			}
 
 			const agentCtx = agentContextStorage.getStore();
 			if (agentCtx) {
@@ -544,10 +621,15 @@ export function createRequestSpan(
 			enqueueSpanExport(this.toOtlpExportRequest());
 		},
 		toOtlpExportRequest(): OtlpTraceExportRequest {
+			const lineageAttrs = buildLineageAttributes(lineage);
+			const resourceAttributes: OtlpKeyValue[] = [
+				toKv("service.name", serviceName),
+				...Object.entries(lineageAttrs).map(([k, v]) => toKv(k, v)),
+			];
 			return {
 				resourceSpans: [
 					{
-						resource: { attributes: [toKv("service.name", serviceName)] },
+						resource: { attributes: resourceAttributes },
 						scopeSpans: [
 							{
 								scope: { name: serviceName },
@@ -606,18 +688,20 @@ export async function withChildSpan<T>(
 	// Any further `withChildSpan` / `wrapD1` calls inside fn read this value
 	// from AsyncLocalStorage and become grandchildren of `child`, not flat
 	// siblings under the request root.
-	return parentSpanIdStorage.run(child.spanId, async () => {
-		try {
-			const result = await fn(child);
-			child.end();
-			return result;
-		} catch (error) {
-			child.setStatus(
-				2,
-				error instanceof Error ? error.message : String(error),
-			);
-			child.end();
-			throw error;
-		}
-	});
+	return parentSpanIdStorage.run(child.spanId, () =>
+		activeChildSpanStorage.run(child, async () => {
+			try {
+				const result = await fn(child);
+				child.end();
+				return result;
+			} catch (error) {
+				child.setStatus(
+					2,
+					error instanceof Error ? error.message : String(error),
+				);
+				child.end();
+				throw error;
+			}
+		}),
+	);
 }

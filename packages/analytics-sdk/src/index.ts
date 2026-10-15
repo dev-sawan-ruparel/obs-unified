@@ -23,7 +23,22 @@ export {
 	withInteractionContextAsync,
 	wrapInteraction,
 } from "./interaction";
+export {
+	buildFeatureFlagAttributes,
+	buildLineageAttributes,
+	clearRecordedFeatureFlags,
+	getConfiguredLineage,
+	getRecordedFeatureFlagEntries,
+	getRecordedFeatureFlags,
+	type ObservabilityLineageConfig,
+	type RecordedFeatureFlag,
+	type RecordFeatureFlagOptions,
+	recordFeatureFlag,
+	resolveLineageConfig,
+	setConfiguredLineage,
+} from "./lineage";
 export type {
+	AnalyticsConfig,
 	ReplayPrivacyOptions,
 	UsageTrackerConfig,
 } from "./usage-tracker";

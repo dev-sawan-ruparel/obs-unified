@@ -28,6 +28,10 @@ const RETENTION_TABLES = [
 	"ai_calls",
 	"metric_point",
 	"metric_exemplars",
+	"change_events",
+	"incident_investigations",
+	"investigation_findings",
+	"remediation_proposals",
 ];
 
 describe("migration parity", () => {

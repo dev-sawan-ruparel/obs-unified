@@ -36,6 +36,7 @@ import {
 	type Logger,
 } from "../framework/logger";
 import { AnalysesStore } from "./analyses-store";
+import { openOrDeduplicateIncident } from "./autosre-remediation-gate";
 import { generateNarrative, LlmCallError, type LlmConfig } from "./llm";
 import {
 	computeSignature,
@@ -475,6 +476,14 @@ async function runDueAnalysesForProject(
 							if (result.narrative) narrated += 1;
 						}
 						await store.insertResult(result, expiresAt);
+						if (result.status === "critical") {
+							await openOrDeduplicateIncident(db, projectId, {
+								environment: "default",
+								targetNodeId: `analysis:${def.id}`,
+								symptomAnchorKind: "analysis",
+								symptomAnchorId: def.id,
+							}).catch(() => undefined);
+						}
 						// markRan releases the claim as a side-effect.
 						await store.markRan(projectId, def.id, result.generatedAt);
 						ran += 1;

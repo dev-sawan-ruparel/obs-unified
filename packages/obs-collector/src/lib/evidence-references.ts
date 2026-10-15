@@ -146,6 +146,12 @@ export const evidenceRouteFor = (
 			return traceRoute(entityId);
 		case "docs":
 			return entityId.startsWith("#/") ? entityId : `#/docs/${entityId}`;
+		case "change":
+			return `#/changes/${encodeURIComponent(entityId)}`;
+		case "finding":
+			return `#/findings/${encodeURIComponent(entityId)}`;
+		case "incident":
+			return `#/incidents/${encodeURIComponent(entityId)}`;
 	}
 	const exhaustive: never = entityKind;
 	return exhaustive;

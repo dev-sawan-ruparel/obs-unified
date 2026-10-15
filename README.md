@@ -63,12 +63,13 @@ issued and which ones agents expanded most often.
 
 | Area | What ships |
 | --- | --- |
-| Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, and Agent Action Graph records |
-| Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, and action graph views |
+| Unified ingest | OTLP traces, structured logs, usage events, rrweb replay chunks, AI spans, profiles, alerts, analyses, change events (`/v1/changes`), and Agent Action Graph records |
+| Dashboard | Health, traces, logs, service map, issues, AI calls, replay, timeline, alerts, usage, resources, cost attribution, evaluations, autonomous review queue, and action graph views |
 | Agent Action Graph | Causal view of agent runs, LLM calls, retrievals, tool calls, guardrails, evals, traces, logs, profiles, and replay evidence |
-| Agent-readable evidence | Deterministic structured evidence references, Evidence retrieval, and compact evidence bundles with entity IDs, routes, confidence, citations, compaction provenance, retrieval refs, code references, and suggested pivots; LLMs are optional summarizers, not the source of truth |
-| MCP server | Read-only investigation tools for agents: status, evidence bundles, evidence retrieval refs, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, and tool calls |
-| SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust |
+| AutoSRE causal ontology | Environment-scoped topology, traffic-normalized change blast radius, noisy-neighbor contention checks, recurring incident memory, paired counterfactual verification, and pre-execution remediation grants |
+| Agent-readable evidence | Deterministic structured evidence references, Evidence retrieval, and compact evidence bundles with entity IDs, routes, confidence, orthogonal `relationshipCertainty` + `causalProofTier` badges, citations, compaction provenance, retrieval refs, code references, and suggested pivots; LLMs are optional summarizers, not the source of truth |
+| MCP server | Investigation and governed remediation tools for agents: status, evidence bundles, evidence retrieval refs, traces, logs, service map, users, replays, profiles, evals, connected signals, agent runs, actions, tool calls, change blast radius, similar findings, and remediation grant claims |
+| SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust with runtime lineage (`service.version`, `vcs.commit.id`, `deployment.environment.name`) and feature flag recording |
 | Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |
 
 [![obs-unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
@@ -87,9 +88,10 @@ see all on [obsunified.com](https://obsunified.com)</sub>
 | **Session replay + usage analytics** | Frontend behavior is not a separate product. Page views, interactions, errors, identity, and replay chunks are tied to the same session and interaction IDs. |
 | **AI cost and LLM observability** | Model, provider, tokens, latency, cost, error category, prompt/output payloads, and trace context stay queryable together. |
 | **Agent Action Graph** | Agent work is represented as a causal graph, not loose LLM spans. You can see what the agent did, what each step caused, and which evidence supports the result. |
+| **AutoSRE causal ontology & change correlation** | Separates link provenance (`relationshipCertainty`) from causal proof (`causalProofTier`), compares error rates per request across deploy/flag cohorts (`v_new` vs `v_old`), detects noisy-neighbor shared database contention, and enforces single-use cryptographic remediation grants before production rollbacks. |
 | **Profiles and resources** | CPU/profile evidence and resource context can join the same incident path instead of living in a separate profiling tool. |
 | **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, compact bundles, confidence, raw retrieval refs, and next pivots without requiring an LLM. |
-| **MCP investigation server** | Agents can inspect the graph with read-only tools, without receiving write-only ingest credentials. |
+| **MCP investigation server** | Agents can inspect the graph and propose governed remediations without receiving write-only ingest credentials or self-approving production changes. |
 
 ## How agents debug with obs-unified
 

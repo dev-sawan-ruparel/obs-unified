@@ -25,7 +25,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 import prompts from "prompts";
-import { runDoctor, runKeys } from "./collector-commands";
+import { runChanges, runDoctor, runKeys } from "./collector-commands";
 import { SCAFFOLD_SDK_RANGES } from "./scaffold-versions";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +47,10 @@ Commands:
                         Mint a new ingest key for a project
   ${kleur.cyan("keys list")} [--project <id>] [--json]
                         List a project's ingest keys
+  ${kleur.cyan("changes record")} [--service <name>] [--version <ver>] [--summary <text>] ...
+                        Record a deploy, config change, feature-flag toggle, or rollback
+  ${kleur.cyan("changes list")} [--environment <env>] [--service <name>] [--kind <kind>] [--limit <n>]
+                        List recent change events from the collector
   ${kleur.cyan("doctor")} [url] [--origin <origin> ...]
                         Diagnose a running collector
   ${kleur.cyan("help")}                  Show this message
@@ -55,7 +59,8 @@ Project selection for ${kleur.cyan("keys")}: --project, then OBS_PROJECT_ID, the
 collector's "default" project (or its only project) via GET /internal/projects.
 
 Environment: OBS_COLLECTOR_URL (default http://localhost:8790),
-OBS_ADMIN_TOKEN (required for keys; optional for doctor), OBS_PROJECT_ID,
+OBS_ADMIN_TOKEN (required for keys; optional for doctor), OBS_INGEST_KEY / OBS_API_KEY
+(for changes record), OBS_API_TOKEN (for changes list), OBS_PROJECT_ID,
 OBS_DOCTOR_ORIGINS.
 `);
 };
@@ -124,6 +129,11 @@ switch (subcommand) {
 
 	case "keys": {
 		process.exit(await runKeys(rest));
+		break;
+	}
+
+	case "changes": {
+		process.exit(await runChanges(rest));
 		break;
 	}
 

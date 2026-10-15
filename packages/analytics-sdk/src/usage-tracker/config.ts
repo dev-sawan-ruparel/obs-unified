@@ -34,7 +34,11 @@ export interface ReplayPrivacyOptions {
 	ignoreSelector?: string;
 }
 
-export interface UsageTrackerConfig {
+import type { ObservabilityLineageConfig } from "../lineage";
+
+export type { ObservabilityLineageConfig };
+
+export interface UsageTrackerConfig extends ObservabilityLineageConfig {
 	/** URL of your collector (e.g. "https://obs.my-app.com"). When set, the SDK sends directly to the collector. */
 	collectorUrl?: string;
 	/** Write-only API key for the collector. Required when using collectorUrl. */
@@ -66,4 +70,8 @@ export interface UsageTrackerConfig {
 	 * SDK. See {@link ReplayPrivacyOptions}.
 	 */
 	replayPrivacyOptions?: ReplayPrivacyOptions;
+	/** Optional runtime lineage configuration (RFC 0013). */
+	lineage?: ObservabilityLineageConfig;
 }
+
+export type AnalyticsConfig = UsageTrackerConfig;

@@ -17,6 +17,11 @@ import {
 } from "@obsunified/types/constants";
 import { handleExportResponse } from "./export-response";
 import { type FlushLifecycle, installFlushLifecycle } from "./flush-lifecycle";
+import {
+	buildLineageAttributes,
+	getRecordedFeatureFlags,
+	type ObservabilityLineageConfig,
+} from "./lineage";
 import { getActiveActionContext, getActiveSpan } from "./span";
 
 const SEVERITY_DEBUG = 5;
@@ -33,7 +38,7 @@ export interface Logger {
 	error(message: string, attributes?: Record<string, unknown>): void;
 }
 
-export interface LoggerConfig {
+export interface LoggerConfig extends ObservabilityLineageConfig {
 	collectorUrl: string;
 	authToken?: string;
 	serviceName: string;
@@ -46,6 +51,8 @@ export interface LoggerConfig {
 	 * See apps/collector/SELF_INSTRUMENTATION.md.
 	 */
 	extraHeaders?: Record<string, string>;
+	/** Optional runtime lineage configuration (RFC 0013). */
+	lineage?: ObservabilityLineageConfig;
 }
 
 interface BufferedLog {
@@ -146,12 +153,18 @@ function buildOtlpLogsPayload(batch: BufferedLog[], serviceName: string) {
 		logRecords: logs.map(toOtlpLogRecord),
 	}));
 
+	const lineageAttrs = buildLineageAttributes(logConfig ?? undefined);
+
 	return {
 		resourceLogs: [
 			{
 				resource: {
 					attributes: [
 						{ key: "service.name", value: { stringValue: serviceName } },
+						...Object.entries(lineageAttrs).map(([k, v]) => ({
+							key: k,
+							value: { stringValue: v },
+						})),
 					],
 				},
 				scopeLogs,
@@ -232,16 +245,29 @@ const emitConsole = (record: StructuredLogRecord): void => {
 
 const activeActionAttributes = (): Record<string, unknown> | undefined => {
 	const context = getActiveActionContext();
-	if (!context) return undefined;
+	const flags = getRecordedFeatureFlags();
+	const flagKeys = Object.keys(flags);
+	if (!context && flagKeys.length === 0) return undefined;
+	const flagAttrs: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(flags)) {
+		flagAttrs[`obs.feature_flags.${k}`] = v;
+	}
 	return {
-		[ACTION_ID_KEY]: context.actionId,
-		[ACTION_ROOT_ID_KEY]: context.rootActionId,
-		...(context.causedByActionId
-			? { [ACTION_CAUSED_BY_ID_KEY]: context.causedByActionId }
+		...flagAttrs,
+		...(context
+			? {
+					[ACTION_ID_KEY]: context.actionId,
+					[ACTION_ROOT_ID_KEY]: context.rootActionId,
+					...(context.causedByActionId
+						? { [ACTION_CAUSED_BY_ID_KEY]: context.causedByActionId }
+						: {}),
+					[ACTOR_TYPE_KEY]: context.actorType,
+					...(context.actorId ? { [ACTOR_ID_KEY]: context.actorId } : {}),
+					...(context.agentRunId
+						? { [AGENT_RUN_ID_KEY]: context.agentRunId }
+						: {}),
+				}
 			: {}),
-		[ACTOR_TYPE_KEY]: context.actorType,
-		...(context.actorId ? { [ACTOR_ID_KEY]: context.actorId } : {}),
-		...(context.agentRunId ? { [AGENT_RUN_ID_KEY]: context.agentRunId } : {}),
 	};
 };
 

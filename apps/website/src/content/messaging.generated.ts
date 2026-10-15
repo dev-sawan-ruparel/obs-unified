@@ -24,7 +24,13 @@ export const messaging = {
 			"connected_signals",
 			"get_agent_run",
 			"get_action",
-			"get_tool_call"
+			"get_tool_call",
+			"list_recent_changes",
+			"get_change_blast_radius",
+			"search_similar_findings",
+			"record_investigation_finding",
+			"propose_remediation_action",
+			"claim_remediation_grant"
 		],
 		"connectedKinds": [
 			"span",
@@ -38,7 +44,10 @@ export const messaging = {
 			"user",
 			"action",
 			"agent_run",
-			"tool_call"
+			"tool_call",
+			"change",
+			"finding",
+			"incident"
 		],
 		"evidenceReferenceFields": [
 			"evidenceId",
@@ -272,7 +281,8 @@ export const messaging = {
 			"@obsunified": "npm scope for all public packages (SDKs, collector, CLI, dashboard, MCP server) on registry.npmjs.org.",
 			"Connected Rail": "The cross-signal pivot surface (HTTP /internal/connected/:kind/:id; MCP connected_signals).",
 			"CCR": "Compressed context retrieval — the evidence retrieval layer (RFC 0011).",
-			"evidence bundle": "Compact, token-budgeted evidence returned by the CCR layer."
+			"evidence bundle": "Compact, token-budgeted evidence returned by the CCR layer.",
+			"AutoSRE": "Closed-loop causal ontology, traffic-normalized change correlation, recurring incident memory, and pre-execution remediation governance (RFC 0013)."
 		},
 		"capabilities": [
 			{
@@ -336,6 +346,11 @@ export const messaging = {
 				"status": "shipped"
 			},
 			{
+				"id": "autosre",
+				"name": "AutoSRE causal ontology",
+				"status": "shipped"
+			},
+			{
 				"id": "mcp",
 				"name": "MCP investigation server",
 				"status": "shipped"
@@ -366,6 +381,44 @@ export const messaging = {
 					"retrievalRefs"
 				],
 				"addsSignalType": "Evidence retrieval",
+				"surfacesWhenShipped": [
+					"readme.what-you-get",
+					"site.features",
+					"llms.signal-types",
+					"jsonld.featureList",
+					"docs.index",
+					"docs.page",
+					"mcp.tool-list",
+					"skills.tool-list"
+				]
+			},
+			{
+				"id": "autosre",
+				"displayName": "AutoSRE causal ontology, change correlation, and incident memory",
+				"glossary": [
+					"AutoSRE",
+					"causal ontology",
+					"change blast radius",
+					"remediation grant"
+				],
+				"status": "shipped",
+				"rfc": "0013-autosre-causal-ontology",
+				"docsSlug": "/docs/autosre",
+				"addsMcpTools": [
+					"list_recent_changes",
+					"get_change_blast_radius",
+					"search_similar_findings",
+					"record_investigation_finding",
+					"propose_remediation_action",
+					"claim_remediation_grant"
+				],
+				"addsEvidenceFields": [
+					"relationshipCertainty",
+					"causalProofTier",
+					"evidencePredicate",
+					"environment"
+				],
+				"addsSignalType": "AutoSRE causal ontology",
 				"surfacesWhenShipped": [
 					"readme.what-you-get",
 					"site.features",
