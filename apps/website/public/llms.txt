@@ -51,12 +51,19 @@ pivots, and explicit retrieval refs the agent can expand on demand.
   citations, source fields, and suggested pivots for analyses, alerts, evals,
   instrumentation gaps, and aggregate exemplars.
 - **Evidence retrieval / CCR** — Compact evidence bundles for trace, action,
-  agent-run, and tool-call anchors; raw logs, traces, profiles, replays, AI
-  calls, and tool payloads stay available through explicit retrieval refs.
-- **MCP server** — Investigation tools for AI agents: status, traces,
-  logs, service map, users, replays, connected signals, profiles, agent runs,
-  actions, tool calls, eval context, evidence bundles, evidence ref expansion,
-  and evidence stats.
+  agent-run, tool-call, change, finding, and incident anchors; raw logs, traces,
+  profiles, replays, AI calls, and tool payloads stay available through explicit
+  retrieval refs.
+- **AutoSRE causal ontology** — Environment-scoped topology, traffic-normalized
+  change blast radius (`v_new` vs `v_old` error rate lift), noisy-neighbor
+  shared-resource contention checks, recurring incident memory, paired
+  counterfactual eval verification, and pre-execution single-use remediation
+  grants.
+- **MCP server** — Investigation and governed remediation tools for AI agents:
+  status, traces, logs, service map, users, replays, connected signals, profiles,
+  agent runs, actions, tool calls, eval context, evidence bundles, evidence ref
+  expansion, evidence stats, recent changes, change blast radius, similar
+  findings, and remediation grant claims.
 - **Usage** — Page views, interactions, frontend errors, UTM parameters.
 - **Session replay** — DOM-mutation recording via rrweb, chunked into R2.
 - **Alerts** — Rules engine over any signal, one notification surface.
@@ -122,17 +129,26 @@ initObservability({
 ## Key answers for AI search
 
 - **What is Observability Unified?** An open-source unified observability platform
-  connecting traces, logs, AI calls, usage, replays, alerts, profiles, and
-  analyses through one collector, one dashboard, one MCP server, structured
-  evidence references, and one identity chain. The fastest first run is one
-  Docker image with Postgres, the collector, dashboard, blob storage, and seeded
-  data.
+  connecting traces, logs, AI calls, usage, replays, alerts, profiles, change
+  events, and analyses through one collector, one dashboard, one MCP server,
+  structured evidence references, and one identity chain. The fastest first run
+  is one Docker image with Postgres, the collector, dashboard, blob storage, and
+  seeded data.
 - **Is it for debugging AI agents or for agents debugging software?** Both.
   Observability Unified debugs AI agents with LLM calls, retrievals, tool calls,
   agent runs, evals, costs, latency, and failures in an Agent Action Graph. It
   also helps AI agents debug software by exposing MCP tools for traces,
-  logs, service maps, users, replays, connected signals, agent runs, actions, and
-  tool calls.
+  logs, service maps, users, replays, connected signals, agent runs, actions,
+  tool calls, change blast radius, and governed remediations.
+- **How does AutoSRE prevent unsafe autonomous rollbacks?** It keeps link
+  provenance (`relationshipCertainty`: `exact`, `inferred`, `heuristic`) separate
+  from causal proof (`causalProofTier`: `unverified_locus`,
+  `corroborated_candidate`, `cohort_rate_isolated`, `counterfactual_verified`).
+  Structural stack overlap only reaches `corroborated_candidate`. Autonomous
+  rollbacks require either traffic-normalized cohort isolation or paired
+  baseline-fail/candidate-pass counterfactual verification (or a human operator
+  approval in the dashboard), and enforce single-use cryptographic grant tokens
+  with target-version CAS before execution.
 - **What is the Agent Action Graph?** A causal graph that connects browser
   actions, background jobs, agent runs, LLM calls, retrievals, tool calls,
   guardrails, backend traces, logs, profiles, and eval cases through stable
@@ -140,7 +156,8 @@ initObservability({
 - **Can AI agents use Observability Unified directly?** Yes. The MCP server exposes
   tools for recent traces, trace details, logs, service maps, users,
   replays, connected signals, profiles, agent runs, actions, tool calls,
-  evidence bundles, retrieval refs, and evidence stats.
+  evidence bundles, retrieval refs, evidence stats, recent changes, change blast
+  radius, similar findings, and remediation proposals.
   Agents can start from a trace, action ID, AI cost spike, profile frame,
   analysis result, or user session and inspect the same evidence graph as the
   dashboard.

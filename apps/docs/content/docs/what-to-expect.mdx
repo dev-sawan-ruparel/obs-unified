@@ -110,6 +110,18 @@ Validates the kernel-level layer:
 
 This Scenario C off-CPU path currently runs only against the docker-compose demo with [Beyla](https://grafana.com/oss/beyla/) feeding pprof. The dashboard code paths are live; the synthetic seed doesn't generate off-CPU pprof blobs for this path.
 
+## Scenario D — deploy regression → cohort lift → counterfactual verification → guarded rollback
+
+Validates the [AutoSRE causal ontology](/docs/autosre) (RFC 0013) end-to-end across both human dashboard surfaces and MCP agent tools:
+
+1. **Incident triage bundle (`intent: "triage_incident"`):** From a firing checkout alert, the collector separates the deepest failing span (`faultLocus`: `unverified_locus`) from ranked `candidateRootCauses` and recent deploys (`chg_seed_autosre_v241`).
+2. **Traffic-normalized cohort lift:** Calling `get_change_blast_radius` compares per-request error rates between `v2.4.1` and `v2.4.0` across minimum sample sizes, confirming `cohortVerdict: "isolated_to_new_version"` (`relationshipCertainty: "inferred"`, `causalProofTier: "cohort_rate_isolated"`) and avoiding the traffic-share fallacy.
+3. **Code-path corroboration:** Stack traces on the failing span (`src/checkout/tax.ts`) intersect `touchedPaths` on `v2.4.1`, adding an `"exact"` structural link while keeping causal proof separate from link provenance.
+4. **Counterfactual verification:** Recording a finding and attaching a paired baseline-failing (`eval_run_seed_autosre_fail_v241`) + candidate-passing (`eval_run_seed_autosre_pass_v240_1`, `eval_run_seed_autosre_pass_v240_2`) evaluation upgrades the finding to `causalProofTier: "counterfactual_verified"`.
+5. **Pre-execution remediation gate:** Proposing a rollback (`propose_remediation_action`) checks CAS target state (`expectedCurrentState: { version: "2.4.1" }`), queues high-blast-radius actions in the **Autonomous Review** 1-Click Approval Queue, or issues a cryptographic `grantToken` for low-risk feature-flag flips (`toggle_feature_flag`).
+
+Both `pnpm seed` and `pnpm e2e:autosre` plant this complete Scenario D dataset automatically.
+
 ## Per-tab walkthrough
 
 | Tab | What's there | Key rail pivots |

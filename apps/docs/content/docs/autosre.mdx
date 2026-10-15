@@ -1,0 +1,139 @@
+---
+title: AutoSRE causal ontology
+description: Change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, counterfactual verification, and guarded autonomous remediation.
+---
+
+When a production incident pages an AI agent or human SRE, finding *where* an error surfaced is only the first step. Authorizing an automated rollback, feature-flag flip, or config revert requires proving *what change caused the incident*—and knowing when telemetry is insufficient to prove causality safely.
+
+obs-unified's **AutoSRE causal ontology** (RFC 0013) adds three missing layers to the unified telemetry graph:
+
+1. **Change Event Ledger (`change_events`)** — Every deploy, rollback, feature-flag evaluation, config update, and agent prompt release is recorded and linked to runtime spans via OpenTelemetry resource and span attributes (`service.version`, `vcs.commit.id`, `obs.config.digest`, `feature_flag.*`).
+2. **Dual Epistemic Model (`relationshipCertainty` vs. `causalProofTier`)** — Graph link provenance (how sure we are two nodes are connected) is strictly separated from causal proof strength (how sure we are a candidate change caused the symptom).
+3. **Incident Memory & Pre-Execution Remediation Gate** — Findings are fingerprinted across incidents, counterfactual eval runs verify baseline-fail + candidate-pass pairs, and a stateful lease/grant gate enforces Compare-And-Swap (CAS) target states and post-execution watchdog recovery before any autonomous write executes.
+
+---
+
+## Real-world production scenarios AutoSRE solves
+
+Standard APM tools and naive LLM incident responders fail in five recurring production scenarios. AutoSRE is architected specifically to solve each of them:
+
+### 1. Progressive rollout vs. the traffic-share fallacy
+
+**The challenge:** Suppose release `v2.4.1` is rolled out to handle **95% of production traffic**, while `v2.4.0` serves the remaining **5%**. During an outage caused by an upstream payment gateway or expired certificate, `v2.4.1` will naturally account for **95% of all errors**. A naive agent that checks "which version has the most errors?" will blame and roll back `v2.4.1`, even though both versions have the exact same per-request error rate.
+
+**How AutoSRE solves it:** The blast-radius evaluator (`GET /internal/changes/:id/blast-radius` / `get_change_blast_radius`) computes **traffic-normalized cohort error-rate lift** across a minimum sample size (`N >= 30` requests per cohort by default):
+
+```text
+ErrorRate(v) = error_requests(v) / total_requests(v)
+Lift         = ErrorRate(v_new) / max(ErrorRate(v_prev), 0.001)
+```
+
+- If `v2.4.1` has a 12% error rate and `v2.4.0` has a 0.08% error rate (`Lift >= 3.0` and absolute delta `>= 2%`), the cohort verdict is **`isolated_to_new_version`**, promoting the finding to `cohort_rate_isolated`.
+- If both `v2.4.1` and `v2.4.0` fail at ~12%, the cohort verdict is **`shared_across_versions`**, blocking naive version rollback and triggering downstream contention analysis.
+
+### 2. Noisy-neighbor shared database contention
+
+**The challenge:** Sometimes a bad deploy (`v2.4.1`) introduces an unindexed query or connection pool leak that exhausts a shared PostgreSQL instance (`db:prod:postgresql:orders-primary:5432/orders`). Once the database saturates, requests on the old version (`v2.4.0`) *also* start failing with connection timeouts. If an agent treats "old version is also failing" as proof that the deploy is innocent, it will miss the real culprit.
+
+**How AutoSRE solves it:** Instead of refuting the deploy when errors are shared across versions, AutoSRE runs a **shared-resource contention join** across canonical resource identities (`environment + namespace + kind + name`). When `v2.4.1` exhibits a `>= 2x` latency/connection amplification on a shared database or queue node while `v2.4.0` fails downstream on that same node, AutoSRE emits `cohortVerdict: "shared_resource_contention"` with an explicit `contends_for` causal triple pointing to the contending trace.
+
+### 3. Structural code overlap without causal proof
+
+**The challenge:** A deploy touches 40 files including `src/checkout/charge.ts`, which appears in a failing stack trace (`code.filepath = "src/checkout/charge.ts"`). That overlap is an exact *structural* link (`relationshipCertainty: "exact"`), but it does **not** prove the commit caused the outage—the commit might have only edited a comment or log line in `charge.ts`.
+
+**How AutoSRE solves it:** AutoSRE separates **Link Provenance** (`relationshipCertainty`: `"exact" | "inferred" | "heuristic"`) from **Causal Proof Tier** (`causalProofTier`):
+
+| Dimension | Values | Meaning |
+| --- | --- | --- |
+| **`relationshipCertainty`** | `exact`, `inferred`, `heuristic` | How was the graph edge constructed? (`exact` = shared trace/span ID or exact `code.filepath` match). |
+| **`causalProofTier`** | `counterfactual_verified`, `cohort_rate_isolated`, `corroborated_candidate`, `unverified_locus` | Has the root-cause hypothesis been proven via paired counterfactual replay or cohort rate isolation? |
+
+Code-path overlap alone is capped at `causalProofTier: "corroborated_candidate"`. It can never authorize an autonomous rollback or flag flip without cohort rate isolation (`cohort_rate_isolated`) or counterfactual replay (`counterfactual_verified`).
+
+### 4. Paired baseline-fail + candidate-pass counterfactual verification
+
+**The challenge:** Running a synthetic check that passes after a fix is applied—or seeing error rates drop when traffic subsides—does not prove the fix solved the bug. If the reproducer didn't fail against the broken baseline first, a passing test is meaningless.
+
+**How AutoSRE solves it:** Upgrading a finding to `counterfactual_verified` (`POST /internal/findings/:id/counterfactual`) requires a **paired evaluation**:
+
+1. **Baseline failure (`failingRunId`):** An `eval_runs` record against the incident's broken `serviceVersion` / `commitSha` / `flagVariant` that reproduces the failure (`passed = 0`).
+2. **Candidate pass (`passingRunIds`):** `K` consecutive passing `eval_runs` (`passed = 1`) of the exact same `eval_case_id` against the candidate remediation state.
+
+### 5. Competing alerts, state drift, and post-remediation regressions
+
+**The challenge:** During an outage, webhook retries or multi-symptom alerts can spawn duplicate agent runs that race to roll back the same service. Or a human operator may manually deploy `v2.4.2` while an agent is still deciding to roll back `v2.4.1`.
+
+**How AutoSRE solves it:**
+- **Durable incident lease (`incident_investigations`):** Deduplicates alert dispatches by `(project_id, environment, dedup_key)` and enforces a single lease owner with heartbeats.
+- **Pre-execution CAS grant (`remediation_proposals`):** `propose_remediation_action` binds an action to `expectedCurrentState` (e.g. `{ version: "2.4.1", commitSha: "8f3a1b2" }`), evaluates policy, and either queues the proposal for **1-Click Human Approval** in the dashboard (`pending_human_approval`) or issues a short-lived cryptographic `grantToken`.
+- **Execution claim & watchdog (`claim_remediation_grant`):** The runner claims the token (`claimed_executing`), verifies CAS state, and records completion (`completed`). A post-execution watchdog monitors the target service and records `recoveryVerificationStatus` (`recovered_unverified`, `regressed`, or `inconclusive_low_traffic`), keeping operational recovery distinct from causal proof.
+
+---
+
+## Recording changes and runtime lineage
+
+### 1. Stamp lineage and feature flags in your SDK
+
+Pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` (or set `OBS_ENVIRONMENT`, `OBS_SERVICE_VERSION`, `OBS_COMMIT_SHA`, `OBS_CONFIG_DIGEST`) when initializing `@obsunified/telemetry-sdk`, `@obsunified/analytics-sdk`, or `@obsunified/sdk`:
+
+```ts
+import { initObservability, recordFeatureFlag } from "@obsunified/telemetry-sdk";
+
+initObservability({
+  serviceName: "checkout-api",
+  collectorUrl: process.env.OBS_COLLECTOR_URL,
+  environment: "prod",
+  serviceVersion: "2.4.1",
+  commitSha: "8f3a1b2c",
+  configDigest: "cfg_99a1",
+});
+
+// Inside a request handler or span scope:
+recordFeatureFlag("enable_legacy_tax_fallback", false, {
+  providerName: "openfeature",
+});
+```
+
+### 2. Record deploys, config changes, or flag flips from CI/CD
+
+Use the CLI or `POST /v1/changes` from your deployment pipeline:
+
+```bash
+pnpm dlx @obsunified/cli changes record \
+  --url https://collector.example.com \
+  --api-key "$OBS_INGEST_KEY" \
+  --environment prod \
+  --kind deploy \
+  --service checkout-api \
+  --version 2.4.1 \
+  --previous-version 2.4.0 \
+  --commit-sha 8f3a1b2c \
+  --previous-commit-sha 7d2e0a1b \
+  --summary "Switch tax rounding to strict decimal mode" \
+  --touched-paths "src/checkout/tax.ts,src/checkout/charge.ts"
+```
+
+---
+
+## Agent workflow with MCP tools
+
+The `@obsunified/mcp-server` exposes six AutoSRE tools alongside `get_evidence_bundle` (`intent: "triage_incident"`):
+
+1. **`get_evidence_bundle`** (`intent: "triage_incident"`) — Returns a token-budgeted incident bundle with `faultLocus` (`unverified_locus`), `candidateRootCauses`, `recentChanges`, `cohortComparison`, and `historicalMatches`.
+2. **`list_recent_changes`** — Lists recent deploys, flag flips, config updates, and prompt releases scoped by `environment` and `serviceName`.
+3. **`get_change_blast_radius`** — Computes traffic-normalized cohort error-rate lift (`isolated_to_new_version`, `shared_across_versions`, `shared_resource_contention`, or `insufficient_sample`), noisy-neighbor contention, and stack-frame `touchedPaths` overlap.
+4. **`search_similar_findings`** — Queries historical `InvestigationFinding` records by stable `fingerprint` (`environment + originatingNodeId + normalizedOperation + errorSignature + downstreamTargetNodeId`) so recurring incidents immediately surface proven prior fixes.
+5. **`record_investigation_finding`** — Persists a structured finding with `causalChain` triples (`introduced_by`, `triggered_by_flag`, `contends_for`, `propagates_to`), `citedEvidenceIds`, and optional paired counterfactual eval run IDs.
+6. **`propose_remediation_action`** & **`claim_remediation_grant`** — Evaluates the pre-execution policy matrix and manages the CAS execution grant lifecycle (`claim`, `complete`, `fail`).
+
+---
+
+## Verifying locally with the E2E testbed
+
+You can run the full 9-stage live D1 + Wrangler testbed (`Scenario D`) locally with a single command:
+
+```bash
+pnpm e2e:autosre
+```
+
+This spins up a temporary local D1 database, applies all migrations through `050_autosre_causal_ontology.sql`, seeds `Scenario D` (canary rollout `v2.4.0` vs. `v2.4.1`, stack-trace overlap on `src/checkout/tax.ts`, and paired counterfactual eval runs), and verifies every AutoSRE endpoint end-to-end.
