@@ -20,7 +20,7 @@ Thanks for the PR. A few things that make review faster:
 ## Checklist
 
 - [ ] Tests added or updated
-- [ ] `pnpm -r run type-check` passes locally
-- [ ] `pnpm -r run test` passes locally
+- [ ] `pnpm type-check` passes locally
+- [ ] `pnpm test` passes locally
 - [ ] Changeset added if this affects a published package
 - [ ] Docs updated (obs-unified-docs) if behavior changed

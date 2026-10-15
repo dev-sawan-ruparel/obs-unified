@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="obs-unified — every signal, two clicks away">
-  <title>obs-unified</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Observability Unified — one telemetry graph for humans and AI agents debugging software">
+  <title>Observability Unified</title>
   <rect width="1200" height="630" fill="#F9F9F9"/>
   <rect x="40" y="40" width="1120" height="550" fill="#FFFFFF"/>
   <rect x="40" y="40" width="12" height="550" fill="#006B18"/>
@@ -16,7 +16,7 @@
       font-size="20"
       font-weight="700"
       letter-spacing="2.8"
-    >OBS-UNIFIED</text>
+    >OBSERVABILITY UNIFIED</text>
   </g>
 
   <text
@@ -32,18 +32,16 @@
     x="96" y="328"
     fill="#1A1C1C"
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
-    font-size="92"
+    font-size="76"
     font-weight="300"
-    letter-spacing="-2.2"
-  >Every signal,</text>
+  >Debug AI agents.</text>
   <text
     x="96" y="424"
     fill="#006B18"
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
-    font-size="92"
+    font-size="76"
     font-weight="300"
-    letter-spacing="-2.2"
-  >two clicks away.</text>
+  >Help agents debug.</text>
 
   <text
     x="96" y="478"
@@ -51,7 +49,7 @@
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
     font-size="22"
     font-weight="400"
-  >Traces · Logs · AI calls · Replay · Usage · Alerts · Profiles</text>
+  >One graph for traces, logs, replay, AI cost, MCP, and CPU.</text>
 
   <rect x="40" y="540" width="1120" height="50" fill="#F3F3F3"/>
   <text
@@ -60,7 +58,7 @@
     font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
     font-size="14"
     font-weight="500"
-  >obs-unified.dev</text>
+  >obsunified.com</text>
   <text
     x="1104" y="572"
     text-anchor="end"

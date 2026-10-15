@@ -80,8 +80,14 @@
 			"indexedTraceId": "0a000000000000000000000000000001",
 			"note": "Design/spec frames only. Automated test asserts HTTP 200 and rail link presence; it does not parse pprof protobuf frames or prove hot frame dominance.",
 			"frames": [
-				{ "function": "checkout.handle", "file": "apps/obs-demo/src/routes/checkout.ts" },
-				{ "function": "payment.charge", "file": "packages/payments/src/charge.ts" },
+				{
+					"function": "checkout.handle",
+					"file": "apps/obs-demo/src/routes/checkout.ts"
+				},
+				{
+					"function": "payment.charge",
+					"file": "packages/payments/src/charge.ts"
+				},
 				{ "function": "json.parse", "file": "node:internal/json" }
 			]
 		},

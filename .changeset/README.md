@@ -10,9 +10,11 @@ This folder is managed by
    `minor` / `major`). Changesets writes a markdown file under `.changeset/`
    capturing intent.
 3. Commit the changeset alongside your code change in the same PR.
-4. When the PR merges to `main`, the `release` workflow opens a "Version
-   Packages" PR that consumes pending changesets, bumps versions, and updates
-   changelogs. Merging that PR publishes to npm.
+4. After the PR merges to `main`, a maintainer runs `pnpm version-packages`
+   in a worktree to consume pending changesets, bump versions, and update
+   changelogs, merges that version PR, then runs `pnpm release` with npm
+   publish access. There is no GitHub Actions release workflow; see
+   [docs/release.md](../docs/release.md).
 
 ## Internal-only packages
 

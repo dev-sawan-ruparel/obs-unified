@@ -24,8 +24,13 @@
  *   pnpm --filter @obs-demo/web exec playwright test scenario-a-click-to-cpu.spec.ts
  */
 
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 import { gzipSync } from "node:zlib";
+import {
+	type APIRequestContext,
+	expect,
+	type Page,
+	test,
+} from "@playwright/test";
 
 const COLLECTOR_URL = process.env.OBS_COLLECTOR_URL ?? "http://localhost:8790";
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD ?? "e2e-test-pass";
@@ -120,16 +125,28 @@ const writeVarint = (out: number[], value: number) => {
 const writeTag = (out: number[], fieldNum: number, wireType: number) =>
 	writeVarint(out, (fieldNum << 3) | wireType);
 
-const writeLengthDelimited = (out: number[], fieldNum: number, bytes: number[]) => {
+const writeLengthDelimited = (
+	out: number[],
+	fieldNum: number,
+	bytes: number[],
+) => {
 	writeTag(out, fieldNum, 2);
 	writeVarint(out, bytes.length);
 	for (const byte of bytes) out.push(byte);
 };
 
 const writeString = (out: number[], fieldNum: number, value: string) =>
-	writeLengthDelimited(out, fieldNum, Array.from(new TextEncoder().encode(value)));
+	writeLengthDelimited(
+		out,
+		fieldNum,
+		Array.from(new TextEncoder().encode(value)),
+	);
 
-const writePackedVarints = (out: number[], fieldNum: number, values: number[]) => {
+const writePackedVarints = (
+	out: number[],
+	fieldNum: number,
+	values: number[],
+) => {
 	const inner: number[] = [];
 	for (const value of values) writeVarint(inner, value);
 	writeLengthDelimited(out, fieldNum, inner);
@@ -213,7 +230,10 @@ const encodePprofForTrace = (traceId: string): Buffer => {
 	return gzipSync(Uint8Array.from(out));
 };
 
-const ensureScenarioAFixture = async (request: APIRequestContext, cookie: string) => {
+const ensureScenarioAFixture = async (
+	request: APIRequestContext,
+	cookie: string,
+) => {
 	// Probe whether Scenario A trace is already ingested
 	const checkRes = await request.get(
 		`${COLLECTOR_URL}/internal/telemetry/traces/${SCENARIO_A.traceId}`,
@@ -251,7 +271,11 @@ const ensureScenarioAFixture = async (request: APIRequestContext, cookie: string
 						occurredAt: new Date(Date.now() - 60_000).toISOString(),
 						pagePath: "/api/checkout",
 						interactionId,
-						properties: { action: "click", target: "checkout-submit", seed: true },
+						properties: {
+							action: "click",
+							target: "checkout-submit",
+							seed: true,
+						},
 						context: { url: "http://localhost:5173/checkout" },
 					},
 				],
@@ -334,7 +358,10 @@ const ensureScenarioAFixture = async (request: APIRequestContext, cookie: string
 										status: { code: 1, message: "" },
 										attributes: [
 											kv("db.system", "postgresql"),
-											kv("db.statement", "INSERT INTO charges (...) VALUES (...)"),
+											kv(
+												"db.statement",
+												"INSERT INTO charges (...) VALUES (...)",
+											),
 											kv("seed.scenario", "A"),
 										],
 									},
@@ -376,9 +403,12 @@ const ensureScenarioAFixture = async (request: APIRequestContext, cookie: string
 	}
 
 	// 4. Ensure alert rule exists
-	const rulesCheckRes = await request.get(`${COLLECTOR_URL}/internal/alerts/rules`, {
-		headers: { Cookie: cookie, "X-Project-Id": PROJECT_ID },
-	});
+	const rulesCheckRes = await request.get(
+		`${COLLECTOR_URL}/internal/alerts/rules`,
+		{
+			headers: { Cookie: cookie, "X-Project-Id": PROJECT_ID },
+		},
+	);
 	const rulesJson = (await rulesCheckRes.json().catch(() => ({}))) as {
 		rules?: Array<{ name: string; query?: { spanName?: string } }>;
 	};
@@ -389,23 +419,27 @@ const ensureScenarioAFixture = async (request: APIRequestContext, cookie: string
 			r.query?.spanName?.includes("checkout"),
 	);
 	if (!hasCheckoutAlert) {
-		await request.post(`${COLLECTOR_URL}/internal/alerts/rules`, {
-			headers: {
-				Cookie: cookie,
-				"Content-Type": "application/json",
-				"X-Project-Id": PROJECT_ID,
-			},
-			data: {
-				name: "Slow checkout p95",
-				signal: "spans",
-				query: { spanName: "POST /api/checkout" },
-				threshold: 1,
-				windowMins: 15,
-				comparison: ">=",
-				channels: [{ type: "webhook", url: "https://hooks.example.com/checkout-slow" }],
-				enabled: true,
-			},
-		}).catch(() => {});
+		await request
+			.post(`${COLLECTOR_URL}/internal/alerts/rules`, {
+				headers: {
+					Cookie: cookie,
+					"Content-Type": "application/json",
+					"X-Project-Id": PROJECT_ID,
+				},
+				data: {
+					name: "Slow checkout p95",
+					signal: "spans",
+					query: { spanName: "POST /api/checkout" },
+					threshold: 1,
+					windowMins: 15,
+					comparison: ">=",
+					channels: [
+						{ type: "webhook", url: "https://hooks.example.com/checkout-slow" },
+					],
+					enabled: true,
+				},
+			})
+			.catch(() => {});
 	}
 };
 
@@ -417,9 +451,12 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 		await ensureScenarioAFixture(request, cookie);
 
 		// Step 1 — Alert rule captures slow checkout latency
-		const rulesRes = await request.get(`${COLLECTOR_URL}/internal/alerts/rules`, {
-			headers: { Cookie: cookie, "X-Project-Id": PROJECT_ID },
-		});
+		const rulesRes = await request.get(
+			`${COLLECTOR_URL}/internal/alerts/rules`,
+			{
+				headers: { Cookie: cookie, "X-Project-Id": PROJECT_ID },
+			},
+		);
 		expect(rulesRes.status(), "GET /internal/alerts/rules").toBe(200);
 		const rulesBody = (await rulesRes.json()) as {
 			rules: Array<{
@@ -435,14 +472,20 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 				r.name.toLowerCase().includes("checkout") ||
 				r.query?.spanName?.includes("checkout"),
 		);
-		expect(checkoutAlert, "alert rule for checkout latency must exist").toBeDefined();
+		expect(
+			checkoutAlert,
+			"alert rule for checkout latency must exist",
+		).toBeDefined();
 
 		// Step 2 — Trace waterfall exposes root POST /api/checkout and hot span payment.charge
 		const traceRes = await request.get(
 			`${COLLECTOR_URL}/internal/telemetry/traces/${SCENARIO_A.traceId}`,
 			{ headers: { Cookie: cookie, "X-Project-Id": PROJECT_ID } },
 		);
-		expect(traceRes.status(), `GET /internal/telemetry/traces/${SCENARIO_A.traceId}`).toBe(200);
+		expect(
+			traceRes.status(),
+			`GET /internal/telemetry/traces/${SCENARIO_A.traceId}`,
+		).toBe(200);
 		const traceData = (await traceRes.json()) as {
 			trace: { traceId: string; serviceName: string };
 			spans: Array<{
@@ -452,18 +495,31 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 				attributes: Record<string, unknown>;
 			}>;
 		};
-		expect(traceData.spans.length, "trace has expected spans").toBeGreaterThanOrEqual(3);
+		expect(
+			traceData.spans.length,
+			"trace has expected spans",
+		).toBeGreaterThanOrEqual(3);
 
-		const rootSpan = traceData.spans.find((s) => s.spanId === SCENARIO_A.rootSpanId);
+		const rootSpan = traceData.spans.find(
+			(s) => s.spanId === SCENARIO_A.rootSpanId,
+		);
 		expect(rootSpan, "root span exists").toBeDefined();
 		expect(rootSpan?.spanName).toBe("POST /api/checkout");
 
-		const paymentSpan = traceData.spans.find((s) => s.spanId === SCENARIO_A.paymentSpanId);
+		const paymentSpan = traceData.spans.find(
+			(s) => s.spanId === SCENARIO_A.paymentSpanId,
+		);
 		expect(paymentSpan, "payment.charge hot span exists").toBeDefined();
 		expect(paymentSpan?.parentSpanId).toBe(SCENARIO_A.rootSpanId);
-		const interactionId = paymentSpan?.attributes["obs.interaction.id"] as string | undefined;
-		const sessionId = paymentSpan?.attributes["session.id"] as string | undefined;
-		expect(interactionId, "payment span must have obs.interaction.id").toBeTruthy();
+		const interactionId = paymentSpan?.attributes["obs.interaction.id"] as
+			| string
+			| undefined;
+		const sessionId =
+			(paymentSpan?.attributes["session.id"] as string | undefined) ?? "";
+		expect(
+			interactionId,
+			"payment span must have obs.interaction.id",
+		).toBeTruthy();
 		expect(sessionId, "payment span must have session.id").toBeTruthy();
 
 		// Step 3 — Span Connected Rail exposes CPU profile in Down and originating click in Related
@@ -474,30 +530,49 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 		);
 
 		// DOWN: Must include CPU profile link
-		const profileSection = spanManifest.down.find((s) =>
-			s.label.toLowerCase().includes("cpu profile") || s.label.toLowerCase().includes("profile"),
+		const profileSection = spanManifest.down.find(
+			(s) =>
+				s.label.toLowerCase().includes("cpu profile") ||
+				s.label.toLowerCase().includes("profile"),
 		);
-		expect(profileSection, "span rail must surface CPU profile in Down").toBeDefined();
-		expect(profileSection?.links.length, "profile link must be populated").toBeGreaterThan(0);
+		expect(
+			profileSection,
+			"span rail must surface CPU profile in Down",
+		).toBeDefined();
+		expect(
+			profileSection?.links.length,
+			"profile link must be populated",
+		).toBeGreaterThan(0);
 		const profileLink = profileSection?.links[0];
-		expect(profileLink?.href).toMatch(/#\/profiles\/[^?]+\?trace_id=0a000000000000000000000000000001/);
+		expect(profileLink?.href).toMatch(
+			/#\/profiles\/[^?]+\?trace_id=0a000000000000000000000000000001/,
+		);
 
 		const profileIdMatch = profileLink?.href.match(/#\/profiles\/([^?]+)/);
 		expect(profileIdMatch, "extract profileId from href").not.toBeNull();
-		const profileId = decodeURIComponent(profileIdMatch![1]);
+		const profileId = decodeURIComponent(profileIdMatch?.[1] ?? "");
 
 		// RELATED: Must surface originating click
 		const clickSection = spanManifest.related.find((s) =>
 			s.label.toLowerCase().includes("click"),
 		);
-		expect(clickSection, "span rail must offer originating click").toBeDefined();
-		expect(clickSection?.links.length, "originating click link populated").toBeGreaterThan(0);
+		expect(
+			clickSection,
+			"span rail must offer originating click",
+		).toBeDefined();
+		expect(
+			clickSection?.links.length,
+			"originating click link populated",
+		).toBeGreaterThan(0);
 
 		// UP: Must surface parent session
 		const sessionSection = spanManifest.up.find((s) =>
 			s.label.toLowerCase().includes("session"),
 		);
-		expect(sessionSection, "span rail must surface parent session in Up").toBeDefined();
+		expect(
+			sessionSection,
+			"span rail must surface parent session in Up",
+		).toBeDefined();
 
 		// Step 4 — Profile detail / flame graph join and sampled traces cohort
 		const profileReadRes = await request.get(
@@ -515,12 +590,19 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 			`/internal/connected/profile/${encodeURIComponent(profileId)}`,
 		);
 		expect(profileManifest.entity.kind).toBe("profile");
-		const sampledTracesSection = profileManifest.across.find((s) =>
-			s.label.toLowerCase().includes("sampled trace") || s.label.toLowerCase().includes("trace"),
+		const sampledTracesSection = profileManifest.across.find(
+			(s) =>
+				s.label.toLowerCase().includes("sampled trace") ||
+				s.label.toLowerCase().includes("trace"),
 		);
-		expect(sampledTracesSection, "profile rail must surface sampled traces in Across").toBeDefined();
 		expect(
-			sampledTracesSection?.links.some((l) => l.href.includes(SCENARIO_A.traceId)),
+			sampledTracesSection,
+			"profile rail must surface sampled traces in Across",
+		).toBeDefined();
+		expect(
+			sampledTracesSection?.links.some((l) =>
+				l.href.includes(SCENARIO_A.traceId),
+			),
 			"sampled traces include Scenario A trace",
 		).toBeTruthy();
 
@@ -528,14 +610,19 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 		const sessionManifest = await fetchManifest(
 			request,
 			cookie,
-			`/internal/connected/usage/${encodeURIComponent(sessionId!)}?session_id=${encodeURIComponent(sessionId!)}`,
+			`/internal/connected/usage/${encodeURIComponent(sessionId)}?session_id=${encodeURIComponent(sessionId)}`,
 		);
 		const sessionSpansSection = sessionManifest.across.find((s) =>
 			s.label.toLowerCase().includes("span"),
 		);
-		expect(sessionSpansSection, "session rail must surface spans Across").toBeDefined();
 		expect(
-			sessionSpansSection?.links.some((l) => l.href.includes(SCENARIO_A.traceId)),
+			sessionSpansSection,
+			"session rail must surface spans Across",
+		).toBeDefined();
+		expect(
+			sessionSpansSection?.links.some((l) =>
+				l.href.includes(SCENARIO_A.traceId),
+			),
 			"session Across links back to Scenario A trace",
 		).toBeTruthy();
 	});
@@ -549,28 +636,40 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 		await loginPage(page);
 
 		// 2. Navigate directly to Scenario A trace waterfall
-		await page.goto(`/#/traces?service=checkout-api&trace=${SCENARIO_A.traceId}`);
+		await page.goto(
+			`/#/traces?service=checkout-api&trace=${SCENARIO_A.traceId}`,
+		);
 		await page.waitForLoadState("networkidle");
 
 		// Root span and child payment.charge should be rendered in trace view
-		await expect(page.locator("body")).toContainText("POST /api/checkout", { timeout: 15_000 });
-		await expect(page.locator("body")).toContainText("payment.charge", { timeout: 15_000 });
+		await expect(page.locator("body")).toContainText("POST /api/checkout", {
+			timeout: 15_000,
+		});
+		await expect(page.locator("body")).toContainText("payment.charge", {
+			timeout: 15_000,
+		});
 
 		// Locate and click the payment.charge span row to expand span detail & ConnectedRail
 		const paymentSpanButton = page
-			.locator('button[title="payment.charge"], button:has-text("payment.charge")')
+			.locator(
+				'button[title="payment.charge"], button:has-text("payment.charge")',
+			)
 			.first();
 		await expect(paymentSpanButton).toBeVisible();
 		await paymentSpanButton.click();
 
 		// ConnectedRail on span should render with canonical sections
-		await expect(page.getByText(/CONNECTED — SPAN/i)).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByText(/CONNECTED — SPAN/i)).toBeVisible({
+			timeout: 10_000,
+		});
 		await expect(page.getByText(/^Down$/i)).toBeVisible();
 		await expect(page.getByText(/^Related$/i)).toBeVisible();
 
 		// Profile button or link in waterfall / ConnectedRail
 		const profileAction = page
-			.locator('a[href*="#/profiles/"], button:has-text("Profile checkout-api/cpu")')
+			.locator(
+				'a[href*="#/profiles/"], button:has-text("Profile checkout-api/cpu")',
+			)
 			.first();
 		await expect(profileAction).toBeVisible();
 
@@ -579,8 +678,11 @@ test.describe("Scenario A — Click-to-CPU / Connected Rail integration", () => 
 		await page.waitForLoadState("networkidle");
 
 		// Confirm profile surface renders flame graph or profile detail
-		await expect(page.locator("body")).toContainText(/Profile|Flame graph|checkout-api/i, {
-			timeout: 10_000,
-		});
+		await expect(page.locator("body")).toContainText(
+			/Profile|Flame graph|checkout-api/i,
+			{
+				timeout: 10_000,
+			},
+		);
 	});
 });

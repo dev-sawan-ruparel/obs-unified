@@ -134,7 +134,9 @@ export interface OnboardingDashboardProps {
 	onNavigate?: (href: string) => void;
 }
 
-export function OnboardingDashboard({ onNavigate }: OnboardingDashboardProps = {}) {
+export function OnboardingDashboard({
+	onNavigate,
+}: OnboardingDashboardProps = {}) {
 	const api = useApi();
 	const [counts, setCounts] = useState<SignalCounts | null>(null);
 
@@ -180,7 +182,10 @@ export function OnboardingDashboard({ onNavigate }: OnboardingDashboardProps = {
 				</p>
 			</header>
 
-			<section aria-labelledby="core-signals-heading" style={{ marginBottom: 36 }}>
+			<section
+				aria-labelledby="core-signals-heading"
+				style={{ marginBottom: 36 }}
+			>
 				<h2
 					id="core-signals-heading"
 					style={{
@@ -302,10 +307,11 @@ export function OnboardingDashboard({ onNavigate }: OnboardingDashboardProps = {
 							lineHeight: 1.5,
 						}}
 					>
-						Built for agentic debugging: once your core signals are flowing, explore these
-						shipped investigation surfaces, causal action graphs, and evidence retrieval
-						tools. These capabilities build on your existing telemetry and do not require
-						emitting separate signal counts or telemetry milestones.
+						Built for agentic debugging: once your core signals are flowing,
+						explore these shipped investigation surfaces, causal action graphs,
+						and evidence retrieval tools. These capabilities build on your
+						existing telemetry and do not require emitting separate signal
+						counts or telemetry milestones.
 					</p>
 				</div>
 
@@ -417,7 +423,12 @@ export function OnboardingDashboard({ onNavigate }: OnboardingDashboardProps = {
 										</span>
 										<a
 											href={cap.productSurface.href}
-											onClick={(e) => handleNavigate(e, cap.productSurface!.href)}
+											onClick={(e) =>
+												handleNavigate(
+													e,
+													e.currentTarget.getAttribute("href") ?? "",
+												)
+											}
 											style={{
 												color: "var(--color-sys-primary)",
 												fontWeight: 600,
@@ -474,10 +485,7 @@ export function OnboardingDashboard({ onNavigate }: OnboardingDashboardProps = {
 											}}
 										>
 											{doc.label}
-											<span
-												aria-hidden
-												style={{ fontSize: 10, lineHeight: 1 }}
-											>
+											<span aria-hidden style={{ fontSize: 10, lineHeight: 1 }}>
 												↗
 											</span>
 										</a>

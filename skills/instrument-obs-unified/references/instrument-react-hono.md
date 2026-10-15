@@ -339,5 +339,5 @@ a propagation delay, alert if the expected spans are missing.
   [packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/packages/telemetry-sdk/INSTRUMENTATION_GUIDE.md)
 - Interaction-id spec: [docs/spec/interaction-id.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/spec/interaction-id.md)
 - Non-Node / non-browser runtimes: [docs/recipes/](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/)
-- Full working example: the planned shop-demo repo, see
-  [docs/implementation/shop-demo.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/implementation/shop-demo.md)
+- Full working example: the OpenTelemetry Astronomy Shop demo wiring in
+  [demo/README.md](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/demo/README.md)

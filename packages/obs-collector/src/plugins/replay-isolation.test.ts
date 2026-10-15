@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { Hono, type MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { describe, expect, it } from "vitest";
 import { createTelemetryCollectorApp } from "../framework/collector";
 import type { CollectorEnv } from "../framework/env";

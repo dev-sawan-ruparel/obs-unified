@@ -30,7 +30,7 @@ dashboard (`__COLLECTOR_URL__`) and you'll see:
 
 ## Going further
 
-- Read [docs/instrumenting](https://obs-unified-docs.dev/docs/instrumenting) for
+- Read [docs/instrumenting](https://docs.obsunified.com/docs/instrumenting) for
   the full set of primitives.
 - The button is auto-tracked. Switch to `trackInteraction("event_name", {...})`
   for business-meaningful events.
