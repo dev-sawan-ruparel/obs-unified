@@ -1,6 +1,9 @@
-import { buildCanonicalNodeId, buildFindingFingerprint } from "@obsunified/types";
+import {
+	buildCanonicalNodeId,
+	buildFindingFingerprint,
+} from "@obsunified/types";
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CollectorRuntime } from "../framework/collector";
 import type { CollectorEnv } from "../framework/env";
 import {
@@ -8,13 +11,25 @@ import {
 	findCrossTraceContention,
 	recordChangeEvent,
 } from "../lib/autosre-change-correlation";
+import { recordInvestigationFinding } from "../lib/autosre-findings";
 import {
 	computeTarjanScc,
 	extractSpanLineageAndTopology,
 	localizeTraceFaultLocus,
 	upsertOntologyFromSpans,
 } from "../lib/autosre-ontology";
-import { evaluateRemediationWatchdogs } from "../lib/autosre-remediation-gate";
+import {
+	acquireIncidentLease,
+	claimRemediationGrant,
+	completeRemediationProposal,
+	dispatchIncidentWebhook,
+	evaluateRemediationWatchdogs,
+	failRemediationProposal,
+	openOrDeduplicateIncident,
+	proposeRemediationAction,
+	RemediationGateError,
+	rejectRemediationProposal,
+} from "../lib/autosre-remediation-gate";
 import {
 	createMigratedSqliteDb,
 	type NodeSqliteDb,
@@ -629,8 +644,7 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 
 		// 1. Seed concurrent v2.4.0 traffic (60 spans, 1 error = 1.67% error rate)
 		// and canary v2.4.1 traffic (60 spans, 15 errors = 25% error rate) with code stackframe in src/checkout/inventory.ts
-		const dbNodeId =
-			"database:prod:postgresql:pg-primary.internal:5432/orders";
+		const dbNodeId = "database:prod:postgresql:pg-primary.internal:5432/orders";
 		const serviceNodeId = "service:prod:default:checkout-api";
 
 		for (let i = 0; i < 60; i++) {
@@ -704,10 +718,7 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 					commitSha: "8f3a1b2",
 					previousCommitSha: "1111111",
 					summary: "Deploy checkout-api v2.4.1 (batch inventory lock)",
-					touchedPaths: [
-						"src/checkout/inventory.ts",
-						"src/checkout/routes.ts",
-					],
+					touchedPaths: ["src/checkout/inventory.ts", "src/checkout/routes.ts"],
 					occurredAt: new Date(deployTime).toISOString(),
 				}),
 			},
@@ -835,7 +846,8 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 					faultLocusEntityId: "sp_new_0",
 					rootCauseEntityKind: "change",
 					rootCauseEntityId: "chg_deploy_241",
-					contributingChangeId: "chg_deploy_241",
+					// No contributingChangeId: the server cannot recompute a cohort
+					// verdict, so the proof tier stays corroborated_candidate.
 					cohortVerdict: "shared_degradation_new_version_aggressor",
 					causalChain: [
 						{
@@ -852,7 +864,7 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 						{
 							subjectKind: "span",
 							subjectId: "sp_new_0",
-							predicate: "stackframe_overlaps_changed_file",
+							predicate: "touched_same_code_path",
 							objectKind: "change",
 							objectId: "chg_deploy_241",
 							relationshipCertainty: "exact",
@@ -926,9 +938,13 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 				headers: {
 					"Content-Type": "application/json",
 					Cookie: "obs_session=sess_human_operator_123",
+					// Client-supplied identities must be ignored (B15).
 					"X-Obs-User-Actor": "sawan@obsunified.dev",
 				},
-				body: JSON.stringify({ environment: "prod" }),
+				body: JSON.stringify({
+					environment: "prod",
+					approvedByUserId: "ceo@example.com",
+				}),
 			},
 			env,
 		);
@@ -938,8 +954,11 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 			grantToken: string;
 		};
 		expect(humanApproveBody.proposal.status).toBe("grant_issued");
-		expect(humanApproveBody.proposal.approvedByUserId).toBe(
-			"sawan@obsunified.dev",
+		expect(humanApproveBody.proposal.approvedByUserId).toMatch(
+			/^dashboard_session:[0-9a-f]{16}$/,
+		);
+		expect(humanApproveBody.proposal.approvedByUserId).not.toContain(
+			"sess_human_operator_123",
 		);
 		expect(humanApproveBody.grantToken).toMatch(/^rgt_/);
 
@@ -954,7 +973,8 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 					sourceEntityType: "trace",
 					sourceEntityId: "tr_new_0",
 					name: "Reproduce checkout lock timeout",
-					expectedOutcome: "Checkout completes under 200ms without lock timeout",
+					expectedOutcome:
+						"Checkout completes under 200ms without lock timeout",
 				}),
 			},
 			env,
@@ -1136,6 +1156,7 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					environment: "prod",
+					runnerId: "runner-alpha",
 					resultingChangeId: rollbackChange.id,
 					remediationAgentRunId: "arun_autosre_1",
 				}),
@@ -1185,8 +1206,19 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 			)
 			.run(new Date(postRollbackBase + 40_000).toISOString(), finding.id);
 
-		const watchdogRecovered = await evaluateRemediationWatchdogs(db, {
+		// A single healthy checkpoint is not enough (B11): two consecutive
+		// sufficient-traffic ok checkpoints are required before `recovered`.
+		const watchdogFirstOk = await evaluateRemediationWatchdogs(db, {
 			nowIso: new Date(postRollbackBase + 50_000).toISOString(),
+		});
+		expect(watchdogFirstOk.recovered).toBe(0);
+		db.raw
+			.prepare(
+				`UPDATE investigation_findings SET next_watchdog_check_at = ? WHERE id = ?`,
+			)
+			.run(new Date(postRollbackBase + 60_000).toISOString(), finding.id);
+		const watchdogRecovered = await evaluateRemediationWatchdogs(db, {
+			nowIso: new Date(postRollbackBase + 70_000).toISOString(),
 		});
 		expect(watchdogRecovered.recovered).toBe(1);
 
@@ -1326,6 +1358,864 @@ describe("RFC 0013 — AutoSRE Causal Ontology, Change Correlation & Closed-Loop
 			),
 		).toBe(true);
 
+		db.close();
+	});
+});
+
+describe("AutoSRE governance hardening", () => {
+	const DEPLOY = Date.parse("2026-10-15T03:00:00.000Z");
+	const SERVICE_NODE = "service:prod:default:checkout-api";
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	/** v2.4.0 healthy, v2.4.1 at 25% errors, plus the deploy change event. */
+	const seedIsolatedCohort = async (db: NodeSqliteDb) => {
+		for (let i = 0; i < 60; i++) {
+			const t = new Date(DEPLOY + (i + 1) * 1000).toISOString();
+			const end = new Date(DEPLOY + (i + 1) * 1000 + 40).toISOString();
+			insertSpan(db, {
+				traceId: `g_base_${i}`,
+				spanId: `g_base_sp_${i}`,
+				serviceName: "checkout-api",
+				spanName: "POST /checkout",
+				statusCode: i === 0 ? 2 : 1,
+				startTime: t,
+				endTime: end,
+				durationMs: 40,
+				serviceVersion: "v2.4.0",
+			});
+			insertSpan(db, {
+				traceId: `g_new_${i}`,
+				spanId: `g_new_sp_${i}`,
+				serviceName: "checkout-api",
+				spanName: "POST /checkout",
+				statusCode: i < 15 ? 2 : 1,
+				startTime: t,
+				endTime: end,
+				durationMs: 40,
+				serviceVersion: "v2.4.1",
+			});
+		}
+		await recordChangeEvent(db, "default", {
+			id: "chg_gov",
+			environment: "prod",
+			kind: "deploy",
+			serviceName: "checkout-api",
+			version: "v2.4.1",
+			previousVersion: "v2.4.0",
+			summary: "Deploy v2.4.1",
+			occurredAt: new Date(DEPLOY).toISOString(),
+		});
+	};
+
+	const newIncident = async (db: NodeSqliteDb, fingerprint = "fp_gov") =>
+		(
+			await openOrDeduplicateIncident(db, "default", {
+				environment: "prod",
+				targetNodeId: SERVICE_NODE,
+				symptomAnchorKind: "trace",
+				symptomAnchorId: "t1",
+				symptomFingerprint: fingerprint,
+				symptomCategory: fingerprint,
+			})
+		).incident;
+
+	const newFinding = (
+		db: NodeSqliteDb,
+		incidentId: string,
+		extra: Partial<Parameters<typeof recordInvestigationFinding>[2]> = {},
+	) =>
+		recordInvestigationFinding(db, "default", {
+			environment: "prod",
+			incidentId,
+			title: "Checkout regression",
+			summary: "Errors after deploy",
+			causalProofTier: "corroborated_candidate",
+			symptomEntityKind: "trace",
+			symptomEntityId: "t1",
+			faultLocusEntityKind: "service",
+			faultLocusEntityId: SERVICE_NODE,
+			causalChain: [],
+			citedEvidenceIds: [],
+			...extra,
+		});
+
+	const propose = (
+		db: NodeSqliteDb,
+		incidentId: string,
+		findingId: string,
+		key: string,
+		extra: Record<string, unknown> = {},
+	) =>
+		proposeRemediationAction(db, "default", {
+			environment: "prod",
+			incidentId,
+			findingId,
+			idempotencyKey: key,
+			actionKind: "rollback_deploy",
+			targetNodeId: SERVICE_NODE,
+			expectedCurrentState: {},
+			desiredTargetState: { version: "v2.4.0" },
+			requestedAutonomy: "autonomous_write",
+			...extra,
+		} as Parameters<typeof proposeRemediationAction>[2]);
+
+	const grantedProposal = async (db: NodeSqliteDb, key = "idem_granted") => {
+		await seedIsolatedCohort(db);
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id, {
+			contributingChangeId: "chg_gov",
+		});
+		const proposal = await propose(db, incident.id, finding.id, key);
+		return { incident, finding, proposal };
+	};
+
+	it("B1: a client-asserted isolated_to_new_version verdict cannot buy an autonomous rollback grant", async () => {
+		const db = createMigratedSqliteDb();
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id, {
+			cohortVerdict: "isolated_to_new_version",
+			causalProofTier: "cohort_rate_isolated",
+			causalChain: [
+				{
+					subjectKind: "service",
+					subjectId: SERVICE_NODE,
+					predicate: "isolated_to_version_cohort",
+					objectKind: "change",
+					objectId: "chg_missing",
+					relationshipCertainty: "exact",
+					causalProofTier: "cohort_rate_isolated",
+					confidence: 0.99,
+					reason: "asserted by client",
+				},
+			],
+		});
+		expect(finding.causalProofTier).toBe("corroborated_candidate");
+		expect(finding.cohortVerdict).toBeNull();
+
+		const proposal = await propose(db, incident.id, finding.id, "idem_b1");
+		expect(proposal.status).toBe("pending_human_approval");
+		expect(proposal.grantToken).toBeUndefined();
+
+		// Pointing at a real change whose telemetry does not show isolation
+		// (no spans at all) does not help either.
+		await recordChangeEvent(db, "default", {
+			id: "chg_empty",
+			environment: "prod",
+			kind: "deploy",
+			serviceName: "checkout-api",
+			version: "v9",
+			summary: "no telemetry",
+		});
+		const f2 = await newFinding(db, incident.id, {
+			cohortVerdict: "isolated_to_new_version",
+			contributingChangeId: "chg_empty",
+		});
+		expect(f2.causalProofTier).toBe("corroborated_candidate");
+		db.close();
+	});
+
+	it("B1: the server-recomputed isolated verdict is what yields cohort_rate_isolated and an autonomous grant", async () => {
+		const db = createMigratedSqliteDb();
+		const { finding, proposal } = await grantedProposal(db);
+		expect(finding.causalProofTier).toBe("cohort_rate_isolated");
+		expect(finding.cohortVerdict).toBe("isolated_to_new_version");
+		expect(proposal.status).toBe("grant_issued");
+		expect(proposal.grantToken).toMatch(/^rgt_/);
+		db.close();
+	});
+
+	it("B2: a grant token is single-use, sequentially and under concurrent claims", async () => {
+		const db = createMigratedSqliteDb();
+		const { proposal } = await grantedProposal(db);
+		const token = proposal.grantToken as string;
+
+		await claimRemediationGrant(db, "default", proposal.id, {
+			environment: "prod",
+			grantToken: token,
+			runnerId: "r1",
+		});
+		await expect(
+			claimRemediationGrant(db, "default", proposal.id, {
+				environment: "prod",
+				grantToken: token,
+				runnerId: "r2",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+
+		// Concurrent claims on a fresh grant: exactly one wins.
+		const second = await propose(
+			db,
+			proposal.incidentId,
+			proposal.findingId,
+			"idem_b2_conc",
+			{ actionKind: "toggle_feature_flag" },
+		);
+		const results = await Promise.allSettled(
+			["a", "b", "c", "d"].map((runnerId) =>
+				claimRemediationGrant(db, "default", second.id, {
+					environment: "prod",
+					grantToken: second.grantToken as string,
+					runnerId,
+				}),
+			),
+		);
+		expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+		for (const r of results) {
+			if (r.status === "rejected") {
+				expect(r.reason).toBeInstanceOf(RemediationGateError);
+				expect((r.reason as RemediationGateError).statusCode).toBe(409);
+			}
+		}
+		db.close();
+	});
+
+	it("B2: a wrong token is rejected with 403 and does not consume the grant", async () => {
+		const db = createMigratedSqliteDb();
+		const { proposal } = await grantedProposal(db);
+		await expect(
+			claimRemediationGrant(db, "default", proposal.id, {
+				environment: "prod",
+				grantToken: "rgt_wrong",
+			}),
+		).rejects.toMatchObject({ statusCode: 403 });
+		const ok = await claimRemediationGrant(db, "default", proposal.id, {
+			environment: "prod",
+			grantToken: proposal.grantToken as string,
+		});
+		expect(ok.status).toBe("claimed_executing");
+		db.close();
+	});
+
+	it("B3: concurrent lease acquisition has exactly one winner; expired leases can be taken over", async () => {
+		const db = createMigratedSqliteDb();
+		const incident = await newIncident(db);
+		const results = await Promise.all(
+			["a", "b", "c"].map((runnerId) =>
+				acquireIncidentLease(db, "default", incident.id, {
+					environment: "prod",
+					runnerId,
+				}),
+			),
+		);
+		const winners = results.filter((r) => r.acquired);
+		expect(winners).toHaveLength(1);
+		const owner = (winners[0] as { incident: { leaseOwnerId: string } })
+			.incident.leaseOwnerId;
+		// The owner can renew; a rival cannot until expiry.
+		expect(
+			(
+				await acquireIncidentLease(db, "default", incident.id, {
+					environment: "prod",
+					runnerId: owner,
+				})
+			).acquired,
+		).toBe(true);
+		const rival = owner === "a" ? "b" : "a";
+		expect(
+			(
+				await acquireIncidentLease(db, "default", incident.id, {
+					environment: "prod",
+					runnerId: rival,
+				})
+			).acquired,
+		).toBe(false);
+		const later = new Date(Date.now() + 3600_000).toISOString();
+		const takeover = await acquireIncidentLease(db, "default", incident.id, {
+			environment: "prod",
+			runnerId: rival,
+			nowIso: later,
+		});
+		expect(takeover.acquired).toBe(true);
+		db.close();
+	});
+
+	it("B4: concurrent alerts for one symptom open exactly one active incident", async () => {
+		const db = createMigratedSqliteDb();
+		const results = await Promise.all(
+			Array.from({ length: 6 }, () =>
+				openOrDeduplicateIncident(db, "default", {
+					environment: "prod",
+					targetNodeId: SERVICE_NODE,
+					symptomAnchorKind: "alert",
+					symptomAnchorId: "a1",
+					symptomCategory: "race",
+				}),
+			),
+		);
+		expect(results.filter((r) => !r.deduplicated)).toHaveLength(1);
+		expect(new Set(results.map((r) => r.incident.id)).size).toBe(1);
+		const count = db.raw
+			.prepare(`SELECT COUNT(*) AS n FROM incident_investigations`)
+			.get() as { n: number };
+		expect(count.n).toBe(1);
+		expect(results[0].incident.alertCount).toBeGreaterThanOrEqual(1);
+
+		// The database itself refuses a second active row for the same key.
+		expect(() =>
+			db.raw
+				.prepare(
+					`INSERT INTO incident_investigations (project_id, environment, id, dedup_key, status, target_node_id, symptom_anchor_kind, symptom_anchor_id, opened_at, updated_at)
+					 SELECT project_id, environment, 'dupe', dedup_key, 'open', target_node_id, symptom_anchor_kind, symptom_anchor_id, opened_at, updated_at FROM incident_investigations`,
+				)
+				.run(),
+		).toThrow(/UNIQUE/i);
+		// Once resolved, a new incident for the same symptom is allowed.
+		db.raw
+			.prepare(`UPDATE incident_investigations SET status = 'resolved'`)
+			.run();
+		const reopened = await openOrDeduplicateIncident(db, "default", {
+			environment: "prod",
+			targetNodeId: SERVICE_NODE,
+			symptomAnchorKind: "alert",
+			symptomAnchorId: "a1",
+			symptomCategory: "race",
+		});
+		expect(reopened.deduplicated).toBe(false);
+		db.close();
+	});
+
+	it("B5: concurrent proposals with one idempotency key return the same row instead of a DB error", async () => {
+		const db = createMigratedSqliteDb();
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id);
+		const results = await Promise.all(
+			Array.from({ length: 4 }, () =>
+				propose(db, incident.id, finding.id, "idem_same"),
+			),
+		);
+		expect(new Set(results.map((r) => r.id)).size).toBe(1);
+		await expect(
+			propose(db, incident.id, finding.id, "idem_same", {
+				actionKind: "apply_config",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+		db.close();
+	});
+
+	it("B6: the watchdog route ignores a client clock and only evaluates the caller's project", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		db.raw
+			.prepare(
+				`INSERT INTO investigation_findings (id, project_id, environment, fingerprint, fingerprint_input_json, title, summary, causal_proof_tier, causal_verification_status, confidence, confidence_breakdown_json, symptom_entity_kind, symptom_entity_id, fault_locus_entity_kind, fault_locus_entity_id, causal_chain_json, cited_evidence_ids_json, actor_type, actor_id, created_at, updated_at, recovery_status, watchdog_step, next_watchdog_check_at)
+				 VALUES ('fnd_other', 'other-project', 'prod', 'fp', '{}', 't', 's', 'corroborated_candidate', 'unverified', 0.5, '{}', 'trace', 't', 'service', 'service:prod:default:x', '[]', '[]', 'agent', 'a', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', 'monitoring', 1, '2026-01-01T00:02:00.000Z')`,
+			)
+			.run();
+		const res = await app.request(
+			"/internal/remediations/watchdog",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					nowIso: "2099-01-01T00:00:00.000Z",
+					minComparableRequests: 0,
+				}),
+			},
+			env,
+		);
+		expect(res.status).toBe(200);
+		expect(((await res.json()) as { evaluated: number }).evaluated).toBe(0);
+		const row = db.raw
+			.prepare(
+				`SELECT recovery_status FROM investigation_findings WHERE id = 'fnd_other'`,
+			)
+			.get() as { recovery_status: string };
+		expect(row.recovery_status).toBe("monitoring");
+		db.close();
+	});
+
+	it("B7: only the claiming runner can complete or fail, and only while claimed (and, for complete, unexpired)", async () => {
+		const db = createMigratedSqliteDb();
+		const { proposal } = await grantedProposal(db);
+		// Not yet claimed.
+		await expect(
+			completeRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+				runnerId: "r1",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+		await expect(
+			failRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+				runnerId: "r1",
+				failureReason: "x",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+
+		const t0 = new Date().toISOString();
+		await claimRemediationGrant(db, "default", proposal.id, {
+			environment: "prod",
+			grantToken: proposal.grantToken as string,
+			runnerId: "r1",
+			nowIso: t0,
+		});
+		await expect(
+			completeRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+				runnerId: "someone-else",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+		await expect(
+			completeRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+		await expect(
+			failRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+				runnerId: "someone-else",
+				failureReason: "x",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+		await expect(
+			completeRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+				runnerId: "r1",
+				nowIso: new Date(Date.parse(t0) + 6 * 60_000).toISOString(),
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+
+		const failed = await failRemediationProposal(db, "default", proposal.id, {
+			environment: "prod",
+			runnerId: "r1",
+			failureReason: "boom",
+		});
+		expect(failed.status).toBe("failed_execution");
+		// Terminal: cannot be failed or completed again.
+		await expect(
+			failRemediationProposal(db, "default", proposal.id, {
+				environment: "prod",
+				runnerId: "r1",
+				failureReason: "again",
+			}),
+		).rejects.toMatchObject({ statusCode: 409 });
+		db.close();
+	});
+
+	it("B8: incident webhooks refuse private targets and redirects, never follow redirects, and time out", async () => {
+		const db = createMigratedSqliteDb();
+		const incident = await newIncident(db);
+		const calls: Array<{ url: string; init: RequestInit }> = [];
+		const okFetch = (async (url: string, init: RequestInit) => {
+			calls.push({ url, init });
+			return new Response("ok", { status: 200 });
+		}) as unknown as typeof fetch;
+
+		const privateLookup = vi.fn(async () => ["10.0.0.5"]);
+		const refused = await dispatchIncidentWebhook(db, "default", incident.id, {
+			environment: "prod",
+			url: "https://internal.example.com/hook",
+			hostLookup: privateLookup,
+			fetchImpl: okFetch,
+		});
+		expect(refused.delivered).toBe(false);
+		expect(refused.error).toMatch(/private/);
+		const literal = await dispatchIncidentWebhook(db, "default", incident.id, {
+			environment: "prod",
+			url: "http://127.0.0.1:8080/hook",
+			fetchImpl: okFetch,
+		});
+		expect(literal.delivered).toBe(false);
+		const unresolvable = await dispatchIncidentWebhook(
+			db,
+			"default",
+			incident.id,
+			{
+				environment: "prod",
+				url: "https://nowhere.example.com/hook",
+				hostLookup: async () => {
+					throw new Error("ENOTFOUND");
+				},
+				fetchImpl: okFetch,
+			},
+		);
+		expect(unresolvable.delivered).toBe(false);
+		expect(calls).toHaveLength(0);
+
+		const delivered = await dispatchIncidentWebhook(
+			db,
+			"default",
+			incident.id,
+			{
+				environment: "prod",
+				url: "https://hooks.example.com/hook",
+				secret: "s3cret",
+				hostLookup: async () => ["93.184.216.34"],
+				fetchImpl: okFetch,
+			},
+		);
+		expect(delivered.delivered).toBe(true);
+		expect(calls).toHaveLength(1);
+		expect(calls[0].init.redirect).toBe("manual");
+		expect(calls[0].init.signal).toBeInstanceOf(AbortSignal);
+		expect(
+			(calls[0].init.headers as Record<string, string>)["X-Obs-Signature-256"],
+		).toMatch(/^sha256=[0-9a-f]{64}$/);
+
+		const redirected = await dispatchIncidentWebhook(
+			db,
+			"default",
+			incident.id,
+			{
+				environment: "prod",
+				url: "https://hooks.example.com/hook",
+				hostLookup: async () => ["93.184.216.34"],
+				fetchImpl: (async () =>
+					new Response(null, {
+						status: 302,
+						headers: { Location: "http://169.254.169.254/" },
+					})) as unknown as typeof fetch,
+			},
+		);
+		expect(redirected.delivered).toBe(false);
+		expect(redirected.error).toMatch(/Redirect/);
+		db.close();
+	});
+
+	it("B8: the dispatch route cannot disable the SSRF guard from the request body", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const incident = await newIncident(db);
+		const fetchSpy = vi.fn(async () => new Response("ok"));
+		vi.stubGlobal("fetch", fetchSpy);
+		const res = await app.request(
+			`/internal/incidents/${incident.id}/dispatch`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					environment: "prod",
+					webhookUrl: "http://127.0.0.1:9/hook",
+					allowPrivateNetworks: true,
+					allowPrivateWebhookTargets: true,
+				}),
+			},
+			env,
+		);
+		expect(res.status).toBe(502);
+		expect(fetchSpy).not.toHaveBeenCalled();
+
+		// The operator-level env flag is the only way to allow private targets.
+		const allowed = await app.request(
+			`/internal/incidents/${incident.id}/dispatch`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					environment: "prod",
+					webhookUrl: "http://127.0.0.1:9/hook",
+				}),
+			},
+			{ ...env, ALERT_WEBHOOK_ALLOW_PRIVATE: "true" },
+		);
+		expect(allowed.status).toBe(200);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+		db.close();
+	});
+
+	it("B9: approve -> grant token pushed over the webhook -> claim succeeds once -> second claim 409", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id); // corroborated: needs a human
+		const proposal = await propose(db, incident.id, finding.id, "idem_b9");
+		expect(proposal.status).toBe("pending_human_approval");
+
+		const bodies: Array<Record<string, unknown>> = [];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (_url: string, init: RequestInit) => {
+				bodies.push(JSON.parse(String(init.body)));
+				return new Response("ok", { status: 200 });
+			}),
+		);
+		const approveEnv = { ...env, ALERT_WEBHOOK_ALLOW_PRIVATE: "true" };
+		const approve = await app.request(
+			`/internal/remediations/${proposal.id}/approve`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Cookie: "obs_session=sess_b9",
+				},
+				body: JSON.stringify({
+					environment: "prod",
+					webhookUrl: "https://runner.example.com/grants",
+					secret: "hmac-secret",
+				}),
+			},
+			approveEnv,
+		);
+		expect(approve.status).toBe(200);
+		const approved = (await approve.json()) as {
+			grantToken: string;
+			webhookDelivery?: { delivered: boolean };
+		};
+		expect(approved.grantToken).toMatch(/^rgt_/);
+		expect(approved.webhookDelivery?.delivered).toBe(true);
+		expect(bodies).toHaveLength(1);
+		expect(bodies[0]).toMatchObject({
+			event: "autosre.remediation.grant_issued",
+			proposalId: proposal.id,
+			status: "grant_issued",
+			grantToken: approved.grantToken,
+			incidentId: incident.id,
+		});
+
+		const claim = (runnerId: string) =>
+			app.request(
+				`/internal/remediations/${proposal.id}/claim`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						environment: "prod",
+						grantToken: approved.grantToken,
+						runnerId,
+					}),
+				},
+				env,
+			);
+		expect((await claim("runner-x")).status).toBe(200);
+		expect((await claim("runner-y")).status).toBe(409);
+		db.close();
+	});
+
+	it("B12: the circuit breaker is scoped to fingerprint + action kind and ignores rejected proposals", async () => {
+		const db = createMigratedSqliteDb();
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id);
+		const mk = (key: string, extra: Record<string, unknown> = {}) =>
+			propose(db, incident.id, finding.id, key, extra);
+
+		const a = await mk("k1");
+		await mk("k2");
+		await mk("k3");
+		// A different action kind has its own budget.
+		expect(
+			(await mk("k_other", { actionKind: "apply_config" })).status,
+		).not.toBe("rejected");
+		// Rejecting one frees a slot, so the next proposal is not blocked.
+		await rejectRemediationProposal(db, "default", a.id, {
+			environment: "prod",
+			rejectedByUserId: "tester",
+		});
+		expect((await mk("k4")).status).toBe("pending_human_approval");
+		// Three live ones now exist: the next is blocked by policy.
+		const blocked = await mk("k5");
+		expect(blocked.status).toBe("rejected");
+		expect(blocked.policyDecisionReason).toMatch(/Circuit breaker/);
+		db.close();
+	});
+
+	it("B18: unknown incidents 404 and read_only/suggested_action requests never become grants", async () => {
+		const db = createMigratedSqliteDb();
+		const { incident, finding } = await (async () => {
+			await seedIsolatedCohort(db);
+			const incident = await newIncident(db);
+			const finding = await newFinding(db, incident.id, {
+				contributingChangeId: "chg_gov",
+			});
+			return { incident, finding };
+		})();
+		await expect(
+			propose(db, "inc_missing", finding.id, "idem_404"),
+		).rejects.toMatchObject({ statusCode: 404 });
+		for (const level of ["read_only", "suggested_action"]) {
+			const p = await propose(db, incident.id, finding.id, `idem_${level}`, {
+				requestedAutonomy: level,
+			});
+			expect(p.status).toBe("pending_human_approval");
+			expect(p.effectiveAutonomy).toBe(level);
+			expect(p.grantToken).toBeUndefined();
+		}
+		db.close();
+	});
+
+	it("B11: watchdog checkpoints are anchored to completion time and recovery needs two consecutive healthy checkpoints", async () => {
+		const db = createMigratedSqliteDb();
+		const { proposal, incident, finding } = await grantedProposal(db);
+		const t0 = Date.now();
+		const at = (offsetMs: number) => new Date(t0 + offsetMs).toISOString();
+		await claimRemediationGrant(db, "default", proposal.id, {
+			environment: "prod",
+			grantToken: proposal.grantToken as string,
+			runnerId: "r1",
+			nowIso: at(0),
+		});
+		await completeRemediationProposal(db, "default", proposal.id, {
+			environment: "prod",
+			runnerId: "r1",
+			nowIso: at(60_000),
+		});
+		const completedAt = t0 + 60_000;
+		const state = () =>
+			db.raw
+				.prepare(
+					`SELECT recovery_status, watchdog_step, consecutive_ok_checks, next_watchdog_check_at FROM investigation_findings WHERE id = ?`,
+				)
+				.get(finding.id) as {
+				recovery_status: string;
+				watchdog_step: number;
+				consecutive_ok_checks: number;
+				next_watchdog_check_at: string | null;
+			};
+		expect(state().next_watchdog_check_at).toBe(
+			new Date(completedAt + 2 * 60_000).toISOString(),
+		);
+
+		for (let i = 0; i < 60; i++) {
+			const t = new Date(completedAt + 30_000 + i * 100).toISOString();
+			insertSpan(db, {
+				traceId: `g_ok_${i}`,
+				spanId: `g_ok_sp_${i}`,
+				serviceName: "checkout-api",
+				spanName: "POST /checkout",
+				statusCode: 1,
+				startTime: t,
+				endTime: t,
+				durationMs: 20,
+				serviceVersion: "v2.4.0",
+			});
+		}
+
+		// Checkpoint 1 runs late (+10m): next checkpoint is still anchored on
+		// completion (+5m), not on "now + offset".
+		const first = await evaluateRemediationWatchdogs(db, {
+			projectId: "default",
+			nowIso: at(60_000 + 10 * 60_000),
+		});
+		expect(first.recovered).toBe(0);
+		expect(state()).toMatchObject({
+			recovery_status: "monitoring",
+			watchdog_step: 2,
+			consecutive_ok_checks: 1,
+			next_watchdog_check_at: new Date(completedAt + 5 * 60_000).toISOString(),
+		});
+
+		const second = await evaluateRemediationWatchdogs(db, {
+			projectId: "default",
+			nowIso: at(60_000 + 11 * 60_000),
+		});
+		expect(second.recovered).toBe(1);
+		expect(state().recovery_status).toBe("recovered");
+		const inc = db.raw
+			.prepare(`SELECT status FROM incident_investigations WHERE id = ?`)
+			.get(incident.id) as { status: string };
+		expect(inc.status).toBe("resolved");
+		db.close();
+	});
+
+	it("B14/B17: routes reject unknown predicates and invalid timestamps", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const post = (path: string, body: unknown) =>
+			app.request(
+				path,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(body),
+				},
+				env,
+			);
+
+		const badPredicate = await post("/internal/findings", {
+			title: "t",
+			summary: "s",
+			symptomEntityKind: "trace",
+			symptomEntityId: "t1",
+			faultLocusEntityKind: "service",
+			faultLocusEntityId: SERVICE_NODE,
+			causalChain: [
+				{
+					subjectKind: "trace",
+					subjectId: "t1",
+					predicate: "made_up_predicate",
+					objectKind: "span",
+					objectId: "s1",
+				},
+			],
+		});
+		expect(badPredicate.status).toBe(400);
+
+		const badDate = await post("/v1/changes", {
+			kind: "deploy",
+			summary: "x",
+			serviceName: "checkout-api",
+			occurredAt: "yesterday-ish",
+		});
+		expect(badDate.status).toBe(400);
+		const badKind = await post("/v1/changes", { kind: "nope", summary: "x" });
+		expect(badKind.status).toBe(400);
+
+		const offset = await post("/v1/changes", {
+			id: "chg_tz",
+			kind: "deploy",
+			summary: "x",
+			serviceName: "checkout-api",
+			environment: "prod",
+			source: "ci_webhook",
+			occurredAt: "2026-10-15T05:00:00+02:00",
+		});
+		expect(offset.status).toBe(201);
+		const created = (await offset.json()) as {
+			changeEvent: { occurredAt: string; source: string };
+		};
+		expect(created.changeEvent.occurredAt).toBe("2026-10-15T03:00:00.000Z");
+		expect(created.changeEvent.source).toBe("ci_webhook");
+
+		const badSince = await app.request(
+			"/internal/changes?since=garbage",
+			{},
+			env,
+		);
+		expect(badSince.status).toBe(400);
+		const okSince = await app.request(
+			"/internal/changes?since=2026-10-15T04:30:00%2B02:00",
+			{},
+			env,
+		);
+		expect(okSince.status).toBe(200);
+		expect(
+			((await okSince.json()) as { changes: unknown[] }).changes,
+		).toHaveLength(1);
+		db.close();
+	});
+
+	it("B15: the approver is derived from the session, never from client-supplied identity", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id);
+		const proposal = await propose(db, incident.id, finding.id, "idem_b15");
+		const res = await app.request(
+			`/internal/remediations/${proposal.id}/approve`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Cookie: "obs_session=sess_secret_cookie_value",
+					"X-Obs-User-Actor": "vp-of-engineering",
+				},
+				body: JSON.stringify({
+					environment: "prod",
+					approvedByUserId: "cto",
+					approvedBySession: "cfo",
+				}),
+			},
+			env,
+		);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			proposal: { approvedByUserId: string };
+		};
+		expect(body.proposal.approvedByUserId).toMatch(
+			/^dashboard_session:[0-9a-f]{16}$/,
+		);
 		db.close();
 	});
 });

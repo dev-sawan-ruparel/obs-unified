@@ -12,8 +12,8 @@ import {
 } from "../framework/logger";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import {
-	evaluateRemediationWatchdogs,
 	openOrDeduplicateIncident,
+	resolveServiceIncidentTarget,
 } from "../lib/autosre-remediation-gate";
 import { sqlDbFor } from "../lib/sql-db";
 import {
@@ -434,7 +434,6 @@ export async function evaluateAllRules(
 	const db = sqlDbFor(env);
 	const store = new AlertsStore(db, { allowPrivateWebhookTargets });
 	const rules = await store.listEnabledRules();
-	await evaluateRemediationWatchdogs(db).catch(() => undefined);
 	return evaluateRuleBatch(store, rules, {
 		logger,
 		tracer,
@@ -443,9 +442,18 @@ export async function evaluateAllRules(
 		allowPrivateWebhookTargets,
 		hostLookup: options?.hostLookup,
 		onAlertFiring: async (rule) => {
+			// Target the rule's service when it names one (environment taken from
+			// that service's latest spans); otherwise fall back to the rule itself.
+			const target = await resolveServiceIncidentTarget(
+				db,
+				rule.projectId,
+				(rule.query as { serviceName?: string }).serviceName,
+				`alert:${rule.id}`,
+				logger,
+			);
 			await openOrDeduplicateIncident(db, rule.projectId, {
-				environment: "default",
-				targetNodeId: `alert:${rule.id}`,
+				environment: target.environment,
+				targetNodeId: target.targetNodeId,
 				symptomAnchorKind: "alert",
 				symptomAnchorId: rule.id,
 			});

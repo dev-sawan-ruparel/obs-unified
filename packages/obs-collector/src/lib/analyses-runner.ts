@@ -36,7 +36,11 @@ import {
 	type Logger,
 } from "../framework/logger";
 import { AnalysesStore } from "./analyses-store";
-import { openOrDeduplicateIncident } from "./autosre-remediation-gate";
+import {
+	evaluateRemediationWatchdogs,
+	openOrDeduplicateIncident,
+	resolveServiceIncidentTarget,
+} from "./autosre-remediation-gate";
 import { generateNarrative, LlmCallError, type LlmConfig } from "./llm";
 import {
 	computeSignature,
@@ -292,6 +296,20 @@ export async function runAllDueAnalyses(
 		totals.narrated += summary.narrated;
 		totals.skipped += summary.skipped ?? 0;
 	}
+
+	// RFC 0013 § 5.B: the post-remediation watchdog (grant/claim timeouts and the
+	// +2m/+5m/+15m recovery checkpoints) rides the 1-minute tick so checkpoints
+	// are evaluated close to when they come due. Cross-project by design.
+	try {
+		const wd = await evaluateRemediationWatchdogs(db, { logger });
+		if (wd.evaluated + wd.timedOutClaims + wd.expiredGrants + wd.failed > 0) {
+			logger.info("[analyses] remediation watchdog summary", { ...wd });
+		}
+	} catch (error) {
+		logger.error("[analyses] remediation watchdog failed", {
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
 	return totals;
 }
 
@@ -477,12 +495,31 @@ async function runDueAnalysesForProject(
 						}
 						await store.insertResult(result, expiresAt);
 						if (result.status === "critical") {
-							await openOrDeduplicateIncident(db, projectId, {
-								environment: "default",
-								targetNodeId: `analysis:${def.id}`,
-								symptomAnchorKind: "analysis",
-								symptomAnchorId: def.id,
-							}).catch(() => undefined);
+							try {
+								const scopeService = def.scope?.service;
+								const target = await resolveServiceIncidentTarget(
+									db,
+									projectId,
+									typeof scopeService === "string" ? scopeService : null,
+									`analysis:${def.id}`,
+									logger,
+								);
+								await openOrDeduplicateIncident(db, projectId, {
+									environment: target.environment,
+									targetNodeId: target.targetNodeId,
+									symptomAnchorKind: "analysis",
+									symptomAnchorId: def.id,
+								});
+							} catch (incidentError) {
+								// Incident bookkeeping must not fail the analysis run.
+								logger.error("[analyses] failed to open incident", {
+									analysis_id: def.id,
+									error:
+										incidentError instanceof Error
+											? incidentError.message
+											: String(incidentError),
+								});
+							}
 						}
 						// markRan releases the claim as a side-effect.
 						await store.markRan(projectId, def.id, result.generatedAt);

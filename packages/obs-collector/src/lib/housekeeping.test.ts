@@ -62,6 +62,7 @@ describe("purgeSecondaryRows", () => {
 			ontology_nodes: 0,
 			change_events: 0,
 			incident_investigations: 0,
+			incident_leases_reaped: 0,
 			remediation_proposals: 0,
 			investigation_findings: 0,
 		});
@@ -148,6 +149,75 @@ describe("purgeSecondaryRows", () => {
 			"fnd-old-corroborated",
 			"fnd-old-verified",
 		]);
+		db.close();
+	});
+
+	it("reaps expired leases back to open without touching live leases or non-leased incidents (RFC 0013 § 11)", async () => {
+		const db = createMigratedSqliteDb();
+		const ins = db.raw.prepare(
+			`INSERT INTO incident_investigations (project_id, environment, id, dedup_key, status, target_node_id, symptom_anchor_kind, symptom_anchor_id, lease_owner_id, lease_expires_at, opened_at, updated_at, expires_at)
+			 VALUES ('alpha', 'prod', ?, ?, ?, 'n', 'trace', 't', ?, ?, ?, ?, ?)`,
+		);
+		const farFuture = iso(-24 * 365);
+		ins.run(
+			"lease-expired",
+			"k1",
+			"leased",
+			"runner-a",
+			iso(1),
+			iso(5),
+			iso(5),
+			farFuture,
+		);
+		ins.run(
+			"lease-live",
+			"k2",
+			"leased",
+			"runner-b",
+			iso(-1),
+			iso(5),
+			iso(5),
+			farFuture,
+		);
+		ins.run(
+			"remediating",
+			"k3",
+			"remediating",
+			"runner-c",
+			iso(1),
+			iso(5),
+			iso(5),
+			farFuture,
+		);
+
+		const summary = await purgeSecondaryRows(db, {
+			retentionHours: 72,
+			now: () => NOW,
+		});
+		expect(summary.incident_leases_reaped).toBe(1);
+		const rows = db.raw
+			.prepare(
+				`SELECT id, status, lease_owner_id FROM incident_investigations ORDER BY id`,
+			)
+			.all() as Array<{
+			id: string;
+			status: string;
+			lease_owner_id: string | null;
+		}>;
+		expect(rows).toEqual([
+			{ id: "lease-expired", status: "open", lease_owner_id: null },
+			{ id: "lease-live", status: "leased", lease_owner_id: "runner-b" },
+			{ id: "remediating", status: "remediating", lease_owner_id: "runner-c" },
+		]);
+		db.close();
+	});
+
+	it("propagates storage errors instead of silently swallowing them", async () => {
+		const db = createMigratedSqliteDb();
+		db.raw.exec("DROP TABLE remediation_proposals");
+		await expect(
+			purgeSecondaryRows(db, { retentionHours: 72, now: () => NOW }),
+		).rejects.toThrow(/remediation_proposals/);
 		db.close();
 	});
 });
