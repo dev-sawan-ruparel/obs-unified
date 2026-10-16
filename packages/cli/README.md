@@ -44,8 +44,11 @@ survives a restart. Use `docker compose -f <file> down -v` to wipe the data.
 ## Scaffolding
 
 `create` copies a template, writes the collector URL, and, with
-`--ingest-key <key>`, the ingest key (non-interactive). Without it the key is the
-placeholder `dev-ingest-key` and the command prints which variables to set.
+`--ingest-key <key>`, the ingest key. Without the flag it falls back to the
+`OBS_INGEST_KEY` environment variable; in a terminal without `--yes` it then
+prompts for the key (Enter keeps the placeholder). Otherwise the key is the
+placeholder `dev-ingest-key`. The "Next steps" output says which source was used
+and which variables to set. `obs-unified create --help` prints usage.
 
 | Template       | Where the key goes                                                          |
 | -------------- | --------------------------------------------------------------------------- |

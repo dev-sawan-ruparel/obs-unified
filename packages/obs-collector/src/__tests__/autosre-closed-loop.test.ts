@@ -1397,6 +1397,7 @@ describe("AutoSRE governance hardening", () => {
 				endTime: end,
 				durationMs: 40,
 				serviceVersion: "v2.4.1",
+				errorSignature: "checkout 500",
 			});
 		}
 		await recordChangeEvent(db, "default", {
@@ -2271,6 +2272,57 @@ describe("AutoSRE governance hardening", () => {
 		// A span that is not in telemetry keeps the legacy behaviour.
 		const unknown = await spanFinding(99);
 		expect(unknown.fingerprint).not.toBe(findings[0].fingerprint);
+		db.close();
+	});
+
+	it("J10: traceId:spanId span loci resolve the service, and empty error signatures fall back to the summary", async () => {
+		const db = createMigratedSqliteDb();
+		const t0 = Date.parse("2026-10-15T06:00:00.000Z");
+		const start = new Date(t0).toISOString();
+		const end = new Date(t0 + 50).toISOString();
+		const traceId = "a".repeat(32);
+		insertSpan(db, {
+			traceId,
+			spanId: "b".repeat(16),
+			serviceName: "pay-api",
+			spanName: "POST /pay",
+			statusCode: 2,
+			statusMessage: "card declined",
+			startTime: start,
+			endTime: end,
+			durationMs: 50,
+		});
+		insertSpan(db, {
+			traceId,
+			spanId: "c".repeat(16),
+			serviceName: "pay-api",
+			spanName: "POST /refund",
+			statusCode: 2,
+			statusMessage: "",
+			errorSignature: "",
+			startTime: start,
+			endTime: end,
+			durationMs: 50,
+		});
+		const incident = await newIncident(db);
+		const mk = (id: string, summary = "Declines after deploy") =>
+			newFinding(db, incident.id, {
+				title: "Pay declines",
+				summary,
+				faultLocusEntityKind: "span",
+				faultLocusEntityId: id,
+			});
+		const bare = await mk("b".repeat(16));
+		const qualified = await mk(`${traceId}:${"b".repeat(16)}`);
+		expect(qualified.fingerprintInput.originatingNodeId).toBe(
+			"service:prod:default:pay-api",
+		);
+		expect(qualified.fingerprint).toBe(bare.fingerprint);
+
+		// No error signature or status message: the summary is the signature.
+		const noSig = await mk("c".repeat(16), "Refunds time out");
+		expect(noSig.fingerprintInput.errorSignature).toBe("Refunds time out");
+		expect(noSig.fingerprintInput.normalizedOperation).toBe("POST /refund");
 		db.close();
 	});
 

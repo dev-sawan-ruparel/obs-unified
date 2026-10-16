@@ -1614,9 +1614,15 @@ const attachAutoSreTriageContext = async (
 		// different span id still surfaces the findings and fixes recorded
 		// before. Entity-id matches stay first.
 		if (faultLocus?.faultLocusSpan) {
-			const fingerprint = buildFindingFingerprint(
-				fingerprintInputFromSpan(faultLocus.faultLocusSpan, environment),
-			).fingerprint;
+			const spanFp = fingerprintInputFromSpan(
+				faultLocus.faultLocusSpan,
+				environment,
+			);
+			const fingerprint = buildFindingFingerprint({
+				...spanFp,
+				normalizedOperation: spanFp.normalizedOperation ?? "",
+				errorSignature: spanFp.errorSignature ?? "",
+			}).fingerprint;
 			const byFingerprint = await searchInvestigationFindings(db, {
 				projectId,
 				environment,

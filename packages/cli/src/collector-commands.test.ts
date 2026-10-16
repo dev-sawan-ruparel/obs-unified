@@ -1108,3 +1108,17 @@ describe("credential resolvers", () => {
 		expect(t2.stderr()).toContain("shell history");
 	});
 });
+
+describe("--help", () => {
+	it("changes --help prints usage and exits 0", async () => {
+		const t = makeIo();
+		const code = await runChanges(["record", "--help"], {
+			fetch: (async () => {
+				throw new Error("unexpected fetch");
+			}) as never,
+			env: {},
+			io: t.io,
+		});
+		expect(code).toBe(0);
+	});
+});
