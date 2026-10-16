@@ -1,6 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const webPort = Number(process.env.DEV_WEB_PORT ?? 5173);
+// Default to a port nothing else in the stack uses (the dashboard image serves
+// 5173, `pnpm dev` here defaults to 5173/5174, the collector 8790). Reusing an
+// already-running server is only allowed when DEV_WEB_PORT is set explicitly;
+// otherwise a stale dashboard on the default port would be tested silently.
+const webPort = Number(process.env.DEV_WEB_PORT ?? 5199);
+const reuseExistingServer =
+	Boolean(process.env.DEV_WEB_PORT) && !process.env.CI;
 const baseURL = `http://localhost:${webPort}`;
 
 export default defineConfig({
@@ -34,8 +40,11 @@ export default defineConfig({
 
 	/* Run your local dev server before starting the tests */
 	webServer: {
+		// pnpm forwards a literal `--` to vite, which then ignores the port flags, so
+		// the port is passed through the env var vite.config.ts reads (strictPort on).
 		command: "pnpm run dev",
+		env: { ...process.env, DEV_WEB_PORT: String(webPort) },
 		url: baseURL,
-		reuseExistingServer: !process.env.CI,
+		reuseExistingServer,
 	},
 });

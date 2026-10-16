@@ -28,6 +28,8 @@ export default defineConfig({
 	},
 	server: {
 		port: Number(process.env.DEV_WEB_PORT ?? 5173),
+		// An explicitly requested port must not silently drift to the next free one.
+		strictPort: Boolean(process.env.DEV_WEB_PORT),
 		proxy: {
 			// Demo backend — the Playground tab calls these.
 			"/api": demoUrl,
