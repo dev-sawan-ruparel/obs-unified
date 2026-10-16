@@ -2,9 +2,10 @@
 # scripts/release/run.sh — one-command release for obs-unified.
 #
 # Runs, in order, from a clean `main`:
-#   1. preflight   git clean + on main + fast-forward pull; auth checks
+#   1. preflight   git clean + on main + fast-forward pull; auth + disk-space checks
 #   2. gates       pnpm lint, type-check, test, check:surfaces
-#   3. docker      multi-arch GHCR build+push (:<version>, :sha-<sha>, :latest) + smoke
+#   3. docker      multi-arch GHCR build+push (:<version>, :sha-<sha>, :latest) + smoke;
+#                  then prunes older local release images and build cache
 #   4. npm         pnpm release (sequential publish, passkey prompts) + push tags
 #   5. deploy      website + docs (Cloudflare Pages)
 #   6. skills      optional: build bundles + GitHub release skills-v<ver>
@@ -101,6 +102,23 @@ if ! $SKIP_DOCKER; then
     ok "DOCKER_HOST -> colima profile obs-unified-smoke"
   fi
   $DRY_RUN || docker info >/dev/null 2>&1 || die "docker daemon not reachable (DOCKER_HOST=${DOCKER_HOST:-unset}); start colima: colima start obs-unified-smoke"
+  # The multi-arch build needs several GB of scratch space; a full Docker data
+  # partition fails late with "no space left on device" (seen on 2.3.0).
+  MIN_FREE_GB="${RELEASE_MIN_FREE_GB:-10}"
+  if ! $DRY_RUN; then
+    DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
+    FREE_KB="$(docker run --rm -v "$DOCKER_ROOT:/dockerroot:ro" busybox df -Pk /dockerroot 2>/dev/null | awk 'NR==2{print $4}')"
+    if [ -n "$FREE_KB" ]; then
+      FREE_GB=$((FREE_KB / 1024 / 1024))
+      if [ "$FREE_GB" -lt "$MIN_FREE_GB" ]; then
+        docker system df 2>/dev/null | sed 's/^/    /'
+        die "only ${FREE_GB} GB free on the Docker data partition (${DOCKER_ROOT}); need ${MIN_FREE_GB} GB. Reclaim with: docker builder prune -af && docker image prune -af (set RELEASE_MIN_FREE_GB to override)."
+      fi
+      ok "docker data partition: ${FREE_GB} GB free"
+    else
+      warn "could not measure free space on the Docker data partition; continuing"
+    fi
+  fi
   $DRY_RUN || gh auth status 2>&1 | grep -q "write:packages" || die "gh token lacks write:packages; run: gh auth refresh -s write:packages"
   if ! $DRY_RUN && ! grep -q '"ghcr.io"' "${DOCKER_CONFIG:-$HOME/.docker}/config.json" 2>/dev/null; then
     gh auth token | docker login ghcr.io -u "$GH_USER" --password-stdin >/dev/null
@@ -162,6 +180,15 @@ if ! $SKIP_DOCKER; then
   fi
   run bash scripts/release-docker/smoke.sh "$IMAGE:$COLLECTOR_VERSION"
   ok "image smoke passed"
+  # Local copies of earlier releases accumulate (2–3 GB each) and eventually
+  # fill the Docker data partition; keep only this release's tags.
+  STALE_TAGS="$(docker images "$IMAGE" --format '{{.Tag}}' 2>/dev/null | grep -vx -e "$COLLECTOR_VERSION" -e "sha-$SHA" -e latest || true)"
+  if [ -n "$STALE_TAGS" ]; then
+    for t in $STALE_TAGS; do run docker rmi "$IMAGE:$t" >/dev/null 2>&1 || true; done
+    ok "pruned local images: $(echo "$STALE_TAGS" | tr '\n' ' ')"
+  fi
+  run docker image prune -f >/dev/null
+  run docker builder prune -f --keep-storage 4GB >/dev/null
 fi
 
 # -------------------------------------------------------------------- 4. npm

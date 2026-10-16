@@ -34,6 +34,11 @@ pnpm release:all -- --skip-docker  # e.g. npm + deploys only
 pnpm release:all -- --skills 0.1.4 # also cut skills-v0.1.4
 ```
 
+Preflight also fails early when the Docker data partition has less than
+10 GB free (`RELEASE_MIN_FREE_GB` overrides), and after a successful push the
+script removes local copies of earlier release images and trims the build
+cache, since those are what fill the partition over time.
+
 It refuses to run with unversioned changesets (run `pnpm changeset version`
 in a PR first), and every stage is idempotent: an image tag already on GHCR,
 a package version already on npm, or an existing skills release is skipped,
