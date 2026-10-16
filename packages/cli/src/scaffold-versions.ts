@@ -22,6 +22,7 @@ export interface ParsedCreateArgs {
 	collectorUrl?: string;
 	ingestKey?: string;
 	yes: boolean;
+	help?: boolean;
 	error?: string;
 }
 
@@ -34,6 +35,9 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 
 	for (let i = 0; i < args.length; i += 1) {
 		const arg = args[i];
+		if (arg === "--help" || arg === "-h") {
+			return { appName, yes, help: true };
+		}
 		if (arg === "--yes" || arg === "-y") {
 			yes = true;
 			continue;
@@ -114,4 +118,18 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 	}
 
 	return { appName, template, collectorUrl, ingestKey, yes };
+}
+
+export type IngestKeySource = "flag" | "env" | "prompt" | "none";
+
+/** Picks the ingest key for `create`: --ingest-key, then OBS_INGEST_KEY. */
+export function resolveCreateIngestKey(
+	flagValue: string | undefined,
+	env: Record<string, string | undefined>,
+): { key: string | undefined; source: IngestKeySource } {
+	const flag = flagValue?.trim();
+	if (flag) return { key: flag, source: "flag" };
+	const fromEnv = env.OBS_INGEST_KEY?.trim();
+	if (fromEnv) return { key: fromEnv, source: "env" };
+	return { key: undefined, source: "none" };
 }

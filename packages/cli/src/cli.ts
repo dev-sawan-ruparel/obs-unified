@@ -27,8 +27,10 @@ import kleur from "kleur";
 import prompts from "prompts";
 import { runChanges, runDoctor, runKeys } from "./collector-commands";
 import {
+	type IngestKeySource,
 	type ParsedCreateArgs,
 	parseCreateArgs,
+	resolveCreateIngestKey,
 	SCAFFOLD_SDK_RANGES,
 } from "./scaffold-versions";
 
@@ -38,6 +40,14 @@ const TEMPLATES = path.join(here, "..", "templates");
 const PLACEHOLDER_INGEST_KEY = "dev-ingest-key";
 
 const [, , subcommand, ...rest] = process.argv;
+
+const CREATE_USAGE = `usage: obs-unified create <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--ingest-key <key>] [--yes]
+
+  --template <name>      react-vite, vanilla-ts or hono-workers
+  --collector-url <url>  collector base URL (default OBS_COLLECTOR_URL or http://localhost:8790)
+  --ingest-key <key>     ingest key to write into the scaffold; falls back to OBS_INGEST_KEY,
+                         then (in a terminal, without --yes) a prompt; Enter keeps the placeholder
+  --yes, -y              non-interactive: accept defaults, never prompt`;
 
 const usage = () => {
 	console.log(`
@@ -131,16 +141,16 @@ switch (subcommand) {
 
 	case "create": {
 		const parsed = parseCreateArgs(rest);
+		if (parsed.help) {
+			console.log(CREATE_USAGE);
+			process.exit(0);
+		}
 		if (parsed.error) {
 			console.error(kleur.red(parsed.error));
 			process.exit(1);
 		}
 		if (!parsed.appName) {
-			console.error(
-				kleur.red(
-					"usage: obs-unified create <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--ingest-key <key>] [--yes]",
-				),
-			);
+			console.error(kleur.red(CREATE_USAGE));
 			process.exit(1);
 		}
 		await scaffoldApp(parsed.appName, parsed);
@@ -251,7 +261,9 @@ async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 
 	let selectedTemplate = options.template;
 	let selectedCollectorUrl = options.collectorUrl;
-	const ingestKey = options.ingestKey?.trim() || undefined;
+	const resolvedKey = resolveCreateIngestKey(options.ingestKey, process.env);
+	let ingestKey = resolvedKey.key;
+	let ingestKeySource: IngestKeySource = resolvedKey.source;
 
 	if (options.yes || !process.stdin.isTTY || selectedTemplate) {
 		selectedTemplate = selectedTemplate ?? "react-vite";
@@ -282,6 +294,20 @@ async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 	if (!selectedTemplate || !selectedCollectorUrl) {
 		console.error(kleur.yellow("scaffold cancelled"));
 		process.exit(1);
+	}
+
+	if (!ingestKey && !options.yes && process.stdin.isTTY) {
+		const answer = await prompts({
+			type: "password",
+			name: "ingestKey",
+			message: `Ingest key (Enter keeps the placeholder "${PLACEHOLDER_INGEST_KEY}")`,
+		});
+		const typed =
+			typeof answer.ingestKey === "string" ? answer.ingestKey.trim() : "";
+		if (typed) {
+			ingestKey = typed;
+			ingestKeySource = "prompt";
+		}
 	}
 
 	await mkdir(target, { recursive: true });
@@ -339,7 +365,13 @@ async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 	}
 
 	console.log(`${kleur.green("✓")} created ${name}/`);
-	printNextSteps(name, selectedTemplate, selectedCollectorUrl, ingestKey);
+	printNextSteps(
+		name,
+		selectedTemplate,
+		selectedCollectorUrl,
+		ingestKey,
+		ingestKeySource,
+	);
 }
 
 async function copyTemplate(
@@ -372,12 +404,21 @@ function printNextSteps(
 	template: string,
 	collectorUrl: string,
 	ingestKey: string | undefined,
+	source: IngestKeySource,
 ) {
+	const from = {
+		flag: "--ingest-key",
+		env: "OBS_INGEST_KEY",
+		prompt: "the prompt",
+		none: "",
+	}[source];
 	const steps = [`cd ${name}`, "pnpm install"];
 	const notes: string[] = [];
 	if (template === "hono-workers") {
 		if (ingestKey) {
-			notes.push("Ingest key written to .dev.vars (OBS_INGEST_KEY).");
+			notes.push(
+				`Ingest key (from ${from}) written to .dev.vars (OBS_INGEST_KEY).`,
+			);
 		} else {
 			steps.push(
 				"cp .dev.vars.example .dev.vars   # then set OBS_INGEST_KEY=<your key>",
@@ -395,10 +436,10 @@ function printNextSteps(
 				? "VITE_OBS_COLLECTOR_URL, VITE_OBS_INGEST_KEY, OBS_COLLECTOR_URL, OBS_INGEST_KEY"
 				: "VITE_OBS_COLLECTOR_URL, VITE_OBS_INGEST_KEY";
 		if (ingestKey) {
-			notes.push(`Ingest key written to .env.local (${vars}).`);
+			notes.push(`Ingest key (from ${from}) written to .env.local (${vars}).`);
 		} else {
 			notes.push(
-				`No --ingest-key given: .env.local uses the placeholder "${PLACEHOLDER_INGEST_KEY}".`,
+				`No ingest key given (--ingest-key, OBS_INGEST_KEY or prompt): .env.local uses the placeholder "${PLACEHOLDER_INGEST_KEY}".`,
 				`Set the real key in .env.local before running (${vars}); mint one with: obs-unified keys mint`,
 			);
 		}

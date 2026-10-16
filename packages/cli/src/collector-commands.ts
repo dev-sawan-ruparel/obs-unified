@@ -1064,6 +1064,11 @@ export async function runChanges(
 ): Promise<number> {
 	const { fetch, io, env } = resolveDeps(deps);
 
+	if (args.includes("--help") || args.includes("-h")) {
+		io.out(CHANGES_USAGE);
+		return 0;
+	}
+
 	let parsed: ChangesArgs;
 	try {
 		parsed = parseChangesArgs(args);

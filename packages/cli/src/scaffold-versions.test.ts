@@ -2,7 +2,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parseCreateArgs, SCAFFOLD_SDK_RANGES } from "./scaffold-versions";
+import {
+	parseCreateArgs,
+	resolveCreateIngestKey,
+	SCAFFOLD_SDK_RANGES,
+} from "./scaffold-versions";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const templatesDir = path.resolve(here, "../templates");
@@ -117,5 +121,32 @@ describe("parseCreateArgs --ingest-key", () => {
 	});
 	it("errors on a missing value", () => {
 		expect(parseCreateArgs(["app", "--ingest-key"]).error).toMatch(/missing/);
+	});
+});
+
+describe("parseCreateArgs --help", () => {
+	it("returns help instead of an unknown-option error", () => {
+		const parsed = parseCreateArgs(["app", "--help"]);
+		expect(parsed.help).toBe(true);
+		expect(parsed.error).toBeUndefined();
+		expect(parseCreateArgs(["-h"]).help).toBe(true);
+	});
+});
+
+describe("resolveCreateIngestKey", () => {
+	it("prefers the flag, then OBS_INGEST_KEY, else none", () => {
+		const env = { OBS_INGEST_KEY: " envkey " };
+		expect(resolveCreateIngestKey("flagkey", env)).toEqual({
+			key: "flagkey",
+			source: "flag",
+		});
+		expect(resolveCreateIngestKey(undefined, env)).toEqual({
+			key: "envkey",
+			source: "env",
+		});
+		expect(resolveCreateIngestKey(" ", {})).toEqual({
+			key: undefined,
+			source: "none",
+		});
 	});
 });

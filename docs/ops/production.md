@@ -411,7 +411,7 @@ Alert rules are evaluated by the maintenance scheduler every 5 minutes (see the 
 * Only plain `http(s)` URLs to **public** hosts are accepted. Loopback, RFC 1918 ranges, link-local (cloud metadata) addresses, and embedded credentials are rejected. Hostnames are checked as written, so a name that resolves to a private address is not caught at validation time.
 * To post to an internal receiver (for example an in-cluster Alertmanager or a local webhook sink), set `ALERT_WEBHOOK_ALLOW_PRIVATE=true` on the collector. The Workers collector honours it today; the Node/Docker image requires image 2.2.2 or newer, which forwards the flag (earlier Node images ignored it even though the rejection message mentions it).
 * Webhook URLs are redacted in logs and span attributes (only the origin and first path segment are kept), since Slack and PagerDuty style hooks carry secrets in the path.
-* The seeded sample data (`OBS_LOCAL_SEED=true`) includes a placeholder `hooks.example.com` webhook that cannot deliver. Replace it with a real endpoint or disable the channel before relying on alert delivery.
+* The seeded sample data (`OBS_LOCAL_SEED=true`) creates alert rules that point at a placeholder `hooks.example.com` webhook URL. Since collector 2.2.2 the seeder creates them disabled (`enabled: false`), so they do not fire. Enable them only after pointing them at a real receiver.
 
 ## 8. Monitoring the Collector
 

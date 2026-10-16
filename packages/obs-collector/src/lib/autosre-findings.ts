@@ -15,6 +15,7 @@ import type {
 import {
 	buildCanonicalNodeId,
 	buildFindingFingerprint,
+	OntologyNodeKindSchema,
 } from "@obsunified/types";
 import { consoleLogger, type Logger } from "../framework/logger";
 import { computeChangeBlastRadius } from "./autosre-change-correlation";
@@ -234,6 +235,7 @@ export async function loadFaultLocusSpan(
 	projectId: string,
 	environment: string,
 	spanId: string,
+	traceId?: string,
 ): Promise<FaultLocusSpanRow | null> {
 	if (!spanId) return null;
 	return db
@@ -241,11 +243,47 @@ export async function loadFaultLocusSpan(
 			`SELECT service_name, span_name, status_message, error_signature
 			 FROM telemetry_spans
 			 WHERE project_id = ? AND environment = ? AND span_id = ?
+			 ${traceId ? "AND trace_id = ?" : ""}
 			 ORDER BY start_time DESC
 			 LIMIT 1`,
 		)
-		.bind(projectId, environment, spanId)
+		.bind(
+			...(traceId
+				? [projectId, environment, spanId, traceId]
+				: [projectId, environment, spanId]),
+		)
 		.first<FaultLocusSpanRow>();
+}
+
+/** Fingerprint inputs derivable from a span; empty fields are left undefined. */
+export type SpanFingerprintInput = Pick<
+	FindingFingerprintInput,
+	"environment" | "originatingNodeId" | "downstreamTargetNodeId"
+> &
+	Partial<
+		Pick<FindingFingerprintInput, "normalizedOperation" | "errorSignature">
+	>;
+
+/** True for `kind:env:ns:name...` ids built by buildCanonicalNodeId. */
+function looksLikeCanonicalNodeId(id: string): boolean {
+	const parts = id.split(":");
+	return (
+		parts.length >= 4 &&
+		(OntologyNodeKindSchema.options as readonly string[]).includes(parts[0])
+	);
+}
+
+/**
+ * Splits a `<traceId>:<spanId>` span locus. Returns null for anything that
+ * is a canonical node id or does not have exactly two non-empty parts.
+ */
+function splitTraceSpanLocus(
+	id: string,
+): { traceId: string; spanId: string } | null {
+	if (looksLikeCanonicalNodeId(id)) return null;
+	const parts = id.split(":");
+	if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+	return { traceId: parts[0], spanId: parts[1] };
 }
 
 /**
@@ -258,7 +296,7 @@ export async function loadFaultLocusSpan(
 export function fingerprintInputFromSpan(
 	span: FaultLocusSpanRow,
 	environment: string,
-): FindingFingerprintInput {
+): SpanFingerprintInput {
 	return {
 		environment,
 		originatingNodeId: buildCanonicalNodeId({
@@ -266,8 +304,11 @@ export function fingerprintInputFromSpan(
 			environment,
 			serviceName: span.service_name || "unknown-service",
 		}).id,
-		normalizedOperation: span.span_name,
-		errorSignature: span.error_signature || span.status_message || "",
+		// Empty strings are "absent": returning undefined lets the caller's
+		// `??` chain reach its title/summary fallbacks.
+		normalizedOperation: span.span_name?.trim() || undefined,
+		errorSignature:
+			span.error_signature?.trim() || span.status_message?.trim() || undefined,
 		downstreamTargetNodeId: null,
 	};
 }
@@ -312,7 +353,21 @@ export async function recordInvestigationFinding(
 		input.fingerprintInput ?? {};
 	const locusId = input.faultLocusEntityId.trim();
 	let spanDerived: Partial<FindingFingerprintInput> = {};
-	if (!locusId.includes(":") && input.faultLocusEntityKind !== "service") {
+	const traceSpan =
+		input.faultLocusEntityKind === "span" ? splitTraceSpanLocus(locusId) : null;
+	if (traceSpan) {
+		const spanRow = await loadFaultLocusSpan(
+			db,
+			projectId,
+			environment,
+			traceSpan.spanId,
+			traceSpan.traceId,
+		);
+		if (spanRow) spanDerived = fingerprintInputFromSpan(spanRow, environment);
+	} else if (
+		!locusId.includes(":") &&
+		input.faultLocusEntityKind !== "service"
+	) {
 		const spanRow = await loadFaultLocusSpan(
 			db,
 			projectId,
@@ -322,7 +377,13 @@ export async function recordInvestigationFinding(
 		if (spanRow) spanDerived = fingerprintInputFromSpan(spanRow, environment);
 	}
 	const defaultOriginNode = locusId.includes(":")
-		? locusId
+		? traceSpan
+			? buildCanonicalNodeId({
+					kind: "service",
+					environment,
+					serviceName: locusId,
+				}).id
+			: locusId
 		: buildCanonicalNodeId({
 				kind: "service",
 				environment,
