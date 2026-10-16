@@ -1,7 +1,12 @@
 # Multi-stage build for ghcr.io/dev-sawan-ruparel/obs-unified
 # All-in-one container: Node.js collector + React dashboard SPA + embedded PostgreSQL & file blob store
 
-FROM node:22-bookworm-slim AS build
+# The build stage runs on the builder's native platform (BUILDPLATFORM): the
+# output is architecture-independent JavaScript, and running tsup/vite under
+# QEMU emulation for the foreign architecture segfaults. Only the runtime
+# stage is built per target platform.
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS build
 WORKDIR /repo
 ENV CI=true
 RUN corepack enable && corepack prepare pnpm@10 --activate

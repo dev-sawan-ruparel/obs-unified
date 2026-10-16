@@ -75,6 +75,12 @@ The build script:
   - `ghcr.io/dev-sawan-ruparel/obs-unified:sha-<sha>` (immutable commit reference)
   - `ghcr.io/dev-sawan-ruparel/obs-unified:latest` (optional; omit with `--no-latest`)
 
+Multi-arch builds (`--multiarch --push`, used by `pnpm release:all`) compile
+once on the builder's native platform and only run the runtime stage per
+target architecture: the build stage is `FROM --platform=$BUILDPLATFORM`,
+its output is plain JavaScript with no native addons on the runtime path, and
+running tsup/vite under QEMU emulation for the foreign architecture segfaults.
+
 ---
 
 ## 3. Local Smoke Validation
