@@ -293,6 +293,21 @@ export function createDashboardAuth(config?: DashboardAuthConfig): {
 				: new LoginRateLimiter(config?.loginRateLimit ?? {});
 		let warnedUnkeyedClient = false;
 
+		// `Secure` when the request itself is https, or when the operator
+		// declared a trusted TLS-terminating proxy (`trustProxyHeaders`, i.e.
+		// TRUST_PROXY) that reports `X-Forwarded-Proto: https`.
+		const isSecureRequest = (
+			c: Context<{ Bindings: CollectorEnv }>,
+			limitConfig: { trustProxyHeaders?: boolean } | undefined,
+		): boolean =>
+			c.req.url.startsWith("https:") ||
+			(limitConfig?.trustProxyHeaders === true &&
+				c.req
+					.header("x-forwarded-proto")
+					?.split(",")[0]
+					?.trim()
+					.toLowerCase() === "https");
+
 		app.post("/auth/login", async (c) => {
 			const configuredPassword = config?.password ?? c.env.DASHBOARD_PASSWORD;
 			if (!configuredPassword) {
@@ -342,7 +357,7 @@ export function createDashboardAuth(config?: DashboardAuthConfig): {
 			const sig = await sign(payload, configuredPassword);
 			const cookieValue = `${payload}.${sig}`;
 
-			const isSecure = c.req.url.startsWith("https:");
+			const isSecure = isSecureRequest(c, config?.loginRateLimit || undefined);
 			c.header(
 				"Set-Cookie",
 				`${SESSION_COOKIE}=${encodeURIComponent(cookieValue)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MAX_AGE}${isSecure ? "; Secure" : ""}`,
@@ -405,7 +420,7 @@ export function createDashboardAuth(config?: DashboardAuthConfig): {
 		});
 
 		app.post("/auth/logout", (c) => {
-			const isSecure = c.req.url.startsWith("https:");
+			const isSecure = isSecureRequest(c, config?.loginRateLimit || undefined);
 			c.header(
 				"Set-Cookie",
 				`${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${isSecure ? "; Secure" : ""}`,

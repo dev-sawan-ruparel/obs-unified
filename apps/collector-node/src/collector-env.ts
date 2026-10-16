@@ -10,6 +10,8 @@
  *   OPENAI_BASE_URL            — override for OpenAI-compatible endpoints
  *   NARRATIVE_MODEL            — model id (provider-specific defaults)
  *   NARRATIVE_BUDGET_PER_HOUR  — cap on narrative writes per project per hour
+ *   ALERT_WEBHOOK_ALLOW_PRIVATE — `true` lets alert webhooks target private /
+ *                                loopback addresses (refused by default)
  *
  * Blank values are coerced to `undefined`, mirroring the Worker-side
  * `.dev.vars` handling in the analyses runner, so an empty `OPENAI_API_KEY=`
@@ -25,6 +27,7 @@ export const OPTIONAL_COLLECTOR_ENV_KEYS = [
 	"OPENAI_BASE_URL",
 	"NARRATIVE_MODEL",
 	"NARRATIVE_BUDGET_PER_HOUR",
+	"ALERT_WEBHOOK_ALLOW_PRIVATE",
 ] as const satisfies readonly (keyof CollectorEnv)[];
 
 export type BlobStoreKind = "file" | "s3";

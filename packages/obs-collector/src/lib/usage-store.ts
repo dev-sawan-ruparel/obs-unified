@@ -503,15 +503,21 @@ export class UsageStore {
 					SUM(CASE WHEN event_type = 'interaction' THEN 1 ELSE 0 END) AS interaction_count,
 					SUM(CASE WHEN event_type = 'frontend_error' OR severity = 'error' THEN 1 ELSE 0 END) AS error_count,
 					MAX(CASE WHEN event_type = 'page_view' THEN CAST(COALESCE(${loadMsExpr}, ${loadTimeMsExpr}, ${durationMsExpr}) AS REAL) ELSE NULL END) AS max_load_ms,
-					(SELECT referrer FROM usage_events ref WHERE ref.project_id = ue.project_id AND ref.session_id = ue.session_id ORDER BY occurred_at ASC LIMIT 1) AS referrer,
-					(SELECT page_path FROM usage_events lp WHERE lp.project_id = ue.project_id AND lp.session_id = ue.session_id ORDER BY occurred_at DESC LIMIT 1) AS last_path
+					(SELECT referrer FROM usage_events ref WHERE ref.project_id = ? AND ref.session_id = ue.session_id ORDER BY occurred_at ASC LIMIT 1) AS referrer,
+					(SELECT page_path FROM usage_events lp WHERE lp.project_id = ? AND lp.session_id = ue.session_id ORDER BY occurred_at DESC LIMIT 1) AS last_path
 				FROM usage_events ue
 				WHERE project_id = ? AND received_at >= ?
 				GROUP BY session_id
 				ORDER BY last_seen DESC
 				LIMIT ?`,
 			)
-			.bind(options.projectId, cutoff, limit * 3)
+			.bind(
+				options.projectId,
+				options.projectId,
+				options.projectId,
+				cutoff,
+				limit * 3,
+			)
 			.all<{
 				session_id: string;
 				visitor_id: string;

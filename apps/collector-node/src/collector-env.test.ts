@@ -28,6 +28,15 @@ describe("readOptionalCollectorEnv", () => {
 		expect(readOptionalCollectorEnv({})).toEqual({ env: {}, warnings: [] });
 	});
 
+	it("forwards ALERT_WEBHOOK_ALLOW_PRIVATE and drops it when blank", () => {
+		expect(
+			readOptionalCollectorEnv({ ALERT_WEBHOOK_ALLOW_PRIVATE: " true " }).env,
+		).toEqual({ ALERT_WEBHOOK_ALLOW_PRIVATE: "true" });
+		expect(
+			readOptionalCollectorEnv({ ALERT_WEBHOOK_ALLOW_PRIVATE: "  " }).env,
+		).toEqual({});
+	});
+
 	it("forwards every optional CollectorEnv field verbatim (trimmed)", () => {
 		const { env, warnings } = readOptionalCollectorEnv({
 			RETENTION_HOURS: " 24 ",

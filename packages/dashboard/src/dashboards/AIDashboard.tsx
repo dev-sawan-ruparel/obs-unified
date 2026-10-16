@@ -6,7 +6,12 @@ import type { View } from "./ai/Toolbar";
 
 // ── Entry ──────────────────────────────────────────────────────────────────
 
-export function AIDashboard() {
+export interface AIDashboardProps {
+	/** Call to pre-select (from `#/ai/calls/<id>`). */
+	initialCallId?: string;
+}
+
+export function AIDashboard({ initialCallId }: AIDashboardProps = {}) {
 	const [view, setView] = useState<View>("spans");
 	const hours = String(useTimeWindowHours());
 
@@ -15,7 +20,12 @@ export function AIDashboard() {
 			{view === "sessions" ? (
 				<SessionsView hours={hours} view={view} setView={setView} />
 			) : (
-				<SpansView hours={hours} view={view} setView={setView} />
+				<SpansView
+					hours={hours}
+					view={view}
+					setView={setView}
+					initialCallId={initialCallId}
+				/>
 			)}
 		</div>
 	);

@@ -789,3 +789,64 @@ describe("dashboard-auth middleware & programmatic token contract", () => {
 		});
 	});
 });
+
+describe("session cookie Secure attribute", () => {
+	const loginCookie = async (
+		url: string,
+		headers: Record<string, string>,
+		trustProxyHeaders: boolean | undefined,
+	): Promise<string> => {
+		const auth = createDashboardAuth({
+			password: TEST_PASSWORD,
+			token: TEST_TOKEN,
+			loginRateLimit: { trustProxyHeaders, warn: () => {} },
+		});
+		const app = new Hono<{ Bindings: CollectorEnv }>();
+		auth.registerRoutes(app);
+		const res = await app.fetch(
+			new Request(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", ...headers },
+				body: JSON.stringify({ password: TEST_PASSWORD }),
+			}),
+			makeEnv(createTestDb()),
+		);
+		expect(res.status).toBe(200);
+		return res.headers.get("Set-Cookie") ?? "";
+	};
+
+	it("sets Secure for an https request URL", async () => {
+		expect(await loginCookie("https://x.test/auth/login", {}, false)).toContain(
+			"; Secure",
+		);
+	});
+
+	it("sets Secure for X-Forwarded-Proto: https when the proxy is trusted", async () => {
+		const cookie = await loginCookie(
+			"http://x.test/auth/login",
+			{ "x-forwarded-proto": "https" },
+			true,
+		);
+		expect(cookie).toContain("; Secure");
+	});
+
+	it("ignores X-Forwarded-Proto when the proxy is not trusted, and on plain http", async () => {
+		expect(
+			await loginCookie(
+				"http://x.test/auth/login",
+				{ "x-forwarded-proto": "https" },
+				undefined,
+			),
+		).not.toContain("Secure");
+		expect(
+			await loginCookie(
+				"http://x.test/auth/login",
+				{ "x-forwarded-proto": "http" },
+				true,
+			),
+		).not.toContain("Secure");
+		expect(
+			await loginCookie("http://x.test/auth/login", {}, true),
+		).not.toContain("Secure");
+	});
+});
