@@ -2423,6 +2423,116 @@ describe("AutoSRE governance hardening", () => {
 		db.close();
 	});
 
+	it("POST /internal/findings: schema-backed validation, trimming and defaults", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const post = (body: unknown) =>
+			app.request(
+				"/internal/findings",
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(body),
+				},
+				env,
+			);
+		const base = {
+			title: "t",
+			summary: "s",
+			symptomEntityKind: "trace",
+			symptomEntityId: "t1",
+			faultLocusEntityKind: "service",
+			faultLocusEntityId: SERVICE_NODE,
+		};
+		const required =
+			"title, summary, symptomEntityKind, symptomEntityId, faultLocusEntityKind, and faultLocusEntityId are required";
+
+		// Combined required message: missing and empty-after-trim.
+		for (const bad of [
+			{ ...base, title: undefined },
+			{ ...base, summary: "   " },
+			{ ...base, faultLocusEntityId: 5 },
+		]) {
+			const res = await post(bad);
+			expect(res.status).toBe(400);
+			expect(((await res.json()) as { error: string }).error).toBe(required);
+		}
+
+		// causalChain explicit messages.
+		const notArray = await post({ ...base, causalChain: "nope" });
+		expect(notArray.status).toBe(400);
+		expect(((await notArray.json()) as { error: string }).error).toBe(
+			"causalChain must be an array",
+		);
+		const badPred = await post({
+			...base,
+			causalChain: [
+				{
+					subjectKind: "trace",
+					subjectId: "t1",
+					predicate: "made_up",
+					objectKind: "span",
+					objectId: "s1",
+				},
+			],
+		});
+		expect(badPred.status).toBe(400);
+		expect(((await badPred.json()) as { error: string }).error).toBe(
+			"causalChain[0].predicate is not a known evidence predicate: made_up",
+		);
+
+		// Tightened: wrong-typed optional fields now 400 with path: message.
+		const badConf = await post({ ...base, confidence: "high" });
+		expect(badConf.status).toBe(400);
+		expect(((await badConf.json()) as { error: string }).error).toContain(
+			"confidence:",
+		);
+		const badTier = await post({ ...base, causalProofTier: "bogus" });
+		expect(badTier.status).toBe(400);
+		expect(((await badTier.json()) as { error: string }).error).toContain(
+			"causalProofTier:",
+		);
+		const badKind = await post({ ...base, symptomEntityKind: "not_a_kind" });
+		expect(badKind.status).toBe(400);
+
+		// Trimming + defaults.
+		const ok = await post({
+			title: "  Padded title  ",
+			summary: " Padded summary ",
+			symptomEntityKind: " trace ",
+			symptomEntityId: " t1 ",
+			faultLocusEntityKind: " service ",
+			faultLocusEntityId: ` ${SERVICE_NODE} `,
+			idempotencyKey: "   ",
+			incidentId: null,
+			rootCauseEntityKind: null,
+			cohortVerdict: null,
+		});
+		expect(ok.status).toBe(201);
+		const created = (await ok.json()) as {
+			finding: Record<string, unknown>;
+		};
+		expect(created.finding.title).toBe("Padded title");
+		expect(created.finding.summary).toBe("Padded summary");
+		expect(
+			created.finding.symptom_entity_kind ?? created.finding.symptomEntityKind,
+		).toBe("trace");
+		// Blank idempotencyKey is ignored: two identical posts create two findings.
+		const again = await post({
+			title: "  Padded title  ",
+			summary: " Padded summary ",
+			symptomEntityKind: "trace",
+			symptomEntityId: "t1",
+			faultLocusEntityKind: "service",
+			faultLocusEntityId: SERVICE_NODE,
+			idempotencyKey: "   ",
+		});
+		expect(((await again.json()) as { id: string }).id).not.toBe(
+			(created.finding as { id: string }).id,
+		);
+		db.close();
+	});
+
 	it("J9: GET /internal/evals/runs/:id reports existence so counterfactual prerequisites can be checked first", async () => {
 		const db = createMigratedSqliteDb();
 		const { app, env } = createTestApp(db);

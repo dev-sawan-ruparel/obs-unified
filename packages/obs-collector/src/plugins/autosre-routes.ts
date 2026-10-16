@@ -1,8 +1,6 @@
 import type {
-	CausalProofTier,
 	CausalVerificationStatus,
 	ChangeEventKind,
-	CohortAttributionVerdict,
 	EvidenceEntityKind,
 	GrantCallbackDelivery,
 	GrantDeliveryResult,
@@ -728,72 +726,57 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				}
 			}
 
-			const db = sqlDbFor(c.env);
-			const rawInput: InvestigationFindingInput = {
-				id: typeof body.id === "string" ? body.id : undefined,
-				idempotencyKey:
-					typeof body.idempotencyKey === "string" && body.idempotencyKey.trim()
-						? body.idempotencyKey.trim()
-						: undefined,
-				environment:
-					typeof body.environment === "string" ? body.environment : undefined,
-				incidentId:
-					typeof body.incidentId === "string" ? body.incidentId : null,
-				fingerprintInput:
-					body.fingerprintInput && typeof body.fingerprintInput === "object"
-						? (body.fingerprintInput as InvestigationFindingInput["fingerprintInput"])
-						: undefined,
+			const parsed = InvestigationFindingHttpInputSchema.safeParse({
+				...body,
 				title,
 				summary,
-				causalProofTier:
-					typeof body.causalProofTier === "string"
-						? (body.causalProofTier as CausalProofTier)
-						: undefined,
-				confidence:
-					typeof body.confidence === "number" ? body.confidence : undefined,
-				symptomEntityKind: symptomEntityKind as EvidenceEntityKind,
+				symptomEntityKind,
 				symptomEntityId,
-				faultLocusEntityKind: faultLocusEntityKind as EvidenceEntityKind,
+				faultLocusEntityKind,
 				faultLocusEntityId,
-				rootCauseEntityKind:
-					typeof body.rootCauseEntityKind === "string"
-						? (body.rootCauseEntityKind as EvidenceEntityKind)
-						: null,
-				rootCauseEntityId:
-					typeof body.rootCauseEntityId === "string"
-						? body.rootCauseEntityId
-						: null,
-				contributingChangeId:
-					typeof body.contributingChangeId === "string"
-						? body.contributingChangeId
-						: null,
-				cohortVerdict:
-					typeof body.cohortVerdict === "string"
-						? (body.cohortVerdict as CohortAttributionVerdict)
-						: null,
-				contendingTraceId:
-					typeof body.contendingTraceId === "string"
-						? body.contendingTraceId
-						: null,
-				causalChain: Array.isArray(body.causalChain)
-					? (body.causalChain as InvestigationFindingInput["causalChain"])
-					: [],
-				citedEvidenceIds: Array.isArray(body.citedEvidenceIds)
-					? body.citedEvidenceIds.filter(
-							(id): id is string => typeof id === "string",
-						)
-					: [],
-				codeReferences: Array.isArray(body.codeReferences)
-					? (body.codeReferences as InvestigationFindingInput["codeReferences"])
-					: undefined,
-				agentRunId:
-					typeof body.agentRunId === "string" ? body.agentRunId : null,
+				idempotencyKey:
+					typeof body.idempotencyKey === "string"
+						? body.idempotencyKey.trim() || undefined
+						: body.idempotencyKey,
+			});
+			if (!parsed.success) {
+				return c.json(
+					{
+						error: parsed.error.issues
+							.map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+							.join("; "),
+					},
+					400,
+				);
+			}
+			const data = parsed.data;
+
+			const db = sqlDbFor(c.env);
+			const input: InvestigationFindingInput = {
+				id: data.id,
+				idempotencyKey: data.idempotencyKey,
+				environment: data.environment,
+				incidentId: data.incidentId ?? null,
+				fingerprintInput: data.fingerprintInput,
+				title: data.title,
+				summary: data.summary,
+				causalProofTier: data.causalProofTier,
+				confidence: data.confidence,
+				symptomEntityKind: data.symptomEntityKind,
+				symptomEntityId: data.symptomEntityId,
+				faultLocusEntityKind: data.faultLocusEntityKind,
+				faultLocusEntityId: data.faultLocusEntityId,
+				rootCauseEntityKind: data.rootCauseEntityKind ?? null,
+				rootCauseEntityId: data.rootCauseEntityId ?? null,
+				contributingChangeId: data.contributingChangeId ?? null,
+				cohortVerdict: data.cohortVerdict ?? null,
+				contendingTraceId: data.contendingTraceId ?? null,
+				causalChain: (data.causalChain ??
+					[]) as InvestigationFindingInput["causalChain"],
+				citedEvidenceIds: data.citedEvidenceIds ?? [],
+				codeReferences: data.codeReferences,
+				agentRunId: data.agentRunId ?? null,
 			};
-			const parsedInput =
-				InvestigationFindingHttpInputSchema.safeParse(rawInput);
-			const input: InvestigationFindingInput = parsedInput.success
-				? (parsedInput.data as InvestigationFindingInput)
-				: rawInput;
 
 			const finding = await recordInvestigationFinding(db, projectId, input, {
 				logger: runtime.logger,
