@@ -110,7 +110,7 @@ Run `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnin
 Run `make -C skills lint validate build`. Create a release using a distinct
 `skills-v<version>` tag and attach `skills/dist/*.skill` with `gh release create`
 or `gh release upload`. Update the documented download tag when shipping new
-bundles. The migration release was `skills-v0.1.1`; the current bundle is `skills-v0.1.3` (2026-10-16).
+bundles. The migration release was `skills-v0.1.1`; the current bundle is `skills-v0.1.4` (2026-10-16).
 
 ## Container image
 

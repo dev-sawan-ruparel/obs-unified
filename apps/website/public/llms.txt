@@ -37,7 +37,7 @@ pivots, and explicit retrieval refs the agent can expand on demand.
 - Examples: https://docs.obsunified.com/docs/examples
 - Machine-readable docs index: https://docs.obsunified.com/llms.txt
 - Machine-readable full docs corpus: https://docs.obsunified.com/llms-full.txt
-- Agent skill bundles (`.skill`): https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.3
+- Agent skill bundles (`.skill`): https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.4
 - License: MIT
 
 ## Signal types
