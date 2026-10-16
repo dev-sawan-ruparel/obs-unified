@@ -10,7 +10,11 @@ import type {
 	AISpansOverviewOptions,
 	AISpansOverviewResponse,
 } from "@obsunified/types";
-import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
+import {
+	getAICallById,
+	getAICallsOverview,
+	ingestAICallBatch,
+} from "./ai-store/calls";
 import {
 	getAIEvaluation,
 	ingestAIEvaluations,
@@ -35,6 +39,13 @@ export class AIStore {
 		options: AICallsOverviewOptions,
 	): Promise<AICallsOverviewResponse> {
 		return getAICallsOverview(this.db, options);
+	}
+
+	async getAICall(
+		projectId: string,
+		callId: string,
+	): Promise<AICallRecord | null> {
+		return getAICallById(this.db, projectId, callId);
 	}
 
 	async purgeExpired(): Promise<number> {

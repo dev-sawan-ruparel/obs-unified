@@ -53,6 +53,48 @@ export async function ingestAICallBatch(
 	await db.batch(batch);
 }
 
+function mapAICallRow(row: AICallRow): AICallRecord {
+	return {
+		projectId: row.project_id ?? "default",
+		callId: row.call_id,
+		traceId: row.trace_id,
+		spanId: row.span_id,
+		serviceName: row.service_name,
+		modelName: row.model_name,
+		provider: row.provider,
+		callType: row.call_type,
+		requestJson: row.request_json,
+		responseJson: row.response_json,
+		promptTokens: row.prompt_tokens,
+		completionTokens: row.completion_tokens,
+		totalCostUsd: row.total_cost_usd,
+		latencyMs: row.latency_ms,
+		isError: row.is_error === 1 || row.is_error === true,
+		errorMessage: row.error_message,
+		occurredAt: row.occurred_at,
+		receivedAt: row.received_at,
+		expiresAt: row.expires_at,
+		sessionId: row.session_id ?? null,
+		interactionId: row.interaction_id ?? null,
+	};
+}
+
+/** One call by id, scoped to the project; `null` when absent. */
+export async function getAICallById(
+	db: SqlDb,
+	projectId: string,
+	callId: string,
+): Promise<AICallRecord | null> {
+	if (!projectId) throw new Error("AIStore.getAICall: projectId is required");
+	const row = await db
+		.prepare(
+			`SELECT * FROM ai_calls WHERE project_id = ? AND call_id = ? LIMIT 1`,
+		)
+		.bind(projectId, callId)
+		.first<AICallRow>();
+	return row ? mapAICallRow(row) : null;
+}
+
 export async function getAICallsOverview(
 	db: SqlDb,
 	options: AICallsOverviewOptions,
@@ -109,29 +151,7 @@ export async function getAICallsOverview(
 			.bind(...summaryParams)
 			.first<AICallSummaryRow>()) || {};
 
-	const calls: AICallRecord[] = (results.results || []).map((row) => ({
-		projectId: row.project_id ?? "default",
-		callId: row.call_id,
-		traceId: row.trace_id,
-		spanId: row.span_id,
-		serviceName: row.service_name,
-		modelName: row.model_name,
-		provider: row.provider,
-		callType: row.call_type,
-		requestJson: row.request_json,
-		responseJson: row.response_json,
-		promptTokens: row.prompt_tokens,
-		completionTokens: row.completion_tokens,
-		totalCostUsd: row.total_cost_usd,
-		latencyMs: row.latency_ms,
-		isError: row.is_error === 1 || row.is_error === true,
-		errorMessage: row.error_message,
-		occurredAt: row.occurred_at,
-		receivedAt: row.received_at,
-		expiresAt: row.expires_at,
-		sessionId: row.session_id ?? null,
-		interactionId: row.interaction_id ?? null,
-	}));
+	const calls: AICallRecord[] = (results.results || []).map(mapAICallRow);
 
 	return {
 		calls,

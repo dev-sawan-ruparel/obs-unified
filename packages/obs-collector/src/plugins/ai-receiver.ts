@@ -97,6 +97,16 @@ export const aiReceiverPlugin: CollectorPlugin = {
 			return c.json(response);
 		});
 
+		// One AI call by its call id, with the trace/span it belongs to. Backs
+		// the `#/ai/calls/<id>` deep link when the call is outside the loaded list.
+		app.get("/internal/ai/calls/:callId", async (c) => {
+			const projectId = getProjectId(c);
+			const store = new AIStore(sqlDbFor(c.env));
+			const call = await store.getAICall(projectId, c.req.param("callId"));
+			if (!call) return c.json({ error: "AI call not found" }, 404);
+			return c.json({ call, traceId: call.traceId, spanId: call.spanId });
+		});
+
 		// OpenInference-kind spans (LLM/TOOL/RETRIEVER/CHAIN/AGENT/...) joined
 		// with their payload side-table. This is the replacement for the flat
 		// ai_calls endpoint — it returns typed spans that live inside the

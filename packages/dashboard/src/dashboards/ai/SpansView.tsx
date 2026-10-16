@@ -9,6 +9,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { Button } from "../../components/Button";
@@ -49,6 +50,17 @@ export interface SpansViewProps {
 	setView: (v: View) => void;
 	/** Pre-select the span backing this AI call id (`#/ai/calls/<id>`). */
 	initialCallId?: string;
+}
+
+/** A call id is its span id or an explicit `ai.call_id` attribute. */
+export function findSpanForCallId(
+	spans: readonly AISpanRecord[],
+	callId: string,
+): AISpanRecord | undefined {
+	return spans.find(
+		(s) =>
+			s.spanId === callId || attrString(s.attributes, "ai.call_id") === callId,
+	);
 }
 
 export function SpansView({
@@ -105,19 +117,43 @@ export function SpansView({
 	// Deep link `#/ai/calls/<id>`: select the matching span once, as soon as
 	// the overview contains it. A call id is its span id or an explicit
 	// `ai.call_id` attribute.
+	const fetchedCallId = useRef<string | null>(null);
 	const [appliedCallId, setAppliedCallId] = useState<string | null>(null);
 	useEffect(() => {
 		if (!initialCallId || appliedCallId === initialCallId || !overview) return;
-		const match = overview.spans.find(
-			(s) =>
-				s.spanId === initialCallId ||
-				attrString(s.attributes, "ai.call_id") === initialCallId,
-		);
+		const match = findSpanForCallId(overview.spans, initialCallId);
 		if (match) {
 			setSelected(match);
 			setAppliedCallId(initialCallId);
+			return;
 		}
-	}, [initialCallId, appliedCallId, overview]);
+		// Not in the loaded window: resolve the call row by id, then load its
+		// trace and select the span it belongs to.
+		if (fetchedCallId.current === initialCallId) return;
+		fetchedCallId.current = initialCallId;
+		(async () => {
+			try {
+				const found = await api<{
+					call: { callId: string; traceId: string | null };
+					traceId: string | null;
+					spanId: string | null;
+				}>(`/ai/calls/${encodeURIComponent(initialCallId)}`);
+				if (!found.traceId) return;
+				const trace = await api<AISpansOverviewResponse>(
+					`/ai/spans?${new URLSearchParams({
+						hours: "720",
+						traceId: found.traceId,
+					})}`,
+				);
+				const span =
+					trace.spans.find((s) => s.spanId === found.spanId) ??
+					findSpanForCallId(trace.spans, initialCallId);
+				if (span) setSelected(span);
+			} catch (err) {
+				setLoadError(errorMessage(err));
+			}
+		})();
+	}, [initialCallId, appliedCallId, overview, api]);
 
 	// Filter client-side by model / provider / search.
 	// (Server supports kind/service; client adds the rest without a round-trip.)

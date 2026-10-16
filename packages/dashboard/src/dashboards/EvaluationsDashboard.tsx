@@ -1,5 +1,5 @@
 import type { JsonValue } from "@obsunified/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button";
 import { type Column, DataTable } from "../components/DataTable";
 import { Card, SectionTitle } from "../components/primitives";
@@ -94,6 +94,34 @@ interface ActionCompareResponse {
 }
 
 type JsonRecord = Record<string, JsonValue>;
+
+/** `human_approved_write` -> `human approved write` (every underscore). */
+export const humanizeLabel = (value: string): string =>
+	value.replaceAll("_", " ");
+
+/**
+ * Resolve a deep-link id to an eval case in a loaded list. A direct case id
+ * wins; otherwise the case saved from that source entity (action, AI call,
+ * tool call, agent run, trace, span) is used, newest first.
+ */
+export function resolveEvalCaseId(
+	id: string,
+	cases: readonly EvalCase[],
+): string | null {
+	const direct = cases.find((c) => c.id === id);
+	if (direct) return direct.id;
+	const bySource = cases.find(
+		(c) =>
+			c.sourceEntityId === id ||
+			c.sourceActionId === id ||
+			c.sourceAiCallId === id ||
+			c.sourceToolCallId === id ||
+			c.sourceAgentRunId === id ||
+			c.sourceTraceId === id ||
+			c.sourceSpanId === id,
+	);
+	return bySource?.id ?? null;
+}
 
 const isRecord = (value: JsonValue | null | undefined): value is JsonRecord =>
 	!!value && typeof value === "object" && !Array.isArray(value);
@@ -354,7 +382,7 @@ function ProductionEvalComparison({
 				<div className="grid grid-cols-2 gap-2 text-[0.75rem]">
 					<Metric
 						label="Entity"
-						value={evalCase.sourceEntityType.replace("_", " ")}
+						value={humanizeLabel(evalCase.sourceEntityType)}
 					/>
 					<Metric label="ID" value={evalCase.sourceEntityId} mono />
 					<Metric
@@ -570,10 +598,18 @@ function Metric({
 	);
 }
 
-export function EvaluationsDashboard() {
+export function EvaluationsDashboard({
+	initialCaseId,
+}: {
+	/** `#/evaluations/<id>`: eval case id (or a source entity id) to select. */
+	initialCaseId?: string;
+} = {}) {
 	const api = useApi();
 	const [cases, setCases] = useState<EvalCase[]>([]);
+	const casesRef = useRef<EvalCase[]>([]);
+	casesRef.current = cases;
 	const [selectedCaseId, setSelectedCaseId] = useState<string | null>(() => {
+		if (initialCaseId) return initialCaseId;
 		if (typeof window !== "undefined") {
 			const query = window.location.hash.split("?")[1];
 			if (query) {
@@ -583,6 +619,10 @@ export function EvaluationsDashboard() {
 		}
 		return null;
 	});
+
+	useEffect(() => {
+		if (initialCaseId) setSelectedCaseId(initialCaseId);
+	}, [initialCaseId]);
 
 	useEffect(() => {
 		const handleHashChange = () => {
@@ -670,7 +710,9 @@ export function EvaluationsDashboard() {
 	const loadCases = useCallback(async () => {
 		setLoadingCases(true);
 		try {
-			const data = await api<{ evalCases: EvalCase[] }>("/eval-cases");
+			const data = await api<{ evalCases: EvalCase[] }>(
+				"/eval-cases?limit=200",
+			);
 			setCases(data.evalCases ?? []);
 			setError(null);
 		} catch (err) {
@@ -726,6 +768,23 @@ export function EvaluationsDashboard() {
 					setError(null);
 				}
 			} catch (err) {
+				// The id may not be a case id (e.g. an eval result or a source
+				// entity). Resolve it against the loaded list, then a larger one.
+				try {
+					let resolved = resolveEvalCaseId(caseId, casesRef.current);
+					if (!resolved) {
+						const all = await api<{ evalCases: EvalCase[] }>(
+							"/eval-cases?limit=200",
+						);
+						resolved = resolveEvalCaseId(caseId, all.evalCases ?? []);
+					}
+					if (active && resolved && resolved !== caseId) {
+						setSelectedCaseId(resolved);
+						return;
+					}
+				} catch {
+					// fall through to the original error
+				}
 				if (active) {
 					setError(err instanceof Error ? err.message : String(err));
 				}
@@ -810,7 +869,7 @@ export function EvaluationsDashboard() {
 			key: "type",
 			header: "Source",
 			cell: (row) => (
-				<Tag tone="neutral">{row.sourceEntityType.replace("_", " ")}</Tag>
+				<Tag tone="neutral">{humanizeLabel(row.sourceEntityType)}</Tag>
 			),
 			width: "1.2fr",
 		},
@@ -917,7 +976,7 @@ export function EvaluationsDashboard() {
 									</div>
 									<div className="flex flex-col items-end gap-1.5 flex-none">
 										<Tag tone="accent">
-											{selectedCase.sourceEntityType.replace("_", " ")}
+											{humanizeLabel(selectedCase.sourceEntityType)}
 										</Tag>
 										<span className="text-[0.6875rem] font-mono text-sys-on-surface-muted">
 											Source Entity: {selectedCase.sourceEntityId.slice(0, 16)}

@@ -264,7 +264,10 @@ export function App() {
 							/>
 						)}
 						{route.tab === "service-map" && (
-							<ServiceMapDashboard onNavigate={navigate} />
+							<ServiceMapDashboard
+								initialService={route.service}
+								onNavigate={navigate}
+							/>
 						)}
 						{route.tab === "issues" && (
 							<TelemetryDashboard
@@ -402,7 +405,9 @@ export function App() {
 								}}
 							/>
 						)}
-						{route.tab === "evaluations" && <EvaluationsDashboard />}
+						{route.tab === "evaluations" && (
+							<EvaluationsDashboard initialCaseId={route.evaluationId} />
+						)}
 						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}
 					</Suspense>
 				</main>

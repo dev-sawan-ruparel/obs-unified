@@ -77,7 +77,7 @@ describe("connected manifest hrefs target real router tabs", () => {
 		expect(hrefs).toEqual([
 			"#/tool-calls",
 			"#/actions/a1",
-			"#/evaluations",
+			"#/evaluations/e1",
 			"#/actions/a1",
 		]);
 		for (const href of hrefs)

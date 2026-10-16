@@ -45,6 +45,8 @@ interface ServiceOperationsResponse {
 }
 
 interface Props {
+	/** `#/service-map?service=<name>`: focus the map on this service. */
+	initialService?: string;
 	onNavigate?: (route: {
 		tab?: string;
 		traceId?: string;
@@ -63,6 +65,48 @@ type ServiceNodeData = {
 type ServiceMapEdgeData = ServiceMapResponse["edges"][number] & {
 	isEbpf?: boolean;
 };
+
+/** Services shown at full strength when the map is focused on `service`. */
+export function focusNeighborhood(
+	edges: ReadonlyArray<{ source: string; target: string }>,
+	service: string,
+): { services: Set<string>; edgeIds: Set<string> } {
+	const services = new Set<string>([service]);
+	const edgeIds = new Set<string>();
+	for (const e of edges) {
+		if (e.source === service || e.target === service) {
+			services.add(e.source);
+			services.add(e.target);
+			edgeIds.add(`${e.source}->${e.target}`);
+		}
+	}
+	return { services, edgeIds };
+}
+
+export function ServiceFocusChip({
+	service,
+	onClear,
+}: {
+	service: string;
+	onClear?: () => void;
+}) {
+	return (
+		<span
+			className="inline-flex items-center gap-1.5 border-[1px] border-sys-primary bg-sys-surface px-2 py-1 text-[0.75rem] font-mono"
+			data-testid="service-focus-chip"
+		>
+			Showing {service}
+			<span className="opacity-60">·</span>
+			<button
+				type="button"
+				onClick={onClear}
+				className="cursor-pointer text-sys-primary underline"
+			>
+				clear
+			</button>
+		</span>
+	);
+}
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 90;
@@ -140,12 +184,28 @@ function ServiceNode({ data, selected }: NodeProps<Node<ServiceNodeData>>) {
 
 const nodeTypes = { service: ServiceNode };
 
-export function ServiceMapDashboard({ onNavigate }: Props = {}) {
+export function ServiceMapDashboard({
+	onNavigate,
+	initialService,
+}: Props = {}) {
 	const api = useApi();
 	const hours = String(useTimeWindowHours());
 	const [data, setData] = useState<ServiceMapResponse | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [selectedService, setSelectedService] = useState<string | null>(null);
+	const [selectedService, setSelectedService] = useState<string | null>(
+		initialService ?? null,
+	);
+	const [focusService, setFocusService] = useState<string | null>(
+		initialService ?? null,
+	);
+	useEffect(() => {
+		setFocusService(initialService ?? null);
+		if (initialService) setSelectedService(initialService);
+	}, [initialService]);
+	const clearFocus = useCallback(() => {
+		setFocusService(null);
+		onNavigate?.({ tab: "service-map", service: undefined });
+	}, [onNavigate]);
 	const [opsData, setOpsData] = useState<ServiceOperationsResponse | null>(
 		null,
 	);
@@ -246,8 +306,25 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 				animated: isEbpfEdge || e.errorRate >= 0.1,
 			};
 		});
+		if (focusService) {
+			const near = focusNeighborhood(mapEdges, focusService);
+			for (const n of rawNodes) {
+				if (!near.services.has(n.id)) n.style = { opacity: 0.25 };
+			}
+			for (const e of rawEdges) {
+				if (near.edgeIds.has(e.id)) {
+					e.style = {
+						...e.style,
+						strokeWidth: 3,
+					};
+				} else {
+					e.style = { ...e.style, opacity: 0.2 };
+					e.labelStyle = { ...e.labelStyle, opacity: 0.3 };
+				}
+			}
+		}
 		return { nodes: layout(rawNodes, rawEdges), edges: rawEdges };
-	}, [data, source]);
+	}, [data, source, focusService]);
 
 	const totalCalls = data?.edges.reduce((s, e) => s + e.calls, 0) ?? 0;
 	const totalErrors = data?.edges.reduce((s, e) => s + e.errors, 0) ?? 0;
@@ -259,6 +336,9 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 				<Button variant="primary" onClick={load}>
 					Refresh
 				</Button>
+				{focusService && (
+					<ServiceFocusChip service={focusService} onClear={clearFocus} />
+				)}
 				<div className="ml-auto flex items-center gap-4 text-[0.75rem] font-mono opacity-70">
 					<span>{data?.nodes.length ?? 0} services</span>
 					<span>{data?.edges.length ?? 0} edges</span>
@@ -322,6 +402,7 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 					) : (
 						<div className="absolute inset-0">
 							<ReactFlow
+								key={focusService ?? "all"}
 								nodes={nodes.map((n) => ({
 									...n,
 									selected: n.id === selectedService,
@@ -331,7 +412,16 @@ export function ServiceMapDashboard({ onNavigate }: Props = {}) {
 								onNodeClick={(_, node) => setSelectedService(node.id)}
 								onPaneClick={() => setSelectedService(null)}
 								fitView
-								fitViewOptions={{ padding: 0.2 }}
+								fitViewOptions={{
+									padding: 0.2,
+									nodes: focusService
+										? [
+												...focusNeighborhood(data?.edges ?? [], focusService)
+													.services,
+											].map((id) => ({ id }))
+										: undefined,
+									maxZoom: focusService ? 1.2 : undefined,
+								}}
 								proOptions={{ hideAttribution: true }}
 								minZoom={0.2}
 								maxZoom={2}
