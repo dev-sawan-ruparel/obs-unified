@@ -481,6 +481,73 @@ describe("keys list", () => {
 	});
 });
 
+describe("keys revoke", () => {
+	const env = { OBS_COLLECTOR_URL: COLLECTOR, OBS_ADMIN_TOKEN: TOKEN };
+
+	it("DELETEs /internal/projects/:id/keys/:keyId with the bearer token", async () => {
+		const { fetch, calls } = fakeFetch({
+			"DELETE /internal/projects/default/keys/k1": () =>
+				json(200, { ok: true }),
+		});
+		const t = makeIo();
+		const code = await runKeys(["revoke", "k1", "--project", "default"], {
+			fetch,
+			env,
+			io: t.io,
+		});
+		expect(code).toBe(0);
+		expect(calls).toHaveLength(1);
+		expect(calls[0].method).toBe("DELETE");
+		expect(calls[0].url).toBe(`${COLLECTOR}/internal/projects/default/keys/k1`);
+		expect(calls[0].headers.authorization).toBe(`Bearer ${TOKEN}`);
+		expect(t.stdout()).toContain("revoked ingest key k1");
+		expect(t.stdout()).toContain("60 seconds");
+	});
+
+	it("accepts OBS_DASHBOARD_TOKEN and reports failures", async () => {
+		const { fetch, calls } = fakeFetch({
+			"DELETE /internal/projects/default/keys/nope": () =>
+				json(404, { error: "Key not found" }),
+		});
+		const t = makeIo();
+		const code = await runKeys(["revoke", "nope", "-p", "default"], {
+			fetch,
+			env: { OBS_COLLECTOR_URL: COLLECTOR, OBS_DASHBOARD_TOKEN: "dash" },
+			io: t.io,
+		});
+		expect(code).toBe(1);
+		expect(calls[0].headers.authorization).toBe("Bearer dash");
+		expect(t.stderr()).toContain("revoke failed");
+	});
+
+	it("requires a key id and supports --help", async () => {
+		const { fetch, calls } = fakeFetch({});
+		const t = makeIo();
+		expect(
+			await runKeys(["revoke", "--project", "default"], {
+				fetch,
+				env,
+				io: t.io,
+			}),
+		).toBe(1);
+		expect(t.stderr()).toContain("keyId");
+		const h = makeIo();
+		expect(await runKeys(["--help"], { fetch, env, io: h.io })).toBe(0);
+		expect(h.stdout()).toContain("revoke");
+		expect(calls).toHaveLength(0);
+	});
+});
+
+describe("doctor --help", () => {
+	it("prints help and exits 0 without a request", async () => {
+		const { fetch, calls } = fakeFetch({});
+		const t = makeIo();
+		expect(await runDoctor(["--help"], { fetch, env: {}, io: t.io })).toBe(0);
+		expect(t.stdout()).toContain("OBS_DASHBOARD_TOKEN");
+		expect(calls).toHaveLength(0);
+	});
+});
+
 describe("keys argument handling", () => {
 	it("requires OBS_ADMIN_TOKEN before any request", async () => {
 		const { fetch, calls } = fakeFetch({});
@@ -499,7 +566,9 @@ describe("keys argument handling", () => {
 	it("rejects unknown subcommands and options without a request", async () => {
 		for (const args of [
 			[],
-			["revoke", "k1"],
+			["revoke"],
+			["revoke", "a", "b"],
+			["bogus", "k1"],
 			["mint", "--bogus"],
 			["list", "--name", "x"],
 			["mint", "--project"],

@@ -14,7 +14,7 @@ import {
 	ACTION_ROOT_HEADER_NAME,
 	ACTION_ROOT_ID_KEY,
 } from "@obsunified/types/constants";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	clearActiveActionContext,
 	createRequestSpan,
@@ -23,6 +23,7 @@ import {
 	INTERACTION_HEADER_NAME,
 	parseActionHeader,
 	parseInteractionHeader,
+	resetInteractionDropWarning,
 	runWithSpan,
 	stampActionFromRequest,
 	stampIdentityFromRequest,
@@ -306,5 +307,48 @@ describe("stampActionFromRequest", () => {
 		expect(attrValue(child ?? {}, ACTION_ROOT_ID_KEY)).toBe(rootActionId);
 		expect(attrValue(child ?? {}, ACTION_ID_KEY)).toBe(actionId);
 		clearActiveActionContext();
+	});
+});
+
+describe("malformed x-obs-interaction warning", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+		resetInteractionDropWarning();
+	});
+
+	const stamp = (value: string | null) => {
+		const span = createRequestSpan("svc", "GET /x");
+		const request = new Request("http://example.test/", {
+			headers: value === null ? {} : { [INTERACTION_HEADER_NAME]: value },
+		});
+		return stampInteractionFromRequest(span, request);
+	};
+
+	it("warns once per process, mentioning generateInteractionId()", () => {
+		resetInteractionDropWarning();
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(stamp("demo_click_123")).toBeUndefined();
+		expect(stamp("another-bad-value")).toBeUndefined();
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(String(warn.mock.calls[0]?.[0])).toContain(
+			"generateInteractionId()",
+		);
+	});
+
+	it("does not warn for missing, empty, or valid headers", () => {
+		resetInteractionDropWarning();
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		stamp(null);
+		stamp("   ");
+		stamp("01HZX3K9Q8M2V6T4N7B5C1D0EF");
+		expect(warn).not.toHaveBeenCalled();
+	});
+
+	it("never throws when console.warn throws", () => {
+		resetInteractionDropWarning();
+		vi.spyOn(console, "warn").mockImplementation(() => {
+			throw new Error("no console");
+		});
+		expect(() => stamp("bad")).not.toThrow();
 	});
 });

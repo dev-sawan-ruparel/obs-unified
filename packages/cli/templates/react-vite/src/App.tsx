@@ -26,7 +26,10 @@ export function App() {
 	return (
 		<main style={{ fontFamily: "system-ui", padding: 32 }}>
 			<h1>__APP_NAME__</h1>
-			<p>Click the button, then check your collector dashboard.</p>
+			<p>
+				Click the button, then check your obs-unified dashboard
+				(http://localhost:5173).
+			</p>
 			<button onClick={onClick} type="button">
 				Say hello
 			</button>

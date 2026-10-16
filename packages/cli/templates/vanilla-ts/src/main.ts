@@ -6,7 +6,7 @@ import { installAutoCorrelate, UsageTracker } from "@obsunified/analytics-sdk";
 
 const tracker = new UsageTracker({
 	collectorUrl: import.meta.env.VITE_OBS_COLLECTOR_URL ?? "__COLLECTOR_URL__",
-	apiKey: import.meta.env.VITE_OBS_INGEST_KEY ?? "dev-ingest-key",
+	apiKey: import.meta.env.VITE_OBS_INGEST_KEY ?? "__INGEST_KEY__",
 	storagePrefix: "__APP_NAME__",
 	trackPageViews: true,
 	captureErrors: true,

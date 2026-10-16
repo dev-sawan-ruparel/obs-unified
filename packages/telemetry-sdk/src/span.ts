@@ -338,7 +338,28 @@ export const stampInteractionFromRequest = (
 	const raw = headerValue(request, INTERACTION_HEADER_NAME);
 	const id = parseInteractionHeader(raw);
 	if (id !== undefined) span.setAttribute(INTERACTION_ATTRIBUTE_KEY, id);
+	else if (raw?.trim()) warnInteractionDroppedOnce();
 	return id;
+};
+
+let interactionDropWarned = false;
+
+/** Test hook: re-arm the once-per-process malformed-header warning. */
+export const resetInteractionDropWarning = (): void => {
+	interactionDropWarned = false;
+};
+
+const warnInteractionDroppedOnce = (): void => {
+	if (interactionDropWarned) return;
+	interactionDropWarned = true;
+	try {
+		console.warn(
+			`[obs-unified] dropped ${INTERACTION_HEADER_NAME} header: value is not a 26-character Crockford-base32 ULID. ` +
+				"Use generateInteractionId() from @obsunified/analytics-sdk to create valid ids. (Logged once per process.)",
+		);
+	} catch {
+		// console may be unavailable or throw in exotic runtimes; never fail a request.
+	}
 };
 
 export interface AgentActionContext {

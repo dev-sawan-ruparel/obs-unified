@@ -24,14 +24,14 @@ Use TodoWrite to track progress when the project touches more than ~3 files.
 Read `package.json` (or `pyproject.toml` / `go.mod` / `Cargo.toml`). Classify the signals against the 3-Tier Compatibility Matrix:
 
 - **Tier 1 (Full First-Party Unified Stack):**
-  - **Frontend**: `react`, `vite`, `next`, `solid-js`, `vue`, `svelte`, `@remix-run/*` (`@obsunified/analytics-sdk` — page views, clicks, `x-obs-interaction`, `rrweb` DOM replay)
+  - **Frontend**: `react`, `vite`, `next`, `solid-js`, `vue`, `svelte`, `@remix-run/*` (`@obsunified/analytics-sdk` — page views, clicks, `x-obs-interaction`, `rrweb` DOM replay). `x-obs-interaction` values must be a 26-character uppercase Crockford-base32 ULID (e.g. from `generateInteractionId()`); other values are dropped by the JS SDK, which logs a one-time warning.
   - **Backend**: `hono`, `express`, `fastify`, `koa`, `elysia`, Cloudflare Workers (`@obsunified/telemetry-sdk` or `@obsunified/sdk`), or Go/Rust (`sdks/go`, `sdks/rust`)
   - **AI/LLM**: `openai`, `@anthropic-ai/sdk`, `@google/genai`, `langchain`, `@vercel/ai`, `ai`
-- **Tier 2 (Standard OpenTelemetry Backends):** Python, Java/Kotlin, .NET, Ruby, PHP, C++ via OTLP HTTP (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json` or `http/protobuf`) + `obs.interaction.id` span attribute from `x-obs-interaction`.
+- **Tier 2 (Standard OpenTelemetry Backends):** Python, Java/Kotlin, .NET, Ruby, PHP, C++ via OTLP HTTP (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json` or `http/protobuf`) + `obs.interaction.id` span attribute from `x-obs-interaction` (a 26-character Crockford-base32 ULID, not an arbitrary string).
 - **Tier 3 (Partial or Constrained Shapes — report to user before editing):**
   - **Native mobile (`react-native`, `expo`, Swift, Kotlin, Flutter):** Backend traces/logs/AI calls work; `rrweb` DOM session replay is **not supported**.
   - **CLI / Cron / Headless workers:** Backend traces/logs/AI calls/Action Graph (`triggerKind: "cron" | "queue"`) work; browser replay is N/A.
-  - **Async queues (Kafka, SQS, BullMQ, RabbitMQ):** Require explicit propagation of `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message metadata.
+  - **Async queues (Kafka, SQS, BullMQ, RabbitMQ):** Require explicit propagation of `traceparent` / `x-obs-interaction` (26-char ULID) / `x-obs-action-id` in message metadata.
 
 The primary path (React+Vite + Hono on Workers) is the doc's running example. If the stack is adjacent, tell the user up front: "I'll adapt the patterns from `docs/howto/instrument-react-hono.md` — the SDK API is the same, the middleware shape differs slightly for `<framework>`."
 
@@ -86,7 +86,7 @@ pnpm add @obsunified/analytics-sdk     # wherever browser code runs
 pnpm add @obsunified/telemetry-sdk     # wherever server code runs
 ```
 
-In a monorepo, install per package, not at the root. (If scaffolding a brand-new project from scratch, always pass `--yes` and `--template` so the CLI never blocks on interactive TTY prompts: `pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes`; these flags require `@obsunified/cli` 1.1.2 or newer, on 1.1.1 scaffold interactively.)
+In a monorepo, install per package, not at the root. (If scaffolding a brand-new project from scratch, always pass `--yes` and `--template` so the CLI never blocks on interactive TTY prompts: `pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --ingest-key <key> --yes`.)
 
 ### 4. Frontend wire-up
 
@@ -199,7 +199,7 @@ If the app has multi-turn conversations, call `setAISessionContext({ sessionId, 
 
 To enable cohort attribution (`service.version` / `vcs.commit.id`) and change blast-radius correlation:
 
-- Pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` (or `lineage: { environment, serviceVersion, commitSha, configDigest }`) to `initObservability(...)` and `<AnalyticsProvider>` so spans and usage events carry `deployment.environment.name`, `service.version`, `vcs.commit.id`, and `obs.config.digest`.
+- Pass `environment`, `serviceVersion`, `commitSha`, and `configDigest` to `initObservability(...)` and `<AnalyticsProvider>` so spans and usage events carry `deployment.environment.name`, `service.version`, `vcs.commit.id`, and `obs.config.digest`.
 - Where feature flags are evaluated, call `recordFeatureFlag(flagKey, variant, { providerName })` from `@obsunified/telemetry-sdk` or `@obsunified/analytics-sdk` so active spans carry `feature_flag.key`, `feature_flag.variant`, and `obs.feature_flags.<key>`.
 - In deploy scripts or release hooks, record change events with the CLI:
   ```bash
@@ -232,7 +232,7 @@ Don't write actual credentials. If the project already has obs-unified env vars 
 
 This is the test half of the task — don't claim success without doing it.
 
-1. **Typecheck / build**: `pnpm typecheck` (or `pnpm build`). Fix any errors before continuing.
+1. **Typecheck / build**: run the project's own check script, `pnpm typecheck` if it defines one (the `hono-workers` scaffold does: `tsc --noEmit`), otherwise `pnpm build` (the `react-vite` and `vanilla-ts` scaffolds define only `build`, which is `vite build`). Fix any errors before continuing.
 
 2. **Start the dev server**:
    - Vite frontends → `preview_start` (browser-previewable).
@@ -246,7 +246,7 @@ This is the test half of the task — don't claim success without doing it.
    curl -sD - "$BASE_URL/api/health" -o /dev/null | grep -i x-obs-trace-id
    ```
 
-   Fallback paths if for some reason the header isn't set: tail backend logs with `initObservability({ debug: true })` temporarily, or query `GET /internal/telemetry/overview` and pick the most recent trace.
+   Fallback paths if for some reason the header isn't set: tail the backend's own logs, or query `GET /internal/telemetry/overview` and pick the most recent trace.
 
 5. **Query the collector** (using the read bearer token `OBS_DASHBOARD_TOKEN`, since `OBS_INGEST_KEY` is write-only):
 

@@ -20,6 +20,7 @@ export interface ParsedCreateArgs {
 	appName: string | null;
 	template?: ScaffoldTemplate;
 	collectorUrl?: string;
+	ingestKey?: string;
 	yes: boolean;
 	error?: string;
 }
@@ -28,6 +29,7 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 	let appName: string | null = null;
 	let template: ScaffoldTemplate | undefined;
 	let collectorUrl: string | undefined;
+	let ingestKey: string | undefined;
 	let yes = false;
 
 	for (let i = 0; i < args.length; i += 1) {
@@ -85,6 +87,22 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 			collectorUrl = arg.slice("--url=".length);
 			continue;
 		}
+		if (arg === "--ingest-key") {
+			const val = args[i + 1];
+			if (!val || val.startsWith("-")) {
+				return { appName, yes, error: `missing value for ${arg}` };
+			}
+			ingestKey = val;
+			i += 1;
+			continue;
+		}
+		if (arg.startsWith("--ingest-key=")) {
+			ingestKey = arg.slice("--ingest-key=".length);
+			if (!ingestKey) {
+				return { appName, yes, error: "missing value for --ingest-key" };
+			}
+			continue;
+		}
 		if (arg.startsWith("-")) {
 			return { appName, yes, error: `unknown create option: ${arg}` };
 		}
@@ -95,5 +113,5 @@ export function parseCreateArgs(args: string[]): ParsedCreateArgs {
 		}
 	}
 
-	return { appName, template, collectorUrl, yes };
+	return { appName, template, collectorUrl, ingestKey, yes };
 }
