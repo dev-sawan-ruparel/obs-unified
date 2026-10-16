@@ -1,5 +1,17 @@
 # @obsunified/collector
 
+## 2.2.2
+
+### Patch Changes
+
+- 3ba2c0a: AutoSRE lifecycle fixes: finding creation accepts an `idempotencyKey` (a retry returns the stored finding), `fingerprintInput` may be partial, and an omitted fingerprint for a span-id fault locus is derived from the span's service, operation and error signature so the circuit breaker no longer fragments per span; `GET /internal/evals/runs/:id` lets callers validate counterfactual prerequisites before persisting; the evidence bundle's `priorFindings` also match by recurrence fingerprint; a `webhookUrl`/`secret` given to `propose` is stored on a pending proposal (migration 052, both dialects) and used when the proposal is approved without a callback, with only `callbackHost` exposed by GETs; `POST /internal/findings` now persists `codeReferences`.
+- 2afe6fa: Add `GET /internal/ai/calls/:callId` returning the AI call row with its `traceId` and `spanId` (404 when unknown), and point connected-manifest eval links at `#/evaluations/<id>`.
+- c2cd9c8: Fix Postgres-only 500s on `GET /internal/connected/change/:id` (invalid `SELECT DISTINCT ... ORDER BY`) and `GET /internal/usage/sessions` (ungrouped correlated subqueries). Session cookies now get `Secure` behind a trusted TLS-terminating proxy (`TRUST_PROXY` plus `X-Forwarded-Proto: https`). The bootstrap ingest key's display prefix never reveals a short key in full. Connected-rail links now carry the real entity kind and point at routes the dashboard serves (incident trigger signal, finding fault locus, tool calls, retrievals, evaluations, artifacts, AI calls).
+- c800403: Grant webhook delivery now retries up to 3 times (500 ms / 1500 ms backoff) on network errors, timeouts and 5xx, but not on 4xx. Approve and propose responses carry `grantDelivery: { attempted, delivered, attempts, host, error? }`, and the last outcome is persisted (migration 053 `callback_delivery`) and returned by GET as `callbackDelivery`.
+- Updated dependencies [3ba2c0a]
+- Updated dependencies [c800403]
+  - @obsunified/types@2.2.1
+
 ## 2.2.1
 
 ### Patch Changes

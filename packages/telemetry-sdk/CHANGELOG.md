@@ -1,5 +1,14 @@
 # @obsunified/telemetry-sdk
 
+## 2.1.2
+
+### Patch Changes
+
+- 84295c5: `stampInteractionFromRequest` now logs a one-time `console.warn` when a non-empty `x-obs-interaction` header is dropped because it is not a 26-character Crockford ULID.
+- Updated dependencies [3ba2c0a]
+- Updated dependencies [c800403]
+  - @obsunified/types@2.2.1
+
 ## 2.1.1
 
 ### Patch Changes

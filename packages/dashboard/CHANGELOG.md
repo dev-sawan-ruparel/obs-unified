@@ -1,5 +1,17 @@
 # @obsunified/dashboard
 
+## 1.2.2
+
+### Patch Changes
+
+- 3ba2c0a: Evidence detail pages for changes, findings and incidents now render evidence references, suggested next pivots, `bundle.autosre` (fault locus, candidate changes, contention candidates, prior findings) and the connected rail. `AutonomousReviewDashboard` accepts `selectedProposalId` to scroll to, expand and highlight a proposal, and the approval card shows "Grant will also be delivered to <host>" when a callback is stored.
+- 2afe6fa: Route deep links now select their target: `#/evaluations/:id` selects that eval case (falling back to the case saved from the same source entity), `#/service-map?service=` focuses the map on that service with a "Showing <service> · clear" chip, and `#/ai/calls/:id` fetches the call by id when it is outside the loaded span window. Hash parse/serialize helpers moved to `routes.ts` with tests, and eval source-type labels replace every underscore.
+- c2cd9c8: Connected-rail `#/ai?id=<call>` links now resolve to `#/ai/calls/<call>`, and the AI tab pre-selects the matching call.
+- c800403: The remediation approval card can send an optional webhook URL and secret with the approve request (showing the stored callback host as read-only), warns when grant webhook delivery failed so the operator can hand over the one-time token, and the queue marks proposals with a "delivery failed" badge.
+- Updated dependencies [3ba2c0a]
+- Updated dependencies [c800403]
+  - @obsunified/types@2.2.1
+
 ## 1.2.1
 
 ### Patch Changes
