@@ -165,11 +165,19 @@ REPLAY_CODE=$(curl -sS -o "$STATE_DIR/replay_claim.json" -w "%{http_code}" \
 [ "$REPLAY_CODE" = "409" ] || die "replaying grant token should return 409, got $REPLAY_CODE"
 ok "second claim with same grantToken rejected with HTTP 409"
 
+WRONG_RUNNER_CODE=$(curl -sS -o "$STATE_DIR/wrong_runner.json" -w "%{http_code}" \
+  -X POST -H "Authorization: Bearer $DASHBOARD_TOKEN" -H "X-Project-Id: default" \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"prod","runnerId":"deploy-runner-2","resultingChangeId":"chg_scenario_d_deploy_241"}' \
+  "$COLLECTOR_URL/internal/remediations/$PROPOSAL_ID/complete")
+[ "$WRONG_RUNNER_CODE" = "409" ] || die "non-claiming runner complete should return 409, got $WRONG_RUNNER_CODE"
+ok "non-claiming runner rejected with HTTP 409 on /complete"
+
 COMPLETE_RESP=$(acurl -X POST -H "Content-Type: application/json" \
-  -d '{"environment":"prod","resultingChangeId":"chg_scenario_d_deploy_241"}' \
+  -d '{"environment":"prod","runnerId":"deploy-runner-1","resultingChangeId":"chg_scenario_d_deploy_241"}' \
   "$COLLECTOR_URL/internal/remediations/$PROPOSAL_ID/complete")
 DONE_STATUS=$(echo "$COMPLETE_RESP" | jq -r '.proposal.status')
 [ "$DONE_STATUS" = "completed" ] || die "expected completed, got $DONE_STATUS"
-ok "remediation completed (status=$DONE_STATUS)"
+ok "remediation completed by claiming runner (status=$DONE_STATUS)"
 
 echo -e "\n\033[1;32m✓ ALL LIVE AUTOSRE E2E CHECKS PASSED\033[0m"

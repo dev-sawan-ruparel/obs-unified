@@ -1782,11 +1782,17 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 				);
 			}
 
+			const isAutoSreAnchor =
+				anchor.entityKind === "incident" ||
+				anchor.entityKind === "change" ||
+				anchor.entityKind === "finding";
 			const intent =
 				typeof body.intent === "string" &&
 				EVIDENCE_INTENTS.has(body.intent as EvidenceBundleIntent)
 					? (body.intent as EvidenceBundleIntent)
-					: "debug_failure";
+					: isAutoSreAnchor
+						? "triage_incident"
+						: "debug_failure";
 			const budget = body.budget as Record<string, unknown> | undefined;
 			const targetTokens = clampInt(
 				budget?.targetTokens,
