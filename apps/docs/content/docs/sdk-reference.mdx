@@ -114,55 +114,65 @@ setTimeout(() => {
 
 ## AI and LLM span tracking
 
-### High-level event tracking
-
-```ts
-import { trackAICall } from "@obsunified/telemetry-sdk";
-
-trackAICall({
-  modelName: "claude-3-5-sonnet-20251022",
-  provider: "anthropic",
-  callType: "chat",
-  promptTokens: 250,
-  completionTokens: 180,
-  latencyMs: 1400,
-  totalCostUsd: 0.0035,
-  isError: false,
-});
-```
-
-### OpenInference-style spans
+### OpenInference-style spans (recommended)
 
 ```ts
 import { startLLMSpan, startToolSpan } from "@obsunified/telemetry-sdk";
 
-const llmSpan = startLLMSpan("user-query-completion", {
-  modelName: "gpt-4o",
+const llmSpan = startLLMSpan({
+  name: "user-query-completion",
+  model: "gpt-4o",
   provider: "openai",
-  inputPrompt: "What is the capital of France?",
+  input: "What is the capital of France?",
 });
 
 try {
   const result = await myLLMApiCall();
-  llmSpan.setAttributes({
-    "openinference.span.output": result.text,
-    "openinference.usage.prompt_tokens": result.prompt_tokens,
-    "openinference.usage.completion_tokens": result.completion_tokens,
+  llmSpan.setOutput(result.text);
+  llmSpan.setTokens({
+    prompt: result.prompt_tokens,
+    completion: result.completion_tokens,
+    total: result.prompt_tokens + result.completion_tokens,
   });
+  llmSpan.setCost(0.0035);
 } finally {
   llmSpan.end();
 }
 
-const toolSpan = startToolSpan("database-search-tool", {
-  toolName: "pg-vector-search",
-  toolInput: "paris coordinates",
+const toolSpan = startToolSpan({
+  name: "pg-vector-search",
+  parameters: { query: "paris coordinates" },
 });
 
 try {
   const data = await searchDb();
-  toolSpan.setAttributes({ "openinference.span.output": JSON.stringify(data) });
+  toolSpan.setOutput(data);
 } finally {
   toolSpan.end();
+}
+```
+
+### Agent Action Graph helpers
+
+```ts
+import { startAgentRun, withAction } from "@obsunified/telemetry-sdk";
+
+const run = startAgentRun({
+  agentName: "triage-agent",
+  triggerKind: "webhook",
+});
+
+try {
+  await withAction(
+    { name: "classify-incident", autonomyLevel: "read_only" },
+    async () => {
+      // Child spans, LLM calls, and tool calls inside this callback link to the action graph.
+    },
+  );
+  run.end({ status: "ok" });
+} catch (err) {
+  run.end({ status: "error", errorMessage: String(err) });
+  throw err;
 }
 ```
 
@@ -184,7 +194,7 @@ const telemetryFetch = wrapFetch(globalThis.fetch);
 | --- | --- | --- | --- |
 | Exporter init | `initObservability(config)` | `obs.Init(ctx, config)` | `obs_unified::init(config)` |
 | HTTP stamp | `stampInteractionFromRequest(span, req)` | `obs.StampInteraction(ctx, r)` | `obs_unified::stamp_interaction(span, req)` |
-| LLM tracking span | `startLLMSpan(name, options)` | `obs.StartLLMSpan(ctx, name, opts)` | `obs_unified::start_llm_span(name, opts)` |
-| Tool tracking span | `startToolSpan(name, options)` | `obs.StartToolSpan(ctx, name, opts)` | `obs_unified::start_tool_span(name, opts)` |
+| LLM tracking span | `startLLMSpan(options)` | `obs.StartLLMSpan(ctx, name, opts)` | `obs_unified::start_llm_span(name, opts)` |
+| Tool tracking span | `startToolSpan(options)` | `obs.StartToolSpan(ctx, name, opts)` | `obs_unified::start_tool_span(name, opts)` |
 | Project id | `extraHeaders: { "x-project-id": id }` | `obs.SetProjectID(ctx, id)` | `obs_unified::set_project_id(id)` |
 | Capture exception | `annotateErrorSpan(span, error)` | `obs.AnnotateError(ctx, span, err)` | `obs_unified::annotate_error(span, err)` |

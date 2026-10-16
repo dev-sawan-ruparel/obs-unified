@@ -34,7 +34,7 @@ The `--template` / `--yes` scaffolding flags below require `@obsunified/cli` 1.1
 | `packages/cli/templates/hono-workers/` | Hono on Cloudflare Workers with backend telemetry wiring. | `pnpm dlx @obsunified/cli create my-api --template hono-workers --yes` |
 | `apps/obs-demo/` | AI calls, RAG, tool calls, session tracking, and evaluation scenarios. | `pnpm dev`, then `curl http://127.0.0.1:8787/api/demo/run-all` |
 | `scripts/e2e-autosre/` (`run-all.sh`) | End-to-end AutoSRE Scenario D testbed: deploy change event, traffic-normalized cohort lift (`v2.4.1` vs `v2.4.0`), noisy-neighbor contention check, counterfactual eval verification, and remediation grant claim. | `pnpm e2e:autosre` |
-| `apps/collector-node/` | Standalone Node collector with Postgres + MinIO. | `docker compose up -d` from `apps/collector-node` |
+| `apps/collector-node/` | Standalone Node collector with Postgres + RustFS (S3-compatible). | `docker compose up -d` from `apps/collector-node` |
 | `demo/` | OpenTelemetry Astronomy Shop feeding obs-unified with polyglot microservice traffic. | `pnpm demo:setup`, `pnpm demo:preflight`, `pnpm demo:up` |
 
 ## SDK examples

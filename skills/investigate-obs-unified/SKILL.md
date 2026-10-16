@@ -77,7 +77,7 @@ Investigation is rarely one query. The collector's `connected` endpoint lets you
 
 ```
 GET /internal/connected/<kind>/<id>
-  where kind ∈ { span, log, usage, ai_call, replay, alert, analysis, user, profile, action, agent_run, tool_call }
+  where kind ∈ { span, log, usage, ai_call, replay, alert, analysis, user, profile, action, agent_run, tool_call, change, finding, incident }
 ```
 
 For span lookups the id is `<traceId>:<spanId>` (the endpoint needs both to bucket properly). For the others, the id is just the kind-specific id (user_id, session id for usage, log id, etc.). Pivoting from a *trace* is done via `connected/span/<traceId>:<spanId>` on any span in the trace — there is no plain `trace` kind.
@@ -202,7 +202,7 @@ the raw rows.
 
 | Endpoint | Purpose | Key params |
 | --- | --- | --- |
-| `POST /internal/evidence/bundle` | Compact evidence for an anchor (`trace`/`action`/`agent_run`/`tool_call`/`change`/`finding`/`incident`), scoped to an intent (`debug_failure`, `explain_latency`, `audit_agent_run`, `prepare_eval_case`, `triage_incident`) + token budget; returns findings, exemplars, and retrieval refs | body: anchor kind/id, intent, token budget |
+| `POST /internal/evidence/bundle` | Compact evidence for an anchor (`trace`/`action`/`agent_run`/`tool_call`/`change`/`finding`/`incident`), scoped to an intent (`debug_failure`, `explain_latency`, `explain_cost`, `inspect_agent_run`, `inspect_tool_call`, `find_instrumentation_gap`, `triage_incident`, `general`) + token budget; returns findings, exemplars, and retrieval refs | body: anchor kind/id, intent, token budget |
 | `GET /internal/evidence/refs/:refId` | Expand a retrieval ref into raw/less-compacted/redacted records | `chunkOffset` (paginates replay event windows) |
 | `POST /internal/evidence/refs/:refId/search` | Search within a log retrieval ref without expanding the full slice | body: query |
 | `GET /internal/evidence/stats` | Issued/expanded evidence-ref telemetry for the project | (none) |
@@ -226,8 +226,8 @@ args/results.
 | `POST /internal/remediations/:id/claim` | Claim a single-use cryptographic `grantToken` with target-version CAS before executing a write | body: `grantToken`, `runnerId` |
 
 Equivalent MCP tools: `list_recent_changes`, `get_change_blast_radius`,
-`search_similar_findings`, `record_investigation_finding`,
-`propose_remediation_action`, `claim_remediation_grant`.
+`search_similar_findings` (always registered), and `record_investigation_finding`,
+`propose_remediation_action`, `claim_remediation_grant` (registered when `OBS_MCP_ENABLE_WRITES=true`).
 
 ### Usage events / users / replay
 

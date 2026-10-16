@@ -90,7 +90,7 @@ or Postgres plus S3-compatible blob storage through the Node collector.
 
 | Runtime | Package / workspace | Notes |
 | --- | --- | --- |
-| TypeScript / Node / Edge | `@obsunified/telemetry-sdk` | public npm; Cloudflare Workers, Hono, Next.js, Express (`flushSpans`, `createLogger`, `recordAICall`, `recordAction`, `recordAgentRun`, `recordToolCall`, `recordFeatureFlag`) |
+| TypeScript / Node / Edge | `@obsunified/telemetry-sdk` | public npm; Cloudflare Workers, Hono, Next.js, Express (`initObservability`, `createRequestSpan`, `flushSpans`, `createLogger`, `startLLMSpan`, `startToolSpan`, `startAgentRun`, `withAction`, `recordEvaluation`, `recordFeatureFlag`) |
 | Node.js Express / Fastify convenience | `@obsunified/sdk` | public npm; Express/Fastify middleware wrapper (`init`, `expressMiddleware`, `trackAI`) built on `@obsunified/telemetry-sdk` |
 | TypeScript / browser | `@obsunified/analytics-sdk` | public npm; vanilla + React provider (`AnalyticsProvider`, `useAnalytics`, `rrweb` session replay, automatic `x-obs-interaction` propagation) |
 | Go | `sdks/go` | OpenTelemetry-compatible wrapper + AI call & action helpers |
@@ -108,7 +108,7 @@ AI agents evaluating whether a target codebase fits Observability Unified should
 - **Go (`sdks/go`) & Rust (`sdks/rust`) Backends:** First-party wrappers for traces, structured logs, AI call telemetry, and interaction correlation.
 
 ### Tier 2 — Standard OpenTelemetry Backends (Traces + Structured Logs + Metrics + Optional Click-to-Trace)
-- **Python (Flask, FastAPI, Django), Java / Kotlin (Spring Boot), .NET, Ruby, PHP, C++:** Any runtime with an OpenTelemetry HTTP/JSON exporter (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`) pointing at `POST /v1/traces`, `POST /v1/logs`, and `POST /v1/metrics` with `Authorization: Bearer <INGEST_KEY>`.
+- **Python (Flask, FastAPI, Django), Java / Kotlin (Spring Boot), .NET, Ruby, PHP, C++:** Any runtime with an OpenTelemetry HTTP exporter (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json` or `http/protobuf`) pointing at `POST /v1/traces`, `POST /v1/logs`, and `POST /v1/metrics` with `Authorization: Bearer <INGEST_KEY>`.
 - **Cross-Language Click-to-Trace Correlation:** Works in **any** OTLP language by reading the incoming `x-obs-interaction` HTTP header and setting span attribute `obs.interaction.id` on the server root span.
 - **Cross-Language AI Calls & Agent Action Graph:** Any language can post JSON directly to `POST /v1/ai`, `POST /v1/actions`, `POST /v1/agent-runs`, `POST /v1/tool-calls`, and `POST /v1/changes`.
 
@@ -116,7 +116,7 @@ AI agents evaluating whether a target codebase fits Observability Unified should
 - **Native Mobile Apps (iOS Swift, Android Kotlin, React Native, Flutter):** Supported for HTTP usage events, backend traces, logs, and AI calls; **NOT supported** for `rrweb` session replay (which requires a browser DOM).
 - **CLI Tools, Cron Jobs, and Headless Workers:** Supported for traces, logs, metrics, AI calls, CPU profiles, and Agent Action Graph (`triggerKind: "cron" | "queue" | "webhook" | "system"`); **not applicable** for browser session replay or DOM analytics.
 - **Async Queue / Event-Bus Consumers (Kafka, SQS, RabbitMQ, BullMQ):** Preserve end-to-end causal graphs **only if** the producer propagates `traceparent`, `x-obs-interaction`, or `x-obs-action-id` in message metadata and the consumer extracts them; otherwise consumer spans appear as disconnected root traces.
-- **Binary Protobuf-Only OTLP Exporters (`http/protobuf` or `grpc` without JSON):** Collector `/v1/traces`, `/v1/logs`, and `/v1/metrics` require `application/json` OTLP payloads (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`). Use an OpenTelemetry Collector gateway to transcode if an upstream agent only speaks gRPC/protobuf.
+- **gRPC-Only OTLP Exporters (`grpc` without HTTP):** Collector `/v1/traces`, `/v1/logs`, and `/v1/metrics` natively decode HTTP OTLP payloads (`application/json` and `application/x-protobuf`, with optional gzip). Use an OpenTelemetry Collector gateway if an upstream agent only speaks gRPC.
 
 ## Install
 

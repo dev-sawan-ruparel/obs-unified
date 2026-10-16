@@ -148,6 +148,7 @@ data:
   S3_SECRET_ACCESS_KEY: c2VjcmV0LWtleS12YWx1ZS1nb2VzLWhlcmU=
   INGEST_KEY: bXktc2VjdXJlLXdyaXRlLWtleQ==
   DASHBOARD_PASSWORD: bXktc3VwZXItc2VjdXJlLXBhc3N3b3Jk
+  DASHBOARD_TOKEN: bXktcmVhZC1hZG1pbi1iZWFyZXItdG9rZW4=
 ```
 
 ```yaml
@@ -168,7 +169,7 @@ spec:
     spec:
       containers:
         - name: collector
-          image: obs-unified/collector:latest
+          image: ghcr.io/dev-sawan-ruparel/obs-unified:latest
           ports:
             - containerPort: 8790
           envFrom:

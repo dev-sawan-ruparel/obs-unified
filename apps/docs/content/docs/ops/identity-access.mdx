@@ -223,7 +223,7 @@ server {
 1. **`DASHBOARD_PASSWORD`**: High-entropy secret stored in your secret manager.
 2. **`INGEST_KEY`**: Rotatable write key provisioned per project in the collector database.
 3. **`cookie_secret` (`oauth2-proxy`)**: 16, 24, or 32-byte base64 string for AES cookie encryption.
-4. **Investigation MCP**: Store `OBS_SESSION_COOKIE` securely and route MCP connections directly to the internal collector port.
+4. **Investigation MCP**: Store `OBS_DASHBOARD_TOKEN` (matching `DASHBOARD_TOKEN`, or `OBS_SESSION_COOKIE`) securely and route MCP connections directly to the internal collector port.
 
 ---
 
