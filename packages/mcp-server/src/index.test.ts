@@ -312,6 +312,35 @@ describe("mcp-server configuration & auth contract", () => {
 			};
 		}
 
+		it("emits dashboardUrl values that match real dashboard routes", async () => {
+			const h = setupTools(({ url }) => ({ path: url.pathname }));
+			try {
+				const ref = await h.invoke("retrieve_evidence_ref", { refId: "ref 1" });
+				expect(ref.json.dashboardUrl).toBe(
+					"https://dashboard.example.com/#/evidence",
+				);
+				const search = await h.invoke("search_evidence_ref", {
+					refId: "ref 1",
+					query: "oom",
+				});
+				expect(search.json.dashboardUrl).toBe(
+					"https://dashboard.example.com/#/evidence",
+				);
+				const svc = await h.invoke("service_operations", {
+					service: "checkout api",
+				});
+				expect(svc.json.dashboardUrl).toBe(
+					"https://dashboard.example.com/#/service-map?service=checkout%20api",
+				);
+				const ev = await h.invoke("get_eval", { evaluationId: "case/1" });
+				expect(ev.json.dashboardUrl).toBe(
+					"https://dashboard.example.com/#/evaluations/case%2F1",
+				);
+			} finally {
+				h.restore();
+			}
+		});
+
 		it("extends connected_signals kind enum and get_evidence_bundle with change, finding, and incident", async () => {
 			const h = setupTools(({ url, body }) => ({
 				path: url.pathname,

@@ -12,6 +12,7 @@ import {
 	RemediationApprovalQueue,
 	type RemediationProposalView,
 	rejectRemediationProposal,
+	updateProposalById,
 } from "./RemediationApprovalCard";
 
 const samplePendingProposal: RemediationProposalView = {
@@ -391,5 +392,25 @@ describe("RemediationApprovalCard & RemediationApprovalQueue", () => {
 				}),
 			),
 		).not.toContain("data-callback-delivery");
+	});
+});
+
+describe("updateProposalById", () => {
+	it("updates only the matching proposal (also used for the deep-linked fetched card)", () => {
+		const other = { ...samplePendingProposal, id: "rem_other" };
+		const out = updateProposalById(
+			[samplePendingProposal, other],
+			samplePendingProposal.id,
+			(p) => ({ ...p, status: "rejected" }),
+		);
+		expect(out[0].status).toBe("rejected");
+		expect(out[1]).toBe(other);
+		// The fetched deep-linked card is a one-element list in the same shape.
+		expect(
+			updateProposalById([samplePendingProposal], "nope", (p) => ({
+				...p,
+				status: "rejected",
+			}))[0].status,
+		).toBe("pending_human_approval");
 	});
 });
