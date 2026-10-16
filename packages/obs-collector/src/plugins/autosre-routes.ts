@@ -958,10 +958,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				(await readJsonObject<Record<string, unknown>>(c).catch(() => null)) ??
 				{};
 			const runnerId =
-				typeof body.runnerId === "string" ? body.runnerId.trim() : "";
-			if (!runnerId) {
-				return c.json({ error: "runnerId is required" }, 400);
-			}
+				typeof body.runnerId === "string" && body.runnerId.trim()
+					? body.runnerId.trim()
+					: "autosre-runner";
 			const db = sqlDbFor(c.env);
 			try {
 				const proposal = await completeRemediationProposal(
@@ -1002,10 +1001,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				(await readJsonObject<Record<string, unknown>>(c).catch(() => null)) ??
 				{};
 			const runnerId =
-				typeof body.runnerId === "string" ? body.runnerId.trim() : "";
-			if (!runnerId) {
-				return c.json({ error: "runnerId is required" }, 400);
-			}
+				typeof body.runnerId === "string" && body.runnerId.trim()
+					? body.runnerId.trim()
+					: "autosre-runner";
 			const db = sqlDbFor(c.env);
 			try {
 				const proposal = await failRemediationProposal(
@@ -1029,7 +1027,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				const message = err instanceof Error ? err.message : String(err);
 				const status =
 					err instanceof RemediationGateError
-						? (err.statusCode as 400 | 404)
+						? (err.statusCode as 400 | 404 | 409)
 						: 400;
 				return c.json({ error: message }, status);
 			}
