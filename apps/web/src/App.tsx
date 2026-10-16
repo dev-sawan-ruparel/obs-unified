@@ -358,10 +358,7 @@ export function App() {
 							/>
 						)}
 						{route.tab === "actions" && !route.actionId && (
-							<AutonomousReviewDashboard
-								onNavigate={navigate}
-								selectedProposalId={route.remediationId}
-							/>
+							<AutonomousReviewDashboard onNavigate={navigate} />
 						)}
 						{route.tab === "tool-calls" && route.toolCallId && (
 							<ToolCallDashboard
@@ -396,7 +393,10 @@ export function App() {
 						)}
 						{(route.tab === "autonomous-review" ||
 							route.tab === "remediations") && (
-							<AutonomousReviewDashboard onNavigate={navigate} />
+							<AutonomousReviewDashboard
+								onNavigate={navigate}
+								selectedProposalId={route.remediationId}
+							/>
 						)}
 						{route.tab === "agent-version-diff" && (
 							<AgentVersionDiffDashboard

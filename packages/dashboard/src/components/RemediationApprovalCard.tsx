@@ -793,6 +793,15 @@ function RemediationApprovalQueueContent({
 	);
 }
 
+/** Replace the proposal with `id` using `apply`; other entries are untouched. */
+export function updateProposalById(
+	list: RemediationProposalView[],
+	id: string,
+	apply: (p: RemediationProposalView) => RemediationProposalView,
+): RemediationProposalView[] {
+	return list.map((p) => (p.id === id ? apply(p) : p));
+}
+
 function AutoFetchedRemediationApprovalQueue({
 	onApprove: externalApprove,
 	onReject: externalReject,
@@ -866,11 +875,10 @@ function AutoFetchedRemediationApprovalQueue({
 						fetcher,
 						callback,
 					});
-				setProposals((prev) =>
-					prev.map((p) =>
-						p.id === id ? (proposal ?? { ...p, status: "grant_issued" }) : p,
-					),
-				);
+				const apply = (p: RemediationProposalView) =>
+					proposal ?? { ...p, status: "grant_issued" as const };
+				setProposals((prev) => updateProposalById(prev, id, apply));
+				setFetchedSelected((prev) => (prev?.id === id ? apply(prev) : prev));
 				return { grantToken, grantDelivery };
 			} finally {
 				setBusyId(null);
@@ -888,11 +896,10 @@ function AutoFetchedRemediationApprovalQueue({
 					basePath,
 					fetcher,
 				});
-				setProposals((prev) =>
-					prev.map((p) =>
-						p.id === id ? (updated ?? { ...p, status: "rejected" }) : p,
-					),
-				);
+				const apply = (p: RemediationProposalView) =>
+					updated ?? { ...p, status: "rejected" as const };
+				setProposals((prev) => updateProposalById(prev, id, apply));
+				setFetchedSelected((prev) => (prev?.id === id ? apply(prev) : prev));
 			} finally {
 				setBusyId(null);
 			}

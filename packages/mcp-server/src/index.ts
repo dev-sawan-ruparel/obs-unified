@@ -314,9 +314,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: EvidenceRetrievalRefExpansion, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`evidence/refs/${encodeURIComponent(refId)}`,
-						),
+						dashboardUrl: client.dashboardLink("evidence"),
 					},
 				);
 			} catch (err) {
@@ -348,9 +346,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: EvidenceRetrievalRefSearchResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`evidence/refs/${encodeURIComponent(refId)}?q=${encodeURIComponent(query)}`,
-						),
+						dashboardUrl: client.dashboardLink("evidence"),
 					},
 				);
 			} catch (err) {
@@ -503,7 +499,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					{
 						data,
 						dashboardUrl: client.dashboardLink(
-							`services?service=${encodeURIComponent(service)}`,
+							`service-map?service=${encodeURIComponent(service)}`,
 						),
 					},
 				);
@@ -765,7 +761,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					{
 						data,
 						dashboardUrl: client.dashboardLink(
-							`evals/${encodeURIComponent(evaluationId)}`,
+							`evaluations/${encodeURIComponent(evaluationId)}`,
 						),
 					},
 				);
