@@ -1552,3 +1552,67 @@ test.describe("Onboarding", () => {
 		await expect(page).toHaveURL(/\/#\/onboarding/);
 	});
 });
+
+// ── RFC 0014 DashboardRouteView Host Integration ──
+
+test.describe("DashboardRouteView Host Integration (RFC 0014)", () => {
+	test("resolves legacy #/evals/:id alias and selects the evaluation case", async ({
+		page,
+	}) => {
+		await mockApis(page, {
+			"/eval-cases": (r) => {
+				const u = r.request().url();
+				if (u.endsWith("/eval-cases/case-99")) {
+					return json(
+						r,
+						JSON.stringify({
+							evalCase: {
+								id: "case-99",
+								name: "Legacy Eval Alias Case",
+								sourceEntityType: "action",
+								sourceEntityId: "act-1",
+								expectedOutcome: "Alias resolves to EvaluationsDashboard",
+							},
+						}),
+					);
+				}
+				if (u.endsWith("/results")) {
+					return json(r, JSON.stringify({ evalCaseResults: [] }));
+				}
+				return json(
+					r,
+					JSON.stringify({
+						evalCases: [
+							{
+								id: "case-99",
+								name: "Legacy Eval Alias Case",
+								sourceEntityType: "action",
+								sourceEntityId: "act-1",
+								expectedOutcome: "Alias resolves to EvaluationsDashboard",
+							},
+						],
+					}),
+				);
+			},
+			"/eval-runs": (r) => json(r, JSON.stringify({ evalRuns: [] })),
+		});
+
+		await page.goto("/#/evals/case-99");
+		await expect(
+			page.locator("text=Evaluations & Comparison Dashboard"),
+		).toBeVisible({ timeout: 10000 });
+		await expect(
+			page.locator("text=Alias resolves to EvaluationsDashboard"),
+		).toBeVisible();
+	});
+
+	test("falls back to Health dashboard on unknown or malformed hash routes", async ({
+		page,
+	}) => {
+		await mockApis(page);
+		await page.goto("/#/non-existent-tab-xyz");
+		await expect(page.locator('[data-route-tab="health"]')).toBeVisible({
+			timeout: 10000,
+		});
+	});
+});

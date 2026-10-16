@@ -68,10 +68,19 @@ export {
 	type UsageEventProcessorPlugin,
 } from "./framework/collector";
 
-export type {
-	CollectorApp,
-	CollectorEnv,
-	CollectorRouteContext,
+export {
+	assertCollectorEnvManifestCompleteness,
+	COLLECTOR_HOST_MANAGED_ENV_KEYS,
+	COLLECTOR_OPTIONAL_STRING_ENV_KEYS,
+	COLLECTOR_STRING_ENV_MANIFEST,
+	type CollectorApp,
+	type CollectorEnv,
+	type CollectorHostManagedEnvKey,
+	type CollectorManifestStringEnvKey,
+	type CollectorObjectBindingKey,
+	type CollectorOptionalStringEnvKey,
+	type CollectorRouteContext,
+	type CollectorStringEnvKey,
 } from "./framework/env";
 
 export type { Logger } from "./framework/logger";

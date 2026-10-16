@@ -1,6 +1,7 @@
-import type {
-	AnalysesListResponse,
-	AnalysisDefinition,
+import {
+	type AnalysesListResponse,
+	type AnalysisDefinition,
+	dashboardRouteToHref,
 } from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { SectionTitle } from "../components/primitives";
@@ -93,7 +94,10 @@ export function InvestigationsDashboard({
 				{definitions.map((def) => (
 					<a
 						key={def.id}
-						href={`#/investigate/${encodeURIComponent(def.id)}`}
+						href={dashboardRouteToHref({
+							tab: "investigate",
+							investigationId: def.id,
+						})}
 						onClick={(e) => {
 							// Let cmd+click / middle-click open in a new tab.
 							if (e.metaKey || e.ctrlKey || e.button !== 0) return;

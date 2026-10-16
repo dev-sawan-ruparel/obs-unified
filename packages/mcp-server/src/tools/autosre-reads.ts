@@ -51,7 +51,10 @@ export function registerAutosreReadTools(
 					"list_incidents",
 					{ environment, status, limit },
 					"{ data: { incidents: IncidentInvestigation[] }, dashboardUrl?: string }",
-					{ data, dashboardUrl: client.dashboardLink("incidents") },
+					{
+						data,
+						dashboardUrl: client.dashboardRouteLink({ tab: "incidents" }),
+					},
 				);
 			} catch (err) {
 				return errorToolResult(err);
@@ -81,9 +84,10 @@ export function registerAutosreReadTools(
 					"{ data: { incident: IncidentInvestigation, findings: InvestigationFinding[], proposals: RemediationProposal[] }, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`incidents/${encodeURIComponent(id)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "incidents",
+							incidentId: id,
+						}),
 					},
 				);
 			} catch (err) {
@@ -114,9 +118,10 @@ export function registerAutosreReadTools(
 					"{ data: { proposal: RemediationProposal }, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`remediations/${encodeURIComponent(id)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "remediations",
+							remediationId: id,
+						}),
 					},
 				);
 			} catch (err) {

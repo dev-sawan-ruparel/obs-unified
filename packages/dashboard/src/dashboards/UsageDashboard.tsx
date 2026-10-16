@@ -75,6 +75,7 @@ const fmtTs = (iso: string) => {
 	}
 };
 interface Props {
+	initialUsageId?: string;
 	onNavigate: (route: { tab?: string; sessionId?: string }) => void;
 }
 
@@ -102,7 +103,7 @@ interface FilteredSessionsResponse {
 	timestamp: string;
 }
 
-export function UsageDashboard({ onNavigate }: Props) {
+export function UsageDashboard({ initialUsageId, onNavigate }: Props) {
 	const api = useApi();
 	const [overview, setOverview] = useState<UsageOverview | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -110,10 +111,19 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const [pathFilter, setPathFilter] = useState("all");
 	const [includeAdmin, setIncludeAdmin] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [selectedUsageId, setSelectedUsageId] = useState<string | null>(
+		initialUsageId ?? null,
+	);
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
 	const [filteredSessions, setFilteredSessions] = useState<
 		FilteredSession[] | null
 	>(null);
+
+	useEffect(() => {
+		if (initialUsageId !== undefined) {
+			setSelectedUsageId(initialUsageId ?? null);
+		}
+	}, [initialUsageId]);
 
 	const [_leftWidth, _setLeftWidth] = useState(60);
 
@@ -206,6 +216,7 @@ export function UsageDashboard({ onNavigate }: Props) {
 	const visibleFrontendErrors = overview
 		? overview.frontendErrors.filter((err) =>
 				matchesSearch(
+					err.eventId,
 					err.sessionId,
 					err.pagePath,
 					err.errorName,
@@ -214,6 +225,12 @@ export function UsageDashboard({ onNavigate }: Props) {
 				),
 			)
 		: [];
+	const selectedErrorEvent =
+		selectedUsageId && overview
+			? (overview.frontendErrors.find(
+					(err) => err.eventId === selectedUsageId,
+				) ?? null)
+			: null;
 	const visibleSessions = (
 		sessionFilter === "all"
 			? (overview?.recentSessions.map((s) => ({
@@ -265,6 +282,28 @@ export function UsageDashboard({ onNavigate }: Props) {
 					<UpdatedChip at={overview.timestamp} />
 				</div>
 			</div>
+
+			{selectedUsageId && (
+				<div
+					data-selected-usage-id={selectedUsageId}
+					className="mb-2 flex-none flex items-center justify-between gap-2 border border-sys-primary bg-sys-surface px-3 py-1.5 text-[0.75rem] font-mono"
+				>
+					<span>
+						Focused usage event:{" "}
+						<strong className="font-bold">{selectedUsageId}</strong>
+						{selectedErrorEvent
+							? ` · ${selectedErrorEvent.errorMessage || selectedErrorEvent.errorName || "frontend_error"}`
+							: ""}
+					</span>
+					<button
+						type="button"
+						onClick={() => setSelectedUsageId(null)}
+						className="cursor-pointer text-sys-primary underline"
+					>
+						clear
+					</button>
+				</div>
+			)}
 
 			{/* Stats */}
 			<div className="mb-2 grid grid-cols-4 xl:grid-cols-7 gap-2">

@@ -10,9 +10,10 @@ import type {
 	EvidenceReference,
 	JsonValue,
 } from "@obsunified/types";
+import { dashboardRouteToHref, hrefForEntity } from "@obsunified/types";
 
 const analysisRoute = (analysisId: string) =>
-	`#/investigate/${encodeURIComponent(analysisId)}`;
+	dashboardRouteToHref({ tab: "investigate", investigationId: analysisId });
 
 export const analysisEvidenceReference = (
 	evidence: AskEvidence,
@@ -103,10 +104,10 @@ const valueFor = (
 };
 
 const traceRoute = (traceId: string) =>
-	`#/traces/${encodeURIComponent(traceId)}`;
+	dashboardRouteToHref({ tab: "traces", traceId });
 
 const spanRoute = (traceId: string, spanId: string) =>
-	`${traceRoute(traceId)}#span=${encodeURIComponent(spanId)}`;
+	dashboardRouteToHref({ tab: "traces", traceId, spanId });
 
 export const evidenceRouteFor = (
 	entityKind: EvidenceEntityKind,
@@ -117,41 +118,48 @@ export const evidenceRouteFor = (
 		case "analysis":
 			return analysisRoute(entityId);
 		case "action":
-			return `#/actions/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "actions", actionId: entityId });
 		case "alert":
-			return `#/alerts?alert=${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "alerts", alertId: entityId });
 		case "agent_run":
-			return `#/agent-runs/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "agent-runs", agentRunId: entityId });
 		case "ai_call":
-			return `#/ai/calls/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "ai", aiCallId: entityId });
 		case "eval":
-			return `#/evals/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({
+				tab: "evaluations",
+				evaluationId: entityId,
+			});
 		case "log":
-			return `#/logs?id=${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "logs", logId: entityId });
 		case "profile":
-			return traceId
-				? `#/profiles/${encodeURIComponent(entityId)}?trace_id=${encodeURIComponent(traceId)}`
-				: `#/profiles/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({
+				tab: "profiles",
+				profileId: entityId,
+				...(traceId ? { traceId } : {}),
+			});
 		case "replay":
-			return `#/replay?session=${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "replay", sessionId: entityId });
 		case "service":
-			return `#/traces?service=${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "service-map", service: entityId });
 		case "span": {
 			const [tracePart, spanPart] = entityId.split(":");
-			return spanPart ? spanRoute(tracePart, spanPart) : `#/spans/${entityId}`;
+			return spanPart
+				? spanRoute(tracePart, spanPart)
+				: hrefForEntity("span", entityId, traceId ? { traceId } : undefined);
 		}
 		case "tool_call":
-			return `#/tool-calls/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "tool-calls", toolCallId: entityId });
 		case "trace":
 			return traceRoute(entityId);
 		case "docs":
-			return entityId.startsWith("#/") ? entityId : `#/docs/${entityId}`;
+			return hrefForEntity("docs", entityId);
 		case "change":
-			return `#/changes/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "changes", changeId: entityId });
 		case "finding":
-			return `#/findings/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "findings", findingId: entityId });
 		case "incident":
-			return `#/incidents/${encodeURIComponent(entityId)}`;
+			return dashboardRouteToHref({ tab: "incidents", incidentId: entityId });
 	}
 	const exhaustive: never = entityKind;
 	return exhaustive;
@@ -232,7 +240,7 @@ const instrumentationGapEvidenceReferences = (
 			const thresholdText = thresholdVersion
 				? ` Thresholds: ${thresholdVersion}.`
 				: "";
-			const docsRoute = "#/docs/howto/ebpf";
+			const docsRoute = hrefForEntity("docs", "howto/ebpf");
 			return {
 				evidenceId: `analysis:${result.analysisId}:instrumentation-gap:${index}:span:${entityId}`,
 				entityKind: "span",
@@ -262,7 +270,7 @@ const instrumentationGapEvidenceReferences = (
 						label: "Open trace gap data",
 						entityKind: "trace",
 						entityId: traceId,
-						route: `${traceRoute(traceId)}/gaps`,
+						route: traceRoute(traceId),
 						reason:
 							"Review all structured instrumentation blindspots for this trace.",
 					},

@@ -10,4 +10,5 @@ export default defineConfig({
 	shims: true,
 	// kleur + prompts are runtime deps, not bundled.
 	external: ["kleur", "prompts"],
+	noExternal: ["@obsunified/types"],
 });

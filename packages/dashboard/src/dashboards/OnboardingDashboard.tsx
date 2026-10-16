@@ -7,6 +7,7 @@
 // the app level: never silent empty state, always tell the user what
 // to do next.
 
+import { dashboardRouteToHref } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import { useApi } from "../use-api";
 
@@ -55,7 +56,7 @@ const INVESTIGATION_CAPABILITIES: InvestigationCapability[] = [
 			"Builds on your ingested AI calls and spans. Derives action graphs automatically from GenAI and OpenInference spans or explicit action attributes.",
 		productSurface: {
 			label: "Open AI Calls tab",
-			href: "#/ai",
+			href: dashboardRouteToHref({ tab: "ai" }),
 			hint: "Drill into action graphs from AI spans, or deep-link to #/actions/:id and #/agent-runs/:id",
 		},
 		docsLinks: [
@@ -90,7 +91,7 @@ const INVESTIGATION_CAPABILITIES: InvestigationCapability[] = [
 			"Exposes get_evidence_bundle and retrieve_evidence_ref tools through the MCP server and interactive inspection in the dashboard.",
 		productSurface: {
 			label: "Open Evidence dashboard",
-			href: "#/evidence",
+			href: dashboardRouteToHref({ tab: "evidence" }),
 			hint: "Inspect issued bundles, retrieval refs, and expansion queries in the Evidence tab",
 		},
 		docsLinks: [
@@ -114,7 +115,7 @@ const INVESTIGATION_CAPABILITIES: InvestigationCapability[] = [
 			"Optional pprof ingestion at /v1/profiles/pprof. Connects to traces through trace_id labels to enable click-to-CPU investigation.",
 		productSurface: {
 			label: "Open Traces waterfall",
-			href: "#/traces",
+			href: dashboardRouteToHref({ tab: "traces" }),
 			hint: "Profile matches appear in trace details and can be opened via profile or Connected Rail links",
 		},
 		docsLinks: [
@@ -620,7 +621,7 @@ await startLLMSpan({
 					>
 						AI spans automatically populate the{" "}
 						<a
-							href="#/ai"
+							href={dashboardRouteToHref({ tab: "ai" })}
 							style={{
 								color: "var(--color-sys-primary)",
 								textDecoration: "underline",
@@ -643,7 +644,7 @@ await startLLMSpan({
 					<code>@obsunified/analytics-sdk</code> when <code>captureReplay</code>{" "}
 					is set on the provider. Visit the{" "}
 					<a
-						href="#/playground"
+						href={dashboardRouteToHref({ tab: "playground" })}
 						style={{
 							color: "var(--color-sys-primary)",
 							textDecoration: "underline",

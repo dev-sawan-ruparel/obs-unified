@@ -1,8 +1,9 @@
-import type {
-	EvidenceBundle,
-	EvidenceNextPivot,
-	EvidenceReference,
-	EvidenceRetrievalRef,
+import {
+	dashboardRouteToHref,
+	type EvidenceBundle,
+	type EvidenceNextPivot,
+	type EvidenceReference,
+	type EvidenceRetrievalRef,
 } from "@obsunified/types";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
@@ -27,7 +28,8 @@ export type AnchorKind =
 	| "tool_call"
 	| "change"
 	| "finding"
-	| "incident";
+	| "incident"
+	| (string & {});
 
 export interface EvidenceDashboardProps {
 	initialAnchorKind?: AnchorKind;
@@ -45,12 +47,17 @@ export function connectedKindForAnchor(
 ): ConnectedEntityKind | null {
 	switch (kind) {
 		case "action":
+			return "action";
 		case "agent_run":
+			return "agent_run";
 		case "tool_call":
+			return "tool_call";
 		case "change":
+			return "change";
 		case "finding":
+			return "finding";
 		case "incident":
-			return kind;
+			return "incident";
 		default:
 			return null;
 	}
@@ -198,7 +205,11 @@ export function EvidenceBundleDetails({
 												type="button"
 												onClick={() =>
 													navigateHref(
-														`#/changes/${encodeURIComponent(change.changeId)}`,
+														dashboardRouteToHref({
+															tab: "evidence",
+															evidenceKind: "change",
+															evidenceId: change.changeId,
+														}),
 														onNavigate,
 													)
 												}
@@ -257,7 +268,11 @@ export function EvidenceBundleDetails({
 									type="button"
 									onClick={() =>
 										navigateHref(
-											`#/findings/${encodeURIComponent(f.findingId)}`,
+											dashboardRouteToHref({
+												tab: "evidence",
+												evidenceKind: "finding",
+												evidenceId: f.findingId,
+											}),
 											onNavigate,
 										)
 									}
@@ -519,7 +534,11 @@ export function EvidenceDashboard({
 			<div className="mb-2 grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_420px]">
 				<Card className="border border-sys-outline p-3">
 					<SectionTitle title="Bundle Explorer" />
-					<div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[180px_minmax(0,1fr)_120px]">
+					<div
+						data-anchor-kind={anchorKind}
+						data-anchor-id={anchorId}
+						className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[180px_minmax(0,1fr)_120px]"
+					>
 						<select
 							value={anchorKind}
 							onChange={(event) =>
@@ -534,6 +553,17 @@ export function EvidenceDashboard({
 							<option value="change">change</option>
 							<option value="finding">finding</option>
 							<option value="incident">incident</option>
+							{![
+								"trace",
+								"action",
+								"agent_run",
+								"tool_call",
+								"change",
+								"finding",
+								"incident",
+							].includes(anchorKind) && (
+								<option value={anchorKind}>{anchorKind}</option>
+							)}
 						</select>
 						<input
 							value={anchorId}

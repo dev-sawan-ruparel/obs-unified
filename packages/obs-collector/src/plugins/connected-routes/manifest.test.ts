@@ -1,40 +1,25 @@
+import { KNOWN_TABS, parseDashboardRouteHash } from "@obsunified/types";
 import { describe, expect, it } from "vitest";
 import {
 	hrefForEntity,
+	linksFromActions,
+	linksFromAi,
 	linksFromArtifacts,
 	linksFromEvalResults,
+	linksFromLogs,
+	linksFromMetricExemplars,
 	linksFromRetrievalEvents,
+	linksFromSpans,
 	linksFromToolCalls,
+	linksFromUsage,
+	linkToAction,
+	linkToAgentRun,
+	linkToSession,
+	linkToTrace,
 	MAX_LINKS_INLINE,
 	resolveFaultLocusTarget,
 } from "./manifest";
 
-// Tabs served by apps/web/src/app/router.ts (KNOWN_TABS). Generated hrefs
-// must start with one of these or the app falls back to Health.
-const ROUTER_TABS = new Set([
-	"health",
-	"investigate",
-	"traces",
-	"service-map",
-	"issues",
-	"logs",
-	"ai",
-	"evidence",
-	"usage",
-	"replay",
-	"alerts",
-	"users",
-	"agent-runs",
-	"actions",
-	"tool-calls",
-	"profiles",
-	"tool-reliability",
-	"evaluations",
-	"changes",
-	"findings",
-	"incidents",
-	"remediations",
-]);
 const tabOf = (href: string) =>
 	href.replace(/^#\//, "").split(/[/?#]/)[0] ?? "";
 
@@ -80,8 +65,105 @@ describe("connected manifest hrefs target real router tabs", () => {
 			"#/evaluations/e1",
 			"#/actions/a1",
 		]);
-		for (const href of hrefs)
-			expect(ROUTER_TABS.has(tabOf(href ?? ""))).toBe(true);
+		for (const href of hrefs) {
+			expect(KNOWN_TABS.has(tabOf(href ?? ""))).toBe(true);
+			expect(parseDashboardRouteHash(href ?? "").ok).toBe(true);
+		}
+	});
+
+	it("emits canonical routes from all link builders and round-trips through parseDashboardRouteHash", () => {
+		expect(linkToTrace("trace-1").href).toBe("#/traces?trace=trace-1");
+		expect(linkToSession("sess/1").href).toBe("#/replay?session=sess%2F1");
+		expect(linkToAction("act/1").href).toBe("#/actions/act%2F1");
+		expect(linkToAgentRun("run/1").href).toBe("#/agent-runs/run%2F1");
+
+		const inlineSpans = linksFromSpans(
+			[
+				{
+					traceId: "tr-1",
+					spanId: "sp-1",
+					serviceName: "api",
+					spanName: "GET /",
+				} as never,
+			],
+			"Spans",
+		);
+		expect(inlineSpans.links[0]?.href).toBe("#/traces?trace=tr-1&span=sp-1");
+		expect(parseDashboardRouteHash(inlineSpans.links[0]?.href ?? "")).toEqual({
+			ok: true,
+			route: { tab: "traces", traceId: "tr-1", spanId: "sp-1" },
+		});
+
+		const manySpans = linksFromSpans(
+			Array.from({ length: MAX_LINKS_INLINE + 1 }, (_, i) => ({
+				traceId: "tr-many",
+				spanId: `sp-${i}`,
+				serviceName: "api",
+				spanName: "op",
+			})) as never,
+			"Spans",
+		);
+		expect(manySpans.links[0]?.href).toBe("#/traces?q=tr-many");
+
+		const inlineLogs = linksFromLogs(
+			[
+				{
+					logId: "log-1",
+					traceId: "tr-1",
+					severity: "ERROR",
+					message: "boom",
+				} as never,
+			],
+			"Logs",
+		);
+		expect(inlineLogs.links[0]?.href).toBe("#/logs?id=log-1");
+
+		const inlineUsage = linksFromUsage(
+			[
+				{
+					eventId: "ev-1",
+					eventType: "click",
+					eventName: "buy",
+				} as never,
+			],
+			"Usage",
+		);
+		expect(inlineUsage.links[0]?.href).toBe("#/usage?id=ev-1");
+
+		const inlineExemplars = linksFromMetricExemplars(
+			[
+				{
+					traceId: "tr-1",
+					spanId: "sp-2",
+					serviceName: "api",
+					metricName: "latency",
+					value: 42,
+					tsNs: "100",
+				} as never,
+			],
+			"Exemplars",
+		);
+		expect(inlineExemplars.links[0]?.href).toBe(
+			"#/traces?trace=tr-1&span=sp-2",
+		);
+
+		const inlineAi = linksFromAi(
+			[
+				{
+					callId: "call/1",
+					provider: "openai",
+					modelName: "gpt-4o",
+				} as never,
+			],
+			"AI",
+		);
+		expect(inlineAi.links[0]?.href).toBe("#/ai/calls/call%2F1");
+
+		const inlineActions = linksFromActions(
+			[{ id: "act-1", actionKind: "step", name: "plan" } as never],
+			"Actions",
+		);
+		expect(inlineActions.links[0]?.href).toBe("#/actions/act-1");
 	});
 
 	it("hrefForEntity only emits router tabs for every evidence kind", () => {
@@ -104,12 +186,12 @@ describe("connected manifest hrefs target real router tabs", () => {
 			"replay",
 			"docs",
 		]) {
-			expect(ROUTER_TABS.has(tabOf(hrefForEntity(kind, "id-1"))), kind).toBe(
-				true,
-			);
+			const href = hrefForEntity(kind, "id-1");
+			expect(KNOWN_TABS.has(tabOf(href)), kind).toBe(true);
+			expect(parseDashboardRouteHash(href).ok, kind).toBe(true);
 		}
 		expect(hrefForEntity("trace", "abc")).toBe("#/traces?trace=abc");
-		expect(hrefForEntity("alert", "al 1")).toBe("#/alerts?id=al%201");
+		expect(hrefForEntity("alert", "al 1")).toBe("#/alerts?id=al+1");
 		expect(hrefForEntity("ai_call", "c1")).toBe("#/ai/calls/c1");
 	});
 });

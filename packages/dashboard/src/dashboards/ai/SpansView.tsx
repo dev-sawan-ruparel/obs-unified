@@ -1,8 +1,9 @@
-import type {
-	AIEvaluationRecord,
-	AIEvaluationsListResponse,
-	AISpanRecord,
-	AISpansOverviewResponse,
+import {
+	type AIEvaluationRecord,
+	type AIEvaluationsListResponse,
+	type AISpanRecord,
+	type AISpansOverviewResponse,
+	dashboardRouteToHref,
 } from "@obsunified/types";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
@@ -848,7 +849,12 @@ function SpanDetailPane({
 						)}
 					</DetailTabBtn>
 					{actionId && (
-						<DetailTabLink href={`#/actions/${encodeURIComponent(actionId)}`}>
+						<DetailTabLink
+							href={dashboardRouteToHref({
+								tab: "actions",
+								actionId,
+							})}
+						>
 							Action Graph
 						</DetailTabLink>
 					)}

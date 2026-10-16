@@ -1,3 +1,4 @@
+import { dashboardRouteToHref } from "@obsunified/types";
 import {
 	type PointerEvent,
 	useCallback,
@@ -220,7 +221,7 @@ export function ReplayDashboard({
 			label: group.clickEvent?.title ?? "Interaction",
 			links: group.causedTraces.map((trace) => ({
 				label: `${trace.serviceName ?? "unknown"} · ${trace.rootSpanName} · ${trace.durationMs}ms`,
-				href: `#/traces?trace=${encodeURIComponent(trace.traceId)}`,
+				href: dashboardRouteToHref({ tab: "traces", traceId: trace.traceId }),
 				sample: group.interactionId,
 			})),
 			emptyReason:

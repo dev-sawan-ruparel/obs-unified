@@ -219,11 +219,9 @@ export function registerAutosreWriteTools(
 					"{ data: InvestigationFinding, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: findingId
-							? client.dashboardLink(
-									`findings/${encodeURIComponent(findingId)}`,
-								)
-							: client.dashboardLink("findings"),
+						dashboardUrl: client.dashboardRouteLink(
+							findingId ? { tab: "findings", findingId } : { tab: "findings" },
+						),
 					},
 				);
 			} catch (err) {
@@ -272,11 +270,11 @@ export function registerAutosreWriteTools(
 					{
 						data,
 						deduplicated: Boolean(data?.deduplicated),
-						dashboardUrl: incidentId
-							? client.dashboardLink(
-									`incidents/${encodeURIComponent(incidentId)}`,
-								)
-							: client.dashboardLink("incidents"),
+						dashboardUrl: client.dashboardRouteLink(
+							incidentId
+								? { tab: "incidents", incidentId }
+								: { tab: "incidents" },
+						),
 					},
 				);
 			} catch (err) {
@@ -344,7 +342,7 @@ export function registerAutosreWriteTools(
 					"{ data: RemediationProposal, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("remediations"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "remediations" }),
 					},
 				);
 			} catch (err) {
@@ -412,9 +410,10 @@ export function registerAutosreWriteTools(
 					"{ data: RemediationProposal, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`remediations/${encodeURIComponent(proposalId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "remediations",
+							remediationId: proposalId,
+						}),
 					},
 				);
 			} catch (err) {

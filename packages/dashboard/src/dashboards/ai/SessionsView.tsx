@@ -1,7 +1,8 @@
-import type {
-	AISessionDetailResponse,
-	AISessionSummary,
-	AISessionsListResponse,
+import {
+	type AISessionDetailResponse,
+	type AISessionSummary,
+	type AISessionsListResponse,
+	dashboardRouteToHref,
 } from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Card, SectionTitle } from "../../components/primitives";
@@ -191,7 +192,10 @@ function SessionRow({
 			<div className="mt-1 flex flex-wrap items-center gap-2 text-[0.625rem] font-mono opacity-70">
 				{session.userId && (
 					<a
-						href={`#/users/${encodeURIComponent(session.userId)}`}
+						href={dashboardRouteToHref({
+							tab: "users",
+							userId: session.userId,
+						})}
 						onClick={(e) => e.stopPropagation()}
 						className="hover:underline cursor-pointer"
 						title="Open user detail"

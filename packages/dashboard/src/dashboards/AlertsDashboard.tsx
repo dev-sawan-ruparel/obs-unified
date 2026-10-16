@@ -1,9 +1,10 @@
-import type {
-	AlertEvaluation,
-	AlertEvaluationsListResponse,
-	AlertRule,
-	AlertRuleInput,
-	AlertTestResponse,
+import {
+	type AlertEvaluation,
+	type AlertEvaluationsListResponse,
+	type AlertRule,
+	type AlertRuleInput,
+	type AlertTestResponse,
+	dashboardRouteToHref,
 } from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button";
@@ -15,14 +16,16 @@ import { useApi } from "../use-api";
 import { AlertRuleForm } from "./AlertRuleForm";
 
 export function AlertsDashboard({
+	initialAlertId,
 	onNavigate,
 }: {
+	initialAlertId?: string;
 	onNavigate?: (route: {
 		tab: string;
 		service?: string;
 		traceId?: string;
 	}) => void;
-}) {
+} = {}) {
 	const api = useApi();
 	const [rules, setRules] = useState<AlertRule[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -31,7 +34,15 @@ export function AlertsDashboard({
 		null,
 	);
 	const [submitting, setSubmitting] = useState(false);
-	const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+	const [selectedRuleId, setSelectedRuleId] = useState<string | null>(
+		initialAlertId ?? null,
+	);
+
+	useEffect(() => {
+		if (initialAlertId !== undefined) {
+			setSelectedRuleId(initialAlertId ?? null);
+		}
+	}, [initialAlertId]);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -397,7 +408,10 @@ function AlertDetail({
 					: null;
 
 	return (
-		<div className="bg-sys-surface border-[1px] border-sys-outline overflow-auto p-3 flex flex-col gap-3">
+		<div
+			data-selected-alert-id={rule.id}
+			className="bg-sys-surface border-[1px] border-sys-outline overflow-auto p-3 flex flex-col gap-3"
+		>
 			<div>
 				<div className="text-[0.625rem] font-bold uppercase tracking-[0.05em] opacity-60">
 					Rule
@@ -478,7 +492,10 @@ function AlertDetail({
 										service: serviceName || undefined,
 									});
 								} else {
-									location.hash = `#/traces?service=${encodeURIComponent(serviceName || "")}`;
+									location.hash = dashboardRouteToHref({
+										tab: "traces",
+										service: serviceName || undefined,
+									});
 								}
 							}}
 							className="text-[0.6875rem] font-mono font-bold bg-sys-accent text-white px-2 py-1 hover:bg-sys-accent/85 border border-sys-accent/20 cursor-pointer"
@@ -488,7 +505,11 @@ function AlertDetail({
 						<button
 							type="button"
 							onClick={() => {
-								location.hash = `#/logs?service=${encodeURIComponent(serviceName || "")}&severity=ERROR`;
+								location.hash = dashboardRouteToHref({
+									tab: "logs",
+									service: serviceName || undefined,
+									severity: "ERROR",
+								});
 							}}
 							className="text-[0.6875rem] font-mono font-bold bg-sys-warning text-sys-on-warning px-2 py-1 hover:bg-sys-warning/85 border border-sys-warning/20 cursor-pointer"
 						>

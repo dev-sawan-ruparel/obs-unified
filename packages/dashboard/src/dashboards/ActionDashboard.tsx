@@ -1,3 +1,4 @@
+import { dashboardRouteToHref } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
@@ -138,7 +139,12 @@ export function ActionDashboard({
 									<button
 										type="button"
 										onClick={() =>
-											onNavigate?.(`#/agent-runs/${action.agentRunId}`)
+											onNavigate?.(
+												dashboardRouteToHref({
+													tab: "agent-runs",
+													agentRunId: action.agentRunId ?? undefined,
+												}),
+											)
 										}
 										className="text-sys-primary hover:underline font-bold text-left cursor-pointer"
 									>
@@ -194,7 +200,12 @@ export function ActionDashboard({
 									<button
 										type="button"
 										onClick={() =>
-											onNavigate?.(`#/traces?trace=${action.traceId}`)
+											onNavigate?.(
+												dashboardRouteToHref({
+													tab: "traces",
+													traceId: action.traceId ?? undefined,
+												}),
+											)
 										}
 										className="text-sys-primary hover:underline text-left cursor-pointer truncate max-w-full block font-bold"
 										title={action.traceId}

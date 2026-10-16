@@ -11,7 +11,10 @@ import type {
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
 } from "@obsunified/types";
-import { buildFindingFingerprint } from "@obsunified/types";
+import {
+	buildFindingFingerprint,
+	dashboardRouteToHref,
+} from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import {
 	computeChangeBlastRadius,
@@ -41,6 +44,7 @@ import { LogsStore } from "../lib/logs-store";
 import { decodePprofBlob, summarizeProfileFrames } from "../lib/parse-pprof";
 import type { SqlDb } from "../lib/sql-db";
 import { getProjectId } from "./_context";
+import { respondWithContract } from "./autosre-routes";
 import { fetchReplayChunks } from "./replay-query-routes";
 
 interface EvidenceRefPayload {
@@ -158,24 +162,35 @@ const estimateTokens = (value: unknown): number =>
 	Math.ceil(JSON.stringify(value).length / 4);
 
 const traceRoute = (traceId: string) =>
-	`#/traces/${encodeURIComponent(traceId)}`;
+	dashboardRouteToHref({ tab: "traces", traceId });
 const spanRoute = (traceId: string, spanId: string) =>
-	`${traceRoute(traceId)}#span=${encodeURIComponent(spanId)}`;
-const logRoute = (logId: string) => `#/logs?id=${encodeURIComponent(logId)}`;
+	dashboardRouteToHref({ tab: "traces", traceId, spanId });
+const logRoute = (logId: string) =>
+	dashboardRouteToHref({ tab: "logs", logId });
 const actionRoute = (actionId: string) =>
-	`#/actions/${encodeURIComponent(actionId)}`;
+	dashboardRouteToHref({ tab: "actions", actionId });
 const agentRunRoute = (agentRunId: string) =>
-	`#/agent-runs/${encodeURIComponent(agentRunId)}`;
+	dashboardRouteToHref({ tab: "agent-runs", agentRunId });
 const toolCallRoute = (toolCallId: string) =>
-	`#/tool-calls/${encodeURIComponent(toolCallId)}`;
+	dashboardRouteToHref({ tab: "tool-calls", toolCallId });
 const replayRoute = (sessionId: string) =>
-	`#/replay?session=${encodeURIComponent(sessionId)}`;
+	dashboardRouteToHref({ tab: "replay", sessionId });
 const profileRoute = (profileId: string, traceId?: string) =>
-	`#/profiles/${encodeURIComponent(profileId)}${
-		traceId ? `?trace_id=${encodeURIComponent(traceId)}` : ""
-	}`;
+	dashboardRouteToHref({
+		tab: "profiles",
+		profileId,
+		...(traceId ? { traceId } : {}),
+	});
 const aiCallRoute = (callId: string) =>
-	`#/ai/calls/${encodeURIComponent(callId)}`;
+	dashboardRouteToHref({ tab: "ai", aiCallId: callId });
+const evalRoute = (evaluationId: string) =>
+	dashboardRouteToHref({ tab: "evaluations", evaluationId });
+const changeEntityRoute = (changeId: string) =>
+	dashboardRouteToHref({ tab: "changes", changeId });
+const findingEntityRoute = (findingId: string) =>
+	dashboardRouteToHref({ tab: "findings", findingId });
+const incidentEntityRoute = (incidentId: string) =>
+	dashboardRouteToHref({ tab: "incidents", incidentId });
 
 const evidenceRef = (
 	evidenceId: string,
@@ -1069,7 +1084,7 @@ const actionEvidenceReferences = (
 				`eval:${evalResult.id}`,
 				"eval",
 				evalResult.id,
-				`#/evals/${encodeURIComponent(evalResult.id)}`,
+				evalRoute(evalResult.id),
 				"evidence.bundle.eval_results",
 				evalResult.passed ? 0.75 : 0.9,
 				`Eval ${evalResult.evaluatorName} ${evalResult.passed ? "passed" : "failed"}${evalResult.score === null ? "" : ` with score ${evalResult.score}`}.`,
@@ -1651,7 +1666,7 @@ const attachAutoSreTriageContext = async (
 
 		for (const br of blastRadii) {
 			const changeId = br.change.id;
-			const changeRoute = `#/changes/${encodeURIComponent(changeId)}`;
+			const changeRoute = changeEntityRoute(changeId);
 			bundle.evidenceReferences.push({
 				evidenceId: `change:${changeId}`,
 				entityKind: "change",
@@ -1685,7 +1700,7 @@ const attachAutoSreTriageContext = async (
 		}
 
 		for (const finding of priorFindingsList) {
-			const findingRoute = `#/findings/${encodeURIComponent(finding.id)}`;
+			const findingRoute = findingEntityRoute(finding.id);
 			bundle.evidenceReferences.push({
 				evidenceId: `finding:${finding.id}`,
 				entityKind: "finding",
@@ -1897,7 +1912,11 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 						runtime.logger,
 					);
 				}
-				return c.json(await materializeBundle(db, projectId, bundle));
+				return respondWithContract(
+					c,
+					"POST /internal/evidence/bundle",
+					await materializeBundle(db, projectId, bundle),
+				);
 			}
 
 			if (anchor.entityKind === "incident") {
@@ -1919,7 +1938,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					{ kind: incident.symptomAnchorKind, id: incident.symptomAnchorId },
 				);
 
-				const incRoute = `#/incidents/${encodeURIComponent(incident.id)}`;
+				const incRoute = incidentEntityRoute(incident.id);
 				const baseBundle: EvidenceBundle = {
 					schemaVersion: BUNDLE_SCHEMA_VERSION,
 					intent,
@@ -1988,7 +2007,11 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					baseBundle,
 					runtime.logger,
 				);
-				return c.json(await materializeBundle(db, projectId, enriched));
+				return respondWithContract(
+					c,
+					"POST /internal/evidence/bundle",
+					await materializeBundle(db, projectId, enriched),
+				);
 			}
 
 			if (anchor.entityKind === "change") {
@@ -2012,7 +2035,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					null,
 				);
 
-				const changeRoute = `#/changes/${encodeURIComponent(change.id)}`;
+				const changeRoute = changeEntityRoute(change.id);
 				const summary =
 					blastRadius?.summary ??
 					`Change ${change.id} (${change.kind} ${change.version ?? ""}) in ${change.environment}: ${change.summary}`;
@@ -2101,7 +2124,11 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					baseBundle,
 					runtime.logger,
 				);
-				return c.json(await materializeBundle(db, projectId, enriched));
+				return respondWithContract(
+					c,
+					"POST /internal/evidence/bundle",
+					await materializeBundle(db, projectId, enriched),
+				);
 			}
 
 			if (anchor.entityKind === "finding") {
@@ -2129,7 +2156,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					{ kind: finding.symptomEntityKind, id: finding.symptomEntityId },
 				);
 
-				const findingRoute = `#/findings/${encodeURIComponent(finding.id)}`;
+				const findingRoute = findingEntityRoute(finding.id);
 				const summary = `${finding.title} (${finding.causalProofTier}, verification=${finding.causalVerificationStatus}, recovery=${finding.recoveryStatus}): ${finding.summary}`;
 				const baseBundle: EvidenceBundle = {
 					schemaVersion: BUNDLE_SCHEMA_VERSION,
@@ -2219,7 +2246,11 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					baseBundle,
 					runtime.logger,
 				);
-				return c.json(await materializeBundle(db, projectId, enriched));
+				return respondWithContract(
+					c,
+					"POST /internal/evidence/bundle",
+					await materializeBundle(db, projectId, enriched),
+				);
 			}
 
 			if (anchor.entityKind !== "trace") {
@@ -2266,7 +2297,11 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					runtime.logger,
 				);
 			}
-			return c.json(await materializeBundle(db, projectId, bundle));
+			return respondWithContract(
+				c,
+				"POST /internal/evidence/bundle",
+				await materializeBundle(db, projectId, bundle),
+			);
 		});
 
 		app.get("/internal/evidence/stats", async (c) => {
@@ -2358,7 +2393,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 								expanded_at: string;
 							}>(),
 					]);
-				return c.json({
+				return respondWithContract(c, "GET /internal/evidence/stats", {
 					projectId,
 					generatedAt: new Date().toISOString(),
 					byKind: byKind.results.map((row) => ({
@@ -2396,7 +2431,7 @@ export const evidenceRetrievalRoutesPlugin: CollectorPlugin = {
 					})),
 				});
 			} catch {
-				return c.json({
+				return respondWithContract(c, "GET /internal/evidence/stats", {
 					projectId,
 					generatedAt: new Date().toISOString(),
 					byKind: [],

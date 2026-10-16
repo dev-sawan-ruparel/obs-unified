@@ -1,4 +1,7 @@
-import type { AnalysisDefinition } from "@obsunified/types";
+import {
+	type AnalysisDefinition,
+	dashboardRouteToHref,
+} from "@obsunified/types";
 
 /**
  * Map an Analysis definition to a hash-router URL the user lands on when they
@@ -19,23 +22,27 @@ export function tileHref(def: AnalysisDefinition): string {
 	const scope = (def.scope ?? {}) as Record<string, unknown>;
 	const service = typeof scope.service === "string" ? scope.service : null;
 	if (def.id.startsWith("log_")) {
-		const params = new URLSearchParams();
-		if (def.id.includes("error")) params.set("severity", "ERROR");
-		if (def.id.includes("warn")) params.set("severity", "WARN");
-		if (service) params.set("service", service);
-		const qs = params.toString();
-		return qs ? `#/logs?${qs}` : "#/logs";
+		const severity = def.id.includes("warn")
+			? "WARN"
+			: def.id.includes("error")
+				? "ERROR"
+				: undefined;
+		return dashboardRouteToHref({
+			tab: "logs",
+			...(severity ? { severity } : {}),
+			...(service ? { service } : {}),
+		});
 	}
-	if (def.id.startsWith("ai_")) return "#/ai";
+	if (def.id.startsWith("ai_")) return dashboardRouteToHref({ tab: "ai" });
 
-	if (service) return `#/traces?service=${encodeURIComponent(service)}`;
+	if (service) return dashboardRouteToHref({ tab: "traces", service });
 
 	const source = typeof scope.source === "string" ? scope.source : null;
 	const target = typeof scope.target === "string" ? scope.target : null;
-	if (source || target) return "#/service-map";
+	if (source || target) return dashboardRouteToHref({ tab: "service-map" });
 
 	const topic = typeof scope.topic === "string" ? scope.topic : null;
-	if (topic) return "#/traces";
+	if (topic) return dashboardRouteToHref({ tab: "traces" });
 
-	return "#/traces";
+	return dashboardRouteToHref({ tab: "traces" });
 }

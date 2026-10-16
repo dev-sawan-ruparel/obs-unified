@@ -16,6 +16,8 @@ export {
 	MAX_TRACE_ROWS,
 	RETENTION_HOURS,
 } from "./constants";
+export * from "./internal-contracts";
+export * from "./routes";
 export {
 	isCompatibleSchemaVersion,
 	SCHEMA_VERSION,

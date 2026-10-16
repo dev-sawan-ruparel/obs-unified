@@ -41,7 +41,7 @@ describe("resolveExemplarLink", () => {
 				evalId: "ev-012",
 				traceId: "tr-345",
 			}),
-		).toBe("#/evals/ev-012");
+		).toBe("#/evaluations/ev-012");
 	});
 
 	it("resolves traceId if all other IDs are missing", () => {

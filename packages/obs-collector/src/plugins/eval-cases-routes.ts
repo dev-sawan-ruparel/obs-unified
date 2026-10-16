@@ -3,7 +3,10 @@ import type {
 	EvidenceReferenceContract as EvidenceReferenceContractType,
 	JsonValue,
 } from "@obsunified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
+import {
+	dashboardRouteToHref,
+	EVIDENCE_REFERENCE_CONTRACT,
+} from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import {
 	type EvalCase,
@@ -20,6 +23,7 @@ import { randomHex } from "../lib/hash";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 import { readJsonObject } from "./_json";
+import { respondWithContract } from "./autosre-routes";
 
 interface EvalCaseRequestBody {
 	sourceEntityType?: unknown;
@@ -122,7 +126,10 @@ const evalCaseResultEvidenceReferences = (
 			sourceLabel: `Eval case result "${resultId}"`,
 			sourceId: resultId,
 			sourceKind: "eval_case_result",
-			sourceRoute: `#/evaluations?case=${encodeURIComponent(evalCase.id)}&result=${encodeURIComponent(resultId)}`,
+			sourceRoute: dashboardRouteToHref({
+				tab: "evaluations",
+				evaluationId: evalCase.id,
+			}),
 			sourceName: evalCase.name,
 		},
 		evalCase,
@@ -189,7 +196,12 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 			const store = new EvalCasesStore(sqlDbFor(c.env));
 			try {
 				const evalCase = await store.createCase(getProjectId(c), input);
-				return c.json({ evalCase }, 201);
+				return respondWithContract(
+					c,
+					"POST /internal/eval-cases",
+					{ evalCase },
+					201,
+				);
 			} catch (err) {
 				if (err instanceof EvalCaseSourceNotFoundError) {
 					return c.json(
@@ -223,7 +235,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				sourceEntityId: c.req.query("sourceEntityId"),
 				limit: parseLimit(c.req.query("limit")),
 			});
-			return c.json({ evalCases });
+			return respondWithContract(c, "GET /internal/eval-cases", { evalCases });
 		});
 
 		app.get("/internal/eval-cases/:id", async (c) => {
@@ -237,7 +249,9 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					404,
 				);
 			}
-			return c.json({ evalCase });
+			return respondWithContract(c, "GET /internal/eval-cases/:id", {
+				evalCase,
+			});
 		});
 
 		app.post("/internal/eval-runs", async (c) => {
@@ -349,7 +363,12 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 			const store = new EvalCasesStore(sqlDbFor(c.env));
 			try {
 				const evalRun = await store.createRun(getProjectId(c), input);
-				return c.json({ evalRun }, 201);
+				return respondWithContract(
+					c,
+					"POST /internal/eval-runs",
+					{ evalRun },
+					201,
+				);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				if (message.includes("does not reference a case")) {
@@ -377,7 +396,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				status,
 				limit: parseLimit(c.req.query("limit")),
 			});
-			return c.json({ evalRuns });
+			return respondWithContract(c, "GET /internal/eval-runs", { evalRuns });
 		});
 
 		app.get("/internal/eval-runs/:id", async (c) => {
@@ -391,7 +410,7 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 					404,
 				);
 			}
-			return c.json({ evalRun });
+			return respondWithContract(c, "GET /internal/eval-runs/:id", { evalRun });
 		});
 
 		app.post("/internal/eval-cases/:id/results", async (c) => {
@@ -503,7 +522,9 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				evidenceContract: EVIDENCE_REFERENCE_CONTRACT,
 			};
 
-			return c.json(
+			return respondWithContract(
+				c,
+				"POST /internal/eval-cases/:id/results",
 				{
 					evalCaseResult,
 					evalRun: refreshedRun,
@@ -569,7 +590,9 @@ export const evalCasesRoutesPlugin: CollectorPlugin = {
 				}),
 			);
 
-			return c.json({ evalCaseResults });
+			return respondWithContract(c, "GET /internal/eval-cases/:id/results", {
+				evalCaseResults,
+			});
 		});
 	},
 };

@@ -1,4 +1,4 @@
-import type { JsonValue } from "@obsunified/types";
+import { dashboardRouteToHref, type JsonValue } from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button";
 import { type Column, DataTable } from "../components/DataTable";
@@ -185,19 +185,37 @@ const firstText = (
 const sourceHref = (evalCase: EvalCase): string => {
 	switch (evalCase.sourceEntityType) {
 		case "agent_run":
-			return `#/agent-runs/${encodeURIComponent(evalCase.sourceEntityId)}`;
+			return dashboardRouteToHref({
+				tab: "agent-runs",
+				agentRunId: evalCase.sourceEntityId,
+			});
 		case "action":
-			return `#/actions/${encodeURIComponent(evalCase.sourceEntityId)}`;
+			return dashboardRouteToHref({
+				tab: "actions",
+				actionId: evalCase.sourceEntityId,
+			});
 		case "tool_call":
-			return `#/tools/${encodeURIComponent(evalCase.sourceEntityId)}`;
+			return dashboardRouteToHref({
+				tab: "tool-calls",
+				toolCallId: evalCase.sourceEntityId,
+			});
 		case "trace":
-			return `#/traces?trace=${encodeURIComponent(evalCase.sourceEntityId)}`;
+			return dashboardRouteToHref({
+				tab: "traces",
+				traceId: evalCase.sourceEntityId,
+			});
 		case "ai_call":
 			return evalCase.sourceTraceId
-				? `#/traces?trace=${encodeURIComponent(evalCase.sourceTraceId)}`
-				: "#/ai";
+				? dashboardRouteToHref({
+						tab: "traces",
+						traceId: evalCase.sourceTraceId,
+					})
+				: dashboardRouteToHref({
+						tab: "ai",
+						aiCallId: evalCase.sourceEntityId,
+					});
 		default:
-			return "#/evaluations";
+			return dashboardRouteToHref({ tab: "evaluations" });
 	}
 };
 
@@ -247,8 +265,14 @@ const candidateCompareId = (
 
 const compareHref = (step: CompareStep): string =>
 	step.toolCallId
-		? `#/tool-calls/${encodeURIComponent(step.toolCallId)}`
-		: `#/actions/${encodeURIComponent(step.actionId)}`;
+		? dashboardRouteToHref({
+				tab: "tool-calls",
+				toolCallId: step.toolCallId,
+			})
+		: dashboardRouteToHref({
+				tab: "actions",
+				actionId: step.actionId,
+			});
 
 function ProductionEvalComparison({
 	evalCase,
@@ -1134,7 +1158,10 @@ export function EvaluationsDashboard({
 														<div>
 															Trace ID:{" "}
 															<a
-																href={`#/traces?trace=${encodeURIComponent(selectedCase.sourceTraceId)}`}
+																href={dashboardRouteToHref({
+																	tab: "traces",
+																	traceId: selectedCase.sourceTraceId,
+																})}
 																className="text-sys-primary hover:underline font-bold"
 															>
 																{selectedCase.sourceTraceId}
@@ -1153,7 +1180,10 @@ export function EvaluationsDashboard({
 														<div>
 															Agent Run ID:{" "}
 															<a
-																href={`#/agent-runs/${encodeURIComponent(selectedCase.sourceAgentRunId)}`}
+																href={dashboardRouteToHref({
+																	tab: "agent-runs",
+																	agentRunId: selectedCase.sourceAgentRunId,
+																})}
 																className="text-sys-primary hover:underline font-bold"
 															>
 																{selectedCase.sourceAgentRunId}
@@ -1164,7 +1194,10 @@ export function EvaluationsDashboard({
 														<div>
 															Action ID:{" "}
 															<a
-																href={`#/actions/${encodeURIComponent(selectedCase.sourceActionId)}`}
+																href={dashboardRouteToHref({
+																	tab: "actions",
+																	actionId: selectedCase.sourceActionId,
+																})}
 																className="text-sys-primary hover:underline font-bold"
 															>
 																{selectedCase.sourceActionId}

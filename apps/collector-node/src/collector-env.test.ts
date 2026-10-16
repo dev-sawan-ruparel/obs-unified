@@ -18,7 +18,14 @@ describe("resolveBlobStore", () => {
 	});
 });
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
+	assertCollectorEnvManifestCompleteness,
+	COLLECTOR_HOST_MANAGED_ENV_KEYS,
+	COLLECTOR_OPTIONAL_STRING_ENV_KEYS,
+	COLLECTOR_STRING_ENV_MANIFEST,
 	OPTIONAL_COLLECTOR_ENV_KEYS,
 	readOptionalCollectorEnv,
 } from "./collector-env";
@@ -35,6 +42,61 @@ describe("readOptionalCollectorEnv", () => {
 		expect(
 			readOptionalCollectorEnv({ ALERT_WEBHOOK_ALLOW_PRIVATE: "  " }).env,
 		).toEqual({});
+	});
+
+	it("forwards a unique sentinel value for every derived key in COLLECTOR_OPTIONAL_STRING_ENV_KEYS", () => {
+		expect(OPTIONAL_COLLECTOR_ENV_KEYS).toBe(
+			COLLECTOR_OPTIONAL_STRING_ENV_KEYS,
+		);
+		expect(OPTIONAL_COLLECTOR_ENV_KEYS).toContain(
+			"ALERT_WEBHOOK_ALLOW_PRIVATE",
+		);
+		for (const key of COLLECTOR_OPTIONAL_STRING_ENV_KEYS) {
+			const sentinel = `sentinel-${key.toLowerCase()}`;
+			const { env } = readOptionalCollectorEnv({
+				[key]: `  ${sentinel}  `,
+			});
+			expect(env).toEqual({ [key]: sentinel });
+			expect(readOptionalCollectorEnv({ [key]: "   " }).env).toEqual({});
+		}
+	});
+
+	it("accounts for every string setting on CollectorEnv and fails when a field is uncategorized", () => {
+		const envSourcePath = path.resolve(
+			path.dirname(fileURLToPath(import.meta.url)),
+			"../../../packages/obs-collector/src/framework/env.ts",
+		);
+		const envSource = readFileSync(envSourcePath, "utf8");
+		const interfaceBlock =
+			/export interface CollectorEnv \{([\s\S]*?)\n\}/.exec(envSource)?.[1] ??
+			"";
+		const stringFieldMatches = [
+			...interfaceBlock.matchAll(/^\s*([A-Z0-9_]+)\?:\s*string;/gm),
+		].map((m) => m[1]);
+		expect(stringFieldMatches.length).toBeGreaterThanOrEqual(20);
+
+		expect(() =>
+			assertCollectorEnvManifestCompleteness(
+				stringFieldMatches,
+				COLLECTOR_STRING_ENV_MANIFEST,
+			),
+		).not.toThrow();
+
+		expect(() =>
+			assertCollectorEnvManifestCompleteness(
+				[...stringFieldMatches, "UNMAPPED_NEW_COLLECTOR_SETTING"],
+				COLLECTOR_STRING_ENV_MANIFEST,
+			),
+		).toThrow(
+			/Uncategorized CollectorEnv string setting\(s\): UNMAPPED_NEW_COLLECTOR_SETTING/,
+		);
+
+		expect(() =>
+			assertCollectorEnvManifestCompleteness(stringFieldMatches, {
+				forwarded: [...COLLECTOR_OPTIONAL_STRING_ENV_KEYS, "INGEST_KEY"],
+				hostManaged: COLLECTOR_HOST_MANAGED_ENV_KEYS,
+			}),
+		).toThrow(/cannot be both forwarded and host-managed: INGEST_KEY/);
 	});
 
 	it("forwards every optional CollectorEnv field verbatim (trimmed)", () => {

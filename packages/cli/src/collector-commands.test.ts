@@ -1122,3 +1122,52 @@ describe("--help", () => {
 		expect(code).toBe(0);
 	});
 });
+
+describe("CLI internal contract client & validation (RFC 0014 WS 5)", () => {
+	it("validates responses via createCliInternalClient and throws ContractMismatchError on malformed collector payloads", async () => {
+		const { ContractMismatchError, createCliInternalClient } = await import(
+			"./collector-commands"
+		);
+
+		const { fetch: okFetch } = fakeFetch({
+			"GET /internal/projects": () => json(200, { projects: [PROJECT] }),
+		});
+		const okClient = createCliInternalClient({
+			collectorUrl: COLLECTOR,
+			adminToken: TOKEN,
+			fetch: okFetch,
+		});
+		const projectsRes = await okClient.request("GET /internal/projects");
+		expect(projectsRes.projects).toHaveLength(1);
+		expect(projectsRes.projects[0].id).toBe("default");
+
+		const { fetch: badFetch } = fakeFetch({
+			"GET /internal/projects": () =>
+				json(200, { projects: [{ id: 123, name: "Bad" }] }),
+		});
+		const badClient = createCliInternalClient({
+			collectorUrl: COLLECTOR,
+			adminToken: TOKEN,
+			fetch: badFetch,
+		});
+		await expect(
+			badClient.request("GET /internal/projects"),
+		).rejects.toBeInstanceOf(ContractMismatchError);
+	});
+
+	it("rejects invalid change kind before sending HTTP request", async () => {
+		const { fetch, calls } = fakeFetch({});
+		const t = makeIo();
+		const code = await runChanges(
+			["record", "--kind", "not_a_valid_kind", "--service", "checkout"],
+			{
+				fetch,
+				env: { OBS_COLLECTOR_URL: COLLECTOR, OBS_INGEST_KEY: "obs_key" },
+				io: t.io,
+			},
+		);
+		expect(code).toBe(1);
+		expect(calls).toHaveLength(0);
+		expect(t.stderr()).toContain("invalid change payload");
+	});
+});

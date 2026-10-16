@@ -15,7 +15,7 @@
  * RFC 0006 § Connected rail / Empty-state.
  */
 
-import type { CausalProofTier } from "@obsunified/types";
+import { type CausalProofTier, dashboardRouteToHref } from "@obsunified/types";
 import { ActionConfidence } from "@obsunified/types/constants";
 import type { CollectorPlugin } from "../framework/collector";
 import { getChangeEvent } from "../lib/autosre-change-correlation";
@@ -37,6 +37,7 @@ import type {
 import type { SqlDb } from "../lib/sql-db";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
+import { respondWithContract } from "./autosre-routes";
 
 import {
 	type ActionContextLinkMetadata,
@@ -456,7 +457,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 											? [
 													{
 														label: `${traceIds.length} sampled traces`,
-														href: `#/traces?trace=${encodeURIComponent(traceIds[0])}`,
+														href: dashboardRouteToHref({
+															tab: "traces",
+															traceId: traceIds[0],
+														}),
 														count: traceIds.length,
 														sample: traceIds[0],
 													},
@@ -556,7 +560,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 											.slice(0, MAX_LINKS_INLINE)
 											.map((toolCall) => ({
 												label: `tool: ${toolCall.tool_name}`,
-												href: `#/tool-calls/${toolCall.id}`,
+												href: dashboardRouteToHref({
+													tab: "tool-calls",
+													toolCallId: toolCall.id,
+												}),
 												entityKind: "tool_call",
 												entityId: toolCall.id,
 												...traceLevelMetadata("profile tool call"),
@@ -986,7 +993,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [
 								{
 									label: `${run.agentName} (v${run.agentVersion})`,
-									href: `#/agents/${run.agentId}`,
+									href: hrefForEntity("agent", run.agentId),
 								},
 							],
 						},
@@ -1070,7 +1077,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [
 								{
 									label: `${changeRow.targetNodeId} (${changeRow.environment})`,
-									href: `#/health?node=${encodeURIComponent(changeRow.targetNodeId)}`,
+									...resolveFaultLocusTarget(changeRow.targetNodeId),
 									relationshipCertainty: "exact",
 									reason: "Target node mutated by this change event.",
 								},
@@ -1099,7 +1106,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							label: "Attributed Findings",
 							links: findings.results.map((f) => ({
 								label: f.title,
-								href: `#/findings/${encodeURIComponent(f.id)}`,
+								href: dashboardRouteToHref({
+									tab: "findings",
+									findingId: f.id,
+								}),
 								entityKind: "finding",
 								entityId: f.id,
 								relationshipCertainty: "exact",
@@ -1137,7 +1147,11 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							label: "Failing Spans on Cohort Version",
 							links: spans.results.map((s) => ({
 								label: `${s.service_name} · ${s.span_name}`,
-								href: `#/traces/${s.trace_id}#span=${s.span_id}`,
+								href: dashboardRouteToHref({
+									tab: "traces",
+									traceId: s.trace_id,
+									spanId: s.span_id,
+								}),
 								entityKind: "span",
 								entityId: `${s.trace_id}:${s.span_id}`,
 								relationshipCertainty: "exact",
@@ -1167,7 +1181,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [
 								{
 									label: `incident ${findingRow.incidentId}`,
-									href: `#/incidents/${encodeURIComponent(findingRow.incidentId)}`,
+									href: dashboardRouteToHref({
+										tab: "incidents",
+										incidentId: findingRow.incidentId,
+									}),
 									entityKind: "incident",
 									entityId: findingRow.incidentId,
 									relationshipCertainty: "exact",
@@ -1182,7 +1199,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [
 								{
 									label: `change ${findingRow.contributingChangeId}`,
-									href: `#/changes/${encodeURIComponent(findingRow.contributingChangeId)}`,
+									href: dashboardRouteToHref({
+										tab: "changes",
+										changeId: findingRow.contributingChangeId,
+									}),
 									entityKind: "change",
 									entityId: findingRow.contributingChangeId,
 									relationshipCertainty: "exact",
@@ -1206,7 +1226,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 									? [
 											{
 												label: `contending trace ${findingRow.contendingTraceId}`,
-												href: `#/traces/${encodeURIComponent(findingRow.contendingTraceId)}`,
+												href: dashboardRouteToHref({
+													tab: "traces",
+													traceId: findingRow.contendingTraceId,
+												}),
 												entityKind: "trace" as const,
 												entityId: findingRow.contendingTraceId,
 												relationshipCertainty: "inferred" as const,
@@ -1280,7 +1303,10 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							label: "Findings",
 							links: incFindings.results.map((f) => ({
 								label: f.title,
-								href: `#/findings/${encodeURIComponent(f.id)}`,
+								href: dashboardRouteToHref({
+									tab: "findings",
+									findingId: f.id,
+								}),
 								entityKind: "finding" as const,
 								entityId: f.id,
 								relationshipCertainty: "exact" as const,
@@ -1350,7 +1376,11 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 				];
 			}
 
-			return c.json(manifest);
+			return respondWithContract(
+				c,
+				"GET /internal/connected/:kind/:id",
+				manifest,
+			);
 		});
 	},
 };

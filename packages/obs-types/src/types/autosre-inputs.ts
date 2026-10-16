@@ -71,6 +71,7 @@ const CausalTripleSchema = z.object({
 
 export const InvestigationFindingInputSchema = z.object({
 	id: z.string().optional(),
+	idempotencyKey: z.string().optional(),
 	environment: z.string().optional(),
 	incidentId: z.string().nullable().optional(),
 	fingerprintInput: z
@@ -81,6 +82,7 @@ export const InvestigationFindingInputSchema = z.object({
 			errorSignature: z.string(),
 			downstreamTargetNodeId: z.string().nullable().optional(),
 		})
+		.partial()
 		.optional(),
 	title: z.string(),
 	summary: z.string(),
@@ -151,16 +153,46 @@ export const RemediationProposalInputSchema = z.object({
 	requestedAutonomy: AgentAutonomyLevelSchema.optional(),
 });
 
-// Compile-time guarantee that inferred inputs stay assignable to the interfaces.
+// Compile-time guarantee that inferred inputs stay bidirectionally assignable to the interfaces.
 type AssertAssignable<_T extends U, U> = true;
 export type _InputSchemaChecks = [
 	AssertAssignable<z.infer<typeof ChangeEventInputSchema>, ChangeEventInput>,
+	AssertAssignable<ChangeEventInput, z.infer<typeof ChangeEventInputSchema>>,
+	AssertAssignable<
+		Exclude<
+			keyof ChangeEventInput,
+			keyof z.infer<typeof ChangeEventInputSchema>
+		>,
+		never
+	>,
 	AssertAssignable<
 		z.infer<typeof InvestigationFindingInputSchema>,
 		InvestigationFindingInput
 	>,
 	AssertAssignable<
+		InvestigationFindingInput,
+		z.infer<typeof InvestigationFindingInputSchema>
+	>,
+	AssertAssignable<
+		Exclude<
+			keyof InvestigationFindingInput,
+			keyof z.infer<typeof InvestigationFindingInputSchema>
+		>,
+		never
+	>,
+	AssertAssignable<
 		z.infer<typeof RemediationProposalInputSchema>,
 		RemediationProposalInput
+	>,
+	AssertAssignable<
+		RemediationProposalInput,
+		z.infer<typeof RemediationProposalInputSchema>
+	>,
+	AssertAssignable<
+		Exclude<
+			keyof RemediationProposalInput,
+			keyof z.infer<typeof RemediationProposalInputSchema>
+		>,
+		never
 	>,
 ];

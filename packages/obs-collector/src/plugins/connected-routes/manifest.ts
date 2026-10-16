@@ -1,7 +1,10 @@
-import type {
-	CausalProofTier,
-	EvidenceEntityKind,
-	RelationshipCertainty,
+import {
+	type CausalProofTier,
+	dashboardRouteToHref,
+	type EvidenceEntityKind,
+	type RelationshipCertainty,
+	routeForEntity,
+	hrefForEntity as sharedHrefForEntity,
 } from "@obsunified/types";
 import type {
 	ActionRef,
@@ -18,6 +21,8 @@ import type {
 } from "../../lib/identity-index";
 import type { CausalConfidence } from "../../lib/identity-index/types";
 import type { SqlDb } from "../../lib/sql-db";
+
+export { routeForEntity };
 
 export type ConnectedEntityKind =
 	| "span"
@@ -94,7 +99,7 @@ export const linkToTrace = (
 	label?: string,
 ): ConnectedLink => ({
 	label: label ?? `trace ${traceId.slice(0, 12)}`,
-	href: `#/traces/${traceId}`,
+	href: dashboardRouteToHref({ tab: "traces", traceId }),
 	entityKind: "trace",
 	entityId: traceId,
 });
@@ -108,7 +113,7 @@ export const linkToSession = (sessionId: string): ConnectedLink => ({
 		sessionId.length > 12
 			? `session …${sessionId.slice(-12)}`
 			: `session ${sessionId}`,
-	href: `#/replay?session=${encodeURIComponent(sessionId)}`,
+	href: dashboardRouteToHref({ tab: "replay", sessionId }),
 	sample: sessionId,
 	entityKind: "replay",
 	entityId: sessionId,
@@ -131,7 +136,10 @@ export const linksFromSpans = (
 			links: [
 				{
 					label: `${spans.length} spans`,
-					href: `#/traces?q=${encodeURIComponent(spans[0].traceId)}`,
+					href: dashboardRouteToHref({
+						tab: "traces",
+						query: spans[0].traceId,
+					}),
 					count: spans.length,
 					sample: truncate(
 						`${spans[0].serviceName ?? "?"} · ${spans[0].spanName}`,
@@ -144,7 +152,11 @@ export const linksFromSpans = (
 		label: prefix,
 		links: spans.map((s) => ({
 			label: `${s.serviceName ?? "?"} · ${truncate(s.spanName, 40)}`,
-			href: `#/traces/${s.traceId}#span=${s.spanId}`,
+			href: dashboardRouteToHref({
+				tab: "traces",
+				traceId: s.traceId,
+				spanId: s.spanId,
+			}),
 		})),
 	};
 };
@@ -167,7 +179,10 @@ export const linksFromLogs = (
 			links: [
 				{
 					label: `${logs.length} logs`,
-					href: `#/logs?q=${encodeURIComponent(sample.traceId ?? "")}`,
+					href: dashboardRouteToHref({
+						tab: "logs",
+						...(sample.traceId ? { query: sample.traceId } : {}),
+					}),
 					count: logs.length,
 					sample: truncate(sample.message),
 				},
@@ -178,7 +193,7 @@ export const linksFromLogs = (
 		label: prefix,
 		links: logs.map((l) => ({
 			label: `[${l.severity}] ${truncate(l.message, 60)}`,
-			href: `#/logs?id=${l.logId}`,
+			href: dashboardRouteToHref({ tab: "logs", logId: l.logId }),
 		})),
 	};
 };
@@ -200,7 +215,7 @@ export const linksFromUsage = (
 			links: [
 				{
 					label: `${events.length} usage events`,
-					href: `#/usage`,
+					href: dashboardRouteToHref({ tab: "usage" }),
 					count: events.length,
 					sample: truncate(`${events[0].eventType} · ${events[0].eventName}`),
 				},
@@ -211,7 +226,7 @@ export const linksFromUsage = (
 		label: prefix,
 		links: events.map((e) => ({
 			label: `${e.eventType} · ${truncate(e.eventName, 50)}`,
-			href: `#/usage?id=${e.eventId}`,
+			href: dashboardRouteToHref({ tab: "usage", usageId: e.eventId }),
 		})),
 	};
 };
@@ -235,8 +250,8 @@ export const linksFromMetricExemplars = (
 				{
 					label: `${exemplars.length} metric exemplars`,
 					href: sample.traceId
-						? `#/traces/${sample.traceId}`
-						: `#/traces?q=${encodeURIComponent(sample.metricName)}`,
+						? dashboardRouteToHref({ tab: "traces", traceId: sample.traceId })
+						: dashboardRouteToHref({ tab: "traces", query: sample.metricName }),
 					count: exemplars.length,
 					sample: truncate(
 						`${sample.serviceName ?? "?"} · ${sample.metricName}=${sample.value}`,
@@ -250,10 +265,12 @@ export const linksFromMetricExemplars = (
 		links: exemplars.map((e) => ({
 			label: `${e.serviceName ?? "?"} · ${truncate(e.metricName, 40)}=${e.value}`,
 			href: e.traceId
-				? e.spanId
-					? `#/traces/${e.traceId}#span=${e.spanId}`
-					: `#/traces/${e.traceId}`
-				: `#/traces?q=${encodeURIComponent(e.metricName)}`,
+				? dashboardRouteToHref({
+						tab: "traces",
+						traceId: e.traceId,
+						...(e.spanId ? { spanId: e.spanId } : {}),
+					})
+				: dashboardRouteToHref({ tab: "traces", query: e.metricName }),
 			sample: e.tsNs,
 		})),
 	};
@@ -313,7 +330,11 @@ export const profileLinksForTrace = async (
 			label: `${icon} ${type === "offcpu" ? "Off-CPU profiles" : `${type[0].toUpperCase()}${type.slice(1)} profiles`}`,
 			links: list.map((r) => ({
 				label: `${r.service_name ?? "?"} · ${r.duration_ms}ms`,
-				href: `#/profiles/${r.id}?trace_id=${encodeURIComponent(traceId)}`,
+				href: dashboardRouteToHref({
+					tab: "profiles",
+					profileId: r.id,
+					traceId,
+				}),
 			})),
 		});
 	}
@@ -337,7 +358,7 @@ export const linksFromAi = (
 			links: [
 				{
 					label: `${calls.length} AI calls`,
-					href: `#/ai`,
+					href: dashboardRouteToHref({ tab: "ai" }),
 					count: calls.length,
 					sample: truncate(`${calls[0].provider} · ${calls[0].modelName}`),
 				},
@@ -348,7 +369,7 @@ export const linksFromAi = (
 		label: prefix,
 		links: calls.map((c) => ({
 			label: `${c.provider} · ${c.modelName}`,
-			href: `#/ai/calls/${encodeURIComponent(c.callId)}`,
+			href: dashboardRouteToHref({ tab: "ai", aiCallId: c.callId }),
 			entityKind: "ai_call",
 			entityId: c.callId,
 		})),
@@ -360,7 +381,7 @@ export const linkToAction = (
 	label?: string,
 ): ConnectedLink => ({
 	label: label ?? `action ${actionId.slice(0, 12)}`,
-	href: `#/actions/${actionId}`,
+	href: dashboardRouteToHref({ tab: "actions", actionId }),
 	entityKind: "action",
 	entityId: actionId,
 });
@@ -370,7 +391,7 @@ export const linkToAgentRun = (
 	label?: string,
 ): ConnectedLink => ({
 	label: label ?? `agent run ${runId.slice(0, 12)}`,
-	href: `#/agent-runs/${runId}`,
+	href: dashboardRouteToHref({ tab: "agent-runs", agentRunId: runId }),
 	entityKind: "agent_run",
 	entityId: runId,
 });
@@ -413,7 +434,7 @@ export const linksFromActions = (
 			links: [
 				{
 					label: `${actions.length} actions`,
-					href: `#/actions`,
+					href: dashboardRouteToHref({ tab: "actions" }),
 					count: actions.length,
 					sample: truncate(
 						`${actions[0].actionKind} · ${actions[0].name ?? "unnamed"}`,
@@ -429,7 +450,7 @@ export const linksFromActions = (
 		label: prefix,
 		links: actions.map((a) => ({
 			label: `[${a.actionKind}] ${truncate(a.name ?? "unnamed", 40)}`,
-			href: `#/actions/${a.id}`,
+			href: dashboardRouteToHref({ tab: "actions", actionId: a.id }),
 			entityKind: "action",
 			entityId: a.id,
 			...actionContextMetadata(a, metadata),
@@ -457,7 +478,7 @@ export const linksFromToolCalls = (
 			links: [
 				{
 					label: `${calls.length} tool calls`,
-					href: `#/tool-calls`,
+					href: dashboardRouteToHref({ tab: "tool-calls" }),
 					count: calls.length,
 					sample: truncate(calls[0].toolName),
 					entityKind: "tool_call",
@@ -471,7 +492,7 @@ export const linksFromToolCalls = (
 		label: prefix,
 		links: calls.map((t) => ({
 			label: `tool: ${t.toolName}`,
-			href: `#/tool-calls/${t.id}`,
+			href: dashboardRouteToHref({ tab: "tool-calls", toolCallId: t.id }),
 			entityKind: "tool_call",
 			entityId: t.id,
 			...metadataForAction?.(t.actionId),
@@ -495,7 +516,7 @@ export const linksFromRetrievalEvents = (
 		links: events.map((r) => ({
 			label: `retrieve: ${r.retrieverName} (${r.totalResults} docs)`,
 			// No dedicated retrieval tab: the owning action's detail page lists it.
-			href: `#/actions/${encodeURIComponent(r.actionId)}`,
+			href: dashboardRouteToHref({ tab: "actions", actionId: r.actionId }),
 		})),
 	};
 };
@@ -520,7 +541,7 @@ export const linksFromEvalResults = (
 			label: `eval: ${e.evaluatorName} (${e.passed ? "passed" : "failed"})`,
 			// The Evaluations tab resolves this id to an eval case, falling back
 			// to the case saved from the same action.
-			href: `#/evaluations/${encodeURIComponent(e.id)}`,
+			href: dashboardRouteToHref({ tab: "evaluations", evaluationId: e.id }),
 			entityKind: "eval",
 			entityId: e.id,
 			...metadataForAction?.(e.actionId),
@@ -544,59 +565,21 @@ export const linksFromArtifacts = (
 		links: arts.map((a) => ({
 			label: `artifact: ${a.artifactName} (${a.artifactType})`,
 			// No dedicated artifact tab: the owning action's detail page lists it.
-			href: `#/actions/${encodeURIComponent(a.actionId)}`,
+			href: dashboardRouteToHref({ tab: "actions", actionId: a.actionId }),
 		})),
 	};
 };
 
 /**
- * Dashboard destination for an evidence entity, using only routes the web
- * router (`apps/web/src/app/router.ts`) actually serves. Unknown kinds fall
- * back to the evidence explorer so a link never lands on the Health tab.
+ * Dashboard destination for an evidence entity, delegating to the shared
+ * `@obsunified/types` route contract. Unknown kinds fall back to the
+ * evidence explorer so a link never lands on the Health tab.
  */
-export const hrefForEntity = (kind: string, id: string): string => {
-	const enc = encodeURIComponent;
-	switch (kind) {
-		case "trace":
-			return `#/traces?trace=${enc(id)}`;
-		case "span": {
-			const [traceId, spanId] = id.split(":");
-			return spanId && traceId
-				? `#/traces?trace=${enc(traceId)}&span=${enc(spanId)}`
-				: `#/evidence?kind=span&id=${enc(id)}`;
-		}
-		case "alert":
-			return `#/alerts?id=${enc(id)}`;
-		case "analysis":
-			return "#/health";
-		case "service":
-			return `#/service-map?service=${enc(id)}`;
-		case "agent_run":
-			return `#/agent-runs/${enc(id)}`;
-		case "action":
-			return `#/actions/${enc(id)}`;
-		case "tool_call":
-			return `#/tool-calls/${enc(id)}`;
-		case "ai_call":
-			return `#/ai/calls/${enc(id)}`;
-		case "profile":
-			return `#/profiles/${enc(id)}`;
-		case "change":
-			return `#/changes/${enc(id)}`;
-		case "finding":
-			return `#/findings/${enc(id)}`;
-		case "incident":
-			return `#/incidents/${enc(id)}`;
-		case "eval":
-			return `#/evaluations/${enc(id)}`;
-		case "log":
-			return `#/logs?id=${enc(id)}`;
-		case "replay":
-			return `#/replay?session=${enc(id)}`;
-		default:
-			return `#/evidence?kind=${enc(kind)}&id=${enc(id)}`;
-	}
-};
+export const hrefForEntity = (
+	kind: string,
+	id: string,
+	options?: { traceId?: string; spanId?: string },
+): string => sharedHrefForEntity(kind, id, options);
 
 export interface FaultLocusTarget {
 	entityKind: "service" | "span";

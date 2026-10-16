@@ -1,90 +1,87 @@
-# Production Identity & External Access Layer Recipes
+<!-- GENERATED FROM apps/docs/content/docs/ops/identity-access.mdx — DO NOT EDIT DIRECTLY. Run: node scripts/generate-ops-docs.mjs -->
 
-This document provides deployment patterns and adaptable templates for securing `obs-unified` with an external identity and access management layer (such as Cloudflare Access or `oauth2-proxy`). Adaptable configuration templates for Nginx, Caddy, `oauth2-proxy`, and Cloudflare Tunnel are provided in [`examples/external-access/`](../../examples/external-access/). These files are adaptable templates requiring site-specific domain configuration, TLS certificate provisioning, and secret setup rather than an out-of-the-box runnable Compose harness.
+# Identity and external access
 
----
+This guide covers production identity and perimeter access layer patterns for `obs-unified`. It provides concrete deployment recipes for Cloudflare Access and self-hosted `oauth2-proxy` with Nginx or Caddy. Adaptable configuration templates are provided in [`examples/external-access/`](../../examples/external-access/) for Nginx, Caddy, `oauth2-proxy`, and Cloudflare Tunnel (`cloudflared`). These are adaptable reference templates requiring site-specific domain, secret, and TLS certificate setup before deployment, rather than an all-in-one local Compose harness. For collector and reverse-proxy deployment baselines, see [Production operations](./production.md).
 
-## 1. Architectural Realities & Code Grounding
+## Architectural realities & boundaries
 
-Before deploying an external access layer, understand how authentication and routing actually work in the `obs-unified` codebase:
-
-### Absolute Absence of Native Per-User RBAC & SSO
+Before configuring external access, understand how authentication operates in the `obs-unified` stack:
 
 > [!IMPORTANT]
-> **`obs-unified` does NOT include native per-user Role-Based Access Control (RBAC), user accounts, or native Single Sign-On (SSO / SAML / OIDC).**
+> **Native per-user RBAC and SSO are absent.**
+> `obs-unified` does NOT include native per-user Role-Based Access Control (RBAC), user accounts, or native Single Sign-On (SSO / SAML / OIDC).
 > - There is no database table for dashboard operators or users.
-> - There are no user roles (e.g., Viewer vs. Editor vs. Admin).
+> - There are no user roles (for example, Viewer vs. Editor vs. Admin).
 > - There is no native per-user audit trail or per-user access control within the dashboard.
-> - Once authenticated, an operator has full administrative visibility across all projects and can issue or revoke project ingest keys.
-> - `X-Project-Id` is used for multi-project tenant scoping and is validated against known database projects (`packages/obs-collector/src/auth/dashboard-auth.ts:181-190`), but this is **not** an authorization boundary or RBAC mechanism: any authenticated dashboard user can switch to any existing project.
+> - The dashboard relies on a single shared `DASHBOARD_PASSWORD`. Any operator with dashboard access has full administrative visibility into all telemetry projects and can create or revoke ingest keys.
+> - `X-Project-Id` is used for multi-project tenant scoping and is validated against known database projects (`packages/obs-collector/src/auth/dashboard-auth.ts`), but this is **not** an authorization boundary or RBAC mechanism: any authenticated dashboard user can switch to any existing project.
+> - All per-user access control, identity federation, role enforcement, and access audits must be enforced at an **external access layer**.
 
-All identity federation, user authentication, role enforcement, and access audits must be handled by an **external access layer** (such as Cloudflare Access, Okta, `oauth2-proxy`, or an API gateway) placed in front of `obs-unified`.
-
-### Actual Code Implementation & Boundaries
-
-The platform separates access into distinct concerns:
+### Component access boundaries
 
 ```mermaid
 flowchart TD
-    subgraph External["Clients & Actors"]
-        User["Human Operator (Browser)"]
-        Agent["AI Coding Agent (MCP)"]
-        App["Instrumented App / SDK"]
-    end
+  subgraph External["Clients"]
+    Browser["Operator (Browser)"]
+    MCPAgent["Investigation MCP Host"]
+    OTelApp["App Telemetry SDK"]
+  end
 
-    subgraph Perimeter["External Access Layer (Cloudflare Access / oauth2-proxy)"]
-        SSO["SSO / Identity Gate (OIDC / SAML)"]
-        DirectNet["Internal Network / VPC Route"]
-        Bypass["Ingest Pass-Through (/v1/*, /health)"]
-    end
+  subgraph Perimeter["Access Gateway (Cloudflare Access / oauth2-proxy)"]
+    SSOGate["SSO Gate (OIDC / SAML)"]
+    InternalVPC["Internal Network / VPC Route"]
+    IngestPass["Ingest Direct Pass-Through"]
+  end
 
-    subgraph ObsStack["obs-unified System"]
-        Dashboard["Dashboard SPA (:5173 / static)"]
-        Collector["Collector API (:8790)"]
-    end
+  subgraph Internal["obs-unified Cluster"]
+    Web["Web Dashboard (:5173)"]
+    Collector["Collector Service (:8790)"]
+  end
 
-    User -->|Browser session| SSO -->|Proxied session| Dashboard
-    User -->|API queries| SSO -->|obs_session cookie| Collector
-    Agent -->|Local / Internal stdio| DirectNet -->|Bearer token or obs_session| Collector
-    App -->|OTLP POST| Bypass -->|X-API-Key / Bearer| Collector
+  Browser -->|Web & Query| SSOGate -->|Proxied Session| Web
+  SSOGate -->|API Query| Collector
+  MCPAgent -->|Read Tools| InternalVPC -->|Bearer token or obs_session| Collector
+  OTelApp -->|OTLP POST| IngestPass -->|API Key| Collector
 ```
 
-1. **Dashboard & Internal Authentication (`DASHBOARD_PASSWORD`, `DASHBOARD_TOKEN`)**:
+1. **Dashboard authentication & programmatic token (`DASHBOARD_PASSWORD`, `DASHBOARD_TOKEN`)**:
    - Grounded in [`packages/obs-collector/src/auth/dashboard-auth.ts`](../../packages/obs-collector/src/auth/dashboard-auth.ts) and [`packages/obs-collector/src/framework/collector.ts`](../../packages/obs-collector/src/framework/collector.ts).
-   - Password authentication: defined via `DASHBOARD_PASSWORD`. Login endpoint (`POST /auth/login`) tests the password using constant-time comparison (`timingSafeEqualStr`) and issues a signed `obs_session` cookie (`HMAC-SHA256` payload containing `{ exp }`, valid for 7 days, `HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS).
-   - Programmatic Bearer token: defined via `DASHBOARD_TOKEN` (or fallback `OBS_DASHBOARD_TOKEN`). Validated on `/internal/*` and `GET /auth/check` via constant-time comparison (`timingSafeEqualStr`). Programmatic clients map to this secret:
-     - The CLI (`@obsunified/cli`) sends `Authorization: Bearer <OBS_ADMIN_TOKEN>` (which must equal the collector server `DASHBOARD_TOKEN`).
-     - The MCP server (`@obsunified/mcp-server`) sends `Authorization: Bearer <OBS_DASHBOARD_TOKEN>` (which must equal the collector server `DASHBOARD_TOKEN`).
-   - The `dashboardAuth.middleware` protects `/internal/*` and `/dashboard/*`.
-   - **Collector auth contract**: On `/internal/*`, `dashboardAuth` accepts either a valid `obs_session` cookie or a valid `Authorization: Bearer <DASHBOARD_TOKEN>` header. Ingest keys are strictly rejected (they are write-only).
-     - If unauthenticated, HTML requests (`Accept: text/html`) redirect to `/dashboard/login`.
-     - API requests without a valid `obs_session` cookie or Bearer token return `401 Unauthorized`.
-   - The React dashboard ([`packages/dashboard/src/AuthGate.tsx`](../../packages/dashboard/src/AuthGate.tsx)) queries `GET /auth/check` on mount and renders [`Login.tsx`](../../packages/dashboard/src/Login.tsx) when anon.
-
-2. **Telemetry Ingest API Keys (`INGEST_KEY`, `ingest_keys` table)**:
+   - Managed in the collector via `dashboardAuth`. Browser login via `POST /auth/login` tests `DASHBOARD_PASSWORD` using constant-time comparison (`timingSafeEqualStr`) and sets an HMAC-SHA256 signed `obs_session` cookie (`{ exp }`, valid for 7 days, `HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS).
+   - On `/internal/*` and `GET /auth/check`, the collector accepts either a valid `obs_session` cookie or a programmatic read/admin bearer token (`Authorization: Bearer <DASHBOARD_TOKEN>`, validated in constant time). Programmatic client tokens map directly to this server secret:
+     - **CLI client (`@obsunified/cli`)**: uses `OBS_ADMIN_TOKEN` for `keys mint`, `keys list`, and `doctor`; this value must equal the collector server `DASHBOARD_TOKEN`.
+     - **MCP server (`@obsunified/mcp-server`)**: uses `OBS_DASHBOARD_TOKEN` for telemetry inspection; this value must equal the collector server `DASHBOARD_TOKEN`.
+   - Ingest keys (`INGEST_KEY`, `OBS_INGEST_KEY`) are strictly write-only and cannot read `/internal/*`.
+   - When unauthenticated, HTML requests (`Accept: text/html`) redirect to `/dashboard/login`, and API requests without a valid `obs_session` cookie or Bearer token return `401 Unauthorized`.
+   - The React dashboard ([`packages/dashboard/src/AuthGate.tsx`](../../packages/dashboard/src/AuthGate.tsx)) queries `GET /auth/check` on mount and renders [`Login.tsx`](../../packages/dashboard/src/Login.tsx) when unauthenticated.
+2. **Telemetry ingest API keys (`INGEST_KEY`, `ingest_keys` table)**:
    - Grounded in [`packages/obs-collector/src/auth/ingest-auth.ts`](../../packages/obs-collector/src/auth/ingest-auth.ts) and [`packages/obs-collector/src/lib/projects-store.ts`](../../packages/obs-collector/src/lib/projects-store.ts).
-   - Validated on `/v1/*` routes.
-   - Supplied via `Authorization: Bearer <key>` or `X-API-Key: <key>`.
-   - Ingest keys grant **write-only** access to telemetry ingestion (`POST /v1/traces`, `POST /v1/logs`, `POST /v1/metrics`, `POST /v1/ai`).
-   - Ingest keys are **not** accepted for reading `/internal/*` routes when `dashboardAuth` is active.
-
-3. **Public Unauthenticated Routes**:
-   - `/health`: Health status and clock offset synchronization (`serverTimeMs`). Must remain publicly reachable for preflight and readiness probes without SSO redirection.
-
-4. **Investigation MCP Server Boundaries (`@obsunified/mcp-server`)**:
+   - Managed via `ingestAuth`. Telemetry producers send `Authorization: Bearer <key>` or `X-API-Key: <key>` to `/v1/*` routes (`POST /v1/traces`, `POST /v1/logs`, `POST /v1/metrics`, `POST /v1/ai`).
+   - Ingest keys grant **write-only** access and cannot read dashboard or `/internal/*` query APIs.
+3. **Public health endpoint (`/health`)**:
+   - Publicly accessible on the collector for load balancer health probes and client clock offset synchronization (`serverTimeMs`). Must remain reachable without SSO redirection.
+4. **Investigation MCP boundary (`@obsunified/mcp-server`)**:
    - Grounded in [`packages/mcp-server/src/index.ts`](../../packages/mcp-server/src/index.ts).
-   - `readConfig()` reads `OBS_DASHBOARD_TOKEN` (or `OBS_SESSION_COOKIE` for ad-hoc session reuse).
-   - Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion and are rejected on `/internal/*` endpoints.
-   - **Grounding reality**:
-     - When the collector runs with `dashboardAuth` (standard production setup), `/internal/*` accepts either an `obs_session` cookie (for browser users) or an `Authorization: Bearer <DASHBOARD_TOKEN>` header (for programmatic clients like MCP).
-     - The current `@obsunified/mcp-server` client **does not emit Cloudflare Access service token headers** (`CF-Access-Client-Id` or `CF-Access-Client-Secret`). It only sends standard HTTP headers (`Accept`, `Authorization`, `Cookie`, `X-Project-Id`).
-     - Therefore, attempting to route remote `@obsunified/mcp-server` traffic through a Cloudflare Access gate without a local forwarding proxy that injects Access headers is **unsupported**.
-     - **Verified MCP Deployment Pattern**: Run `@obsunified/mcp-server` within the trusted internal network or localhost boundary where it can directly reach the collector's internal port (`http://127.0.0.1:8790` or internal cluster service `http://obs-collector:8790`) using `OBS_DASHBOARD_TOKEN`.
-
+   - Read-only investigation server querying `/internal/*` routes.
+   - Configure `OBS_DASHBOARD_TOKEN` on the MCP client matching `DASHBOARD_TOKEN` on the collector (or `OBS_SESSION_COOKIE` for ad-hoc browser session reuse). Note that while CLI clients configure `OBS_ADMIN_TOKEN`, MCP configures `OBS_DASHBOARD_TOKEN`; both authenticate against the collector server `DASHBOARD_TOKEN`.
+   - The MCP client sends `Authorization: Bearer <OBS_DASHBOARD_TOKEN>` and optional `X-Project-Id`.
+   - The MCP client does **not** emit Cloudflare Access service token headers (`CF-Access-Client-Id` or `CF-Access-Client-Secret`). Direct connection across a Cloudflare Access gate without a forwarding proxy is unsupported.
+   - Run the MCP server within the trusted internal network or localhost boundary where it can directly reach the collector's port (`http://127.0.0.1:8790` or internal cluster service `http://obs-collector:8790`) using `OBS_DASHBOARD_TOKEN`.
 5. **`X-Project-Id` Handling**:
-   - The collector requires `X-Project-Id` to switch project views in the dashboard and to scope MCP queries.
-   - The collector validates `X-Project-Id` against registered project IDs in the database.
-   - Reverse proxies **must pass** `X-Project-Id` through to the collector; do not strip it globally.
+   - The collector requires `X-Project-Id` for multi-project tenant scoping in the dashboard and MCP, validating it against registered project IDs in the database.
+   - The reverse proxy **must pass** `X-Project-Id` through to the collector; do not strip it globally.
+
+---
+
+## Route & policy topology
+
+| Path | Backend | Access Layer Policy | Credential | Purpose |
+| --- | --- | --- | --- | --- |
+| `/health` | Collector `:8790` | Public / Bypass | None | Liveness & clock offset sync |
+| `/v1/*` | Collector `:8790` | Bypass SSO | Ingest API Key (`X-API-Key` or `Bearer`) | OTLP spans, logs, metrics, AI calls |
+| `/auth/*` | Collector `:8790` | SSO Protected | `obs_session` | Dashboard session management |
+| `/internal/*` | Collector `:8790` | SSO / Internal VPC | `obs_session` cookie or Bearer `DASHBOARD_TOKEN` | Telemetry & evidence queries |
+| `/` | Dashboard `:5173` | SSO Protected | IdP Session Cookie | React SPA assets |
 
 ---
 
@@ -120,29 +117,17 @@ curl -X DELETE -H "Authorization: Bearer $DASHBOARD_TOKEN" \
 
 Revocation is not instant: the collector caches ingest authorization for 60 seconds, so a revoked key can keep ingesting for up to about a minute (observed: accepted at 55 seconds, rejected at 60). A revoked bootstrap key (the one supplied through `INGEST_KEY`) stays revoked after a restart; the collector does not recreate it. Use the newly minted key instead.
 
-## 2. Route & Perimeter Boundary Matrix
+## Recipe 1: Cloudflare Access (Zero Trust)
 
-| Path Pattern | Origin Service | Perimeter Access Policy | Application Credential | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `/health` | Collector (`:8790`) | Public / Unrestricted | None | Health check & clock sync |
-| `/v1/*` | Collector (`:8790`) | Public / Bypass SSO | Ingest Key (`X-API-Key` or `Bearer`) | OTLP telemetry ingestion from apps |
-| `/auth/*` | Collector (`:8790`) | SSO Protected | Handled by SPA / Collector | Session creation & status checks |
-| `/internal/*` | Collector (`:8790`) | SSO Protected (Human) / Internal Network (MCP) | `obs_session` Cookie or Bearer `DASHBOARD_TOKEN` | Dashboard data queries & evidence retrieval |
-| `/` & Static Assets | Dashboard (`:5173`) | SSO Protected | External IdP session | React dashboard interface |
+Cloudflare Access protects origin infrastructure with edge-enforced identity policies for human operators while telemetry ingestion bypasses Access and MCP queries run via internal routing.
 
----
+### Hostname separation
 
-## 3. Recipe 1: Cloudflare Access (Zero Trust)
+The recommended configuration splits public ingest from authenticated dashboard traffic:
+- `obs.example.com`: Protected by Cloudflare Access. Routes `/` to Dashboard `:5173`, `/internal/*` and `/auth/*` to Collector `:8790`.
+- `ingest.example.com`: Bypasses Access. Routes `/v1/*` and `/health` directly to Collector `:8790`.
 
-Cloudflare Access provides edge identity verification for human users. Telemetry ingestion bypasses Access, and MCP queries run via internal routing.
-
-### Hostname Separation Strategy
-
-The cleanest production topology splits public telemetry ingestion from protected dashboard traffic:
-1. `obs.example.com`: Protected by Cloudflare Access. Houses the Dashboard and internal query APIs (`/internal/*`, `/auth/*`).
-2. `ingest.example.com`: Bypasses Cloudflare Access. Houses telemetry ingestion endpoints (`/v1/*`, `/health`). Ingest keys protect `/v1/*`.
-
-### Step 1: Cloudflare Access Application Setup
+### Step 1: Cloudflare Access application setup
 
 1. In the **Cloudflare Zero Trust Dashboard**, navigate to **Access > Applications**.
 2. Click **Add an Application** and select **Self-hosted**.
@@ -151,21 +136,19 @@ The cleanest production topology splits public telemetry ingestion from protecte
    - **Application Domain**: `obs.example.com`
    - **Session Duration**: `24 hours`
 4. **Access Policies**:
-   - **Policy: Human Operators**
-     - Action: `Allow`
-     - Rule type: `Include` > `Emails ending in` `@company.com` (or IdP SAML/OIDC Group `engineering-observability`).
+   - **Policy: Human Operators**: Action `Allow`, Rule type `Include` > `Emails ending in` `@company.com` (or IdP SAML/OIDC Group `engineering-observability`).
 5. **MCP Boundary Note**: Because `@obsunified/mcp-server` does not emit `CF-Access-Client-*` headers, do not configure service tokens on `obs.example.com` expecting the standard MCP CLI to traverse it directly. Keep MCP local or on an internal VPC route.
 
-### Step 2: Cloudflare Tunnel (`cloudflared`) Configuration
+### Step 2: Cloudflare Tunnel (`cloudflared`) configuration
 
-Deploy `cloudflared` adjacent to the stack using the adaptable template in [`examples/external-access/cloudflared-config.yml`](../../examples/external-access/cloudflared-config.yml). Tunnel UUID, credential file setup, and production hostname configuration are required. Save as `/etc/cloudflared/config.yml`:
+Deploy `cloudflared` using the adaptable template in [`examples/external-access/cloudflared-config.yml`](../../examples/external-access/cloudflared-config.yml). Tunnel UUID, credentials file setup, and ingress hostname configuration are required. Save as `/etc/cloudflared/config.yml`:
 
 ```yaml
 tunnel: <TUNNEL_UUID>
 credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
 
 ingress:
-  # Ingest Hostname (Bypasses Access, protected by Ingest Key)
+  # Telemetry Ingest (Direct pass-through, authenticated via Ingest Key)
   - hostname: ingest.example.com
     path: ^/v1/
     service: http://127.0.0.1:8790
@@ -173,7 +156,7 @@ ingress:
     path: ^/health$
     service: http://127.0.0.1:8790
 
-  # Dashboard & Query Hostname (Protected by Cloudflare Access)
+  # Dashboard & Query Endpoints (Protected by Cloudflare Access)
   - hostname: obs.example.com
     path: ^/health$
     service: http://127.0.0.1:8790
@@ -184,17 +167,16 @@ ingress:
   - hostname: obs.example.com
     service: http://127.0.0.1:5173
 
-  # Catch-all
   - service: http_status:404
 ```
 
 ---
 
-## 4. Recipe 2: Self-Hosted `oauth2-proxy` with Nginx
+## Recipe 2: Self-hosted `oauth2-proxy` with Nginx
 
-For Kubernetes or cloud VPC deployments without Cloudflare, deploy `oauth2-proxy` in front of Nginx.
+Deploy `oauth2-proxy` alongside Nginx in Kubernetes or cloud VPCs to gate access against standard OIDC providers (Dex, Keycloak, Okta, Google).
 
-### Step 1: `oauth2-proxy` Configuration
+### Step 1: `oauth2-proxy` configuration
 
 Configure `oauth2-proxy` via environment variables (see template in [`examples/external-access/oauth2-proxy.env.example`](../../examples/external-access/oauth2-proxy.env.example)) or `oauth2-proxy.cfg`. Secret setup is required: generate a high-entropy cookie secret and provision OIDC client credentials:
 
@@ -231,13 +213,11 @@ skip_auth_routes = [
 ]
 ```
 
-### Step 2: Nginx Gateway Configuration
+### Step 2: Nginx reverse proxy configuration
 
-Deploy Nginx with the `http_auth_request_module` using the adaptable server fragment template in [`examples/external-access/nginx.conf`](../../examples/external-access/nginx.conf) (or [`examples/external-access/caddy.Caddyfile`](../../examples/external-access/caddy.Caddyfile) for Caddy). TLS certificate provisioning and upstream host configuration are required:
+Deploy Nginx with the `http_auth_request_module` using the adaptable server fragment template in [`examples/external-access/nginx.conf`](../../examples/external-access/nginx.conf) (or [`examples/external-access/caddy.Caddyfile`](../../examples/external-access/caddy.Caddyfile) for Caddy). TLS certificate provisioning, secret configuration, and upstream host setup are required:
 
 ```nginx
-# /etc/nginx/conf.d/obs-external-access.conf
-
 upstream collector_backend {
     server 127.0.0.1:8790;
     keepalive 32;
@@ -259,13 +239,10 @@ server {
     ssl_certificate /etc/ssl/certs/obs.company.com.crt;
     ssl_certificate_key /etc/ssl/private/obs.company.com.key;
 
-    # Security Headers
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;
 
-    # -------------------------------------------------------------------------
-    # 1. Health Check (Public / Bypasses auth)
-    # -------------------------------------------------------------------------
+    # 1. Health Probe (Bypass auth)
     location = /health {
         proxy_pass http://collector_backend;
         proxy_set_header Host $host;
@@ -274,24 +251,18 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # -------------------------------------------------------------------------
-    # 2. Telemetry Ingest (Bypasses SSO; Collector requires Ingest Key)
-    # -------------------------------------------------------------------------
+    # 2. Telemetry Ingest (Bypass SSO, verified by Collector Ingest Key)
     location /v1/ {
         client_max_body_size 10m;
-
         proxy_pass http://collector_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        # Nginx forwards client request headers (Authorization, X-API-Key, X-Project-Id) by default
     }
 
-    # -------------------------------------------------------------------------
-    # 3. oauth2-proxy Authentication Subrequest
-    # -------------------------------------------------------------------------
+    # 3. oauth2-proxy Auth Subrequest
     location = /oauth2/auth {
         internal;
         proxy_pass http://oauth2_proxy;
@@ -308,9 +279,21 @@ server {
         proxy_set_header X-Scheme $scheme;
     }
 
-    # -------------------------------------------------------------------------
-    # 4. Internal Query Endpoints (Protected by oauth2-proxy)
-    # -------------------------------------------------------------------------
+    # 4. Dashboard Authentication Routes (/auth/*) -> Collector (:8790)
+    location /auth/ {
+        auth_request /oauth2/auth;
+        error_page 401 = /oauth2/sign_in?rd=$scheme://$host$request_uri;
+
+        proxy_pass http://collector_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+    }
+
+    # 5. Internal Query APIs (Protected by SSO) -> Collector (:8790)
     location /internal/ {
         auth_request /oauth2/auth;
         error_page 401 = /oauth2/sign_in?rd=$scheme://$host$request_uri;
@@ -326,30 +309,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Auth-User $user;
         proxy_set_header X-Auth-Email $email;
-
-        # Forward cookies (contains obs_session for collector) and X-Project-Id
         proxy_set_header Cookie $http_cookie;
         proxy_set_header X-Project-Id $http_x_project_id;
     }
 
-    # -------------------------------------------------------------------------
-    # 5. Dashboard Authentication Routes (/auth/*)
-    # -------------------------------------------------------------------------
-    location /auth/ {
-        auth_request /oauth2/auth;
-        error_page 401 = /oauth2/sign_in?rd=$scheme://$host$request_uri;
-
-        proxy_pass http://collector_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Cookie $http_cookie;
-    }
-
-    # -------------------------------------------------------------------------
-    # 6. Dashboard SPA Frontend
-    # -------------------------------------------------------------------------
+    # 6. Dashboard SPA (Protected by SSO) -> Dashboard (:5173)
     location / {
         auth_request /oauth2/auth;
         error_page 401 = /oauth2/sign_in?rd=$scheme://$host$request_uri;
@@ -359,8 +323,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # SPA client routing fallback is handled upstream by dashboard_backend
     }
 }
 ```
@@ -369,7 +331,7 @@ server {
 
 ---
 
-## 5. Threat Model & Security Boundaries Grounded in Code
+## Threat model & security boundaries
 
 | Threat Vector | Code Grounding & Vulnerability | External Mitigation Required |
 | :--- | :--- | :--- |
@@ -380,62 +342,68 @@ server {
 
 ---
 
-## 6. Operational Validation Runbook
+## Secrets management checklist
 
-Run these checks to verify that the external access layer correctly enforces identity boundaries:
+1. **`DASHBOARD_PASSWORD`**: High-entropy secret stored in your secret manager.
+2. **`DASHBOARD_TOKEN`**: Distinct high-entropy bearer token for programmatic read/admin access (`@obsunified/mcp-server` via `OBS_DASHBOARD_TOKEN` and `@obsunified/cli` via `OBS_ADMIN_TOKEN`).
+3. **`INGEST_KEY`**: Rotatable write key provisioned per project in the collector database.
+4. **`cookie_secret` (`oauth2-proxy`)**: 16, 24, or 32-byte base64 string for AES cookie encryption.
+5. **Investigation MCP**: Store `OBS_DASHBOARD_TOKEN` (matching `DASHBOARD_TOKEN`, or `OBS_SESSION_COOKIE`) securely and route MCP connections directly to the internal collector port.
 
-### Step 1: Verify Health Probe Pass-Through
-```bash
-# Ingest origin health probe (Cloudflare topology):
-curl -i https://ingest.example.com/health
-# Dashboard origin health probe (bypasses Cloudflare Access via policy):
-curl -i https://obs.example.com/health
-# Single-domain reverse proxy topology (Nginx / Caddy):
-curl -i https://obs.company.com/health
-# Expected: 200 OK, JSON containing { status: "ok", serverTimeMs: ... }
-```
+---
 
-### Step 2: Verify Ingest Authentication at Collector
-```bash
-# Target public ingest host (e.g., https://ingest.example.com or https://obs.company.com)
-# Missing API key:
-curl -i -X POST https://ingest.example.com/v1/traces \
-  -H "Content-Type: application/json" \
-  -d '{"resourceSpans":[]}'
-# Expected: 401 Unauthorized (Bypasses SSO, rejected by collector ingest auth)
+## Operational validation
 
-# Valid API key:
-curl -i -X POST https://ingest.example.com/v1/traces \
-  -H "Authorization: Bearer <INGEST_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"resourceSpans":[]}'
-# Expected: 200 OK (Accepted by collector)
-```
+1. **Verify `/health` is public**:
+   ```bash
+   # On public ingest origin (Cloudflare topology):
+   curl -i https://ingest.example.com/health
+   # On dashboard origin (with Cloudflare Access bypass policy):
+   curl -i https://obs.example.com/health
+   # Or on single-domain reverse proxy (Nginx / Caddy):
+   curl -i https://obs.company.com/health
+   # Expected: 200 OK, JSON containing { status: "ok", serverTimeMs: ... }
+   ```
+2. **Verify ingest authentication at collector**:
+   ```bash
+   # Missing API key (rejected by collector ingest auth):
+   curl -i -X POST https://ingest.example.com/v1/traces \
+     -H "Content-Type: application/json" -d '{"resourceSpans":[]}'
+   # Expected: 401 Unauthorized
 
-### Step 3: Verify Unauthenticated Access to Protected Routes
-```bash
-curl -i https://obs.example.com/internal/telemetry/overview
-# Expected: 302 Redirect to SSO Login or 401/403 Forbidden from Access Layer
-```
+   # Valid API key:
+   curl -i -X POST https://ingest.example.com/v1/traces \
+     -H "Authorization: Bearer <INGEST_KEY>" \
+     -H "Content-Type: application/json" -d '{"resourceSpans":[]}'
+   # Expected: 200 OK
+   ```
+3. **Verify unauthenticated dashboard redirects to SSO**:
+   ```bash
+   curl -i https://obs.example.com/internal/telemetry/overview
+   # Expected: 302 Redirect to IdP / 401 Unauthorized
+   ```
+4. **Verify authenticated dashboard session with project scoping**:
+   ```bash
+   # With SSO session but without obs_session cookie:
+   curl -i https://obs.example.com/internal/telemetry/overview \
+     -H "Cookie: _oauth2_proxy=<OAUTH_COOKIE>"
+   # Expected: 401 Unauthorized from collector
 
-### Step 4: Verify Dashboard Session Enforcement on `/internal/*`
-```bash
-# With valid SSO session but without obs_session cookie:
-curl -i https://obs.example.com/internal/telemetry/overview \
-  -H "Cookie: _oauth2_proxy=<VALID_OAUTH_COOKIE>"
-# Expected: 401 Unauthorized from collector (collector requires obs_session cookie)
+   # With both SSO session and obs_session cookie:
+   curl -i https://obs.example.com/internal/telemetry/overview \
+     -H "Cookie: _oauth2_proxy=<OAUTH_COOKIE>; obs_session=<OBS_SESSION>" \
+     -H "X-Project-Id: default"
+   # Expected: 200 OK
+   ```
+5. **Verify programmatic MCP bearer token access**:
+   ```bash
+   curl -i https://obs.example.com/internal/telemetry/overview \
+     -H "Authorization: Bearer <DASHBOARD_TOKEN>" \
+     -H "X-Project-Id: default"
+   # Expected: 200 OK
 
-# With both SSO session and obs_session cookie:
-curl -i https://obs.example.com/internal/telemetry/overview \
-  -H "Cookie: _oauth2_proxy=<VALID_OAUTH_COOKIE>; obs_session=<VALID_OBS_COOKIE>" \
-  -H "X-Project-Id: default"
-# Expected: 200 OK
-```
-
-### Step 5: Verify Investigation MCP Local Connectivity
-```bash
-# On the internal host running the collector:
-export OBS_COLLECTOR_URL="http://127.0.0.1:8790"
-export OBS_DASHBOARD_TOKEN="<VALID_DASHBOARD_TOKEN>"
-obs-unified-mcp
-```
+   # Local / internal MCP host connectivity:
+   export OBS_COLLECTOR_URL="http://127.0.0.1:8790"
+   export OBS_DASHBOARD_TOKEN="<VALID_DASHBOARD_TOKEN>"
+   obs-unified-mcp
+   ```
