@@ -2,9 +2,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+	ApproveCallbackFields,
 	approveRemediationProposal,
 	approveRemediationProposalDetailed,
 	formatRemediationStateDiff,
+	GrantDeliveryWarning,
 	GrantTokenNotice,
 	RemediationApprovalCard,
 	RemediationApprovalQueue,
@@ -271,5 +273,123 @@ describe("RemediationApprovalCard & RemediationApprovalQueue", () => {
 			createElement(RemediationApprovalQueue, { proposals: [other] }),
 		);
 		expect(plain).not.toContain("data-selected");
+	});
+
+	it("approve sends webhookUrl/secret only when a callback is supplied", async () => {
+		const mk = () =>
+			vi.fn().mockResolvedValue(
+				new Response(
+					JSON.stringify({
+						proposal: { ...samplePendingProposal, status: "grant_issued" },
+						grantToken: "tok_1",
+						grantDelivery: {
+							attempted: true,
+							delivered: false,
+							attempts: 3,
+							host: "runner.example.com",
+							error: "fetch failed",
+						},
+					}),
+					{ status: 200 },
+				),
+			);
+		const withCb = mk();
+		const out = await approveRemediationProposalDetailed("rem_01", {
+			fetcher: withCb as unknown as typeof fetch,
+			callback: { webhookUrl: " https://runner.example.com/g ", secret: "s3" },
+		});
+		expect(JSON.parse(withCb.mock.calls[0][1].body)).toEqual({
+			webhookUrl: "https://runner.example.com/g",
+			secret: "s3",
+		});
+		expect(out.grantDelivery?.attempts).toBe(3);
+		const without = mk();
+		await approveRemediationProposalDetailed("rem_01", {
+			fetcher: without as unknown as typeof fetch,
+			callback: { webhookUrl: "  " },
+		});
+		expect(without.mock.calls[0][1].body).toBeUndefined();
+	});
+
+	it("renders callback fields with the stored host read-only and a password secret", () => {
+		const html = renderToStaticMarkup(
+			createElement(ApproveCallbackFields, {
+				storedHost: "runner.example.com",
+				url: "",
+				secret: "",
+				onUrlChange: () => {},
+				onSecretChange: () => {},
+			}),
+		);
+		expect(html).toContain("runner.example.com");
+		expect(html).toContain("stored at propose time");
+		expect(html).toContain('aria-label="Deliver grant to webhook URL"');
+		expect(html).toMatch(
+			/type="password"[^>]*data-callback-secret|data-callback-secret[^>]*type="password"/,
+		);
+		const bare = renderToStaticMarkup(
+			createElement(ApproveCallbackFields, {
+				url: "",
+				secret: "",
+				onUrlChange: () => {},
+				onSecretChange: () => {},
+			}),
+		);
+		expect(bare).not.toContain("stored at propose time");
+	});
+
+	it("warns on failed delivery alongside the token, and shows a queue badge", () => {
+		const failed = {
+			attempted: true,
+			delivered: false,
+			attempts: 3,
+			host: "runner.example.com",
+			error: "fetch failed",
+		};
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalCard, {
+				proposal: { ...samplePendingProposal, status: "grant_issued" },
+				grantToken: "rgt_abc",
+				grantDelivery: failed,
+			}),
+		);
+		expect(html).toContain(
+			"Webhook delivery failed after 3 attempts: fetch failed. Copy the token below and hand it to the runner.",
+		);
+		expect(html).toContain("rgt_abc");
+		for (const ok of [
+			{ ...failed, delivered: true },
+			{ ...failed, attempted: false },
+		]) {
+			expect(
+				renderToStaticMarkup(
+					createElement(GrantDeliveryWarning, { delivery: ok }),
+				),
+			).toBe("");
+		}
+		const badge = renderToStaticMarkup(
+			createElement(RemediationApprovalQueue, {
+				proposals: [
+					{
+						...samplePendingProposal,
+						callbackDelivery: {
+							status: "failed",
+							attempts: 3,
+							lastError: "x",
+							at: "2026-10-15T04:00:00.000Z",
+						},
+					},
+				],
+			}),
+		);
+		expect(badge).toContain('data-callback-delivery="failed"');
+		expect(badge).toContain("delivery failed");
+		expect(
+			renderToStaticMarkup(
+				createElement(RemediationApprovalQueue, {
+					proposals: [samplePendingProposal],
+				}),
+			),
+		).not.toContain("data-callback-delivery");
 	});
 });

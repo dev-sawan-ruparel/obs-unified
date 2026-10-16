@@ -1,4 +1,5 @@
 import type {
+	GrantDeliveryResult,
 	RecoveryStatus,
 	RemediationProposal,
 	RemediationProposalStatus,
@@ -67,20 +68,38 @@ export interface RemediationApproveResult {
 	proposal: RemediationProposalView | null;
 	/** Single-use grant token. The collector only returns it on approval. */
 	grantToken: string | null;
+	/** Outcome of the grant webhook delivery, when the collector reports it. */
+	grantDelivery: GrantDeliveryResult | null;
+}
+
+/** Optional grant delivery target supplied with an approve request. */
+export interface RemediationApproveCallback {
+	webhookUrl?: string;
+	secret?: string;
 }
 
 export async function approveRemediationProposalDetailed(
 	id: string,
-	options?: { basePath?: string; fetcher?: typeof fetch },
+	options?: {
+		basePath?: string;
+		fetcher?: typeof fetch;
+		callback?: RemediationApproveCallback;
+	},
 ): Promise<RemediationApproveResult> {
 	const basePath = (options?.basePath ?? "/internal").replace(/\/$/, "");
 	const fn = options?.fetcher ?? fetch;
+	const webhookUrl = options?.callback?.webhookUrl?.trim();
+	const secret = options?.callback?.secret;
+	const callbackBody = webhookUrl
+		? { webhookUrl, ...(secret ? { secret } : {}) }
+		: null;
 	const res = await fn(
 		`${basePath}/remediations/${encodeURIComponent(id)}/approve`,
 		{
 			method: "POST",
 			credentials: "include",
 			headers: { "Content-Type": "application/json" },
+			...(callbackBody ? { body: JSON.stringify(callbackBody) } : {}),
 		},
 	);
 	if (!res.ok) {
@@ -90,6 +109,7 @@ export async function approveRemediationProposalDetailed(
 		| (RemediationProposalView & {
 				proposal?: RemediationProposalView;
 				grantToken?: string | null;
+				grantDelivery?: GrantDeliveryResult | null;
 		  })
 		| null;
 	const proposal =
@@ -100,12 +120,21 @@ export async function approveRemediationProposalDetailed(
 		(body && typeof body === "object" && body.grantToken) ||
 		proposal?.grantToken ||
 		null;
-	return { proposal, grantToken: grantToken || null };
+	return {
+		proposal,
+		grantToken: grantToken || null,
+		grantDelivery:
+			(body && typeof body === "object" && body.grantDelivery) || null,
+	};
 }
 
 export async function approveRemediationProposal(
 	id: string,
-	options?: { basePath?: string; fetcher?: typeof fetch },
+	options?: {
+		basePath?: string;
+		fetcher?: typeof fetch;
+		callback?: RemediationApproveCallback;
+	},
 ): Promise<RemediationProposalView | null> {
 	return (await approveRemediationProposalDetailed(id, options)).proposal;
 }
@@ -175,7 +204,7 @@ const recoveryTone = (recovery: RecoveryStatus): string => {
 
 export interface RemediationApprovalCardProps {
 	proposal: RemediationProposalView;
-	onApprove?: (id: string) => unknown;
+	onApprove?: (id: string, callback?: RemediationApproveCallback) => unknown;
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
 	busy?: boolean;
@@ -185,6 +214,8 @@ export interface RemediationApprovalCardProps {
 	error?: string | null;
 	/** Controlled one-time grant token; overrides the token from onApprove. */
 	grantToken?: string | null;
+	/** Controlled grant delivery outcome; overrides the one from onApprove. */
+	grantDelivery?: GrantDeliveryResult | null;
 	/** Deep-linked proposal: highlighted and scrolled into view. */
 	selected?: boolean;
 }
@@ -196,6 +227,90 @@ const grantTokenFrom = (result: unknown): string | null => {
 	}
 	return null;
 };
+
+const grantDeliveryFrom = (result: unknown): GrantDeliveryResult | null => {
+	if (result && typeof result === "object" && "grantDelivery" in result) {
+		const d = (result as { grantDelivery?: unknown }).grantDelivery;
+		if (d && typeof d === "object") return d as GrantDeliveryResult;
+	}
+	return null;
+};
+
+/** Visible warning when the grant webhook could not be delivered. */
+export function GrantDeliveryWarning({
+	delivery,
+}: {
+	delivery: GrantDeliveryResult;
+}) {
+	if (!delivery.attempted || delivery.delivered) return null;
+	return (
+		<div
+			role="alert"
+			data-grant-delivery-failed
+			className="px-2 py-1 font-mono text-[0.6875rem] text-sys-error bg-sys-error/10 border border-sys-error/30"
+		>
+			Webhook delivery failed after {delivery.attempts} attempts:{" "}
+			{delivery.error ?? "unknown error"}. Copy the token below and hand it to
+			the runner.
+		</div>
+	);
+}
+
+/** Optional override of where the approved grant is delivered. */
+export function ApproveCallbackFields({
+	storedHost,
+	url,
+	secret,
+	onUrlChange,
+	onSecretChange,
+	disabled,
+}: {
+	storedHost?: string | null;
+	url: string;
+	secret: string;
+	onUrlChange: (value: string) => void;
+	onSecretChange: (value: string) => void;
+	disabled?: boolean;
+}) {
+	return (
+		<div
+			data-approve-callback-fields
+			className="flex basis-full flex-col gap-1 font-mono text-[0.6875rem]"
+		>
+			{storedHost && (
+				<div data-stored-callback-host={storedHost}>
+					Stored callback: <span className="font-semibold">{storedHost}</span>{" "}
+					<span className="opacity-60">(stored at propose time)</span>
+				</div>
+			)}
+			<input
+				type="url"
+				data-callback-url
+				aria-label="Deliver grant to webhook URL"
+				placeholder={
+					storedHost
+						? "Override: deliver grant to webhook URL"
+						: "Deliver grant to webhook URL (optional)"
+				}
+				value={url}
+				disabled={disabled}
+				onChange={(e) => onUrlChange(e.target.value)}
+				className="px-2 py-1 border border-sys-outline bg-sys-surface"
+			/>
+			<input
+				type="password"
+				data-callback-secret
+				aria-label="Webhook signing secret"
+				placeholder="Signing secret (optional)"
+				autoComplete="off"
+				value={secret}
+				disabled={disabled}
+				onChange={(e) => onSecretChange(e.target.value)}
+				className="px-2 py-1 border border-sys-outline bg-sys-surface"
+			/>
+		</div>
+	);
+}
 
 export function GrantTokenNotice({
 	token,
@@ -272,6 +387,7 @@ export function RemediationApprovalCard({
 	readOnly = false,
 	error,
 	grantToken,
+	grantDelivery,
 	selected = false,
 }: RemediationApprovalCardProps) {
 	const rootRef = useRef<HTMLDivElement | null>(null);
@@ -285,6 +401,12 @@ export function RemediationApprovalCard({
 	const [submitting, setSubmitting] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [issuedToken, setIssuedToken] = useState<string | null>(null);
+	const [issuedDelivery, setIssuedDelivery] =
+		useState<GrantDeliveryResult | null>(null);
+	const [callbackUrl, setCallbackUrl] = useState("");
+	const [callbackSecret, setCallbackSecret] = useState("");
+	const shownDelivery =
+		grantDelivery !== undefined ? grantDelivery : issuedDelivery;
 	const shownError = error !== undefined ? error : actionError;
 	const shownToken = grantToken !== undefined ? grantToken : issuedToken;
 	const controlsDisabled = busy || submitting;
@@ -293,9 +415,18 @@ export function RemediationApprovalCard({
 		setSubmitting(true);
 		setActionError(null);
 		try {
-			const result = await onApprove?.(proposal.id);
+			const url = callbackUrl.trim();
+			const result = await (url
+				? onApprove?.(proposal.id, {
+						webhookUrl: url,
+						...(callbackSecret ? { secret: callbackSecret } : {}),
+					})
+				: onApprove?.(proposal.id));
 			setIssuedToken(grantTokenFrom(result));
+			setIssuedDelivery(grantDeliveryFrom(result));
 			setConfirming(null);
+			setCallbackUrl("");
+			setCallbackSecret("");
 		} catch (err) {
 			setActionError(errorMessage(err));
 		} finally {
@@ -350,6 +481,15 @@ export function RemediationApprovalCard({
 				</div>
 				<div className="flex flex-wrap items-center gap-1.5">
 					<AutonomyBadge level={proposal.effectiveAutonomy} />
+					{proposal.callbackDelivery?.status === "failed" && (
+						<span
+							data-callback-delivery="failed"
+							title={proposal.callbackDelivery.lastError ?? undefined}
+							className="px-2 py-0.5 rounded-sm font-mono font-bold uppercase text-[0.625rem] border bg-sys-error/15 text-sys-error border-sys-error/30"
+						>
+							delivery failed
+						</span>
+					)}
 					<span
 						className={`px-2 py-0.5 rounded-sm font-mono font-bold uppercase text-[0.625rem] border ${statusTone(
 							proposal.status,
@@ -494,6 +634,14 @@ export function RemediationApprovalCard({
 								>
 									This authorizes a production change. Confirm?
 								</span>
+								<ApproveCallbackFields
+									storedHost={proposal.callbackHost}
+									url={callbackUrl}
+									secret={callbackSecret}
+									onUrlChange={setCallbackUrl}
+									onSecretChange={setCallbackSecret}
+									disabled={controlsDisabled}
+								/>
 								<button
 									type="button"
 									disabled={controlsDisabled}
@@ -556,6 +704,7 @@ export function RemediationApprovalCard({
 					{shownError}
 				</div>
 			)}
+			{shownDelivery && <GrantDeliveryWarning delivery={shownDelivery} />}
 			{shownToken && (
 				<GrantTokenNotice
 					token={shownToken}
@@ -575,7 +724,7 @@ export interface RemediationApprovalQueueProps {
 	 * has no project-scoped fetcher). Supply both handlers to enable actions;
 	 * otherwise the cards render read-only.
 	 */
-	onApprove?: (id: string) => unknown;
+	onApprove?: (id: string, callback?: RemediationApproveCallback) => unknown;
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
 	/** Deep link (`#/remediations/:id`): that proposal is shown first, expanded and highlighted. */
@@ -595,7 +744,7 @@ function RemediationApprovalQueueContent({
 	proposals: RemediationProposalView[];
 	busyId?: string | null;
 	readOnly?: boolean;
-	onApprove?: (id: string) => unknown;
+	onApprove?: (id: string, callback?: RemediationApproveCallback) => unknown;
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
 }) {
@@ -707,18 +856,22 @@ function AutoFetchedRemediationApprovalQueue({
 
 	// Handlers rethrow so the card can render the failure to the operator.
 	const handleApprove = useCallback(
-		async (id: string) => {
-			if (externalApprove) return externalApprove(id);
+		async (id: string, callback?: RemediationApproveCallback) => {
+			if (externalApprove) return externalApprove(id, callback);
 			setBusyId(id);
 			try {
-				const { proposal, grantToken } =
-					await approveRemediationProposalDetailed(id, { basePath, fetcher });
+				const { proposal, grantToken, grantDelivery } =
+					await approveRemediationProposalDetailed(id, {
+						basePath,
+						fetcher,
+						callback,
+					});
 				setProposals((prev) =>
 					prev.map((p) =>
 						p.id === id ? (proposal ?? { ...p, status: "grant_issued" }) : p,
 					),
 				);
-				return { grantToken };
+				return { grantToken, grantDelivery };
 			} finally {
 				setBusyId(null);
 			}

@@ -58,6 +58,7 @@ export {
 	type RemediationApprovalCardProps,
 	RemediationApprovalQueue,
 	type RemediationApprovalQueueProps,
+	type RemediationApproveCallback,
 	type RemediationProposalView,
 	type RemediationStateDiffEntry,
 	rejectRemediationProposal,
