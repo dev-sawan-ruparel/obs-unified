@@ -1,7 +1,8 @@
-import type {
-	AIEvaluationRecord,
-	AISessionDetailResponse,
-	AISpanRecord,
+import {
+	type AIEvaluationRecord,
+	type AISessionDetailResponse,
+	type AISpanRecord,
+	dashboardRouteToHref,
 } from "@obsunified/types";
 import { useMemo } from "react";
 import { ChatBubble, Chip } from "../../components/primitives";
@@ -71,7 +72,10 @@ export function ConversationPane({
 					<div className="flex flex-wrap items-center gap-3 text-[0.625rem] font-mono opacity-70">
 						{detail.userId && (
 							<a
-								href={`#/users/${encodeURIComponent(detail.userId)}`}
+								href={dashboardRouteToHref({
+									tab: "users",
+									userId: detail.userId,
+								})}
 								className="hover:underline cursor-pointer"
 								title="Open user detail (RFC 0006 — Scenario B pivot)"
 							>

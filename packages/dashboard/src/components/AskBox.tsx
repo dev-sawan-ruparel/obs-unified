@@ -1,4 +1,9 @@
-import type { AskEvidence, AskQuery, AskResponse } from "@obsunified/types";
+import {
+	type AskEvidence,
+	type AskQuery,
+	type AskResponse,
+	dashboardRouteToHref,
+} from "@obsunified/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRawFetch } from "../use-api";
 
@@ -207,8 +212,11 @@ export function AskBox() {
 function EvidenceChip({ evidence }: { evidence: AskEvidence }) {
 	const href =
 		evidence.definition.view === "page"
-			? `#/investigate/${encodeURIComponent(evidence.analysisId)}`
-			: "#/health";
+			? dashboardRouteToHref({
+					tab: "investigate",
+					investigationId: evidence.analysisId,
+				})
+			: dashboardRouteToHref({ tab: "health" });
 	return (
 		<a
 			href={href}

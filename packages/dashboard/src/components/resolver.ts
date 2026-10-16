@@ -1,3 +1,5 @@
+import { dashboardRouteToHref } from "@obsunified/types";
+
 export interface AggregateExemplar {
 	actionId: string;
 	agentRunId: string | null;
@@ -10,10 +12,29 @@ export interface AggregateExemplar {
 }
 
 export function resolveExemplarLink(ex: Partial<AggregateExemplar>): string {
-	if (ex.toolCallId) return `#/tool-calls/${encodeURIComponent(ex.toolCallId)}`;
-	if (ex.actionId) return `#/actions/${encodeURIComponent(ex.actionId)}`;
-	if (ex.agentRunId) return `#/agent-runs/${encodeURIComponent(ex.agentRunId)}`;
-	if (ex.evalId) return `#/evals/${encodeURIComponent(ex.evalId)}`;
-	if (ex.traceId) return `#/traces?trace=${encodeURIComponent(ex.traceId)}`;
+	if (ex.toolCallId) {
+		return dashboardRouteToHref({
+			tab: "tool-calls",
+			toolCallId: ex.toolCallId,
+		});
+	}
+	if (ex.actionId) {
+		return dashboardRouteToHref({ tab: "actions", actionId: ex.actionId });
+	}
+	if (ex.agentRunId) {
+		return dashboardRouteToHref({
+			tab: "agent-runs",
+			agentRunId: ex.agentRunId,
+		});
+	}
+	if (ex.evalId) {
+		return dashboardRouteToHref({
+			tab: "evaluations",
+			evaluationId: ex.evalId,
+		});
+	}
+	if (ex.traceId) {
+		return dashboardRouteToHref({ tab: "traces", traceId: ex.traceId });
+	}
 	return "";
 }

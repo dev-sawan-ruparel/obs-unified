@@ -1,3 +1,4 @@
+import { dashboardRouteToHref } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import { Card, SectionTitle, UpdatedChip } from "../components/primitives";
 import { resolveExemplarLink } from "../components/resolver";
@@ -430,8 +431,14 @@ function StepCell({
 	}
 	const target =
 		step.toolCallId != null
-			? `#/tool-calls/${encodeURIComponent(step.toolCallId)}`
-			: `#/actions/${encodeURIComponent(step.actionId)}`;
+			? dashboardRouteToHref({
+					tab: "tool-calls",
+					toolCallId: step.toolCallId,
+				})
+			: dashboardRouteToHref({
+					tab: "actions",
+					actionId: step.actionId,
+				});
 	return (
 		<div className="flex min-w-[12rem] flex-col gap-0.5">
 			<button

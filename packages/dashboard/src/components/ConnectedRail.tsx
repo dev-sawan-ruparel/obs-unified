@@ -14,7 +14,12 @@
  *     filtered list view rather than scrolling 200 inline items.
  */
 
-import type { CausalProofTier, RelationshipCertainty } from "@obsunified/types";
+import {
+	type CausalProofTier,
+	dashboardRouteToHref,
+	parseDashboardRouteHash,
+	type RelationshipCertainty,
+} from "@obsunified/types";
 import { useEffect, useState } from "react";
 import { useApi } from "../use-api";
 
@@ -338,50 +343,17 @@ const dedupeAdjacent = (sections: ConnectedSection[]): ConnectedSection[] => {
 
 export const normalizeConnectedHref = (href: string): string => {
 	if (!href.startsWith("#/")) return href;
-	const [pathPart, spanFragment] = href.split("#span=");
-
-	if (pathPart.startsWith("#/traces/")) {
-		const traceId = pathPart.slice("#/traces/".length);
-		const params = new URLSearchParams();
-		if (traceId) params.set("trace", decodeURIComponent(traceId));
-		if (spanFragment) params.set("span", decodeURIComponent(spanFragment));
-		const qs = params.toString();
-		return qs ? `#/traces?${qs}` : "#/traces";
+	const parsed = parseDashboardRouteHash(href);
+	if (!parsed.ok) return href;
+	const route = parsed.route;
+	if (route.tab === "traces" && !route.traceId && route.query) {
+		return dashboardRouteToHref({
+			tab: "traces",
+			traceId: route.query,
+			...(route.service ? { service: route.service } : {}),
+		});
 	}
-
-	if (pathPart.startsWith("#/traces?q=")) {
-		const params = new URLSearchParams(pathPart.slice("#/traces?".length));
-		const traceId = params.get("q");
-		return traceId
-			? `#/traces?trace=${encodeURIComponent(traceId)}`
-			: "#/traces";
-	}
-
-	if (pathPart.startsWith("#/profiles/")) {
-		const profilePath = pathPart.slice("#/profiles/".length);
-		const [profileId, query = ""] = profilePath.split("?");
-		const params = new URLSearchParams(query);
-		const traceId = params.get("trace_id") ?? params.get("trace");
-		const qs = traceId ? `?trace_id=${encodeURIComponent(traceId)}` : "";
-		return `#/profiles/${encodeURIComponent(decodeURIComponent(profileId))}${qs}`;
-	}
-
-	if (pathPart.startsWith("#/ai?")) {
-		const callId = new URLSearchParams(pathPart.slice("#/ai?".length)).get(
-			"id",
-		);
-		return callId ? `#/ai/calls/${encodeURIComponent(callId)}` : "#/ai";
-	}
-	if (pathPart.startsWith("#/evaluations?")) {
-		const params = new URLSearchParams(pathPart.slice("#/evaluations?".length));
-		const caseId = params.get("case") ?? params.get("eval_case_id");
-		return caseId
-			? `#/evaluations/${encodeURIComponent(caseId)}`
-			: "#/evaluations";
-	}
-	if (pathPart.startsWith("#/logs?")) return "#/logs";
-	if (pathPart.startsWith("#/usage?")) return "#/usage";
-	return href;
+	return dashboardRouteToHref(route);
 };
 
 const navigateConnectedHref = (

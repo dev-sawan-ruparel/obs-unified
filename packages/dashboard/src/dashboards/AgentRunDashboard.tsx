@@ -1,3 +1,4 @@
+import { dashboardRouteToHref } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import type {
 	ActionRef,
@@ -421,7 +422,12 @@ export function AgentRunDashboard({
 											<button
 												type="button"
 												onClick={() =>
-													onNavigate?.(`#/traces?trace=${rootAction.traceId}`)
+													onNavigate?.(
+														dashboardRouteToHref({
+															tab: "traces",
+															traceId: rootAction.traceId ?? undefined,
+														}),
+													)
 												}
 												className="text-sys-primary hover:underline text-left cursor-pointer truncate max-w-full font-bold"
 												title={rootAction.traceId}
@@ -435,7 +441,12 @@ export function AgentRunDashboard({
 											<button
 												type="button"
 												onClick={() =>
-													onNavigate?.(`#/logs?trace=${rootAction.traceId}`)
+													onNavigate?.(
+														dashboardRouteToHref({
+															tab: "logs",
+															traceId: rootAction.traceId ?? undefined,
+														}),
+													)
 												}
 												className="text-sys-primary hover:underline text-left cursor-pointer font-bold"
 											>
@@ -452,7 +463,10 @@ export function AgentRunDashboard({
 											type="button"
 											onClick={() =>
 												onNavigate?.(
-													`#/replay?session=${encodeURIComponent(rootAction.sessionId ?? "")}`,
+													dashboardRouteToHref({
+														tab: "replay",
+														sessionId: rootAction.sessionId ?? undefined,
+													}),
 												)
 											}
 											className="text-sys-primary hover:underline text-left cursor-pointer font-bold"
@@ -490,9 +504,11 @@ export function AgentRunDashboard({
 													type="button"
 													onClick={() =>
 														onNavigate?.(
-															`#/profiles/${profile.id}?trace_id=${encodeURIComponent(
-																rootAction?.traceId ?? "",
-															)}`,
+															dashboardRouteToHref({
+																tab: "profiles",
+																profileId: profile.id,
+																traceId: rootAction?.traceId ?? undefined,
+															}),
 														)
 													}
 													className="text-left text-sys-primary hover:underline"

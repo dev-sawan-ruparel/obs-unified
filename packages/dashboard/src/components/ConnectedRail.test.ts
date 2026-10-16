@@ -38,7 +38,7 @@ describe("normalizeConnectedHref", () => {
 		);
 	});
 
-	it("keeps supported entity routes intact and downgrades unsupported query-only tabs", () => {
+	it("keeps supported entity routes intact including log, usage, and alert selections", () => {
 		expect(normalizeConnectedHref("#/agent-runs/run-1")).toBe(
 			"#/agent-runs/run-1",
 		);
@@ -60,7 +60,9 @@ describe("normalizeConnectedHref", () => {
 			"#/evaluations/c1",
 		);
 		expect(normalizeConnectedHref("#/evaluations/c1")).toBe("#/evaluations/c1");
-		expect(normalizeConnectedHref("#/logs?id=log-1")).toBe("#/logs");
+		expect(normalizeConnectedHref("#/logs?id=log-1")).toBe("#/logs?id=log-1");
+		expect(normalizeConnectedHref("#/usage?id=ev-1")).toBe("#/usage?id=ev-1");
+		expect(normalizeConnectedHref("#/alerts?id=al-1")).toBe("#/alerts?id=al-1");
 	});
 });
 

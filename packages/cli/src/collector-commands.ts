@@ -15,6 +15,16 @@
  */
 
 import kleur from "kleur";
+import {
+	ChangeEventHttpInputSchema,
+	ContractMismatchError,
+	createInternalClient,
+	type InternalClient,
+	InternalClientHttpError,
+	validateContractResponse,
+} from "../../obs-types/dist/internal-contracts.js";
+
+export { ContractMismatchError, InternalClientHttpError };
 
 export const DEFAULT_COLLECTOR_URL = "http://localhost:8790";
 export const DEFAULT_KEY_NAME = "cli";
@@ -169,6 +179,22 @@ const adminHeaders = (adminToken: string): Record<string, string> => ({
 	Authorization: `Bearer ${adminToken}`,
 	Accept: "application/json",
 });
+
+export function createCliInternalClient(options: {
+	collectorUrl: string;
+	adminToken?: string;
+	projectId?: string;
+	fetch?: typeof fetch;
+}): InternalClient {
+	return createInternalClient({
+		baseUrl: normalizeCollectorUrl(options.collectorUrl),
+		fetch: options.fetch ?? globalThis.fetch,
+		headers: options.adminToken
+			? adminHeaders(options.adminToken)
+			: { Accept: "application/json" },
+		projectId: options.projectId,
+	});
+}
 
 /** Reads a JSON body without throwing on HTML/empty error pages. */
 const readJson = async (r: Response): Promise<unknown> => {
@@ -342,8 +368,15 @@ async function resolveProject(input: {
 			}),
 		);
 	}
-	const projects = (body as { projects?: Project[] } | undefined)?.projects;
-	if (!Array.isArray(projects)) {
+	let projects: Project[];
+	try {
+		const validated = validateContractResponse(
+			"GET /internal/projects",
+			body,
+			r.status,
+		);
+		projects = validated.projects;
+	} catch {
 		throw new Error(
 			`unexpected response from GET ${path}: expected { projects: [...] }`,
 		);
@@ -481,8 +514,14 @@ export async function runKeys(
 	}
 
 	if (parsed.action === "mint") {
-		const key = body as Partial<IngestKeyWithPlaintext> | undefined;
-		if (!key || typeof key.key !== "string") {
+		let key: IngestKeyWithPlaintext;
+		try {
+			key = validateContractResponse(
+				"POST /internal/projects/:id/keys",
+				body,
+				r.status,
+			);
+		} catch {
 			io.err(
 				kleur.red(
 					`unexpected response from POST ${path}: expected { key, id, keyPrefix, ... }`,
@@ -507,8 +546,15 @@ export async function runKeys(
 		return 0;
 	}
 
-	const keys = (body as { keys?: IngestKey[] } | undefined)?.keys;
-	if (!Array.isArray(keys)) {
+	let keys: IngestKey[];
+	try {
+		const validated = validateContractResponse(
+			"GET /internal/projects/:id/keys",
+			body,
+			r.status,
+		);
+		keys = validated.keys;
+	} catch {
 		io.err(
 			kleur.red(
 				`unexpected response from GET ${path}: expected { keys: [...] }`,
@@ -1125,6 +1171,15 @@ export async function runChanges(
 		if (parsed.actor !== undefined) payload.actorId = parsed.actor;
 		if (parsed.touchedPaths !== undefined)
 			payload.touchedPaths = parsed.touchedPaths;
+
+		const validatedPayload = ChangeEventHttpInputSchema.safeParse(payload);
+		if (!validatedPayload.success) {
+			const msg = validatedPayload.error.issues
+				.map((i) => `${i.path.join(".") || "input"}: ${i.message}`)
+				.join("; ");
+			io.err(kleur.red(`invalid change payload: ${msg}`));
+			return 1;
+		}
 
 		const path = "/v1/changes";
 		let r: Response;

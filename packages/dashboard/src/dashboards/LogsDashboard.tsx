@@ -1,4 +1,8 @@
-import type { LogRecord, LogsOverviewResponse } from "@obsunified/types";
+import {
+	dashboardRouteToHref,
+	type LogRecord,
+	type LogsOverviewResponse,
+} from "@obsunified/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { ConnectedRail } from "../components/ConnectedRail";
@@ -48,10 +52,11 @@ function readInitialLogFilters(): {
 	severity: "all" | "ERROR" | "WARN" | "INFO";
 	service: string;
 } {
-	const params = new URLSearchParams(location.hash.split("?")[1] ?? "");
+	const rawHash = typeof location !== "undefined" ? location.hash : "";
+	const params = new URLSearchParams(rawHash.split("?")[1] ?? "");
 	const severity = params.get("severity");
 	return {
-		search: params.get("search") ?? "",
+		search: params.get("q") ?? params.get("search") ?? "",
 		severity:
 			severity === "ERROR" || severity === "WARN" || severity === "INFO"
 				? severity
@@ -69,27 +74,74 @@ function formatClockTime(iso: string): string {
 	return `${hh}:${mm}:${ss}.${ms}`;
 }
 
-export function LogsDashboard() {
+export interface LogsDashboardProps {
+	initialLogId?: string;
+	initialSearch?: string;
+	initialSeverity?: "ERROR" | "WARN" | "INFO";
+	initialService?: string;
+	initialTraceId?: string;
+}
+
+export function LogsDashboard({
+	initialLogId,
+	initialSearch,
+	initialSeverity,
+	initialService,
+	initialTraceId,
+}: LogsDashboardProps = {}) {
 	const api = useApi();
 	const [overview, setOverview] = useState<LogsOverviewResponse | null>(null);
 	const hours = String(useTimeWindowHours());
 	const [loading, setLoading] = useState(false);
 	const initialFilters = useMemo(readInitialLogFilters, []);
-	const [searchQuery, setSearchQuery] = useState(initialFilters.search);
+	const resolvedInitialSearch =
+		initialSearch ?? initialTraceId ?? initialFilters.search;
+	const [searchQuery, setSearchQuery] = useState(resolvedInitialSearch);
 	const [submittedSearchQuery, setSubmittedSearchQuery] = useState(
-		initialFilters.search,
+		resolvedInitialSearch,
 	);
 	const [severityFilter, setSeverityFilter] = useState<
 		"all" | "ERROR" | "WARN" | "INFO"
-	>(initialFilters.severity);
+	>(initialSeverity ?? initialFilters.severity);
 	const [liveMode, setLiveMode] = useState(false);
 	const [selectedServices, setSelectedServices] = useState<ReadonlySet<string>>(
-		() => new Set(initialFilters.service ? [initialFilters.service] : []),
+		() => {
+			const svc = initialService ?? initialFilters.service;
+			return new Set(svc ? [svc] : []);
+		},
 	);
 	const [selectedLoggers, setSelectedLoggers] = useState<ReadonlySet<string>>(
 		new Set(),
 	);
 	const [selectedLog, setSelectedLog] = useState<SelectedLog | null>(null);
+
+	useEffect(() => {
+		const nextSearch = initialSearch ?? initialTraceId;
+		if (nextSearch !== undefined) {
+			setSearchQuery(nextSearch);
+			setSubmittedSearchQuery(nextSearch);
+		}
+	}, [initialSearch, initialTraceId]);
+
+	useEffect(() => {
+		if (initialSeverity !== undefined) {
+			setSeverityFilter(initialSeverity);
+		}
+	}, [initialSeverity]);
+
+	useEffect(() => {
+		if (initialService !== undefined) {
+			setSelectedServices(new Set(initialService ? [initialService] : []));
+		}
+	}, [initialService]);
+
+	useEffect(() => {
+		if (!initialLogId || !overview) return;
+		const match = overview.logs.find((l) => l.logId === initialLogId);
+		if (match) {
+			setSelectedLog(match);
+		}
+	}, [initialLogId, overview]);
 
 	const liveTail = useLiveTail<LiveLogRow>(isLogEvent, {
 		kinds: ["log"],
@@ -568,7 +620,10 @@ function LogDetailDrawer({
 
 	return (
 		<Card className="flex min-h-0 flex-1 flex-col p-3 overflow-y-auto">
-			<div className="mb-2 flex items-start justify-between gap-2">
+			<div
+				data-selected-log-id={log.logId}
+				className="mb-2 flex items-start justify-between gap-2"
+			>
 				<div className="flex items-center gap-2">
 					<span
 						className={`flex-none w-14 text-center px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.05em] ${SEVERITY_BADGE_BG[log.severity] ?? "bg-sys-surface-high"}`}
@@ -612,7 +667,10 @@ function LogDetailDrawer({
 						<dt className="opacity-50 uppercase tracking-[0.05em]">Trace</dt>
 						<dd className="break-all">
 							<a
-								href={`#/traces?trace=${encodeURIComponent(log.traceId)}`}
+								href={dashboardRouteToHref({
+									tab: "traces",
+									traceId: log.traceId,
+								})}
 								className="text-sys-primary underline"
 							>
 								{log.traceId}

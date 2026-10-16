@@ -1,54 +1,37 @@
 // ── Hash Router ──
-// Pure parse/serialize live in packages/dashboard/src/routes.ts (unit tested).
+// Pure parse/serialize live in @obsunified/types and are re-exported by @obsunified/dashboard.
 
-import { useEffect, useState } from "react";
 import {
+	type DashboardRoute,
+	KNOWN_TABS,
 	parseRouteHash,
 	type Route,
 	routeToHash,
-} from "../../../../packages/dashboard/src/routes";
+} from "@obsunified/dashboard";
+import { useEffect, useState } from "react";
 
-export type { Route };
-
-export const KNOWN_TABS = new Set([
-	"playground",
-	"health",
-	"onboarding",
-	"investigate",
-	"traces",
-	"service-map",
-	"issues",
-	"logs",
-	"ai",
-	"evidence",
-	"usage",
-	"replay",
-	"timeline",
-	"alerts",
-	"resources",
-	"projects",
-	"users",
-	"agent-runs",
-	"actions",
-	"tool-calls",
-	"profiles",
-	"tool-reliability",
-	"cost-attribution",
-	"autonomous-review",
-	"agent-version-diff",
-	"evaluations",
-	"changes",
-	"findings",
-	"incidents",
-	"remediations",
-]);
+export { type DashboardRoute, KNOWN_TABS, type Route };
 
 export function parseHash(): Route {
 	return parseRouteHash(location.hash);
 }
 
-export function navigate(route: Partial<Route>) {
-	location.hash = routeToHash({ ...parseHash(), ...route });
+/**
+ * Navigates to the next route or hash string.
+ * When `next.tab` changes to a different tab, previous tab selection IDs are
+ * NOT merged into the new route.
+ */
+export function navigate(next: DashboardRoute | Partial<Route> | string) {
+	if (typeof next === "string") {
+		location.hash = next.startsWith("#") ? next.slice(1) : next;
+		return;
+	}
+	const current = parseHash();
+	const target: Route =
+		next.tab && next.tab !== current.tab
+			? ({ ...next, tab: next.tab } as Route)
+			: ({ ...current, ...next } as Route);
+	location.hash = routeToHash(target);
 }
 
 export function useRoute(): Route {

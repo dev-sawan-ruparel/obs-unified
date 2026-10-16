@@ -1,3 +1,4 @@
+import { dashboardRouteToHref } from "@obsunified/types";
 import { useEffect, useState } from "react";
 import type { EntityManifestExtended } from "../components/ActionGraphRenderer";
 import { ActionGraphRenderer } from "../components/ActionGraphRenderer";
@@ -163,7 +164,14 @@ export function ToolCallDashboard({
 								<dd>
 									<button
 										type="button"
-										onClick={() => onNavigate?.(`#/actions/${actionId}`)}
+										onClick={() =>
+											onNavigate?.(
+												dashboardRouteToHref({
+													tab: "actions",
+													actionId,
+												}),
+											)
+										}
 										className="text-sys-primary hover:underline font-bold text-left cursor-pointer"
 									>
 										{causalAction?.name ?? actionId}
@@ -179,7 +187,10 @@ export function ToolCallDashboard({
 									type="button"
 									onClick={() =>
 										onNavigate?.(
-											`#/traces?trace=${causalAttrs.linked_backend_trace_id}`,
+											dashboardRouteToHref({
+												tab: "traces",
+												traceId: causalAttrs.linked_backend_trace_id,
+											}),
 										)
 									}
 									className="text-sys-primary hover:underline font-bold text-left cursor-pointer truncate max-w-full block"

@@ -6,6 +6,8 @@ import type {
 	EvidenceEntityKind,
 	GrantCallbackDelivery,
 	GrantDeliveryResult,
+	InternalEndpointKey,
+	InternalEndpoints,
 	InvestigationFindingInput,
 	JsonValue,
 	RemediationActionKind,
@@ -14,11 +16,16 @@ import type {
 	RemediationStateSpec,
 } from "@obsunified/types";
 import {
+	ChangeEventInputSchema,
 	ChangeEventKindSchema,
 	EvidencePredicateSchema,
+	InvestigationFindingHttpInputSchema,
 	RemediationActionKindSchema,
+	RemediationProposalInputSchema,
+	validateContractResponse,
 } from "@obsunified/types";
 import { AgentAutonomyLevel } from "@obsunified/types/constants";
+import type { Context } from "hono";
 import type { CollectorPlugin } from "../framework/collector";
 import type { CollectorEnv } from "../framework/env";
 import {
@@ -63,6 +70,21 @@ import { sqlDbFor } from "../lib/sql-db";
 import { assertSafeWebhookUrl } from "../lib/webhook-url";
 import { getProjectId } from "./_context";
 import { readJsonObject } from "./_json";
+
+export function respondWithContract<
+	K extends InternalEndpointKey,
+	C extends {
+		json: (data: unknown, status?: 200 | 201 | 202) => Response;
+	},
+>(
+	c: C,
+	endpoint: K,
+	payload: InternalEndpoints[K]["response"],
+	status: 200 | 201 | 202 = 200,
+): Response {
+	validateContractResponse(endpoint, payload, status);
+	return c.json(payload, status);
+}
 
 const CHANGE_KINDS = new Set<string>(ChangeEventKindSchema.options);
 
@@ -300,52 +322,63 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						? body.actor
 						: null;
 
+			const rawInput = {
+				id: typeof body.id === "string" ? body.id : undefined,
+				environment:
+					typeof body.environment === "string" ? body.environment : undefined,
+				kind: normalizedKind,
+				source:
+					body.source === "inferred_telemetry" ||
+					body.source === "autosre_remediation" ||
+					body.source === "ci_webhook"
+						? body.source
+						: ("explicit_api" as const),
+				targetNodeId:
+					typeof body.targetNodeId === "string" ? body.targetNodeId : undefined,
+				serviceName,
+				namespace,
+				version: typeof body.version === "string" ? body.version : null,
+				previousVersion:
+					typeof body.previousVersion === "string"
+						? body.previousVersion
+						: null,
+				commitSha: typeof body.commitSha === "string" ? body.commitSha : null,
+				previousCommitSha:
+					typeof body.previousCommitSha === "string"
+						? body.previousCommitSha
+						: null,
+				configDigest:
+					typeof body.configDigest === "string" ? body.configDigest : null,
+				summary,
+				actorId,
+				repositoryUrl,
+				pullRequestUrl,
+				causedByActionId:
+					typeof body.causedByActionId === "string"
+						? body.causedByActionId
+						: null,
+				agentRunId:
+					typeof body.agentRunId === "string" ? body.agentRunId : null,
+				touchedPaths,
+				attributes,
+				occurredAt:
+					typeof body.occurredAt === "string" ? body.occurredAt : undefined,
+			};
+			const parsedInput = ChangeEventInputSchema.safeParse(rawInput);
+			if (!parsedInput.success) {
+				return c.json(
+					{
+						error: parsedInput.error.issues
+							.map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+							.join("; "),
+					},
+					400,
+				);
+			}
+
 			let changeEvent: Awaited<ReturnType<typeof recordChangeEvent>>;
 			try {
-				changeEvent = await recordChangeEvent(db, projectId, {
-					id: typeof body.id === "string" ? body.id : undefined,
-					environment:
-						typeof body.environment === "string" ? body.environment : undefined,
-					kind: normalizedKind,
-					source:
-						body.source === "inferred_telemetry" ||
-						body.source === "autosre_remediation" ||
-						body.source === "ci_webhook"
-							? body.source
-							: "explicit_api",
-					targetNodeId:
-						typeof body.targetNodeId === "string"
-							? body.targetNodeId
-							: undefined,
-					serviceName,
-					namespace,
-					version: typeof body.version === "string" ? body.version : null,
-					previousVersion:
-						typeof body.previousVersion === "string"
-							? body.previousVersion
-							: null,
-					commitSha: typeof body.commitSha === "string" ? body.commitSha : null,
-					previousCommitSha:
-						typeof body.previousCommitSha === "string"
-							? body.previousCommitSha
-							: null,
-					configDigest:
-						typeof body.configDigest === "string" ? body.configDigest : null,
-					summary,
-					actorId,
-					repositoryUrl,
-					pullRequestUrl,
-					causedByActionId:
-						typeof body.causedByActionId === "string"
-							? body.causedByActionId
-							: null,
-					agentRunId:
-						typeof body.agentRunId === "string" ? body.agentRunId : null,
-					touchedPaths,
-					attributes,
-					occurredAt:
-						typeof body.occurredAt === "string" ? body.occurredAt : undefined,
-				});
+				changeEvent = await recordChangeEvent(db, projectId, parsedInput.data);
 			} catch (err) {
 				if (err instanceof InvalidTimestampError) {
 					return c.json({ error: err.message }, 400);
@@ -353,7 +386,12 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				throw err;
 			}
 
-			return c.json({ changeEvent, change: changeEvent }, 201);
+			return respondWithContract(
+				c,
+				"POST /v1/changes",
+				{ ...changeEvent, changeEvent, change: changeEvent },
+				201,
+			);
 		});
 
 		// 2. Ontology Graph & Fault Localization
@@ -371,7 +409,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				? await loadTraceFaultLocusFromDb(db, projectId, traceId)
 				: null;
 
-			return c.json({
+			return respondWithContract(c, "GET /internal/ontology", {
 				...graph,
 				faultLocus,
 			});
@@ -398,7 +436,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					since: c.req.query("since") || undefined,
 					limit: parseLimit(c.req.query("limit"), 50),
 				});
-				return c.json({ changes });
+				return respondWithContract(c, "GET /internal/changes", { changes });
 			} catch (err) {
 				if (err instanceof InvalidTimestampError) {
 					return c.json({ error: err.message }, 400);
@@ -434,7 +472,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			if (!blastRadius) {
 				return c.json({ error: "Change event not found" }, 404);
 			}
-			return c.json({ blastRadius, ...blastRadius });
+			return respondWithContract(c, "GET /internal/changes/:id/blast-radius", {
+				blastRadius,
+				...blastRadius,
+			});
 		});
 
 		// 4. Incident Investigations & Lease Coordination
@@ -447,10 +488,12 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				status: c.req.query("status") || undefined,
 				limit: parseLimit(c.req.query("limit"), 50),
 			});
-			return c.json({ incidents });
+			return respondWithContract(c, "GET /internal/incidents", { incidents });
 		});
 
-		app.post("/internal/incidents", async (c) => {
+		const openIncidentHandler = async (
+			c: Context<{ Bindings: CollectorEnv }>,
+		) => {
 			const projectId = getProjectId(c);
 			const body = await readJsonObject<Record<string, unknown>>(c);
 			if (!body) {
@@ -504,8 +547,15 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						? (body.latestBundle as Record<string, unknown>)
 						: null,
 			});
-			return c.json(result, result.deduplicated ? 200 : 201);
-		});
+			return respondWithContract(
+				c,
+				"POST /internal/incidents",
+				result,
+				result.deduplicated ? 200 : 201,
+			);
+		};
+		app.post("/internal/incidents", openIncidentHandler);
+		app.post("/internal/incidents/open", openIncidentHandler);
 
 		app.post("/internal/incidents/:id/lease", async (c) => {
 			const projectId = getProjectId(c);
@@ -519,7 +569,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					? body.runnerId.trim()
 					: typeof body.leaseOwner === "string"
 						? body.leaseOwner.trim()
-						: "";
+						: typeof body.leaseOwnerId === "string"
+							? body.leaseOwnerId.trim()
+							: "";
 			if (!runnerId) {
 				return c.json({ error: "runnerId is required" }, 400);
 			}
@@ -531,17 +583,28 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					: typeof body.ttlSeconds === "number" &&
 							Number.isFinite(body.ttlSeconds)
 						? body.ttlSeconds
-						: typeof body.leaseDurationMs === "number" &&
-								Number.isFinite(body.leaseDurationMs)
-							? Math.ceil(body.leaseDurationMs / 1000)
-							: undefined;
+						: typeof body.leaseSeconds === "number" &&
+								Number.isFinite(body.leaseSeconds)
+							? body.leaseSeconds
+							: typeof body.leaseDurationMs === "number" &&
+									Number.isFinite(body.leaseDurationMs)
+								? Math.ceil(body.leaseDurationMs / 1000)
+								: undefined;
 			const result = await acquireIncidentLease(db, projectId, incidentId, {
 				environment:
 					typeof body.environment === "string" ? body.environment : undefined,
 				runnerId,
 				leaseDurationSeconds,
 			});
-			return c.json(result, result.acquired ? 200 : 409);
+			if (!result.acquired) {
+				return c.json(result, 409);
+			}
+			return respondWithContract(
+				c,
+				"POST /internal/incidents/:id/lease",
+				result,
+				200,
+			);
 		});
 
 		app.post("/internal/incidents/:id/dispatch", async (c) => {
@@ -568,7 +631,15 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				allowPrivateNetworks: c.env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
 				logger: runtime.logger,
 			});
-			return c.json(result, result.delivered ? 200 : 502);
+			if (!result.delivered) {
+				return c.json({ ...result, dispatched: result.delivered }, 502);
+			}
+			return respondWithContract(
+				c,
+				"POST /internal/incidents/:id/dispatch",
+				{ ...result, dispatched: result.delivered },
+				200,
+			);
 		});
 
 		// 5. Investigation Findings & Counterfactual Verification
@@ -591,7 +662,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				incidentId: c.req.query("incidentId") || undefined,
 				limit: parseLimit(c.req.query("limit"), 20),
 			});
-			return c.json({ findings });
+			return respondWithContract(c, "GET /internal/findings", { findings });
 		});
 
 		app.post("/internal/findings", async (c) => {
@@ -658,7 +729,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			}
 
 			const db = sqlDbFor(c.env);
-			const input: InvestigationFindingInput = {
+			const rawInput: InvestigationFindingInput = {
 				id: typeof body.id === "string" ? body.id : undefined,
 				idempotencyKey:
 					typeof body.idempotencyKey === "string" && body.idempotencyKey.trim()
@@ -718,11 +789,21 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				agentRunId:
 					typeof body.agentRunId === "string" ? body.agentRunId : null,
 			};
+			const parsedInput =
+				InvestigationFindingHttpInputSchema.safeParse(rawInput);
+			const input: InvestigationFindingInput = parsedInput.success
+				? (parsedInput.data as InvestigationFindingInput)
+				: rawInput;
 
 			const finding = await recordInvestigationFinding(db, projectId, input, {
 				logger: runtime.logger,
 			});
-			return c.json({ finding, id: finding.id }, 201);
+			return respondWithContract(
+				c,
+				"POST /internal/findings",
+				{ ...finding, finding, id: finding.id },
+				201,
+			);
 		});
 
 		app.post("/internal/findings/:id/counterfactual", async (c) => {
@@ -770,7 +851,15 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 								: undefined,
 					},
 				);
-				return c.json({ verified: true, finding });
+				return respondWithContract(
+					c,
+					"POST /internal/findings/:id/counterfactual",
+					{
+						verified: true,
+						finding,
+						proof: finding.counterfactualProof,
+					},
+				);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				if (err instanceof CounterfactualVerificationError) {
@@ -806,7 +895,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					fail_count: number | null;
 				}>();
 			if (!row) return c.json({ error: "Eval run not found" }, 404);
-			return c.json({
+			return respondWithContract(c, "GET /internal/evals/runs/:id", {
 				run: {
 					id: row.id,
 					evalCaseId: row.eval_case_id,
@@ -832,7 +921,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					undefined,
 				limit: parseLimit(c.req.query("limit"), 50),
 			});
-			return c.json({ proposals });
+			return respondWithContract(c, "GET /internal/remediations", {
+				proposals,
+			});
 		});
 
 		app.post("/internal/remediations/propose", async (c) => {
@@ -906,7 +997,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					);
 				}
 			}
-			const input: RemediationProposalInput = {
+			const rawInput: RemediationProposalInput = {
 				environment:
 					typeof body.environment === "string" ? body.environment : undefined,
 				incidentId,
@@ -918,6 +1009,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				desiredTargetState,
 				requestedAutonomy,
 			};
+			const parsedInput = RemediationProposalInputSchema.safeParse(rawInput);
+			const input: RemediationProposalInput = parsedInput.success
+				? parsedInput.data
+				: rawInput;
 
 			try {
 				const proposal = await proposeRemediationAction(db, projectId, input, {
@@ -939,7 +1034,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					body,
 					proposal,
 				);
-				return c.json(
+				return respondWithContract(
+					c,
+					"POST /internal/remediations/propose",
 					{
 						proposal,
 						...proposal,
@@ -1002,13 +1099,17 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					proposal,
 					storedCallback,
 				);
-				return c.json({
-					proposal,
-					...proposal,
-					grantToken: proposal.grantToken ?? null,
-					grantDelivery,
-					...(webhookDelivery ? { webhookDelivery } : {}),
-				});
+				return respondWithContract(
+					c,
+					"POST /internal/remediations/:id/approve",
+					{
+						proposal,
+						...proposal,
+						grantToken: proposal.grantToken ?? null,
+						grantDelivery,
+						...(webhookDelivery ? { webhookDelivery } : {}),
+					},
+				);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				const status =
@@ -1048,7 +1149,11 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						reason,
 					},
 				);
-				return c.json({ proposal, ...proposal });
+				return respondWithContract(
+					c,
+					"POST /internal/remediations/:id/reject",
+					{ proposal, ...proposal },
+				);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				const status =
@@ -1088,7 +1193,11 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						logger: runtime.logger,
 					},
 				);
-				return c.json({ claimed: true, proposal, ...proposal });
+				return respondWithContract(c, "POST /internal/remediations/:id/claim", {
+					claimed: true,
+					proposal,
+					...proposal,
+				});
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				const status =
@@ -1134,7 +1243,11 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 								: null,
 					},
 				);
-				return c.json({ proposal, ...proposal });
+				return respondWithContract(
+					c,
+					"POST /internal/remediations/:id/complete",
+					{ proposal, ...proposal },
+				);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				const status =
@@ -1173,7 +1286,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 								: "Execution failed",
 					},
 				);
-				return c.json({ proposal, ...proposal });
+				return respondWithContract(c, "POST /internal/remediations/:id/fail", {
+					proposal,
+					...proposal,
+				});
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				const status =
@@ -1200,7 +1316,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						: undefined,
 				logger: runtime.logger,
 			});
-			return c.json({ summary, ...summary });
+			return respondWithContract(c, "POST /internal/remediations/watchdog", {
+				summary,
+				...summary,
+			});
 		});
 
 		app.get("/internal/remediations/:id", async (c) => {
@@ -1216,7 +1335,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			if (!proposal) {
 				return c.json({ error: "Proposal not found" }, 404);
 			}
-			return c.json({ proposal });
+			return respondWithContract(c, "GET /internal/remediations/:id", {
+				proposal,
+			});
 		});
 
 		app.get("/internal/incidents/:id", async (c) => {
@@ -1247,7 +1368,11 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					limit: 20,
 				}),
 			]);
-			return c.json({ incident, findings, proposals });
+			return respondWithContract(c, "GET /internal/incidents/:id", {
+				incident,
+				findings,
+				proposals,
+			});
 		});
 
 		app.get("/internal/findings/:id", async (c) => {
@@ -1263,7 +1388,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			if (!finding) {
 				return c.json({ error: "Finding not found" }, 404);
 			}
-			return c.json({ finding });
+			return respondWithContract(c, "GET /internal/findings/:id", { finding });
 		});
 
 		app.get("/internal/changes/:id", async (c) => {
@@ -1279,7 +1404,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			if (!changeEvent) {
 				return c.json({ error: "Change event not found" }, 404);
 			}
-			return c.json({ changeEvent, change: changeEvent });
+			return respondWithContract(c, "GET /internal/changes/:id", {
+				changeEvent,
+				change: changeEvent,
+			});
 		});
 	},
 };

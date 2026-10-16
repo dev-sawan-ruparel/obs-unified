@@ -16,6 +16,7 @@ import { AIStore, type IngestEvaluation } from "../lib/ai-store";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 import { readJsonObject } from "./_json";
+import { respondWithContract } from "./autosre-routes";
 
 export const aiReceiverPlugin: CollectorPlugin = {
 	name: "ai-receiver",
@@ -104,7 +105,11 @@ export const aiReceiverPlugin: CollectorPlugin = {
 			const store = new AIStore(sqlDbFor(c.env));
 			const call = await store.getAICall(projectId, c.req.param("callId"));
 			if (!call) return c.json({ error: "AI call not found" }, 404);
-			return c.json({ call, traceId: call.traceId, spanId: call.spanId });
+			return respondWithContract(c, "GET /internal/ai/calls/:callId", {
+				call,
+				traceId: call.traceId,
+				spanId: call.spanId,
+			});
 		});
 
 		// OpenInference-kind spans (LLM/TOOL/RETRIEVER/CHAIN/AGENT/...) joined

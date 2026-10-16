@@ -33,9 +33,40 @@ export {
 	formatRelationshipCertaintyBadge,
 	getConnectedEntityIcon,
 	getConnectedEntityLabel,
+	normalizeConnectedHref,
 	RELATIONSHIP_CERTAINTY_LABELS,
 	RelationshipCertaintyBadge,
 } from "./components/ConnectedRail";
+export {
+	DashboardLoading,
+	DashboardRouteView,
+	type DashboardRouteViewProps,
+	LazyActionDashboard,
+	LazyAgentRunDashboard,
+	LazyAgentVersionDiffDashboard,
+	LazyAIDashboard,
+	LazyAlertsDashboard,
+	LazyAutonomousReviewDashboard,
+	LazyCostAttributionDashboard,
+	LazyEvaluationsDashboard,
+	LazyEvidenceDashboard,
+	LazyHealthDashboard,
+	LazyInvestigationPage,
+	LazyInvestigationsDashboard,
+	LazyLogsDashboard,
+	LazyOnboardingDashboard,
+	LazyProfileDashboard,
+	LazyProjectsDashboard,
+	LazyReplayDashboard,
+	LazyResourcesDashboard,
+	LazyServiceMapDashboard,
+	LazyTelemetryDashboard,
+	LazyTimelineDashboard,
+	LazyToolCallDashboard,
+	LazyToolReliabilityDashboard,
+	LazyUsageDashboard,
+	LazyUserDashboard,
+} from "./components/DashboardRouteView";
 export type { Column, ColumnAlign, ColumnFont } from "./components/DataTable";
 export { DataTable } from "./components/DataTable";
 export { FilterGroup, FilterPanel } from "./components/FilterPanel";
@@ -79,15 +110,20 @@ export {
 	AgentRunDashboard,
 	type AgentRunDashboardProps,
 } from "./dashboards/AgentRunDashboard";
+export { AgentVersionDiffDashboard } from "./dashboards/AgentVersionDiffDashboard";
 export { AIDashboard } from "./dashboards/AIDashboard";
 export { AlertsDashboard } from "./dashboards/AlertsDashboard";
 export { AutonomousReviewDashboard } from "./dashboards/AutonomousReviewDashboard";
+export { CostAttributionDashboard } from "./dashboards/CostAttributionDashboard";
 export { EvaluationsDashboard } from "./dashboards/EvaluationsDashboard";
 export { EvidenceDashboard } from "./dashboards/EvidenceDashboard";
 export { HealthDashboard } from "./dashboards/HealthDashboard";
 export { InvestigationPage } from "./dashboards/InvestigationPage";
 export { InvestigationsDashboard } from "./dashboards/InvestigationsDashboard";
-export { LogsDashboard } from "./dashboards/LogsDashboard";
+export {
+	LogsDashboard,
+	type LogsDashboardProps,
+} from "./dashboards/LogsDashboard";
 export {
 	OnboardingDashboard,
 	type OnboardingDashboardProps,
@@ -106,6 +142,7 @@ export {
 	ToolCallDashboard,
 	type ToolCallDashboardProps,
 } from "./dashboards/ToolCallDashboard";
+export { ToolReliabilityDashboard } from "./dashboards/ToolReliabilityDashboard";
 export { UsageDashboard } from "./dashboards/UsageDashboard";
 export {
 	UserDashboard,
@@ -119,4 +156,5 @@ export {
 	useDashboard,
 	useTimeWindowHours,
 } from "./provider";
+export * from "./routes";
 export { useApi, useRawFetch } from "./use-api";

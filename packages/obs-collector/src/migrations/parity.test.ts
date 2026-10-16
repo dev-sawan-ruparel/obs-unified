@@ -8,6 +8,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -34,13 +35,74 @@ const RETENTION_TABLES = [
 	"remediation_proposals",
 ];
 
+export function checkMigrationFilePairings(
+	sqliteFiles: readonly string[],
+	postgresFiles: readonly string[],
+): string[] {
+	const errors: string[] = [];
+	const sqliteSet = new Set(sqliteFiles);
+	const pgSet = new Set(postgresFiles);
+	for (const f of sqliteFiles) {
+		if (!pgSet.has(f)) {
+			errors.push(`Missing Postgres migration counterpart for ${f}`);
+		}
+	}
+	for (const f of postgresFiles) {
+		if (!sqliteSet.has(f)) {
+			errors.push(`Missing SQLite migration counterpart for ${f}`);
+		}
+	}
+	const seenPrefixes = new Set<string>();
+	for (const f of sqliteFiles) {
+		const prefix = f.slice(0, 3);
+		if (seenPrefixes.has(prefix)) {
+			errors.push(`Duplicate migration prefix ${prefix} in ${f}`);
+		}
+		seenPrefixes.add(prefix);
+	}
+	return errors;
+}
+
+const extractCreatedTables = (sql: string): string[] => {
+	const names: string[] = [];
+	for (const m of sql.matchAll(
+		/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+([a-zA-Z0-9_]+)/gi,
+	)) {
+		const table = m[1].toLowerCase();
+		if (!table.endsWith("_new")) {
+			names.push(table);
+		}
+	}
+	return [...new Set(names)].sort();
+};
+
+const extractAddedColumns = (sql: string): string[] => {
+	const cols: string[] = [];
+	for (const m of sql.matchAll(
+		/ALTER\s+TABLE\s+([a-zA-Z0-9_]+)\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+([a-zA-Z0-9_]+)/gi,
+	)) {
+		cols.push(`${m[1].toLowerCase()}.${m[2].toLowerCase()}`);
+	}
+	return [...new Set(cols)].sort();
+};
+
 describe("migration parity", () => {
-	it("has the same numbered files on SQLite/D1 and Postgres", () => {
+	it("has the same numbered files on SQLite/D1 and Postgres and catches missing pairs", () => {
 		const sqlite = sqlFiles(sqliteDir);
 		const postgres = sqlFiles(postgresDir);
 		expect(postgres).toEqual(sqlite);
-		const prefixes = sqlite.map((f) => f.slice(0, 3));
-		expect(new Set(prefixes).size).toBe(prefixes.length);
+		expect(sqlite.length).toBeGreaterThanOrEqual(53);
+		expect(checkMigrationFilePairings(sqlite, postgres)).toEqual([]);
+
+		// Regression check: missing or duplicate migration files must be flagged.
+		expect(
+			checkMigrationFilePairings([...sqlite, "099_new_feature.sql"], postgres),
+		).toEqual([
+			"Missing Postgres migration counterpart for 099_new_feature.sql",
+		]);
+		expect(
+			checkMigrationFilePairings(sqlite, [...postgres, "099_pg_only.sql"]),
+		).toEqual(["Missing SQLite migration counterpart for 099_pg_only.sql"]);
 	});
 
 	it("declares retention timestamps as TEXT in every Postgres CREATE TABLE", () => {
@@ -64,5 +126,45 @@ describe("migration parity", () => {
 			}
 		}
 		expect(offenders).toEqual([]);
+	});
+
+	it("creates and alters the same tables and columns per migration file", () => {
+		const mismatches: string[] = [];
+		for (const file of sqlFiles(sqliteDir)) {
+			const sqliteSql = readFileSync(path.join(sqliteDir, file), "utf8");
+			const pgSql = readFileSync(path.join(postgresDir, file), "utf8");
+			const sTables = extractCreatedTables(sqliteSql);
+			const pTables = extractCreatedTables(pgSql);
+			if (JSON.stringify(sTables) !== JSON.stringify(pTables)) {
+				mismatches.push(
+					`${file} CREATE TABLE mismatch: sqlite=${JSON.stringify(sTables)} pg=${JSON.stringify(pTables)}`,
+				);
+			}
+			const sCols = extractAddedColumns(sqliteSql);
+			const pCols = extractAddedColumns(pgSql);
+			if (JSON.stringify(sCols) !== JSON.stringify(pCols)) {
+				mismatches.push(
+					`${file} ALTER TABLE ADD COLUMN mismatch: sqlite=${JSON.stringify(sCols)} pg=${JSON.stringify(pCols)}`,
+				);
+			}
+		}
+		expect(mismatches).toEqual([]);
+	});
+
+	it("applies all SQLite migrations cleanly in-memory without leftover staging tables", () => {
+		const db = new DatabaseSync(":memory:");
+		try {
+			for (const file of sqlFiles(sqliteDir)) {
+				db.exec(readFileSync(path.join(sqliteDir, file), "utf8"));
+			}
+			const leftover = db
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%_new'",
+				)
+				.all();
+			expect(leftover).toEqual([]);
+		} finally {
+			db.close();
+		}
 	});
 });

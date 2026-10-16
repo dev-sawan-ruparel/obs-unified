@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ContractMismatchError } from "@obsunified/types";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { CollectorClient, readConfig, registerTools } from "./index";
@@ -875,6 +876,96 @@ describe("mcp-server configuration & auth contract", () => {
 				expect(completeRes.json.data.status).toBe("completed");
 			} finally {
 				h.restore();
+			}
+		});
+
+		it("supports strict dashboardRouteLink alongside legacy dashboardLink and enforces negative route types", () => {
+			const client = new CollectorClient({
+				baseUrl: "http://localhost:8790",
+				authHeaders: { Accept: "application/json" },
+				dashboardUrl: "https://dashboard.example.com",
+				timeoutMs: 5000,
+			});
+
+			expect(
+				client.dashboardRouteLink({
+					tab: "evaluations",
+					evaluationId: "ec_1",
+				}),
+			).toBe("https://dashboard.example.com/#/evaluations/ec_1");
+			expect(
+				client.dashboardRouteLink({
+					tab: "service-map",
+					service: "checkout api",
+				}),
+			).toBe(
+				"https://dashboard.example.com/#/service-map?service=checkout%20api",
+			);
+			expect(
+				client.dashboardRouteLink({
+					tab: "traces",
+					traceId: "tr_1",
+					spanId: "sp_1",
+				}),
+			).toBe("https://dashboard.example.com/#/traces?trace=tr_1&span=sp_1");
+
+			// Negative type tests: unknown tabs and cross-route fields must fail.
+			if (false as boolean) {
+				// @ts-expect-error unsupported tab
+				client.dashboardRouteLink({ tab: "evals" });
+				// @ts-expect-error remediationId is not a service-map field
+				client.dashboardRouteLink({
+					tab: "service-map",
+					remediationId: "rem_1",
+				});
+			}
+
+			// Legacy consumers continue to compile and produce the same URL.
+			expect(client.dashboardLink("evaluations/ec_1")).toBe(
+				"https://dashboard.example.com/#/evaluations/ec_1",
+			);
+
+			const noDashboardClient = new CollectorClient({
+				baseUrl: "http://localhost:8790",
+				authHeaders: { Accept: "application/json" },
+				timeoutMs: 5000,
+			});
+			expect(
+				noDashboardClient.dashboardRouteLink({
+					tab: "evaluations",
+					evaluationId: "ec_1",
+				}),
+			).toBeUndefined();
+			expect(
+				noDashboardClient.dashboardLink("evaluations/ec_1"),
+			).toBeUndefined();
+		});
+
+		it("validates responses via requestContract and raises ContractMismatchError on malformed bodies", async () => {
+			const originalFetch = globalThis.fetch;
+			globalThis.fetch = (async () =>
+				new Response(JSON.stringify({ incidents: "not-an-array" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				})) as typeof fetch;
+
+			try {
+				const client = new CollectorClient({
+					baseUrl: "http://localhost:8790",
+					authHeaders: {
+						Accept: "application/json",
+						Authorization: "Bearer test-token",
+					},
+					timeoutMs: 5000,
+				});
+
+				await expect(
+					client.requestContract("GET /internal/incidents", {
+						query: { environment: "prod" },
+					}),
+				).rejects.toBeInstanceOf(ContractMismatchError);
+			} finally {
+				globalThis.fetch = originalFetch;
 			}
 		});
 	});

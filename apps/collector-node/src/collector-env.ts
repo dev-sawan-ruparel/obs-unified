@@ -18,17 +18,23 @@
  * line never shadows an Anthropic key or flips the Ask endpoint on.
  */
 
-import type { CollectorEnv } from "@obsunified/collector";
+import {
+	assertCollectorEnvManifestCompleteness,
+	COLLECTOR_HOST_MANAGED_ENV_KEYS,
+	COLLECTOR_OPTIONAL_STRING_ENV_KEYS,
+	COLLECTOR_STRING_ENV_MANIFEST,
+	type CollectorEnv,
+} from "@obsunified/collector";
 
-export const OPTIONAL_COLLECTOR_ENV_KEYS = [
-	"RETENTION_HOURS",
-	"ANTHROPIC_API_KEY",
-	"OPENAI_API_KEY",
-	"OPENAI_BASE_URL",
-	"NARRATIVE_MODEL",
-	"NARRATIVE_BUDGET_PER_HOUR",
-	"ALERT_WEBHOOK_ALLOW_PRIVATE",
-] as const satisfies readonly (keyof CollectorEnv)[];
+export {
+	assertCollectorEnvManifestCompleteness,
+	COLLECTOR_HOST_MANAGED_ENV_KEYS,
+	COLLECTOR_OPTIONAL_STRING_ENV_KEYS,
+	COLLECTOR_STRING_ENV_MANIFEST,
+};
+
+export const OPTIONAL_COLLECTOR_ENV_KEYS =
+	COLLECTOR_OPTIONAL_STRING_ENV_KEYS satisfies readonly (keyof CollectorEnv)[];
 
 export type BlobStoreKind = "file" | "s3";
 

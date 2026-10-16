@@ -1,22 +1,22 @@
-# Production Operations Guide
+<!-- GENERATED FROM apps/docs/content/docs/ops/production.mdx — DO NOT EDIT DIRECTLY. Run: node scripts/generate-ops-docs.mjs -->
 
-This guide provides operational runbooks, system requirements, and orchestration configurations for executing a high-availability, secure, and production-grade deployment of the `obs-unified` stack.
+# Production operations
 
----
+This page covers production deployment patterns for the standalone Node collector backed by Postgres and S3-compatible object storage. The Cloudflare Workers path remains supported, but the Node collector is the clearest fit for container platforms and private infrastructure.
 
-## 1. Network & Reverse Proxy Architecture
+## 1. Network and reverse proxy
 
-The recommended production layout isolates the telemetry collector behind an Nginx or Caddy reverse proxy serving over TLS. 
+The recommended layout places the collector behind TLS, keeps OTLP ingest routes reachable, and protects dashboard/internal query routes with your normal auth boundary.
 
-* **Collector Port**: `:8790` (ingests HTTP `/v1/*` OTLP payloads and proxies internal query services).
-* **Dashboard Port**: `:5173` (static file serving or proxied SPA assets).
+| Route | Backend | Purpose |
+| --- | --- | --- |
+| `/v1/*` | Collector on `:8790` | Public OTLP and SDK ingest |
+| `/internal/*` | Collector on `:8790` | Dashboard query APIs |
+| `/` | Dashboard static server on `:5173` | React dashboard |
 
-### Nginx Server Block Setup
-
-Deploy Nginx on your gateway node and configure the reverse-proxy to protect the dashboard endpoints while keeping OTLP pipelines completely open:
+### Nginx
 
 ```nginx
-# /etc/nginx/sites-available/obs.my-app.com
 server {
     listen 443 ssl http2;
     server_name obs.my-app.com;
@@ -24,11 +24,9 @@ server {
     ssl_certificate /etc/letsencrypt/live/obs.my-app.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/obs.my-app.com/privkey.pem;
 
-    # Gzip configurations for fast JSON/protobuf decompression
     gzip on;
     gzip_types application/json application/x-protobuf text/plain text/css;
 
-    # Telemetry Ingestion (Publicly accessible OTLP routes)
     location /v1/ {
         proxy_pass http://127.0.0.1:8790;
         proxy_http_version 1.1;
@@ -36,12 +34,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Max OTLP request body size (spans / logs bundle)
         client_max_body_size 10m;
     }
 
-    # Internal Dashboard Query Endpoints
     location /internal/ {
         proxy_pass http://127.0.0.1:8790;
         proxy_http_version 1.1;
@@ -51,7 +46,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Dashboard Static Files & Routing SPA
     location / {
         proxy_pass http://127.0.0.1:5173;
         proxy_http_version 1.1;
@@ -59,8 +53,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Enable SPA Hash Router fallback
         try_files $uri $uri/ /index.html;
     }
 }
@@ -70,25 +62,20 @@ server {
 
 CORS: the all-in-one image allows `localhost` and `127.0.0.1` on ports 5173, 5174, and 3000 by default. The standalone Node collector has no default; set `ALLOWED_ORIGINS` (comma-separated) to your dashboard and app origins, for example `https://obs.my-app.com`.
 
-### Caddyfile Setup (Alternative)
+### Caddy
 
-For Caddy with automatic Let’s Encrypt TLS:
-
-```caddy
+```text
 obs.my-app.com {
-    # Public Telemetry Ingest
     reverse_proxy /v1/* 127.0.0.1:8790 {
         header_up Host {host}
         header_up X-Real-IP {remote}
     }
 
-    # Internal Query APIs
     reverse_proxy /internal/* 127.0.0.1:8790 {
         header_up Host {host}
         header_up X-Real-IP {remote}
     }
 
-    # SPA Web Dashboard
     reverse_proxy /* 127.0.0.1:5173 {
         header_up Host {host}
         header_up X-Real-IP {remote}
@@ -98,38 +85,19 @@ obs.my-app.com {
 
 > Set `TRUST_PROXY=true` on the collector (and only when it is reachable solely through this proxy). Without it the dashboard login rate limit and client-IP handling key on the proxy's address instead of the real client, so one noisy client can lock everyone out of login.
 
----
+## 2. Postgres tuning
 
-## 2. PostgreSQL Connection Tuning
+Each collector instance uses a persistent client-side pool. Start with the default `PG_POOL_MAX=10` for low to moderate traffic (1–50 spans/second). For high-throughput environments (>500 spans/second), scale to `30` or `50`, making sure the total across replicas stays below the database server's `max_connections` in `postgresql.conf`.
 
-The standalone Node collector writes structured spans, logs, and events concurrently into your target Postgres instance. Tune your connection boundaries based on the anticipated workload.
+Set a statement timeout so expensive dashboard or analysis queries cannot lock the database indefinitely:
 
-### Connection Limits (`PG_POOL_MAX`)
-Each collector instance uses a persistent client-side pool to manage database connections.
-* **Default Value**: `10`
-* **Production Tuning**: 
-  * Under low to moderate traffic (1–50 spans/second), the default pool size is sufficient.
-  * For high-throughput environments (>500 spans/second), scale the pool limit to `30` or `50` by configuring `PG_POOL_MAX=50`.
-  * Ensure the sum of `PG_POOL_MAX` across all scaled collector instances does not exceed the `max_connections` limit set inside your `postgresql.conf` configuration file.
+```bash
+PG_STATEMENT_TIMEOUT=30000
+```
 
-### Statement Timeout Tuning
-To prevent bloated, unoptimized telemetry queries from locking the database, enforce an explicit statement timeout boundary:
-* Configure statement timeouts inside your collector environment to terminate queries exceeding 30 seconds:
-  ```bash
-  PG_STATEMENT_TIMEOUT=30000
-  ```
+## 3. Object storage retention
 
----
-
-## 3. Storage Retention & Object Expirations (AWS S3 / MinIO)
-
-`obs-unified` persists replay sessions (`.json` files) and system profiles (`.pprof` buffers) in your target S3 bucket. Telemetry is intended to serve as hot, active debugging context rather than cold historical archives.
-
-Enforce a **72-hour automated deletion lifecycle** on your AWS S3 bucket to control operational costs and ensure database retention bounds (`RETENTION_HOURS=72`) map perfectly to your physical object storage layer.
-
-### AWS CLI Lifecycle Configuration
-
-Save the following rule profile as `lifecycle-policy.json`:
+Replay chunks (`.json`) and pprof profiles (`.pprof`) live in S3-compatible object storage. Match bucket lifecycle retention to the database retention window (`RETENTION_HOURS=72`). For a 72-hour hot-debugging window, save the following three-day expiration rule as `lifecycle-policy.json`:
 
 ```json
 {
@@ -148,7 +116,7 @@ Save the following rule profile as `lifecycle-policy.json`:
 }
 ```
 
-Apply this lifecycle rule directly to your S3 telemetry bucket using the AWS CLI tool:
+Apply it with:
 
 ```bash
 aws s3api put-bucket-lifecycle-configuration \
@@ -156,15 +124,13 @@ aws s3api put-bucket-lifecycle-configuration \
   --lifecycle-configuration file://lifecycle-policy.json
 ```
 
----
+## 4. Kubernetes orchestration manifests
 
-## 4. Kubernetes Orchestration Manifests
-
-For scalable production container runtimes, execute `obs-unified` as a stateless horizontal deployment communicating with a managed PostgreSQL instance and cloud S3 bucket storage.
+Run collectors as stateless replicas against managed Postgres and S3-compatible storage.
 
 Every collector process ships an in-process scheduler for the three recurring jobs the Cloudflare Worker gets from Cron Triggers (due analyses every minute, alert evaluation every 5 minutes, retention cleanup hourly). It is **on by default**, so a plain multi-replica Deployment would run each job once per replica. The manifests below keep exactly one owner: serving replicas set `MAINTENANCE_ENABLED: "false"` via the shared ConfigMap, and a separate single-replica `obs-maintenance` Deployment re-enables it. See the [collector-node README](../../apps/collector-node/README.md#background-maintenance) for the `MAINTENANCE_*` settings.
 
-### 1. ConfigMap and Secrets (`obs-config.yaml`)
+### ConfigMap and Secrets (`obs-config.yaml`)
 
 ```yaml
 apiVersion: v1
@@ -212,7 +178,7 @@ data:
 
 Both Deployments below mount the same `obs-secrets`, so the serving replicas and the single `obs-maintenance` replica accept the same token. See [Identity & External Access Recipes](./identity-access-recipes.md) for the full header-forwarding and proxy patterns.
 
-### 2. Serving Collector Deployment (`obs-deployment.yaml`)
+### Serving Collector Deployment (`obs-deployment.yaml`)
 
 Handles ingest and dashboard traffic only. `MAINTENANCE_ENABLED` is inherited as `"false"` from the ConfigMap, so scaling `replicas` up or down never changes how many times a job runs.
 
@@ -279,7 +245,7 @@ spec:
   type: ClusterIP
 ```
 
-### 3. Maintenance Deployment (`obs-maintenance.yaml`)
+### Maintenance Deployment (`obs-maintenance.yaml`)
 
 The single owner of the scheduled jobs. Same image, ConfigMap, and Secret as the serving Deployment; the only differences are `replicas: 1`, the explicit `MAINTENANCE_ENABLED: "true"` override (a container `env` entry takes precedence over `envFrom`), a `Recreate` strategy so a rollout never has two maintenance pods alive at once, and a distinct `app` label so `obs-collector-service` never routes traffic to it.
 
@@ -351,9 +317,7 @@ On `SIGTERM` the maintenance pod stops arming new ticks, waits up to 10 s for an
 
 If you prefer a scheduler you already operate, set `MAINTENANCE_ENABLED: "false"` everywhere, omit `obs-maintenance`, and run the jobs from your own cron; do **not** leave the default (`true`) on a multi-replica serving Deployment.
 
----
-
-## 5. Standard Upgrades & Database Migrations
+## 5. Upgrades and database migrations
 
 During software updates, execute database migrations *before* recycling rolling container deployments to prevent schema mismatch errors inside the collector instances.
 
@@ -366,9 +330,17 @@ docker run --rm \
   node /repo/apps/collector-node/scripts/migrate-pg.mjs
 ```
 
----
+## 6. Operational checks
 
-## 6. Backup and Restore
+Before opening ingest traffic:
+
+1. Run database migrations for the target collector storage.
+2. Confirm `/health` responds through the reverse proxy.
+3. Verify CORS from the browser origin with `pnpm dlx @obsunified/cli doctor`.
+4. Send one synthetic trace, one log, and one usage event.
+5. Confirm dashboard login and internal query routes are not publicly exposed without your intended auth.
+
+## 7. Backup and restore
 
 Applies to the all-in-one image, which keeps Postgres 15 (cluster `15/main`, database `obs_unified`, role `obs`) in `/var/lib/postgresql` and file blobs in `/data/blobs`. Managed Postgres plus S3 deployments should use the provider's snapshot and bucket-versioning tools instead.
 
@@ -404,7 +376,7 @@ docker restart obs
 
 Ingest keys live in the database, so they come back with the dump (a key you revoked stays revoked). `INGEST_KEY`, `DASHBOARD_PASSWORD`, and `DASHBOARD_TOKEN` come from the new container's environment; changing `DASHBOARD_PASSWORD` invalidates existing browser sessions.
 
-## 7. Alerts and Webhooks
+## 8. Alerts and webhooks
 
 Alert rules are evaluated by the maintenance scheduler every 5 minutes (see the maintenance split in the Kubernetes section). Webhook channels are admin-supplied URLs that the collector POSTs to from inside its own network, so they are validated:
 
@@ -413,14 +385,12 @@ Alert rules are evaluated by the maintenance scheduler every 5 minutes (see the 
 * Webhook URLs are redacted in logs and span attributes (only the origin and first path segment are kept), since Slack and PagerDuty style hooks carry secrets in the path.
 * The seeded sample data (`OBS_LOCAL_SEED=true`) creates alert rules that point at a placeholder `hooks.example.com` webhook URL. Since collector 2.2.2 the seeder creates them disabled (`enabled: false`), so they do not fire. Enable them only after pointing them at a real receiver.
 
-## 8. Monitoring the Collector
+## 9. Monitoring the collector
 
-* **Health**: `GET /health` is the only probe endpoint. There is no `/metrics` and no `/ready` route, so use `/health` for both readiness and liveness (as in the manifests above).
+* **Health**: `GET /health` is the only probe endpoint. There is no `/metrics` and no `/ready` route, so use `/health` for both readiness and liveness (as in the Kubernetes manifests above).
 * **Docker**: the image ships a `HEALTHCHECK` (every 15s) that needs both the collector `/health` on `:8790` and the dashboard on `:5173` to answer. `docker ps` shows `healthy` or `unhealthy`.
 * **Logs**: written to stdout/stderr as `[component] message` followed by an optional fields object, for example `[maintenance] scheduler started { ... }`. Startup lines use the `[obs-unified]` prefix. Fields are printed with Node's console, so treat them as readable key/value output rather than strict JSON when building log parsers.
 
----
+## 10. Identity and external access
 
-## 9. Identity & External Access Layer
-
-`obs-unified` does not contain native per-user RBAC or SSO. To deploy behind Cloudflare Access or `oauth2-proxy` with proper path boundaries, secrets management, header forwarding, and MCP service tokens, see the dedicated [Identity & External Access Recipes](./identity-access-recipes.md).
+`obs-unified` does not contain native per-user RBAC or SSO. To deploy behind Cloudflare Access or `oauth2-proxy` with proper path boundaries, secrets management, header forwarding, and MCP service tokens, see [Identity and external access](./identity-access-recipes.md).

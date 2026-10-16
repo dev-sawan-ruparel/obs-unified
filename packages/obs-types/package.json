@@ -27,6 +27,14 @@
 		"./api-client": {
 			"types": "./dist/api-client.d.ts",
 			"import": "./dist/api-client.js"
+		},
+		"./routes": {
+			"types": "./dist/routes.d.ts",
+			"import": "./dist/routes.js"
+		},
+		"./internal-contracts": {
+			"types": "./dist/internal-contracts.d.ts",
+			"import": "./dist/internal-contracts.js"
 		}
 	},
 	"files": [

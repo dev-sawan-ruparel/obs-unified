@@ -25,20 +25,20 @@ describe("mapEvaluationRows", () => {
 				evidenceId: "ai-evaluation:eval-1",
 				entityKind: "eval",
 				entityId: "eval-1",
-				route: "#/evals/eval-1",
+				route: "#/evaluations/eval-1",
 				source: "ai_span_evaluations.llm_judge",
 				citations: [
 					{
 						label: "span span-1",
 						entityKind: "span",
 						entityId: "trace-1:span-1",
-						route: "#/traces/trace-1#span=span-1",
+						route: "#/traces?trace=trace-1&span=span-1",
 					},
 					{
 						label: "trace trace-1",
 						entityKind: "trace",
 						entityId: "trace-1",
-						route: "#/traces/trace-1",
+						route: "#/traces?trace=trace-1",
 					},
 				],
 			}),

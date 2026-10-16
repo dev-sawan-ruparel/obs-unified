@@ -34,22 +34,28 @@ const isSpanEvent = (e: TailEvent): e is TailEvent<LiveSpanRow> =>
 interface Props {
 	mode: "traces" | "issues";
 	initialTraceId?: string;
+	initialSpanId?: string;
 	initialIssueId?: string;
 	initialService?: string;
+	initialSearch?: string;
 	onNavigate: (route: {
 		tab?: string;
 		traceId?: string;
+		spanId?: string;
 		issueId?: string;
 		sessionId?: string;
 		service?: string;
+		query?: string;
 	}) => void;
 }
 
 export function TelemetryDashboard({
 	mode,
 	initialTraceId,
+	initialSpanId,
 	initialIssueId,
 	initialService,
+	initialSearch,
 	onNavigate,
 }: Props) {
 	const { basePath, fetcher } = useDashboard();
@@ -64,8 +70,8 @@ export function TelemetryDashboard({
 	const hours = String(useTimeWindowHours());
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [serviceFilter, setServiceFilter] = useState(initialService ?? "all");
-	const [search, setSearch] = useState("");
-	const [searchInput, setSearchInput] = useState("");
+	const [search, setSearch] = useState(initialSearch ?? "");
+	const [searchInput, setSearchInput] = useState(initialSearch ?? "");
 	const [overview, setOverview] = useState<Overview | null>(null);
 	const [expandedTraceId, setExpandedTraceId] = useState<string | null>(
 		initialTraceId ?? null,
@@ -83,7 +89,9 @@ export function TelemetryDashboard({
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [traceError, setTraceError] = useState<string | null>(null);
 	const [issueError, setIssueError] = useState<string | null>(null);
-	const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null);
+	const [expandedSpanId, setExpandedSpanId] = useState<string | null>(
+		initialSpanId ?? null,
+	);
 	const [liveMode, setLiveMode] = useState(false);
 
 	const liveTail = useLiveTail<LiveSpanRow>(isSpanEvent, {
@@ -139,12 +147,23 @@ export function TelemetryDashboard({
 		if (initialTraceId) setExpandedTraceId(initialTraceId);
 	}, [initialTraceId]);
 
+	useEffect(() => {
+		if (initialSpanId !== undefined) setExpandedSpanId(initialSpanId ?? null);
+	}, [initialSpanId]);
+
 	// Re-sync the service filter when the URL's ?service= param changes —
 	// e.g. when the Health tab opens /#/traces?service=checkout and the user
 	// then jumps to a different service from the same tab.
 	useEffect(() => {
 		if (initialService) setServiceFilter(initialService);
 	}, [initialService]);
+
+	useEffect(() => {
+		if (initialSearch !== undefined) {
+			setSearch(initialSearch);
+			setSearchInput(initialSearch);
+		}
+	}, [initialSearch]);
 
 	useEffect(() => {
 		if (initialIssueId) setSelectedIssueId(initialIssueId);

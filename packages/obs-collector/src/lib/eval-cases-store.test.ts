@@ -91,7 +91,7 @@ describe("EvalCasesStore", () => {
 				expect.objectContaining({
 					entityKind: "span",
 					entityId: "trace-1:span-1",
-					route: "#/traces/trace-1#span=span-1",
+					route: "#/traces?trace=trace-1&span=span-1",
 				}),
 			]),
 		);

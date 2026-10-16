@@ -201,7 +201,7 @@ describe("AlertsStore.listEvaluations evidence references", () => {
 				evidenceId: "alert:rule-1:rule",
 				entityKind: "alert",
 				entityId: "rule-1",
-				route: "#/alerts?alert=rule-1",
+				route: "#/alerts?id=rule-1",
 				source: "alerts.rule_evaluation_preview",
 			}),
 			expect.objectContaining({

@@ -2,10 +2,9 @@ import {
 	AnalyticsErrorBoundary,
 	AnalyticsProvider,
 } from "@obsunified/analytics-sdk/react";
+import { AuthGate, ObsDashboardProvider } from "@obsunified/dashboard";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { AuthGate } from "../../../packages/dashboard/src/AuthGate";
-import { ObsDashboardProvider } from "../../../packages/dashboard/src/provider";
 import { App } from "./App";
 import "./index.css";
 

@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Validation test suite for obs-unified production identity & external access recipes.
- * Validates documentation navigation, configuration file integrity, route boundaries,
- * MCP constraints, and threat model invariants.
+ * Validation test suite for obs-unified production operations & external access recipes.
+ * Validates canonical MDX operational guides, generated Markdown parity, link/anchor
+ * integrity, navigation metadata, example configuration files, and route policy boundaries.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { generateOpsDocs } from "./generate-ops-docs.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -28,24 +29,59 @@ function assert(condition, message) {
 
 console.log("=== 1. Validating Documentation & Navigation Invariants ===");
 
-// 1.1 Verify Markdown and MDX docs exist
+// 1.1 Verify canonical MDX and generated Markdown docs exist
 const docMdPath = path.join(repoRoot, "docs/ops/identity-access-recipes.md");
 const docMdxPath = path.join(
 	repoRoot,
 	"apps/docs/content/docs/ops/identity-access.mdx",
 );
-
-assert(
-	existsSync(docMdPath),
-	"docs/ops/identity-access-recipes.md exists on disk",
+const prodMdPath = path.join(repoRoot, "docs/ops/production.md");
+const prodMdxPath = path.join(
+	repoRoot,
+	"apps/docs/content/docs/ops/production.mdx",
 );
+
 assert(
 	existsSync(docMdxPath),
 	"apps/docs/content/docs/ops/identity-access.mdx exists on disk",
 );
+assert(
+	existsSync(prodMdxPath),
+	"apps/docs/content/docs/ops/production.mdx exists on disk",
+);
+assert(
+	existsSync(docMdPath),
+	"docs/ops/identity-access-recipes.md exists on disk",
+);
+assert(existsSync(prodMdPath), "docs/ops/production.md exists on disk");
+
+// 1.1b Verify generator parity and link/anchor resolution across canonical MDX and generated Markdown
+const generationCheck = generateOpsDocs({
+	repoRoot,
+	checkOnly: true,
+});
+assert(
+	generationCheck.errors.length === 0,
+	`Generated ops Markdown files and links/anchors are in sync with canonical MDX (${generationCheck.errors.join("; ") || "clean"})`,
+);
 
 const docMdContent = readFileSync(docMdPath, "utf-8");
 const docMdxContent = readFileSync(docMdxPath, "utf-8");
+const prodMdContent = readFileSync(prodMdPath, "utf-8");
+const prodMdxContent = readFileSync(prodMdxPath, "utf-8");
+
+assert(
+	docMdContent.startsWith(
+		"<!-- GENERATED FROM apps/docs/content/docs/ops/identity-access.mdx",
+	),
+	"docs/ops/identity-access-recipes.md carries generated-file notice",
+);
+assert(
+	prodMdContent.startsWith(
+		"<!-- GENERATED FROM apps/docs/content/docs/ops/production.mdx",
+	),
+	"docs/ops/production.md carries generated-file notice",
+);
 
 // 1.2 Verify clear statement that native per-user RBAC and SSO are absent
 const rbacPhrases = [
@@ -60,40 +96,77 @@ const mdxHasRbacNotice = rbacPhrases.some((phrase) =>
 );
 
 assert(
-	mdHasRbacNotice,
-	"docs/ops/identity-access-recipes.md explicitly states native RBAC/SSO absence",
-);
-assert(
 	mdxHasRbacNotice,
 	"apps/docs/content/docs/ops/identity-access.mdx explicitly states native RBAC/SSO absence",
 );
+assert(
+	mdHasRbacNotice,
+	"docs/ops/identity-access-recipes.md explicitly states native RBAC/SSO absence",
+);
 
-// 1.3 Verify Grounding in actual codebase tokens & constraints
-assert(
-	docMdContent.includes("DASHBOARD_PASSWORD"),
-	"Doc covers DASHBOARD_PASSWORD",
-);
-assert(
-	docMdContent.includes("INGEST_KEY"),
-	"Doc covers INGEST_KEY / ingest_keys table",
-);
-assert(
-	docMdContent.includes("obs_session"),
-	"Doc covers obs_session cookie contract",
-);
-assert(
-	docMdContent.includes("@obsunified/mcp-server"),
-	"Doc covers Investigation MCP Server boundaries",
-);
-assert(
-	docMdContent.includes("CF-Access-Client-") ||
-		docMdContent.includes("service token"),
-	"Doc covers Cloudflare Access service token constraints",
-);
-assert(
-	docMdContent.includes("X-Project-Id"),
-	"Doc covers X-Project-Id multi-project scoping",
-);
+// 1.3 Verify grounding in actual codebase tokens & constraints (against canonical MDX and generated MD)
+for (const [label, content] of [
+	["identity-access.mdx", docMdxContent],
+	["identity-access-recipes.md", docMdContent],
+]) {
+	assert(
+		content.includes("DASHBOARD_PASSWORD"),
+		`${label} covers DASHBOARD_PASSWORD`,
+	);
+	assert(
+		content.includes("DASHBOARD_TOKEN"),
+		`${label} covers DASHBOARD_TOKEN`,
+	);
+	assert(
+		content.includes("INGEST_KEY"),
+		`${label} covers INGEST_KEY / ingest_keys table`,
+	);
+	assert(
+		content.includes("obs_session"),
+		`${label} covers obs_session cookie contract`,
+	);
+	assert(
+		content.includes("@obsunified/mcp-server"),
+		`${label} covers Investigation MCP Server boundaries`,
+	);
+	assert(
+		content.includes("CF-Access-Client-") || content.includes("service token"),
+		`${label} covers Cloudflare Access service token constraints`,
+	);
+	assert(
+		content.includes("X-Project-Id"),
+		`${label} covers X-Project-Id multi-project scoping`,
+	);
+	assert(
+		content.includes("TRUST_PROXY=true"),
+		`${label} covers TRUST_PROXY=true header trust setting`,
+	);
+	assert(
+		content.includes("oauth2-proxy") && content.includes("Cloudflare Access"),
+		`${label} covers both Cloudflare Access and oauth2-proxy recipes`,
+	);
+}
+
+for (const [label, content] of [
+	["production.mdx", prodMdxContent],
+	["production.md", prodMdContent],
+]) {
+	assert(
+		content.includes("TRUST_PROXY=true") &&
+			content.includes('TRUST_PROXY: "true"'),
+		`${label} covers TRUST_PROXY reverse proxy and Kubernetes ConfigMap settings`,
+	);
+	assert(
+		content.includes("MAINTENANCE_ENABLED") &&
+			content.includes("obs-maintenance"),
+		`${label} covers Kubernetes single-replica maintenance split`,
+	);
+	assert(
+		content.includes("reverse_proxy /v1/*") &&
+			content.includes("location /v1/"),
+		`${label} covers both Caddy and Nginx reverse proxy configurations`,
+	);
+}
 
 // 1.4 Verify navigation meta.json files
 const opsMetaPath = path.join(repoRoot, "apps/docs/content/docs/ops/meta.json");
@@ -111,22 +184,22 @@ assert(
 	"apps/docs/content/docs/meta.json includes 'ops/identity-access'",
 );
 
-// 1.5 Verify cross-links in production.md and production.mdx
-const prodMdContent = readFileSync(
-	path.join(repoRoot, "docs/ops/production.md"),
-	"utf-8",
-);
-const prodMdxContent = readFileSync(
-	path.join(repoRoot, "apps/docs/content/docs/ops/production.mdx"),
-	"utf-8",
+// 1.5 Verify cross-links in production.mdx/md and identity-access.mdx/md
+assert(
+	prodMdxContent.includes("(./identity-access)"),
+	"apps/docs/content/docs/ops/production.mdx links to ./identity-access",
 );
 assert(
-	prodMdContent.includes("identity-access-recipes.md"),
-	"docs/ops/production.md links to identity-access-recipes.md",
+	prodMdContent.includes("(./identity-access-recipes.md)"),
+	"docs/ops/production.md links to ./identity-access-recipes.md",
 );
 assert(
-	prodMdxContent.includes("identity-access"),
-	"apps/docs/content/docs/ops/production.mdx links to identity-access",
+	docMdxContent.includes("(./production)"),
+	"apps/docs/content/docs/ops/identity-access.mdx links to ./production",
+);
+assert(
+	docMdContent.includes("(./production.md)"),
+	"docs/ops/identity-access-recipes.md links to ./production.md",
 );
 
 // 1.6 Verify MDX Nginx snippet routes /auth/* to collector
@@ -281,17 +354,17 @@ console.log("\n=== 3. Simulating Route Policy & Boundary Enforcement ===");
  * - /health: public
  * - /v1/*: ingest key required by collector, bypasses SSO
  * - /auth/*: routed to collector
- * - /internal/*: under dashboardAuth, REQUIRES obs_session cookie; ingest key or bearer token is rejected
+ * - /internal/*: under dashboardAuth, REQUIRES obs_session cookie; ingest key is rejected
  * - X-Project-Id: forwarded by proxy for project scoping (validated against DB)
  */
-function evaluateProxyDecision({ path, headers, hasSsoSession }) {
+function evaluateProxyDecision({ path: reqPath, headers, hasSsoSession }) {
 	// 1. Health check: always public
-	if (path === "/health") {
+	if (reqPath === "/health") {
 		return { action: "ALLOW_PUBLIC", upstream: "collector:8790" };
 	}
 
 	// 2. Telemetry Ingest: bypasses SSO, passes to collector
-	if (path.startsWith("/v1/")) {
+	if (reqPath.startsWith("/v1/")) {
 		const authHeader = headers.authorization || headers["x-api-key"];
 		if (!authHeader) {
 			return {
@@ -304,16 +377,16 @@ function evaluateProxyDecision({ path, headers, hasSsoSession }) {
 	}
 
 	// 3. OAuth callback: handled by oauth2-proxy
-	if (path.startsWith("/oauth2/")) {
+	if (reqPath.startsWith("/oauth2/")) {
 		return { action: "OAUTH2_PROXY", upstream: "oauth2-proxy:4180" };
 	}
 
 	// 4. Protected Paths: /internal/*, /auth/*, /
 	const isProtected =
-		path.startsWith("/internal/") ||
-		path.startsWith("/auth/") ||
-		path === "/" ||
-		!path.includes(".");
+		reqPath.startsWith("/internal/") ||
+		reqPath.startsWith("/auth/") ||
+		reqPath === "/" ||
+		!reqPath.includes(".");
 	if (isProtected) {
 		// Perimeter check: user must have valid SSO session
 		if (!hasSsoSession) {
@@ -325,10 +398,9 @@ function evaluateProxyDecision({ path, headers, hasSsoSession }) {
 		}
 
 		// Internal collector endpoints require obs_session cookie under dashboardAuth
-		if (path.startsWith("/internal/")) {
+		if (reqPath.startsWith("/internal/")) {
 			const cookie = headers.cookie || "";
 			const hasObsSession = cookie.includes("obs_session=");
-			// Ingest key or bearer token is NOT accepted by dashboardAuth on /internal/*
 			if (!hasObsSession) {
 				return {
 					action: "COLLECTOR_DASHBOARD_UNAUTHENTICATED",
@@ -344,7 +416,7 @@ function evaluateProxyDecision({ path, headers, hasSsoSession }) {
 			};
 		}
 
-		if (path.startsWith("/auth/")) {
+		if (reqPath.startsWith("/auth/")) {
 			return {
 				action: "ALLOW_AUTH_ENDPOINT",
 				upstream: "collector:8790",
@@ -499,11 +571,11 @@ const allFilesToCheck = [
 	caddyFilePath,
 	oauth2EnvPath,
 	cloudflaredPath,
-	path.join(repoRoot, "examples/external-access/README.md"),
+	readmePath,
 	opsMetaPath,
 	docsMetaPath,
-	path.join(repoRoot, "docs/ops/production.md"),
-	path.join(repoRoot, "apps/docs/content/docs/ops/production.mdx"),
+	prodMdPath,
+	prodMdxPath,
 ];
 
 for (const filePath of allFilesToCheck) {

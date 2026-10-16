@@ -89,6 +89,111 @@ export interface CollectorEnv {
 	TELEMETRY_QUERY_TOKEN?: string;
 }
 
+/**
+ * Optional string settings on `CollectorEnv` that host adapters (such as
+ * `apps/collector-node`) forward directly from the process environment after
+ * trimming whitespace and coercing blank strings to `undefined`.
+ */
+export const COLLECTOR_OPTIONAL_STRING_ENV_KEYS = [
+	"RETENTION_HOURS",
+	"ANTHROPIC_API_KEY",
+	"OPENAI_API_KEY",
+	"OPENAI_BASE_URL",
+	"NARRATIVE_MODEL",
+	"NARRATIVE_BUDGET_PER_HOUR",
+	"ALERT_WEBHOOK_ALLOW_PRIVATE",
+	"MAX_BODY_BYTES",
+	"TELEMETRY_REDACT_FIELDS",
+	"OBS_PAYLOAD_CAPTURE_DEFAULT",
+] as const;
+
+/**
+ * String settings on `CollectorEnv` that require explicit host handling (e.g.
+ * required auth secrets, CORS origin parsing, Worker-only self-instrumentation
+ * vars, or deprecated Worker tokens) and must not be blindly forwarded by the
+ * generic optional-env loop.
+ */
+export const COLLECTOR_HOST_MANAGED_ENV_KEYS = [
+	"INGEST_KEY",
+	"DASHBOARD_PASSWORD",
+	"DASHBOARD_TOKEN",
+	"ALLOWED_ORIGINS",
+	"ALLOW_UNAUTHENTICATED",
+	"OBS_DASHBOARD_INGEST_KEY",
+	"OBS_COLLECTOR_SELF_URL",
+	"OBS_SELF_AWAIT_EXPORTS",
+	"TELEMETRY_INGEST_TOKEN",
+	"USAGE_INGEST_TOKEN",
+	"TELEMETRY_QUERY_TOKEN",
+] as const;
+
+export const COLLECTOR_STRING_ENV_MANIFEST = {
+	forwarded: COLLECTOR_OPTIONAL_STRING_ENV_KEYS,
+	hostManaged: COLLECTOR_HOST_MANAGED_ENV_KEYS,
+} as const;
+
+export type CollectorOptionalStringEnvKey =
+	(typeof COLLECTOR_OPTIONAL_STRING_ENV_KEYS)[number];
+
+export type CollectorHostManagedEnvKey =
+	(typeof COLLECTOR_HOST_MANAGED_ENV_KEYS)[number];
+
+export type CollectorManifestStringEnvKey =
+	| CollectorOptionalStringEnvKey
+	| CollectorHostManagedEnvKey;
+
+export type CollectorObjectBindingKey =
+	| "DB"
+	| "REPLAYS_BUCKET"
+	| "PROFILES_BUCKET"
+	| "TAIL_HUB";
+
+export type CollectorStringEnvKey = Exclude<
+	keyof CollectorEnv,
+	CollectorObjectBindingKey
+>;
+
+type AssertNever<T extends never> = T;
+type _UnaccountedCollectorStringEnvKeys = AssertNever<
+	Exclude<CollectorStringEnvKey, CollectorManifestStringEnvKey>
+>;
+type _UnknownManifestStringEnvKeys = AssertNever<
+	Exclude<CollectorManifestStringEnvKey, CollectorStringEnvKey>
+>;
+type _OverlappingManifestStringEnvKeys = AssertNever<
+	Extract<CollectorOptionalStringEnvKey, CollectorHostManagedEnvKey>
+>;
+
+/**
+ * Verifies that every string key in `declaredKeys` is categorized in either
+ * `COLLECTOR_OPTIONAL_STRING_ENV_KEYS` or `COLLECTOR_HOST_MANAGED_ENV_KEYS`
+ * without overlap. Throws if any key is uncategorized or duplicated.
+ */
+export function assertCollectorEnvManifestCompleteness(
+	declaredKeys: readonly string[],
+	manifest: {
+		readonly forwarded: readonly string[];
+		readonly hostManaged: readonly string[];
+	} = COLLECTOR_STRING_ENV_MANIFEST,
+): void {
+	const forwardedSet = new Set(manifest.forwarded);
+	const hostManagedSet = new Set(manifest.hostManaged);
+	const overlap = manifest.forwarded.filter((k) => hostManagedSet.has(k));
+	if (overlap.length > 0) {
+		throw new Error(
+			`CollectorEnv manifest keys cannot be both forwarded and host-managed: ${overlap.join(", ")}`,
+		);
+	}
+	const unaccounted = declaredKeys.filter(
+		(k) => !forwardedSet.has(k) && !hostManagedSet.has(k),
+	);
+	if (unaccounted.length > 0) {
+		throw new Error(
+			`Uncategorized CollectorEnv string setting(s): ${unaccounted.join(", ")}. Add each key to COLLECTOR_OPTIONAL_STRING_ENV_KEYS or COLLECTOR_HOST_MANAGED_ENV_KEYS.`,
+		);
+	}
+}
+
 export interface CollectorRouteContext {
 	hono: Context<{ Bindings: CollectorEnv }>;
 	env: CollectorEnv;

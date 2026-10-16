@@ -335,7 +335,7 @@ describe("ConnectedRail manifest — span profile section (RFC 0009 #5)", () => 
 		expect(exemplarSection).toBeDefined();
 		expect(exemplarSection?.links[0].label).toContain("http.server.duration");
 		expect(exemplarSection?.links[0].href).toBe(
-			"#/traces/trace-metric#span=span-hot",
+			"#/traces?trace=trace-metric&span=span-hot",
 		);
 	});
 });
@@ -673,7 +673,7 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 				?.links[0],
 		).toMatchObject({
 			label: "[agent.step] Fallback normalized action",
-			href: "#/actions/fallback:trace-fallback:agent.step:1",
+			href: "#/actions/fallback%3Atrace-fallback%3Aagent.step%3A1",
 			causalConfidence: ActionConfidence.Fallback,
 			source: "trace_id",
 			confidence: 0.55,
@@ -831,12 +831,12 @@ describe("ConnectedRail manifest — profile source entity", () => {
 		const traceSection = m.across.find((s) => s.label === "Sampled traces");
 		expect(traceSection?.links[0]).toMatchObject({
 			label: "trace trace-prof",
-			href: "#/traces/trace-prof",
+			href: "#/traces?trace=trace-prof",
 		});
 
 		const spanSection = m.across.find((s) => s.label === "Sampled spans");
 		expect(spanSection?.links[0].href).toBe(
-			"#/traces/trace-prof#span=span-hot",
+			"#/traces?trace=trace-prof&span=span-hot",
 		);
 
 		const actionSection = m.down.find((s) =>
@@ -1108,7 +1108,9 @@ describe("ConnectedRail scenario acceptance contracts", () => {
 		const sessionSpans = sessionManifest.across.find((s) =>
 			s.label.toLowerCase().includes("span"),
 		);
-		expect(sessionSpans?.links[0].href).toBe("#/traces/trace-a#span=span-hot");
+		expect(sessionSpans?.links[0].href).toBe(
+			"#/traces?trace=trace-a&span=span-hot",
+		);
 
 		const spanManifest = await fetch(
 			"/internal/connected/span/trace-a:span-hot",
@@ -1289,7 +1291,7 @@ describe("ConnectedRail scenario acceptance contracts", () => {
 			s.label.toLowerCase().includes("span"),
 		);
 		expect(sessionSpans?.links[0].href).toBe(
-			"#/traces/trace-ai-heavy#span=span-llm",
+			"#/traces?trace=trace-ai-heavy&span=span-llm",
 		);
 
 		const spanManifest = await fetch(
@@ -1464,7 +1466,7 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		// OTel Trace in related
 		const relatedTrace = m.related.find((s) => s.label === "OTel Trace");
 		expect(relatedTrace).toBeDefined();
-		expect(relatedTrace?.links[0].href).toBe("#/traces/tx-789");
+		expect(relatedTrace?.links[0].href).toBe("#/traces?trace=tx-789");
 	});
 
 	it("action detail raw manifest exposes causal confidence on action refs", async () => {
@@ -1650,7 +1652,7 @@ describe("ConnectedRail manifest — agent action graph entities (RFC 0010)", ()
 		// Up has Agent
 		const agentSec = m.up.find((s) => s.label === "Agent");
 		expect(agentSec).toBeDefined();
-		expect(agentSec?.links[0].href).toBe("#/agents/my-agent");
+		expect(agentSec?.links[0].href).toBe("#/evidence?kind=agent&id=my-agent");
 
 		// Down has Actions (Decision Spine)
 		const decisionSpine = m.down.find(

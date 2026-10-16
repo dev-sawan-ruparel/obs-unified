@@ -1,39 +1,13 @@
 import { useAnalytics } from "@obsunified/analytics-sdk/react";
-import { Suspense, useEffect, useState } from "react";
-import { AskBox } from "../../../packages/dashboard/src/components/AskBox";
-import { ProjectSwitcher } from "../../../packages/dashboard/src/components/ProjectSwitcher";
 import {
+	AskBox,
+	DashboardRouteView,
 	GlobalSearch,
 	IdeSelector,
+	ProjectSwitcher,
 	TimeRangePicker,
-} from "../../../packages/dashboard/src/components/TopBar";
-import {
-	ActionDashboard,
-	AgentRunDashboard,
-	AgentVersionDiffDashboard,
-	AIDashboard,
-	AlertsDashboard,
-	AutonomousReviewDashboard,
-	CostAttributionDashboard,
-	EvaluationsDashboard,
-	EvidenceDashboard,
-	HealthDashboard,
-	InvestigationPage,
-	InvestigationsDashboard,
-	LogsDashboard,
-	OnboardingDashboard,
-	ProfileDashboard,
-	ProjectsDashboard,
-	ReplayDashboard,
-	ResourcesDashboard,
-	ServiceMapDashboard,
-	TelemetryDashboard,
-	TimelineDashboard,
-	ToolCallDashboard,
-	ToolReliabilityDashboard,
-	UsageDashboard,
-	UserDashboard,
-} from "./app/dashboard-modules";
+} from "@obsunified/dashboard";
+import { useEffect, useState } from "react";
 import { NAV_GROUPS, type NavItem, PINNED_ITEMS } from "./app/navigation";
 import { Playground } from "./app/Playground";
 import {
@@ -43,7 +17,7 @@ import {
 	writeRailCollapsed,
 	writeTheme,
 } from "./app/preferences";
-import { KNOWN_TABS, navigate, useRoute } from "./app/router";
+import { navigate, useRoute } from "./app/router";
 
 // ── App ──
 
@@ -89,12 +63,7 @@ export function App() {
 
 	const switchTab = (tab: string) => {
 		trackInteraction("tab_switch", { from: route.tab, to: tab });
-		navigate({
-			tab,
-			traceId: undefined,
-			issueId: undefined,
-			sessionId: undefined,
-		});
+		navigate({ tab });
 	};
 
 	const renderNavItem = ({ key, label, short }: NavItem) => {
@@ -236,190 +205,14 @@ export function App() {
 					</div>
 				</header>
 				<main className="min-h-0 flex-1 overflow-y-auto">
-					<Suspense fallback={<DashboardLoading />}>
-						{route.tab === "playground" && <Playground />}
-						{route.tab === "onboarding" && (
-							<OnboardingDashboard
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "health" && <HealthDashboard />}
-						{route.tab === "investigate" &&
-							(route.investigationId ? (
-								<InvestigationPage
-									investigationId={route.investigationId}
-									onNavigate={navigate}
-								/>
-							) : (
-								<InvestigationsDashboard onNavigate={navigate} />
-							))}
-						{route.tab === "traces" && (
-							<TelemetryDashboard
-								mode="traces"
-								initialTraceId={route.traceId}
-								initialService={route.service}
-								onNavigate={navigate}
-							/>
-						)}
-						{route.tab === "service-map" && (
-							<ServiceMapDashboard
-								initialService={route.service}
-								onNavigate={navigate}
-							/>
-						)}
-						{route.tab === "issues" && (
-							<TelemetryDashboard
-								mode="issues"
-								initialIssueId={route.issueId}
-								onNavigate={navigate}
-							/>
-						)}
-						{route.tab === "logs" && <LogsDashboard />}
-						{route.tab === "ai" && (
-							<AIDashboard initialCallId={route.aiCallId} />
-						)}
-						{route.tab === "evidence" && (
-							<EvidenceDashboard
-								initialAnchorKind={
-									(route.evidenceKind as
-										| "trace"
-										| "action"
-										| "agent_run"
-										| "tool_call"
-										| "change"
-										| "finding"
-										| "incident"
-										| undefined) ?? undefined
-								}
-								initialAnchorId={route.evidenceId}
-							/>
-						)}
-						{route.tab === "changes" && (
-							<EvidenceDashboard
-								initialAnchorKind="change"
-								initialAnchorId={route.changeId}
-							/>
-						)}
-						{route.tab === "findings" && (
-							<EvidenceDashboard
-								initialAnchorKind="finding"
-								initialAnchorId={route.findingId}
-							/>
-						)}
-						{route.tab === "incidents" && (
-							<EvidenceDashboard
-								initialAnchorKind="incident"
-								initialAnchorId={route.incidentId}
-							/>
-						)}
-						{route.tab === "usage" && <UsageDashboard onNavigate={navigate} />}
-						{route.tab === "replay" && (
-							<ReplayDashboard
-								initialSessionId={route.sessionId}
-								onNavigate={navigate}
-							/>
-						)}
-						{route.tab === "timeline" && (
-							<TimelineDashboard
-								initialSessionId={route.sessionId}
-								onNavigate={navigate}
-							/>
-						)}
-						{route.tab === "alerts" && (
-							<AlertsDashboard onNavigate={navigate} />
-						)}
-						{route.tab === "resources" && <ResourcesDashboard />}
-						{route.tab === "projects" && <ProjectsDashboard />}
-						{route.tab === "users" && route.userId && (
-							<UserDashboard
-								userId={route.userId}
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "users" && !route.userId && <ProjectsDashboard />}
-						{route.tab === "agent-runs" && route.agentRunId && (
-							<AgentRunDashboard
-								agentRunId={route.agentRunId}
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "actions" && route.actionId && (
-							<ActionDashboard
-								actionId={route.actionId}
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "actions" && !route.actionId && (
-							<AutonomousReviewDashboard onNavigate={navigate} />
-						)}
-						{route.tab === "tool-calls" && route.toolCallId && (
-							<ToolCallDashboard
-								toolCallId={route.toolCallId}
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "profiles" && route.profileId && (
-							<ProfileDashboard
-								profileId={route.profileId}
-								traceIdFilter={route.traceId}
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "tool-reliability" && (
-							<ToolReliabilityDashboard
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "cost-attribution" && (
-							<CostAttributionDashboard
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{(route.tab === "autonomous-review" ||
-							route.tab === "remediations") && (
-							<AutonomousReviewDashboard
-								onNavigate={navigate}
-								selectedProposalId={route.remediationId}
-							/>
-						)}
-						{route.tab === "agent-version-diff" && (
-							<AgentVersionDiffDashboard
-								onNavigate={(href) => {
-									location.hash = href.startsWith("#") ? href.slice(1) : href;
-								}}
-							/>
-						)}
-						{route.tab === "evaluations" && (
-							<EvaluationsDashboard initialCaseId={route.evaluationId} />
-						)}
-						{!KNOWN_TABS.has(route.tab) && <HealthDashboard />}
-					</Suspense>
+					<DashboardRouteView
+						route={route}
+						onNavigate={navigate}
+						renderPlayground={() => <Playground />}
+						useLazyViews
+					/>
 				</main>
 			</div>
-		</div>
-	);
-}
-
-function DashboardLoading() {
-	return (
-		<div className="flex h-full items-center justify-center text-[0.8125rem] text-sys-on-surface-muted">
-			Loading dashboard…
 		</div>
 	);
 }

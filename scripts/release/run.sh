@@ -117,6 +117,7 @@ fi
 bold "Plan"
 echo "  commit      $SHA"
 $SKIP_GATES  && echo "  gates       skip" || echo "  gates       lint, type-check, test, check:surfaces"
+echo "  db-parity   pnpm --filter @obsunified/collector check:db-parity (mandatory)"
 $SKIP_DOCKER && echo "  docker      skip" || echo "  docker      $IMAGE:{$COLLECTOR_VERSION,sha-$SHA,latest} (linux/amd64,linux/arm64) + smoke"
 $SKIP_NPM    && echo "  npm         skip" || echo "  npm         pnpm release (sequential) + git push --tags"
 $SKIP_DEPLOY && echo "  deploy      skip" || echo "  deploy      website + docs"
@@ -145,6 +146,10 @@ if ! $SKIP_GATES; then
   run pnpm check:surfaces
   ok "gates green"
 fi
+
+bold "2b. Native-engine DB parity (mandatory)"
+run pnpm --filter @obsunified/collector check:db-parity
+ok "db-parity green"
 
 # ----------------------------------------------------------------- 3. docker
 if ! $SKIP_DOCKER; then

@@ -3,7 +3,10 @@ import type {
 	EvidenceReferenceContract as EvidenceReferenceContractType,
 	JsonValue,
 } from "@obsunified/types";
-import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
+import {
+	dashboardRouteToHref,
+	EVIDENCE_REFERENCE_CONTRACT,
+} from "@obsunified/types";
 import { sourceLinkEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
 import { parseJsonArray, parseJsonValue } from "./json";
@@ -345,7 +348,10 @@ const evalCaseEvidenceReferences = (evalCase: EvalCase): EvidenceReference[] =>
 			sourceLabel: `Eval case "${evalCase.name}"`,
 			sourceId: evalCase.id,
 			sourceKind: "eval_case",
-			sourceRoute: `#/evaluations?case=${encodeURIComponent(evalCase.id)}`,
+			sourceRoute: dashboardRouteToHref({
+				tab: "evaluations",
+				evaluationId: evalCase.id,
+			}),
 			sourceName: evalCase.name,
 		},
 		evalCase,
@@ -384,7 +390,10 @@ const evalRunEvidenceReferences = (run: EvalRun): EvidenceReference[] => {
 			sourceLabel: `Eval run "${run.id}"`,
 			sourceId: run.id,
 			sourceKind: "eval_run",
-			sourceRoute: `#/evaluations?run=${encodeURIComponent(run.id)}`,
+			sourceRoute: dashboardRouteToHref({
+				tab: "evaluations",
+				evaluationId: run.evalCaseId ?? run.id,
+			}),
 			sourceName: run.sourceEvalCase.name,
 		},
 		run.sourceEvalCase,
@@ -413,7 +422,10 @@ const rowToEvalRun = (row: EvalRunRow): EvalRun => {
 				sourceLabel: `Eval case "${sourceEvalCase.name}"`,
 				sourceId: sourceEvalCase.id,
 				sourceKind: "eval_case",
-				sourceRoute: `#/evaluations?case=${encodeURIComponent(sourceEvalCase.id)}`,
+				sourceRoute: dashboardRouteToHref({
+					tab: "evaluations",
+					evaluationId: sourceEvalCase.id,
+				}),
 				sourceName: sourceEvalCase.name,
 			},
 			sourceEvalCase,

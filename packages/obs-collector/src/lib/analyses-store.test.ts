@@ -118,7 +118,7 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 					"analysis:investigate.latency:tail_offenders:0:span:trace-1:span-1",
 				entityKind: "span",
 				entityId: "trace-1:span-1",
-				route: "#/traces/trace-1#span=span-1",
+				route: "#/traces?trace=trace-1&span=span-1",
 				source: "analysis.payload.evidence.tail_offenders",
 				confidence: 0.95,
 				citations: [
@@ -126,7 +126,7 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 						label: "trace trace-1",
 						entityKind: "trace",
 						entityId: "trace-1",
-						route: "#/traces/trace-1",
+						route: "#/traces?trace=trace-1",
 					},
 				],
 			}),
@@ -134,7 +134,7 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 				evidenceId: "analysis:investigate.latency:tail_offenders:1:service:api",
 				entityKind: "service",
 				entityId: "api",
-				route: "#/traces?service=api",
+				route: "#/service-map?service=api",
 				source: "analysis.payload.evidence.tail_offenders",
 				confidence: 0.7,
 			}),
@@ -219,7 +219,7 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 				"analysis:trace.instrumentation_gaps:instrumentation-gap:0:span:trace-gap:span-root",
 			entityKind: "span",
 			entityId: "trace-gap:span-root",
-			route: "#/traces/trace-gap#span=span-root",
+			route: "#/traces?trace=trace-gap&span=span-root",
 			source: "analysis.payload.instrumentationGaps",
 			confidence: 0.9,
 			citations: [
@@ -227,7 +227,7 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 					label: "trace trace-gap",
 					entityKind: "trace",
 					entityId: "trace-gap",
-					route: "#/traces/trace-gap",
+					route: "#/traces?trace=trace-gap",
 				},
 			],
 			suggestedNextPivots: expect.arrayContaining([
@@ -235,7 +235,7 @@ describe("AnalysesStore.getLatestResult evidence references", () => {
 					label: "Open profiler setup docs",
 					entityKind: "docs",
 					entityId: "howto/ebpf",
-					route: "#/docs/howto/ebpf",
+					route: "#/evidence?kind=docs&id=howto%2Febpf",
 				}),
 			]),
 		});

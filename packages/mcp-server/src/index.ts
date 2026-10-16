@@ -3,8 +3,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
 	CausalVerificationStatusSchema,
 	ChangeEventKindSchema,
+	createInternalClient,
+	type DashboardRoute,
+	dashboardRouteToHash,
 	EVIDENCE_REFERENCE_SCHEMA_VERSION,
 	EvidenceReferenceJsonSchema,
+	type InternalClient,
+	InternalClientHttpError,
+	type InternalEndpointKey,
+	type InternalEndpoints,
+	type InternalRequestArgs,
 	TOOL_RESPONSE_CONTRACT_SCHEMA_VERSION,
 	type ToolResponseContract,
 } from "@obsunified/types";
@@ -100,7 +108,22 @@ function buildPath(
 }
 
 export class CollectorClient {
-	constructor(private readonly config: CollectorConfig) {}
+	readonly internalClient: InternalClient;
+
+	constructor(private readonly config: CollectorConfig) {
+		this.internalClient = createInternalClient({
+			baseUrl: config.baseUrl,
+			fetch: (input, init) => globalThis.fetch(input, init),
+			headers: () => ({
+				...this.config.authHeaders,
+				...(this.config.projectId
+					? { "X-Project-Id": this.config.projectId }
+					: {}),
+			}),
+			projectId: () => this.config.projectId,
+			timeoutMs: config.timeoutMs,
+		});
+	}
 
 	private async request<T = JsonValue>(
 		method: "GET" | "POST",
@@ -156,6 +179,27 @@ export class CollectorClient {
 		}
 	}
 
+	async requestContract<K extends InternalEndpointKey>(
+		endpoint: K,
+		...args: InternalRequestArgs<K>
+	): Promise<InternalEndpoints[K]["response"]> {
+		try {
+			return await this.internalClient.request(endpoint, ...args);
+		} catch (err) {
+			if (err instanceof InternalClientHttpError) {
+				throw new Error(
+					`Collector request failed: ${err.status} ${err.statusText} ${JSON.stringify(err.rawBody).slice(0, 500)}`,
+				);
+			}
+			if (err instanceof Error && err.name === "AbortError") {
+				throw new Error(
+					`Collector request timed out after ${this.config.timeoutMs}ms`,
+				);
+			}
+			throw err;
+		}
+	}
+
 	async get<T = JsonValue>(
 		pathname: string,
 		params?: Record<string, string | number | boolean | undefined>,
@@ -167,9 +211,17 @@ export class CollectorClient {
 		return this.request<T>("POST", pathname, { body });
 	}
 
+	/**
+	 * @deprecated Prefer `dashboardRouteLink(route)` for compile-time validated dashboard links.
+	 */
 	dashboardLink(fragment: string): string | undefined {
 		if (!this.config.dashboardUrl) return undefined;
 		return `${this.config.dashboardUrl}/#/${fragment.replace(/^#?\//, "")}`;
+	}
+
+	dashboardRouteLink(route: DashboardRoute): string | undefined {
+		if (!this.config.dashboardUrl) return undefined;
+		return `${this.config.dashboardUrl}/#${dashboardRouteToHash(route).replace(/\+/g, "%20")}`;
 	}
 }
 
@@ -277,9 +329,11 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: EvidenceBundle, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`evidence?kind=${encodeURIComponent(anchor.entityKind)}&id=${encodeURIComponent(anchor.entityId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "evidence",
+							evidenceKind: anchor.entityKind,
+							evidenceId: anchor.entityId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -314,7 +368,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: EvidenceRetrievalRefExpansion, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("evidence"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "evidence" }),
 					},
 				);
 			} catch (err) {
@@ -346,7 +400,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: EvidenceRetrievalRefSearchResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("evidence"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "evidence" }),
 					},
 				);
 			} catch (err) {
@@ -373,7 +427,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: EvidenceRetrievalStats, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("evidence"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "evidence" }),
 					},
 				);
 			} catch (err) {
@@ -437,7 +491,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: TelemetryOverviewResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("traces"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "traces" }),
 					},
 				);
 			} catch (err) {
@@ -465,9 +519,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: TelemetryTraceDetailResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`traces?trace=${encodeURIComponent(traceId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "traces",
+							traceId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -498,9 +553,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: ServiceOperationsResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`service-map?service=${encodeURIComponent(service)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "service-map",
+							service,
+						}),
 					},
 				);
 			} catch (err) {
@@ -530,7 +586,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: ServiceMapResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("service-map"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "service-map" }),
 					},
 				);
 			} catch (err) {
@@ -569,7 +625,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: LogsOverviewResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("logs"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "logs" }),
 					},
 				);
 			} catch (err) {
@@ -603,7 +659,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: AICallsOverviewResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("ai"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "ai" }),
 					},
 				);
 			} catch (err) {
@@ -631,9 +687,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: AISessionDetailResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`ai?session=${encodeURIComponent(sessionId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "timeline",
+							sessionId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -661,9 +718,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: UserProfileDetail, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`users/${encodeURIComponent(userId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "users",
+							userId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -691,9 +749,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: ReplayResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`replay?session=${encodeURIComponent(sessionId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "replay",
+							sessionId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -727,11 +786,11 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: ProfileDetailResponse, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`profiles/${encodeURIComponent(profileId)}${
-								traceId ? `?trace_id=${encodeURIComponent(traceId)}` : ""
-							}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "profiles",
+							profileId,
+							...(traceId ? { traceId } : {}),
+						}),
 					},
 				);
 			} catch (err) {
@@ -760,9 +819,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: { evaluation: AIEvaluationRecord, timestamp: string }, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`evaluations/${encodeURIComponent(evaluationId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "evaluations",
+							evaluationId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -839,9 +899,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: AgentRunDetail, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`agent-runs/${encodeURIComponent(agentRunId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "agent-runs",
+							agentRunId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -930,7 +991,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: { changes: ChangeEvent[] }, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("changes"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "changes" }),
 					},
 				);
 			} catch (err) {
@@ -962,9 +1023,10 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: ChangeBlastRadiusResult, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink(
-							`changes/${encodeURIComponent(changeId)}`,
-						),
+						dashboardUrl: client.dashboardRouteLink({
+							tab: "changes",
+							changeId,
+						}),
 					},
 				);
 			} catch (err) {
@@ -1017,7 +1079,7 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 					"{ data: { findings: InvestigationFinding[] }, dashboardUrl?: string }",
 					{
 						data,
-						dashboardUrl: client.dashboardLink("findings"),
+						dashboardUrl: client.dashboardRouteLink({ tab: "findings" }),
 					},
 				);
 			} catch (err) {

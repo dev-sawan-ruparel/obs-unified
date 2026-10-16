@@ -1,3 +1,4 @@
+import { dashboardRouteToHref } from "@obsunified/types";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/Button";
 import {
@@ -339,8 +340,15 @@ export function ResourcesDashboard() {
 								{metricExemplars.map((exemplar) => {
 									const href = exemplar.traceId
 										? exemplar.spanId
-											? `#/traces?trace=${encodeURIComponent(exemplar.traceId)}&span=${encodeURIComponent(exemplar.spanId)}`
-											: `#/traces?trace=${encodeURIComponent(exemplar.traceId)}`
+											? dashboardRouteToHref({
+													tab: "traces",
+													traceId: exemplar.traceId,
+													spanId: exemplar.spanId,
+												})
+											: dashboardRouteToHref({
+													tab: "traces",
+													traceId: exemplar.traceId,
+												})
 										: "";
 									return (
 										<div
