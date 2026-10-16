@@ -1,6 +1,7 @@
 import type {
 	CausalTriple,
 	EvidenceEntityKind,
+	GrantCallbackDelivery,
 	IncidentInvestigation,
 	IncidentStatus,
 	RemediationActionKind,
@@ -538,8 +539,15 @@ export async function dispatchIncidentWebhook(
 		fetchImpl?: typeof fetch;
 		logger?: Logger;
 		grant?: { proposalId: string; status: string; grantToken: string };
+		/** Test hook: replaces the real backoff sleep between grant attempts. */
+		sleep?: (ms: number) => Promise<void>;
 	},
-): Promise<{ delivered: boolean; status?: number; error?: string }> {
+): Promise<{
+	delivered: boolean;
+	status?: number;
+	error?: string;
+	attempts: number;
+}> {
 	const logger = webhook.logger ?? consoleLogger;
 	const incident = await getIncidentInvestigation(
 		db,
@@ -548,10 +556,14 @@ export async function dispatchIncidentWebhook(
 		webhook.environment,
 	);
 	if (!incident) {
-		return { delivered: false, error: "Incident not found" };
+		return { delivered: false, error: "Incident not found", attempts: 0 };
 	}
 	if (!webhook.grant && incident.dispatchAttempts >= 5) {
-		return { delivered: false, error: "MAX_DISPATCH_ATTEMPTS (5) exceeded" };
+		return {
+			delivered: false,
+			error: "MAX_DISPATCH_ATTEMPTS (5) exceeded",
+			attempts: 0,
+		};
 	}
 
 	let safeUrl: URL;
@@ -581,7 +593,7 @@ export async function dispatchIncidentWebhook(
 			incidentId,
 			error,
 		});
-		return { delivered: false, error };
+		return { delivered: false, error, attempts: 0 };
 	}
 
 	const nowIso = new Date().toISOString();
@@ -620,40 +632,59 @@ export async function dispatchIncidentWebhook(
 	}
 
 	const fetchFn = webhook.fetchImpl ?? fetch;
+	const sleep =
+		webhook.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+	// Grant handoffs retry on network error, timeout and 5xx (never 4xx or a
+	// redirect); each attempt keeps the manual-redirect and 5 s timeout rules.
+	const maxAttempts = webhook.grant ? GRANT_DELIVERY_BACKOFF_MS.length + 1 : 1;
 	let delivered = false;
 	let status: number | undefined;
 	let errorMsg: string | undefined;
+	let attempts = 0;
 
-	try {
-		const res = await fetchFn(safeUrl.toString(), {
-			method: "POST",
-			headers,
-			body,
-			// Never follow redirects: a 3xx could re-aim the POST (and its
-			// signed body, which may carry a grant token) at another host.
-			redirect: "manual",
-			signal: AbortSignal.timeout(5000),
-		});
-		status = res.status;
-		if (res.status >= 300 && res.status < 400) {
-			errorMsg = `Redirect (HTTP ${res.status}) refused`;
-		} else {
-			delivered = res.ok;
-			if (!res.ok) errorMsg = `HTTP ${res.status}`;
+	while (attempts < maxAttempts) {
+		attempts++;
+		let retryable = false;
+		status = undefined;
+		errorMsg = undefined;
+		try {
+			const res = await fetchFn(safeUrl.toString(), {
+				method: "POST",
+				headers,
+				body,
+				// Never follow redirects: a 3xx could re-aim the POST (and its
+				// signed body, which may carry a grant token) at another host.
+				redirect: "manual",
+				signal: AbortSignal.timeout(5000),
+			});
+			status = res.status;
+			if (res.status >= 300 && res.status < 400) {
+				errorMsg = `Redirect (HTTP ${res.status}) refused`;
+			} else {
+				delivered = res.ok;
+				if (!res.ok) {
+					errorMsg = `HTTP ${res.status}`;
+					retryable = res.status >= 500;
+				}
+			}
+		} catch (err) {
+			errorMsg = err instanceof Error ? err.message : String(err);
+			retryable = true;
 		}
-	} catch (err) {
-		errorMsg = err instanceof Error ? err.message : String(err);
+		if (delivered || !retryable || attempts >= maxAttempts) break;
+		await sleep(GRANT_DELIVERY_BACKOFF_MS[attempts - 1]);
 	}
 
 	if (!delivered) {
 		logger.warn("[autosre] incident webhook delivery failed", {
 			incidentId,
 			error: errorMsg,
+			attempts,
 		});
 	}
 
 	if (webhook.grant) {
-		return { delivered, status, error: errorMsg };
+		return { delivered, status, error: errorMsg, attempts };
 	}
 
 	await db
@@ -675,7 +706,37 @@ export async function dispatchIncidentWebhook(
 		)
 		.run();
 
-	return { delivered, status, error: errorMsg };
+	return { delivered, status, error: errorMsg, attempts };
+}
+
+/** Backoff before attempt 2 and 3 of a grant webhook delivery. */
+const GRANT_DELIVERY_BACKOFF_MS = [500, 1500];
+
+/**
+ * Persists the last grant-webhook delivery outcome on the proposal. The JSON
+ * holds only status/attempts/error/time, never the URL or secret.
+ */
+export async function recordCallbackDelivery(
+	db: SqlDb,
+	projectId: string,
+	environment: string,
+	proposalId: string,
+	outcome: { delivered: boolean; attempts: number; error?: string },
+): Promise<GrantCallbackDelivery> {
+	const record: GrantCallbackDelivery = {
+		status: outcome.delivered ? "delivered" : "failed",
+		attempts: outcome.attempts,
+		lastError: outcome.delivered ? null : (outcome.error ?? null),
+		at: new Date().toISOString(),
+	};
+	await db
+		.prepare(
+			`UPDATE remediation_proposals SET callback_delivery = ?
+			 WHERE project_id = ? AND environment = ? AND id = ?`,
+		)
+		.bind(JSON.stringify(record), projectId, environment, proposalId)
+		.run();
+	return record;
 }
 
 interface ProposalRow {
@@ -705,6 +766,7 @@ interface ProposalRow {
 	failure_reason: string | null;
 	callback_url?: string | null;
 	callback_secret?: string | null;
+	callback_delivery?: string | null;
 	created_at: string;
 	updated_at: string;
 	expires_at: string | null;
@@ -715,6 +777,24 @@ function callbackHostOf(url: string | null | undefined): string | null {
 	if (!url) return null;
 	try {
 		return new URL(url).host || null;
+	} catch {
+		return null;
+	}
+}
+
+function parseCallbackDelivery(
+	raw: string | null | undefined,
+): GrantCallbackDelivery | null {
+	if (!raw) return null;
+	try {
+		const v = JSON.parse(raw) as Partial<GrantCallbackDelivery>;
+		if (v.status !== "delivered" && v.status !== "failed") return null;
+		return {
+			status: v.status,
+			attempts: Number(v.attempts ?? 0),
+			lastError: typeof v.lastError === "string" ? v.lastError : null,
+			at: String(v.at ?? ""),
+		};
 	} catch {
 		return null;
 	}
@@ -752,6 +832,7 @@ export const mapProposalRow = (
 	resultingChangeId: row.resulting_change_id,
 	failureReason: row.failure_reason,
 	callbackHost: callbackHostOf(row.callback_url),
+	callbackDelivery: parseCallbackDelivery(row.callback_delivery),
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 	expiresAt: row.expires_at,

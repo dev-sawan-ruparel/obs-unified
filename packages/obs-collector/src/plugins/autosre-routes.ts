@@ -4,6 +4,8 @@ import type {
 	ChangeEventKind,
 	CohortAttributionVerdict,
 	EvidenceEntityKind,
+	GrantCallbackDelivery,
+	GrantDeliveryResult,
 	InvestigationFindingInput,
 	JsonValue,
 	RemediationActionKind,
@@ -53,6 +55,7 @@ import {
 	openOrDeduplicateIncident,
 	proposeRemediationAction,
 	RemediationGateError,
+	recordCallbackDelivery,
 	rejectRemediationProposal,
 } from "../lib/autosre-remediation-gate";
 import { sha256Hex } from "../lib/hash";
@@ -158,20 +161,76 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						secret: typeof body.secret === "string" ? body.secret : undefined,
 					}
 				: (stored ?? null);
-			if (!target || !proposal.grantToken) return undefined;
-			if (proposal.status !== "grant_issued") return undefined;
-			return dispatchIncidentWebhook(db, projectId, proposal.incidentId, {
-				url: target.url,
-				secret: target.secret,
-				environment: proposal.environment,
-				allowPrivateNetworks: env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
-				logger: runtime.logger,
-				grant: {
-					proposalId: proposal.id,
-					status: proposal.status,
-					grantToken: proposal.grantToken,
+			const notAttempted: GrantDeliveryResult = {
+				attempted: false,
+				delivered: false,
+				attempts: 0,
+				host: null,
+			};
+			if (!target || !proposal.grantToken) {
+				return { webhookDelivery: undefined, grantDelivery: notAttempted };
+			}
+			if (proposal.status !== "grant_issued") {
+				return { webhookDelivery: undefined, grantDelivery: notAttempted };
+			}
+			let host: string | null = null;
+			try {
+				host = new URL(target.url).host || null;
+			} catch {
+				host = null;
+			}
+			const webhookDelivery = await dispatchIncidentWebhook(
+				db,
+				projectId,
+				proposal.incidentId,
+				{
+					url: target.url,
+					secret: target.secret,
+					environment: proposal.environment,
+					allowPrivateNetworks: env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
+					logger: runtime.logger,
+					grant: {
+						proposalId: proposal.id,
+						status: proposal.status,
+						grantToken: proposal.grantToken,
+					},
 				},
-			});
+			);
+			// Error text is surfaced to the human: strip anything URL-shaped and
+			// the secret so neither the query string nor the HMAC key can leak.
+			let error = webhookDelivery.error
+				? webhookDelivery.error.replace(
+						/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi,
+						"<url>",
+					)
+				: undefined;
+			if (error && target.secret) {
+				error = error.split(target.secret).join("<redacted>");
+			}
+			const record = await recordCallbackDelivery(
+				db,
+				projectId,
+				proposal.environment,
+				proposal.id,
+				{
+					delivered: webhookDelivery.delivered,
+					attempts: webhookDelivery.attempts,
+					error,
+				},
+			);
+			(
+				proposal as { callbackDelivery?: GrantCallbackDelivery | null }
+			).callbackDelivery = record;
+			const grantDelivery: GrantDeliveryResult = {
+				attempted: true,
+				delivered: webhookDelivery.delivered,
+				attempts: webhookDelivery.attempts,
+				host,
+				...(webhookDelivery.delivered
+					? {}
+					: { error: error ?? "unknown error" }),
+			};
+			return { webhookDelivery, grantDelivery };
 		};
 
 		// 1. Change Ingestion (Ingest Auth /v1/changes)
@@ -873,7 +932,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 							}
 						: undefined,
 				});
-				const webhookDelivery = await deliverGrant(
+				const { webhookDelivery, grantDelivery } = await deliverGrant(
 					c.env,
 					db,
 					projectId,
@@ -885,6 +944,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						proposal,
 						...proposal,
 						grantToken: proposal.grantToken ?? null,
+						grantDelivery,
 						...(webhookDelivery ? { webhookDelivery } : {}),
 					},
 					201,
@@ -934,7 +994,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 						approvedByUserId,
 					},
 				);
-				const webhookDelivery = await deliverGrant(
+				const { webhookDelivery, grantDelivery } = await deliverGrant(
 					c.env,
 					db,
 					projectId,
@@ -946,6 +1006,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					proposal,
 					...proposal,
 					grantToken: proposal.grantToken ?? null,
+					grantDelivery,
 					...(webhookDelivery ? { webhookDelivery } : {}),
 				});
 			} catch (err) {

@@ -73,6 +73,8 @@ export type {
 	ContentionCandidate,
 	EvidencePredicate,
 	FindingFingerprintInput,
+	GrantCallbackDelivery,
+	GrantDeliveryResult,
 	IncidentInvestigation,
 	IncidentStatus,
 	InvestigationFinding,

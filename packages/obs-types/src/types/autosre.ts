@@ -461,6 +461,23 @@ export interface RemediationProposalInput {
 	requestedAutonomy?: AgentAutonomyLevel;
 }
 
+/** Persisted outcome of the last grant webhook delivery for a proposal. */
+export interface GrantCallbackDelivery {
+	status: "delivered" | "failed";
+	attempts: number;
+	lastError: string | null;
+	at: string;
+}
+
+/** Per-request grant delivery outcome returned by propose/approve. */
+export interface GrantDeliveryResult {
+	attempted: boolean;
+	delivered: boolean;
+	attempts: number;
+	host: string | null;
+	error?: string;
+}
+
 export interface RemediationProposal {
 	id: string;
 	projectId: string;
@@ -490,6 +507,8 @@ export interface RemediationProposal {
 	 * query and the signing secret are never returned.
 	 */
 	callbackHost?: string | null;
+	/** Outcome of the last grant webhook delivery (never the URL or secret). */
+	callbackDelivery?: GrantCallbackDelivery | null;
 	createdAt: string;
 	updatedAt: string;
 	expiresAt: string | null;

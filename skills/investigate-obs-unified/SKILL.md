@@ -230,7 +230,7 @@ args/results.
 | `POST /internal/incidents/:id/lease` | Take the exclusive runner lease on an incident (409 if another runner holds it) | body: `runnerId`, `leaseDurationSeconds`, `environment` |
 | `POST /internal/remediations/propose` | Propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, etc.); optional `webhookUrl` + `secret` store a grant callback on a proposal that awaits approval | body: proposal payload + `expectedCurrentState`, `idempotencyKey` |
 | `GET /internal/remediations` | List proposals | `environment`, `incidentId`, `findingId`, `status`, `limit` |
-| `GET /internal/remediations/:id` | One proposal (status, policy reason, `callbackHost`); never the token | `environment` |
+| `GET /internal/remediations/:id` | One proposal (status, policy reason, `callbackHost`, `callbackDelivery`); never the token | `environment` |
 | `POST /internal/remediations/:id/approve` | Human approval (dashboard session cookie only; bearer tokens get 403). Mints the one-time `grantToken` in this response | body: `environment`, optional `webhookUrl` + `secret` |
 | `POST /internal/remediations/:id/reject` | Human rejection of a pending or issued grant (session cookie only) | body: `reason`, `environment` |
 | `POST /internal/remediations/:id/claim` | Claim a single-use cryptographic `grantToken` with target-version CAS before executing a write | body: `grantToken`, `runnerId`, `environment` |
@@ -361,10 +361,10 @@ The grant token is shown exactly once: in the `propose` response when the policy
 1. Propose. If the result is `pending_human_approval`, decide how the token will reach you before a human approves:
    - **Paste:** the human copies the token from the card and gives it to you.
    - **Stored callback:** pass `webhookUrl` (+ `webhookSecret`) to `propose_remediation_action`. The card shows "Grant will also be delivered to <host>", `get_remediation_proposal` shows `callbackHost` only, and approving without a callback of its own POSTs a signed `autosre.remediation.grant_issued` event (HMAC `X-Obs-Signature-256`) with `grantToken` to that URL. The callback is cleared on approve or reject.
-   - **Callback on approve:** the approving human's request may carry `webhookUrl` + `secret`; it overrides a stored one. The web UI does not send these.
+   - **Callback on approve:** the approving human's request may carry `webhookUrl` + `secret`; it overrides a stored one. The web approval card can send them too (optional webhook URL and secret fields in its confirm step).
 2. Poll `get_remediation_proposal` until `status` is `grant_issued` (or `rejected`).
 3. Claim with `claim_remediation_grant` (`operation: "claim"`, `grantToken`), execute the change, then `complete` (or `fail`) with the same `runnerId`.
-4. Lost response? A replayed `propose` with the same `idempotencyKey` returns the existing status but `grantToken: null`, and re-approving returns 409. Ask a human to reject the `grant_issued` proposal (or let it become `expired` after 5 minutes), then propose again with a new `idempotencyKey`. Webhook failures do not undo approval and are not retried; the response's `webhookDelivery.delivered` says what happened.
+4. Lost response? A replayed `propose` with the same `idempotencyKey` returns the existing status but `grantToken: null`, and re-approving returns 409. Ask a human to reject the `grant_issued` proposal (or let it become `expired` after 5 minutes), then propose again with a new `idempotencyKey`. Webhook delivery is tried up to 3 times (500 ms / 1500 ms backoff) on network errors, timeouts and 5xx, never on 4xx. The approve/propose response reports `grantDelivery: { attempted, delivered, attempts, host, error? }` and `get_remediation_proposal` shows `callbackDelivery` (`status`, `attempts`, `lastError`, `at`). A failed delivery does not undo approval: the token is still in the approve response and on the card ("Webhook delivery failed after N attempts ... hand it to the runner"), so hand it over manually within the 5-minute window; after it expires, re-propose with a new `idempotencyKey`.
 
 ### "Verify my instrumentation is working"
 

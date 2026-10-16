@@ -2561,4 +2561,200 @@ describe("AutoSRE governance hardening", () => {
 		expect(row.callback_url).toBeNull();
 		db.close();
 	});
+
+	describe("grant delivery retries", () => {
+		type Delivery = {
+			attempted: boolean;
+			delivered: boolean;
+			attempts: number;
+			host: string | null;
+			error?: string;
+		};
+		const setup = async (key: string, webhookUrl: string, secret?: string) => {
+			const db = createMigratedSqliteDb();
+			const { app, env } = createTestApp(db);
+			const incident = await newIncident(db);
+			const finding = await newFinding(db, incident.id);
+			const callbackEnv = { ...env, ALERT_WEBHOOK_ALLOW_PRIVATE: "true" };
+			const proposed = (await (
+				await app.request(
+					"/internal/remediations/propose",
+					json({
+						environment: "prod",
+						incidentId: incident.id,
+						findingId: finding.id,
+						idempotencyKey: key,
+						actionKind: "rollback_deploy",
+						targetNodeId: SERVICE_NODE,
+						expectedCurrentState: {},
+						desiredTargetState: { version: "v2.4.0" },
+						webhookUrl,
+						...(secret ? { secret } : {}),
+					}),
+					callbackEnv,
+				)
+			).json()) as { proposal: { id: string } };
+			const approve = async () =>
+				(await (
+					await app.request(
+						`/internal/remediations/${proposed.proposal.id}/approve`,
+						approveInit({ environment: "prod" }),
+						callbackEnv,
+					)
+				).json()) as {
+					grantToken: string;
+					grantDelivery: Delivery;
+					proposal: { callbackHost: string | null };
+				};
+			const get = async () =>
+				(await (
+					await app.request(
+						`/internal/remediations/${proposed.proposal.id}?environment=prod`,
+						{},
+						callbackEnv,
+					)
+				).json()) as {
+					proposal: {
+						callbackDelivery: {
+							status: string;
+							attempts: number;
+							lastError: string | null;
+							at: string;
+						} | null;
+					};
+				};
+			return { db, proposed, approve, get };
+		};
+
+		it("delivers on the 2nd attempt after a 503", async () => {
+			const statuses = [503, 200];
+			const fetchMock = vi.fn(
+				async () => new Response("x", { status: statuses.shift() ?? 200 }),
+			);
+			vi.stubGlobal("fetch", fetchMock);
+			const { db, approve, get } = await setup(
+				"retry-503",
+				"https://runner.example.com/g?token=urlsecret",
+				"hmac-retry",
+			);
+			const approved = await approve();
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(approved.grantDelivery).toEqual({
+				attempted: true,
+				delivered: true,
+				attempts: 2,
+				host: "runner.example.com",
+			});
+			expect(JSON.stringify(approved.grantDelivery)).not.toContain("urlsecret");
+			const got = await get();
+			expect(got.proposal.callbackDelivery).toMatchObject({
+				status: "delivered",
+				attempts: 2,
+				lastError: null,
+			});
+			db.close();
+		}, 15_000);
+
+		it("fails after 3 attempts on a closed port but still returns the token and clears the callback", async () => {
+			vi.unstubAllGlobals();
+			const net = await import("node:net");
+			const port = await new Promise<number>((resolve) => {
+				const srv = net.createServer();
+				srv.listen(0, "127.0.0.1", () => {
+					const { port: p } = srv.address() as { port: number };
+					srv.close(() => resolve(p));
+				});
+			});
+			const { db, proposed, approve, get } = await setup(
+				"retry-closed",
+				`http://127.0.0.1:${port}/grant?token=urlsecret`,
+				"hmac-closed",
+			);
+			const approved = await approve();
+			expect(approved.grantToken).toMatch(/^rgt_/);
+			expect(approved.grantDelivery).toMatchObject({
+				attempted: true,
+				delivered: false,
+				attempts: 3,
+				host: `127.0.0.1:${port}`,
+			});
+			expect(approved.grantDelivery.error).toBeTruthy();
+			expect(JSON.stringify(approved.grantDelivery)).not.toContain("urlsecret");
+			expect(approved.proposal.callbackHost).toBeNull();
+			const row = db.raw
+				.prepare(
+					`SELECT callback_url, callback_secret FROM remediation_proposals WHERE id = ?`,
+				)
+				.get(proposed.proposal.id) as {
+				callback_url: string | null;
+				callback_secret: string | null;
+			};
+			expect(row.callback_url).toBeNull();
+			expect(row.callback_secret).toBeNull();
+			const got = await get();
+			expect(got.proposal.callbackDelivery).toMatchObject({
+				status: "failed",
+				attempts: 3,
+			});
+			expect(got.proposal.callbackDelivery?.lastError).toBeTruthy();
+			db.close();
+		}, 20_000);
+
+		it("does not retry a 4xx", async () => {
+			const fetchMock = vi.fn(async () => new Response("no", { status: 403 }));
+			vi.stubGlobal("fetch", fetchMock);
+			const { db, approve, get } = await setup(
+				"retry-4xx",
+				"https://runner.example.com/g",
+			);
+			const approved = await approve();
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(approved.grantToken).toMatch(/^rgt_/);
+			expect(approved.grantDelivery).toMatchObject({
+				attempted: true,
+				delivered: false,
+				attempts: 1,
+				error: "HTTP 403",
+			});
+			expect((await get()).proposal.callbackDelivery?.status).toBe("failed");
+			db.close();
+		});
+
+		it("reports attempted=false when no callback exists", async () => {
+			const db = createMigratedSqliteDb();
+			const { app, env } = createTestApp(db);
+			const incident = await newIncident(db);
+			const finding = await newFinding(db, incident.id);
+			const proposed = (await (
+				await app.request(
+					"/internal/remediations/propose",
+					json({
+						environment: "prod",
+						incidentId: incident.id,
+						findingId: finding.id,
+						idempotencyKey: "no-cb",
+						actionKind: "rollback_deploy",
+						targetNodeId: SERVICE_NODE,
+						expectedCurrentState: {},
+						desiredTargetState: {},
+					}),
+					env,
+				)
+			).json()) as { proposal: { id: string } };
+			const approved = (await (
+				await app.request(
+					`/internal/remediations/${proposed.proposal.id}/approve`,
+					approveInit({ environment: "prod" }),
+					env,
+				)
+			).json()) as { grantDelivery: Delivery };
+			expect(approved.grantDelivery).toEqual({
+				attempted: false,
+				delivered: false,
+				attempts: 0,
+				host: null,
+			});
+			db.close();
+		});
+	});
 });

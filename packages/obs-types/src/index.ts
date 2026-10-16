@@ -116,6 +116,8 @@ export type {
 	EvidenceRetrievalRef,
 	EvidenceRetrievalRefContract,
 	FindingFingerprintInput,
+	GrantCallbackDelivery,
+	GrantDeliveryResult,
 	IdentifyInput,
 	IncidentInvestigation,
 	IncidentStatus,
