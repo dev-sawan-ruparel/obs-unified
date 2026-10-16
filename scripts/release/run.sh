@@ -39,6 +39,7 @@ ALLOW_PENDING=false ASSUME_YES=false DRY_RUN=false SKILLS_VERSION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --) ;;  # pnpm forwards the literal "--" separator
     --skip-gates) SKIP_GATES=true ;;
     --skip-docker) SKIP_DOCKER=true ;;
     --skip-npm) SKIP_NPM=true ;;
