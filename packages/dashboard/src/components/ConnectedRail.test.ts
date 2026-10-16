@@ -52,7 +52,10 @@ describe("normalizeConnectedHref", () => {
 		expect(normalizeConnectedHref("#/incidents/inc_01")).toBe(
 			"#/incidents/inc_01",
 		);
-		expect(normalizeConnectedHref("#/ai?id=call-1")).toBe("#/ai");
+		expect(normalizeConnectedHref("#/ai?id=call-1")).toBe("#/ai/calls/call-1");
+		expect(normalizeConnectedHref("#/ai/calls/call-1")).toBe(
+			"#/ai/calls/call-1",
+		);
 		expect(normalizeConnectedHref("#/logs?id=log-1")).toBe("#/logs");
 	});
 });

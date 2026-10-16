@@ -47,9 +47,16 @@ export interface SpansViewProps {
 	hours: string;
 	view: View;
 	setView: (v: View) => void;
+	/** Pre-select the span backing this AI call id (`#/ai/calls/<id>`). */
+	initialCallId?: string;
 }
 
-export function SpansView({ hours, view, setView }: SpansViewProps) {
+export function SpansView({
+	hours,
+	view,
+	setView,
+	initialCallId,
+}: SpansViewProps) {
 	const api = useApi();
 	const [overview, setOverview] = useState<AISpansOverviewResponse | null>(
 		null,
@@ -94,6 +101,23 @@ export function SpansView({ hours, view, setView }: SpansViewProps) {
 			});
 		return () => controller.abort();
 	}, [load]);
+
+	// Deep link `#/ai/calls/<id>`: select the matching span once, as soon as
+	// the overview contains it. A call id is its span id or an explicit
+	// `ai.call_id` attribute.
+	const [appliedCallId, setAppliedCallId] = useState<string | null>(null);
+	useEffect(() => {
+		if (!initialCallId || appliedCallId === initialCallId || !overview) return;
+		const match = overview.spans.find(
+			(s) =>
+				s.spanId === initialCallId ||
+				attrString(s.attributes, "ai.call_id") === initialCallId,
+		);
+		if (match) {
+			setSelected(match);
+			setAppliedCallId(initialCallId);
+		}
+	}, [initialCallId, appliedCallId, overview]);
 
 	// Filter client-side by model / provider / search.
 	// (Server supports kind/service; client adds the rest without a round-trip.)

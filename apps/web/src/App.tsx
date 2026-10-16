@@ -274,7 +274,9 @@ export function App() {
 							/>
 						)}
 						{route.tab === "logs" && <LogsDashboard />}
-						{route.tab === "ai" && <AIDashboard />}
+						{route.tab === "ai" && (
+							<AIDashboard initialCallId={route.aiCallId} />
+						)}
 						{route.tab === "evidence" && (
 							<EvidenceDashboard
 								initialAnchorKind={

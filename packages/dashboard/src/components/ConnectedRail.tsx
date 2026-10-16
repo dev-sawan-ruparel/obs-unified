@@ -366,7 +366,12 @@ export const normalizeConnectedHref = (href: string): string => {
 		return `#/profiles/${encodeURIComponent(decodeURIComponent(profileId))}${qs}`;
 	}
 
-	if (pathPart.startsWith("#/ai?")) return "#/ai";
+	if (pathPart.startsWith("#/ai?")) {
+		const callId = new URLSearchParams(pathPart.slice("#/ai?".length)).get(
+			"id",
+		);
+		return callId ? `#/ai/calls/${encodeURIComponent(callId)}` : "#/ai";
+	}
 	if (pathPart.startsWith("#/logs?")) return "#/logs";
 	if (pathPart.startsWith("#/usage?")) return "#/usage";
 	return href;

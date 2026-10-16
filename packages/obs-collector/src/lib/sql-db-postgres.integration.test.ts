@@ -28,20 +28,22 @@ import type {
 	StoredSpan,
 	UsageEventRecord,
 } from "@obsunified/types";
-import type { MiddlewareHandler } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deriveAnalysesForProject } from "../analyses/derive";
 import { INVESTIGATION_ANALYSES } from "../analyses/investigations";
 import { TIER0_ANALYSES } from "../analyses/tier0";
 import {
-	type CollectorRuntime,
+	CollectorRuntime,
 	createTelemetryCollectorApp,
 	type SpanProcessorPlugin,
 } from "../framework/collector";
 import type { CollectorEnv, CollectorRouteContext } from "../framework/env";
 import type { DecodedMetricPoint } from "../otlp/decode";
 import { aiSpanPayloadsProcessorPlugin } from "../plugins/ai-span-payloads-processor";
+import { connectedRoutesPlugin } from "../plugins/connected-routes";
 import { identityReceiverPlugin } from "../plugins/identity-receiver";
+import { usageQueryRoutesPlugin } from "../plugins/usage-query-routes";
 import { purgeExpiredActionGraph } from "./action-retention";
 import { ActionStore } from "./actions-store";
 import { getAICallsOverview, ingestAICallBatch } from "./ai-store/calls";
@@ -1221,5 +1223,76 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		);
 		expect(errorRate.primaryValue).toBe(0.5);
 		expect(Array.isArray(errorRate.payload.sparkline)).toBe(true);
+	});
+
+	it("serves the change connected-rail and usage sessions routes without Postgres query errors", async () => {
+		const now = isoNow();
+		const later = isoIn(60 * 60 * 1000);
+		const insertSpan = (spanId: string, startTime: string) =>
+			db
+				.prepare(
+					`INSERT INTO telemetry_spans (
+						project_id, environment, trace_id, span_id, service_name, service_version,
+						span_name, status_code, start_time, end_time, duration_ms, received_at, expires_at
+					) VALUES ('default', 'default', 'trace-pg-1', ?, 'checkout', 'v9.9.9', 'POST /pay', 2, ?, ?, 5, ?, ?)`,
+				)
+				.bind(spanId, startTime, startTime, now, later)
+				.run();
+		await insertSpan("span-pg-a", "2026-01-01T00:00:00.000Z");
+		await insertSpan("span-pg-b", "2026-01-01T00:00:01.000Z");
+		await db
+			.prepare(
+				`INSERT INTO change_events (
+					project_id, environment, id, target_node_id, kind, source, summary,
+					service_name, version, occurred_at, received_at
+				) VALUES ('default', 'default', 'chg-pg-1', 'service:checkout', 'deploy', 'explicit', 'deploy v9.9.9', 'checkout', 'v9.9.9', ?, ?)`,
+			)
+			.bind(now, now)
+			.run();
+		await new UsageStore(db).ingest([
+			usageEvent({
+				eventId: "pg-s1-a",
+				sessionId: "pg-sess-1",
+				pagePath: "/a",
+			}),
+			usageEvent({
+				eventId: "pg-s1-b",
+				sessionId: "pg-sess-1",
+				pagePath: "/b",
+				eventType: "interaction",
+			}),
+		]);
+
+		const app = new Hono<{ Bindings: CollectorEnv }>();
+		const runtime = new CollectorRuntime();
+		connectedRoutesPlugin.register(app, runtime);
+		usageQueryRoutesPlugin.register(app, runtime);
+		const env = { DB: db as unknown as D1Database } as CollectorEnv;
+
+		const change = await app.request(
+			"/internal/connected/change/chg-pg-1",
+			{},
+			env,
+		);
+		expect(change.status).toBe(200);
+		const manifest = (await change.json()) as {
+			across: Array<{ links: Array<{ entityId: string }> }>;
+		};
+		const spanIds = manifest.across.flatMap((s) =>
+			s.links.map((l) => l.entityId),
+		);
+		// Most recent first, one link per span.
+		expect(spanIds).toEqual(["trace-pg-1:span-pg-b", "trace-pg-1:span-pg-a"]);
+
+		const sessions = await app.request(
+			"/internal/usage/sessions?hours=24",
+			{},
+			env,
+		);
+		expect(sessions.status).toBe(200);
+		const body = (await sessions.json()) as {
+			sessions: Array<{ sessionId: string; lastPath: string | null }>;
+		};
+		expect(body.sessions.map((r) => r.sessionId)).toContain("pg-sess-1");
 	});
 });

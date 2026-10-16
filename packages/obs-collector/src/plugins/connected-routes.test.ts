@@ -470,7 +470,7 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 			m.down.find((s) => s.label === "Evaluations for this span")?.links[0],
 		).toMatchObject({
 			label: "eval: groundedness (passed)",
-			href: "#/evals/eval-explicit",
+			href: "#/evaluations",
 		});
 		expect(
 			m.related.find((s) => s.label === "Agent runs for this span")?.links[0],
@@ -749,7 +749,7 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 		).toMatchObject({ href: "#/tool-calls/tool-explicit" });
 		expect(
 			m.down.find((s) => s.label === "Evaluations for this AI call")?.links[0],
-		).toMatchObject({ href: "#/evals/eval-explicit" });
+		).toMatchObject({ href: "#/evaluations" });
 		expect(
 			m.related.find((s) => s.label === "Agent runs for this AI call")
 				?.links[0],
@@ -1280,7 +1280,7 @@ describe("ConnectedRail scenario acceptance contracts", () => {
 		const aiSection = userManifest.across.find((s) =>
 			s.label.toLowerCase().includes("ai call"),
 		);
-		expect(aiSection?.links[0].href).toBe("#/ai?id=ai-heavy-1");
+		expect(aiSection?.links[0].href).toBe("#/ai/calls/ai-heavy-1");
 
 		const sessionManifest = await fetch(
 			"/internal/connected/usage/sess-heavy?session_id=sess-heavy",

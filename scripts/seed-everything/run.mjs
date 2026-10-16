@@ -327,6 +327,9 @@ const seedUsage = async () => {
 // ── alerts ──────────────────────────────────────────────────────────
 
 const seedAlerts = async (cookie) => {
+	// Seeded rules ship DISABLED: their webhook targets are placeholders
+	// (hooks.example.com) that the collector refuses on every evaluation.
+	// Enable a rule after pointing it at a real endpoint.
 	const rules = [
 		{
 			name: "Spike in span errors",
@@ -338,7 +341,7 @@ const seedAlerts = async (cookie) => {
 			channels: [
 				{ type: "webhook", url: "https://hooks.example.com/spans-errors" },
 			],
-			enabled: true,
+			enabled: false,
 		},
 		{
 			name: "Frontend uncaught errors",
@@ -350,7 +353,7 @@ const seedAlerts = async (cookie) => {
 			channels: [
 				{ type: "webhook", url: "https://hooks.example.com/usage-errors" },
 			],
-			enabled: true,
+			enabled: false,
 		},
 		{
 			name: "Slow checkout p95",
@@ -362,7 +365,7 @@ const seedAlerts = async (cookie) => {
 			channels: [
 				{ type: "webhook", url: "https://hooks.example.com/checkout-slow" },
 			],
-			enabled: true,
+			enabled: false,
 		},
 	];
 
@@ -379,7 +382,7 @@ const seedAlerts = async (cookie) => {
 			if (!String(e.message).includes("409")) throw e;
 		}
 	}
-	return `${created} rules`;
+	return `${created} rules (disabled; placeholder webhooks)`;
 };
 
 // ── OTLP helpers (write spans/logs/AI directly to the dashboard's
@@ -1560,7 +1563,8 @@ const SCENARIO_ONLY = arg("scenario", null);
 console.log();
 console.log(`  ${dim("collector:")} ${COLLECTOR}`);
 console.log(`  ${dim("demo:")}      ${DEMO}`);
-console.log(`  ${dim("password:")}  ${PASSWORD}`);
+// Never print credentials: container logs are widely readable.
+console.log(`  ${dim("password:")}  (set via DASHBOARD_PASSWORD)`);
 console.log(`  ${dim("rounds:")}    ${ROUNDS}`);
 if (SCENARIO_ONLY) {
 	console.log(`  ${dim("scenario:")}  ${SCENARIO_ONLY}`);
