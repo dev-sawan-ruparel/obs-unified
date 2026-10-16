@@ -1,5 +1,11 @@
 # @obsunified/cli
 
+## 1.2.1
+
+### Patch Changes
+
+- 4066de0: `obs-unified create --help` and `changes --help` print usage and exit 0. `create` now falls back to `OBS_INGEST_KEY`, prompts for the ingest key in a TTY without `--yes`, and reports the key source in its next steps.
+
 ## 1.2.0
 
 ### Minor Changes

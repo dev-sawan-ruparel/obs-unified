@@ -1,5 +1,11 @@
 # @obsunified/dashboard
 
+## 1.2.3
+
+### Patch Changes
+
+- e7c839b: Fix remediation deep links: `#/remediations/:id` now selects the proposal, and approving/rejecting a deep-linked proposal outside the recent list updates its card.
+
 ## 1.2.2
 
 ### Patch Changes

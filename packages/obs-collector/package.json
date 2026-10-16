@@ -1,6 +1,6 @@
 {
 	"name": "@obsunified/collector",
-	"version": "2.2.2",
+	"version": "2.2.3",
 	"description": "Plugin-based observability collector runtime with pluggable SQL/blob storage.",
 	"license": "MIT",
 	"repository": {

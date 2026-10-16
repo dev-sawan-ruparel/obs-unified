@@ -1,5 +1,11 @@
 # @obsunified/mcp-server
 
+## 2.4.1
+
+### Patch Changes
+
+- e7c839b: Fix `dashboardUrl` values for evidence refs, service operations, and evals so they match real dashboard routes.
+
 ## 2.4.0
 
 ### Minor Changes

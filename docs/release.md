@@ -19,6 +19,27 @@ pnpm build:docs
 make -C skills lint validate build
 ```
 
+## One-command release
+
+`pnpm release:all` (`scripts/release/run.sh`) chains every step below from a
+clean, synced `main`: gates, the multi-arch GHCR image build and push plus
+smoke test, the sequential npm publish and tag push, and the website and docs
+deploys. Run it from a real terminal because npm's passkey flow prompts once
+per package.
+
+```bash
+pnpm release:all                   # everything
+pnpm release:all -- --dry-run      # print the plan only
+pnpm release:all -- --skip-docker  # e.g. npm + deploys only
+pnpm release:all -- --skills 0.1.4 # also cut skills-v0.1.4
+```
+
+It refuses to run with unversioned changesets (run `pnpm changeset version`
+in a PR first), and every stage is idempotent: an image tag already on GHCR,
+a package version already on npm, or an existing skills release is skipped,
+so re-running after an interruption resumes where it stopped. After a
+`--skills` release, update the documented download tag in a follow-up PR.
+
 ## npm packages
 
 Public packages retain the `@obsunified` scope. **Every PR that changes a
