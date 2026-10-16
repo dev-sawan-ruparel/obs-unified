@@ -1,5 +1,12 @@
 # @obsunified/agents-vercel-ai
 
+## 3.0.2
+
+### Patch Changes
+
+- Updated dependencies [84295c5]
+  - @obsunified/telemetry-sdk@2.1.2
+
 ## 3.0.1
 
 ### Patch Changes

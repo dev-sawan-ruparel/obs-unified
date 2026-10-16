@@ -1,5 +1,13 @@
 # @obsunified/analytics-sdk
 
+## 2.1.2
+
+### Patch Changes
+
+- Updated dependencies [3ba2c0a]
+- Updated dependencies [c800403]
+  - @obsunified/types@2.2.1
+
 ## 2.1.1
 
 ### Patch Changes

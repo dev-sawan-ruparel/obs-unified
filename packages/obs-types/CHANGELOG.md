@@ -1,5 +1,12 @@
 # @obsunified/types
 
+## 2.2.1
+
+### Patch Changes
+
+- 3ba2c0a: `RemediationProposal.callbackHost` (host of a stored grant callback), `InvestigationFindingInput.idempotencyKey`, and a partial `InvestigationFindingInput.fingerprintInput` whose omitted fields are derived server-side.
+- c800403: Add `GrantDeliveryResult` and `GrantCallbackDelivery`, and `RemediationProposal.callbackDelivery`.
+
 ## 2.2.0
 
 ### Minor Changes

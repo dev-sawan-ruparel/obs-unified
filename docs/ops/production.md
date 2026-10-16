@@ -236,7 +236,7 @@ spec:
     spec:
       containers:
       - name: collector
-        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.1  # pin a tested version; avoid :latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.2  # pin a tested version; avoid :latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -306,7 +306,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
       - name: maintenance
-        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.1  # pin a tested version; avoid :latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.2  # pin a tested version; avoid :latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -357,12 +357,12 @@ If you prefer a scheduler you already operate, set `MAINTENANCE_ENABLED: "false"
 
 During software updates, execute database migrations *before* recycling rolling container deployments to prevent schema mismatch errors inside the collector instances.
 
-Pin the image to the version you are rolling out (`:2.2.1` here; use your target release) rather than `:latest`. Run the migrations securely on your database using a temporary migrations job container:
+Pin the image to the version you are rolling out (`:2.2.2` here; use your target release) rather than `:latest`. Run the migrations securely on your database using a temporary migrations job container:
 
 ```bash
 docker run --rm \
   -e DATABASE_URL="postgres://user:pass@pg-host:5432/obs_unified" \
-  ghcr.io/dev-sawan-ruparel/obs-unified:2.2.1 \
+  ghcr.io/dev-sawan-ruparel/obs-unified:2.2.2 \
   node /repo/apps/collector-node/scripts/migrate-pg.mjs
 ```
 
@@ -409,7 +409,7 @@ Ingest keys live in the database, so they come back with the dump (a key you rev
 Alert rules are evaluated by the maintenance scheduler every 5 minutes (see the maintenance split in the Kubernetes section). Webhook channels are admin-supplied URLs that the collector POSTs to from inside its own network, so they are validated:
 
 * Only plain `http(s)` URLs to **public** hosts are accepted. Loopback, RFC 1918 ranges, link-local (cloud metadata) addresses, and embedded credentials are rejected. Hostnames are checked as written, so a name that resolves to a private address is not caught at validation time.
-* To post to an internal receiver (for example an in-cluster Alertmanager or a local webhook sink), set `ALERT_WEBHOOK_ALLOW_PRIVATE=true` on the collector. The Workers collector honours it today; the Node/Docker image requires collector-node later than 2.2.1 (the next release), which forwards the flag. Until then, setting it on the Node image has no effect even though the rejection message tells you to.
+* To post to an internal receiver (for example an in-cluster Alertmanager or a local webhook sink), set `ALERT_WEBHOOK_ALLOW_PRIVATE=true` on the collector. The Workers collector honours it today; the Node/Docker image requires image 2.2.2 or newer, which forwards the flag (earlier Node images ignored it even though the rejection message mentions it).
 * Webhook URLs are redacted in logs and span attributes (only the origin and first path segment are kept), since Slack and PagerDuty style hooks carry secrets in the path.
 * The seeded sample data (`OBS_LOCAL_SEED=true`) includes a placeholder `hooks.example.com` webhook that cannot deliver. Replace it with a real endpoint or disable the channel before relying on alert delivery.
 

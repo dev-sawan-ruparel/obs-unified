@@ -9,7 +9,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@obsunified/analytics-sdk": "^2.1.1"
+		"@obsunified/analytics-sdk": "^2.1.2"
 	},
 	"devDependencies": {
 		"typescript": "^6.0.0",
