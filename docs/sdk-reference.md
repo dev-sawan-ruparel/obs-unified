@@ -22,13 +22,14 @@ function Root() {
       apiKey="your-public-ingest-key"
       trackPageViews={true}
       captureErrors={true}
-      sessionReplay={true} // Enable DOM capture via rrweb
     >
       <App />
     </AnalyticsProvider>
   );
 }
 ```
+
+DOM session replay is opt-in: call `startReplay()` from `useAnalytics()` (there is no `sessionReplay` prop).
 
 #### Vanilla / Non-React JS
 ```typescript
@@ -40,7 +41,7 @@ const tracker = new UsageTracker({
 });
 
 // Patches window.fetch and installs event listeners for auto-correlation (Mode A)
-installAutoCorrelate({ tracker });
+installAutoCorrelate();
 ```
 
 ---

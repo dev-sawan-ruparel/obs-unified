@@ -22,12 +22,12 @@ pip install \
 
 ```bash
 export OBS_COLLECTOR_URL=http://localhost:8790
-export OBS_INGEST_KEY=dev-ingest-key
+export OBS_INGEST_KEY=<your key>   # the collector's INGEST_KEY, or a key from `obs-unified keys mint`
 # Your Flask app's own CORS allowlist — not the collector's ALLOWED_ORIGINS.
 export OBS_ALLOWED_ORIGIN=http://localhost:5173
 ```
 
-Use your real write-only ingest key outside local development.
+`OBS_INGEST_KEY` must be a key your collector accepts: the prebuilt GHCR image rejects the sample `dev-ingest-key`, so use the value you passed as `INGEST_KEY`. If you send `x-obs-interaction` by hand, use a 26-character uppercase Crockford-base32 ULID such as `01JAQ8K3Z9X7M2N4P6Q8R0S1T3`; free-form values like `demo_click_123` do not match the SDK contract.
 
 ## Add obs setup
 
@@ -131,7 +131,7 @@ def hello():
 
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(port=5001)  # macOS AirPlay Receiver often occupies 5000
 ```
 
 Run it:
@@ -143,7 +143,7 @@ python app.py
 Then call it:
 
 ```bash
-curl http://localhost:5000/api/hello
+curl http://localhost:5001/api/hello
 ```
 
 ## Optional AI-call span

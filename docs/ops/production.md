@@ -66,6 +66,10 @@ server {
 }
 ```
 
+> Set `TRUST_PROXY=true` on the collector (and only when it is reachable solely through this proxy). Without it the dashboard login rate limit and client-IP handling key on the proxy's address instead of the real client, so one noisy client can lock everyone out of login.
+
+CORS: the all-in-one image allows `localhost` and `127.0.0.1` on ports 5173, 5174, and 3000 by default. The standalone Node collector has no default; set `ALLOWED_ORIGINS` (comma-separated) to your dashboard and app origins, for example `https://obs.my-app.com`.
+
 ### Caddyfile Setup (Alternative)
 
 For Caddy with automatic Let’s Encrypt TLS:
@@ -91,6 +95,8 @@ obs.my-app.com {
     }
 }
 ```
+
+> Set `TRUST_PROXY=true` on the collector (and only when it is reachable solely through this proxy). Without it the dashboard login rate limit and client-IP handling key on the proxy's address instead of the real client, so one noisy client can lock everyone out of login.
 
 ---
 
@@ -176,6 +182,8 @@ data:
   # Serving replicas must not run background maintenance; the dedicated
   # obs-maintenance Deployment below overrides this to "true".
   MAINTENANCE_ENABLED: "false"
+  # Behind the reverse proxy above: login rate limit and client IP use X-Forwarded-For.
+  TRUST_PROXY: "true"
 ---
 apiVersion: v1
 kind: Secret
@@ -228,7 +236,7 @@ spec:
     spec:
       containers:
       - name: collector
-        image: ghcr.io/dev-sawan-ruparel/obs-unified:latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.1  # pin a tested version; avoid :latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -298,7 +306,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
       - name: maintenance
-        image: ghcr.io/dev-sawan-ruparel/obs-unified:latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.1  # pin a tested version; avoid :latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -339,6 +347,8 @@ kubectl -n observability logs deploy/obs-collector   | grep 'maintenance schedul
 
 On `SIGTERM` the maintenance pod stops arming new ticks, waits up to 10 s for an in-flight job, then closes its Postgres pool, which fits inside the 30 s grace period above. The serving Deployment's `/health` endpoint is unaffected by the scheduler, so the probes are identical.
 
+**Never run two or more replicas of the same image without `MAINTENANCE_ENABLED=false` on all but one of them.** The all-in-one image and the Node collector default to `MAINTENANCE_ENABLED=true`, so every replica would otherwise run each scheduled job.
+
 If you prefer a scheduler you already operate, set `MAINTENANCE_ENABLED: "false"` everywhere, omit `obs-maintenance`, and run the jobs from your own cron; do **not** leave the default (`true`) on a multi-replica serving Deployment.
 
 ---
@@ -347,17 +357,70 @@ If you prefer a scheduler you already operate, set `MAINTENANCE_ENABLED: "false"
 
 During software updates, execute database migrations *before* recycling rolling container deployments to prevent schema mismatch errors inside the collector instances.
 
-Run the migrations securely on your database using a temporary migrations job container:
+Pin the image to the version you are rolling out (`:2.2.1` here; use your target release) rather than `:latest`. Run the migrations securely on your database using a temporary migrations job container:
 
 ```bash
 docker run --rm \
   -e DATABASE_URL="postgres://user:pass@pg-host:5432/obs_unified" \
-  obs-unified/collector:latest \
+  ghcr.io/dev-sawan-ruparel/obs-unified:2.2.1 \
   node /repo/apps/collector-node/scripts/migrate-pg.mjs
 ```
 
 ---
 
-## 6. Identity & External Access Layer
+## 6. Backup and Restore
+
+Applies to the all-in-one image, which keeps Postgres 15 (cluster `15/main`, database `obs_unified`, role `obs`) in `/var/lib/postgresql` and file blobs in `/data/blobs`. Managed Postgres plus S3 deployments should use the provider's snapshot and bucket-versioning tools instead.
+
+**Back up** (container named `obs`; the embedded Postgres only accepts password auth over TCP, so pass `-h 127.0.0.1`):
+
+```bash
+docker exec -e PGPASSWORD=obs obs \
+  pg_dump -h 127.0.0.1 -U obs --clean --if-exists obs_unified > backup.sql
+
+docker run --rm -v obs-unified-blobs:/data -v "$PWD":/backup alpine \
+  tar czf /backup/blobs.tgz -C /data .
+```
+
+`--clean --if-exists` makes the dump replace the schema the new container creates on first boot. `/data` only holds replay recordings and pprof profiles; skip the tarball if you do not need them.
+
+**Restore** into empty volumes (a new container on fresh volumes, same image tag or newer):
+
+```bash
+# 1. Restore blobs into the empty blob volume before the first start
+docker run --rm -v obs-unified-blobs:/data -v "$PWD":/backup alpine \
+  tar xzf /backup/blobs.tgz -C /data
+
+# 2. Start the container once so Postgres initializes and migrations run
+docker run -d --name obs -p 5173:5173 -p 8790:8790 \
+  -e INGEST_KEY -e DASHBOARD_PASSWORD -e DASHBOARD_TOKEN \
+  -v obs-unified-db:/var/lib/postgresql -v obs-unified-blobs:/data \
+  ghcr.io/dev-sawan-ruparel/obs-unified:<version>
+
+# 3. Load the dump, then restart so the collector drops cached state
+docker exec -i -e PGPASSWORD=obs obs psql -q -h 127.0.0.1 -U obs obs_unified < backup.sql
+docker restart obs
+```
+
+Ingest keys live in the database, so they come back with the dump (a key you revoked stays revoked). `INGEST_KEY`, `DASHBOARD_PASSWORD`, and `DASHBOARD_TOKEN` come from the new container's environment; changing `DASHBOARD_PASSWORD` invalidates existing browser sessions.
+
+## 7. Alerts and Webhooks
+
+Alert rules are evaluated by the maintenance scheduler every 5 minutes (see the maintenance split in the Kubernetes section). Webhook channels are admin-supplied URLs that the collector POSTs to from inside its own network, so they are validated:
+
+* Only plain `http(s)` URLs to **public** hosts are accepted. Loopback, RFC 1918 ranges, link-local (cloud metadata) addresses, and embedded credentials are rejected. Hostnames are checked as written, so a name that resolves to a private address is not caught at validation time.
+* To post to an internal receiver (for example an in-cluster Alertmanager or a local webhook sink), set `ALERT_WEBHOOK_ALLOW_PRIVATE=true` on the collector. The Workers collector honours it today; the Node/Docker image requires collector-node later than 2.2.1 (the next release), which forwards the flag. Until then, setting it on the Node image has no effect even though the rejection message tells you to.
+* Webhook URLs are redacted in logs and span attributes (only the origin and first path segment are kept), since Slack and PagerDuty style hooks carry secrets in the path.
+* The seeded sample data (`OBS_LOCAL_SEED=true`) includes a placeholder `hooks.example.com` webhook that cannot deliver. Replace it with a real endpoint or disable the channel before relying on alert delivery.
+
+## 8. Monitoring the Collector
+
+* **Health**: `GET /health` is the only probe endpoint. There is no `/metrics` and no `/ready` route, so use `/health` for both readiness and liveness (as in the manifests above).
+* **Docker**: the image ships a `HEALTHCHECK` (every 15s) that needs both the collector `/health` on `:8790` and the dashboard on `:5173` to answer. `docker ps` shows `healthy` or `unhealthy`.
+* **Logs**: written to stdout/stderr as `[component] message` followed by an optional fields object, for example `[maintenance] scheduler started { ... }`. Startup lines use the `[obs-unified]` prefix. Fields are printed with Node's console, so treat them as readable key/value output rather than strict JSON when building log parsers.
+
+---
+
+## 9. Identity & External Access Layer
 
 `obs-unified` does not contain native per-user RBAC or SSO. To deploy behind Cloudflare Access or `oauth2-proxy` with proper path boundaries, secrets management, header forwarding, and MCP service tokens, see the dedicated [Identity & External Access Recipes](./identity-access-recipes.md).

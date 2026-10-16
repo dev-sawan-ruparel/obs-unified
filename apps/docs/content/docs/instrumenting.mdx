@@ -254,6 +254,7 @@ If "Click that caused this trace" on the span detail rail shows the absence text
 
 - The browser SDK isn't installed or `installAutoCorrelate` was disabled
 - CORS preflight is stripping `x-obs-interaction` — add it to `allowHeaders`
+- A hand-written `x-obs-interaction` is silently dropped by the server SDK unless it is a 26-character uppercase Crockford-base32 ULID (for example `01JAQ8K3Z9X7M2N4P6Q8R0S1T3`); ids minted by the browser SDK are always valid
 - The server isn't calling `stampInteractionFromRequest()` on the root span
 
 ## Going further

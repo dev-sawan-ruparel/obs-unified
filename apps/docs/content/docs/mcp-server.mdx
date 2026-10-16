@@ -147,6 +147,22 @@ Build the package first with:
 pnpm --filter @obsunified/mcp-server build
 ```
 
+## Example: `get_evidence_bundle`
+
+Arguments for triaging an incident with a 2,000-token budget:
+
+```json
+{
+  "anchor": { "entityKind": "incident", "entityId": "inc_scenario_d" },
+  "intent": "triage_incident",
+  "budget": { "targetTokens": 2000 }
+}
+```
+
+`anchor` and its two fields are required. `intent` is optional, `budget.targetTokens` accepts 500 to 30000 (default 4000), `budget.detailLevel` is `brief`, `standard` (default), or `deep`, and `hours` (1 to 720, default 24) sets the lookback window.
+
+Tool results use a `{ data, dashboardUrl }` envelope: `data` is the payload (here the evidence bundle) and `dashboardUrl` is a deep link into the dashboard, present only when the MCP server is configured with a dashboard URL. `obs_status` is the exception: it returns `{ ok, overview }`.
+
 ## Tools
 
 - `obs_status`

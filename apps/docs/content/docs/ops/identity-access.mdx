@@ -72,6 +72,38 @@ flowchart TD
 
 ---
 
+### Logging in and out from scripts
+
+`POST /auth/login` takes a JSON body with the dashboard password and answers with an `obs_session` cookie (`HttpOnly`, `SameSite=Strict`, 7-day `Max-Age`):
+
+```bash
+curl -i -X POST http://localhost:5173/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"password":"<DASHBOARD_PASSWORD>"}'
+# HTTP/1.1 200 OK
+# set-cookie: obs_session=...; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800
+# {"success":true}
+```
+
+The dashboard origin (`:5173`) proxies `/auth/*` to the collector, so the same call works against `:8790` directly. Add `-c cookies.txt` to save the cookie and `-b cookies.txt` to reuse it on `/internal/*`. A wrong password returns `401`, and repeated failures are rate limited per client IP (set `TRUST_PROXY=true` behind a reverse proxy so that IP is the real client).
+
+**Logout only clears the browser cookie** (`Max-Age=0`). Sessions are stateless signed cookies, so a copy of an issued `obs_session` stays valid until its 7-day expiry or until you rotate `DASHBOARD_PASSWORD`. Rotate the password to invalidate every outstanding session.
+
+### Rotating an ingest key
+
+Ingest keys are project-scoped and can be rotated without downtime:
+
+1. **Mint** a new key: `obs-unified keys mint --project <id> --name <label>` (or `POST /internal/projects/:id/keys`).
+2. **Switch clients** to the new `OBS_INGEST_KEY` and redeploy.
+3. **Revoke** the old key: `DELETE /internal/projects/:id/keys/:keyId` (find `keyId` with `obs-unified keys list --project <id>`), or `obs-unified keys revoke <keyId>` with CLI 1.2 or newer.
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $DASHBOARD_TOKEN" \
+  http://localhost:8790/internal/projects/default/keys/<keyId>
+```
+
+Revocation is not instant: the collector caches ingest authorization for 60 seconds, so a revoked key can keep ingesting for up to about a minute (observed: accepted at 55 seconds, rejected at 60). A revoked bootstrap key (the one supplied through `INGEST_KEY`) stays revoked after a restart; the collector does not recreate it. Use the newly minted key instead.
+
 ## Recipe 1: Cloudflare Access (Zero Trust)
 
 Cloudflare Access protects origin infrastructure with edge-enforced identity policies for human operators.
@@ -215,6 +247,8 @@ server {
     }
 }
 ```
+
+> Set `TRUST_PROXY=true` on the collector (and only when it is reachable solely through this proxy). Without it the dashboard login rate limit and client-IP handling key on the proxy's address instead of the real client, so one noisy client can lock everyone out of login.
 
 ---
 

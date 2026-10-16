@@ -13,6 +13,7 @@
 		"dev": "react-router dev",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
+		"check:snippets": "node scripts/check-snippets.mjs",
 		"messaging:check": "node scripts/messaging-check.mjs",
 		"start": "serve ./build/client --config ./serve.json",
 		"types:check": "react-router typegen && fumadocs-mdx && tsc --noEmit",

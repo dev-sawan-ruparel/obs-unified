@@ -56,6 +56,8 @@ The headline product test. From a paged alert:
 
 Six clicks across the entire platform. The platform's claim is that every neighbor at every step is on the rail.
 
+> **Illustrative scenario.** The "bound Analysis narrative" in step 1 and the "(243)" other-traces count in step 3 describe a production-shaped incident, not what the seed produces. The sample seed creates one profile trace, and its alert rules fire without a bound analysis (analyses are generated for real alerts that fire against your own traffic). Expect the same click path with smaller numbers.
+
 ## Interaction ID to CPU
 
 The browser SDK mints a single `interaction_id` for a frontend action and injects it as `x-obs-interaction` on outbound requests. Backend SDKs copy that value onto the active span as `obs.interaction.id`, and correlated logs, AI calls, or MCP tool context inherit it from the span context.
@@ -137,7 +139,7 @@ Both `pnpm seed` and `pnpm e2e:autosre` plant this complete Scenario D dataset a
 | **Autonomous Review (`/#/autonomous-review` or `/#/remediations`)** | Agent Action Graph risk review plus the **1-Click Remediation Approval Queue** (`pending_human_approval`, `grant_issued`, `completed`, `execution_timed_out`) showing target version CAS diffs and recovery watchdog status (`/#/actions/:id` opens single action detail) | Click **Approve** or **Reject** on a pending proposal; pivot to `#/findings/:id` or `#/incidents/:id` |
 | **Evidence (`/#/evidence`)** | Bundle Explorer supporting `trace`, `action`, `agent_run`, `tool_call`, `change`, `finding`, and `incident` anchors (`/#/changes/:id`, `/#/findings/:id`, and `/#/incidents/:id` deep-link directly here) | Inspect compacted findings, `bundle.autosre` triage context, and expand retrieval refs on demand |
 | **Replays** | Session list + rrweb player + per-session interactions panel | Click an interaction → trace it caused |
-| **Alerts** | Alert rules + recent firings + bound analyses | Click an alert → bound Analysis → exemplar traces |
+| **Alerts** | Alert rules (evaluated every 5 minutes) + recent firings + bound analyses | Click an alert → bound Analysis → exemplar traces |
 | **Usage** | Page views, interactions, top paths, by-country breakdown | Click a session row → timeline |
 | **Resources** | Cloudflare worker resource panels + (when populated) Linux host metrics | Click a host → host detail |
 | **Projects** | Multi-project routing (ingest keys, dashboard auth) | n/a |
