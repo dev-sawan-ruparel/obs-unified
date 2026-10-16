@@ -61,10 +61,32 @@ pnpm --filter @obs-demo/collector-node run start
 | `OPENAI_BASE_URL`      | no            | —                        | Endpoint override for OpenAI-compatible servers (OpenRouter, vLLM, Ollama…) |
 | `NARRATIVE_MODEL`      | no            | provider default         | Narrative model id (defaults: `claude-3-5-haiku-latest` / `gpt-4o-mini`) |
 | `NARRATIVE_BUDGET_PER_HOUR` | no       | 50                       | Max narrative writes per project per hour                   |
+| `ALERT_WEBHOOK_ALLOW_PRIVATE` | no     | —                        | Set `true` to let alert webhooks target private / loopback addresses (refused by default) |
 | `MAINTENANCE_ENABLED`  | no            | `true`                   | Set to `false` to disable the in-process maintenance scheduler |
 | `MAINTENANCE_ANALYSES_INTERVAL_SECONDS`  | no | 60                  | Cadence of the due-analyses run                             |
 | `MAINTENANCE_ALERTS_INTERVAL_SECONDS`    | no | 300                 | Cadence of alert rule evaluation                            |
 | `MAINTENANCE_RETENTION_INTERVAL_SECONDS` | no | 3600                | Cadence of retention cleanup                                |
+
+## Logout and session revocation
+
+Logout clears the browser cookie only. Dashboard sessions are signed and
+stateless, so a copied session cookie stays valid until its seven-day expiry or
+until `DASHBOARD_PASSWORD` is rotated (rotating it invalidates every session).
+Behind a TLS-terminating proxy, set `TRUST_PROXY=true` and forward
+`X-Forwarded-Proto: https` so the session cookie is issued with `Secure`.
+
+## Project keys: revocation and the bootstrap key
+
+- Revoke a key with `DELETE /internal/projects/:id/keys/:keyId` (admin bearer
+  token or dashboard session).
+- Ingest authorization is cached for 60 seconds, so a revoked key can keep
+  ingesting for up to a minute after revocation.
+- The `INGEST_KEY` environment value is registered as the `bootstrap` key on
+  the `default` project at startup. Revoking it is permanent: a revoked
+  bootstrap key is not recreated on restart.
+- `keys list` shows a key prefix only. For minted keys it is the first 16
+  characters; the bootstrap key shows at most a third of its length, so a short
+  `INGEST_KEY` is never displayed in full.
 
 ## Background maintenance
 

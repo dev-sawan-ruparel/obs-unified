@@ -42,6 +42,7 @@ import {
 	type ActionContextLinkMetadata,
 	type ConnectedEntityKind,
 	type ConnectedManifest,
+	hrefForEntity,
 	KNOWN_KINDS,
 	linksFromActions,
 	linksFromAi,
@@ -59,6 +60,7 @@ import {
 	linkToTrace,
 	MAX_LINKS_INLINE,
 	profileLinksForTrace,
+	resolveFaultLocusTarget,
 } from "./connected-routes/manifest";
 
 export type {
@@ -1115,10 +1117,11 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 					const spans = changeRow.version
 						? await db
 								.prepare(
-									`SELECT DISTINCT trace_id, span_id, service_name, span_name
+									`SELECT trace_id, span_id, service_name, span_name
 									 FROM telemetry_spans
 									 WHERE project_id = ? AND environment = ? AND service_version = ? AND status_code = 2
-									 ORDER BY start_time DESC LIMIT 5`,
+									 GROUP BY trace_id, span_id, service_name, span_name
+									 ORDER BY MAX(start_time) DESC LIMIT 5`,
 								)
 								.bind(projectId, changeRow.environment, changeRow.version)
 								.all<{
@@ -1195,7 +1198,7 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [
 								{
 									label: `fault locus: ${findingRow.faultLocusEntityId}`,
-									href: `#/traces?q=${encodeURIComponent(findingRow.faultLocusEntityId)}`,
+									...resolveFaultLocusTarget(findingRow.faultLocusEntityId),
 									relationshipCertainty: "exact",
 									causalProofTier: proofTier,
 								},
@@ -1249,11 +1252,11 @@ export const connectedRoutesPlugin: CollectorPlugin = {
 							links: [
 								{
 									label: `${incRow.symptomAnchorKind}: ${incRow.symptomAnchorId}`,
-									href: `#/alerts?id=${encodeURIComponent(incRow.symptomAnchorId)}`,
-									entityKind:
-										incRow.symptomAnchorKind === "analysis"
-											? "analysis"
-											: "alert",
+									href: hrefForEntity(
+										incRow.symptomAnchorKind,
+										incRow.symptomAnchorId,
+									),
+									entityKind: incRow.symptomAnchorKind,
 									entityId: incRow.symptomAnchorId,
 									relationshipCertainty: "exact",
 								},

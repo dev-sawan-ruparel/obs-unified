@@ -6,12 +6,9 @@ export DATABASE_URL="${DATABASE_URL:-postgres://obs:obs@127.0.0.1:5432/obs_unifi
 export BLOB_STORE="${BLOB_STORE:-file}"
 export BLOB_DIR="${BLOB_DIR:-/data/blobs}"
 if [ "${REQUIRE_AUTH_CONFIG:-false}" = "true" ]; then
-	if [ -z "${INGEST_KEY:-}" ] || [ "${INGEST_KEY}" = "dev-ingest-key" ]; then
-		echo "[obs-unified] ERROR: INGEST_KEY must be explicitly set to a secure value for production runtime." >&2
-		exit 1
-	fi
-	if [ -z "${DASHBOARD_PASSWORD:-}" ] || [ "${DASHBOARD_PASSWORD}" = "e2e-test-pass" ]; then
-		echo "[obs-unified] ERROR: DASHBOARD_PASSWORD must be explicitly set to a secure value for production runtime." >&2
+	# shellcheck source=docker/local/auth-guard.sh
+	. "$(dirname "${BASH_SOURCE[0]}")/auth-guard.sh"
+	if ! obs_validate_release_auth; then
 		exit 1
 	fi
 	export INGEST_KEY
@@ -91,10 +88,10 @@ done
 
 if [ "${OBS_LOCAL_SEED:-true}" = "true" ]; then
 	echo "[obs-unified] seeding local sample data"
+	# Credentials reach the seeder via the exported DASHBOARD_PASSWORD / OBS_INGEST_KEY
+	# environment, not argv, so they never appear in process listings or logs.
 	run_node node scripts/seed-everything/run.mjs \
 		--collector "http://127.0.0.1:${PORT}" \
-		--password "$DASHBOARD_PASSWORD" \
-		--key "$INGEST_KEY" \
 		--rounds "${OBS_LOCAL_SEED_ROUNDS:-6}" || true
 fi
 

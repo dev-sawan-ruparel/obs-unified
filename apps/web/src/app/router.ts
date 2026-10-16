@@ -20,6 +20,8 @@ export type Route = {
 	findingId?: string;
 	incidentId?: string;
 	remediationId?: string;
+	/** `ai_calls.call_id` from /#/ai/calls/<id>; selects that call in the AI tab. */
+	aiCallId?: string;
 	evidenceKind?: string;
 	evidenceId?: string;
 };
@@ -103,6 +105,10 @@ export function parseHash(): Route {
 		tab === "remediations" && segments.length > 1
 			? decodeURIComponent(segments.slice(1).join("/"))
 			: undefined;
+	const aiCallId =
+		tab === "ai" && segments[1] === "calls" && segments.length > 2
+			? decodeURIComponent(segments.slice(2).join("/"))
+			: undefined;
 	return {
 		tab,
 		traceId: params.get("trace") ?? params.get("trace_id") ?? undefined,
@@ -119,6 +125,7 @@ export function parseHash(): Route {
 		findingId,
 		incidentId,
 		remediationId,
+		aiCallId,
 		evidenceKind: params.get("kind") ?? undefined,
 		evidenceId: params.get("id") ?? undefined,
 	};
@@ -157,6 +164,9 @@ export function navigate(route: Partial<Route>) {
 	}
 	if (next.tab === "remediations" && next.remediationId) {
 		hash += `/${encodeURIComponent(next.remediationId)}`;
+	}
+	if (next.tab === "ai" && next.aiCallId) {
+		hash += `/calls/${encodeURIComponent(next.aiCallId)}`;
 	}
 	const params = new URLSearchParams();
 	if (next.traceId) {

@@ -1,4 +1,8 @@
-import type { CausalProofTier, RelationshipCertainty } from "@obsunified/types";
+import type {
+	CausalProofTier,
+	EvidenceEntityKind,
+	RelationshipCertainty,
+} from "@obsunified/types";
 import type {
 	ActionRef,
 	AICallRef,
@@ -55,7 +59,7 @@ export interface ConnectedLink {
 	href: string;
 	count?: number;
 	sample?: string;
-	entityKind?: ConnectedEntityKind | "trace" | "eval";
+	entityKind?: ConnectedEntityKind | EvidenceEntityKind;
 	entityId?: string;
 	source?: string;
 	confidence?: number;
@@ -344,7 +348,9 @@ export const linksFromAi = (
 		label: prefix,
 		links: calls.map((c) => ({
 			label: `${c.provider} · ${c.modelName}`,
-			href: `#/ai?id=${c.callId}`,
+			href: `#/ai/calls/${encodeURIComponent(c.callId)}`,
+			entityKind: "ai_call",
+			entityId: c.callId,
 		})),
 	};
 };
@@ -451,7 +457,7 @@ export const linksFromToolCalls = (
 			links: [
 				{
 					label: `${calls.length} tool calls`,
-					href: `#/tools`,
+					href: `#/tool-calls`,
 					count: calls.length,
 					sample: truncate(calls[0].toolName),
 					entityKind: "tool_call",
@@ -488,7 +494,8 @@ export const linksFromRetrievalEvents = (
 		label: prefix,
 		links: events.map((r) => ({
 			label: `retrieve: ${r.retrieverName} (${r.totalResults} docs)`,
-			href: `#/retrieval-events/${r.id}`,
+			// No dedicated retrieval tab: the owning action's detail page lists it.
+			href: `#/actions/${encodeURIComponent(r.actionId)}`,
 		})),
 	};
 };
@@ -511,7 +518,8 @@ export const linksFromEvalResults = (
 		label: prefix,
 		links: results.map((e) => ({
 			label: `eval: ${e.evaluatorName} (${e.passed ? "passed" : "failed"})`,
-			href: `#/evals/${e.id}`,
+			// Evaluations tab selects by eval case, which a result ref does not carry.
+			href: `#/evaluations`,
 			entityKind: "eval",
 			entityId: e.id,
 			...metadataForAction?.(e.actionId),
@@ -534,7 +542,118 @@ export const linksFromArtifacts = (
 		label: prefix,
 		links: arts.map((a) => ({
 			label: `artifact: ${a.artifactName} (${a.artifactType})`,
-			href: `#/artifacts/${a.id}`,
+			// No dedicated artifact tab: the owning action's detail page lists it.
+			href: `#/actions/${encodeURIComponent(a.actionId)}`,
 		})),
+	};
+};
+
+/**
+ * Dashboard destination for an evidence entity, using only routes the web
+ * router (`apps/web/src/app/router.ts`) actually serves. Unknown kinds fall
+ * back to the evidence explorer so a link never lands on the Health tab.
+ */
+export const hrefForEntity = (kind: string, id: string): string => {
+	const enc = encodeURIComponent;
+	switch (kind) {
+		case "trace":
+			return `#/traces?trace=${enc(id)}`;
+		case "span": {
+			const [traceId, spanId] = id.split(":");
+			return spanId && traceId
+				? `#/traces?trace=${enc(traceId)}&span=${enc(spanId)}`
+				: `#/evidence?kind=span&id=${enc(id)}`;
+		}
+		case "alert":
+			return `#/alerts?id=${enc(id)}`;
+		case "analysis":
+			return "#/health";
+		case "service":
+			return `#/service-map?service=${enc(id)}`;
+		case "agent_run":
+			return `#/agent-runs/${enc(id)}`;
+		case "action":
+			return `#/actions/${enc(id)}`;
+		case "tool_call":
+			return `#/tool-calls/${enc(id)}`;
+		case "ai_call":
+			return `#/ai/calls/${enc(id)}`;
+		case "profile":
+			return `#/profiles/${enc(id)}`;
+		case "change":
+			return `#/changes/${enc(id)}`;
+		case "finding":
+			return `#/findings/${enc(id)}`;
+		case "incident":
+			return `#/incidents/${enc(id)}`;
+		case "eval":
+			return "#/evaluations";
+		case "log":
+			return `#/logs?id=${enc(id)}`;
+		case "replay":
+			return `#/replay?session=${enc(id)}`;
+		default:
+			return `#/evidence?kind=${enc(kind)}&id=${enc(id)}`;
+	}
+};
+
+export interface FaultLocusTarget {
+	entityKind: "service" | "span";
+	entityId: string;
+	href: string;
+}
+
+const HEX_SPAN_PAIR = /^[0-9a-f]{32}:[0-9a-f]{16}$/i;
+const HEX_SPAN_ID = /^[0-9a-f]{16}$/i;
+const NODE_KINDS = new Set([
+	"service",
+	"endpoint",
+	"database",
+	"queue",
+	"messaging_topic",
+	"topic",
+	"cache",
+	"external",
+]);
+
+/**
+ * A finding's `faultLocusEntityId` is a canonical ontology node id
+ * (`service:<env>:<ns>:<name>`, `endpoint:<env>:<ns>:<svc>:...`), a
+ * `traceId:spanId` pair, a bare span id, or a bare service name. Resolve it to
+ * the entity kind it really is and the surface that shows that kind.
+ */
+export const resolveFaultLocusTarget = (
+	faultLocusEntityId: string,
+): FaultLocusTarget => {
+	const id = faultLocusEntityId;
+	if (HEX_SPAN_PAIR.test(id)) {
+		return {
+			entityKind: "span",
+			entityId: id,
+			href: hrefForEntity("span", id),
+		};
+	}
+	if (HEX_SPAN_ID.test(id)) {
+		return {
+			entityKind: "span",
+			entityId: id,
+			href: hrefForEntity("span", id),
+		};
+	}
+	const segments = id.split(":");
+	if (segments.length > 1 && NODE_KINDS.has(segments[0] ?? "")) {
+		// service:<env>:<ns>:<name> and endpoint:<env>:<ns>:<svc>:... both carry
+		// the owning service name at index 3.
+		const name = segments[3] || segments[segments.length - 1] || id;
+		return {
+			entityKind: "service",
+			entityId: id,
+			href: hrefForEntity("service", name),
+		};
+	}
+	return {
+		entityKind: "service",
+		entityId: id,
+		href: hrefForEntity("service", id),
 	};
 };

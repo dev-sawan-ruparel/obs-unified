@@ -31,6 +31,15 @@ const rowToKey = (row: IngestKeyRow): IngestKey => ({
 
 const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$/;
 
+/**
+ * Display identifier for a secret: at most 16 chars (what minted keys show),
+ * but never more than a third of the secret, so a short operator-chosen
+ * INGEST_KEY can never be returned in full by `keys list`.
+ */
+export function displayPrefix(plaintext: string): string {
+	return plaintext.slice(0, Math.min(16, Math.floor(plaintext.length / 3)));
+}
+
 export class ProjectsStore {
 	constructor(private readonly db: SqlDb) {}
 
@@ -189,14 +198,24 @@ export class ProjectsStore {
 		if (!plaintext) return;
 		await this.ensureDefaultProject();
 		const keyHash = await sha256Hex(plaintext);
+		const keyPrefix = displayPrefix(plaintext);
 		const existing = await this.db
-			.prepare(`SELECT id FROM ingest_keys WHERE key_hash = ?`)
+			.prepare(`SELECT id, key_prefix FROM ingest_keys WHERE key_hash = ?`)
 			.bind(keyHash)
-			.first<{ id: string }>();
-		if (existing) return;
+			.first<{ id: string; key_prefix: string }>();
+		if (existing) {
+			// Rows written before the prefix was length-capped may hold a short
+			// bootstrap key in full; shrink them to the safe display prefix.
+			if (existing.key_prefix.length > keyPrefix.length) {
+				await this.db
+					.prepare(`UPDATE ingest_keys SET key_prefix = ? WHERE id = ?`)
+					.bind(keyPrefix, existing.id)
+					.run();
+			}
+			return;
+		}
 
 		const id = randomHex(16);
-		const keyPrefix = plaintext.slice(0, Math.min(16, plaintext.length));
 		const createdAt = new Date().toISOString();
 		await this.db
 			.prepare(
