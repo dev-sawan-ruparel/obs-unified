@@ -228,7 +228,7 @@ spec:
     spec:
       containers:
       - name: collector
-        image: obs-unified/collector:latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -298,7 +298,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
       - name: maintenance
-        image: obs-unified/collector:latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:latest
         ports:
         - containerPort: 8790
         envFrom:

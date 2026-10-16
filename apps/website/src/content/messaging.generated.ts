@@ -415,8 +415,7 @@ export const messaging = {
 				"addsEvidenceFields": [
 					"relationshipCertainty",
 					"causalProofTier",
-					"evidencePredicate",
-					"environment"
+					"predicate"
 				],
 				"addsSignalType": "AutoSRE causal ontology",
 				"surfacesWhenShipped": [

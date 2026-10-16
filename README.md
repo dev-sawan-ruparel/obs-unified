@@ -336,7 +336,7 @@ pnpm add @obsunified/telemetry-sdk
 import {
   initObservability,
   createLogger,
-  trackAICall,
+  startLLMSpan,
 } from "@obsunified/telemetry-sdk";
 
 // Initialize once at startup
@@ -356,16 +356,15 @@ app.get("/users", async (c) => {
   return c.json(users);
 });
 
-// Track AI calls
-trackAICall({
-  modelName: "claude-sonnet-4-20250514",
+// Track AI / LLM calls as OpenInference child spans
+const llmSpan = startLLMSpan({
+  model: "claude-sonnet-4-20250514",
   provider: "anthropic",
-  callType: "chat",
-  promptTokens: 150,
-  completionTokens: 80,
-  latencyMs: 1200,
-  totalCostUsd: 0.003,
+  input: "Summarize recent user signups",
 });
+llmSpan.setTokens({ prompt: 150, completion: 80, total: 230 });
+llmSpan.setCost(0.003);
+llmSpan.end();
 ```
 
 ### 2. Instrument Your Frontend

@@ -554,6 +554,13 @@ describe("mcp-server configuration & auth contract", () => {
 						},
 					],
 					citedEvidenceIds: ["ev_1"],
+					codeReferences: [
+						{
+							relativePath: "src/checkout/payment.ts",
+							symbolName: "chargeCard",
+							lineNumber: 42,
+						},
+					],
 					counterfactual: {
 						evalCaseId: "eval_1",
 						failingRunId: "run_fail",
@@ -568,6 +575,15 @@ describe("mcp-server configuration & auth contract", () => {
 				expect(
 					(h.calls[0].body as Record<string, unknown>).counterfactual,
 				).toBeUndefined();
+				expect(
+					(h.calls[0].body as Record<string, unknown>).codeReferences,
+				).toEqual([
+					{
+						relativePath: "src/checkout/payment.ts",
+						symbolName: "chargeCard",
+						lineNumber: 42,
+					},
+				]);
 				expect(h.calls[1].method).toBe("POST");
 				expect(h.calls[1].url.pathname).toBe(
 					"/internal/findings/fnd_99/counterfactual",

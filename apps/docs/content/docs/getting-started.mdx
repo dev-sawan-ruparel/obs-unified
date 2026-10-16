@@ -213,8 +213,8 @@ Before instrumenting an application (or when an AI agent scouts your repository)
 | Tier | Application shape | Supported signals | Notes & constraints |
 | --- | --- | --- | --- |
 | **Tier 1 — Full First-Party Unified Stack** | Browser SPAs & SSR web apps (React, Next.js, Vite, Vue, Svelte, Vanilla TS/JS) + TypeScript/Node/Edge backends (Cloudflare Workers, Hono, Express, Fastify) or Go/Rust services | Traces, Structured Logs, Metrics, Usage Events, `rrweb` DOM Session Replay, Click-to-Trace (`x-obs-interaction`), AI Calls, Agent Action Graph, CPU Profiles, AutoSRE Release Lineage & Feature Flags | Full out-of-the-box correlation via `@obsunified/analytics-sdk`, `@obsunified/telemetry-sdk`, `@obsunified/sdk`, `sdks/go`, and `sdks/rust`. |
-| **Tier 2 — Standard OpenTelemetry Backends** | Python (Flask, FastAPI, Django), Java/Kotlin (Spring Boot), .NET, Ruby, PHP, C++ | OTLP JSON Traces (`/v1/traces`), Logs (`/v1/logs`), Metrics (`/v1/metrics`), plus HTTP JSON ingest for AI Calls (`/v1/ai`) and Agent Action Graph (`/v1/actions`, `/v1/agent-runs`, `/v1/tool-calls`) | Use `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`. For browser click-to-trace correlation, read the incoming `x-obs-interaction` HTTP header and set span attribute `obs.interaction.id`. |
-| **Tier 3 — Partial or Constrained Shapes** | **Native Mobile** (iOS, Android, React Native, Flutter)<br/>**Headless / CLI / Cron**<br/>**Async Message Queues** (Kafka, SQS, RabbitMQ, BullMQ)<br/>**Protobuf-only OTLP** | Backend traces, logs, metrics, AI calls, and Action Graph (`triggerKind: "cron" \| "queue" \| "webhook"`) | **Native mobile:** No `rrweb` session replay (requires browser DOM).<br/>**Queues:** Producer must propagate `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message headers or consumer spans appear as disconnected roots.<br/>**Protobuf OTLP:** Collector requires `application/json`; place an OTel Collector gateway in front if agents only emit binary gRPC/protobuf. |
+| **Tier 2 — Standard OpenTelemetry Backends** | Python (Flask, FastAPI, Django), Java/Kotlin (Spring Boot), .NET, Ruby, PHP, C++ | OTLP HTTP Traces (`/v1/traces`), Logs (`/v1/logs`), Metrics (`/v1/metrics`), plus HTTP JSON ingest for AI Calls (`/v1/ai`), Agent Action Graph (`/v1/actions`, `/v1/agent-runs`, `/v1/tool-calls`), and Release Changes (`/v1/changes`) | Supports both `OTEL_EXPORTER_OTLP_PROTOCOL=http/json` and `http/protobuf` (with optional gzip). For browser click-to-trace correlation, read the incoming `x-obs-interaction` HTTP header and set span attribute `obs.interaction.id`. |
+| **Tier 3 — Partial or Constrained Shapes** | **Native Mobile** (iOS, Android, React Native, Flutter)<br/>**Headless / CLI / Cron**<br/>**Async Message Queues** (Kafka, SQS, RabbitMQ, BullMQ)<br/>**gRPC-only OTLP** | Backend traces, logs, metrics, AI calls, and Action Graph (`triggerKind: "cron" \| "queue" \| "webhook"`) | **Native mobile:** No `rrweb` session replay (requires browser DOM).<br/>**Queues:** Producer must propagate `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message headers or consumer spans appear as disconnected roots.<br/>**gRPC OTLP:** Collector endpoints speak HTTP (`application/json` and `application/x-protobuf`); place an OTel Collector gateway in front if agents only emit gRPC. |
 
 ### Common wiring & non-interactive scaffolding
 
@@ -261,7 +261,7 @@ If you are an AI coding agent (Claude Code, Cursor, Codex, Antigravity, Windsurf
 
 ## Standalone Node collector variant
 
-The all-in-one Docker image is the recommended first-run Docker path. If you only want the collector service backed by Postgres and MinIO/S3, use the standalone Node collector:
+The all-in-one Docker image is the recommended first-run Docker path. If you only want the collector service backed by Postgres and RustFS/S3, use the standalone Node collector:
 
 ```bash
 cd apps/collector-node

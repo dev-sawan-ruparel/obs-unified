@@ -22,8 +22,10 @@ The `EvidenceReference` is a Zod schema defined in [`packages/obs-types/src/type
   - `"trace"` (OpenTelemetry distributed trace)
   - `"span"` (individual OpenTelemetry span)
   - `"tool_call"` (MCP or GenAI tool execution record)
+  - `"ai_call"` (individual LLM/GenAI call record)
   - `"eval"` (automated model evaluation run or case)
   - `"profile"` (pprof CPU or off-CPU profile blob)
+  - `"replay"` (rrweb session replay stream)
   - `"service"` (logical service/system node)
   - `"log"` (individual log line record)
   - `"docs"` (documentation page or reference file)
@@ -36,8 +38,7 @@ The `EvidenceReference` is a Zod schema defined in [`packages/obs-types/src/type
 - **`confidence`** (number): A float strictly bounded between `0.0` (no confidence) and `1.0` (absolute certainty/explicit propagation).
 - **`relationshipCertainty`** (optional, `"exact" | "inferred" | "heuristic"`): How the graph link was constructed (`"exact"` for shared trace/span IDs or exact file-path match; `"inferred"` for statistical cohort isolation; `"heuristic"` for temporal window proximity).
 - **`causalProofTier`** (optional, `"counterfactual_verified" | "cohort_rate_isolated" | "corroborated_candidate" | "unverified_locus"`): How strongly causality has been proven for root-cause attribution and remediation gating (see [AutoSRE causal ontology](/docs/autosre)).
-- **`evidencePredicate`** (optional, `"triggered_by_interaction" | "caused_by_action" | "executed_in_agent_run" | "mutated_external_state" | "originated_fault_in_span" | "failed_due_to_child_span" | "contended_on_shared_resource" | "induced_shared_resource_contention" | "blackout_on_dependency" | "sampled_hot_frame" | "uninstrumented_self_time_gap" | "exemplifies_metric_spike" | "degraded_after_change" | "isolated_to_version_cohort" | "touched_same_code_path" | "mitigated_by_change" | "violated_eval" | "verified_by_counterfactual" | "remediated_by_agent_run" | "matches_prior_finding"`): Typed causal relation between the anchor entity and this evidence node.
-- **`environment`** (optional, string): Canonical deployment environment scope (e.g. `"prod"`, `"staging"`).
+- **`predicate`** (optional, `"triggered_by_interaction" | "caused_by_action" | "executed_in_agent_run" | "mutated_external_state" | "originated_fault_in_span" | "failed_due_to_child_span" | "contended_on_shared_resource" | "induced_shared_resource_contention" | "blackout_on_dependency" | "sampled_hot_frame" | "uninstrumented_self_time_gap" | "exemplifies_metric_spike" | "degraded_after_change" | "isolated_to_version_cohort" | "touched_same_code_path" | "mitigated_by_change" | "violated_eval" | "verified_by_counterfactual" | "remediated_by_agent_run" | "matches_prior_finding"`): Typed causal relation between the anchor entity and this evidence node (represented as `evidencePredicate` on `ConnectedLink` items, while `EvidenceBundle` and `ConnectedLink` also carry the canonical `environment` scope).
 - **`reason`** (string): Human-readable summary explaining why this evidence is relevant.
 - **`citations`** (array of citations): Supporting files, traces, or documentation that support this evidence.
 - **`suggestedNextPivots`** (array of pivots): Recommended exploration routes to help investigate from this anchor.
@@ -87,12 +88,68 @@ The JSON Schema definition is exported by `@obsunified/types` (`EvidenceReferenc
     "evidenceId": { "type": "string" },
     "entityKind": {
       "type": "string",
-      "enum": ["analysis", "alert", "agent_run", "action", "trace", "span", "tool_call", "eval", "profile", "service", "log", "docs"]
+      "enum": [
+        "analysis",
+        "alert",
+        "agent_run",
+        "action",
+        "trace",
+        "span",
+        "tool_call",
+        "ai_call",
+        "eval",
+        "profile",
+        "replay",
+        "service",
+        "log",
+        "docs",
+        "change",
+        "finding",
+        "incident"
+      ]
     },
     "entityId": { "type": "string" },
     "route": { "type": "string" },
     "source": { "type": "string" },
     "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "relationshipCertainty": {
+      "type": "string",
+      "enum": ["exact", "inferred", "heuristic"]
+    },
+    "causalProofTier": {
+      "type": "string",
+      "enum": [
+        "counterfactual_verified",
+        "cohort_rate_isolated",
+        "corroborated_candidate",
+        "unverified_locus"
+      ]
+    },
+    "predicate": {
+      "type": "string",
+      "enum": [
+        "triggered_by_interaction",
+        "caused_by_action",
+        "executed_in_agent_run",
+        "mutated_external_state",
+        "originated_fault_in_span",
+        "failed_due_to_child_span",
+        "contended_on_shared_resource",
+        "induced_shared_resource_contention",
+        "blackout_on_dependency",
+        "sampled_hot_frame",
+        "uninstrumented_self_time_gap",
+        "exemplifies_metric_spike",
+        "degraded_after_change",
+        "isolated_to_version_cohort",
+        "touched_same_code_path",
+        "mitigated_by_change",
+        "violated_eval",
+        "verified_by_counterfactual",
+        "remediated_by_agent_run",
+        "matches_prior_finding"
+      ]
+    },
     "reason": { "type": "string" },
     "citations": {
       "type": "array",
@@ -104,7 +161,25 @@ The JSON Schema definition is exported by `@obsunified/types` (`EvidenceReferenc
           "label": { "type": "string" },
           "entityKind": {
             "type": "string",
-            "enum": ["analysis", "alert", "agent_run", "action", "trace", "span", "tool_call", "eval", "profile", "service", "log", "docs"]
+            "enum": [
+              "analysis",
+              "alert",
+              "agent_run",
+              "action",
+              "trace",
+              "span",
+              "tool_call",
+              "ai_call",
+              "eval",
+              "profile",
+              "replay",
+              "service",
+              "log",
+              "docs",
+              "change",
+              "finding",
+              "incident"
+            ]
           },
           "entityId": { "type": "string" },
           "route": { "type": ["string", "null"] }
@@ -121,7 +196,25 @@ The JSON Schema definition is exported by `@obsunified/types` (`EvidenceReferenc
           "label": { "type": "string" },
           "entityKind": {
             "type": "string",
-            "enum": ["analysis", "alert", "agent_run", "action", "trace", "span", "tool_call", "eval", "profile", "service", "log", "docs"]
+            "enum": [
+              "analysis",
+              "alert",
+              "agent_run",
+              "action",
+              "trace",
+              "span",
+              "tool_call",
+              "ai_call",
+              "eval",
+              "profile",
+              "replay",
+              "service",
+              "log",
+              "docs",
+              "change",
+              "finding",
+              "incident"
+            ]
           },
           "entityId": { "type": "string" },
           "route": { "type": "string" },

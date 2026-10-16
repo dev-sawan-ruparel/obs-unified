@@ -32,7 +32,6 @@
 	"files": [
 		"dist",
 		"src",
-		"migrations",
 		"README.md"
 	],
 	"sideEffects": false,

@@ -41,6 +41,16 @@ const causalTripleSchema = z.object({
 	reason: z.string().optional(),
 });
 
+const codeReferenceSchema = z.object({
+	repoName: z.string().optional(),
+	relativePath: z.string().optional(),
+	absolutePath: z.string().optional(),
+	originalPath: z.string().optional(),
+	symbolName: z.string().optional(),
+	lineNumber: z.number().int().optional(),
+	columnNumber: z.number().int().optional(),
+});
+
 /**
  * Opt-in write tools (OBS_MCP_ENABLE_WRITES=true). They mutate collector
  * state and require the dashboard bearer token.
@@ -82,6 +92,7 @@ export function registerAutosreWriteTools(
 					.optional(),
 				causalChain: z.array(causalTripleSchema),
 				citedEvidenceIds: z.array(z.string()),
+				codeReferences: z.array(codeReferenceSchema).optional(),
 				agentRunId: z.string().optional(),
 				counterfactual: z
 					.object({

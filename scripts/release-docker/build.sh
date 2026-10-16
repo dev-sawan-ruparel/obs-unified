@@ -26,12 +26,26 @@ VERSION=""
 TAG_LATEST=true
 DRY_RUN=false
 COMMIT_SHA=""
+PLATFORMS=""
+PUSH_IMAGE=false
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--sha)
 			COMMIT_SHA="$2"
 			shift 2
+			;;
+		--platform)
+			PLATFORMS="$2"
+			shift 2
+			;;
+		--multiarch)
+			PLATFORMS="linux/amd64,linux/arm64"
+			shift
+			;;
+		--push)
+			PUSH_IMAGE=true
+			shift
 			;;
 		--no-latest)
 			TAG_LATEST=false
@@ -42,7 +56,7 @@ while [[ $# -gt 0 ]]; do
 			shift
 			;;
 		--help|-h)
-			echo "Usage: $0 [version] [--sha <git-sha>] [--no-latest] [--dry-run]"
+			echo "Usage: $0 [version] [--sha <git-sha>] [--platform <arch-list>|--multiarch] [--push] [--no-latest] [--dry-run]"
 			exit 0
 			;;
 		*)
@@ -89,13 +103,33 @@ LABELS=(
 	"--label" "org.opencontainers.image.licenses=MIT"
 )
 
-BUILD_CMD=(
-	"docker" "build"
-	"-f" "Dockerfile"
-	"${TAGS[@]}"
-	"${LABELS[@]}"
-	"."
-)
+if [ -n "$PLATFORMS" ] || [ "$PUSH_IMAGE" = true ]; then
+	BUILD_CMD=(
+		"docker" "buildx" "build"
+		"-f" "Dockerfile"
+	)
+	if [ -n "$PLATFORMS" ]; then
+		BUILD_CMD+=("--platform" "$PLATFORMS")
+	fi
+	if [ "$PUSH_IMAGE" = true ]; then
+		BUILD_CMD+=("--push")
+	else
+		BUILD_CMD+=("--load")
+	fi
+	BUILD_CMD+=(
+		"${TAGS[@]}"
+		"${LABELS[@]}"
+		"."
+	)
+else
+	BUILD_CMD=(
+		"docker" "build"
+		"-f" "Dockerfile"
+		"${TAGS[@]}"
+		"${LABELS[@]}"
+		"."
+	)
+fi
 
 echo "=========================================================="
 echo "obs-unified GHCR Release Image Build"
@@ -104,6 +138,10 @@ echo "Image:        ${FULL_IMAGE}"
 echo "Version:      ${VERSION}"
 echo "Commit SHA:   ${COMMIT_SHA}"
 echo "Build Date:   ${BUILD_DATE}"
+if [ -n "$PLATFORMS" ]; then
+	echo "Platforms:    ${PLATFORMS}"
+fi
+echo "Push:         ${PUSH_IMAGE}"
 echo "Tags:"
 echo "  - ${FULL_IMAGE}:${VERSION}"
 echo "  - ${FULL_IMAGE}:sha-${COMMIT_SHA}"
@@ -131,13 +169,9 @@ echo ""
 echo "Next validation step:"
 echo "  bash scripts/release-docker/smoke.sh ${FULL_IMAGE}:${VERSION}"
 echo ""
-echo "To publish manually to GitHub Container Registry (GHCR):"
+echo "To publish multi-arch (linux/amd64,linux/arm64) to GitHub Container Registry (GHCR):"
 echo "  1. Authenticate to GHCR using existing gh session or docker credential helper:"
 echo "       gh auth token | docker login ghcr.io -u <github-username> --password-stdin"
-echo "  2. Push the tagged images:"
-echo "       docker push ${FULL_IMAGE}:${VERSION}"
-echo "       docker push ${FULL_IMAGE}:sha-${COMMIT_SHA}"
-if [ "$TAG_LATEST" = true ]; then
-	echo "       docker push ${FULL_IMAGE}:latest"
-fi
+echo "  2. Build and push multi-arch manifest list:"
+echo "       bash scripts/release-docker/build.sh ${VERSION} --multiarch --push"
 echo "=========================================================="

@@ -1039,7 +1039,7 @@ async function main(): Promise<void> {
 	const client = new CollectorClient(config);
 	const server = new McpServer({
 		name: "obs-unified",
-		version: "1.0.0",
+		version: "2.3.0",
 	});
 
 	registerTools(server, client);

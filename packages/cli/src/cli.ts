@@ -13,7 +13,7 @@
  * can be tested directly against a fake fetch.
  *
  * The CLI is host-agnostic — it does not assume Cloudflare. The `up`
- * subcommand boots the Node + Postgres + MinIO stack from
+ * subcommand boots the Node + Postgres + RustFS stack from
  * `apps/collector-node/docker-compose.yml`.
  */
 
@@ -44,7 +44,7 @@ ${kleur.bold("obs-unified")} — observability that fits in one box
 Usage: ${kleur.cyan("obs-unified")} <command> [options]
 
 Commands:
-  ${kleur.cyan("up")}                    Start the local stack (Postgres + MinIO + collector)
+  ${kleur.cyan("up")}                    Start the local stack (Postgres + RustFS + collector)
   ${kleur.cyan("down")}                  Stop the local stack
   ${kleur.cyan("create")} <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--yes]
                         Scaffold a new app pre-wired with the SDKs (non-interactive when --template or --yes is passed)

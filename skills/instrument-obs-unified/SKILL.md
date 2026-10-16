@@ -27,7 +27,7 @@ Read `package.json` (or `pyproject.toml` / `go.mod` / `Cargo.toml`). Classify th
   - **Frontend**: `react`, `vite`, `next`, `solid-js`, `vue`, `svelte`, `@remix-run/*` (`@obsunified/analytics-sdk` — page views, clicks, `x-obs-interaction`, `rrweb` DOM replay)
   - **Backend**: `hono`, `express`, `fastify`, `koa`, `elysia`, Cloudflare Workers (`@obsunified/telemetry-sdk` or `@obsunified/sdk`), or Go/Rust (`sdks/go`, `sdks/rust`)
   - **AI/LLM**: `openai`, `@anthropic-ai/sdk`, `@google/genai`, `langchain`, `@vercel/ai`, `ai`
-- **Tier 2 (Standard OpenTelemetry Backends):** Python, Java/Kotlin, .NET, Ruby, PHP, C++ via OTLP HTTP/JSON (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`) + `obs.interaction.id` span attribute from `x-obs-interaction`.
+- **Tier 2 (Standard OpenTelemetry Backends):** Python, Java/Kotlin, .NET, Ruby, PHP, C++ via OTLP HTTP (`OTEL_EXPORTER_OTLP_PROTOCOL=http/json` or `http/protobuf`) + `obs.interaction.id` span attribute from `x-obs-interaction`.
 - **Tier 3 (Partial or Constrained Shapes — report to user before editing):**
   - **Native mobile (`react-native`, `expo`, Swift, Kotlin, Flutter):** Backend traces/logs/AI calls work; `rrweb` DOM session replay is **not supported**.
   - **CLI / Cron / Headless workers:** Backend traces/logs/AI calls/Action Graph (`triggerKind: "cron" | "queue"`) work; browser replay is N/A.
