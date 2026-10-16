@@ -13,11 +13,11 @@ Two paths, depending on how you prefer to manage skills.
 
 ### A. As pre-built `.skill` bundles (recommended)
 
-Each skill ships as a `.skill` file (a zip of the skill directory), attached to [GitHub Releases](https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.3) — no clone or build needed:
+Each skill ships as a `.skill` file (a zip of the skill directory), attached to [GitHub Releases](https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.4) — no clone or build needed:
 
 ```bash
-curl -LO https://github.com/dev-sawan-ruparel/obs-unified/releases/download/skills-v0.1.3/instrument-obs-unified.skill
-curl -LO https://github.com/dev-sawan-ruparel/obs-unified/releases/download/skills-v0.1.3/investigate-obs-unified.skill
+curl -LO https://github.com/dev-sawan-ruparel/obs-unified/releases/download/skills-v0.1.4/instrument-obs-unified.skill
+curl -LO https://github.com/dev-sawan-ruparel/obs-unified/releases/download/skills-v0.1.4/investigate-obs-unified.skill
 cp *.skill ~/.claude/skills/
 
 # or install with one command if your Claude Code version supports it:
