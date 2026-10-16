@@ -203,7 +203,7 @@ spec:
     spec:
       containers:
       - name: collector
-        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.3  # pin a tested version; avoid :latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.3.0  # pin a tested version; avoid :latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -273,7 +273,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
       - name: maintenance
-        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.2.3  # pin a tested version; avoid :latest
+        image: ghcr.io/dev-sawan-ruparel/obs-unified:2.3.0  # pin a tested version; avoid :latest
         ports:
         - containerPort: 8790
         envFrom:
@@ -322,12 +322,12 @@ If you prefer a scheduler you already operate, set `MAINTENANCE_ENABLED: "false"
 
 During software updates, execute database migrations *before* recycling rolling container deployments to prevent schema mismatch errors inside the collector instances.
 
-Pin the image to the version you are rolling out (`:2.2.3` here; use your target release) rather than `:latest`. Run the migrations securely on your database using a temporary migrations job container:
+Pin the image to the version you are rolling out (`:2.3.0` here; use your target release) rather than `:latest`. Run the migrations securely on your database using a temporary migrations job container:
 
 ```bash
 docker run --rm \
   -e DATABASE_URL="postgres://user:pass@pg-host:5432/obs_unified" \
-  ghcr.io/dev-sawan-ruparel/obs-unified:2.2.3 \
+  ghcr.io/dev-sawan-ruparel/obs-unified:2.3.0 \
   node /repo/apps/collector-node/scripts/migrate-pg.mjs
 ```
 

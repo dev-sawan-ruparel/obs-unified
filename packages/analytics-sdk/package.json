@@ -1,6 +1,6 @@
 {
 	"name": "@obsunified/analytics-sdk",
-	"version": "2.1.2",
+	"version": "2.1.3",
 	"description": "Browser analytics SDK — usage events, interaction_id auto-correlation, session replay, React provider.",
 	"license": "MIT",
 	"repository": {

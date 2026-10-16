@@ -1,5 +1,12 @@
 # @obsunified/telemetry-sdk
 
+## 2.1.3
+
+### Patch Changes
+
+- Updated dependencies [fc42238]
+  - @obsunified/types@2.3.0
+
 ## 2.1.2
 
 ### Patch Changes
