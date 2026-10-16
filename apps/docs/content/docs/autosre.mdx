@@ -120,14 +120,51 @@ pnpm dlx @obsunified/cli changes record \
 
 ## Agent workflow with MCP tools
 
-The `@obsunified/mcp-server` exposes three read-only AutoSRE tools by default alongside `get_evidence_bundle` (`intent: "triage_incident"`), plus three opt-in write tools enabled when `OBS_MCP_ENABLE_WRITES=true`:
+The `@obsunified/mcp-server` registers seven read tools for AutoSRE by default, plus four opt-in write tools that are only registered when `OBS_MCP_ENABLE_WRITES=true`:
 
-1. **`get_evidence_bundle`** (`intent: "triage_incident"`, or any `incident` / `change` / `finding` anchor) — Returns a token-budgeted incident bundle with `bundle.autosre` (`faultLocus`, `candidateChanges`, `contentionCandidates`, and `priorFindings`).
+1. **`get_evidence_bundle`** (`intent: "triage_incident"`, or any `incident` / `change` / `finding` anchor) — Returns a token-budgeted incident bundle with `bundle.autosre` (`faultLocus`, `candidateChanges`, `contentionCandidates`, and `priorFindings`). `priorFindings` match the fault locus by entity id **and** by recurrence fingerprint, so a failure that recurs on a different trace of the same service, route and error signature surfaces the findings and fixes recorded before.
 2. **`list_recent_changes`** — Lists recent deploys, flag flips, config updates, and prompt releases scoped by `environment` and `serviceName`.
 3. **`get_change_blast_radius`** — Computes traffic-normalized cohort error-rate lift (`isolated_to_new_version`, `sequential_post_cutover_regression`, `shared_degradation_new_version_aggressor`, `shared_degradation_external_cause`, `no_regression_detected`, or `insufficient_sample`), noisy-neighbor contention, and stack-frame `touchedPaths` overlap.
 4. **`search_similar_findings`** — Queries historical `InvestigationFinding` records by stable `fingerprint` (`environment + originatingNodeId + normalizedOperation + errorSignature + downstreamTargetNodeId`) so recurring incidents immediately surface proven prior fixes.
-5. **`record_investigation_finding`** *(requires `OBS_MCP_ENABLE_WRITES=true`)* — Persists a structured finding with `causalChain` triples (`degraded_after_change`, `isolated_to_version_cohort`, `touched_same_code_path`, `contended_on_shared_resource`, `induced_shared_resource_contention`, `originated_fault_in_span`, `verified_by_counterfactual`, `mitigated_by_change`, `remediated_by_agent_run`), `citedEvidenceIds`, and optional paired counterfactual eval run IDs. The collector derives `causalProofTier` server-side from `contributingChangeId`'s blast radius and counterfactual proof so uncorroborated client claims cannot inflate autonomy.
-6. **`propose_remediation_action`** & **`claim_remediation_grant`** *(require `OBS_MCP_ENABLE_WRITES=true`)* — Evaluates the pre-execution policy matrix and manages the CAS execution grant lifecycle (`claim`, `complete`, `fail`).
+5. **`list_incidents`**, **`get_incident`**, **`get_remediation_proposal`** — Read incidents (filter by `environment`, `status`, `limit`), one incident with its findings and proposals, and one proposal's status. None of them ever returns a grant token.
+6. **`open_incident`** *(write)* — Opens an incident, or joins the active one for the same symptom (`deduplicated: true`). Its id is the `incidentId` that proposals require.
+7. **`record_investigation_finding`** *(write)* — Persists a structured finding with `causalChain` triples (`degraded_after_change`, `isolated_to_version_cohort`, `touched_same_code_path`, `contended_on_shared_resource`, `induced_shared_resource_contention`, `originated_fault_in_span`, `verified_by_counterfactual`, `mitigated_by_change`, `remediated_by_agent_run`), `citedEvidenceIds`, and optional paired counterfactual eval run IDs. The collector derives `causalProofTier` server-side from `contributingChangeId`'s blast radius and counterfactual proof so uncorroborated client claims cannot inflate autonomy.
+   - Eval runs named in `counterfactual` are checked first (`GET /internal/evals/runs/:id`); a missing run fails the call before anything is stored.
+   - If verification fails after the finding was stored, the call still succeeds and returns `data.finding` plus `data.counterfactualError` instead of an error that hides the finding id.
+   - Pass an `idempotencyKey` so a retry returns the already-recorded finding instead of inserting a duplicate.
+   - When `fingerprintInput` is omitted and `faultLocusEntityId` is a span id, the collector resolves that span's service, operation (span name) and error signature, so every incident failing the same way on the same service shares one fingerprint (and one circuit-breaker budget) instead of minting a new one per span id. Unknown spans fall back to treating the id as a service name.
+8. **`propose_remediation_action`** & **`claim_remediation_grant`** *(write)* — Evaluate the pre-execution policy matrix and manage the CAS execution grant lifecycle (`claim`, `complete`, `fail`). `propose_remediation_action` also accepts optional `webhookUrl` and `webhookSecret` (see below).
+
+## Policy matrix and statuses
+
+`causalProofTier` and the requested autonomy decide `effectiveAutonomy`:
+
+| Action | `counterfactual_verified` | `cohort_rate_isolated` | `corroborated_candidate` | `unverified_locus` |
+| --- | --- | --- | --- | --- |
+| `rollback_deploy`, `toggle_feature_flag` | `autonomous_write` | `autonomous_write` | `human_approved_write` | `blocked_by_policy` |
+| `open_code_pr` | `autonomous_write` | `autonomous_write` | `autonomous_write` | `human_approved_write` |
+| `apply_config`, `promote_agent_prompt` | `autonomous_write` | `human_approved_write` | `human_approved_write` | `blocked_by_policy` |
+
+- A caller can only lower the result: `requestedAutonomy: "human_approved_write"` turns an autonomous grant into a human-approval proposal, and `read_only` / `suggested_action` never produce a grant (a human can still approve the parked proposal).
+- A circuit breaker blocks the fourth live proposal of the same action kind for one finding fingerprint within an hour (`rejected` and `expired` proposals do not count).
+- `effectiveAutonomy: "blocked_by_policy"` is the policy decision. The resulting proposal `status` is `rejected`; a proposal that a human rejects later is also `rejected`, but its `effectiveAutonomy` keeps the original decision.
+- The compare-and-swap check of `expectedCurrentState` happens when the grant is **claimed**, not when it is proposed.
+
+Statuses a proposal can actually reach: `pending_human_approval`, `grant_issued`, `claimed_executing`, `completed`, `failed_execution`, `execution_timed_out` (the runner missed the 5-minute claim window; set by the watchdog), `expired` (the grant was not claimed within 5 minutes), and `rejected`. `proposed` exists in the schema but is not emitted by the current creation path.
+
+## Approval → execution handoff
+
+A grant is a single-use `grantToken` (`rgt_…`) minted by the collector. Only its hash is stored, so the token exists in exactly one place: the response of the request that mints it. That is the `propose` response when the policy grants autonomy, or the `POST /internal/remediations/:id/approve` response after a human approves (the dashboard approval card shows it once, with a copy button). `GET /internal/remediations/:id`, the list route, `get_remediation_proposal`, and evidence bundles never return it.
+
+The runner must claim the token within **5 minutes** (`grantExpiresAt`) and then complete or fail within 5 minutes of the claim. There are three ways to get the token to the runner:
+
+1. **Human pastes it.** Approve in the dashboard, copy the token from the card, give it to the runner, which calls `claim_remediation_grant` (`operation: "claim"`).
+2. **Callback stored at propose time.** Give `propose_remediation_action` (or `POST /internal/remediations/propose`) a `webhookUrl` and optional `webhookSecret` (`secret` in the HTTP body). When the proposal is parked for human approval the callback is stored on it; the approval card shows "Grant will also be delivered to <host>" and GETs expose only `callbackHost`, never the URL path, query or secret. When a human approves without supplying a callback, the collector posts the grant to the stored callback. The stored callback is cleared as soon as the proposal is approved or rejected. The secret is stored as supplied (the collector has no at-rest encryption helper), so treat the database as sensitive; it is never returned by any route.
+3. **Callback on the approve request.** `POST /internal/remediations/:id/approve` with `{"webhookUrl": "...", "secret": "..."}` (a human dashboard session is required; the web UI does not send these). It wins over a stored callback. The same fields on an autonomous `propose` deliver the grant immediately.
+
+Webhook delivery is an HMAC-SHA256 signed POST (`X-Obs-Signature-256: sha256=<hex of the raw body>` when a secret is set) with `event: "autosre.remediation.grant_issued"`, `proposalId`, `status`, `grantToken`, and the incident context. It is SSRF-guarded: private or unresolvable hosts are refused unless the operator sets `ALERT_WEBHOOK_ALLOW_PRIVATE=true`, redirects are never followed, and the request times out after 5 seconds. Delivery failure does not undo the approval: the response carries `webhookDelivery: { delivered: false, error }` and still contains the token, but it is not retried automatically.
+
+**Lost responses.** Replaying `propose` with the same `idempotencyKey` returns the existing proposal and its current status but `grantToken: null`; approving a proposal that is already `grant_issued` returns 409. If the token never reached the runner, reject the `grant_issued` proposal (or wait for it to become `expired`; both free the circuit-breaker slot) and propose again with a new `idempotencyKey`. An unclaimed grant never executes on its own.
 
 ---
 

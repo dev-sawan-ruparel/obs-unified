@@ -4,7 +4,7 @@ import type {
 	RemediationProposalStatus,
 	RemediationStateSpec,
 } from "@obsunified/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDashboard } from "../provider";
 import { hashRoutes } from "../routes";
 import { errorMessage, useApi } from "../use-api";
@@ -185,6 +185,8 @@ export interface RemediationApprovalCardProps {
 	error?: string | null;
 	/** Controlled one-time grant token; overrides the token from onApprove. */
 	grantToken?: string | null;
+	/** Deep-linked proposal: highlighted and scrolled into view. */
+	selected?: boolean;
 }
 
 const grantTokenFrom = (result: unknown): string | null => {
@@ -270,7 +272,12 @@ export function RemediationApprovalCard({
 	readOnly = false,
 	error,
 	grantToken,
+	selected = false,
 }: RemediationApprovalCardProps) {
+	const rootRef = useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		if (selected) rootRef.current?.scrollIntoView?.({ block: "center" });
+	}, [selected]);
 	const [confirming, setConfirming] = useState<"approve" | "reject" | null>(
 		null,
 	);
@@ -319,9 +326,15 @@ export function RemediationApprovalCard({
 
 	return (
 		<div
+			ref={rootRef}
 			data-remediation-id={proposal.id}
 			data-remediation-status={proposal.status}
-			className="border border-sys-outline bg-sys-surface p-3 flex flex-col gap-2 text-[0.75rem]"
+			data-selected={selected ? "true" : undefined}
+			className={`border bg-sys-surface p-3 flex flex-col gap-2 text-[0.75rem] ${
+				selected
+					? "border-sys-primary ring-2 ring-sys-primary"
+					: "border-sys-outline"
+			}`}
 		>
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="flex flex-wrap items-center gap-1.5">
@@ -377,6 +390,15 @@ export function RemediationApprovalCard({
 					</span>
 				)}
 			</div>
+
+			{isPendingApproval && proposal.callbackHost && (
+				<div
+					data-callback-host={proposal.callbackHost}
+					className="text-[0.6875rem] text-sys-on-surface-muted font-mono"
+				>
+					Grant will also be delivered to {proposal.callbackHost}
+				</div>
+			)}
 
 			{diffs.length > 0 && (
 				<div className="bg-sys-surface-low border border-sys-outline-soft p-2 font-mono text-[0.6875rem]">
@@ -556,6 +578,8 @@ export interface RemediationApprovalQueueProps {
 	onApprove?: (id: string) => unknown;
 	onReject?: (id: string, reason?: string) => unknown;
 	onNavigate?: (href: string) => void;
+	/** Deep link (`#/remediations/:id`): that proposal is shown first, expanded and highlighted. */
+	selectedProposalId?: string;
 }
 
 function RemediationApprovalQueueContent({
@@ -565,7 +589,9 @@ function RemediationApprovalQueueContent({
 	onApprove,
 	onReject,
 	onNavigate,
+	selectedProposalId,
 }: {
+	selectedProposalId?: string;
 	proposals: RemediationProposalView[];
 	busyId?: string | null;
 	readOnly?: boolean;
@@ -580,6 +606,15 @@ function RemediationApprovalQueueContent({
 	const pendingCount = proposals.filter(
 		(p) => p.status === "pending_human_approval",
 	).length;
+	const hasSelection = Boolean(
+		selectedProposalId && proposals.some((p) => p.id === selectedProposalId),
+	);
+	const ordered = hasSelection
+		? [
+				...proposals.filter((p) => p.id === selectedProposalId),
+				...proposals.filter((p) => p.id !== selectedProposalId),
+			]
+		: proposals;
 
 	return (
 		<Card className="mb-2 p-3 flex-none">
@@ -587,11 +622,16 @@ function RemediationApprovalQueueContent({
 				title="AutoSRE Remediation Proposals & Human Approval Queue"
 				note={`${pendingCount} pending human approval · ${proposals.length} total`}
 			/>
-			<div className="mt-2 grid grid-cols-1 xl:grid-cols-2 gap-2 max-h-[280px] overflow-y-auto">
-				{proposals.map((proposal) => (
+			<div
+				className={`mt-2 grid grid-cols-1 xl:grid-cols-2 gap-2 overflow-y-auto ${
+					hasSelection ? "" : "max-h-[280px]"
+				}`}
+			>
+				{ordered.map((proposal) => (
 					<RemediationApprovalCard
 						key={proposal.id}
 						proposal={proposal}
+						selected={hasSelection && proposal.id === selectedProposalId}
 						busy={busyId === proposal.id}
 						readOnly={readOnly}
 						onApprove={onApprove}
@@ -608,6 +648,7 @@ function AutoFetchedRemediationApprovalQueue({
 	onApprove: externalApprove,
 	onReject: externalReject,
 	onNavigate,
+	selectedProposalId,
 }: Omit<RemediationApprovalQueueProps, "proposals">) {
 	const { basePath, fetcher } = useDashboard();
 	const api = useApi();
@@ -640,6 +681,29 @@ function AutoFetchedRemediationApprovalQueue({
 			active = false;
 		};
 	}, [api]);
+
+	// A deep-linked proposal outside the recent list is fetched by id.
+	const [fetchedSelected, setFetchedSelected] =
+		useState<RemediationProposalView | null>(null);
+	const listHasSelected = proposals.some((p) => p.id === selectedProposalId);
+	useEffect(() => {
+		if (!selectedProposalId || listHasSelected) return;
+		let active = true;
+		api<{ proposal?: RemediationProposalView } | null>(
+			`/remediations/${encodeURIComponent(selectedProposalId)}`,
+		)
+			.then((body) => {
+				if (active && body?.proposal) setFetchedSelected(body.proposal);
+			})
+			.catch(() => undefined);
+		return () => {
+			active = false;
+		};
+	}, [api, selectedProposalId, listHasSelected]);
+	const visibleProposals =
+		fetchedSelected && !listHasSelected
+			? [fetchedSelected, ...proposals]
+			: proposals;
 
 	// Handlers rethrow so the card can render the failure to the operator.
 	const handleApprove = useCallback(
@@ -685,7 +749,8 @@ function AutoFetchedRemediationApprovalQueue({
 
 	return (
 		<RemediationApprovalQueueContent
-			proposals={proposals}
+			proposals={visibleProposals}
+			selectedProposalId={selectedProposalId}
 			busyId={busyId}
 			onApprove={handleApprove}
 			onReject={handleReject}
@@ -703,6 +768,7 @@ export function RemediationApprovalQueue(props: RemediationApprovalQueueProps) {
 		return (
 			<RemediationApprovalQueueContent
 				proposals={props.proposals}
+				selectedProposalId={props.selectedProposalId}
 				readOnly={readOnly}
 				onApprove={props.onApprove}
 				onReject={props.onReject}

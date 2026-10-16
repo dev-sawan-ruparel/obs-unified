@@ -1,6 +1,16 @@
-import type { EvidenceBundle, EvidenceRetrievalRef } from "@obsunified/types";
+import type {
+	EvidenceBundle,
+	EvidenceNextPivot,
+	EvidenceReference,
+	EvidenceRetrievalRef,
+} from "@obsunified/types";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
+import {
+	type ConnectedEntityKind,
+	ConnectedRail,
+	normalizeConnectedHref,
+} from "../components/ConnectedRail";
 import {
 	Card,
 	SectionTitle,
@@ -22,6 +32,288 @@ export type AnchorKind =
 export interface EvidenceDashboardProps {
 	initialAnchorKind?: AnchorKind;
 	initialAnchorId?: string;
+	/** Hash/href navigation for pivots and the connected rail. */
+	onNavigate?: (href: string) => void;
+}
+
+/**
+ * Evidence anchors that are also connected-graph entities. A `trace` anchor
+ * has no rail entity of its own (the rail keys on spans), so it is omitted.
+ */
+export function connectedKindForAnchor(
+	kind: AnchorKind,
+): ConnectedEntityKind | null {
+	switch (kind) {
+		case "action":
+		case "agent_run":
+		case "tool_call":
+		case "change":
+		case "finding":
+		case "incident":
+			return kind;
+		default:
+			return null;
+	}
+}
+
+const navigateHref = (href: string, onNavigate?: (href: string) => void) => {
+	const normalized = normalizeConnectedHref(href);
+	if (onNavigate) {
+		onNavigate(normalized);
+		return;
+	}
+	if (typeof location !== "undefined") {
+		if (normalized.startsWith("#")) location.hash = normalized.slice(1);
+		else location.href = normalized;
+	}
+};
+
+function PivotButton({
+	pivot,
+	onNavigate,
+}: {
+	pivot: EvidenceNextPivot;
+	onNavigate?: (href: string) => void;
+}) {
+	return (
+		<button
+			type="button"
+			data-pivot-route={pivot.route}
+			onClick={() => navigateHref(pivot.route, onNavigate)}
+			className="border border-sys-outline-soft bg-sys-surface px-2 py-1 text-left text-[0.75rem] hover:bg-sys-surface-high cursor-pointer"
+			title={pivot.reason}
+		>
+			<span className="font-semibold">{pivot.label}</span>
+			<span className="ml-2 font-mono text-sys-on-surface-muted">
+				{pivot.entityKind}:{compactId(pivot.entityId)}
+			</span>
+		</button>
+	);
+}
+
+function EvidenceReferenceRow({
+	reference,
+	onNavigate,
+}: {
+	reference: EvidenceReference;
+	onNavigate?: (href: string) => void;
+}) {
+	return (
+		<div
+			data-evidence-reference={reference.evidenceId}
+			className="border border-sys-outline-soft bg-sys-surface p-2 text-[0.75rem]"
+		>
+			<div className="flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					onClick={() => navigateHref(reference.route, onNavigate)}
+					className="font-mono font-semibold underline cursor-pointer"
+				>
+					{reference.entityKind}:{compactId(reference.entityId)}
+				</button>
+				<span className="text-sys-on-surface-muted">{reference.source}</span>
+				{reference.relationshipCertainty && (
+					<span className="font-mono uppercase text-[0.625rem]">
+						{reference.relationshipCertainty}
+					</span>
+				)}
+				{reference.causalProofTier && (
+					<span className="font-mono uppercase text-[0.625rem]">
+						{reference.causalProofTier}
+					</span>
+				)}
+				<span className="ml-auto font-mono text-sys-on-surface-muted">
+					conf {reference.confidence.toFixed(2)}
+				</span>
+			</div>
+			<div className="mt-1 leading-5 text-sys-on-surface-muted">
+				{reference.reason}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Entity bundles (change, finding, incident, ...) carry their substance in
+ * `evidenceReferences`, `suggestedNextPivots` and `autosre`, not in retrieval
+ * refs, so those are rendered here together with the connected rail.
+ */
+export function EvidenceBundleDetails({
+	bundle,
+	onNavigate,
+}: {
+	bundle: EvidenceBundle;
+	onNavigate?: (href: string) => void;
+}) {
+	const autosre = bundle.autosre;
+	const railKind = bundle.anchor
+		? connectedKindForAnchor(bundle.anchor.entityKind as AnchorKind)
+		: null;
+	return (
+		<div className="space-y-3" data-evidence-details>
+			{autosre?.faultLocus && (
+				<div
+					data-fault-locus
+					className="border border-sys-outline-soft bg-sys-surface-low p-3 text-[0.75rem]"
+				>
+					<SectionTitle title="Fault Locus" />
+					<div className="mt-1 flex flex-wrap items-center gap-3 font-mono">
+						<span>{autosre.faultLocus.nodeId}</span>
+						{autosre.faultLocus.spanId && (
+							<span>span {compactId(autosre.faultLocus.spanId)}</span>
+						)}
+						<span className="uppercase">
+							{autosre.faultLocus.relationshipCertainty}
+						</span>
+						{autosre.faultLocus.isBlackoutSuspected && (
+							<span className="text-sys-warning">blackout suspected</span>
+						)}
+					</div>
+				</div>
+			)}
+
+			{autosre && autosre.candidateChanges.length > 0 && (
+				<div data-candidate-changes>
+					<SectionTitle title="Candidate Changes" />
+					<div className="mt-2 overflow-x-auto">
+						<table className="w-full text-left text-[0.75rem]">
+							<thead className="text-sys-on-surface-subtle">
+								<tr>
+									<th className="px-2 py-1">Change</th>
+									<th className="px-2 py-1">Kind</th>
+									<th className="px-2 py-1">Version</th>
+									<th className="px-2 py-1">Cohort verdict</th>
+									<th className="px-2 py-1">Proof tier</th>
+									<th className="px-2 py-1 text-right">Error rate new/old</th>
+								</tr>
+							</thead>
+							<tbody>
+								{autosre.candidateChanges.map((change) => (
+									<tr
+										key={change.changeId}
+										className="border-t border-sys-outline-soft"
+									>
+										<td className="px-2 py-1 font-mono">
+											<button
+												type="button"
+												onClick={() =>
+													navigateHref(
+														`#/changes/${encodeURIComponent(change.changeId)}`,
+														onNavigate,
+													)
+												}
+												className="underline cursor-pointer"
+											>
+												{compactId(change.changeId)}
+											</button>
+										</td>
+										<td className="px-2 py-1">{change.kind}</td>
+										<td className="px-2 py-1 font-mono">
+											{change.previousVersion ?? "?"} → {change.version ?? "?"}
+										</td>
+										<td className="px-2 py-1">{change.cohortVerdict}</td>
+										<td className="px-2 py-1">{change.causalProofTier}</td>
+										<td className="px-2 py-1 text-right font-mono">
+											{change.rateNew ?? "–"} / {change.rateOld ?? "–"} (
+											{change.sampleNew}/{change.sampleOld})
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			)}
+
+			{autosre && autosre.contentionCandidates.length > 0 && (
+				<div data-contention-candidates>
+					<SectionTitle title="Contention Candidates" />
+					<ul className="mt-2 space-y-1 text-[0.75rem]">
+						{autosre.contentionCandidates.map((c) => (
+							<li
+								key={`${c.aggressorTraceId}:${c.aggressorSpanId}`}
+								className="border border-sys-outline-soft bg-sys-surface px-2 py-1 font-mono"
+							>
+								{c.aggressorServiceName ?? "unknown"} · trace{" "}
+								{compactId(c.aggressorTraceId)} · {c.sharedTargetNodeId} ·{" "}
+								{Math.round(c.totalResourceTimeMs)}ms ·{" "}
+								{c.relationshipCertainty}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+
+			{autosre && autosre.priorFindings.length > 0 && (
+				<div data-prior-findings>
+					<SectionTitle title="Prior Findings" />
+					<ul className="mt-2 space-y-1 text-[0.75rem]">
+						{autosre.priorFindings.map((f) => (
+							<li
+								key={f.findingId}
+								className="border border-sys-outline-soft bg-sys-surface px-2 py-1"
+							>
+								<button
+									type="button"
+									onClick={() =>
+										navigateHref(
+											`#/findings/${encodeURIComponent(f.findingId)}`,
+											onNavigate,
+										)
+									}
+									className="font-semibold underline cursor-pointer"
+								>
+									{f.title}
+								</button>
+								<span className="ml-2 font-mono text-sys-on-surface-muted">
+									{f.causalProofTier} · {f.causalVerificationStatus} ·{" "}
+									{f.recoveryStatus}
+								</span>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+
+			{bundle.evidenceReferences.length > 0 && (
+				<div data-evidence-references>
+					<SectionTitle title="Evidence References" />
+					<div className="mt-2 space-y-2">
+						{bundle.evidenceReferences.map((reference) => (
+							<EvidenceReferenceRow
+								key={reference.evidenceId}
+								reference={reference}
+								onNavigate={onNavigate}
+							/>
+						))}
+					</div>
+				</div>
+			)}
+
+			{bundle.suggestedNextPivots.length > 0 && (
+				<div data-next-pivots>
+					<SectionTitle title="Suggested Next Pivots" />
+					<div className="mt-2 flex flex-wrap gap-2">
+						{bundle.suggestedNextPivots.map((pivot) => (
+							<PivotButton
+								key={`${pivot.entityKind}:${pivot.entityId}:${pivot.route}`}
+								pivot={pivot}
+								onNavigate={onNavigate}
+							/>
+						))}
+					</div>
+				</div>
+			)}
+
+			{bundle.anchor && railKind && (
+				<ConnectedRail
+					entityKind={railKind}
+					entityId={bundle.anchor.entityId}
+					onNavigate={onNavigate}
+				/>
+			)}
+		</div>
+	);
 }
 
 interface EvidenceStats {
@@ -82,6 +374,7 @@ function JsonPreview({ value }: { value: unknown }) {
 export function EvidenceDashboard({
 	initialAnchorKind,
 	initialAnchorId,
+	onNavigate,
 }: EvidenceDashboardProps = {}) {
 	const api = useApi();
 	const [stats, setStats] = useState<EvidenceStats | null>(null);
@@ -287,6 +580,7 @@ export function EvidenceDashboard({
 									</div>
 								))}
 							</div>
+							<EvidenceBundleDetails bundle={bundle} onNavigate={onNavigate} />
 							<div>
 								<SectionTitle title="Retrieval Refs" />
 								<div className="mt-2 overflow-x-auto">

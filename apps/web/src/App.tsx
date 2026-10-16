@@ -353,7 +353,10 @@ export function App() {
 							/>
 						)}
 						{route.tab === "actions" && !route.actionId && (
-							<AutonomousReviewDashboard onNavigate={navigate} />
+							<AutonomousReviewDashboard
+								onNavigate={navigate}
+								selectedProposalId={route.remediationId}
+							/>
 						)}
 						{route.tab === "tool-calls" && route.toolCallId && (
 							<ToolCallDashboard

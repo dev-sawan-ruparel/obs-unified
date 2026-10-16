@@ -213,6 +213,7 @@ describe("mcp-server configuration & auth contract", () => {
 			"record_investigation_finding",
 			"propose_remediation_action",
 			"claim_remediation_grant",
+			"open_incident",
 		];
 		interface CapturedTool {
 			description: string;
@@ -245,8 +246,12 @@ describe("mcp-server configuration & auth contract", () => {
 				const call = { method, url, body };
 				calls.push(call);
 				const out = await responder(call);
-				return new Response(JSON.stringify(out), {
-					status: 200,
+				const forced =
+					out && typeof out === "object" && "__status" in out
+						? (out as { __status: number; body: unknown })
+						: null;
+				return new Response(JSON.stringify(forced ? forced.body : out), {
+					status: forced ? forced.__status : 200,
 					headers: { "Content-Type": "application/json" },
 				});
 			}) as typeof fetch;
@@ -569,7 +574,17 @@ describe("mcp-server configuration & auth contract", () => {
 					},
 				});
 
-				expect(h.calls).toHaveLength(2);
+				// Prerequisite GETs for the failing run + three passing runs come first.
+				const preflight = h.calls.filter((c) => c.method === "GET");
+				expect(preflight.map((c) => c.url.pathname)).toEqual([
+					"/internal/evals/runs/run_fail",
+					"/internal/evals/runs/run_pass_1",
+					"/internal/evals/runs/run_pass_2",
+					"/internal/evals/runs/run_pass_3",
+				]);
+				const writes = h.calls.filter((c) => c.method === "POST");
+				expect(writes).toHaveLength(2);
+				h.calls.splice(0, h.calls.length, ...writes);
 				expect(h.calls[0].method).toBe("POST");
 				expect(h.calls[0].url.pathname).toBe("/internal/findings");
 				expect(
@@ -626,6 +641,165 @@ describe("mcp-server configuration & auth contract", () => {
 				expect(h.calls[0].url.pathname).toBe("/internal/remediations/propose");
 				expect(res.json.data.grantToken).toBe("grant_secret_token");
 				expect(res.json.data.effectiveAutonomy).toBe("autonomous_write");
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("record_investigation_finding checks eval runs before persisting and persists nothing when one is missing", async () => {
+			const h = setupTools(({ url }) =>
+				url.pathname.startsWith("/internal/evals/runs/")
+					? { __status: 404, body: { error: "Eval run not found" } }
+					: { id: "fnd_never" },
+			);
+			try {
+				const res = await h.invoke("record_investigation_finding", {
+					title: "t",
+					summary: "s",
+					symptomEntityKind: "trace",
+					symptomEntityId: "t1",
+					faultLocusEntityKind: "span",
+					faultLocusEntityId: "sp1",
+					causalChain: [],
+					citedEvidenceIds: [],
+					counterfactual: {
+						evalCaseId: "c",
+						failingRunId: "missing_run",
+						passingRunIds: [],
+					},
+				});
+				expect(res.raw.isError).toBe(true);
+				expect(res.raw.content[0].text).toContain("missing_run");
+				expect(res.raw.content[0].text).toContain("no finding was recorded");
+				expect(h.calls.every((c) => c.method === "GET")).toBe(true);
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("record_investigation_finding returns the persisted finding plus counterfactualError when verification fails after insert", async () => {
+			const h = setupTools(({ url }) => {
+				if (url.pathname === "/internal/findings") {
+					return { finding: { id: "fnd_kept", title: "t" }, id: "fnd_kept" };
+				}
+				if (url.pathname.endsWith("/counterfactual")) {
+					return { __status: 422, body: { error: "fingerprint mismatch" } };
+				}
+				return { run: { id: "ok" } };
+			});
+			try {
+				const res = await h.invoke("record_investigation_finding", {
+					idempotencyKey: "retry-key-1",
+					title: "t",
+					summary: "s",
+					symptomEntityKind: "trace",
+					symptomEntityId: "t1",
+					faultLocusEntityKind: "span",
+					faultLocusEntityId: "sp1",
+					causalChain: [],
+					citedEvidenceIds: [],
+					counterfactual: {
+						evalCaseId: "c",
+						failingRunId: "run_f",
+						passingRunIds: ["run_p"],
+					},
+				});
+				expect(res.raw.isError).toBeUndefined();
+				expect(res.json.data.finding.id).toBe("fnd_kept");
+				expect(res.json.data.counterfactualError).toContain("422");
+				const post = h.calls.find(
+					(c) => c.url.pathname === "/internal/findings",
+				);
+				expect((post?.body as Record<string, unknown>).idempotencyKey).toBe(
+					"retry-key-1",
+				);
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("propose_remediation_action forwards webhookUrl and maps webhookSecret to the collector's secret without echoing it", async () => {
+			const h = setupTools(() => ({
+				id: "prop_cb",
+				status: "pending_human_approval",
+			}));
+			try {
+				const res = await h.invoke("propose_remediation_action", {
+					incidentId: "inc_1",
+					findingId: "fnd_1",
+					idempotencyKey: "idem_cb",
+					actionKind: "rollback_deploy",
+					targetNodeId: "service:prod:default:checkout",
+					expectedCurrentState: {},
+					desiredTargetState: {},
+					webhookUrl: "https://runner.example.com/grants",
+					webhookSecret: "s3cret",
+				});
+				expect(h.calls[0].body).toMatchObject({
+					webhookUrl: "https://runner.example.com/grants",
+					secret: "s3cret",
+				});
+				expect(
+					(h.calls[0].body as Record<string, unknown>).webhookSecret,
+				).toBeUndefined();
+				expect(JSON.stringify(res.json.contract.params)).not.toContain(
+					"s3cret",
+				);
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("incident read tools are always registered and call the collector GET routes", async () => {
+			const h = setupTools(
+				() => ({ incidents: [], incident: { id: "inc_1" } }),
+				false,
+			);
+			try {
+				for (const name of [
+					"list_incidents",
+					"get_incident",
+					"get_remediation_proposal",
+				]) {
+					expect(h.tools.has(name)).toBe(true);
+				}
+				await h.invoke("list_incidents", {
+					environment: "prod",
+					status: "open",
+					limit: 5,
+				});
+				await h.invoke("get_incident", { id: "inc 1", environment: "prod" });
+				await h.invoke("get_remediation_proposal", { id: "rem_1" });
+				expect(
+					h.calls.map((c) => `${c.method} ${c.url.pathname}${c.url.search}`),
+				).toEqual([
+					"GET /internal/incidents?environment=prod&status=open&limit=5",
+					"GET /internal/incidents/inc%201?environment=prod",
+					"GET /internal/remediations/rem_1",
+				]);
+				await expect(
+					h.invoke("list_incidents", { status: "bogus" }),
+				).rejects.toThrow();
+			} finally {
+				h.restore();
+			}
+		});
+
+		it("open_incident posts to /internal/incidents and surfaces deduplicated", async () => {
+			const h = setupTools(() => ({
+				incident: { id: "inc_9" },
+				deduplicated: true,
+			}));
+			try {
+				const res = await h.invoke("open_incident", {
+					environment: "prod",
+					targetNodeId: "service:prod:default:checkout",
+					symptomCategory: "errors",
+				});
+				expect(h.calls[0].method).toBe("POST");
+				expect(h.calls[0].url.pathname).toBe("/internal/incidents");
+				expect(res.json.deduplicated).toBe(true);
+				expect(res.json.data.incident.id).toBe("inc_9");
 			} finally {
 				h.restore();
 			}

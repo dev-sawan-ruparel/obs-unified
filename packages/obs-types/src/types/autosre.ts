@@ -344,9 +344,19 @@ export type InvestigationActorType = "agent" | "user" | "system";
 
 export interface InvestigationFindingInput {
 	id?: string;
+	/**
+	 * Retry key. The same key in the same project and environment returns the
+	 * already-recorded finding instead of inserting another one.
+	 */
+	idempotencyKey?: string;
 	environment?: string;
 	incidentId?: string | null;
-	fingerprintInput?: FindingFingerprintInput;
+	/**
+	 * Any omitted field is derived: from the fault-locus span's service,
+	 * operation and error signature when it resolves, else from the title and
+	 * summary.
+	 */
+	fingerprintInput?: Partial<FindingFingerprintInput>;
 	title: string;
 	summary: string;
 	causalProofTier?: CausalProofTier;
@@ -475,6 +485,11 @@ export interface RemediationProposal {
 	remediationAgentRunId: string | null;
 	resultingChangeId: string | null;
 	failureReason: string | null;
+	/**
+	 * Host of the grant callback stored at propose time, if any. The URL, its
+	 * query and the signing secret are never returned.
+	 */
+	callbackHost?: string | null;
 	createdAt: string;
 	updatedAt: string;
 	expiresAt: string | null;

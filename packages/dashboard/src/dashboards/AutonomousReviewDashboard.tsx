@@ -54,9 +54,15 @@ interface Props {
 		traceId?: string;
 	}) => void;
 	proposals?: RemediationProposalView[];
+	/** Remediation proposal to scroll to, expand and highlight (`#/remediations/:id`). */
+	selectedProposalId?: string;
 }
 
-export function AutonomousReviewDashboard({ onNavigate, proposals }: Props) {
+export function AutonomousReviewDashboard({
+	onNavigate,
+	proposals,
+	selectedProposalId,
+}: Props) {
 	const api = useApi();
 	const [data, setData] = useState<AutonomousReviewData | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -186,7 +192,10 @@ export function AutonomousReviewDashboard({ onNavigate, proposals }: Props) {
 			</div>
 
 			{/* 1-Click Human Approval Queue for AutoSRE Remediation Proposals */}
-			<RemediationApprovalQueue proposals={proposals} />
+			<RemediationApprovalQueue
+				proposals={proposals}
+				selectedProposalId={selectedProposalId}
+			/>
 
 			{/* High Density Review Table Card */}
 			<Card className="flex-1 flex flex-col p-3 overflow-hidden min-w-0">

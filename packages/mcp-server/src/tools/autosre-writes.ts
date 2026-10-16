@@ -68,6 +68,13 @@ export function registerAutosreWriteTools(
 			inputSchema: {
 				environment: z.string().optional(),
 				incidentId: z.string().optional(),
+				idempotencyKey: z
+					.string()
+					.min(1)
+					.optional()
+					.describe(
+						"Retry key. Re-sending the same key in the same project and environment returns the already-recorded finding instead of inserting a duplicate.",
+					),
 				title: z.string().min(1),
 				summary: z.string().min(1),
 				causalProofTier: CausalProofTierSchema.optional(),
@@ -83,13 +90,16 @@ export function registerAutosreWriteTools(
 				contendingTraceId: z.string().optional(),
 				fingerprintInput: z
 					.object({
-						environment: z.string(),
-						originatingNodeId: z.string(),
-						normalizedOperation: z.string(),
-						errorSignature: z.string(),
+						environment: z.string().optional(),
+						originatingNodeId: z.string().optional(),
+						normalizedOperation: z.string().optional(),
+						errorSignature: z.string().optional(),
 						downstreamTargetNodeId: z.string().nullable().optional(),
 					})
-					.optional(),
+					.optional()
+					.describe(
+						"Optional. Omitted fields are derived server-side from the fault-locus span's service, operation and error signature.",
+					),
 				causalChain: z.array(causalTripleSchema),
 				citedEvidenceIds: z.array(z.string()),
 				codeReferences: z.array(codeReferenceSchema).optional(),
@@ -107,6 +117,34 @@ export function registerAutosreWriteTools(
 		async (params) => {
 			try {
 				const { counterfactual, ...findingPayload } = params;
+
+				// Validate counterfactual prerequisites BEFORE persisting anything, so
+				// a missing eval run never leaves behind a finding the caller cannot
+				// see (and then duplicates on retry).
+				if (counterfactual) {
+					const runIds = Array.from(
+						new Set([
+							counterfactual.failingRunId,
+							...counterfactual.passingRunIds,
+						]),
+					);
+					for (const runId of runIds) {
+						try {
+							await client.get(
+								`/internal/evals/runs/${encodeURIComponent(runId)}`,
+							);
+						} catch (err) {
+							const message = err instanceof Error ? err.message : String(err);
+							if (/\b404\b/.test(message)) {
+								throw new Error(
+									`Counterfactual eval run ${runId} was not found in this project; no finding was recorded. Fix the run id or omit "counterfactual" and verify later.`,
+								);
+							}
+							throw err;
+						}
+					}
+				}
+
 				const created = await client.post<Record<string, unknown>>(
 					"/internal/findings",
 					findingPayload,
@@ -127,35 +165,53 @@ export function registerAutosreWriteTools(
 							: undefined;
 
 				let counterfactualResult: unknown;
+				let counterfactualError: string | undefined;
 				if (counterfactual && findingId) {
-					counterfactualResult = await client.post(
-						`/internal/findings/${encodeURIComponent(findingId)}/counterfactual`,
-						counterfactual,
-					);
+					try {
+						counterfactualResult = await client.post(
+							`/internal/findings/${encodeURIComponent(findingId)}/counterfactual`,
+							counterfactual,
+						);
+					} catch (err) {
+						// The finding is already persisted: report it instead of an
+						// error that hides its id and invites a duplicate retry.
+						counterfactualError =
+							err instanceof Error ? err.message : String(err);
+					}
 				}
 
-				const data = counterfactualResult
+				const data = counterfactualError
 					? {
 							...(typeof created === "object" && created !== null
 								? created
 								: {}),
-							...(typeof counterfactualResult === "object" &&
-							counterfactualResult !== null
-								? counterfactualResult
-								: {}),
-							finding:
-								typeof counterfactualResult === "object" &&
-								counterfactualResult !== null &&
-								"finding" in counterfactualResult
-									? (counterfactualResult as Record<string, unknown>).finding
-									: typeof counterfactualResult === "object" &&
-											counterfactualResult !== null &&
-											"id" in counterfactualResult
-										? counterfactualResult
-										: findingObj,
-							counterfactual: counterfactualResult,
+							finding: findingObj,
+							counterfactualError,
+							retryHint:
+								"The finding was recorded. Retry only the counterfactual by re-sending this call with the same idempotencyKey (the finding is reused), or POST /internal/findings/:id/counterfactual.",
 						}
-					: created;
+					: counterfactualResult
+						? {
+								...(typeof created === "object" && created !== null
+									? created
+									: {}),
+								...(typeof counterfactualResult === "object" &&
+								counterfactualResult !== null
+									? counterfactualResult
+									: {}),
+								finding:
+									typeof counterfactualResult === "object" &&
+									counterfactualResult !== null &&
+									"finding" in counterfactualResult
+										? (counterfactualResult as Record<string, unknown>).finding
+										: typeof counterfactualResult === "object" &&
+												counterfactualResult !== null &&
+												"id" in counterfactualResult
+											? counterfactualResult
+											: findingObj,
+								counterfactual: counterfactualResult,
+							}
+						: created;
 
 				return toolResult(
 					"record_investigation_finding",
@@ -168,6 +224,59 @@ export function registerAutosreWriteTools(
 									`findings/${encodeURIComponent(findingId)}`,
 								)
 							: client.dashboardLink("findings"),
+					},
+				);
+			} catch (err) {
+				return errorToolResult(err);
+			}
+		},
+	);
+
+	server.registerTool(
+		"open_incident",
+		{
+			description:
+				"Open an AutoSRE incident (or join the active one for the same symptom). Deduplicated by project, environment, target node and symptom category; the result says whether an existing incident was reused. The returned incident id is what propose_remediation_action requires.",
+			inputSchema: {
+				environment: z
+					.string()
+					.optional()
+					.describe(
+						"Must match the environment of the telemetry and findings; defaults to 'default'.",
+					),
+				targetNodeId: z.string().min(1),
+				symptomCategory: z.string().optional(),
+				symptomAnchorKind: EvidenceEntityKindSchema.optional(),
+				symptomAnchorId: z.string().optional(),
+				symptomFingerprint: z.string().optional(),
+				id: z.string().min(1).optional(),
+				latestBundle: z.record(z.unknown()).optional(),
+			},
+		},
+		async (params) => {
+			try {
+				const data = await client.post<Record<string, unknown>>(
+					"/internal/incidents",
+					params,
+				);
+				const incident =
+					data && typeof data === "object" && "incident" in data
+						? (data.incident as Record<string, unknown>)
+						: undefined;
+				const incidentId =
+					typeof incident?.id === "string" ? incident.id : undefined;
+				return toolResult(
+					"open_incident",
+					params as Record<string, unknown>,
+					"{ data: { incident: IncidentInvestigation, deduplicated: boolean }, deduplicated: boolean, dashboardUrl?: string }",
+					{
+						data,
+						deduplicated: Boolean(data?.deduplicated),
+						dashboardUrl: incidentId
+							? client.dashboardLink(
+									`incidents/${encodeURIComponent(incidentId)}`,
+								)
+							: client.dashboardLink("incidents"),
 					},
 				);
 			} catch (err) {
@@ -199,17 +308,39 @@ export function registerAutosreWriteTools(
 						"blocked_by_policy",
 					])
 					.optional(),
+				webhookUrl: z
+					.string()
+					.url()
+					.optional()
+					.describe(
+						"Optional HTTPS receiver for the one-time grant token. Stored on a proposal that awaits human approval and used when it is approved; also used immediately for an autonomous grant. Private hosts are refused unless the operator allows them.",
+					),
+				webhookSecret: z
+					.string()
+					.min(1)
+					.optional()
+					.describe(
+						"Optional HMAC-SHA256 signing secret for the webhook (X-Obs-Signature-256). Stored server-side and never returned.",
+					),
 			},
 		},
 		async (params) => {
 			try {
+				const { webhookSecret, ...rest } = params;
+				const payload = {
+					...rest,
+					...(webhookSecret ? { secret: webhookSecret } : {}),
+				};
 				const data = await client.post(
 					"/internal/remediations/propose",
-					params,
+					payload,
 				);
 				return toolResult(
 					"propose_remediation_action",
-					params as Record<string, unknown>,
+					{
+						...(rest as Record<string, unknown>),
+						...(webhookSecret ? { webhookSecret: "[redacted]" } : {}),
+					},
 					"{ data: RemediationProposal, dashboardUrl?: string }",
 					{
 						data,

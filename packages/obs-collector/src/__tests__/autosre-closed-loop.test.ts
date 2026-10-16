@@ -2219,4 +2219,346 @@ describe("AutoSRE governance hardening", () => {
 		);
 		db.close();
 	});
+
+	const json = (body: unknown) => ({
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+	const approveInit = (body: Record<string, unknown>) => ({
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Cookie: "obs_session=sess_lifecycle",
+		},
+		body: JSON.stringify(body),
+	});
+
+	it("J10: span-id fault loci on one service/route share a fingerprint, so the breaker is not fragmented", async () => {
+		const db = createMigratedSqliteDb();
+		await seedIsolatedCohort(db);
+		const incident = await newIncident(db);
+		const spanFinding = (n: number) =>
+			newFinding(db, incident.id, {
+				title: `Checkout regression attempt ${n}`,
+				summary: `Investigation ${n} found errors after the deploy`,
+				contributingChangeId: "chg_gov",
+				faultLocusEntityKind: "span",
+				faultLocusEntityId: `g_new_sp_${n}`,
+			});
+
+		const findings = [];
+		for (let n = 0; n < 4; n++) findings.push(await spanFinding(n));
+		expect(new Set(findings.map((f) => f.fingerprint)).size).toBe(1);
+		expect(findings[0].fingerprintInput.originatingNodeId).toBe(SERVICE_NODE);
+		expect(findings[0].fingerprintInput.normalizedOperation).toContain(
+			"/checkout",
+		);
+
+		for (let n = 0; n < 3; n++) {
+			const granted = await propose(
+				db,
+				incident.id,
+				findings[n].id,
+				`j10_${n}`,
+			);
+			expect(granted.status).toBe("grant_issued");
+		}
+		const blocked = await propose(db, incident.id, findings[3].id, "j10_3");
+		expect(blocked.status).toBe("rejected");
+		expect(blocked.policyDecisionReason).toMatch(/Circuit breaker/);
+
+		// A span that is not in telemetry keeps the legacy behaviour.
+		const unknown = await spanFinding(99);
+		expect(unknown.fingerprint).not.toBe(findings[0].fingerprint);
+		db.close();
+	});
+
+	it("J10: a recurring failure on a different trace surfaces the prior finding by fingerprint", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const t0 = Date.parse("2026-10-15T05:00:00.000Z");
+		for (const [trace, offset] of [
+			["tr_prior", 0],
+			["tr_recur", 60_000],
+		] as const) {
+			const start = new Date(t0 + offset).toISOString();
+			const end = new Date(t0 + offset + 80).toISOString();
+			insertSpan(db, {
+				traceId: trace,
+				spanId: `${trace}_root`,
+				serviceName: "pay-api",
+				spanName: "POST /pay",
+				statusCode: 2,
+				startTime: start,
+				endTime: end,
+				durationMs: 80,
+			});
+			insertSpan(db, {
+				traceId: trace,
+				spanId: `${trace}_err`,
+				parentSpanId: `${trace}_root`,
+				serviceName: "pay-api",
+				spanName: "POST /pay",
+				statusCode: 2,
+				statusMessage: "card declined",
+				startTime: start,
+				endTime: end,
+				durationMs: 70,
+			});
+		}
+		const incident = await newIncident(db);
+		const prior = await newFinding(db, incident.id, {
+			title: "Pay declines",
+			summary: "Provider returns declines",
+			symptomEntityId: "tr_prior",
+			faultLocusEntityKind: "span",
+			faultLocusEntityId: "tr_prior_err",
+		});
+		const bundleFor = async (trace: string) => {
+			const res = await app.request(
+				"/internal/evidence/bundle",
+				json({
+					intent: "triage_incident",
+					anchor: { entityKind: "trace", entityId: trace },
+				}),
+				env,
+			);
+			expect(res.status).toBe(200);
+			return (await res.json()) as {
+				autosre?: { priorFindings?: Array<{ findingId: string }> };
+			};
+		};
+		const recur = await bundleFor("tr_recur");
+		expect(
+			recur.autosre?.priorFindings?.some((f) => f.findingId === prior.id),
+		).toBe(true);
+		db.close();
+	});
+
+	it("J9: a finding idempotencyKey returns the stored finding on retry and survives route round-trips", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const body = {
+			environment: "prod",
+			idempotencyKey: "retry-me",
+			title: "Idempotent finding",
+			summary: "Same call twice",
+			symptomEntityKind: "trace",
+			symptomEntityId: "t1",
+			faultLocusEntityKind: "service",
+			faultLocusEntityId: SERVICE_NODE,
+			causalChain: [],
+			citedEvidenceIds: [],
+		};
+		const first = await app.request("/internal/findings", json(body), env);
+		const second = await app.request("/internal/findings", json(body), env);
+		expect(first.status).toBe(201);
+		const a = (await first.json()) as { id: string };
+		const b = (await second.json()) as { id: string };
+		expect(b.id).toBe(a.id);
+		const n = db.raw
+			.prepare(`SELECT COUNT(*) AS n FROM investigation_findings`)
+			.get() as { n: number };
+		expect(n.n).toBe(1);
+		// A different key is a different finding.
+		const third = await app.request(
+			"/internal/findings",
+			json({ ...body, idempotencyKey: "other" }),
+			env,
+		);
+		expect(((await third.json()) as { id: string }).id).not.toBe(a.id);
+		db.close();
+	});
+
+	it("J9: GET /internal/evals/runs/:id reports existence so counterfactual prerequisites can be checked first", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const missing = await app.request("/internal/evals/runs/nope", {}, env);
+		expect(missing.status).toBe(404);
+		db.raw
+			.prepare(
+				`INSERT INTO eval_runs (project_id, id, eval_case_id, status, pass_count, fail_count, created_at)
+				 VALUES ('default', 'run_exists', 'case_1', 'completed', 0, 1, ?)`,
+			)
+			.run(new Date().toISOString());
+		const found = await app.request("/internal/evals/runs/run_exists", {}, env);
+		expect(found.status).toBe(200);
+		expect(((await found.json()) as { run: { id: string } }).run.id).toBe(
+			"run_exists",
+		);
+		db.close();
+	});
+
+	it("J17: callback stored at propose time -> approve without callback -> webhook receives the token -> claim succeeds", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id); // corroborated: needs a human
+		const callbackEnv = { ...env, ALERT_WEBHOOK_ALLOW_PRIVATE: "true" };
+
+		const bodies: Array<Record<string, unknown>> = [];
+		const headers: Array<Record<string, string>> = [];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (_url: string, init: RequestInit) => {
+				bodies.push(JSON.parse(String(init.body)));
+				headers.push(init.headers as Record<string, string>);
+				return new Response("ok", { status: 200 });
+			}),
+		);
+
+		const proposeRes = await app.request(
+			"/internal/remediations/propose",
+			json({
+				environment: "prod",
+				incidentId: incident.id,
+				findingId: finding.id,
+				idempotencyKey: "j17",
+				actionKind: "rollback_deploy",
+				targetNodeId: SERVICE_NODE,
+				expectedCurrentState: {},
+				desiredTargetState: { version: "v2.4.0" },
+				webhookUrl: "https://runner.example.com/grants?token=urlsecret",
+				secret: "hmac-secret-j17",
+			}),
+			callbackEnv,
+		);
+		expect(proposeRes.status).toBe(201);
+		const proposed = (await proposeRes.json()) as {
+			proposal: { id: string; status: string; callbackHost: string };
+		};
+		expect(proposed.proposal.status).toBe("pending_human_approval");
+		expect(proposed.proposal.callbackHost).toBe("runner.example.com");
+		expect(bodies).toHaveLength(0);
+
+		// Neither the URL path/query nor the secret is ever returned by a GET.
+		const getRes = await app.request(
+			`/internal/remediations/${proposed.proposal.id}?environment=prod`,
+			{},
+			callbackEnv,
+		);
+		const getText = await getRes.text();
+		expect(getText).toContain("runner.example.com");
+		expect(getText).not.toContain("urlsecret");
+		expect(getText).not.toContain("hmac-secret-j17");
+		expect(getText).not.toContain("/grants");
+		const list = await (
+			await app.request(
+				"/internal/remediations?environment=prod",
+				{},
+				callbackEnv,
+			)
+		).text();
+		expect(list).not.toContain("hmac-secret-j17");
+
+		const approve = await app.request(
+			`/internal/remediations/${proposed.proposal.id}/approve`,
+			approveInit({ environment: "prod" }),
+			callbackEnv,
+		);
+		expect(approve.status).toBe(200);
+		const approved = (await approve.json()) as {
+			grantToken: string;
+			webhookDelivery?: { delivered: boolean };
+			proposal: { callbackHost: string | null };
+		};
+		expect(approved.webhookDelivery?.delivered).toBe(true);
+		expect(approved.proposal.callbackHost).toBeNull();
+		expect(bodies).toHaveLength(1);
+		expect(bodies[0]).toMatchObject({
+			event: "autosre.remediation.grant_issued",
+			proposalId: proposed.proposal.id,
+			grantToken: approved.grantToken,
+		});
+		expect(headers[0]["X-Obs-Signature-256"]).toMatch(/^sha256=[0-9a-f]{64}$/);
+
+		const claim = await app.request(
+			`/internal/remediations/${proposed.proposal.id}/claim`,
+			json({
+				environment: "prod",
+				grantToken: approved.grantToken,
+				runnerId: "runner-j17",
+			}),
+			callbackEnv,
+		);
+		expect(claim.status).toBe(200);
+
+		// The stored callback is gone from the row once consumed.
+		const row = db.raw
+			.prepare(
+				`SELECT callback_url, callback_secret FROM remediation_proposals WHERE id = ?`,
+			)
+			.get(proposed.proposal.id) as {
+			callback_url: string | null;
+			callback_secret: string | null;
+		};
+		expect(row.callback_url).toBeNull();
+		expect(row.callback_secret).toBeNull();
+		db.close();
+	});
+
+	it("J17: a callback on the approve request wins, a bad propose callback is a 400, and reject clears the stored one", async () => {
+		const db = createMigratedSqliteDb();
+		const { app, env } = createTestApp(db);
+		const incident = await newIncident(db);
+		const finding = await newFinding(db, incident.id);
+		const callbackEnv = { ...env, ALERT_WEBHOOK_ALLOW_PRIVATE: "true" };
+		const urls: string[] = [];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (url: string) => {
+				urls.push(url);
+				return new Response("ok", { status: 200 });
+			}),
+		);
+		const mk = (key: string, webhookUrl: string) =>
+			app.request(
+				"/internal/remediations/propose",
+				json({
+					environment: "prod",
+					incidentId: incident.id,
+					findingId: finding.id,
+					idempotencyKey: key,
+					actionKind: "rollback_deploy",
+					targetNodeId: SERVICE_NODE,
+					expectedCurrentState: {},
+					desiredTargetState: {},
+					webhookUrl,
+				}),
+				callbackEnv,
+			);
+		expect((await mk("j17_bad", "ftp://example.com/x")).status).toBe(400);
+
+		const one = (await (
+			await mk("j17_a", "https://stored.example.com/a")
+		).json()) as {
+			proposal: { id: string };
+		};
+		const approve = await app.request(
+			`/internal/remediations/${one.proposal.id}/approve`,
+			approveInit({
+				environment: "prod",
+				webhookUrl: "https://request.example.com/b",
+			}),
+			callbackEnv,
+		);
+		expect(approve.status).toBe(200);
+		expect(urls).toEqual(["https://request.example.com/b"]);
+
+		const two = (await (
+			await mk("j17_b", "https://stored.example.com/c")
+		).json()) as {
+			proposal: { id: string };
+		};
+		await rejectRemediationProposal(db, "default", two.proposal.id, {
+			environment: "prod",
+			rejectedByUserId: "tester",
+		});
+		const row = db.raw
+			.prepare(`SELECT callback_url FROM remediation_proposals WHERE id = ?`)
+			.get(two.proposal.id) as { callback_url: string | null };
+		expect(row.callback_url).toBeNull();
+		db.close();
+	});
 });

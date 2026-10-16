@@ -231,4 +231,45 @@ describe("RemediationApprovalCard & RemediationApprovalQueue", () => {
 		);
 		expect(withHandlers).toContain('data-action="approve-remediation"');
 	});
+
+	it("shows the stored grant callback host (never a URL) on pending proposals", () => {
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalCard, {
+				proposal: {
+					...samplePendingProposal,
+					callbackHost: "runner.example.com",
+				},
+			}),
+		);
+		expect(html).toContain(
+			"Grant will also be delivered to runner.example.com",
+		);
+		expect(
+			renderToStaticMarkup(
+				createElement(RemediationApprovalCard, {
+					proposal: samplePendingProposal,
+				}),
+			),
+		).not.toContain("Grant will also be delivered");
+	});
+
+	it("highlights and lists first the deep-linked proposal in the queue", () => {
+		const other = { ...samplePendingProposal, id: "rem_00" };
+		const html = renderToStaticMarkup(
+			createElement(RemediationApprovalQueue, {
+				proposals: [other, samplePendingProposal],
+				selectedProposalId: "rem_01",
+			}),
+		);
+		expect(html).toContain('data-selected="true"');
+		expect(html.indexOf('data-remediation-id="rem_01"')).toBeLessThan(
+			html.indexOf('data-remediation-id="rem_00"'),
+		);
+		expect(html.match(/data-selected="true"/g)).toHaveLength(1);
+		expect(html).not.toContain("max-h-[280px]");
+		const plain = renderToStaticMarkup(
+			createElement(RemediationApprovalQueue, { proposals: [other] }),
+		);
+		expect(plain).not.toContain("data-selected");
+	});
 });

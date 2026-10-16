@@ -9,6 +9,7 @@ import {
 	type ToolResponseContract,
 } from "@obsunified/types";
 import { z } from "zod";
+import { registerAutosreReadTools } from "./tools/autosre-reads";
 import { registerAutosreWriteTools } from "./tools/autosre-writes";
 
 type JsonValue =
@@ -1028,6 +1029,8 @@ function registerTools(server: McpServer, client: CollectorClient): void {
 			}
 		},
 	);
+
+	registerAutosreReadTools(server, client, { toolResult, errorToolResult });
 
 	if (writesEnabled()) {
 		registerAutosreWriteTools(server, client, { toolResult, errorToolResult });
