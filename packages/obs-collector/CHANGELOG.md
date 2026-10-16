@@ -1,5 +1,11 @@
 # @obsunified/collector
 
+## 2.2.3
+
+### Patch Changes
+
+- 4066de0: Fix finding fingerprints for `traceId:spanId` span loci (the span now resolves to its service node) and fall back to the finding summary when a span has no error signature.
+
 ## 2.2.2
 
 ### Patch Changes
