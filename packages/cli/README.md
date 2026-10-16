@@ -5,7 +5,7 @@ Command-line entry point for
 
 ```bash
 obs-unified up                       # spin up the repo-local collector stack
-pnpm dlx @obsunified/cli create my-app --template react-vite --yes   # scaffold non-interactively (requires @obsunified/cli 1.1.2+)
+pnpm dlx @obsunified/cli create my-app --template react-vite --yes   # scaffold non-interactively
 pnpm dlx @obsunified/cli doctor     # diagnose a collector
 ```
 

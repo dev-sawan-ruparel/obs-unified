@@ -20,8 +20,6 @@ copy into an existing app.
 
 ## Runnable Examples
 
-The `--template` / `--yes` scaffolding flags require `@obsunified/cli` 1.1.2 or newer (omit them to scaffold interactively on 1.1.1).
-
 | Example                                                                           | What it shows                                                                                            | Run / entry point                                              |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | [`Dockerfile.local`](../Dockerfile.local)                                         | All-in-one local image with Postgres, collector, dashboard, file blob storage, and seed data             | `pnpm local:image && pnpm local:run`                           |

@@ -14,7 +14,7 @@ Use this page to pick the right starting point. Runnable examples are things you
 | Run everything from one local image with sample data | `Dockerfile.local` via `pnpm local:image && pnpm local:run` | Runnable image |
 | Try obs-unified with realistic traffic | `demo/` | Runnable demo |
 | Run the end-to-end AutoSRE Scenario D testbed | `pnpm e2e:autosre` | Runnable verification suite |
-| Scaffold a new React + Hono app (interactive, or non-interactive with `@obsunified/cli` 1.1.2 or newer) | `pnpm dlx @obsunified/cli create my-app --template react-vite --yes` | Runnable template |
+| Scaffold a new React + Hono app (interactive, or non-interactive with `--yes`) | `pnpm dlx @obsunified/cli create my-app --template react-vite --yes` | Runnable template |
 | Add obs-unified to an existing React + Hono app | [React + Hono walkthrough](/docs/instrumenting) | Walkthrough |
 | Add obs-unified to an existing Python Flask app | [Python Flask walkthrough](/docs/instrument-python-flask) | Walkthrough |
 | Add browser analytics only | [Analytics SDK](/docs/sdks#obs-unifiedanalytics-sdk) | Reference |
@@ -22,8 +22,6 @@ Use this page to pick the right starting point. Runnable examples are things you
 | Instrument Python, JVM, or .NET | [Language recipes](#language-recipes) | Recipes |
 
 ## Runnable examples
-
-The `--template` / `--yes` scaffolding flags below require `@obsunified/cli` 1.1.2 or newer.
 
 | Example | What it shows | Run / entry point |
 | --- | --- | --- |
