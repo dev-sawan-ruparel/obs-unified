@@ -1,5 +1,11 @@
 # @obsunified/mcp-server
 
+## 2.5.0
+
+### Minor Changes
+
+- fc42238: RFC 0014: add `dashboardRouteLink(route)` (typed, compile-time validated) and deprecate `dashboardLink(fragment)`; talk to the collector through `createInternalClient` with response-schema validation.
+
 ## 2.4.1
 
 ### Patch Changes

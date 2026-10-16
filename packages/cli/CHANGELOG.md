@@ -1,5 +1,11 @@
 # @obsunified/cli
 
+## 1.2.2
+
+### Patch Changes
+
+- fc42238: RFC 0014: collector requests go through the shared `createInternalClient`, surfacing `ContractMismatchError` on schema drift.
+
 ## 1.2.1
 
 ### Patch Changes

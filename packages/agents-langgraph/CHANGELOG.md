@@ -1,5 +1,11 @@
 # @obsunified/agents-langgraph
 
+## 3.0.3
+
+### Patch Changes
+
+- @obsunified/telemetry-sdk@2.1.3
+
 ## 3.0.2
 
 ### Patch Changes

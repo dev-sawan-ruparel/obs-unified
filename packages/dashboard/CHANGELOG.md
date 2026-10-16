@@ -1,5 +1,16 @@
 # @obsunified/dashboard
 
+## 1.3.0
+
+### Minor Changes
+
+- fc42238: RFC 0014: export `DashboardRouteView` (exhaustive dispatch over the strict route contract with a Playground host slot) and re-export the typed route helpers; jsdom-based selection tests.
+
+### Patch Changes
+
+- Updated dependencies [fc42238]
+  - @obsunified/types@2.3.0
+
 ## 1.2.3
 
 ### Patch Changes

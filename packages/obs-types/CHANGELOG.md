@@ -1,5 +1,11 @@
 # @obsunified/types
 
+## 2.3.0
+
+### Minor Changes
+
+- fc42238: Add `@obsunified/types/routes` (closed `DashboardRoute` contract, `parseDashboardRouteHash`, `dashboardRouteToHash`, typed builders) and `@obsunified/types/internal-contracts` (zod schemas for every `/internal/*` endpoint, `createInternalClient`, `ContractMismatchError`) per RFC 0014.
+
 ## 2.2.1
 
 ### Patch Changes
