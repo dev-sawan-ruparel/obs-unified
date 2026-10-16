@@ -470,7 +470,7 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 			m.down.find((s) => s.label === "Evaluations for this span")?.links[0],
 		).toMatchObject({
 			label: "eval: groundedness (passed)",
-			href: "#/evaluations",
+			href: "#/evaluations/eval-explicit",
 		});
 		expect(
 			m.related.find((s) => s.label === "Agent runs for this span")?.links[0],
@@ -749,7 +749,7 @@ describe("ConnectedRail manifest — raw signal action back-links", () => {
 		).toMatchObject({ href: "#/tool-calls/tool-explicit" });
 		expect(
 			m.down.find((s) => s.label === "Evaluations for this AI call")?.links[0],
-		).toMatchObject({ href: "#/evaluations" });
+		).toMatchObject({ href: "#/evaluations/eval-explicit" });
 		expect(
 			m.related.find((s) => s.label === "Agent runs for this AI call")
 				?.links[0],

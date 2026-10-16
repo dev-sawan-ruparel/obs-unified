@@ -518,8 +518,9 @@ export const linksFromEvalResults = (
 		label: prefix,
 		links: results.map((e) => ({
 			label: `eval: ${e.evaluatorName} (${e.passed ? "passed" : "failed"})`,
-			// Evaluations tab selects by eval case, which a result ref does not carry.
-			href: `#/evaluations`,
+			// The Evaluations tab resolves this id to an eval case, falling back
+			// to the case saved from the same action.
+			href: `#/evaluations/${encodeURIComponent(e.id)}`,
 			entityKind: "eval",
 			entityId: e.id,
 			...metadataForAction?.(e.actionId),
@@ -587,7 +588,7 @@ export const hrefForEntity = (kind: string, id: string): string => {
 		case "incident":
 			return `#/incidents/${enc(id)}`;
 		case "eval":
-			return "#/evaluations";
+			return `#/evaluations/${enc(id)}`;
 		case "log":
 			return `#/logs?id=${enc(id)}`;
 		case "replay":
