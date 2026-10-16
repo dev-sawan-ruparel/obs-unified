@@ -19,8 +19,12 @@
   Cache-Control: public, max-age=86400
 /og.jpg
   Cache-Control: public, max-age=604800
+  Content-Type: image/jpeg
+  X-Robots-Tag: all
 /og.svg
   Cache-Control: public, max-age=604800
+  Content-Type: image/svg+xml
+  X-Robots-Tag: all
 
 # Root HTML — keep edge cached briefly so deploys propagate quickly.
 /
@@ -31,7 +35,11 @@
 # AEO files — let crawlers cache for a day.
 /robots.txt
   Cache-Control: public, max-age=86400
+  Content-Type: text/plain; charset=utf-8
 /sitemap.xml
   Cache-Control: public, max-age=86400
+  Content-Type: application/xml; charset=utf-8
 /llms.txt
   Cache-Control: public, max-age=86400
+  Content-Type: text/plain; charset=utf-8
+  X-Robots-Tag: all
