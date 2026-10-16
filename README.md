@@ -163,7 +163,7 @@ Start locally, then choose one of two production paths:
 
 | Path | Storage | Best for |
 | --- | --- | --- |
-| All-in-one image ([`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified)) | Postgres + blob storage in one container | Evaluation, screenshots, demos, small self-hosted setups |
+| All-in-one image ([`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/users/dev-sawan-ruparel/packages/container/package/obs-unified)) | Postgres + blob storage in one container | Evaluation, screenshots, demos, small self-hosted setups |
 | Cloudflare collector | Workers + D1 + R2 | Low-ops hosted deployments on Cloudflare |
 | Node collector | Postgres + S3-compatible object storage | AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud with Postgres and object storage |
 
@@ -493,7 +493,7 @@ All public packages are on npm under the
 - [`@obsunified/types`](https://www.npmjs.com/package/@obsunified/types): Shared TypeScript types and constants.
 
 The all-in-one container image is published to
-[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified).
+[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/users/dev-sawan-ruparel/packages/container/package/obs-unified).
 
 ## Polyglot SDKs ([`sdks/`](./sdks))
 

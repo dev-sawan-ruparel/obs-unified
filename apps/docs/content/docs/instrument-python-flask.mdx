@@ -92,10 +92,16 @@ Start your collector, set the environment, then call the Flask route from an ins
 
 ```bash
 export OBS_COLLECTOR_URL=http://localhost:8790
-export OBS_INGEST_KEY=dev-ingest-key
-flask --app app run --port 5000
+export OBS_INGEST_KEY=<your key>   # the collector's INGEST_KEY, or a key from `obs-unified keys mint`
+flask --app app run --port 5001
 
-curl -H 'x-obs-interaction: demo_click_123' http://localhost:5000/api/recommendations
+curl -H 'x-obs-interaction: 01JAQ8K3Z9X7M2N4P6Q8R0S1T3' http://localhost:5001/api/recommendations
 ```
+
+Notes:
+
+- Port 5001 is used because macOS reserves port 5000 for AirPlay Receiver on many systems. Any free port works (for example `--port 8000`).
+- `OBS_INGEST_KEY` must be a real key accepted by your collector. The prebuilt GHCR image rejects the sample `dev-ingest-key`; use the value you passed as `INGEST_KEY`.
+- `x-obs-interaction` values are 26-character uppercase Crockford-base32 ULIDs. The browser SDK mints valid ids, and the TypeScript server SDK drops malformed values. This Flask hook stores whatever string it receives, but the interaction-id contract shared by every SDK is a ULID, so use that format for manual tests rather than a free-form value like `demo_click_123`.
 
 The trace should appear in the Traces tab with `obs.interaction.id`, allowing the Connected Rail to pivot back to the originating browser interaction when one exists.

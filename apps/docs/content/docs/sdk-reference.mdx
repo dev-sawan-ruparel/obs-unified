@@ -9,10 +9,10 @@ This page is a centralized, searchable cheat sheet for the browser SDK (`@obsuni
 
 ### Browser / client-side
 
-Initialize the browser SDK to track page views, click interactions, frontend exceptions, and optional DOM session replay.
+Initialize the browser SDK to track page views, click interactions, and frontend exceptions. DOM session replay is opt-in: call `startReplay()` from `useAnalytics()` when you want it.
 
-```tsx
-import { AnalyticsProvider } from "@obsunified/analytics-sdk/react";
+```tsx check
+import { AnalyticsProvider, useAnalytics } from "@obsunified/analytics-sdk/react";
 
 function Root() {
   return (
@@ -21,17 +21,23 @@ function Root() {
       apiKey="your-public-ingest-key"
       trackPageViews={true}
       captureErrors={true}
-      sessionReplay={true}
     >
       <App />
     </AnalyticsProvider>
   );
 }
+
+function ReplayButton() {
+  const { startReplay } = useAnalytics();
+  return <button onClick={() => startReplay()}>Record this session</button>;
+}
+
+declare function App(): null;
 ```
 
 For non-React hosts:
 
-```ts
+```ts check
 import { installAutoCorrelate, UsageTracker } from "@obsunified/analytics-sdk";
 
 const tracker = new UsageTracker({
@@ -39,14 +45,16 @@ const tracker = new UsageTracker({
   apiKey: "your-public-ingest-key",
 });
 
-installAutoCorrelate({ tracker });
+// Mode A: mints an interaction_id on click/submit/keydown and injects
+// `x-obs-interaction` on outbound fetch/XHR. Returns a cleanup function.
+const stopAutoCorrelate = installAutoCorrelate();
 ```
 
 ### Backend / server-side
 
 Initialize the standard telemetry exporter pipeline once at application startup (or per request in serverless runtimes). Passing `environment`, `serviceVersion`, `commitSha`, and `configDigest` stamps release lineage on every span for [AutoSRE cohort attribution](/docs/autosre).
 
-```ts
+```ts check
 import { initObservability, recordFeatureFlag } from "@obsunified/telemetry-sdk";
 
 initObservability({
@@ -68,9 +76,9 @@ recordFeatureFlag("new_checkout_flow", true, { providerName: "launchdarkly" });
 
 ### Server-side HTTP ingress
 
-Extract `x-obs-interaction`, bind it onto the active trace context, and flush buffered spans/logs/AI calls before serverless isolates terminate:
+Extract `x-obs-interaction`, bind it onto the active trace context, and flush buffered spans/logs/AI calls before serverless isolates terminate. The interaction id must be a 26-character uppercase Crockford-base32 ULID (for example `01JAQ8K3Z9X7M2N4P6Q8R0S1T3`); the browser SDK generates valid ids, and the server SDK silently drops malformed `x-obs-interaction` values.
 
-```ts
+```ts check
 import {
   createRequestSpan,
   flushAICalls,
@@ -79,6 +87,8 @@ import {
   runWithSpan,
   stampInteractionFromRequest,
 } from "@obsunified/telemetry-sdk";
+
+declare const req: { method: string; path: string; headers: Headers };
 
 const span = createRequestSpan("my-service", `${req.method} ${req.path}`);
 stampInteractionFromRequest(span, req);
@@ -97,7 +107,7 @@ try {
 
 Auto-correlation handles synchronous handlers and shallow `await` chains. For debounces, timers, and state-machine ticks, capture and restore the interaction context.
 
-```ts
+```ts check
 import {
   currentInteractionId,
   withInteractionContext,
@@ -116,8 +126,11 @@ setTimeout(() => {
 
 ### OpenInference-style spans (recommended)
 
-```ts
+```ts check
 import { startLLMSpan, startToolSpan } from "@obsunified/telemetry-sdk";
+
+declare function myLLMApiCall(): Promise<{ text: string; prompt_tokens: number; completion_tokens: number }>;
+declare function searchDb(): Promise<unknown>;
 
 const llmSpan = startLLMSpan({
   name: "user-query-completion",
@@ -154,34 +167,38 @@ try {
 
 ### Agent Action Graph helpers
 
-```ts
-import { startAgentRun, withAction } from "@obsunified/telemetry-sdk";
+`startAgentRun(opts, fn)` is async: it opens the run, calls `fn(run)`, and closes the run when `fn` settles (a thrown error marks the run failed and is rethrown). `agentId` and `agentName` are required. Use `run.withAction(...)` (or the standalone `withAction`) to scope an action; `withAction` takes `ActionContextOptions` (`actionId`, `rootActionId`, `causedByActionId`, `interactionId`, `agentRunId`, `actorType`, `actorId`). The autonomy level is set on the run via `autonomyLevel`.
 
-const run = startAgentRun({
-  agentName: "triage-agent",
-  triggerKind: "webhook",
-});
+```ts check
+import { startAgentRun } from "@obsunified/telemetry-sdk";
 
-try {
-  await withAction(
-    { name: "classify-incident", autonomyLevel: "read_only" },
-    async () => {
+await startAgentRun(
+  {
+    agentId: "triage-agent",
+    agentName: "Triage agent",
+    goal: "Classify the incoming incident",
+    autonomyLevel: "read_only",
+  },
+  async (run) => {
+    await run.withAction({ actorType: "agent", actorId: "triage-agent" }, async () => {
       // Child spans, LLM calls, and tool calls inside this callback link to the action graph.
-    },
-  );
-  run.end({ status: "ok" });
-} catch (err) {
-  run.end({ status: "error", errorMessage: String(err) });
-  throw err;
-}
+    });
+    run.setOutcome("classified");
+  },
+);
 ```
 
 ## Cloudflare Workers wrappers
 
 Import these from `@obsunified/telemetry-sdk/cloudflare` to avoid pulling heavy ambient type dependencies into Node.js environments.
 
-```ts
+```ts check
 import { wrapD1, wrapFetch, wrapR2 } from "@obsunified/telemetry-sdk/cloudflare";
+
+declare const env: {
+  DATABASE: Parameters<typeof wrapD1>[0];
+  STORAGE_BUCKET: Parameters<typeof wrapR2>[0];
+};
 
 const db = wrapD1(env.DATABASE);
 const bucket = wrapR2(env.STORAGE_BUCKET, { bucketName: "blobs" });

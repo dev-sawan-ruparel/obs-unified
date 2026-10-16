@@ -14,7 +14,7 @@ This page is the shortest install path. For a guided decision tree across runtim
 ## Fastest first run: prebuilt image
 
 The release image is published to GitHub Container Registry as
-[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified).
+[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/users/dev-sawan-ruparel/packages/container/package/obs-unified).
 It packages the Node collector, the dashboard, embedded Postgres, and filesystem
 blob storage in one container. No clone or Node.js toolchain is needed.
 
@@ -45,7 +45,14 @@ docker run --rm \
 
 Log in to the dashboard with `DASHBOARD_PASSWORD`, point SDKs or OTLP
 exporters at `http://localhost:8790` with `INGEST_KEY`, and pass `DASHBOARD_TOKEN`
-to `@obsunified/mcp-server` or `@obsunified/cli`.
+to `@obsunified/mcp-server` or `@obsunified/cli`. Scripted login (`POST /auth/login`) and logout semantics are in [Identity and external access](/docs/ops/identity-access).
+
+To check the image without a browser, pull it or inspect its manifest (both work anonymously):
+
+```bash
+docker pull ghcr.io/dev-sawan-ruparel/obs-unified:latest
+docker manifest inspect ghcr.io/dev-sawan-ruparel/obs-unified:latest
+```
 
 Tags: `latest`, a version tag that tracks the collector release
 (for example `2.2.0`), and an immutable `sha-<commit>` tag. Pin a version or
@@ -78,7 +85,17 @@ Credentials for the locally built image (`pnpm local:run` only; the prebuilt GHC
 | Dashboard password | `DASHBOARD_PASSWORD` | `e2e-test-pass` |
 | Read bearer token | `DASHBOARD_TOKEN` on the collector | `e2e-dashboard-token` |
 
-Pass the read token as `OBS_DASHBOARD_TOKEN` to `@obsunified/mcp-server`, `OBS_ADMIN_TOKEN` to `obs-unified keys` / `doctor`, and `OBS_API_TOKEN` (or `OBS_ADMIN_TOKEN`) to `obs-unified changes list`.
+#### Tokens and env vars
+
+| Where | Variable | Purpose |
+| --- | --- | --- |
+| Collector | `INGEST_KEY` | Write-only key that SDKs and exporters present to ingest telemetry. |
+| Collector | `DASHBOARD_PASSWORD` | Browser login for the dashboard (`POST /auth/login`). |
+| Collector | `DASHBOARD_TOKEN` | Read bearer token for `/internal/*`, the CLI, and MCP. |
+| Client (CLI, MCP) | `OBS_DASHBOARD_TOKEN` | Canonical name for the value of the collector's `DASHBOARD_TOKEN`. Accepted by the CLI (`doctor`, `keys`, `changes list`), and `@obsunified/mcp-server`. |
+| Client (CLI) | `OBS_ADMIN_TOKEN`, `OBS_API_TOKEN` | Aliases for `OBS_DASHBOARD_TOKEN` (verified against CLI 1.1.3 with `doctor`, `keys list`, and `changes list`). |
+| Client (SDKs, CLI) | `OBS_INGEST_KEY` | The collector's `INGEST_KEY`, used by the SDKs and `obs-unified changes record` (`OBS_API_KEY` is also accepted by the CLI). |
+
 
 Run the local image smoke test when you want a full outside-the-container verification:
 
@@ -156,7 +173,7 @@ the editable install and the seeded local image.
 
 | Artifact | Where | Install |
 | --- | --- | --- |
-| All-in-one container image | [GHCR: `dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified) | `docker pull ghcr.io/dev-sawan-ruparel/obs-unified:latest` |
+| All-in-one container image | [GHCR: `dev-sawan-ruparel/obs-unified`](https://github.com/users/dev-sawan-ruparel/packages/container/package/obs-unified) | `docker pull ghcr.io/dev-sawan-ruparel/obs-unified:latest` |
 | Collector (Workers runtime) | [npm: `@obsunified/collector`](https://www.npmjs.com/package/@obsunified/collector) | `pnpm add @obsunified/collector` |
 | Dashboard components | [npm: `@obsunified/dashboard`](https://www.npmjs.com/package/@obsunified/dashboard) | `pnpm add @obsunified/dashboard` |
 | Browser SDK | [npm: `@obsunified/analytics-sdk`](https://www.npmjs.com/package/@obsunified/analytics-sdk) | `pnpm add @obsunified/analytics-sdk` |

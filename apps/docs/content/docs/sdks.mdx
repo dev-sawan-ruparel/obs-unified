@@ -103,14 +103,17 @@ For React hosts the SDK exports a provider component; for other hosts call the l
 
 ### React quick start
 
-```tsx
+```tsx check
 import { AnalyticsProvider, AnalyticsErrorBoundary } from "@obsunified/analytics-sdk/react";
+
+declare const ErrorPage: () => null;
+declare const App: () => null;
 
 export function Root() {
 	return (
 		<AnalyticsProvider
 			collectorUrl="https://your-collector.example.com"
-			apiKey={import.meta.env.VITE_OBS_INGEST_KEY}
+			apiKey={(import.meta as unknown as { env: Record<string, string> }).env.VITE_OBS_INGEST_KEY}
 			trackPageViews
 			captureErrors
 			storagePrefix="myapp"
@@ -131,9 +134,11 @@ The provider:
 - Installs the **Mode A** auto-correlator: a global capture-phase listener on `click`, `submit`, `keydown` that mints a fresh `interaction_id`, plus a global `fetch` + `XMLHttpRequest` wrapper that injects the `x-obs-interaction` header on outbound requests
 - Provides `useAnalytics()` hook for explicit calls
 
+Interaction ids are 26-character uppercase Crockford-base32 ULIDs (for example `01JAQ8K3Z9X7M2N4P6Q8R0S1T3`). The browser SDK mints valid ids; if you stamp `x-obs-interaction` by hand (curl tests, other languages), use that format, because `@obsunified/telemetry-sdk` silently drops malformed values.
+
 ### Inside a component
 
-```tsx
+```tsx check
 import { useAnalytics } from "@obsunified/analytics-sdk/react";
 
 export function CheckoutButton() {
@@ -177,7 +182,7 @@ Future timestamps are rejected silently — clock-skewed clients can't poison th
 
 Auto-correlation (Mode A) handles synchronous handlers and shallow `await` chains. Deeper async flows (debounces, setTimeout-queued work, state-machine transitions) escape the microtask cascade. For those, use `withInteractionContext`:
 
-```ts
+```ts check
 import { withInteractionContext, currentInteractionId } from "@obsunified/analytics-sdk";
 
 // Capture at click time
@@ -201,7 +206,7 @@ pnpm add @obsunified/telemetry-sdk
 
 ### Cloudflare Worker / Hono quick start
 
-```ts
+```ts nocheck needs the hono app and Worker env bindings, which are not part of the SDK types
 import {
 	createRequestSpan,
 	initObservability,
@@ -245,8 +250,10 @@ The same primitives work in plain Node.js — replace `c.env` with `process.env`
 
 ### Child spans
 
-```ts
+```ts check
 import { withChildSpan } from "@obsunified/telemetry-sdk";
+
+declare const db: { query(sql: string): Promise<unknown[]> };
 
 const items = await withChildSpan("db.query.items", async (child) => {
 	child.setAttribute("db.system", "postgres");
@@ -259,8 +266,13 @@ Child spans inherit the parent's trace context and interaction id automatically.
 
 ### Logs
 
-```ts
+```ts check
 import { createLogger } from "@obsunified/telemetry-sdk";
+
+declare const cartId: string;
+declare const items: unknown[];
+declare const traceId: string;
+declare const error: unknown;
 
 const logger = createLogger("checkout-api");
 
@@ -274,15 +286,23 @@ Logs are flushed at request end via `flushLogs()`. If a span is active, the log 
 
 The SDK exposes typed helpers for OpenInference-style LLM spans:
 
-```ts
+```ts check
 import { setAISessionContext, startRetrieverSpan } from "@obsunified/telemetry-sdk";
+
+declare const sessionId: string;
+declare const userId: string;
+declare const query: string;
+declare const db: { vectorSearch(q: string): Promise<{ id: string; score: number; content: string }[]> };
 
 setAISessionContext({ sessionId, userId });
 
-await startRetrieverSpan("vector.search", { input: query }, async (span) => {
-	span.setAttribute("retriever.k", 10);
-	return await db.vectorSearch(query);
-});
+const retriever = startRetrieverSpan({ query, name: "vector.search" });
+try {
+  const docs = await db.vectorSearch(query);
+  retriever.addDocuments(docs);
+} finally {
+  retriever.end();
+}
 ```
 
 For lower-level LLM and tool spans, use `startLLMSpan()` and `startToolSpan()` as shown in [SDK API reference](/docs/sdk-reference#ai-and-llm-span-tracking).
@@ -291,8 +311,13 @@ For lower-level LLM and tool spans, use `startLLMSpan()` and `startToolSpan()` a
 
 Workers services can wrap platform bindings from the Cloudflare-specific entry point:
 
-```ts
+```ts check
 import { wrapD1, wrapFetch, wrapR2 } from "@obsunified/telemetry-sdk/cloudflare";
+
+declare const env: {
+  DATABASE: Parameters<typeof wrapD1>[0];
+  STORAGE_BUCKET: Parameters<typeof wrapR2>[0];
+};
 
 const db = wrapD1(env.DATABASE);
 const bucket = wrapR2(env.STORAGE_BUCKET, { bucketName: "blobs" });

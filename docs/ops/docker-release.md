@@ -44,7 +44,7 @@ The distributed container is an all-in-one image packaging the Node collector ru
 | `OBS_LOCAL_SEED` | `false` | Disabled by default in the release image. Set to `true` only if seeding synthetic sample data is explicitly desired. |
 | `PORT` | `8790` | Collector listen port. |
 | `OBS_DASHBOARD_PORT` | `5173` | Dashboard listen port. |
-| `ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated CORS allowed origins. |
+| `ALLOWED_ORIGINS` | `localhost` and `127.0.0.1` on ports `5173`, `5174`, and `3000` | Comma-separated CORS allowed origins (set explicitly for any other origin). |
 | `DATABASE_URL` | `postgres://obs:obs@127.0.0.1:5432/obs_unified` | Connection string for internal PostgreSQL. |
 | `BLOB_STORE` | `file` | Blob storage backend (`file` or `s3`). |
 | `BLOB_DIR` | `/data/blobs` | Filesystem blob path when `BLOB_STORE=file`. |

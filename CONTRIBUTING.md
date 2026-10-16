@@ -51,6 +51,16 @@ the host-injected adapter.
   `type-check` script builds the packages first because workspace imports such
   as `@obsunified/types/constants` resolve against each package's `dist/`.
 
+### Documentation snippets
+
+- SDK code samples in `apps/docs/content/docs/sdk-reference.mdx` and
+  `sdks.mdx` are type-checked against the built SDK declarations. Tag a
+  compilable block with ```` ```ts check ```` (or `tsx check`); use `declare`
+  lines for ambient values. A block that cannot compile (for example it needs
+  a framework's types) is tagged ```` ```ts nocheck <reason> ```` instead.
+- After editing those pages run `pnpm --filter @obsunified/types --filter @obsunified/telemetry-sdk --filter @obsunified/analytics-sdk build`
+  (once) and `pnpm --filter obs-unified-docs check:snippets`.
+
 ## Commit style
 
 - Conventional commits: `feat(scope):`, `fix(scope):`, `refactor(scope):`,

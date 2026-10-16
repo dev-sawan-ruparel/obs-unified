@@ -36,7 +36,7 @@ This packages the full local stack into one container. It is the lowest-friction
 ### Prebuilt image from GHCR
 
 No clone needed. The release image is published as
-[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/dev-sawan-ruparel/obs-unified/pkgs/container/obs-unified)
+[`ghcr.io/dev-sawan-ruparel/obs-unified`](https://github.com/users/dev-sawan-ruparel/packages/container/package/obs-unified)
 and fails closed without your own credentials:
 
 ```bash
@@ -87,6 +87,15 @@ Access the interfaces:
 | Dashboard | `http://localhost:5173` |
 | Collector ingest | `http://localhost:8790` |
 
+To log in from a script, `POST` the dashboard password and keep the `obs_session` cookie. Logout only clears the browser cookie; the signed session stays valid until it expires (7 days) or `DASHBOARD_PASSWORD` is rotated.
+
+```bash
+curl -i -X POST http://localhost:5173/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"password":"<DASHBOARD_PASSWORD>"}'
+# set-cookie: obs_session=...; HttpOnly; SameSite=Strict; Max-Age=604800
+```
+
 Credentials for the locally built image (`pnpm local:run` only; the prebuilt GHCR image rejects these values and requires your own, see [Installation](/docs/installation)):
 
 | Credential | Environment Variable | Local image value |
@@ -95,7 +104,17 @@ Credentials for the locally built image (`pnpm local:run` only; the prebuilt GHC
 | Dashboard password | `DASHBOARD_PASSWORD` | `e2e-test-pass` |
 | Read bearer token | `DASHBOARD_TOKEN` on the collector | `e2e-dashboard-token` |
 
-Pass the read token as `OBS_DASHBOARD_TOKEN` to `@obsunified/mcp-server`, `OBS_ADMIN_TOKEN` to `obs-unified keys` / `doctor`, and `OBS_API_TOKEN` (or `OBS_ADMIN_TOKEN`) to `obs-unified changes list`.
+#### Tokens and env vars
+
+| Where | Variable | Purpose |
+| --- | --- | --- |
+| Collector | `INGEST_KEY` | Write-only key that SDKs and exporters present to ingest telemetry. |
+| Collector | `DASHBOARD_PASSWORD` | Browser login for the dashboard (`POST /auth/login`). |
+| Collector | `DASHBOARD_TOKEN` | Read bearer token for `/internal/*`, the CLI, and MCP. |
+| Client (CLI, MCP) | `OBS_DASHBOARD_TOKEN` | Canonical name for the value of the collector's `DASHBOARD_TOKEN`. Accepted by the CLI (`doctor`, `keys`, `changes list`), and `@obsunified/mcp-server`. |
+| Client (CLI) | `OBS_ADMIN_TOKEN`, `OBS_API_TOKEN` | Aliases for `OBS_DASHBOARD_TOKEN` (verified against CLI 1.1.3 with `doctor`, `keys list`, and `changes list`). |
+| Client (SDKs, CLI) | `OBS_INGEST_KEY` | The collector's `INGEST_KEY`, used by the SDKs and `obs-unified changes record` (`OBS_API_KEY` is also accepted by the CLI). |
+
 
 To persist local database and blob storage state across container restarts:
 
@@ -214,7 +233,7 @@ Before instrumenting an application (or when an AI agent scouts your repository)
 | --- | --- | --- | --- |
 | **Tier 1 — Full First-Party Unified Stack** | Browser SPAs & SSR web apps (React, Next.js, Vite, Vue, Svelte, Vanilla TS/JS) + TypeScript/Node/Edge backends (Cloudflare Workers, Hono, Express, Fastify) or Go/Rust services | Traces, Structured Logs, Metrics, Usage Events, `rrweb` DOM Session Replay, Click-to-Trace (`x-obs-interaction`), AI Calls, Agent Action Graph, CPU Profiles, AutoSRE Release Lineage & Feature Flags | Full out-of-the-box correlation via `@obsunified/analytics-sdk`, `@obsunified/telemetry-sdk`, `@obsunified/sdk`, `sdks/go`, and `sdks/rust`. |
 | **Tier 2 — Standard OpenTelemetry Backends** | Python (Flask, FastAPI, Django), Java/Kotlin (Spring Boot), .NET, Ruby, PHP, C++ | OTLP HTTP Traces (`/v1/traces`), Logs (`/v1/logs`), Metrics (`/v1/metrics`), plus HTTP JSON ingest for AI Calls (`/v1/ai`), Agent Action Graph (`/v1/actions`, `/v1/agent-runs`, `/v1/tool-calls`), and Release Changes (`/v1/changes`) | Supports both `OTEL_EXPORTER_OTLP_PROTOCOL=http/json` and `http/protobuf` (with optional gzip). For browser click-to-trace correlation, read the incoming `x-obs-interaction` HTTP header and set span attribute `obs.interaction.id`. |
-| **Tier 3 — Partial or Constrained Shapes** | **Native Mobile** (iOS, Android, React Native, Flutter)<br/>**Headless / CLI / Cron**<br/>**Async Message Queues** (Kafka, SQS, RabbitMQ, BullMQ)<br/>**gRPC-only OTLP** | Backend traces, logs, metrics, AI calls, and Action Graph (`triggerKind: "cron" \| "queue" \| "webhook"`) | **Native mobile:** No `rrweb` session replay (requires browser DOM).<br/>**Queues:** Producer must propagate `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message headers or consumer spans appear as disconnected roots.<br/>**gRPC OTLP:** Collector endpoints speak HTTP (`application/json` and `application/x-protobuf`); place an OTel Collector gateway in front if agents only emit gRPC. |
+| **Tier 3 — Partial or Constrained Shapes** | **Native Mobile** (iOS, Android, React Native, Flutter)<br/>**Headless / CLI / Cron**<br/>**Async Message Queues** (Kafka, SQS, RabbitMQ, BullMQ)<br/>**gRPC-only OTLP** | Backend traces, logs, metrics, AI calls, and Action Graph (`startAgentRun({ agentId, agentName, ... }, fn)`) | **Native mobile:** No `rrweb` session replay (requires browser DOM).<br/>**Queues:** Producer must propagate `traceparent` / `x-obs-interaction` / `x-obs-action-id` in message headers or consumer spans appear as disconnected roots.<br/>**gRPC OTLP:** Collector endpoints speak HTTP (`application/json` and `application/x-protobuf`); place an OTel Collector gateway in front if agents only emit gRPC. |
 
 ### Common wiring & non-interactive scaffolding
 
@@ -246,8 +265,8 @@ If you are an AI coding agent (Claude Code, Cursor, Codex, Antigravity, Windsurf
 - **Step 1 (Assess fit):** Inspect the user's `package.json`, `pyproject.toml`, `go.mod`, or `Cargo.toml` against the **Application compatibility & signal matrix** above. Report clearly to the user which signals are supported and call out any Tier 3 constraints before editing code.
 - **Step 2 (Boot collector & verify):** Start the GHCR container with `INGEST_KEY`, `DASHBOARD_PASSWORD`, and `DASHBOARD_TOKEN` set, then run `pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin <user-app-origin>`.
 - **Step 3 (Instrument without blocking on TTY prompts):** Always pass `--yes` (`-y`) and `--template` when running `pnpm dlx @obsunified/cli create`. When instrumenting Cloudflare Workers or Hono, register `app.use("*", async (c, next) => { await next(); c.executionCtx.waitUntil(flushSpans()); })`.
-- **Step 4 (Verify ingestion end-to-end):** Trigger a test request or record a release change (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key $INGEST_KEY --service my-api --version 0.1.0 --summary "Agent onboarding verification"`), then confirm non-zero telemetry with `pnpm dlx @obsunified/cli changes list --url http://localhost:8790 --token $DASHBOARD_TOKEN` and `curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/telemetry/overview`.
-- **Step 5 (Connect MCP server):** Configure `@obsunified/mcp-server` with `OBS_COLLECTOR_URL`, `OBS_DASHBOARD_TOKEN` (`$DASHBOARD_TOKEN`), and `OBS_INGEST_KEY` (`$INGEST_KEY`) — see [MCP Server](/docs/mcp-server).
+- **Step 4 (Verify ingestion end-to-end):** Trigger a test request or record a release change (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key $INGEST_KEY --service my-api --version 0.1.0 --environment <env> --summary "Agent onboarding verification"`; `--environment` defaults to `default`, so pass the environment your instrumented service reports), then confirm non-zero telemetry with `pnpm dlx @obsunified/cli changes list --url http://localhost:8790 --token $DASHBOARD_TOKEN` and `curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/telemetry/overview`.
+- **Step 5 (Connect MCP server):** Configure `@obsunified/mcp-server` with `OBS_COLLECTOR_URL` and `OBS_DASHBOARD_TOKEN` (`$DASHBOARD_TOKEN`); it only reads, so do not give it the ingest key — see [MCP Server](/docs/mcp-server).
 
 ### What is autonomous vs. what requires human intervention
 

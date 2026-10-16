@@ -114,7 +114,7 @@ AI agents evaluating whether a target codebase fits Observability Unified should
 
 ### Tier 3 — Partial or Unsupported Application Shapes (Report Constraints to User)
 - **Native Mobile Apps (iOS Swift, Android Kotlin, React Native, Flutter):** Supported for HTTP usage events, backend traces, logs, and AI calls; **NOT supported** for `rrweb` session replay (which requires a browser DOM).
-- **CLI Tools, Cron Jobs, and Headless Workers:** Supported for traces, logs, metrics, AI calls, CPU profiles, and Agent Action Graph (`triggerKind: "cron" | "queue" | "webhook" | "system"`); **not applicable** for browser session replay or DOM analytics.
+- **CLI Tools, Cron Jobs, and Headless Workers:** Supported for traces, logs, metrics, AI calls, CPU profiles, and Agent Action Graph (`startAgentRun({ agentId, agentName, ... }, fn)`); **not applicable** for browser session replay or DOM analytics.
 - **Async Queue / Event-Bus Consumers (Kafka, SQS, RabbitMQ, BullMQ):** Preserve end-to-end causal graphs **only if** the producer propagates `traceparent`, `x-obs-interaction`, or `x-obs-action-id` in message metadata and the consumer extracts them; otherwise consumer spans appear as disconnected root traces.
 - **gRPC-Only OTLP Exporters (`grpc` without HTTP):** Collector `/v1/traces`, `/v1/logs`, and `/v1/metrics` natively decode HTTP OTLP payloads (`application/json` and `application/x-protobuf`, with optional gzip). Use an OpenTelemetry Collector gateway if an upstream agent only speaks gRPC.
 
@@ -186,12 +186,12 @@ When an AI coding agent is asked to set up or integrate Observability Unified fo
      pnpm dlx @obsunified/cli create my-app --template hono-workers --collector-url http://localhost:8790 --yes
      ```
    - For an existing app, install `@obsunified/analytics-sdk` (browser) and/or `@obsunified/telemetry-sdk` (TypeScript server) or configure OTLP `http/json` exporters (Python/Go/Rust/Java). Ensure backend CORS includes `x-obs-interaction` in `Access-Control-Allow-Headers`.
-4. **Emit a verification signal & assert ingestion:** Trigger one request against the instrumented app and/or record a release event (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key "$INGEST_KEY" --service my-api --version 0.1.0 --summary "Initial instrumentation"`), then verify ingestion via CLI and read API:
+4. **Emit a verification signal & assert ingestion:** Trigger one request against the instrumented app and/or record a release event (`pnpm dlx @obsunified/cli changes record --url http://localhost:8790 --api-key "$INGEST_KEY" --service my-api --version 0.1.0 --environment <env> --summary "Initial instrumentation"`; `--environment` defaults to `default`, so set it to the same environment your instrumented service reports or the change will not connect to its traces), then verify ingestion via CLI and read API:
    ```bash
    pnpm dlx @obsunified/cli changes list --url http://localhost:8790 --token "$DASHBOARD_TOKEN"
    curl -fsSL -H "Authorization: Bearer $DASHBOARD_TOKEN" http://localhost:8790/internal/telemetry/overview
    ```
-5. **Register the MCP server for ongoing agent debugging:** Add `@obsunified/mcp-server` with `OBS_COLLECTOR_URL="http://localhost:8790"`, `OBS_DASHBOARD_TOKEN="$DASHBOARD_TOKEN"`, and `OBS_INGEST_KEY="$INGEST_KEY"` so the agent can call `obs_status`, `recent_traces`, `get_evidence_bundle`, `list_recent_changes`, and `get_change_blast_radius`.
+5. **Register the MCP server for ongoing agent debugging:** Add `@obsunified/mcp-server` with `OBS_COLLECTOR_URL="http://localhost:8790"` and `OBS_DASHBOARD_TOKEN="$DASHBOARD_TOKEN"` (a read token is all the MCP server needs; do not give it the ingest key) so the agent can call `obs_status`, `recent_traces`, `get_evidence_bundle`, `list_recent_changes`, and `get_change_blast_radius`.
 
 ### Autonomous vs. human intervention boundaries
 
