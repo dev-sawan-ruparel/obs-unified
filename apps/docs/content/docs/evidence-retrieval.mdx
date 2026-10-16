@@ -61,10 +61,10 @@ redacted args/results.
   eval, trace, and log links.
 - For `triage_incident` and AutoSRE anchors (`change`, `finding`, `incident`),
   `bundle.autosre` separates:
-  - `faultLocus` (`unverified_locus` — deepest error span)
+  - `faultLocus` (`{ nodeId, spanId, relationshipCertainty, isBlackoutSuspected }` — the deepest error span; `relationshipCertainty` is link provenance, and locating a span carries no causal proof on its own)
   - `candidateChanges` (`corroborated_candidate` / `cohort_rate_isolated` / `counterfactual_verified`, with change blast-radius metrics)
   - `contentionCandidates` (noisy-neighbor traces hitting the same downstream service within ±30s)
-  - `priorFindings` (historical `InvestigationFinding`s matching the environment/service or fingerprint)
+  - `priorFindings` (historical `InvestigationFinding`s matching the fault locus entity id or the same recurrence fingerprint — service, route, and error signature — in the same project)
 
 ## Reduction, measured
 

@@ -18,7 +18,7 @@ import {
 } from "@obsunified/types";
 import { consoleLogger, type Logger } from "../framework/logger";
 import { computeChangeBlastRadius } from "./autosre-change-correlation";
-import { randomHex } from "./hash";
+import { randomHex, sha256Hex } from "./hash";
 import { parseJsonArray, parseJsonRecord } from "./json";
 import type { SqlDb } from "./sql-db";
 
@@ -221,6 +221,57 @@ function resolveSafeCausalProofTier(
 	return "unverified_locus";
 }
 
+export interface FaultLocusSpanRow {
+	service_name: string | null;
+	span_name: string;
+	status_message: string | null;
+	error_signature?: string | null;
+}
+
+/** Looks up the span a finding's fault locus refers to (newest match wins). */
+export async function loadFaultLocusSpan(
+	db: SqlDb,
+	projectId: string,
+	environment: string,
+	spanId: string,
+): Promise<FaultLocusSpanRow | null> {
+	if (!spanId) return null;
+	return db
+		.prepare(
+			`SELECT service_name, span_name, status_message, error_signature
+			 FROM telemetry_spans
+			 WHERE project_id = ? AND environment = ? AND span_id = ?
+			 ORDER BY start_time DESC
+			 LIMIT 1`,
+		)
+		.bind(projectId, environment, spanId)
+		.first<FaultLocusSpanRow>();
+}
+
+/**
+ * Stable recurrence-fingerprint inputs for a fault-locus span: the service node,
+ * the span name as the operation and the span's error signature (falling back
+ * to its status message). No instance ids participate, so two traces failing
+ * the same way on the same service/route share a fingerprint. Used by both
+ * finding creation and the evidence bundle's prior-finding lookup.
+ */
+export function fingerprintInputFromSpan(
+	span: FaultLocusSpanRow,
+	environment: string,
+): FindingFingerprintInput {
+	return {
+		environment,
+		originatingNodeId: buildCanonicalNodeId({
+			kind: "service",
+			environment,
+			serviceName: span.service_name || "unknown-service",
+		}).id,
+		normalizedOperation: span.span_name,
+		errorSignature: span.error_signature || span.status_message || "",
+		downstreamTargetNodeId: null,
+	};
+}
+
 export async function recordInvestigationFinding(
 	db: SqlDb,
 	projectId: string,
@@ -237,23 +288,66 @@ export async function recordInvestigationFinding(
 		.trim()
 		.toLowerCase();
 
-	const defaultOriginNode = input.faultLocusEntityId.includes(":")
-		? input.faultLocusEntityId
+	// Idempotent retries: one key maps to one finding id per project and
+	// environment, and a replay returns the stored finding untouched.
+	const idempotencyKey = input.idempotencyKey?.trim();
+	let idempotencyId: string | undefined;
+	if (idempotencyKey) {
+		idempotencyId = `fnd_k${(await sha256Hex(`${projectId}\u0000${environment}\u0000${idempotencyKey}`)).slice(0, 20)}`;
+		const replay = await getInvestigationFinding(
+			db,
+			projectId,
+			idempotencyId,
+			environment,
+		);
+		if (replay) return replay;
+	}
+
+	// Findings pointing at a span id (no colon) must not mint a per-incident
+	// fingerprint. Resolve the span to its service/operation/error signature so
+	// every incident on the same service + route + error shares one identity.
+	// Caller-supplied fingerprint fields always win; unknown spans fall back to
+	// treating the locus id as a service name.
+	const supplied: Partial<FindingFingerprintInput> =
+		input.fingerprintInput ?? {};
+	const locusId = input.faultLocusEntityId.trim();
+	let spanDerived: Partial<FindingFingerprintInput> = {};
+	if (!locusId.includes(":") && input.faultLocusEntityKind !== "service") {
+		const spanRow = await loadFaultLocusSpan(
+			db,
+			projectId,
+			environment,
+			locusId,
+		);
+		if (spanRow) spanDerived = fingerprintInputFromSpan(spanRow, environment);
+	}
+	const defaultOriginNode = locusId.includes(":")
+		? locusId
 		: buildCanonicalNodeId({
 				kind: "service",
 				environment,
-				serviceName: input.faultLocusEntityId,
+				serviceName: locusId,
 			}).id;
 
-	const fpResult = buildFindingFingerprint(
-		input.fingerprintInput ?? {
-			environment,
-			originatingNodeId: defaultOriginNode,
-			normalizedOperation: input.title,
-			errorSignature: input.summary.slice(0, 120),
-			downstreamTargetNodeId: null,
-		},
-	);
+	const fpResult = buildFindingFingerprint({
+		environment: supplied.environment ?? environment,
+		originatingNodeId:
+			supplied.originatingNodeId ??
+			spanDerived.originatingNodeId ??
+			defaultOriginNode,
+		normalizedOperation:
+			supplied.normalizedOperation ??
+			spanDerived.normalizedOperation ??
+			input.title,
+		errorSignature:
+			supplied.errorSignature ??
+			spanDerived.errorSignature ??
+			input.summary.slice(0, 120),
+		downstreamTargetNodeId:
+			supplied.downstreamTargetNodeId ??
+			spanDerived.downstreamTargetNodeId ??
+			null,
+	});
 
 	// Check for prior verified findings with the same stable fingerprint
 	const priorRow = await db
@@ -346,7 +440,7 @@ export async function recordInvestigationFinding(
 		finalConfidence: confidence,
 	};
 
-	const id = input.id?.trim() || `fnd_${randomHex(10)}`;
+	const id = idempotencyId ?? (input.id?.trim() || `fnd_${randomHex(10)}`);
 	const expiresAt = new Date(Date.now() + 90 * 24 * 3600_000).toISOString();
 
 	await db

@@ -219,15 +219,40 @@ args/results.
 | `GET /internal/changes` | Recent deployments, rollbacks, flag toggles, config/prompt changes | `environment`, `serviceName`, `targetNodeId`, `kind`, `since`, `limit` |
 | `GET /internal/changes/:id/blast-radius` | Traffic-normalized cohort error lift, noisy-neighbor contention check, and code-path overlap | `environment`, `minSample` |
 | `GET /internal/ontology` | Environment-scoped resource topology graph (`ontology_nodes`, `ontology_edges`, cycle diagnostics) | `environment`, `nodeId` |
-| `GET /internal/findings` | Search recurring `InvestigationFinding`s by fingerprint or symptom/root-cause entity | `environment`, `fingerprint`, `symptomEntityId`, `rootCauseEntityId` |
-| `POST /internal/findings` | Record a structured `InvestigationFinding` with `relationshipCertainty` and `causalProofTier` | body: finding payload |
+| `GET /internal/findings` | Search recurring `InvestigationFinding`s by fingerprint or symptom/root-cause entity | `environment`, `fingerprint`, `symptomEntityId`, `rootCauseEntityId`, `incidentId` |
+| `GET /internal/findings/:id` | One finding | `environment` |
+| `POST /internal/findings` | Record a structured `InvestigationFinding` with `relationshipCertainty` and `causalProofTier`. Send an `idempotencyKey` so a retry returns the same finding. | body: finding payload |
 | `POST /internal/findings/:id/counterfactual` | Upgrade finding to `counterfactual_verified` using paired failing baseline + passing candidate eval runs | body: `evalCaseId`, `failingRunId`, `passingRunIds`, `requiredTrials` |
-| `POST /internal/remediations/propose` | Propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, etc.) | body: proposal payload + `expectedCurrentState` |
-| `POST /internal/remediations/:id/claim` | Claim a single-use cryptographic `grantToken` with target-version CAS before executing a write | body: `grantToken`, `runnerId` |
+| `GET /internal/evals/runs/:id` | Existence check for an eval run (404 if absent); call before attaching a counterfactual | (path param) |
+| `POST /internal/incidents` | Open an incident, or join the active one for the same symptom (`deduplicated` in the response) | body: `targetNodeId`, `environment`, `symptomCategory`, `symptomAnchorKind`, `symptomAnchorId` |
+| `GET /internal/incidents` | List incidents | `environment`, `status`, `limit` |
+| `GET /internal/incidents/:id` | Incident plus its findings and proposals | `environment` |
+| `POST /internal/incidents/:id/lease` | Take the exclusive runner lease on an incident (409 if another runner holds it) | body: `runnerId`, `leaseDurationSeconds`, `environment` |
+| `POST /internal/remediations/propose` | Propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, etc.); optional `webhookUrl` + `secret` store a grant callback on a proposal that awaits approval | body: proposal payload + `expectedCurrentState`, `idempotencyKey` |
+| `GET /internal/remediations` | List proposals | `environment`, `incidentId`, `findingId`, `status`, `limit` |
+| `GET /internal/remediations/:id` | One proposal (status, policy reason, `callbackHost`); never the token | `environment` |
+| `POST /internal/remediations/:id/approve` | Human approval (dashboard session cookie only; bearer tokens get 403). Mints the one-time `grantToken` in this response | body: `environment`, optional `webhookUrl` + `secret` |
+| `POST /internal/remediations/:id/reject` | Human rejection of a pending or issued grant (session cookie only) | body: `reason`, `environment` |
+| `POST /internal/remediations/:id/claim` | Claim a single-use cryptographic `grantToken` with target-version CAS before executing a write | body: `grantToken`, `runnerId`, `environment` |
+| `POST /internal/remediations/:id/complete` | Report success; arms the recovery watchdog | body: `runnerId`, `resultingChangeId`, `environment` |
+| `POST /internal/remediations/:id/fail` | Report a failed execution | body: `runnerId`, `failureReason`, `environment` |
+| `POST /internal/remediations/watchdog` | Evaluate expiry and post-remediation recovery now (also runs on the 1-minute cron) | body: optional `minComparableRequests` |
 
 Equivalent MCP tools: `list_recent_changes`, `get_change_blast_radius`,
-`search_similar_findings` (always registered), and `record_investigation_finding`,
-`propose_remediation_action`, `claim_remediation_grant` (registered when `OBS_MCP_ENABLE_WRITES=true`).
+`search_similar_findings`, `list_incidents`, `get_incident`,
+`get_remediation_proposal` (always registered), and `open_incident`,
+`record_investigation_finding`, `propose_remediation_action`,
+`claim_remediation_grant` (registered when `OBS_MCP_ENABLE_WRITES=true`). Lease,
+approve, reject, and watchdog have no MCP tool: approve and reject are
+human-only by design, and lease and watchdog are plain HTTP calls.
+
+Where `incidentId` comes from: call `open_incident` (`POST /internal/incidents`)
+yourself, or use the incident id in an incident-anchored evidence bundle (a
+firing alert already opened one). Proposals require an existing incident, and
+`environment` must match the incident's environment (it defaults to `default`,
+so set it explicitly for `prod` or any non-default service). When you claim with
+a custom `runnerId`, repeat the same `runnerId` on `complete` and `fail`; the
+default is `autosre-runner`.
 
 ### Usage events / users / replay
 
@@ -326,8 +351,20 @@ Common questions and the query sequence that answers them:
 2. **Fault Localization**: Inspect the trace-level fault locus (`originated_in` / deepest error root span) and check `GET /internal/ontology?environment=<env>` for service/dependency edges and SCC cycles.
 3. **Change & Cohort Correlation**: Call `GET /internal/changes?environment=<env>&serviceName=<svc>` (`list_recent_changes`) and `GET /internal/changes/:id/blast-radius` (`get_change_blast_radius`). Read the cohort `verdict`: `isolated_to_new_version` and `sequential_post_cutover_regression` point at the change, while `shared_degradation_new_version_aggressor` (noisy-neighbor contention the new version induces) and `shared_degradation_external_cause` (upstream or infrastructure fault) do not; `insufficient_sample` means fewer than the comparable-sample minimum of requests (default 50), so gather more traffic before concluding.
 4. **Counterfactual Verification**: Record a finding via `POST /internal/findings` (`record_investigation_finding`). When an eval reproducer exists, run paired failing baseline + passing candidate `eval_runs` and call `POST /internal/findings/:id/counterfactual` to upgrade `causalProofTier` to `counterfactual_verified`.
-5. **Governed Remediation**: Call `POST /internal/remediations/propose` (`propose_remediation_action`). Never treat structural overlap (`corroborated_candidate`) as sufficient for autonomous rollback; require `causalProofTier` of `cohort_rate_isolated` (verdict `isolated_to_new_version`) or `counterfactual_verified`, or wait for a human operator to approve in the Autonomous Review queue.
+5. **Governed Remediation**: Open or find the incident first (`open_incident` / `GET /internal/incidents`), then call `POST /internal/remediations/propose` (`propose_remediation_action`). For `rollback_deploy` and `toggle_feature_flag`, `cohort_rate_isolated` or `counterfactual_verified` can earn an autonomous grant, `corroborated_candidate` always waits for a human to approve in the Autonomous Review queue, and `unverified_locus` is `blocked_by_policy` (proposal `status: "rejected"`). A caller-requested `requestedAutonomy` can only lower this, and at most 3 live proposals per finding fingerprint and action kind are allowed per hour.
 6. **Execution & Operational Recovery**: Claim the single-use `grantToken` via `POST /internal/remediations/:id/claim` (`claim_remediation_grant`) before executing the change, then complete the proposal (`POST /internal/remediations/:id/complete`) so the recovery watchdog tracks `recoveryStatus` separately from `causalVerificationStatus`.
+
+### "Approval → execution handoff"
+
+The grant token is shown exactly once: in the `propose` response when the policy grants autonomy, or in the `POST /internal/remediations/:id/approve` response (the approval card shows it once). `GET` routes and MCP read tools never return it, because only its hash is stored. The runner has **5 minutes** (`grantExpiresAt`) to claim it and then 5 minutes from the claim to complete or fail.
+
+1. Propose. If the result is `pending_human_approval`, decide how the token will reach you before a human approves:
+   - **Paste:** the human copies the token from the card and gives it to you.
+   - **Stored callback:** pass `webhookUrl` (+ `webhookSecret`) to `propose_remediation_action`. The card shows "Grant will also be delivered to <host>", `get_remediation_proposal` shows `callbackHost` only, and approving without a callback of its own POSTs a signed `autosre.remediation.grant_issued` event (HMAC `X-Obs-Signature-256`) with `grantToken` to that URL. The callback is cleared on approve or reject.
+   - **Callback on approve:** the approving human's request may carry `webhookUrl` + `secret`; it overrides a stored one. The web UI does not send these.
+2. Poll `get_remediation_proposal` until `status` is `grant_issued` (or `rejected`).
+3. Claim with `claim_remediation_grant` (`operation: "claim"`, `grantToken`), execute the change, then `complete` (or `fail`) with the same `runnerId`.
+4. Lost response? A replayed `propose` with the same `idempotencyKey` returns the existing status but `grantToken: null`, and re-approving returns 409. Ask a human to reject the `grant_issued` proposal (or let it become `expired` after 5 minutes), then propose again with a new `idempotencyKey`. Webhook failures do not undo approval and are not retried; the response's `webhookDelivery.delivered` says what happened.
 
 ### "Verify my instrumentation is working"
 

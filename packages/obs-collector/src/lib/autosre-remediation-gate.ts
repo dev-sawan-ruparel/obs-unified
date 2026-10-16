@@ -703,9 +703,21 @@ interface ProposalRow {
 	remediation_agent_run_id: string | null;
 	resulting_change_id: string | null;
 	failure_reason: string | null;
+	callback_url?: string | null;
+	callback_secret?: string | null;
 	created_at: string;
 	updated_at: string;
 	expires_at: string | null;
+}
+
+/** Host (never path, query or credentials) of a stored grant callback URL. */
+function callbackHostOf(url: string | null | undefined): string | null {
+	if (!url) return null;
+	try {
+		return new URL(url).host || null;
+	} catch {
+		return null;
+	}
 }
 
 export const mapProposalRow = (
@@ -739,6 +751,7 @@ export const mapProposalRow = (
 	remediationAgentRunId: row.remediation_agent_run_id,
 	resultingChangeId: row.resulting_change_id,
 	failureReason: row.failure_reason,
+	callbackHost: callbackHostOf(row.callback_url),
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 	expiresAt: row.expires_at,
@@ -847,7 +860,11 @@ export async function proposeRemediationAction(
 	db: SqlDb,
 	projectId: string,
 	input: RemediationProposalInput,
-	options: { logger?: Logger } = {},
+	options: {
+		logger?: Logger;
+		/** Persisted on a pending proposal and used when it is approved later. */
+		callback?: { url: string; secret?: string };
+	} = {},
 ): Promise<RemediationProposal> {
 	const logger = options.logger ?? consoleLogger;
 	const nowIso = new Date().toISOString();
@@ -977,6 +994,12 @@ export async function proposeRemediationAction(
 		status = "rejected";
 	}
 
+	// Only a proposal that still awaits a human can use a stored callback; an
+	// autonomous grant is delivered inline by the propose request itself.
+	const storedCallback =
+		status === "pending_human_approval" && options.callback?.url
+			? options.callback
+			: null;
 	const id = `rem_${randomHex(10)}`;
 	const expiresAt = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
 
@@ -997,8 +1020,9 @@ export async function proposeRemediationAction(
 				expected_current_state_json, desired_target_state_json,
 				requested_autonomy, effective_autonomy, policy_decision_reason,
 				status, grant_token_hash, grant_expires_at,
+				callback_url, callback_secret,
 				created_at, updated_at, expires_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT DO NOTHING`,
 		)
 		.bind(
@@ -1018,6 +1042,8 @@ export async function proposeRemediationAction(
 			status,
 			grantTokenHash,
 			grantExpiresAt,
+			storedCallback?.url ?? null,
+			storedCallback?.secret ?? null,
 			nowIso,
 			nowIso,
 			expiresAt,
@@ -1124,6 +1150,25 @@ export async function listRemediationProposals(
 }
 
 /**
+ * Reads the grant callback persisted at propose time. Server-side use only:
+ * the secret is never mapped into API responses. Call before
+ * `approveRemediationProposal`, which clears the stored callback.
+ */
+export async function getRemediationCallback(
+	db: SqlDb,
+	projectId: string,
+	proposalId: string,
+	environment?: string,
+): Promise<{ url: string; secret?: string } | null> {
+	const row = await loadProposalRow(db, projectId, proposalId, environment);
+	if (!row?.callback_url) return null;
+	return {
+		url: row.callback_url,
+		...(row.callback_secret ? { secret: row.callback_secret } : {}),
+	};
+}
+
+/**
  * Human dashboard session approval for `pending_human_approval` proposals
  * (RFC 0013 § 6.B & P1 #4). Mints a single-use `grantToken`.
  *
@@ -1169,6 +1214,8 @@ export async function approveRemediationProposal(
 			     grant_expires_at = ?,
 			     approved_by_user_id = ?,
 			     approved_at = ?,
+			     callback_url = NULL,
+			     callback_secret = NULL,
 			     updated_at = ?
 			 WHERE project_id = ? AND environment = ? AND id = ?
 			   AND status = 'pending_human_approval'`,
@@ -1241,6 +1288,8 @@ export async function rejectRemediationProposal(
 			`UPDATE remediation_proposals
 			 SET status = 'rejected',
 			     grant_token_hash = NULL,
+			     callback_url = NULL,
+			     callback_secret = NULL,
 			     failure_reason = ?,
 			     updated_at = ?
 			 WHERE project_id = ? AND environment = ? AND id = ?

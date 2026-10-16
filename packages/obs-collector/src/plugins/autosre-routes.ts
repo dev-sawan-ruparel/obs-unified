@@ -46,6 +46,7 @@ import {
 	evaluateRemediationWatchdogs,
 	failRemediationProposal,
 	getIncidentInvestigation,
+	getRemediationCallback,
 	getRemediationProposal,
 	listIncidentInvestigations,
 	listRemediationProposals,
@@ -56,6 +57,7 @@ import {
 } from "../lib/autosre-remediation-gate";
 import { sha256Hex } from "../lib/hash";
 import { sqlDbFor } from "../lib/sql-db";
+import { assertSafeWebhookUrl } from "../lib/webhook-url";
 import { getProjectId } from "./_context";
 import { readJsonObject } from "./_json";
 
@@ -126,6 +128,12 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 		 * `webhookUrl` (+ optional `secret`) in that same request and the token is
 		 * pushed to the runner over the SSRF-guarded, HMAC-signed incident webhook.
 		 * Without a `webhookUrl` the token is simply returned in the response.
+		 *
+		 * A `webhookUrl` (+ `secret`) given to `propose` for a proposal that is
+		 * parked for human approval is persisted on the proposal and used when
+		 * the approve request carries none. A callback on the approve request
+		 * wins over the stored one. The stored callback is cleared on approve
+		 * or reject, and only its host is ever returned by GET.
 		 */
 		const deliverGrant = async (
 			env: CollectorEnv | undefined,
@@ -139,14 +147,22 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				status: string;
 				grantToken?: string;
 			},
+			/** Callback persisted at propose time; used when the request has none. */
+			stored?: { url: string; secret?: string } | null,
 		) => {
-			const webhookUrl =
+			const bodyUrl =
 				typeof body.webhookUrl === "string" ? body.webhookUrl.trim() : "";
-			if (!webhookUrl || !proposal.grantToken) return undefined;
+			const target = bodyUrl
+				? {
+						url: bodyUrl,
+						secret: typeof body.secret === "string" ? body.secret : undefined,
+					}
+				: (stored ?? null);
+			if (!target || !proposal.grantToken) return undefined;
 			if (proposal.status !== "grant_issued") return undefined;
 			return dispatchIncidentWebhook(db, projectId, proposal.incidentId, {
-				url: webhookUrl,
-				secret: typeof body.secret === "string" ? body.secret : undefined,
+				url: target.url,
+				secret: target.secret,
 				environment: proposal.environment,
 				allowPrivateNetworks: env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
 				logger: runtime.logger,
@@ -585,6 +601,10 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			const db = sqlDbFor(c.env);
 			const input: InvestigationFindingInput = {
 				id: typeof body.id === "string" ? body.id : undefined,
+				idempotencyKey:
+					typeof body.idempotencyKey === "string" && body.idempotencyKey.trim()
+						? body.idempotencyKey.trim()
+						: undefined,
 				environment:
 					typeof body.environment === "string" ? body.environment : undefined,
 				incidentId:
@@ -633,6 +653,9 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 							(id): id is string => typeof id === "string",
 						)
 					: [],
+				codeReferences: Array.isArray(body.codeReferences)
+					? (body.codeReferences as InvestigationFindingInput["codeReferences"])
+					: undefined,
 				agentRunId:
 					typeof body.agentRunId === "string" ? body.agentRunId : null,
 			};
@@ -700,6 +723,40 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				}
 				return c.json({ verified: false, error: message }, 400);
 			}
+		});
+
+		// Lightweight existence check so callers can validate counterfactual
+		// prerequisites before persisting a finding.
+		app.get("/internal/evals/runs/:id", async (c) => {
+			const projectId = getProjectId(c);
+			const runId = c.req.param("id");
+			const db = sqlDbFor(c.env);
+			const row = await db
+				.prepare(
+					`SELECT id, eval_case_id, service_version, commit_sha,
+					        pass_count, fail_count
+					 FROM eval_runs WHERE project_id = ? AND id = ? LIMIT 1`,
+				)
+				.bind(projectId, runId)
+				.first<{
+					id: string;
+					eval_case_id: string | null;
+					service_version: string | null;
+					commit_sha: string | null;
+					pass_count: number | null;
+					fail_count: number | null;
+				}>();
+			if (!row) return c.json({ error: "Eval run not found" }, 404);
+			return c.json({
+				run: {
+					id: row.id,
+					evalCaseId: row.eval_case_id,
+					serviceVersion: row.service_version,
+					commitSha: row.commit_sha,
+					passCount: Number(row.pass_count ?? 0),
+					failCount: Number(row.fail_count ?? 0),
+				},
+			});
 		});
 
 		// 6. Remediation Proposals, Human Approval, Claim Grant, Watchdog
@@ -774,6 +831,22 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 				: "autonomous_write";
 
 			const db = sqlDbFor(c.env);
+			const callbackUrl =
+				typeof body.webhookUrl === "string" ? body.webhookUrl.trim() : "";
+			if (callbackUrl) {
+				try {
+					assertSafeWebhookUrl(callbackUrl, {
+						allowPrivateNetworks: c.env?.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
+					});
+				} catch (err) {
+					return c.json(
+						{
+							error: `webhookUrl rejected: ${err instanceof Error ? err.message : String(err)}`,
+						},
+						400,
+					);
+				}
+			}
 			const input: RemediationProposalInput = {
 				environment:
 					typeof body.environment === "string" ? body.environment : undefined,
@@ -790,6 +863,15 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 			try {
 				const proposal = await proposeRemediationAction(db, projectId, input, {
 					logger: runtime.logger,
+					callback: callbackUrl
+						? {
+								url: callbackUrl,
+								secret:
+									typeof body.secret === "string" && body.secret
+										? body.secret
+										: undefined,
+							}
+						: undefined,
 				});
 				const webhookDelivery = await deliverGrant(
 					c.env,
@@ -836,6 +918,13 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 
 			const db = sqlDbFor(c.env);
 			try {
+				// Read before approving: the approve UPDATE clears the stored callback.
+				const storedCallback = await getRemediationCallback(
+					db,
+					projectId,
+					proposalId,
+					environment,
+				);
 				const proposal = await approveRemediationProposal(
 					db,
 					projectId,
@@ -851,6 +940,7 @@ export const autosreRoutesPlugin: CollectorPlugin = {
 					projectId,
 					body,
 					proposal,
+					storedCallback,
 				);
 				return c.json({
 					proposal,

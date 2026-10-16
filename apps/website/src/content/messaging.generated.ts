@@ -28,7 +28,11 @@ export const messaging = {
 			"list_recent_changes",
 			"get_change_blast_radius",
 			"search_similar_findings",
+			"list_incidents",
+			"get_incident",
+			"get_remediation_proposal",
 			"record_investigation_finding",
+			"open_incident",
 			"propose_remediation_action",
 			"claim_remediation_grant"
 		],

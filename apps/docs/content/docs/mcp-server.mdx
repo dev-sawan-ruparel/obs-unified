@@ -172,17 +172,22 @@ pnpm --filter @obsunified/mcp-server build
 - `list_recent_changes` — list recent change events (`deploy`, `rollback`, `feature_flag`, `config_change`, `prompt_rollout`) filtered by environment, service, or target node.
 - `get_change_blast_radius` — traffic-normalized cohort error lift, noisy-neighbor contention check, and code-path overlap for a change event.
 - `search_similar_findings` — search historical `InvestigationFinding`s by fingerprint, symptom entity, or root-cause entity.
+- `list_incidents` — list AutoSRE incidents, newest first, filtered by `environment`, `status`, and `limit`.
+- `get_incident` — one incident with its recorded findings and remediation proposals (summary).
+- `get_remediation_proposal` — one remediation proposal: status, effective autonomy, policy reason, and the host of any stored grant callback. Never returns the grant token.
 - `record_investigation_finding` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) persist a structured `InvestigationFinding` with `relationshipCertainty`, `causalProofTier`, and optional counterfactual verification.
+- `open_incident` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) open an incident, or join the active one for the same symptom; the result carries `deduplicated`. The incident id is required by `propose_remediation_action`.
 - `propose_remediation_action` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) propose a governed remediation action (`rollback_deploy`, `toggle_feature_flag`, `open_code_pr`, `apply_config`, `promote_agent_prompt`) evaluated against the pre-execution policy gate.
 - `claim_remediation_grant` — (write tool, requires `OBS_MCP_ENABLE_WRITES=true`) claim a single-use cryptographic `grantToken` (with target-version CAS) or complete/fail an active remediation execution.
 
 ## Write tools (opt-in)
 
-The server is read-only by default. Three tools can change collector state, and
+The server is read-only by default. Four tools can change collector state, and
 they are **not registered at all** unless you set `OBS_MCP_ENABLE_WRITES=true`:
 
-- `record_investigation_finding` — persists an `InvestigationFinding` (and can chain counterfactual verification).
-- `propose_remediation_action` — creates a policy-gated remediation proposal (rollback, flag toggle, config, prompt promotion, code PR).
+- `open_incident` — opens (or deduplicates onto) the incident that findings and proposals attach to.
+- `record_investigation_finding` — persists an `InvestigationFinding` (and can chain counterfactual verification). Eval runs named by `counterfactual` are checked before anything is stored; if verification fails after the finding is stored, the result still carries `data.finding` plus `data.counterfactualError`. Pass `idempotencyKey` so a retry returns the same finding instead of inserting another.
+- `propose_remediation_action` — creates a policy-gated remediation proposal (rollback, flag toggle, config, prompt promotion, code PR). Optional `webhookUrl` and `webhookSecret` store a grant callback on a proposal that awaits human approval (see the AutoSRE guide).
 - `claim_remediation_grant` — claims, completes, or fails a proposal using its single-use `grantToken`.
 
 These calls require the dashboard bearer token (`OBS_DASHBOARD_TOKEN` or its alias `OBS_API_TOKEN`).

@@ -11,6 +11,7 @@ import type {
 	TelemetrySpanDetail,
 	TelemetryTraceDetailResponse,
 } from "@obsunified/types";
+import { buildFindingFingerprint } from "@obsunified/types";
 import type { CollectorPlugin } from "../framework/collector";
 import {
 	computeChangeBlastRadius,
@@ -18,6 +19,7 @@ import {
 	listChangeEvents,
 } from "../lib/autosre-change-correlation";
 import {
+	fingerprintInputFromSpan,
 	getInvestigationFinding,
 	searchInvestigationFindings,
 } from "../lib/autosre-findings";
@@ -1606,6 +1608,28 @@ const attachAutoSreTriageContext = async (
 				rootCauseEntityId: faultLocus.faultLocusSpan.span_id,
 				limit: 5,
 			});
+		}
+		// Secondary match: the same recurrence fingerprint (service + route +
+		// error signature) in this project, so a failure that recurs on a
+		// different span id still surfaces the findings and fixes recorded
+		// before. Entity-id matches stay first.
+		if (faultLocus?.faultLocusSpan) {
+			const fingerprint = buildFindingFingerprint(
+				fingerprintInputFromSpan(faultLocus.faultLocusSpan, environment),
+			).fingerprint;
+			const byFingerprint = await searchInvestigationFindings(db, {
+				projectId,
+				environment,
+				fingerprint,
+				limit: 5,
+			});
+			const seen = new Set(priorFindingsList.map((f) => f.id));
+			for (const f of byFingerprint) {
+				if (!seen.has(f.id) && priorFindingsList.length < 5) {
+					priorFindingsList.push(f);
+					seen.add(f.id);
+				}
+			}
 		}
 		// No unfiltered fallback: unrelated findings would read as relevant
 		// prior art. An empty list is the honest answer.
