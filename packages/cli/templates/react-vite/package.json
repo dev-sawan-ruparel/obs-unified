@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently -k -n api,web \"pnpm dev:api\" \"pnpm dev:web\"",
-		"dev:api": "tsx src/server.ts",
+		"dev:api": "tsx --env-file-if-exists=.env.local src/server.ts",
 		"dev:web": "vite",
 		"build": "vite build",
 		"preview": "vite preview"

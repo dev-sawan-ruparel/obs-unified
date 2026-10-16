@@ -1,4 +1,4 @@
-# **APP_NAME**
+# __APP_NAME__
 
 Scaffolded by `obs-unified create` (vanilla-TypeScript variant). No framework —
 just the analytics SDK's auto-correlator on a plain HTML page.
@@ -11,8 +11,14 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173`, click the button, then check your collector
-dashboard at `__COLLECTOR_URL__`.
+Open `http://localhost:5174`, click the button, then open your obs-unified
+dashboard at `http://localhost:5173` to see the usage event. The collector API
+(`__COLLECTOR_URL__`) is not the dashboard. This template uses port 5174 so it
+does not collide with the dashboard's 5173.
+
+`.env.local` sets `VITE_OBS_COLLECTOR_URL` and `VITE_OBS_INGEST_KEY`. Replace
+the `dev-ingest-key` placeholder with a real key (`obs-unified keys mint`, or
+scaffold with `--ingest-key <key>`) if the collector enforces ingest keys.
 
 ## Adding a backend
 

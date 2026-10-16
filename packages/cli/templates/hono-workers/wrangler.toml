@@ -1,6 +1,8 @@
 name = "__APP_NAME__"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+# Required: the telemetry SDK uses node:async_hooks and node:crypto.
+compatibility_flags = ["nodejs_compat"]
 
 # Configure these via `wrangler secret put` for production.
 # [vars] is for non-secret defaults only.

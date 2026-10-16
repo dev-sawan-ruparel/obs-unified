@@ -35,6 +35,8 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES = path.join(here, "..", "templates");
 
+const PLACEHOLDER_INGEST_KEY = "dev-ingest-key";
+
 const [, , subcommand, ...rest] = process.argv;
 
 const usage = () => {
@@ -46,12 +48,14 @@ Usage: ${kleur.cyan("obs-unified")} <command> [options]
 Commands:
   ${kleur.cyan("up")}                    Start the local stack (Postgres + RustFS + collector)
   ${kleur.cyan("down")}                  Stop the local stack
-  ${kleur.cyan("create")} <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--yes]
+  ${kleur.cyan("create")} <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--ingest-key <key>] [--yes]
                         Scaffold a new app pre-wired with the SDKs (non-interactive when --template or --yes is passed)
   ${kleur.cyan("keys mint")} [--project <id>] [--name <label>] [--json]
                         Mint a new ingest key for a project
   ${kleur.cyan("keys list")} [--project <id>] [--json]
                         List a project's ingest keys
+  ${kleur.cyan("keys revoke")} <keyId> [--project <id>] [--json]
+                        Revoke an ingest key (auth is cached up to 60s)
   ${kleur.cyan("changes record")} [--service <name>] [--version <ver>] [--summary <text>] ...
                         Record a deploy, config change, feature-flag toggle, or rollback
   ${kleur.cyan("changes list")} [--environment <env>] [--service <name>] [--kind <kind>] [--limit <n>]
@@ -59,6 +63,7 @@ Commands:
   ${kleur.cyan("doctor")} [url] [--origin <origin> ...]
                         Diagnose a running collector
   ${kleur.cyan("help")}                  Show this message
+  ${kleur.cyan("--version")}             Print the CLI version
 
 Project selection for ${kleur.cyan("keys")}: --project, then OBS_PROJECT_ID, then the
 collector's "default" project (or its only project) via GET /internal/projects.
@@ -66,7 +71,9 @@ collector's "default" project (or its only project) via GET /internal/projects.
 Environment: OBS_COLLECTOR_URL (default http://localhost:8790),
 OBS_ADMIN_TOKEN (required for keys; optional for doctor), OBS_INGEST_KEY / OBS_API_KEY
 (for changes record), OBS_API_TOKEN (for changes list), OBS_PROJECT_ID,
-OBS_DOCTOR_ORIGINS.
+OBS_DOCTOR_ORIGINS. OBS_API_TOKEN, OBS_ADMIN_TOKEN and OBS_DASHBOARD_TOKEN are
+interchangeable bearer tokens for every read/admin command (keys, changes list,
+doctor); the first one set wins, in that order.
 `);
 };
 
@@ -131,7 +138,7 @@ switch (subcommand) {
 		if (!parsed.appName) {
 			console.error(
 				kleur.red(
-					"usage: obs-unified create <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--yes]",
+					"usage: obs-unified create <app-name> [--template <react-vite|vanilla-ts|hono-workers>] [--collector-url <url>] [--ingest-key <key>] [--yes]",
 				),
 			);
 			process.exit(1);
@@ -152,6 +159,17 @@ switch (subcommand) {
 
 	case "doctor": {
 		process.exit(await runDoctor(rest));
+		break;
+	}
+
+	case "--version":
+	case "-v":
+	case "version": {
+		const pkg = JSON.parse(
+			await readFile(path.join(here, "..", "package.json"), "utf8"),
+		) as { version: string };
+		console.log(pkg.version);
+		process.exit(0);
 		break;
 	}
 
@@ -233,6 +251,7 @@ async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 
 	let selectedTemplate = options.template;
 	let selectedCollectorUrl = options.collectorUrl;
+	const ingestKey = options.ingestKey?.trim() || undefined;
 
 	if (options.yes || !process.stdin.isTTY || selectedTemplate) {
 		selectedTemplate = selectedTemplate ?? "react-vite";
@@ -271,7 +290,21 @@ async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 		await copyTemplate(templateDir, target, {
 			__APP_NAME__: name,
 			__COLLECTOR_URL__: selectedCollectorUrl,
+			__INGEST_KEY__: ingestKey ?? PLACEHOLDER_INGEST_KEY,
 		});
+		const gitignore = path.join(target, ".gitignore");
+		if (!existsSync(gitignore)) {
+			await writeFile(
+				gitignore,
+				"node_modules\ndist\n.env.local\n.dev.vars\n.wrangler\n",
+			);
+		}
+		if (selectedTemplate === "hono-workers" && ingestKey) {
+			await writeFile(
+				path.join(target, ".dev.vars"),
+				`OBS_INGEST_KEY=${ingestKey}\n`,
+			);
+		}
 		const envExample = path.join(target, ".env.example");
 		const envLocal = path.join(target, ".env.local");
 		if (existsSync(envExample) && !existsSync(envLocal)) {
@@ -306,7 +339,7 @@ async function scaffoldApp(name: string, options: ParsedCreateArgs) {
 	}
 
 	console.log(`${kleur.green("✓")} created ${name}/`);
-	console.log(`\nNext steps:\n  cd ${name}\n  pnpm install\n  pnpm dev`);
+	printNextSteps(name, selectedTemplate, selectedCollectorUrl, ingestKey);
 }
 
 async function copyTemplate(
@@ -332,4 +365,46 @@ async function copyTemplate(
 		}
 	}
 	void stat;
+}
+
+function printNextSteps(
+	name: string,
+	template: string,
+	collectorUrl: string,
+	ingestKey: string | undefined,
+) {
+	const steps = [`cd ${name}`, "pnpm install"];
+	const notes: string[] = [];
+	if (template === "hono-workers") {
+		if (ingestKey) {
+			notes.push("Ingest key written to .dev.vars (OBS_INGEST_KEY).");
+		} else {
+			steps.push(
+				"cp .dev.vars.example .dev.vars   # then set OBS_INGEST_KEY=<your key>",
+			);
+		}
+		steps.push("pnpm dev");
+		notes.push(
+			"Production: wrangler secret put OBS_INGEST_KEY",
+			`Collector URL: OBS_COLLECTOR_URL=${collectorUrl} (wrangler.toml [vars])`,
+		);
+	} else {
+		steps.push("pnpm dev");
+		const vars =
+			template === "react-vite"
+				? "VITE_OBS_COLLECTOR_URL, VITE_OBS_INGEST_KEY, OBS_COLLECTOR_URL, OBS_INGEST_KEY"
+				: "VITE_OBS_COLLECTOR_URL, VITE_OBS_INGEST_KEY";
+		if (ingestKey) {
+			notes.push(`Ingest key written to .env.local (${vars}).`);
+		} else {
+			notes.push(
+				`No --ingest-key given: .env.local uses the placeholder "${PLACEHOLDER_INGEST_KEY}".`,
+				`Set the real key in .env.local before running (${vars}); mint one with: obs-unified keys mint`,
+			);
+		}
+	}
+	notes.push("Dashboard: http://localhost:5173");
+	console.log(
+		`\nNext steps:\n  ${steps.join("\n  ")}\n\n${notes.map((n) => `  ${n}`).join("\n")}`,
+	);
 }

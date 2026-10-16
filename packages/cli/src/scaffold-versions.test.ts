@@ -109,3 +109,13 @@ describe("scaffold SDK versions", () => {
 		).toContain('invalid template "invalid"');
 	});
 });
+
+describe("parseCreateArgs --ingest-key", () => {
+	it("parses --ingest-key in both forms", () => {
+		expect(parseCreateArgs(["app", "--ingest-key", "k1"]).ingestKey).toBe("k1");
+		expect(parseCreateArgs(["app", "--ingest-key=k2"]).ingestKey).toBe("k2");
+	});
+	it("errors on a missing value", () => {
+		expect(parseCreateArgs(["app", "--ingest-key"]).error).toMatch(/missing/);
+	});
+});

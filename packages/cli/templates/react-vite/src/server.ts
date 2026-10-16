@@ -1,4 +1,4 @@
-// Backend entry point. Run with `node --import tsx src/server.ts`.
+// Backend entry point. Run with `pnpm dev:api` (tsx loads .env.local).
 //
 // Pre-wired with `@obsunified/telemetry-sdk` — every inbound request
 // gets a root span, the x-obs-interaction header is stamped onto it,
@@ -22,7 +22,7 @@ import { cors } from "hono/cors";
 
 initObservability({
 	collectorUrl: process.env.OBS_COLLECTOR_URL ?? "__COLLECTOR_URL__",
-	apiKey: process.env.OBS_INGEST_KEY ?? "dev-ingest-key",
+	apiKey: process.env.OBS_INGEST_KEY ?? "__INGEST_KEY__",
 	serviceName: "__APP_NAME__-api",
 	environment: process.env.OBS_ENVIRONMENT ?? "dev",
 	serviceVersion: process.env.OBS_SERVICE_VERSION ?? "0.1.0",

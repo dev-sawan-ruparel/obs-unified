@@ -1,4 +1,4 @@
-# **APP_NAME**
+# __APP_NAME__
 
 Scaffolded by `obs-unified create` (Hono-on-Workers variant). Hono backend
 deployed as a Cloudflare Worker, pre-wired with `@obsunified/telemetry-sdk`.
@@ -8,13 +8,25 @@ deployed as a Cloudflare Worker, pre-wired with `@obsunified/telemetry-sdk`.
 ```bash
 pnpm install
 pnpm dev          # wrangler dev
+pnpm typecheck    # tsc --noEmit
 ```
 
-Set the ingest key as a secret (it shouldn't live in `wrangler.toml`):
+`wrangler.toml` sets `compatibility_flags = ["nodejs_compat"]`; the telemetry SDK
+needs it, so keep it.
 
-```bash
-wrangler secret put OBS_INGEST_KEY
-```
+### Ingest key
+
+The ingest key is a secret and does not live in `wrangler.toml`.
+
+- **Local dev:** copy `.dev.vars.example` to `.dev.vars` and set
+  `OBS_INGEST_KEY=<your key>` (wrangler loads `.dev.vars` automatically; it is
+  never deployed). Scaffolding with `--ingest-key <key>` writes this file for
+  you. Mint a key with `obs-unified keys mint`.
+- **Production:** `wrangler secret put OBS_INGEST_KEY`.
+
+Then call `curl http://localhost:8787/api/hello` and open your obs-unified
+dashboard at `http://localhost:5173` (the collector API itself is at
+`__COLLECTOR_URL__`) to see the trace under the **Traces** tab.
 
 ## Deploy
 

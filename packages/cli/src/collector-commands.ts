@@ -53,10 +53,14 @@ export interface IngestKeyWithPlaintext extends IngestKey {
 	warning?: string;
 }
 
-export const KEYS_USAGE = `usage: obs-unified keys <mint|list> [--project <id>] [--name <label>] [--json]
+export const KEYS_USAGE = `usage: obs-unified keys <mint|list|revoke> [--project <id>] [--name <label>] [--json]
+       obs-unified keys revoke <keyId> [--project <id>] [--json]
 
-  mint    POST /internal/projects/<id>/keys — mint a new ingest key
-  list    GET  /internal/projects/<id>/keys — list a project's ingest keys
+  mint    POST   /internal/projects/<id>/keys — mint a new ingest key
+  list    GET    /internal/projects/<id>/keys — list a project's ingest keys
+  revoke  DELETE /internal/projects/<id>/keys/<keyId> — revoke an ingest key
+          (the collector caches ingest-key auth for up to 60 seconds, so a
+          revoked key can keep working for up to a minute)
 
 Project selection (first match wins):
   --project <id>     explicit project id
@@ -67,10 +71,22 @@ Project selection (first match wins):
 
 Environment:
   OBS_COLLECTOR_URL  collector base URL (default ${DEFAULT_COLLECTOR_URL})
-  OBS_ADMIN_TOKEN    required; sent as "Authorization: Bearer <token>"`;
+  OBS_ADMIN_TOKEN    required; sent as "Authorization: Bearer <token>"
+                     (OBS_API_TOKEN and OBS_DASHBOARD_TOKEN are also accepted)`;
 
 export const DOCTOR_USAGE =
 	"usage: obs-unified doctor [url] [--origin <origin> ...]";
+
+export const DOCTOR_HELP = `${DOCTOR_USAGE}
+
+Smoke-test a running collector: health, browser-ingest CORS, OTLP, and the
+dashboard read API.
+
+Environment:
+  OBS_COLLECTOR_URL  collector base URL (default ${DEFAULT_COLLECTOR_URL})
+  OBS_ADMIN_TOKEN    optional; bearer token for the dashboard read-API probe
+                     (OBS_API_TOKEN and OBS_DASHBOARD_TOKEN are also accepted)
+  OBS_DOCTOR_ORIGINS comma-separated CORS origins (default ${DEFAULT_DOCTOR_ORIGINS})`;
 
 class UsageError extends Error {}
 
@@ -215,7 +231,8 @@ const describeNetworkError = (collectorUrl: string, err: unknown) =>
 // ── keys ──────────────────────────────────────────────────────────────────
 
 export interface KeysArgs {
-	action: "mint" | "list";
+	action: "mint" | "list" | "revoke";
+	keyId?: string;
 	project?: string;
 	name?: string;
 	json: boolean;
@@ -223,6 +240,7 @@ export interface KeysArgs {
 
 export function parseKeysArgs(args: string[]): KeysArgs {
 	let action: KeysArgs["action"] | undefined;
+	let keyId: string | undefined;
 	let project: string | undefined;
 	let name: string | undefined;
 	let json = false;
@@ -257,20 +275,27 @@ export function parseKeysArgs(args: string[]): KeysArgs {
 		} else if (arg.startsWith("-")) {
 			throw new UsageError(`unknown keys option: ${arg}`);
 		} else if (action === undefined) {
-			if (arg !== "mint" && arg !== "list") {
+			if (arg !== "mint" && arg !== "list" && arg !== "revoke") {
 				throw new UsageError(`unknown subcommand: keys ${arg}`);
 			}
 			action = arg;
+		} else if (action === "revoke" && keyId === undefined) {
+			keyId = arg;
 		} else {
 			throw new UsageError(`unexpected argument: ${arg}`);
 		}
 	}
 
-	if (!action) throw new UsageError("missing subcommand: keys <mint|list>");
+	if (!action) {
+		throw new UsageError("missing subcommand: keys <mint|list|revoke>");
+	}
 	if (name !== undefined && action !== "mint") {
 		throw new UsageError("--name only applies to keys mint");
 	}
-	return { action, project, name, json };
+	if (action === "revoke" && !keyId) {
+		throw new UsageError("keys revoke requires a <keyId> (see: keys list)");
+	}
+	return { action, keyId, project, name, json };
 }
 
 interface ProjectResolution {
@@ -345,6 +370,11 @@ export async function runKeys(
 ): Promise<number> {
 	const { fetch, io, env } = resolveDeps(deps);
 
+	if (args.includes("--help") || args.includes("-h")) {
+		io.out(KEYS_USAGE);
+		return 0;
+	}
+
 	let parsed: KeysArgs;
 	try {
 		parsed = parseKeysArgs(args);
@@ -386,8 +416,17 @@ export async function runKeys(
 		return 1;
 	}
 
-	const path = `/internal/projects/${encodeURIComponent(project.projectId)}/keys`;
-	const method = parsed.action === "mint" ? "POST" : "GET";
+	const keysPath = `/internal/projects/${encodeURIComponent(project.projectId)}/keys`;
+	const path =
+		parsed.action === "revoke"
+			? `${keysPath}/${encodeURIComponent(parsed.keyId ?? "")}`
+			: keysPath;
+	const method =
+		parsed.action === "mint"
+			? "POST"
+			: parsed.action === "revoke"
+				? "DELETE"
+				: "GET";
 	const init: RequestInit =
 		parsed.action === "mint"
 			? {
@@ -423,6 +462,22 @@ export async function runKeys(
 			),
 		);
 		return 1;
+	}
+
+	if (parsed.action === "revoke") {
+		if (parsed.json) {
+			io.out(JSON.stringify(body ?? { ok: true }, null, 2));
+			return 0;
+		}
+		io.out(
+			`${kleur.green("✓")} revoked ingest key ${parsed.keyId} for project ${project.projectId}`,
+		);
+		io.out(
+			kleur.yellow(
+				"The collector caches ingest-key auth for up to 60 seconds; the key may keep working until then.",
+			),
+		);
+		return 0;
 	}
 
 	if (parsed.action === "mint") {
@@ -642,6 +697,11 @@ export async function runDoctor(
 	deps: CommandDeps = {},
 ): Promise<number> {
 	const { fetch, io, env } = resolveDeps(deps);
+
+	if (args.includes("--help") || args.includes("-h")) {
+		io.out(DOCTOR_HELP);
+		return 0;
+	}
 
 	let parsed: DoctorArgs;
 	try {
