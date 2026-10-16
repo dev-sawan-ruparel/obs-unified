@@ -8,7 +8,7 @@ docker run --rm -p 5173:5173 -p 8790:8790 \\
   -e INGEST_KEY -e DASHBOARD_PASSWORD -e DASHBOARD_TOKEN -e OBS_LOCAL_SEED=true \\
   ${GHCR_IMAGE}:latest
 
-# Or scaffold a new pre-wired app non-interactively (needs @obsunified/cli 1.1.2 or newer)
+# Or scaffold a new pre-wired app non-interactively
 pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes`;
 
 const SDK_PATHS = `Backend:
