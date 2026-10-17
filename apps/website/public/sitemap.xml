@@ -5,30 +5,49 @@
 >
   <url>
     <loc>https://obsunified.com/</loc>
-    <lastmod>2026-05-31</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
+      <image:loc>https://obsunified.com/og.jpg</image:loc>
+      <image:title>Observability Unified — a telemetry graph agents can debug with</image:title>
+      <image:caption>Observability Unified telemetry graph for humans and AI agents debugging software</image:caption>
+    </image:image>
+    <image:image>
       <image:loc>https://obsunified.com/screenshots/app/agent-action-graph.png</image:loc>
-      <image:caption>Observability Unified agent action graph for debugging AI agents</image:caption>
+      <image:title>Agent Action Graph</image:title>
+      <image:caption>The agent run, plan, tool calls, evals, trace ID, and interaction ID are visible in one causal view.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obsunified.com/screenshots/app/interaction-id-path.png</image:loc>
+      <image:title>Interaction ID path</image:title>
+      <image:caption>The same interaction_id follows a frontend action into backend traces, logs, replay, AI spans, and profiles.</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/service-map-astronomy.png</image:loc>
-      <image:caption>OpenTelemetry Astronomy Shop service map in Observability Unified</image:caption>
+      <image:title>Astronomy Shop service map</image:title>
+      <image:caption>Real demo traffic across 21 services, edge volume, latency, and errors.</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://obsunified.com/screenshots/app/ai-cost-spans.png</image:loc>
-      <image:caption>AI cost and LLM spans in Observability Unified</image:caption>
+      <image:title>AI cost and LLM spans</image:title>
+      <image:caption>Model, token, cost, latency, and error signals stay queryable together.</image:caption>
     </image:image>
     <image:image>
-      <image:loc>https://obsunified.com/og.jpg</image:loc>
-      <image:caption>Observability Unified telemetry graph for humans and AI agents debugging software</image:caption>
+      <image:loc>https://obsunified.com/screenshots/app/timeline-unified.png</image:loc>
+      <image:title>Unified timeline</image:title>
+      <image:caption>User, trace, log, replay, and usage events line up in one incident story.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obsunified.com/screenshots/app/trace-profile-slot.png</image:loc>
+      <image:title>Trace to CPU profile</image:title>
+      <image:caption>Trace detail keeps the profile join point visible so agents can carry a root-cause path down to CPU evidence.</image:caption>
     </image:image>
   </url>
   <url>
     <loc>https://obsunified.com/llms.txt</loc>
-    <lastmod>2026-05-31</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>
 </urlset>

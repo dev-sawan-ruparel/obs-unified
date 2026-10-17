@@ -43,9 +43,9 @@ async function svgToPng(svgPath, outPath, width, height = width) {
 
 async function svgToJpg(svgPath, outPath, width, height) {
 	const svg = await readFile(svgPath);
-	const buf = await sharp(svg, { density: 192 })
+	const buf = await sharp(svg, { density: 384 })
 		.resize(width, height, { fit: "contain", background: "#FFFFFF" })
-		.jpeg({ quality: 88, mozjpeg: true })
+		.jpeg({ quality: 92, chromaSubsampling: "4:4:4", mozjpeg: true })
 		.toBuffer();
 	await writeFile(outPath, buf);
 	console.log(`  → ${outPath.replace(`${ROOT}/`, "")} (${width}×${height})`);

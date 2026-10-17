@@ -3,13 +3,89 @@ import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { Link } from "react-router";
 import { baseOptions } from "@/lib/layout.shared";
 
-export function meta({}: Route.MetaArgs) {
+const HOME_TITLE = "obs-unified — documentation";
+const HOME_DESCRIPTION =
+	"Install, instrument, and read the unified observability stack for humans and AI agents.";
+
+export function meta(_args: Route.MetaArgs) {
 	return [
-		{ title: "obs-unified — documentation" },
+		{ title: HOME_TITLE },
 		{
 			name: "description",
+			content: HOME_DESCRIPTION,
+		},
+		{
+			name: "robots",
 			content:
-				"Install, instrument, and read the unified observability stack for humans and AI agents.",
+				"index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
+		},
+		{
+			tagName: "link",
+			rel: "canonical",
+			href: "https://docs.obsunified.com/",
+		},
+		{ property: "og:type", content: "website" },
+		{ property: "og:locale", content: "en_US" },
+		{ property: "og:site_name", content: "obs-unified docs" },
+		{ property: "og:title", content: HOME_TITLE },
+		{ property: "og:description", content: HOME_DESCRIPTION },
+		{ property: "og:url", content: "https://docs.obsunified.com/" },
+		{ property: "og:image", content: "https://docs.obsunified.com/og.jpg" },
+		{
+			property: "og:image:secure_url",
+			content: "https://docs.obsunified.com/og.jpg",
+		},
+		{ property: "og:image:type", content: "image/jpeg" },
+		{ property: "og:image:width", content: "1200" },
+		{ property: "og:image:height", content: "630" },
+		{
+			property: "og:image:alt",
+			content:
+				"obs-unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference",
+		},
+		{ name: "twitter:card", content: "summary_large_image" },
+		{ name: "twitter:title", content: HOME_TITLE },
+		{ name: "twitter:description", content: HOME_DESCRIPTION },
+		{ name: "twitter:image", content: "https://docs.obsunified.com/og.jpg" },
+		{
+			name: "twitter:image:alt",
+			content:
+				"obs-unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference",
+		},
+		{
+			"script:ld+json": {
+				"@context": "https://schema.org",
+				"@graph": [
+					{
+						"@type": "WebSite",
+						"@id": "https://docs.obsunified.com/#website",
+						url: "https://docs.obsunified.com/",
+						name: "obs-unified documentation",
+						description: HOME_DESCRIPTION,
+						inLanguage: "en-US",
+						publisher: {
+							"@type": "Organization",
+							name: "Observability Unified",
+							url: "https://obsunified.com/",
+							logo: "https://docs.obsunified.com/icon-512.png",
+						},
+						subjectOf: [
+							{
+								"@type": "TextDigitalDocument",
+								name: "obs-unified Docs LLMs.txt Index",
+								url: "https://docs.obsunified.com/llms.txt",
+								encodingFormat: "text/plain",
+							},
+							{
+								"@type": "TextDigitalDocument",
+								name: "obs-unified Full Documentation Corpus (llms-full.txt)",
+								url: "https://docs.obsunified.com/llms-full.txt",
+								encodingFormat: "text/plain",
+							},
+						],
+					},
+				],
+			},
 		},
 	];
 }

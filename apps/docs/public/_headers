@@ -17,8 +17,37 @@
 /index.html
   Cache-Control: public, max-age=300, must-revalidate
 
-# Fumadocs search index / sitemap, if generated.
+# Fumadocs search index / sitemap / AEO endpoints.
 /sitemap.xml
   Cache-Control: public, max-age=86400
+  Content-Type: application/xml; charset=utf-8
 /robots.txt
   Cache-Control: public, max-age=86400
+  Content-Type: text/plain; charset=utf-8
+/llms.txt
+  Cache-Control: public, max-age=86400
+  Content-Type: text/plain; charset=utf-8
+  X-Robots-Tag: all
+/llms-full.txt
+  Cache-Control: public, max-age=86400
+  Content-Type: text/plain; charset=utf-8
+  X-Robots-Tag: all
+/llms.mdx/*
+  Cache-Control: public, max-age=86400
+  Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: all
+
+# Brand and per-page OpenGraph cards.
+/favicon.svg
+  Cache-Control: public, max-age=86400
+/og.jpg
+  Cache-Control: public, max-age=604800
+  Content-Type: image/jpeg
+  X-Robots-Tag: all
+/og.svg
+  Cache-Control: public, max-age=604800
+  Content-Type: image/svg+xml
+  X-Robots-Tag: all
+/og/docs/*
+  Cache-Control: public, max-age=604800
+  X-Robots-Tag: all

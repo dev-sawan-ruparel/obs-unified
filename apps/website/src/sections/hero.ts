@@ -39,7 +39,7 @@ export function renderHero(): string {
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">
-        <img src="${positioning.hero.primaryProofImage}" alt="${hero.imageAlt}" width="1180" height="900" />
+        <img src="${positioning.hero.primaryProofImage}" alt="${hero.imageAlt}" width="1180" height="900" fetchpriority="high" />
       </div>
       <figcaption>
         <span>${hero.figcaptionTitle}</span>
