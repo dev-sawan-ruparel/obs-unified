@@ -7,6 +7,7 @@
  *    `<image:image>` entries), `/llms.txt`, and `/llms-full.txt`.
  */
 
+import { execFileSync } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -23,7 +24,24 @@ const requireFromBrand = createRequire(brandPkgJson);
 const sharp = requireFromBrand("sharp");
 
 const SITE_ORIGIN = "https://docs.obsunified.com";
-const LASTMOD = "2026-10-16";
+// Last commit date (YYYY-MM-DD) touching a path, or null when git history is
+// unavailable or the file is uncommitted. Sitemap entries omit <lastmod> then.
+function gitLastModified(path) {
+	try {
+		const out = execFileSync("git", ["log", "-1", "--format=%cs", "--", path], {
+			cwd: docsAppRoot,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+		}).trim();
+		return /^\d{4}-\d{2}-\d{2}$/.test(out) ? out : null;
+	} catch {
+		return null;
+	}
+}
+
+function lastmodTag(date) {
+	return date ? `\n    <lastmod>${date}</lastmod>` : "";
+}
 
 function escapeXml(value) {
 	return String(value)
@@ -117,6 +135,8 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
 		)
 		.join("\n  ");
 
+	// ~9px per 13px mono glyph incl. letter-spacing, plus 16px padding each side.
+	const badgeWidth = Math.ceil(sectionLabel.length * 9.2 + 32);
 	const displayRoute = `${SITE_ORIGIN.replace("https://", "")}${routePath}`;
 
 	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="${escapeXml(`${title} — obs-unified documentation`)}">
@@ -182,20 +202,23 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
 
     <!-- Stack layer 4: Self-Host & Deploy -->
     <rect x="20" y="370" width="340" height="76" fill="#1A1C1C"/>
-    <text x="36" y="394" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="11" font-weight="700" fill="#78DC77" letter-spacing="0.8">04 · SELF-HOST IN ONE COMMAND</text>
+    <text x="36" y="394" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="11" font-weight="700" fill="#78DC77" letter-spacing="0.8">04 · SELF-HOST</text>
     <text x="36" y="418" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="12" font-weight="500" fill="#F9F9F9">Docker · Cloudflare D1/R2 · Postgres</text>
-    <text x="36" y="436" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="500" fill="#BECABC">MIT Licensed · Zero vendor lock-in</text>
+    <text x="36" y="436" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="500" fill="#BECABC">MIT licensed</text>
   </g>
 
   <!-- Brand Lockup + Section Badge -->
   <g transform="translate(72, 72)">
-    <g transform="scale(2.5)">
-      <path d="M9 12H13L15.5 6.5L18.5 17.5L21 12H23" stroke="#006B18" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
-      <path fill-rule="evenodd" clip-rule="evenodd" d="M11 3C6.58172 3 3 6.58172 3 11V13C3 17.4183 6.58172 21 11 21H21C25.4183 21 29 17.4183 29 13V11C29 6.58172 25.4183 3 21 3H11ZM11 5.5C7.96243 5.5 5.5 7.96243 5.5 11V13C5.5 16.0376 7.96243 18.5 11 18.5H21C24.0376 18.5 26.5 16.0376 26.5 13V11C26.5 7.96243 24.0376 5.5 21 5.5H11Z" fill="#1A1C1C"/>
+    <!-- Canonical brand mark (packages/brand/logo/mark.svg) -->
+    <g transform="translate(0, 5) scale(1.5)">
+      <rect width="32" height="32" fill="#006B18"/>
+      <path d="M7 9 L10 14 L7 19" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linejoin="bevel" stroke-linecap="square"/>
+      <rect x="14" y="12.9" width="12" height="2.2" fill="#FFFFFF"/>
+      <rect x="14" y="18.9" width="8" height="2.2" fill="#FFFFFF"/>
     </g>
-    <text x="92" y="42" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="28" font-weight="700" fill="#1A1C1C" letter-spacing="-0.6">obs-unified</text>
-    <rect x="272" y="16" width="360" height="34" fill="#E8F5E9" stroke="#006B18" stroke-width="1"/>
-    <text x="288" y="38" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="13" font-weight="700" fill="#006B18" letter-spacing="1.2">${escapeXml(sectionLabel)}</text>
+    <text x="64" y="42" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="28" font-weight="700" fill="#1A1C1C" letter-spacing="-0.6">obs-unified</text>
+    <rect x="244" y="16" width="${badgeWidth}" height="34" fill="#E8F5E9" stroke="#006B18" stroke-width="1"/>
+    <text x="260" y="38" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="13" font-weight="700" fill="#006B18" letter-spacing="1.2">${escapeXml(sectionLabel)}</text>
   </g>
 
   <!-- Page Title -->
@@ -253,7 +276,7 @@ for (const file of mdxFiles) {
 			? "DOCS · OVERVIEW"
 			: slug.startsWith("ops/")
 				? `DOCS · OPS · ${slug.replace("ops/", "").toUpperCase()}`
-				: `DOCS · ${slug.toUpperCase().slice(0, 22)}`;
+				: `DOCS · ${slug.toUpperCase()}`;
 
 	const svg = renderDocOgSvg({
 		title,
@@ -277,7 +300,9 @@ for (const file of mdxFiles) {
 	pages.push({
 		slug,
 		routePath,
-		url: `${SITE_ORIGIN}${routePath}`,
+		// Trailing slash: Cloudflare Pages 308-redirects /docs/x to /docs/x/.
+		url: `${SITE_ORIGIN}${routePath}/`,
+		lastmod: gitLastModified(file.full),
 		ogUrl: `${SITE_ORIGIN}${ogRelPath}`,
 		ogSvgRelPath,
 		title,
@@ -295,10 +320,16 @@ pages.sort((a, b) => {
 	return a.routePath.localeCompare(b.routePath);
 });
 
+const siteLastmod =
+	pages
+		.map((page) => page.lastmod)
+		.filter(Boolean)
+		.sort()
+		.at(-1) ?? null;
+
 const sitemapUrls = [
 	`  <url>
-    <loc>${SITE_ORIGIN}/</loc>
-    <lastmod>${LASTMOD}</lastmod>
+    <loc>${SITE_ORIGIN}/</loc>${lastmodTag(siteLastmod)}
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
@@ -309,8 +340,7 @@ const sitemapUrls = [
   </url>`,
 	...pages.map(
 		(page) => `  <url>
-    <loc>${escapeXml(page.url)}</loc>
-    <lastmod>${LASTMOD}</lastmod>
+    <loc>${escapeXml(page.url)}</loc>${lastmodTag(page.lastmod)}
     <changefreq>weekly</changefreq>
     <priority>${page.priority}</priority>
     <image:image>
@@ -321,14 +351,12 @@ const sitemapUrls = [
   </url>`,
 	),
 	`  <url>
-    <loc>${SITE_ORIGIN}/llms.txt</loc>
-    <lastmod>${LASTMOD}</lastmod>
+    <loc>${SITE_ORIGIN}/llms.txt</loc>${lastmodTag(siteLastmod)}
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>`,
 	`  <url>
-    <loc>${SITE_ORIGIN}/llms-full.txt</loc>
-    <lastmod>${LASTMOD}</lastmod>
+    <loc>${SITE_ORIGIN}/llms-full.txt</loc>${lastmodTag(siteLastmod)}
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`,

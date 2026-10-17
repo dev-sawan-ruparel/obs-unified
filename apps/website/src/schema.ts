@@ -3,14 +3,11 @@ import { messaging } from "./content/messaging.generated";
 
 const { faq, schema, seo } = siteContent;
 
-const combinedFeatures = Array.from(
-  new Set([
-    ...schema.featureList,
-    ...messaging.authored.capabilities
-      .filter((c) => c.status === "shipped")
-      .map((c) => c.name),
-  ]),
-);
+// Shipped capabilities from the messaging package are the single source for
+// jsonld.featureList (see surfacesWhenShipped in messaging.generated.ts).
+const featureList = messaging.authored.capabilities
+  .filter((c) => c.status === "shipped")
+  .map((c) => c.name);
 
 const graph = {
   "@context": "https://schema.org",
@@ -107,7 +104,7 @@ const graph = {
         author: { "@type": "Organization", name: "Observability Unified maintainers" },
         reviewBody: schema.reviewBody,
       },
-      featureList: combinedFeatures,
+      featureList,
     },
     {
       "@type": "SoftwareSourceCode",

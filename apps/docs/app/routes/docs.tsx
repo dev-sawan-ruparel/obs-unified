@@ -40,7 +40,9 @@ export function meta({ data }: Route.MetaArgs) {
   }
 
   const pageTitle = `${data.title} — obs-unified docs`;
-  const canonicalUrl = `${DOCS_ORIGIN}${data.url}`;
+  // Cloudflare Pages 308-redirects /docs/x to /docs/x/, so canonical URLs
+  // must carry the trailing slash to avoid pointing at a redirect.
+  const canonicalUrl = `${DOCS_ORIGIN}${data.url.replace(/\/$/, '')}/`;
   const ogImageUrl = `${DOCS_ORIGIN}${data.ogImageUrl}`;
   const markdownUrl = `${DOCS_ORIGIN}${data.markdownUrl}`;
   const imageAlt = data.description
@@ -52,7 +54,7 @@ export function meta({ data }: Route.MetaArgs) {
       '@type': 'ListItem',
       position: 1,
       name: 'obs-unified docs',
-      item: `${DOCS_ORIGIN}/docs`,
+      item: `${DOCS_ORIGIN}/docs/`,
     },
     ...(data.url !== '/docs'
       ? [
