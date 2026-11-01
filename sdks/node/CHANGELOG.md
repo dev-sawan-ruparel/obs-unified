@@ -1,5 +1,12 @@
 # @obsunified/sdk
 
+## 0.3.4
+
+### Patch Changes
+
+- Updated dependencies [d6e4d5d]
+  - @obsunified/types@2.4.0
+
 ## 0.3.3
 
 ### Patch Changes
