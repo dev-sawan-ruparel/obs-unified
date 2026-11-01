@@ -31,6 +31,7 @@ const makeStore = (
 	markNotified: async () => true,
 	getAnalysisNarrative: async () => null,
 	transitionState: async () => {},
+	setPendingSince: async () => {},
 	recordEvaluation: async () => {},
 	...overrides,
 });

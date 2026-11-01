@@ -14,6 +14,7 @@ export default defineConfig({
 		"@obsunified/telemetry-sdk",
 		"@obsunified/types",
 		"hono",
+		"nodemailer",
 		"pg",
 	],
 });

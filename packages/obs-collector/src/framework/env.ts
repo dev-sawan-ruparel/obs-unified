@@ -1,4 +1,5 @@
 import type { Context, Hono } from "hono";
+import type { AlertEmailTransport } from "../lib/alert-email";
 import type { Logger } from "./logger";
 
 /**
@@ -22,6 +23,12 @@ export interface CollectorEnv {
 	/** Durable Object namespace for live-tail SSE pub/sub. Optional — when
 	 *  unbound the /internal/telemetry/tail endpoint returns 503. */
 	TAIL_HUB?: DurableObjectNamespace;
+	/**
+	 * SMTP transport for email alert channels. Bound by hosts that can send
+	 * mail (the Node collector, from `ALERT_SMTP_*`); never set on Cloudflare
+	 * Workers. Without it, rules with an email channel are refused.
+	 */
+	ALERT_EMAIL?: AlertEmailTransport;
 	/** Write-only API key for SDK ingest endpoints (/v1/*) */
 	INGEST_KEY?: string;
 	/** Password for dashboard login */
@@ -146,7 +153,8 @@ export type CollectorObjectBindingKey =
 	| "DB"
 	| "REPLAYS_BUCKET"
 	| "PROFILES_BUCKET"
-	| "TAIL_HUB";
+	| "TAIL_HUB"
+	| "ALERT_EMAIL";
 
 export type CollectorStringEnvKey = Exclude<
 	keyof CollectorEnv,

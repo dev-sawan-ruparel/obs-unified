@@ -378,12 +378,109 @@ Ingest keys live in the database, so they come back with the dump (a key you rev
 
 ## 8. Alerts and webhooks
 
-Alert rules are evaluated by the maintenance scheduler every 5 minutes (see the maintenance split in the Kubernetes section). Webhook channels are admin-supplied URLs that the collector POSTs to from inside its own network, so they are validated:
+Alert rules are evaluated by the maintenance scheduler every 5 minutes by default (`MAINTENANCE_ALERTS_INTERVAL_SECONDS` on the Node collector; see the maintenance split in the Kubernetes section). Channels are webhooks or email (below). Webhook channels are admin-supplied URLs that the collector POSTs to from inside its own network, so they are validated:
 
 * Only plain `http(s)` URLs to **public** hosts are accepted. Loopback, RFC 1918 ranges, link-local (cloud metadata) addresses, and embedded credentials are rejected. Hostnames are checked as written, so a name that resolves to a private address is not caught at validation time.
 * To post to an internal receiver (for example an in-cluster Alertmanager or a local webhook sink), set `ALERT_WEBHOOK_ALLOW_PRIVATE=true` on the collector. The Workers collector honours it today; the Node/Docker image requires image 2.2.2 or newer, which forwards the flag (earlier Node images ignored it even though the rejection message mentions it).
 * Webhook URLs are redacted in logs and span attributes (only the origin and first path segment are kept), since Slack and PagerDuty style hooks carry secrets in the path.
 * The seeded sample data (`OBS_LOCAL_SEED=true`) creates alert rules that point at a placeholder `hooks.example.com` webhook URL. Since collector 2.2.2 the seeder creates them disabled (`enabled: false`), so they do not fire. Enable them only after pointing them at a real receiver.
+
+### Managing rules over HTTP
+
+Rules belong to a project and are managed through the collector's `/internal/alerts/*` routes with the dashboard token (`Authorization: Bearer $DASHBOARD_TOKEN`). The project is chosen with `X-Project-Id` (omitted: `default`, the project the `INGEST_KEY` bootstrap key belongs to).
+
+| Method | Path | Body | Result |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/internal/alerts/rules` | none | `{ "rules": [AlertRule, ...] }` (newest first; includes `currentState`, `lastStateChange`, `pendingSince`) |
+| `POST` | `/internal/alerts/rules` | `AlertRuleInput` | `201 { "rule": AlertRule }`; `400 { "error": "..." }` when invalid |
+| `PATCH` | `/internal/alerts/rules/:id` | any subset of `AlertRuleInput` | `{ "rule": AlertRule }`; `404` when the project has no such rule |
+| `DELETE` | `/internal/alerts/rules/:id` | none | `{ "success": true }`; `404` when missing |
+| `POST` | `/internal/alerts/rules/:id/test` | none | `{ "value", "wouldFire", "comparison", "threshold" }` (the bare comparison; `pendingSecs` is not applied) |
+| `GET` | `/internal/alerts/evaluations?ruleId=...&hours=24` | none | recent evaluations |
+
+`AlertRuleInput` is `{ name, signal, query, threshold, comparison, windowMins, channels, enabled?, pendingSecs?, analysisId? }`. Rule names are not unique, so a script that manages rules idempotently lists the rules, matches on `name`, and then `PATCH`es or `POST`s.
+
+* `signal`: `spans`, `logs`, `usage`, `ai` (count records in the window) or `metrics` (see below).
+* `comparison`: `>`, `>=`, `<`, `<=`, `==`, `!=` (exact numeric comparison).
+* `windowMins`: integer minutes, at least 1.
+* `pendingSecs` (default 0, at most 86400): how long the condition must hold on consecutive evaluations before the rule fires, like Prometheus `for`. The first matching evaluation records `pendingSince`; any evaluation that does not match clears it. Resolution is immediate. Evaluations happen on the maintenance cadence, so a rule fires on the first evaluation at least `pendingSecs` after the run started: with the default 5-minute cadence `pendingSecs: 30` means "two evaluations in a row". Set `MAINTENANCE_ALERTS_INTERVAL_SECONDS` (Node collector) to a value well below your shortest `pendingSecs`; the Workers collector evaluates every 5 minutes.
+
+### Metric rules (`signal: "metrics"`)
+
+Metric rules read OTLP metrics ingested on `/v1/metrics`. The query:
+
+| Field | Required | Meaning |
+| :--- | :--- | :--- |
+| `metric` | yes | Series name, or a list of names whose results are summed. |
+| `aggregation` | yes | `last`, `min`, `max`, `avg`, `sum`, `increase`, `rate`, `age_seconds`. |
+| `attributes` | no | Data point attributes that must equal these values (compared as strings, so `500` matches `"500"`). |
+| `resourceAttributes` | no | Resource attributes that must equal these values. |
+| `serviceName` | no | Resource `service.name`. |
+| `field` | no | `value` (default; gauges and sums), or `count` / `sum` for histograms, exponential histograms and summaries. Buckets and quantiles are not evaluated. |
+| `denominator` | no | Same selector fields (`metric`, `attributes`, `resourceAttributes`, `serviceName`, `field`) plus an optional `aggregation` (defaults to the numerator's; `age_seconds` is not allowed). |
+| `minDenominator` | no | With `denominator`: value = numerator / max(denominator, 1) when denominator >= `minDenominator` (default 0), else 0. |
+
+How the value is computed:
+
+* Points are taken from the window by the collector's receive time, ordered by the producer's timestamp. Each matching series is reduced on its own and the per-series results are summed (for `avg`, `min`, `max` and `last` too, so narrow those to one series with `attributes` when you want a single series' value). A series without points in the window adds nothing; no matching points yields 0, so a gauge rule with `== 0` also fires when the gauge is not reported at all. Pair it with an `age_seconds` rule when "absent" and "zero" need different alerts.
+* `increase`: for cumulative series, the sum of positive differences between consecutive points; a drop, or a new start timestamp, is a counter reset and the new value counts in full. The first point in the window is only the baseline, unless its start timestamp is inside the window (the counter was born there). No extrapolation. Delta series: the sum of the values. Gauges are treated like cumulative series.
+* `rate`: `increase` divided by the window in seconds.
+* `age_seconds`: seconds since the newest point of any matching series, regardless of the window. When no matching series has any stored point (never reported, or aged out of retention), it is the seconds since the rule was created, a finite number that grows until the threshold is crossed. So "never reported" fires `threshold` seconds after the rule was created, the same as "stopped reporting".
+* The value stored in `alert_evaluations` and sent to channels is always a finite number.
+* A query that matches more than 1000 series is refused at evaluation time (logged as a failed evaluation).
+
+Examples:
+
+```json
+{ "name": "postgres down", "signal": "metrics",
+  "query": { "metric": "vbox_postgres_up", "aggregation": "last" },
+  "comparison": "==", "threshold": 0, "windowMins": 1, "pendingSecs": 30,
+  "channels": [{ "type": "webhook", "url": "https://hooks.example.com/alerts" }] }
+```
+
+```json
+{ "name": "call error ratio", "signal": "metrics",
+  "query": { "metric": ["vbox_inbound_failed_total", "vbox_outbound_failed_total"],
+             "aggregation": "increase",
+             "denominator": { "metric": ["vbox_inbound_calls_total", "vbox_outbound_calls_total"] },
+             "minDenominator": 5 },
+  "comparison": ">", "threshold": 0.05, "windowMins": 5,
+  "channels": [{ "type": "webhook", "url": "https://hooks.example.com/alerts" }] }
+```
+
+```json
+{ "name": "vbox stopped reporting", "signal": "metrics",
+  "query": { "metric": "vbox_heartbeat", "serviceName": "vbox", "aggregation": "age_seconds" },
+  "comparison": ">", "threshold": 60, "windowMins": 1,
+  "channels": [{ "type": "webhook", "url": "https://hooks.example.com/alerts" }] }
+```
+
+### Email channels
+
+`{ "type": "email", "to": ["oncall@example.com"] }` sends a plain-text message on the same transitions as a webhook (firing and resolved), naming the rule, signal, value, threshold, comparison, state, evaluation time and, for analysis-bound rules, the narrative. Up to 20 plain addresses per channel. The SMTP server and credentials are collector settings, never part of the rule or the API:
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `ALERT_SMTP_HOST` | unset | SMTP server. Setting it turns email channels on. |
+| `ALERT_SMTP_PORT` | 587 / 465 / 25 | Port; the default follows `ALERT_SMTP_TLS`. |
+| `ALERT_SMTP_TLS` | `starttls` | `starttls` (refuses a server without STARTTLS), `tls` (TLS from the first byte) or `none` (clear text). Certificates are verified; add a private CA with `NODE_EXTRA_CA_CERTS`. |
+| `ALERT_SMTP_FROM` | required | Sender address (plain address, e.g. `alerts@example.com`). |
+| `ALERT_SMTP_USERNAME` | unset | AUTH user; needs a password. |
+| `ALERT_SMTP_PASSWORD` / `ALERT_SMTP_PASSWORD_FILE` | unset | AUTH password, inline or read from a file (one of the two). |
+
+* Only the Node collector (and the all-in-one image) can send email. The Cloudflare Workers collector cannot open SMTP connections, so it refuses email channels, as does a Node collector without `ALERT_SMTP_HOST`: creating or updating such a rule returns `400` with a message naming these variables.
+* An incomplete SMTP configuration (for example a host without `ALERT_SMTP_FROM`, or a username without a password) stops the collector at startup.
+* A send counts as delivered only when the server accepted every recipient. A failed send is logged (`[alerts-evaluator] email delivery failed`), recorded as an undelivered evaluation, and retried on the next evaluation, like a failed webhook.
+
+```bash
+curl -sS -X POST "$OBS_URL/internal/alerts/rules" \
+  -H "Authorization: Bearer $DASHBOARD_TOKEN" -H "Content-Type: application/json" \
+  -d '{ "name": "call error ratio", "signal": "metrics",
+        "query": { "metric": "vbox_calls_failed_total", "aggregation": "increase",
+                   "denominator": { "metric": "vbox_calls_total" }, "minDenominator": 5 },
+        "comparison": ">", "threshold": 0.05, "windowMins": 5, "pendingSecs": 60,
+        "channels": [{ "type": "email", "to": ["oncall@example.com"] }] }'
+```
 
 ## 9. Monitoring the collector
 

@@ -9,6 +9,7 @@ import { aiSpanPayloadsProcessorPlugin } from "./plugins/ai-span-payloads-proces
 import {
 	createAlertEvaluatorHandler,
 	evaluateAllRules,
+	evaluateRuleBatch,
 } from "./plugins/alerts-evaluator";
 import { alertsRoutesPlugin } from "./plugins/alerts-routes";
 import { analysesRoutesPlugin } from "./plugins/analyses-routes";
@@ -100,6 +101,13 @@ export {
 	type RetrievalEventRecord,
 	type ToolCallRecord,
 } from "./lib/actions-store";
+export {
+	type AlertEmailMessage,
+	type AlertEmailTransport,
+	type AlertNotificationPayload,
+	formatAlertEmail,
+	isValidEmailAddress,
+} from "./lib/alert-email";
 export { AlertsStore, compareValue } from "./lib/alerts-store";
 export {
 	computeChangeBlastRadius,
@@ -168,6 +176,11 @@ export {
 	isEvalCaseSourceType,
 	isEvalRunStatus,
 } from "./lib/eval-cases-store";
+export {
+	evaluateMetricQuery,
+	reduceSeries,
+	validateMetricQuery,
+} from "./lib/metric-alerts";
 export { MetricsStore } from "./lib/metrics-store";
 export { ProjectsStore } from "./lib/projects-store";
 export { D1Adapter, type SqlDb, type SqlStatement } from "./lib/sql-db";
@@ -192,6 +205,7 @@ export {
 	defaultSpanEnrichmentPlugin,
 	evalCasesRoutesPlugin,
 	evaluateAllRules,
+	evaluateRuleBatch,
 	evidenceRetrievalRoutesPlugin,
 	genAiNormalizerPlugin,
 	identityReceiverPlugin,

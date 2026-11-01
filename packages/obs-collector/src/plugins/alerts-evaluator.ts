@@ -1,5 +1,6 @@
 import type {
 	AlertChannel,
+	AlertEmailChannel,
 	AlertRule,
 	AlertState,
 	AlertWebhookChannel,
@@ -10,6 +11,11 @@ import {
 	consoleLogger,
 	type Logger,
 } from "../framework/logger";
+import {
+	type AlertEmailTransport,
+	type AlertNotificationPayload,
+	formatAlertEmail,
+} from "../lib/alert-email";
 import { AlertsStore, compareValue } from "../lib/alerts-store";
 import {
 	openOrDeduplicateIncident,
@@ -37,7 +43,16 @@ interface AlertEvaluatorStore {
 		last_state_change: string;
 		/** 0 while the transition's notification is owed; absent pre-049 (= delivered). */
 		notified?: number;
+		/** Start of the current pending period (migration 055); null/absent when not pending. */
+		pending_since?: string | null;
 	} | null>;
+	/** Start (ISO) or clear (null) the rule's pending period. */
+	setPendingSince(
+		ruleId: string,
+		projectId: string,
+		since: string | null,
+		ruleCreatedAt: string,
+	): Promise<void>;
 	/** Flip the exact transition `(state, lastStateChange)` to delivered. */
 	markNotified(
 		ruleId: string,
@@ -64,31 +79,7 @@ interface AlertEvaluatorStore {
 	): Promise<void>;
 }
 
-interface WebhookPayload {
-	rule: {
-		id: string;
-		name: string;
-		signal: string;
-	};
-	value: number;
-	threshold: number;
-	comparison: string;
-	state: AlertState;
-	evaluatedAt: string;
-	projectId: string;
-	/**
-	 * RFC 0002 Stage 6 — populated when the rule is bound to an Analysis
-	 * (`rule.analysisId` set). The narrative is the gated, LLM-generated
-	 * sentence the dashboard panel was last showing — what's actually
-	 * happening, in plain English. Webhooks consuming this can put the
-	 * narrative in the Slack/PagerDuty body directly.
-	 */
-	analysis?: {
-		id: string;
-		narrative: string | null;
-		status: string | null;
-	};
-}
+type WebhookPayload = AlertNotificationPayload;
 
 export interface WebhookDeliveryOptions {
 	/** Permit targets on loopback / private / link-local hosts. */
@@ -99,6 +90,51 @@ export interface WebhookDeliveryOptions {
 	 * reach private networks from `fetch` and leave it unset.
 	 */
 	hostLookup?: HostLookup;
+	/**
+	 * SMTP transport for email channels (`env.ALERT_EMAIL`). Unset on hosts
+	 * that cannot send mail: an email channel then fails delivery (logged,
+	 * retried next tick) instead of being skipped.
+	 */
+	email?: AlertEmailTransport;
+}
+
+async function fireEmail(
+	channel: AlertEmailChannel,
+	payload: WebhookPayload,
+	logger: Logger,
+	tracer?: ChildSpanRunner,
+	delivery: WebhookDeliveryOptions = {},
+): Promise<boolean> {
+	const transport = delivery.email;
+	if (!transport) {
+		logger.error(
+			"[alerts-evaluator] email channel has no SMTP transport on this collector",
+			{ rule_id: payload.rule.id, recipients: channel.to.length },
+		);
+		return false;
+	}
+	const exec = async (
+		span: { setAttribute(k: string, v: unknown): void } | null,
+	): Promise<boolean> => {
+		try {
+			await transport.send({ to: channel.to, ...formatAlertEmail(payload) });
+			if (span) span.setAttribute("alert.email.sent", true);
+			return true;
+		} catch (err) {
+			if (span) span.setAttribute("alert.email.sent", false);
+			logger.error("[alerts-evaluator] email delivery failed", {
+				rule_id: payload.rule.id,
+				recipients: channel.to.length,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return false;
+		}
+	};
+	if (!tracer) return exec(null);
+	return tracer("email.alert", async (span) => exec(span), {
+		"alert.state": payload.state,
+		"alert.email.recipients": channel.to.length,
+	});
 }
 
 async function fireWebhook(
@@ -191,9 +227,23 @@ async function fireChannels(
 ): Promise<boolean> {
 	if (channels.length === 0) return true;
 	const results = await Promise.all(
-		channels
-			.filter((ch): ch is AlertWebhookChannel => ch.type === "webhook")
-			.map((ch) => fireWebhook(ch, payload, logger, tracer, delivery)),
+		channels.map((ch) => {
+			if (ch.type === "webhook")
+				return fireWebhook(
+					ch as AlertWebhookChannel,
+					payload,
+					logger,
+					tracer,
+					delivery,
+				);
+			if (ch.type === "email")
+				return fireEmail(ch, payload, logger, tracer, delivery);
+			logger.error("[alerts-evaluator] unknown channel type", {
+				rule_id: payload.rule.id,
+				type: String((ch as { type?: unknown }).type),
+			});
+			return Promise.resolve(false);
+		}),
 	);
 	return results.every(Boolean);
 }
@@ -251,11 +301,43 @@ async function evaluateOneRule(
 			ruleTimeoutMs,
 			`rule evaluation timed out after ${ruleTimeoutMs}ms`,
 		);
-		const shouldFire = compareValue(value, rule.threshold, rule.comparison);
+		const matches = compareValue(value, rule.threshold, rule.comparison);
 		const priorState = await store.getState(rule.id, rule.projectId);
 		const previous: AlertState = priorState?.current_state ?? "ok";
-		const next: AlertState = shouldFire ? "firing" : "ok";
 		const now = new Date().toISOString();
+
+		// Pending duration (Prometheus `for`): a rule that is not firing only
+		// fires once its condition has held on every evaluation for
+		// `pendingSecs`. The run's start lives on alert_state.pending_since;
+		// any evaluation that does not match ends the run. Resolution stays
+		// immediate, as for rules without a pending duration.
+		const pendingSecs = rule.pendingSecs ?? 0;
+		const pendingSince = priorState?.pending_since ?? null;
+		let shouldFire = matches;
+		if (matches && previous === "ok" && pendingSecs > 0) {
+			if (pendingSince === null) {
+				await store.setPendingSince(
+					rule.id,
+					rule.projectId,
+					now,
+					rule.createdAt,
+				);
+			}
+			const heldMs = Date.parse(now) - Date.parse(pendingSince ?? now);
+			shouldFire = heldMs >= pendingSecs * 1000;
+		}
+		const next: AlertState = shouldFire ? "firing" : "ok";
+		// Cleared once the run ended or turned into a firing transition.
+		const clearPending = async () => {
+			if (pendingSince !== null && (!matches || next === "firing")) {
+				await store.setPendingSince(
+					rule.id,
+					rule.projectId,
+					null,
+					rule.createdAt,
+				);
+			}
+		};
 
 		// Stage 6: when the rule is bound to an analysis, pull the
 		// latest narrative + status so the webhook payload describes
@@ -301,6 +383,7 @@ async function evaluateOneRule(
 			// transition; otherwise the same-state branch below retries on the
 			// next tick without a second transition.
 			await store.transitionState(rule.id, rule.projectId, next, now);
+			await clearPending();
 			if (next === "firing" && onAlertFiring) {
 				await onAlertFiring(rule).catch(() => undefined);
 			}
@@ -322,6 +405,8 @@ async function evaluateOneRule(
 				? { fired: 1, resolved: 0, redelivered: 0 }
 				: { fired: 0, resolved: 1, redelivered: 0 };
 		}
+
+		await clearPending();
 
 		// Same state. While the transition into it is still marked undelivered,
 		// retry the notification; the state itself is already correct. A row
@@ -372,6 +457,7 @@ export async function evaluateRuleBatch(
 		ruleTimeoutMs?: number;
 		allowPrivateWebhookTargets?: boolean;
 		hostLookup?: HostLookup;
+		email?: AlertEmailTransport;
 		onAlertFiring?: (rule: AlertRule) => Promise<void>;
 	},
 ): Promise<{
@@ -385,6 +471,7 @@ export async function evaluateRuleBatch(
 	const delivery: WebhookDeliveryOptions = {
 		allowPrivateWebhookTargets: options?.allowPrivateWebhookTargets,
 		hostLookup: options?.hostLookup,
+		email: options?.email,
 	};
 	const concurrency = Math.max(
 		1,
@@ -432,7 +519,10 @@ export async function evaluateAllRules(
 	const tracer = options?.tracer;
 	const allowPrivateWebhookTargets = env.ALERT_WEBHOOK_ALLOW_PRIVATE === "true";
 	const db = sqlDbFor(env);
-	const store = new AlertsStore(db, { allowPrivateWebhookTargets });
+	const store = new AlertsStore(db, {
+		allowPrivateWebhookTargets,
+		emailDeliveryAvailable: Boolean(env.ALERT_EMAIL),
+	});
 	const rules = await store.listEnabledRules();
 	return evaluateRuleBatch(store, rules, {
 		logger,
@@ -441,6 +531,7 @@ export async function evaluateAllRules(
 		ruleTimeoutMs: options?.ruleTimeoutMs,
 		allowPrivateWebhookTargets,
 		hostLookup: options?.hostLookup,
+		email: env.ALERT_EMAIL,
 		onAlertFiring: async (rule) => {
 			// Target the rule's service when it names one (environment taken from
 			// that service's latest spans); otherwise fall back to the rule itself.

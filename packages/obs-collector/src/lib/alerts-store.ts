@@ -7,6 +7,7 @@ import type {
 	AlertQuery,
 	AlertQueryAI,
 	AlertQueryLogs,
+	AlertQueryMetrics,
 	AlertQuerySpans,
 	AlertQueryUsage,
 	AlertRule,
@@ -18,15 +19,28 @@ import type {
 	LogSeverity,
 } from "@obsunified/types";
 import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
+import { isValidEmailAddress, MAX_EMAIL_RECIPIENTS } from "./alert-email";
 import { alertEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
+import { evaluateMetricQuery, validateMetricQuery } from "./metric-alerts";
 import type { SqlDb } from "./sql-db";
 import { assertSafeWebhookUrl, WebhookUrlError } from "./webhook-url";
 
 export interface AlertsStoreOptions {
 	/** Permit webhook targets on loopback / private / link-local hosts. */
 	allowPrivateWebhookTargets?: boolean;
+	/**
+	 * Whether this collector can send email (a transport is bound as
+	 * `env.ALERT_EMAIL`). Rules with an email channel are refused otherwise.
+	 */
+	emailDeliveryAvailable?: boolean;
 }
+
+/** Upper bound for `pendingSecs` (one day). */
+export const MAX_PENDING_SECS = 86_400;
+
+export const EMAIL_UNAVAILABLE_MESSAGE =
+	"email channels need SMTP configured on the collector (ALERT_SMTP_HOST and ALERT_SMTP_FROM on the Node collector); the Cloudflare Worker collector cannot send email";
 
 const parseJsonField = <T>(value: unknown): T => {
 	if (typeof value === "string") return JSON.parse(value) as T;
@@ -47,6 +61,8 @@ const rowToRule = (row: AlertRuleRow, state?: AlertStateRow): AlertRule => ({
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 	analysisId: row.analysis_id ?? null,
+	pendingSecs: Number(row.pending_secs ?? 0),
+	pendingSince: state?.pending_since ?? null,
 	currentState: state?.current_state,
 	lastStateChange: state?.last_state_change ?? null,
 });
@@ -64,8 +80,8 @@ const rowToEvaluation = (row: AlertEvaluationRow): AlertEvaluation => ({
 const windowCutoffIso = (windowMins: number): string =>
 	new Date(Date.now() - windowMins * 60 * 1000).toISOString();
 
-const SIGNALS: AlertSignal[] = ["spans", "logs", "usage", "ai"];
-const COMPARISONS: AlertComparison[] = [">", ">=", "<", "<="];
+const SIGNALS: AlertSignal[] = ["spans", "logs", "usage", "ai", "metrics"];
+const COMPARISONS: AlertComparison[] = [">", ">=", "<", "<=", "==", "!="];
 
 export function compareValue(
 	value: number,
@@ -81,6 +97,10 @@ export function compareValue(
 			return value < threshold;
 		case "<=":
 			return value <= threshold;
+		case "==":
+			return value === threshold;
+		case "!=":
+			return value !== threshold;
 	}
 }
 
@@ -100,11 +120,45 @@ export class AlertsStore {
 			throw new Error("windowMins must be >= 1");
 		if (!COMPARISONS.includes(input.comparison))
 			throw new Error(`comparison must be one of: ${COMPARISONS.join(", ")}`);
+		if (
+			input.pendingSecs !== undefined &&
+			(!Number.isInteger(input.pendingSecs) ||
+				input.pendingSecs < 0 ||
+				input.pendingSecs > MAX_PENDING_SECS)
+		)
+			throw new Error(
+				`pendingSecs must be an integer from 0 to ${MAX_PENDING_SECS}`,
+			);
+		if (input.signal === "metrics") validateMetricQuery(input.query);
 		if (!Array.isArray(input.channels) || input.channels.length === 0)
 			throw new Error("at least one channel is required");
 		for (const ch of input.channels) {
+			if (ch.type === "email") {
+				if (!Array.isArray(ch.to) || ch.to.length === 0)
+					throw new Error("email channel.to must list at least one address");
+				if (ch.to.length > MAX_EMAIL_RECIPIENTS)
+					throw new Error(
+						`email channel.to may list at most ${MAX_EMAIL_RECIPIENTS} addresses`,
+					);
+				for (const addr of ch.to) {
+					if (typeof addr !== "string" || !isValidEmailAddress(addr))
+						throw new Error(
+							`email channel.to has an invalid address: ${JSON.stringify(addr)}`,
+						);
+				}
+				const extra = Object.keys(ch).filter((k) => k !== "type" && k !== "to");
+				if (extra.length > 0)
+					throw new Error(
+						`email channel accepts only "type" and "to" (SMTP settings come from the collector environment); got: ${extra.join(", ")}`,
+					);
+				if (!this.options.emailDeliveryAvailable)
+					throw new Error(EMAIL_UNAVAILABLE_MESSAGE);
+				continue;
+			}
 			if (ch.type !== "webhook")
-				throw new Error(`unknown channel type: ${ch.type}`);
+				throw new Error(
+					`unknown channel type: ${(ch as { type?: unknown }).type}`,
+				);
 			if (!ch.url || typeof ch.url !== "string")
 				throw new Error("channel.url must be http(s)://");
 			try {
@@ -157,27 +211,41 @@ export class AlertsStore {
 		this.validateInput(input);
 		const id = randomHex(16);
 		const now = new Date().toISOString();
-		await this.db
-			.prepare(
-				`INSERT INTO alert_rules (id, project_id, name, signal, query_json, threshold, window_mins, comparison, channels_json, enabled, created_at, updated_at, analysis_id)
+		const pendingSecs = input.pendingSecs ?? 0;
+		const values = [
+			id,
+			projectId,
+			input.name.trim(),
+			input.signal,
+			JSON.stringify(input.query),
+			input.threshold,
+			input.windowMins,
+			input.comparison,
+			JSON.stringify(input.channels),
+			input.enabled === false ? 0 : 1,
+			now,
+			now,
+			input.analysisId ?? null,
+		];
+		await this.withPendingColumnFallback(
+			pendingSecs,
+			() =>
+				this.db
+					.prepare(
+						`INSERT INTO alert_rules (id, project_id, name, signal, query_json, threshold, window_mins, comparison, channels_json, enabled, created_at, updated_at, analysis_id, pending_secs)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					)
+					.bind(...values, pendingSecs)
+					.run(),
+			() =>
+				this.db
+					.prepare(
+						`INSERT INTO alert_rules (id, project_id, name, signal, query_json, threshold, window_mins, comparison, channels_json, enabled, created_at, updated_at, analysis_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			)
-			.bind(
-				id,
-				projectId,
-				input.name.trim(),
-				input.signal,
-				JSON.stringify(input.query),
-				input.threshold,
-				input.windowMins,
-				input.comparison,
-				JSON.stringify(input.channels),
-				input.enabled === false ? 0 : 1,
-				now,
-				now,
-				input.analysisId ?? null,
-			)
-			.run();
+					)
+					.bind(...values)
+					.run(),
+		);
 
 		const created = await this.getRule(id, projectId);
 		if (!created) throw new Error("Failed to create rule");
@@ -203,34 +271,74 @@ export class AlertsStore {
 			enabled: patch.enabled ?? existing.enabled,
 			analysisId:
 				"analysisId" in patch ? patch.analysisId : existing.analysisId,
+			pendingSecs: patch.pendingSecs ?? existing.pendingSecs,
 		};
 		this.validateInput(merged);
 
 		const now = new Date().toISOString();
-		await this.db
-			.prepare(
-				`UPDATE alert_rules SET
+		const pendingSecs = merged.pendingSecs ?? 0;
+		const values = [
+			merged.name.trim(),
+			merged.signal,
+			JSON.stringify(merged.query),
+			merged.threshold,
+			merged.windowMins,
+			merged.comparison,
+			JSON.stringify(merged.channels),
+			merged.enabled === false ? 0 : 1,
+			now,
+			merged.analysisId ?? null,
+		];
+		await this.withPendingColumnFallback(
+			pendingSecs,
+			() =>
+				this.db
+					.prepare(
+						`UPDATE alert_rules SET
+           name = ?, signal = ?, query_json = ?, threshold = ?, window_mins = ?,
+           comparison = ?, channels_json = ?, enabled = ?, updated_at = ?, analysis_id = ?,
+           pending_secs = ?
+         WHERE id = ? AND project_id = ?`,
+					)
+					.bind(...values, pendingSecs, id, projectId)
+					.run(),
+			() =>
+				this.db
+					.prepare(
+						`UPDATE alert_rules SET
            name = ?, signal = ?, query_json = ?, threshold = ?, window_mins = ?,
            comparison = ?, channels_json = ?, enabled = ?, updated_at = ?, analysis_id = ?
          WHERE id = ? AND project_id = ?`,
-			)
-			.bind(
-				merged.name.trim(),
-				merged.signal,
-				JSON.stringify(merged.query),
-				merged.threshold,
-				merged.windowMins,
-				merged.comparison,
-				JSON.stringify(merged.channels),
-				merged.enabled === false ? 0 : 1,
-				now,
-				merged.analysisId ?? null,
-				id,
-				projectId,
-			)
-			.run();
+					)
+					.bind(...values, id, projectId)
+					.run(),
+		);
 
 		return this.getRule(id, projectId);
+	}
+
+	/**
+	 * Runs `current`; on a database that has not applied migration 054 (no
+	 * `alert_rules.pending_secs`) a rule without a pending duration is
+	 * written with the legacy statement so rolling deploys keep working. A
+	 * rule that needs the column is refused with a clear message instead of
+	 * silently losing its pending duration.
+	 */
+	private async withPendingColumnFallback<T>(
+		pendingSecs: number,
+		current: () => Promise<T>,
+		legacy: () => Promise<T>,
+	): Promise<T> {
+		try {
+			return await current();
+		} catch (err) {
+			if (!isMissingColumn(err, "pending_secs")) throw err;
+			if (pendingSecs > 0)
+				throw new Error(
+					"pendingSecs needs database migration 054 (alert_rules.pending_secs); apply migrations and retry",
+				);
+			return legacy();
+		}
 	}
 
 	async deleteRule(id: string, projectId: string): Promise<boolean> {
@@ -352,6 +460,28 @@ export class AlertsStore {
 		}
 	}
 
+	/**
+	 * Start (`since` = ISO time) or clear (`null`) the pending period of a
+	 * rule that has a pending duration (migration 055). A rule without a
+	 * state row gets one in state `ok` since its creation, already
+	 * delivered (nothing is owed for a rule that never changed state).
+	 */
+	async setPendingSince(
+		ruleId: string,
+		projectId: string,
+		since: string | null,
+		ruleCreatedAt: string,
+	): Promise<void> {
+		await this.db
+			.prepare(
+				`INSERT INTO alert_state (rule_id, project_id, current_state, last_state_change, notified, pending_since)
+         VALUES (?, ?, 'ok', ?, 1, ?)
+         ON CONFLICT(rule_id) DO UPDATE SET pending_since = excluded.pending_since`,
+			)
+			.bind(ruleId, projectId, ruleCreatedAt, since)
+			.run();
+	}
+
 	async recordEvaluation(
 		ruleId: string,
 		projectId: string,
@@ -408,7 +538,7 @@ export class AlertsStore {
 
 	// ── Evaluators (count-over-window per signal) ──
 
-	async evaluateRule(rule: AlertRule): Promise<number> {
+	async evaluateRule(rule: AlertRule, now: Date = new Date()): Promise<number> {
 		// Stage 6 — analysis-bound rule. Read the analysis's latest
 		// primary value instead of running the rule's raw query. Falls
 		// through to the legacy path if no result has landed yet so the
@@ -433,6 +563,13 @@ export class AlertsStore {
 				return this.evaluateUsageRule(rule);
 			case "ai":
 				return this.evaluateAIRule(rule);
+			case "metrics":
+				return evaluateMetricQuery(this.db, rule.query as AlertQueryMetrics, {
+					projectId: rule.projectId,
+					windowMins: rule.windowMins,
+					ruleCreatedAt: rule.createdAt,
+					now,
+				});
 		}
 	}
 
@@ -550,10 +687,13 @@ export class AlertsStore {
  * notified"; Postgres: `column "notified" of relation "alert_state" does not
  * exist` (42703). Anything else is a real failure.
  */
-const isMissingNotifiedColumn = (err: unknown): boolean => {
+const isMissingNotifiedColumn = (err: unknown): boolean =>
+	isMissingColumn(err, "notified");
+
+const isMissingColumn = (err: unknown, column: string): boolean => {
 	const message = err instanceof Error ? err.message : String(err);
 	return (
-		/notified/i.test(message) &&
+		message.toLowerCase().includes(column) &&
 		/no such column|has no column|does not exist/i.test(message)
 	);
 };

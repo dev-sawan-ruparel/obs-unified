@@ -62,6 +62,12 @@ pnpm --filter @obs-demo/collector-node run start
 | `NARRATIVE_MODEL`      | no            | provider default         | Narrative model id (defaults: `claude-3-5-haiku-latest` / `gpt-4o-mini`) |
 | `NARRATIVE_BUDGET_PER_HOUR` | no       | 50                       | Max narrative writes per project per hour                   |
 | `ALERT_WEBHOOK_ALLOW_PRIVATE` | no     | —                        | Set `true` to let alert webhooks target private / loopback addresses (refused by default) |
+| `ALERT_SMTP_HOST`      | no            | —                        | SMTP server for email alert channels; unset leaves email channels refused |
+| `ALERT_SMTP_PORT`      | no            | 587 / 465 / 25           | SMTP port (default follows `ALERT_SMTP_TLS`)                |
+| `ALERT_SMTP_TLS`       | no            | `starttls`               | `starttls`, `tls` or `none`                                 |
+| `ALERT_SMTP_FROM`      | with host     | —                        | Sender address for alert email                              |
+| `ALERT_SMTP_USERNAME`  | no            | —                        | SMTP AUTH user (needs a password)                           |
+| `ALERT_SMTP_PASSWORD` / `ALERT_SMTP_PASSWORD_FILE` | no | —           | SMTP AUTH password, inline or from a file                   |
 | `MAINTENANCE_ENABLED`  | no            | `true`                   | Set to `false` to disable the in-process maintenance scheduler |
 | `MAINTENANCE_ANALYSES_INTERVAL_SECONDS`  | no | 60                  | Cadence of the due-analyses run                             |
 | `MAINTENANCE_ALERTS_INTERVAL_SECONDS`    | no | 300                 | Cadence of alert rule evaluation                            |

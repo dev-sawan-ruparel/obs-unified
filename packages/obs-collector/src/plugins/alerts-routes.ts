@@ -6,8 +6,12 @@ import { alertEvidenceReferences } from "../lib/evidence-references";
 import { sqlDbFor } from "../lib/sql-db";
 import { getProjectId } from "./_context";
 
-const storeOptions = (env: { ALERT_WEBHOOK_ALLOW_PRIVATE?: string }) => ({
+const storeOptions = (env: {
+	ALERT_WEBHOOK_ALLOW_PRIVATE?: string;
+	ALERT_EMAIL?: unknown;
+}) => ({
 	allowPrivateWebhookTargets: env.ALERT_WEBHOOK_ALLOW_PRIVATE === "true",
+	emailDeliveryAvailable: Boolean(env.ALERT_EMAIL),
 });
 
 export const alertsRoutesPlugin: CollectorPlugin = {
@@ -93,6 +97,8 @@ export const alertsRoutesPlugin: CollectorPlugin = {
 			const value = await store.evaluateRule(rule);
 			const response: AlertTestResponse = {
 				value,
+				// The bare comparison: a rule with `pendingSecs` additionally
+				// needs the condition to hold that long before it fires.
 				wouldFire: compareValue(value, rule.threshold, rule.comparison),
 				comparison: rule.comparison,
 				threshold: rule.threshold,
