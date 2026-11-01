@@ -3,12 +3,14 @@ import type { AlertRule, AlertRuleInput } from "@obsunified/types";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AlertRuleForm } from "../dashboards/AlertRuleForm";
+import { AlertsDashboard } from "../dashboards/AlertsDashboard";
 import {
 	describeChannel,
 	describeMetricQuery,
 	parseAttributes,
 	parseMetricNames,
 } from "../dashboards/alert-rule-text";
+import { ObsDashboardProvider } from "../provider";
 
 afterEach(() => cleanup());
 
@@ -162,5 +164,70 @@ describe("AlertRuleForm metrics signal", () => {
 		);
 		expect(byLabel("Comparison").value).toBe("==");
 		expect(byLabel("For (s)").value).toBe("30");
+	});
+});
+
+describe("AlertsDashboard evaluation status", () => {
+	it("shows erroring, no-data and undelivered rules in the list", async () => {
+		const base = {
+			projectId: "p",
+			signal: "metrics" as const,
+			query: { metric: "m", aggregation: "last" as const },
+			threshold: 0,
+			windowMins: 1,
+			comparison: ">" as const,
+			channels: [],
+			enabled: true,
+			createdAt: "2026-10-31T00:00:00.000Z",
+			updatedAt: "2026-10-31T00:00:00.000Z",
+		};
+		const rules: AlertRule[] = [
+			{
+				...base,
+				id: "a",
+				name: "erroring rule",
+				notificationDelivered: null,
+				lastEvaluation: {
+					evaluatedAt: "2026-10-31T10:05:00.000Z",
+					outcome: "error",
+					value: 0,
+					error: "metrics query matches 1200 series (limit 1000)",
+				},
+			},
+			{
+				...base,
+				id: "b",
+				name: "undelivered rule",
+				currentState: "firing",
+				notificationDelivered: false,
+				lastEvaluation: {
+					evaluatedAt: "2026-10-31T10:05:00.000Z",
+					outcome: "no_data",
+					value: 0,
+					error: null,
+				},
+			},
+		];
+		const fetcher: typeof fetch = async (input) => {
+			const url = typeof input === "string" ? input : input.toString();
+			const body = url.includes("/alerts/rules")
+				? { rules }
+				: { evaluations: [] };
+			return new Response(JSON.stringify(body), {
+				headers: { "content-type": "application/json" },
+			});
+		};
+		render(
+			<ObsDashboardProvider basePath="/internal" fetcher={fetcher}>
+				<AlertsDashboard />
+			</ObsDashboardProvider>,
+		);
+		await screen.findByText("erroring rule");
+		const error = screen.getByText("Error");
+		expect(error.closest("[title]")?.getAttribute("title")).toBe(
+			"metrics query matches 1200 series (limit 1000)",
+		);
+		expect(screen.getByText("No data")).toBeTruthy();
+		expect(screen.getByText("Undelivered")).toBeTruthy();
 	});
 });

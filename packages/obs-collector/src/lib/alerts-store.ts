@@ -5,6 +5,7 @@ import type {
 	AlertEvaluationOutcome,
 	AlertEvaluationRow,
 	AlertEvaluationsListResponse,
+	AlertLastEvaluation,
 	AlertQuery,
 	AlertQueryAI,
 	AlertQueryLogs,
@@ -88,7 +89,32 @@ const rowToEvaluation = (row: AlertEvaluationRow): AlertEvaluation => ({
 	state: row.state,
 	notified: row.notified === 1,
 	outcome: row.outcome ?? "value",
+	error: row.error_message ?? null,
 });
+
+const MAX_ERROR_MESSAGE = 500;
+
+/**
+ * What an `error` evaluation keeps of the failure: URLs (which can carry
+ * credentials or secret hook paths) replaced, one line, truncated.
+ */
+export const sanitizeEvaluationError = (message: string): string => {
+	const cleaned = message
+		.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, "<url>")
+		.replace(/\s+/g, " ")
+		.trim();
+	return cleaned.length > MAX_ERROR_MESSAGE
+		? `${cleaned.slice(0, MAX_ERROR_MESSAGE - 1)}…`
+		: cleaned;
+};
+
+interface LastEvaluationRow {
+	rule_id: string;
+	evaluated_at: string;
+	value: number;
+	outcome?: AlertEvaluationOutcome | null;
+	error_message?: string | null;
+}
 
 const windowCutoffIso = (windowMins: number): string =>
 	new Date(Date.now() - windowMins * 60 * 1000).toISOString();
@@ -207,7 +233,75 @@ export class AlertsStore {
 		const stateByRule = new Map<string, AlertStateRow>(
 			(stateRs.results ?? []).map((s) => [s.rule_id, s]),
 		);
-		return rows.map((r) => rowToRule(r, stateByRule.get(r.id)));
+		const lastByRule = await this.lastEvaluations(projectId);
+		return rows.map((r) => {
+			const state = stateByRule.get(r.id);
+			const last = lastByRule.get(r.id);
+			return {
+				...rowToRule(r, state),
+				notificationDelivered: state
+					? state.notified === undefined || state.notified === null
+						? true
+						: Number(state.notified) === 1
+					: null,
+				lastEvaluation: last
+					? {
+							evaluatedAt: last.evaluated_at,
+							outcome: last.outcome ?? "value",
+							value: Number(last.value),
+							error:
+								(last.outcome ?? "value") === "error"
+									? (last.error_message ?? null)
+									: null,
+						}
+					: null,
+			};
+		});
+	}
+
+	/**
+	 * The newest evaluation of every rule in the project, one query. Falls
+	 * back to the pre-057/059 column set on older databases.
+	 */
+	private async lastEvaluations(
+		projectId: string,
+	): Promise<Map<string, LastEvaluationRow>> {
+		const run = (columns: string) =>
+			this.db
+				.prepare(
+					`SELECT e.rule_id, e.evaluated_at, e.value${columns}
+				 FROM alert_evaluations e
+				 WHERE e.project_id = ?
+				   AND e.evaluated_at = (
+				     SELECT MAX(e2.evaluated_at) FROM alert_evaluations e2
+				     WHERE e2.rule_id = e.rule_id
+				   )`,
+				)
+				.bind(projectId)
+				.all<LastEvaluationRow>();
+		let rs: { results: LastEvaluationRow[] };
+		try {
+			rs = await run(", e.outcome, e.error_message");
+		} catch (err) {
+			if (
+				!isMissingColumn(err, "error_message") &&
+				!isMissingColumn(err, "outcome")
+			)
+				throw err;
+			try {
+				rs = await run(", e.outcome");
+			} catch (inner) {
+				if (!isMissingColumn(inner, "outcome")) throw inner;
+				rs = await run("");
+			}
+		}
+		const out = new Map<string, LastEvaluationRow>();
+		// Same-millisecond ties: prefer an error, which is the one to surface.
+		for (const row of rs.results ?? []) {
+			const seen = out.get(row.rule_id);
+			if (!seen || row.outcome === "error") out.set(row.rule_id, row);
+		}
+		return out;
 	}
 
 	async getRule(id: string, projectId: string): Promise<AlertRule | null> {
@@ -563,7 +657,12 @@ export class AlertsStore {
 		state: AlertState,
 		notified: boolean,
 		outcome: AlertEvaluationOutcome = "value",
+		errorMessage?: string,
 	): Promise<void> {
+		const error =
+			outcome === "error" && errorMessage
+				? sanitizeEvaluationError(errorMessage)
+				: null;
 		const values = [
 			randomHex(16),
 			ruleId,
@@ -576,14 +675,31 @@ export class AlertsStore {
 		try {
 			await this.db
 				.prepare(
-					`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified, outcome)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+					`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified, outcome, error_message)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
-				.bind(...values, outcome)
+				.bind(...values, outcome, error)
 				.run();
+			return;
 		} catch (err) {
+			if (!isMissingColumn(err, "error_message")) {
+				if (!isMissingColumn(err, "outcome")) throw err;
+			} else {
+				// Pre-059: keep the outcome without the message.
+				try {
+					await this.db
+						.prepare(
+							`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified, outcome)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+						)
+						.bind(...values, outcome)
+						.run();
+					return;
+				} catch (inner) {
+					if (!isMissingColumn(inner, "outcome")) throw inner;
+				}
+			}
 			// Pre-057 database: the row is still worth keeping without its outcome.
-			if (!isMissingColumn(err, "outcome")) throw err;
 			await this.db
 				.prepare(
 					`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified)

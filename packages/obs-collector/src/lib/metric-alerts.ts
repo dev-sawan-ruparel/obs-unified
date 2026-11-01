@@ -289,11 +289,13 @@ export const sortPoints = (points: MetricPointSample[]): MetricPointSample[] =>
  * Counter growth over consecutive cumulative points (Prometheus `increase`
  * without extrapolation). A drop, or a change of the point's start time,
  * is a counter reset: the new value counts in full, as growth from 0. The
- * first point counts in full when the counter was born in the window: its
- * start time is inside the window, or the series has no history before the
- * window (`bornInWindow`; e.g. the first error of a new attribute set on a
- * long-running process, whose start time is the process start). Otherwise
- * it is the baseline.
+ * first point is decided by its OTLP start time when it has one: a start
+ * inside the window means the counter began there, so its value counts from
+ * 0; a start before the window means part of the value grew before the
+ * window, so the point is the baseline (even for a series obs-unified first
+ * sees now: a long-running counter reaching a fresh database must not read
+ * as a burst). Only without a start time does `bornInWindow` decide (no
+ * history before the window: count from 0).
  */
 const cumulativeIncrease = (
 	points: Array<{ v: number; start: bigint | null }>,
@@ -302,10 +304,9 @@ const cumulativeIncrease = (
 ): number => {
 	if (points.length === 0) return 0;
 	const first = points[0];
-	let total =
-		bornInWindow || (first.start !== null && first.start >= windowStartNs)
-			? first.v
-			: 0;
+	const countsFirst =
+		first.start !== null ? first.start >= windowStartNs : bornInWindow;
+	let total = countsFirst ? first.v : 0;
 	for (let i = 1; i < points.length; i++) {
 		const prev = points[i - 1];
 		const cur = points[i];

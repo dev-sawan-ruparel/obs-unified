@@ -1112,18 +1112,19 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		);
 	});
 
-	it("evaluates metrics alert rules and drives pendingSecs state (054-058)", async () => {
+	it("evaluates metrics alert rules and drives pendingSecs state (054-059)", async () => {
 		const columns = await db
 			.prepare(
 				`SELECT table_name, column_name FROM information_schema.columns
 				 WHERE table_schema = current_schema()
 				   AND ((table_name = 'alert_rules' AND column_name = 'pending_secs')
 				     OR (table_name = 'alert_state' AND column_name IN ('pending_since', 'pending_seen_at'))
-				     OR (table_name = 'alert_evaluations' AND column_name = 'outcome'))
+				     OR (table_name = 'alert_evaluations' AND column_name IN ('outcome', 'error_message')))
 				 ORDER BY table_name, column_name`,
 			)
 			.all<{ table_name: string; column_name: string }>();
 		expect(columns.results.map((c) => c.column_name)).toEqual([
+			"error_message",
 			"outcome",
 			"pending_secs",
 			"pending_seen_at",
@@ -1213,7 +1214,8 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		});
 		// errors +2; attempts +4 (reset) +2 = 6 >= 5 → 2/6
 		expect(await alerts.evaluateRule(ratio, now)).toBeCloseTo(2 / 6);
-		// Without the code filter the new 503 series adds its first 2.
+		// The new 503 series started an hour ago (before the window): its
+		// first point is a baseline, so only the 500 series' +2 counts.
 		const allErrors = await alerts.createRule(project.id, {
 			name: "all call errors",
 			signal: "metrics",
@@ -1224,7 +1226,7 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
 		});
 		expect(await alerts.evaluateRuleWithStatus(allErrors, now)).toEqual({
-			value: 4,
+			value: 2,
 			noData: false,
 		});
 		// `last` with a 30 s staleness bound: the newest points are 60 s old.
@@ -1263,6 +1265,33 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 				})
 			).evaluations[0],
 		).toMatchObject({ outcome: "no_data", state: "ok" });
+		await alerts.recordEvaluation(
+			ratio.id,
+			project.id,
+			0,
+			"ok",
+			false,
+			"error",
+			"statement timeout on postgres://obs:secret@db/obs",
+		);
+		await alerts.transitionState(gone.id, project.id, "firing", isoNow());
+		const listed = new Map(
+			(await alerts.listRules(project.id)).map((r) => [r.id, r]),
+		);
+		expect(listed.get(ratio.id)).toMatchObject({
+			notificationDelivered: null,
+			lastEvaluation: {
+				outcome: "error",
+				value: 0,
+				error: "statement timeout on <url>",
+			},
+		});
+		expect(listed.get(gone.id)).toMatchObject({
+			currentState: "firing",
+			notificationDelivered: false,
+			lastEvaluation: { outcome: "no_data", error: null },
+		});
+		expect(listed.get(allErrors.id)?.lastEvaluation).toBeNull();
 
 		const stale = await alerts.createRule(project.id, {
 			name: "calls stopped",

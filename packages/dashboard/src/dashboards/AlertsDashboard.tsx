@@ -293,6 +293,37 @@ function alertRuleColumns({
 					: `${r.windowMins}m`,
 		},
 		{
+			key: "last",
+			header: "Last evaluation",
+			width: "auto",
+			font: "mono",
+			cell: (r) => {
+				const last = r.lastEvaluation;
+				const undelivered =
+					r.notificationDelivered === false ? (
+						<Tag tone="error">Undelivered</Tag>
+					) : null;
+				if (!last) return undelivered ?? "—";
+				const when = new Date(last.evaluatedAt).toLocaleTimeString();
+				return (
+					<span
+						className="inline-flex items-center gap-1"
+						title={last.error ?? undefined}
+					>
+						{last.outcome === "error" ? (
+							<Tag tone="error">Error</Tag>
+						) : last.outcome === "no_data" ? (
+							<Tag tone="muted">No data</Tag>
+						) : (
+							<span>{last.value}</span>
+						)}
+						<span className="opacity-60">{when}</span>
+						{undelivered}
+					</span>
+				);
+			},
+		},
+		{
 			key: "channels",
 			header: "Channels",
 			width: "auto",

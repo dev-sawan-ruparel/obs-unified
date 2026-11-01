@@ -85,6 +85,8 @@ land alongside the first hosted-Postgres deployment.
   (`value`, `no_data`, `error`; the store writes the legacy row without it
   before 057) and `058` `alert_state.pending_seen_at TEXT`, the last
   evaluation that saw a pending condition hold (required by pending rules).
+- `059` adds `alert_evaluations.error_message TEXT` (sanitized reason for an
+  `error` outcome; the rules list reads it as `lastEvaluation.error`).
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

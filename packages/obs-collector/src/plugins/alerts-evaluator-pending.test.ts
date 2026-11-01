@@ -302,7 +302,21 @@ describe("pendingSecs", () => {
 				hours: 24,
 			})
 		).evaluations[0];
-		expect(latest).toMatchObject({ outcome: "error", state: "firing" });
+		expect(latest).toMatchObject({
+			outcome: "error",
+			state: "firing",
+			error: "unknown alert signal: bogus",
+		});
+		const listed = (await store.listRules(project.id))[0];
+		expect(listed).toMatchObject({
+			currentState: "firing",
+			notificationDelivered: true,
+			lastEvaluation: {
+				outcome: "error",
+				error: "unknown alert signal: bogus",
+				evaluatedAt: new Date(T0 + 10_000).toISOString(),
+			},
+		});
 		db.close();
 	});
 });

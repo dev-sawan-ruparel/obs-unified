@@ -87,6 +87,8 @@ interface AlertEvaluatorStore {
 		state: AlertState,
 		notified: boolean,
 		outcome?: AlertEvaluationOutcome,
+		/** With outcome `error`: why (the store sanitizes it). */
+		errorMessage?: string,
 	): Promise<void>;
 }
 
@@ -506,10 +508,11 @@ async function evaluateOneRule(
 			outcome,
 		);
 	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
 		logger.error("[alerts-evaluator] rule evaluation failed", {
 			rule_id: rule.id,
 			project_id: rule.projectId,
-			error: err instanceof Error ? err.message : String(err),
+			error: message,
 		});
 		// Leave a trace in the rule's history: an `error` evaluation in the
 		// unchanged state. Best effort; the database may be what failed.
@@ -522,6 +525,7 @@ async function evaluateOneRule(
 					previousForError,
 					false,
 					"error",
+					message,
 				)
 				.catch(() => undefined);
 		}

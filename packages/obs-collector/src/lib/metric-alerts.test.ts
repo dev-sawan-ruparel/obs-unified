@@ -137,23 +137,42 @@ describe("metricRatio", () => {
 	});
 });
 
-describe("reduceSeries bornInWindow", () => {
-	it("counts a new series' first cumulative point as growth from 0", () => {
-		const longRunningProcess = ns(at(600));
-		const firstErrors = [
-			pt(3, 2, { startTsNs: longRunningProcess }),
-			pt(1, 5, { startTsNs: longRunningProcess }),
-		];
-		expect(reduce(firstErrors, "increase")).toBe(3);
-		expect(reduce(firstErrors, "increase", { bornInWindow: true })).toBe(5);
+describe("reduceSeries first point of a cumulative series", () => {
+	const twoPoints = (start: string | null) => [
+		pt(3, 2, { startTsNs: start }),
+		pt(1, 5, { startTsNs: start }),
+	];
+
+	it("counts from 0 when the start time is inside the window", () => {
+		const inWindow = ns(at(4));
+		expect(reduce(twoPoints(inWindow), "increase")).toBe(5);
 		expect(
-			reduce([pt(2, 4, { startTsNs: null })], "increase", {
+			reduce(twoPoints(inWindow), "increase", { bornInWindow: true }),
+		).toBe(5);
+	});
+
+	it("uses the first point as the baseline when the start time is before the window, even for a new series", () => {
+		// e.g. a long-running counter reaching a fresh database: not a burst.
+		const longRunningProcess = ns(at(600));
+		expect(reduce(twoPoints(longRunningProcess), "increase")).toBe(3);
+		expect(
+			reduce(twoPoints(longRunningProcess), "increase", {
 				bornInWindow: true,
 			}),
-		).toBe(4);
-		// Delta series are unaffected.
+		).toBe(3);
+	});
+
+	it("without a start time, counts from 0 only for a series born in the window", () => {
+		expect(reduce(twoPoints(null), "increase")).toBe(3);
+		expect(reduce(twoPoints(null), "increase", { bornInWindow: true })).toBe(5);
+	});
+
+	it("leaves delta series alone", () => {
 		expect(
-			reduce(firstErrors, "increase", { bornInWindow: true, temporality: 1 }),
+			reduce(twoPoints(null), "increase", {
+				bornInWindow: true,
+				temporality: 1,
+			}),
 		).toBe(7);
 	});
 });
@@ -246,7 +265,8 @@ const decoded = (
 		minsAgo: number;
 		value?: number | null;
 		count?: number | null;
-		startMinsAgo?: number;
+		/** Minutes before NOW the counter started; null: no start time. */
+		startMinsAgo?: number | null;
 	},
 ): DecodedMetricPoint => {
 	const resource = { "service.name": opts.service ?? "vbox", ...opts.resource };
@@ -265,7 +285,8 @@ const decoded = (
 		attributesJson: Object.keys(attrs).length ? JSON.stringify(attrs) : null,
 		identity: JSON.stringify([resource, name, attrs]),
 		tsNs: ns(at(opts.minsAgo)),
-		startTsNs: ns(at(opts.startMinsAgo ?? 600)),
+		startTsNs:
+			opts.startMinsAgo === null ? null : ns(at(opts.startMinsAgo ?? 600)),
 		value: opts.value === undefined ? null : opts.value,
 		count: opts.count ?? null,
 		sum: null,
@@ -533,22 +554,60 @@ describe("evaluateMetricQuery review fixes (SQLite)", () => {
 			value,
 		});
 
-	it("counts the first errors of a series that appeared inside the window", async () => {
+	it("decides a new series' first point by its start time", async () => {
 		const { db, ingest, evaluate } = await setup();
-		const errors = (code: number, minsAgo: number, v: number) =>
+		const errors = (
+			code: number,
+			minsAgo: number,
+			v: number,
+			startMinsAgo: number | null,
+		) =>
 			decoded("errors_total", {
 				attrs: { code },
 				minsAgo,
 				value: v,
-				startMinsAgo: 600,
+				startMinsAgo,
 			});
-		// code=503 has history; code=500 is first seen 3 minutes ago.
-		await ingest(9, [errors(503, 9, 4)]);
-		await ingest(3, [errors(503, 3, 4), errors(500, 3, 2)]);
-		await ingest(1, [errors(503, 1, 5), errors(500, 1, 3)]);
+		// All three series are first seen 3 minutes ago (fresh database):
+		//  503: started 600 min ago, already at 30: baseline, +1
+		//  500: started 4 min ago (inside the window): counts 2 from 0, +1
+		//  502: no start time, born in the window: counts 1 from 0, +1
+		await ingest(3, [
+			errors(503, 3, 30, 600),
+			errors(500, 3, 2, 4),
+			errors(502, 3, 1, null),
+		]);
+		await ingest(1, [
+			errors(503, 1, 31, 600),
+			errors(500, 1, 3, 4),
+			errors(502, 1, 2, null),
+		]);
+		const of = (code: number) =>
+			evaluate({
+				metric: "errors_total",
+				attributes: { code },
+				aggregation: "increase",
+			});
+		expect(await of(503)).toBe(1);
+		expect(await of(500)).toBe(3);
+		expect(await of(502)).toBe(2);
+		db.close();
+	});
+
+	it("does not page an error ratio when long-running counters reach a fresh database", async () => {
+		const { db, ingest, evaluate } = await setup();
+		const c = (name: string, minsAgo: number, v: number) =>
+			decoded(name, { minsAgo, value: v, startMinsAgo: 6000 });
+		await ingest(3, [c("attempts_total", 3, 500), c("errors_total", 3, 30)]);
+		await ingest(1, [c("attempts_total", 1, 510), c("errors_total", 1, 30)]);
 		expect(
-			await evaluate({ metric: "errors_total", aggregation: "increase" }),
-		).toBe(1 + 3);
+			await evaluate({
+				metric: "errors_total",
+				aggregation: "increase",
+				denominator: { metric: "attempts_total" },
+				minDenominator: 5,
+			}),
+		).toBe(0);
 		db.close();
 	});
 

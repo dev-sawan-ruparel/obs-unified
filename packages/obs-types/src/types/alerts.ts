@@ -173,6 +173,14 @@ export interface AlertRule {
 	currentState?: AlertState;
 	/** Last state change time (derived) */
 	lastStateChange?: string | null;
+	/**
+	 * Listed rules only: whether the channels accepted the notification for
+	 * `currentState` (alert_state.notified). null when the rule never changed
+	 * state; true on a database before migration 049.
+	 */
+	notificationDelivered?: boolean | null;
+	/** Listed rules only: the most recent evaluation, null if none is kept. */
+	lastEvaluation?: AlertLastEvaluation | null;
 }
 
 export interface AlertRuleRow {
@@ -204,6 +212,8 @@ export interface AlertEvaluation {
 	notified: boolean;
 	/** Migration 057; absent rows read as `value`. */
 	outcome?: AlertEvaluationOutcome;
+	/** Why an `error` evaluation failed (migration 059); null otherwise. */
+	error?: string | null;
 	evidenceReferences?: EvidenceReference[];
 	evidenceContract?: EvidenceReferenceContract;
 }
@@ -224,6 +234,17 @@ export interface AlertEvaluationRow {
 	notified: number;
 	/** Migration 057. */
 	outcome?: AlertEvaluationOutcome | null;
+	/** Migration 059. */
+	error_message?: string | null;
+}
+
+/** The latest evaluation of a rule, as listed with the rule. */
+export interface AlertLastEvaluation {
+	evaluatedAt: string;
+	outcome: AlertEvaluationOutcome;
+	value: number;
+	/** Set when `outcome` is `error`: why it failed (URLs replaced, truncated). */
+	error: string | null;
 }
 
 export interface AlertStateRow {

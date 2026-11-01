@@ -51,6 +51,7 @@ export type {
 	AlertEvaluationOutcome,
 	AlertEvaluationRow,
 	AlertEvaluationsListResponse,
+	AlertLastEvaluation,
 	AlertMetricAggregation,
 	AlertMetricAttributeValue,
 	AlertMetricDenominator,

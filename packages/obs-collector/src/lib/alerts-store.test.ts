@@ -4,8 +4,8 @@
  */
 
 import type { AlertRuleInput } from "@obsunified/types";
-import { describe, expect, it } from "vitest";
-import { AlertsStore } from "./alerts-store";
+import { describe, expect, it, vi } from "vitest";
+import { AlertsStore, sanitizeEvaluationError } from "./alerts-store";
 import { ProjectsStore } from "./projects-store";
 import { createMigratedSqliteDb } from "./test-utils/node-sqlite-db";
 
@@ -149,5 +149,119 @@ describe("AlertsStore alert_state.notified (migration 049)", () => {
 			last_state_change: t2,
 			notified: 0,
 		});
+	});
+});
+
+describe("AlertsStore.listRules evaluation status", () => {
+	it("reports the last evaluation, its error and whether the state was delivered", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		try {
+			const db = createMigratedSqliteDb();
+			const project = await new ProjectsStore(db).createProject({
+				name: "S",
+				slug: "s",
+			});
+			const store = new AlertsStore(db);
+			const erroring = await store.createRule(
+				project.id,
+				input({ name: "erroring" }),
+			);
+			const undelivered = await store.createRule(
+				project.id,
+				input({ name: "undelivered" }),
+			);
+			const fresh = await store.createRule(
+				project.id,
+				input({ name: "fresh" }),
+			);
+
+			vi.setSystemTime(Date.parse("2026-10-31T10:00:00.000Z"));
+			await store.recordEvaluation(erroring.id, project.id, 3, "ok", false);
+			vi.setSystemTime(Date.parse("2026-10-31T10:05:00.000Z"));
+			await store.recordEvaluation(
+				erroring.id,
+				project.id,
+				0,
+				"ok",
+				false,
+				"error",
+				"connect ECONNREFUSED postgres://obs:hunter2@db:5432/obs\nat pool",
+			);
+			await store.transitionState(
+				undelivered.id,
+				project.id,
+				"firing",
+				"2026-10-31T10:05:00.000Z",
+			);
+			await store.recordEvaluation(
+				undelivered.id,
+				project.id,
+				7,
+				"firing",
+				false,
+			);
+
+			const byName = new Map(
+				(await store.listRules(project.id)).map((r) => [r.name, r]),
+			);
+			expect(byName.get("erroring")).toMatchObject({
+				currentState: undefined,
+				notificationDelivered: null,
+				lastEvaluation: {
+					evaluatedAt: "2026-10-31T10:05:00.000Z",
+					outcome: "error",
+					value: 0,
+					error: "connect ECONNREFUSED <url> at pool",
+				},
+			});
+			expect(JSON.stringify(byName.get("erroring"))).not.toContain("hunter2");
+			expect(byName.get("undelivered")).toMatchObject({
+				currentState: "firing",
+				notificationDelivered: false,
+				lastEvaluation: { outcome: "value", value: 7, error: null },
+			});
+			expect(byName.get("fresh")).toMatchObject({
+				notificationDelivered: null,
+				lastEvaluation: null,
+			});
+			// Existing fields are unchanged.
+			expect(byName.get("fresh")).toMatchObject({
+				id: fresh.id,
+				signal: "spans",
+				enabled: true,
+			});
+
+			await store.markNotified(
+				undelivered.id,
+				project.id,
+				"firing",
+				"2026-10-31T10:05:00.000Z",
+			);
+			expect(
+				(await store.listRules(project.id)).find(
+					(r) => r.name === "undelivered",
+				)?.notificationDelivered,
+			).toBe(true);
+
+			const evaluations = await store.listEvaluations({
+				ruleId: erroring.id,
+				projectId: project.id,
+				hours: 24 * 365,
+			});
+			expect(evaluations.evaluations[0]).toMatchObject({
+				outcome: "error",
+				error: "connect ECONNREFUSED <url> at pool",
+			});
+			db.close();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("truncates long error messages", () => {
+		expect(sanitizeEvaluationError("x".repeat(800))).toHaveLength(500);
+		expect(sanitizeEvaluationError("see https://hooks.slack.com/T/B/s")).toBe(
+			"see <url>",
+		);
 	});
 });
