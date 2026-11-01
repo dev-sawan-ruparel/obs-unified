@@ -1112,18 +1112,21 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		);
 	});
 
-	it("evaluates metrics alert rules and drives pendingSecs state (054-056)", async () => {
+	it("evaluates metrics alert rules and drives pendingSecs state (054-058)", async () => {
 		const columns = await db
 			.prepare(
 				`SELECT table_name, column_name FROM information_schema.columns
 				 WHERE table_schema = current_schema()
 				   AND ((table_name = 'alert_rules' AND column_name = 'pending_secs')
-				     OR (table_name = 'alert_state' AND column_name = 'pending_since'))
-				 ORDER BY table_name`,
+				     OR (table_name = 'alert_state' AND column_name IN ('pending_since', 'pending_seen_at'))
+				     OR (table_name = 'alert_evaluations' AND column_name = 'outcome'))
+				 ORDER BY table_name, column_name`,
 			)
 			.all<{ table_name: string; column_name: string }>();
 		expect(columns.results.map((c) => c.column_name)).toEqual([
+			"outcome",
 			"pending_secs",
+			"pending_seen_at",
 			"pending_since",
 		]);
 		const index = await db
@@ -1171,10 +1174,18 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 				boundsJson: null,
 				bucketCountsJson: null,
 			});
+		// History before the 5-minute window for all three series, plus a
+		// series first seen inside it (code=503) whose first value counts.
+		await ingest(400, [
+			counter("calls_total", 200, 400, 90),
+			counter("calls_total", 500, 400, 1),
+			counter("calls_failed_total", 500, 400, 1),
+		]);
 		await ingest(240, [
 			counter("calls_total", 200, 240, 100),
 			counter("calls_total", 500, 240, 1),
 			counter("calls_failed_total", 500, 240, 1),
+			counter("calls_failed_total", 503, 240, 2),
 		]);
 		await ingest(60, [
 			// Counter reset on the 200 series: 100 → 4 counts 4.
@@ -1202,6 +1213,56 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		});
 		// errors +2; attempts +4 (reset) +2 = 6 >= 5 → 2/6
 		expect(await alerts.evaluateRule(ratio, now)).toBeCloseTo(2 / 6);
+		// Without the code filter the new 503 series adds its first 2.
+		const allErrors = await alerts.createRule(project.id, {
+			name: "all call errors",
+			signal: "metrics",
+			query: { metric: "calls_failed_total", aggregation: "increase" },
+			threshold: 0,
+			windowMins: 5,
+			comparison: ">",
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		expect(await alerts.evaluateRuleWithStatus(allErrors, now)).toEqual({
+			value: 4,
+			noData: false,
+		});
+		// `last` with a 30 s staleness bound: the newest points are 60 s old.
+		const gone = await alerts.createRule(project.id, {
+			name: "stale gauge",
+			signal: "metrics",
+			query: {
+				metric: "calls_total",
+				aggregation: "last",
+				staleSecs: 30,
+				noData: "keep",
+			},
+			threshold: 0,
+			windowMins: 5,
+			comparison: ">",
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		expect(await alerts.evaluateRuleWithStatus(gone, now)).toEqual({
+			value: 0,
+			noData: true,
+		});
+		await alerts.recordEvaluation(
+			gone.id,
+			project.id,
+			0,
+			"ok",
+			false,
+			"no_data",
+		);
+		expect(
+			(
+				await alerts.listEvaluations({
+					ruleId: gone.id,
+					projectId: project.id,
+					hours: 1,
+				})
+			).evaluations[0],
+		).toMatchObject({ outcome: "no_data", state: "ok" });
 
 		const stale = await alerts.createRule(project.id, {
 			name: "calls stopped",
@@ -1232,18 +1293,36 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		// pending_since round-trips; a fresh state row is ok + delivered.
 		expect(stale.pendingSecs).toBe(30);
 		const since = new Date().toISOString();
-		await alerts.setPendingSince(stale.id, project.id, since, stale.createdAt);
+		await alerts.setPending(
+			stale.id,
+			project.id,
+			{ since, seenAt: since },
+			stale.createdAt,
+		);
 		expect(await alerts.getState(stale.id, project.id)).toMatchObject({
 			current_state: "ok",
 			last_state_change: stale.createdAt,
 			notified: 1,
 			pending_since: since,
+			pending_seen_at: since,
 		});
 		expect(
 			(await alerts.listRules(project.id)).find((r) => r.id === stale.id),
 		).toMatchObject({ pendingSecs: 30, pendingSince: since });
+		// An edit that changes evaluation resets the hold.
+		await alerts.updateRule(stale.id, project.id, { threshold: 61 });
+		expect(await alerts.getState(stale.id, project.id)).toMatchObject({
+			pending_since: null,
+			pending_seen_at: null,
+		});
+		await alerts.setPending(
+			stale.id,
+			project.id,
+			{ since, seenAt: since },
+			stale.createdAt,
+		);
 		await alerts.transitionState(stale.id, project.id, "firing", since);
-		await alerts.setPendingSince(stale.id, project.id, null, stale.createdAt);
+		await alerts.setPending(stale.id, project.id, null, stale.createdAt);
 		expect(await alerts.getState(stale.id, project.id)).toMatchObject({
 			current_state: "firing",
 			pending_since: null,

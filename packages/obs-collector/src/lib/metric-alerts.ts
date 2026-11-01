@@ -13,9 +13,19 @@
  *      as for every other alert signal) is inside the rule window, ordered by
  *      producer time (`ts_ns`). The number read is `field` (`value`, or a
  *      histogram/summary `count` / `sum`); points without it are skipped.
- *   3. Each series is reduced on its own (`reduceSeries`), and the per-series
- *      results are summed. A series with no usable point in the window adds
- *      nothing; with no series or no points the selector yields 0.
+ *   3. Staleness: for `last`, `min`, `max`, `avg` and `sum` a series takes
+ *      part only when its newest point is at most `staleSecs` (default 300)
+ *      old, so a series that stopped reporting (a renamed host, a replaced
+ *      pod) no longer adds its last value. `increase` / `rate` keep every
+ *      series with points in the window: growth that happened is real even
+ *      if the series stopped afterwards.
+ *   4. Each series is reduced on its own (`reduceSeries`), and the per-series
+ *      results are summed. A series with no usable point adds nothing.
+ *
+ * When no series takes part (in the numerator or the denominator) the
+ * result is "no data": the value is 0 and `noData` is true. The rule's
+ * `noData` policy decides what that means (`zero`: evaluate 0 as usual;
+ * `keep`: leave the alert state as it is).
  *
  * `age_seconds` ignores the window: it is the seconds since the newest
  * `received_at` of any matching series. When no matching series has any
@@ -24,8 +34,16 @@
  * the threshold is crossed, so "never reported" fires after the same grace
  * period as "stopped reporting".
  *
- * Ratio: with a `denominator`, value = numerator / max(denominator, 1) when
- * denominator >= minDenominator (default 0), else 0.
+ * `age_seconds` is never "no data".
+ *
+ * Ratio: with a `denominator`, value = numerator / denominator when the
+ * denominator is > 0 and >= minDenominator (default 0), else 0.
+ *
+ * Cost bounds: at most `MAX_MATCHED_SERIES` series and `MAX_LOADED_POINTS`
+ * points per selector; past either the evaluation fails with an error (the
+ * evaluator records it as an `error` evaluation) rather than returning a
+ * value computed from part of the data. Metric rule windows are at most
+ * `MAX_METRIC_WINDOW_MINS`.
  */
 
 import type {
@@ -61,6 +79,13 @@ const MAX_METRIC_NAMES = 20;
 const MAX_ATTRIBUTE_KEYS = 32;
 /** A rule matching more series than this is refused at evaluation time. */
 export const MAX_MATCHED_SERIES = 1000;
+/** Points one selector may load per evaluation before it is refused. */
+export const MAX_LOADED_POINTS = 50_000;
+/** Longest window (`windowMins`) a metrics rule may use: one day. */
+export const MAX_METRIC_WINDOW_MINS = 1440;
+export const DEFAULT_STALE_SECS = 300;
+export const MAX_STALE_SECS = 86_400;
+export const METRIC_NO_DATA_POLICIES = ["zero", "keep"] as const;
 /** Keeps each statement under D1's ~100 bound-parameter limit. */
 const ID_CHUNK = 50;
 
@@ -76,6 +101,8 @@ const QUERY_KEYS = [
 	"aggregation",
 	"denominator",
 	"minDenominator",
+	"staleSecs",
+	"noData",
 ];
 const DENOMINATOR_KEYS = [...SELECTOR_KEYS, "aggregation"];
 
@@ -158,6 +185,22 @@ export function validateMetricQuery(query: unknown): void {
 		throw new Error(
 			`query.aggregation must be one of: ${METRIC_AGGREGATIONS.join(", ")}`,
 		);
+	if (
+		query.staleSecs !== undefined &&
+		(!Number.isInteger(query.staleSecs) ||
+			(query.staleSecs as number) < 1 ||
+			(query.staleSecs as number) > MAX_STALE_SECS)
+	)
+		throw new Error(
+			`query.staleSecs must be an integer from 1 to ${MAX_STALE_SECS}`,
+		);
+	if (
+		query.noData !== undefined &&
+		!METRIC_NO_DATA_POLICIES.includes(query.noData as "zero" | "keep")
+	)
+		throw new Error(
+			`query.noData must be one of: ${METRIC_NO_DATA_POLICIES.join(", ")}`,
+		);
 	if (query.denominator === undefined) {
 		if (query.minDenominator !== undefined)
 			throw new Error("query.minDenominator requires query.denominator");
@@ -199,6 +242,12 @@ export interface MetricPointSample {
 }
 
 export interface SeriesReduceOptions {
+	/**
+	 * The series has no history before the window (its `metric_series` row
+	 * was created inside it): a cumulative counter's first point then counts
+	 * as growth from 0 instead of being the baseline.
+	 */
+	bornInWindow?: boolean;
 	aggregation: Exclude<AlertMetricAggregation, "age_seconds">;
 	field: AlertMetricField;
 	/** `metric_series.temporality`: 1 delta, 2 cumulative, null for gauges. */
@@ -240,17 +289,23 @@ export const sortPoints = (points: MetricPointSample[]): MetricPointSample[] =>
  * Counter growth over consecutive cumulative points (Prometheus `increase`
  * without extrapolation). A drop, or a change of the point's start time,
  * is a counter reset: the new value counts in full, as growth from 0. The
- * first point counts in full only when its start time is inside the window
- * (the counter was born there); otherwise it is the baseline.
+ * first point counts in full when the counter was born in the window: its
+ * start time is inside the window, or the series has no history before the
+ * window (`bornInWindow`; e.g. the first error of a new attribute set on a
+ * long-running process, whose start time is the process start). Otherwise
+ * it is the baseline.
  */
 const cumulativeIncrease = (
 	points: Array<{ v: number; start: bigint | null }>,
 	windowStartNs: bigint,
+	bornInWindow: boolean,
 ): number => {
 	if (points.length === 0) return 0;
 	const first = points[0];
 	let total =
-		first.start !== null && first.start >= windowStartNs ? first.v : 0;
+		bornInWindow || (first.start !== null && first.start >= windowStartNs)
+			? first.v
+			: 0;
 	for (let i = 1; i < points.length; i++) {
 		const prev = points[i - 1];
 		const cur = points[i];
@@ -293,7 +348,11 @@ export function reduceSeries(
 			const increase =
 				opts.temporality === TEMPORALITY_DELTA
 					? values.reduce((a, b) => a + b, 0)
-					: cumulativeIncrease(usable, opts.windowStartNs);
+					: cumulativeIncrease(
+							usable,
+							opts.windowStartNs,
+							opts.bornInWindow ?? false,
+						);
 			return opts.aggregation === "rate"
 				? increase / opts.windowSecs
 				: increase;
@@ -301,19 +360,22 @@ export function reduceSeries(
 	}
 }
 
-/** numerator / max(denominator, 1) when denominator >= minDenominator, else 0. */
+/** numerator / denominator when denominator > 0 and >= minDenominator, else 0. */
 export const metricRatio = (
 	numerator: number,
 	denominator: number,
 	minDenominator: number,
 ): number =>
-	denominator >= minDenominator ? numerator / Math.max(denominator, 1) : 0;
+	denominator > 0 && denominator >= minDenominator
+		? numerator / denominator
+		: 0;
 
 // ── Database evaluation ────────────────────────────────────────────────────
 
 interface SeriesRow {
 	id: string;
 	temporality: number | string | null;
+	created_at: string;
 	attributes_json: unknown;
 	resource_attrs_json: unknown;
 }
@@ -374,9 +436,11 @@ async function matchingSeries(
 	db: SqlDb,
 	projectId: string,
 	selector: AlertMetricSelector,
-): Promise<Array<{ id: string; temporality: number | null }>> {
+): Promise<
+	Array<{ id: string; temporality: number | null; createdAt: string }>
+> {
 	const names = metricNames(selector);
-	let sql = `SELECT id, temporality, attributes_json, resource_attrs_json
+	let sql = `SELECT id, temporality, created_at, attributes_json, resource_attrs_json
 		FROM metric_series
 		WHERE project_id = ? AND name IN (${names.map(() => "?").join(", ")})`;
 	const binds: unknown[] = [projectId, ...names];
@@ -402,6 +466,7 @@ async function matchingSeries(
 		);
 	return matched.map((row) => ({
 		id: row.id,
+		createdAt: row.created_at,
 		temporality:
 			row.temporality === null || row.temporality === undefined
 				? null
@@ -415,6 +480,25 @@ export interface MetricEvalContext {
 	/** The rule's `createdAt`; the reference for "never reported". */
 	ruleCreatedAt: string;
 	now: Date;
+	/** Staleness bound for gauge-style aggregations; default 300. */
+	staleSecs?: number;
+	/** Point cap per selector; default MAX_LOADED_POINTS (tests lower it). */
+	maxLoadedPoints?: number;
+}
+
+/** Aggregations whose series must be fresh (see step 3 above). */
+const STALENESS_APPLIES = new Set<AlertMetricAggregation>([
+	"last",
+	"min",
+	"max",
+	"avg",
+	"sum",
+]);
+
+export interface MetricEvaluation {
+	value: number;
+	/** No series took part; see the module comment. Never true for age_seconds. */
+	noData: boolean;
 }
 
 async function evaluateSelector(
@@ -422,23 +506,35 @@ async function evaluateSelector(
 	selector: AlertMetricSelector,
 	aggregation: Exclude<AlertMetricAggregation, "age_seconds">,
 	ctx: MetricEvalContext,
-): Promise<number> {
+): Promise<{ value: number; contributing: number }> {
 	const series = await matchingSeries(db, ctx.projectId, selector);
-	if (series.length === 0) return 0;
+	if (series.length === 0) return { value: 0, contributing: 0 };
 	const windowStartMs = ctx.now.getTime() - ctx.windowMins * 60_000;
 	const cutoff = new Date(windowStartMs).toISOString();
 	const bySeries = new Map<string, MetricPointSample[]>();
+	let loaded = 0;
 	for (const chunk of chunks(series, ID_CHUNK)) {
+		// One more row than the remaining budget tells "at the cap" from
+		// "over it" without loading the rest.
+		const cap = ctx.maxLoadedPoints ?? MAX_LOADED_POINTS;
+		const budget = cap - loaded;
 		const rs = await db
 			.prepare(
 				`SELECT series_id, ts_ns, start_ts_ns, value, count, sum, received_at
 				FROM metric_point
 				WHERE project_id = ? AND series_id IN (${chunk.map(() => "?").join(", ")})
-				  AND received_at >= ?`,
+				  AND received_at >= ?
+				LIMIT ?`,
 			)
-			.bind(ctx.projectId, ...chunk.map((s) => s.id), cutoff)
+			.bind(ctx.projectId, ...chunk.map((s) => s.id), cutoff, budget + 1)
 			.all<PointRow>();
-		for (const row of rs.results ?? []) {
+		const rows = rs.results ?? [];
+		loaded += rows.length;
+		if (loaded > cap)
+			throw new Error(
+				`metrics query loads more than ${cap} points in its window; shorten windowMins or narrow the query`,
+			);
+		for (const row of rows) {
 			const list = bySeries.get(row.series_id) ?? [];
 			list.push({
 				tsNs: String(row.ts_ns),
@@ -453,18 +549,34 @@ async function evaluateSelector(
 	}
 	const field = selector.field ?? "value";
 	const windowStartNs = BigInt(windowStartMs) * 1_000_000n;
+	const freshCutoff = new Date(
+		ctx.now.getTime() - (ctx.staleSecs ?? DEFAULT_STALE_SECS) * 1000,
+	).toISOString();
 	let total = 0;
+	let contributing = 0;
 	for (const s of series) {
-		const reduced = reduceSeries(bySeries.get(s.id) ?? [], {
+		const points = bySeries.get(s.id) ?? [];
+		if (STALENESS_APPLIES.has(aggregation)) {
+			const newest = points.reduce<string | null>(
+				(max, p) => (max === null || p.receivedAt > max ? p.receivedAt : max),
+				null,
+			);
+			if (newest === null || newest < freshCutoff) continue;
+		}
+		const reduced = reduceSeries(points, {
 			aggregation,
 			field,
 			temporality: s.temporality,
 			windowStartNs,
 			windowSecs: ctx.windowMins * 60,
+			bornInWindow: s.createdAt >= cutoff,
 		});
-		if (reduced !== null) total += reduced;
+		if (reduced !== null) {
+			total += reduced;
+			contributing += 1;
+		}
 	}
-	return total;
+	return { value: total, contributing };
 }
 
 async function ageSeconds(
@@ -495,15 +607,33 @@ export async function evaluateMetricQuery(
 	db: SqlDb,
 	query: AlertQueryMetrics,
 	ctx: MetricEvalContext,
-): Promise<number> {
-	if (query.aggregation === "age_seconds") return ageSeconds(db, query, ctx);
-	const numerator = await evaluateSelector(db, query, query.aggregation, ctx);
-	if (!query.denominator) return numerator;
+): Promise<MetricEvaluation> {
+	if (query.aggregation === "age_seconds")
+		return { value: await ageSeconds(db, query, ctx), noData: false };
+	const withStale = { ...ctx, staleSecs: query.staleSecs ?? ctx.staleSecs };
+	const numerator = await evaluateSelector(
+		db,
+		query,
+		query.aggregation,
+		withStale,
+	);
+	if (!query.denominator)
+		return {
+			value: numerator.value,
+			noData: numerator.contributing === 0,
+		};
 	const denominator = await evaluateSelector(
 		db,
 		query.denominator,
 		query.denominator.aggregation ?? query.aggregation,
-		ctx,
+		withStale,
 	);
-	return metricRatio(numerator, denominator, query.minDenominator ?? 0);
+	return {
+		value: metricRatio(
+			numerator.value,
+			denominator.value,
+			query.minDenominator ?? 0,
+		),
+		noData: numerator.contributing === 0 && denominator.contributing === 0,
+	};
 }

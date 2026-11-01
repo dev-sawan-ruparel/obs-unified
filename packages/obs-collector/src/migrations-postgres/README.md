@@ -81,6 +81,10 @@ land alongside the first hosted-Postgres deployment.
   with a message naming the migration. `056` adds
   `idx_metric_point_series_received (series_id, received_at)` for the
   `metrics` alert signal's window and newest-point reads.
+- `057` adds `alert_evaluations.outcome TEXT NOT NULL DEFAULT 'value'`
+  (`value`, `no_data`, `error`; the store writes the legacy row without it
+  before 057) and `058` `alert_state.pending_seen_at TEXT`, the last
+  evaluation that saw a pending condition hold (required by pending rules).
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

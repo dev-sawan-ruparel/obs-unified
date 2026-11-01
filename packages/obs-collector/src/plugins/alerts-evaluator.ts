@@ -1,6 +1,8 @@
 import type {
 	AlertChannel,
 	AlertEmailChannel,
+	AlertEvaluationOutcome,
+	AlertQueryMetrics,
 	AlertRule,
 	AlertState,
 	AlertWebhookChannel,
@@ -16,7 +18,11 @@ import {
 	type AlertNotificationPayload,
 	formatAlertEmail,
 } from "../lib/alert-email";
-import { AlertsStore, compareValue } from "../lib/alerts-store";
+import {
+	type AlertRuleEvaluation,
+	AlertsStore,
+	compareValue,
+} from "../lib/alerts-store";
 import {
 	openOrDeduplicateIncident,
 	resolveServiceIncidentTarget,
@@ -35,6 +41,8 @@ const DEFAULT_RULE_TIMEOUT_MS = 10_000;
 interface AlertEvaluatorStore {
 	listEnabledRules(): Promise<AlertRule[]>;
 	evaluateRule(rule: AlertRule): Promise<number>;
+	/** Preferred when present: also says whether a metrics rule had no data. */
+	evaluateRuleWithStatus?(rule: AlertRule): Promise<AlertRuleEvaluation>;
 	getState(
 		ruleId: string,
 		projectId: string,
@@ -45,12 +53,14 @@ interface AlertEvaluatorStore {
 		notified?: number;
 		/** Start of the current pending period (migration 055); null/absent when not pending. */
 		pending_since?: string | null;
+		/** Last evaluation that saw the pending condition hold (migration 058). */
+		pending_seen_at?: string | null;
 	} | null>;
-	/** Start (ISO) or clear (null) the rule's pending period. */
-	setPendingSince(
+	/** Record (`{ since, seenAt }`) or clear (null) the rule's pending period. */
+	setPending(
 		ruleId: string,
 		projectId: string,
-		since: string | null,
+		pending: { since: string; seenAt: string } | null,
 		ruleCreatedAt: string,
 	): Promise<void>;
 	/** Flip the exact transition `(state, lastStateChange)` to delivered. */
@@ -76,8 +86,15 @@ interface AlertEvaluatorStore {
 		value: number,
 		state: AlertState,
 		notified: boolean,
+		outcome?: AlertEvaluationOutcome,
 	): Promise<void>;
 }
+
+/**
+ * Default `maxEvaluationGapMs`: two of the default 5-minute evaluation
+ * ticks. Hosts with another cadence pass their own (twice the interval).
+ */
+export const DEFAULT_MAX_EVALUATION_GAP_MS = 2 * 5 * 60_000;
 
 type WebhookPayload = AlertNotificationPayload;
 
@@ -285,6 +302,12 @@ async function mapWithConcurrency<T, R>(
 	return results;
 }
 
+/** Pending-hold settings for one batch (see `evaluateRuleBatch`). */
+interface HoldOptions {
+	maxEvaluationGapMs: number;
+	holdStartedAt?: string;
+}
+
 async function evaluateOneRule(
 	store: AlertEvaluatorStore,
 	rule: AlertRule,
@@ -292,52 +315,75 @@ async function evaluateOneRule(
 	tracer: ChildSpanRunner | undefined,
 	ruleTimeoutMs: number,
 	delivery: WebhookDeliveryOptions,
+	hold: HoldOptions,
 	onAlertFiring?: (rule: AlertRule) => Promise<void>,
 ): Promise<{ fired: number; resolved: number; redelivered: number }> {
 	const none = { fired: 0, resolved: 0, redelivered: 0 };
+	let previousForError: AlertState | null = null;
 	try {
-		const value = await withTimeout(
-			store.evaluateRule(rule),
+		const priorState = await store.getState(rule.id, rule.projectId);
+		const previous: AlertState = priorState?.current_state ?? "ok";
+		previousForError = previous;
+		const raw = await withTimeout<number | AlertRuleEvaluation>(
+			store.evaluateRuleWithStatus
+				? store.evaluateRuleWithStatus(rule)
+				: store.evaluateRule(rule),
 			ruleTimeoutMs,
 			`rule evaluation timed out after ${ruleTimeoutMs}ms`,
 		);
-		const matches = compareValue(value, rule.threshold, rule.comparison);
-		const priorState = await store.getState(rule.id, rule.projectId);
-		const previous: AlertState = priorState?.current_state ?? "ok";
+		const { value, noData } =
+			typeof raw === "number" ? { value: raw, noData: false } : raw;
 		const now = new Date().toISOString();
+		const nowMs = Date.parse(now);
+		const keepOnNoData =
+			noData &&
+			rule.signal === "metrics" &&
+			(rule.query as AlertQueryMetrics).noData === "keep";
+		const matches =
+			!keepOnNoData && compareValue(value, rule.threshold, rule.comparison);
 
 		// Pending duration (Prometheus `for`): a rule that is not firing only
-		// fires once its condition has held on every evaluation for
-		// `pendingSecs`. The run's start lives on alert_state.pending_since;
-		// any evaluation that does not match ends the run. Resolution stays
-		// immediate, as for rules without a pending duration.
+		// fires once its condition has held on consecutive evaluations for
+		// `pendingSecs`. alert_state keeps when the hold started
+		// (pending_since) and when it was last seen (pending_seen_at). The
+		// hold is broken by an evaluation that does not match, by a gap
+		// between evaluations longer than `maxEvaluationGapMs` (missed ticks,
+		// a stopped collector), by a hold last seen before this collector
+		// process started (`holdStartedAt`), and by editing the rule.
+		// Resolution stays immediate.
 		const pendingSecs = rule.pendingSecs ?? 0;
 		const pendingSince = priorState?.pending_since ?? null;
+		const seenAt = priorState?.pending_seen_at ?? pendingSince;
+		const holdBroken =
+			pendingSince !== null &&
+			(seenAt === null ||
+				nowMs - Date.parse(seenAt) > hold.maxEvaluationGapMs ||
+				(hold.holdStartedAt !== undefined && seenAt < hold.holdStartedAt));
+		let pendingActive = pendingSince !== null;
 		let shouldFire = matches;
 		if (matches && previous === "ok" && pendingSecs > 0) {
-			if (pendingSince === null) {
-				await store.setPendingSince(
-					rule.id,
-					rule.projectId,
-					now,
-					rule.createdAt,
-				);
-			}
-			const heldMs = Date.parse(now) - Date.parse(pendingSince ?? now);
-			shouldFire = heldMs >= pendingSecs * 1000;
+			const since = holdBroken || pendingSince === null ? now : pendingSince;
+			await store.setPending(
+				rule.id,
+				rule.projectId,
+				{ since, seenAt: now },
+				rule.createdAt,
+			);
+			pendingActive = true;
+			shouldFire = nowMs - Date.parse(since) >= pendingSecs * 1000;
 		}
-		const next: AlertState = shouldFire ? "firing" : "ok";
-		// Cleared once the run ended or turned into a firing transition.
+		const next: AlertState = keepOnNoData
+			? previous
+			: shouldFire
+				? "firing"
+				: "ok";
+		// Cleared once the hold ended or turned into a firing transition.
 		const clearPending = async () => {
-			if (pendingSince !== null && (!matches || next === "firing")) {
-				await store.setPendingSince(
-					rule.id,
-					rule.projectId,
-					null,
-					rule.createdAt,
-				);
+			if (pendingActive && (!matches || next === "firing")) {
+				await store.setPending(rule.id, rule.projectId, null, rule.createdAt);
 			}
 		};
+		const outcome: AlertEvaluationOutcome = keepOnNoData ? "no_data" : "value";
 
 		// Stage 6: when the rule is bound to an analysis, pull the
 		// latest narrative + status so the webhook payload describes
@@ -394,7 +440,14 @@ async function evaluateOneRule(
 			if (ok) {
 				await store.markNotified(rule.id, rule.projectId, next, now);
 			}
-			await store.recordEvaluation(rule.id, rule.projectId, value, next, ok);
+			await store.recordEvaluation(
+				rule.id,
+				rule.projectId,
+				value,
+				next,
+				ok,
+				outcome,
+			);
 			if (!ok) {
 				logger.warn(
 					"[alerts-evaluator] state recorded but delivery failed; will retry",
@@ -411,6 +464,8 @@ async function evaluateOneRule(
 		// Same state. While the transition into it is still marked undelivered,
 		// retry the notification; the state itself is already correct. A row
 		// without the flag (schema before migration 049) counts as delivered.
+		// This also runs on a no-data tick: the owed notice is about a past
+		// transition.
 		const owed = priorState !== null && priorState.notified === 0;
 		if (owed) {
 			const ok = await deliver(previous);
@@ -422,7 +477,14 @@ async function evaluateOneRule(
 					priorState.last_state_change,
 				);
 			}
-			await store.recordEvaluation(rule.id, rule.projectId, value, next, ok);
+			await store.recordEvaluation(
+				rule.id,
+				rule.projectId,
+				value,
+				next,
+				ok,
+				outcome,
+			);
 			if (!ok) {
 				logger.warn("[alerts-evaluator] delivery retry failed; will retry", {
 					rule_id: rule.id,
@@ -435,13 +497,34 @@ async function evaluateOneRule(
 		}
 
 		// Same state, already notified — write an evaluation, do not fire.
-		await store.recordEvaluation(rule.id, rule.projectId, value, next, false);
+		await store.recordEvaluation(
+			rule.id,
+			rule.projectId,
+			value,
+			next,
+			false,
+			outcome,
+		);
 	} catch (err) {
 		logger.error("[alerts-evaluator] rule evaluation failed", {
 			rule_id: rule.id,
 			project_id: rule.projectId,
 			error: err instanceof Error ? err.message : String(err),
 		});
+		// Leave a trace in the rule's history: an `error` evaluation in the
+		// unchanged state. Best effort; the database may be what failed.
+		if (previousForError !== null) {
+			await store
+				.recordEvaluation(
+					rule.id,
+					rule.projectId,
+					0,
+					previousForError,
+					false,
+					"error",
+				)
+				.catch(() => undefined);
+		}
 	}
 
 	return none;
@@ -459,6 +542,18 @@ export async function evaluateRuleBatch(
 		hostLookup?: HostLookup;
 		email?: AlertEmailTransport;
 		onAlertFiring?: (rule: AlertRule) => Promise<void>;
+		/**
+		 * Longest gap between two evaluations that still continues a pending
+		 * hold. Default `DEFAULT_MAX_EVALUATION_GAP_MS` (two 5-minute ticks);
+		 * pass twice the host's evaluation interval.
+		 */
+		maxEvaluationGapMs?: number;
+		/**
+		 * ISO start of this collector process. A hold last seen before it
+		 * starts over, as Prometheus resets `for` on restart. Unset on hosts
+		 * without a long-lived process (Workers), where the gap rule applies.
+		 */
+		holdStartedAt?: string;
 	},
 ): Promise<{
 	evaluated: number;
@@ -489,6 +584,11 @@ export async function evaluateRuleBatch(
 			options?.tracer,
 			ruleTimeoutMs,
 			delivery,
+			{
+				maxEvaluationGapMs:
+					options?.maxEvaluationGapMs ?? DEFAULT_MAX_EVALUATION_GAP_MS,
+				holdStartedAt: options?.holdStartedAt,
+			},
 			options?.onAlertFiring,
 		),
 	);
@@ -508,6 +608,8 @@ export async function evaluateAllRules(
 		concurrency?: number;
 		ruleTimeoutMs?: number;
 		hostLookup?: HostLookup;
+		maxEvaluationGapMs?: number;
+		holdStartedAt?: string;
 	},
 ): Promise<{
 	evaluated: number;
@@ -532,6 +634,8 @@ export async function evaluateAllRules(
 		allowPrivateWebhookTargets,
 		hostLookup: options?.hostLookup,
 		email: env.ALERT_EMAIL,
+		maxEvaluationGapMs: options?.maxEvaluationGapMs,
+		holdStartedAt: options?.holdStartedAt,
 		onAlertFiring: async (rule) => {
 			// Target the rule's service when it names one (environment taken from
 			// that service's latest spans); otherwise fall back to the rule itself.

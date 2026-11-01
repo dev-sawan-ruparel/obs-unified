@@ -2,6 +2,7 @@ import type {
 	AlertChannel,
 	AlertComparison,
 	AlertEvaluation,
+	AlertEvaluationOutcome,
 	AlertEvaluationRow,
 	AlertEvaluationsListResponse,
 	AlertQuery,
@@ -22,7 +23,18 @@ import { EVIDENCE_REFERENCE_CONTRACT } from "@obsunified/types";
 import { isValidEmailAddress, MAX_EMAIL_RECIPIENTS } from "./alert-email";
 import { alertEvidenceReferences } from "./evidence-references";
 import { randomHex } from "./hash";
-import { evaluateMetricQuery, validateMetricQuery } from "./metric-alerts";
+import {
+	evaluateMetricQuery,
+	MAX_METRIC_WINDOW_MINS,
+	validateMetricQuery,
+} from "./metric-alerts";
+
+/** A rule's value, and whether a metrics rule found no fresh data. */
+export interface AlertRuleEvaluation {
+	value: number;
+	noData: boolean;
+}
+
 import type { SqlDb } from "./sql-db";
 import { assertSafeWebhookUrl, WebhookUrlError } from "./webhook-url";
 
@@ -75,6 +87,7 @@ const rowToEvaluation = (row: AlertEvaluationRow): AlertEvaluation => ({
 	value: row.value,
 	state: row.state,
 	notified: row.notified === 1,
+	outcome: row.outcome ?? "value",
 });
 
 const windowCutoffIso = (windowMins: number): string =>
@@ -129,7 +142,13 @@ export class AlertsStore {
 			throw new Error(
 				`pendingSecs must be an integer from 0 to ${MAX_PENDING_SECS}`,
 			);
-		if (input.signal === "metrics") validateMetricQuery(input.query);
+		if (input.signal === "metrics") {
+			validateMetricQuery(input.query);
+			if (input.windowMins > MAX_METRIC_WINDOW_MINS)
+				throw new Error(
+					`windowMins must be <= ${MAX_METRIC_WINDOW_MINS} for the metrics signal`,
+				);
+		}
 		if (!Array.isArray(input.channels) || input.channels.length === 0)
 			throw new Error("at least one channel is required");
 		for (const ch of input.channels) {
@@ -314,7 +333,52 @@ export class AlertsStore {
 					.run(),
 		);
 
+		// A pending period was measured against the old definition; after a
+		// change to what or whether the rule evaluates, it starts over.
+		const evaluationChanged =
+			merged.signal !== existing.signal ||
+			JSON.stringify(merged.query) !== JSON.stringify(existing.query) ||
+			merged.threshold !== existing.threshold ||
+			merged.windowMins !== existing.windowMins ||
+			merged.comparison !== existing.comparison ||
+			(merged.enabled !== false) !== existing.enabled ||
+			(merged.analysisId ?? null) !== (existing.analysisId ?? null) ||
+			pendingSecs !== (existing.pendingSecs ?? 0);
+		if (evaluationChanged) await this.resetPending(id, projectId);
+
 		return this.getRule(id, projectId);
+	}
+
+	/**
+	 * Clears a rule's pending period. Tolerates databases that have not
+	 * applied 055/058 (there is nothing to clear on them).
+	 */
+	async resetPending(ruleId: string, projectId: string): Promise<void> {
+		try {
+			await this.db
+				.prepare(
+					`UPDATE alert_state SET pending_since = NULL, pending_seen_at = NULL
+				 WHERE rule_id = ? AND project_id = ?`,
+				)
+				.bind(ruleId, projectId)
+				.run();
+		} catch (err) {
+			if (!isMissingColumn(err, "pending_seen_at")) {
+				if (isMissingColumn(err, "pending_since")) return;
+				throw err;
+			}
+			try {
+				await this.db
+					.prepare(
+						`UPDATE alert_state SET pending_since = NULL
+					 WHERE rule_id = ? AND project_id = ?`,
+					)
+					.bind(ruleId, projectId)
+					.run();
+			} catch (inner) {
+				if (!isMissingColumn(inner, "pending_since")) throw inner;
+			}
+		}
 	}
 
 	/**
@@ -461,24 +525,34 @@ export class AlertsStore {
 	}
 
 	/**
-	 * Start (`since` = ISO time) or clear (`null`) the pending period of a
-	 * rule that has a pending duration (migration 055). A rule without a
-	 * state row gets one in state `ok` since its creation, already
-	 * delivered (nothing is owed for a rule that never changed state).
+	 * Record (`{ since, seenAt }`) or clear (`null`) the pending period of a
+	 * rule that has a pending duration (migrations 055, 058): when the
+	 * condition started holding, and the last evaluation that saw it hold.
+	 * A rule without a state row gets one in state `ok` since its creation,
+	 * already delivered (nothing is owed for a rule that never changed
+	 * state).
 	 */
-	async setPendingSince(
+	async setPending(
 		ruleId: string,
 		projectId: string,
-		since: string | null,
+		pending: { since: string; seenAt: string } | null,
 		ruleCreatedAt: string,
 	): Promise<void> {
 		await this.db
 			.prepare(
-				`INSERT INTO alert_state (rule_id, project_id, current_state, last_state_change, notified, pending_since)
-         VALUES (?, ?, 'ok', ?, 1, ?)
-         ON CONFLICT(rule_id) DO UPDATE SET pending_since = excluded.pending_since`,
+				`INSERT INTO alert_state (rule_id, project_id, current_state, last_state_change, notified, pending_since, pending_seen_at)
+         VALUES (?, ?, 'ok', ?, 1, ?, ?)
+         ON CONFLICT(rule_id) DO UPDATE SET
+           pending_since = excluded.pending_since,
+           pending_seen_at = excluded.pending_seen_at`,
 			)
-			.bind(ruleId, projectId, ruleCreatedAt, since)
+			.bind(
+				ruleId,
+				projectId,
+				ruleCreatedAt,
+				pending?.since ?? null,
+				pending?.seenAt ?? null,
+			)
 			.run();
 	}
 
@@ -488,22 +562,36 @@ export class AlertsStore {
 		value: number,
 		state: AlertState,
 		notified: boolean,
+		outcome: AlertEvaluationOutcome = "value",
 	): Promise<void> {
-		await this.db
-			.prepare(
-				`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified)
+		const values = [
+			randomHex(16),
+			ruleId,
+			projectId,
+			new Date().toISOString(),
+			value,
+			state,
+			notified ? 1 : 0,
+		];
+		try {
+			await this.db
+				.prepare(
+					`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified, outcome)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				)
+				.bind(...values, outcome)
+				.run();
+		} catch (err) {
+			// Pre-057 database: the row is still worth keeping without its outcome.
+			if (!isMissingColumn(err, "outcome")) throw err;
+			await this.db
+				.prepare(
+					`INSERT INTO alert_evaluations (id, rule_id, project_id, evaluated_at, value, state, notified)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			)
-			.bind(
-				randomHex(16),
-				ruleId,
-				projectId,
-				new Date().toISOString(),
-				value,
-				state,
-				notified ? 1 : 0,
-			)
-			.run();
+				)
+				.bind(...values)
+				.run();
+		}
 	}
 
 	async listEvaluations(params: {
@@ -539,6 +627,25 @@ export class AlertsStore {
 	// ── Evaluators (count-over-window per signal) ──
 
 	async evaluateRule(rule: AlertRule, now: Date = new Date()): Promise<number> {
+		return (await this.evaluateRuleWithStatus(rule, now)).value;
+	}
+
+	/** Like `evaluateRule`, plus whether a metrics rule found no fresh data. */
+	async evaluateRuleWithStatus(
+		rule: AlertRule,
+		now: Date = new Date(),
+	): Promise<AlertRuleEvaluation> {
+		if (rule.signal === "metrics" && !rule.analysisId)
+			return evaluateMetricQuery(this.db, rule.query as AlertQueryMetrics, {
+				projectId: rule.projectId,
+				windowMins: rule.windowMins,
+				ruleCreatedAt: rule.createdAt,
+				now,
+			});
+		return { value: await this.evaluateCountRule(rule), noData: false };
+	}
+
+	private async evaluateCountRule(rule: AlertRule): Promise<number> {
 		// Stage 6 — analysis-bound rule. Read the analysis's latest
 		// primary value instead of running the rule's raw query. Falls
 		// through to the legacy path if no result has landed yet so the
@@ -564,12 +671,13 @@ export class AlertsStore {
 			case "ai":
 				return this.evaluateAIRule(rule);
 			case "metrics":
-				return evaluateMetricQuery(this.db, rule.query as AlertQueryMetrics, {
-					projectId: rule.projectId,
-					windowMins: rule.windowMins,
-					ruleCreatedAt: rule.createdAt,
-					now,
-				});
+				// Handled by evaluateRuleWithStatus; unreachable here.
+				throw new Error(
+					"metrics rules evaluate through evaluateRuleWithStatus",
+				);
+			default:
+				// A stored signal this collector does not know must not read as 0.
+				throw new Error(`unknown alert signal: ${String(rule.signal)}`);
 		}
 	}
 

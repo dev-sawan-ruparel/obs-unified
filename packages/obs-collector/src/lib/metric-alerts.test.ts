@@ -126,11 +126,35 @@ describe("reduceSeries", () => {
 });
 
 describe("metricRatio", () => {
-	it("divides by max(denominator, 1) only above minDenominator", () => {
+	it("divides by the real denominator, only when it is > 0 and >= minDenominator", () => {
 		expect(metricRatio(1, 10, 5)).toBe(0.1);
 		expect(metricRatio(4, 4, 5)).toBe(0);
-		expect(metricRatio(3, 0, 0)).toBe(3);
-		expect(metricRatio(1, 0.5, 0)).toBe(1);
+		// No attempts: no ratio, even with minDenominator 0.
+		expect(metricRatio(3, 0, 0)).toBe(0);
+		expect(metricRatio(3, -1, 0)).toBe(0);
+		// Fractional denominators (rates) are not clamped to 1.
+		expect(metricRatio(0.1, 0.5, 0)).toBeCloseTo(0.2);
+	});
+});
+
+describe("reduceSeries bornInWindow", () => {
+	it("counts a new series' first cumulative point as growth from 0", () => {
+		const longRunningProcess = ns(at(600));
+		const firstErrors = [
+			pt(3, 2, { startTsNs: longRunningProcess }),
+			pt(1, 5, { startTsNs: longRunningProcess }),
+		];
+		expect(reduce(firstErrors, "increase")).toBe(3);
+		expect(reduce(firstErrors, "increase", { bornInWindow: true })).toBe(5);
+		expect(
+			reduce([pt(2, 4, { startTsNs: null })], "increase", {
+				bornInWindow: true,
+			}),
+		).toBe(4);
+		// Delta series are unaffected.
+		expect(
+			reduce(firstErrors, "increase", { bornInWindow: true, temporality: 1 }),
+		).toBe(7);
 	});
 });
 
@@ -269,18 +293,25 @@ const setup = async () => {
 			receivedAt: new Date(at(minsAgo)).toISOString(),
 			expiresAt: new Date(NOW.getTime() + 24 * 60 * MIN).toISOString(),
 		});
-	const evaluate = (
+	const evaluateFull = (
 		query: AlertQueryMetrics,
 		windowMins = 5,
 		ruleCreatedAt = new Date(at(2)).toISOString(),
+		maxLoadedPoints?: number,
 	) =>
 		evaluateMetricQuery(db, query, {
 			projectId: project.id,
 			windowMins,
 			ruleCreatedAt,
 			now: NOW,
+			maxLoadedPoints,
 		});
-	return { db, project, ingest, evaluate };
+	const evaluate = async (
+		query: AlertQueryMetrics,
+		windowMins = 5,
+		ruleCreatedAt = new Date(at(2)).toISOString(),
+	) => (await evaluateFull(query, windowMins, ruleCreatedAt)).value;
+	return { db, project, ingest, evaluate, evaluateFull };
 };
 
 describe("evaluateMetricQuery (SQLite)", () => {
@@ -288,8 +319,13 @@ describe("evaluateMetricQuery (SQLite)", () => {
 		const { db, ingest, evaluate } = await setup();
 		const series = (name: string, code: number, minsAgo: number, v: number) =>
 			decoded(name, { attrs: { code, route: "/call" }, minsAgo, value: v });
-		// Outside the window (7 min ago): ignored, not even a baseline.
-		await ingest(7, [series("calls_in_total", 500, 7, 1)]);
+		// History before the window (7 min ago): not counted, not a baseline,
+		// but it makes these series "not new".
+		await ingest(7, [
+			series("calls_in_total", 500, 7, 1),
+			series("calls_in_total", 200, 7, 40),
+			series("calls_out_total", 500, 7, 9),
+		]);
 		await ingest(4, [
 			series("calls_in_total", 500, 4, 2),
 			series("calls_in_total", 200, 4, 50),
@@ -338,6 +374,9 @@ describe("evaluateMetricQuery (SQLite)", () => {
 
 	it("matches resource attributes and reads gauges and histogram counts", async () => {
 		const { db, ingest, evaluate } = await setup();
+		await ingest(9, [
+			decoded("turn_ms", { type: "histogram", minsAgo: 9, count: 4 }),
+		]);
 		await ingest(3, [
 			decoded("pg_up", {
 				type: "gauge",
@@ -389,6 +428,7 @@ describe("evaluateMetricQuery (SQLite)", () => {
 
 	it("handles counter resets and delta temporality from stored points", async () => {
 		const { db, ingest, evaluate } = await setup();
+		await ingest(7, [decoded("c_total", { minsAgo: 7, value: 99 })]);
 		await ingest(4, [decoded("c_total", { minsAgo: 4, value: 100 })]);
 		await ingest(3, [decoded("c_total", { minsAgo: 3, value: 104 })]);
 		// Process restart: new start time, counter back near zero.
@@ -417,6 +457,7 @@ describe("evaluateMetricQuery (SQLite)", () => {
 			decoded("attempts_total", { minsAgo, value: v });
 		const errors = (minsAgo: number, v: number) =>
 			decoded("errors_total", { minsAgo, value: v });
+		await ingest(8, [attempts(8, 100), errors(8, 7)]);
 		await ingest(4, [attempts(4, 100), errors(4, 7)]);
 		await ingest(1, [attempts(1, 104), errors(1, 9)]);
 		const query: AlertQueryMetrics = {
@@ -482,6 +523,108 @@ describe("evaluateMetricQuery (SQLite)", () => {
 	});
 });
 
+describe("evaluateMetricQuery review fixes (SQLite)", () => {
+	const gauge = (name: string, host: string, minsAgo: number, value: number) =>
+		decoded(name, {
+			type: "gauge",
+			temporality: null,
+			resource: { "host.name": host },
+			minsAgo,
+			value,
+		});
+
+	it("counts the first errors of a series that appeared inside the window", async () => {
+		const { db, ingest, evaluate } = await setup();
+		const errors = (code: number, minsAgo: number, v: number) =>
+			decoded("errors_total", {
+				attrs: { code },
+				minsAgo,
+				value: v,
+				startMinsAgo: 600,
+			});
+		// code=503 has history; code=500 is first seen 3 minutes ago.
+		await ingest(9, [errors(503, 9, 4)]);
+		await ingest(3, [errors(503, 3, 4), errors(500, 3, 2)]);
+		await ingest(1, [errors(503, 1, 5), errors(500, 1, 3)]);
+		expect(
+			await evaluate({ metric: "errors_total", aggregation: "increase" }),
+		).toBe(1 + 3);
+		db.close();
+	});
+
+	it("drops series whose newest point is older than staleSecs", async () => {
+		const { db, ingest, evaluate } = await setup();
+		// host a stopped 8 minutes ago; host b replaced it.
+		await ingest(8, [gauge("active_calls", "a", 8, 4)]);
+		await ingest(1, [gauge("active_calls", "b", 1, 4)]);
+		expect(
+			await evaluate({ metric: "active_calls", aggregation: "last" }, 10),
+		).toBe(4);
+		expect(
+			await evaluate(
+				{ metric: "active_calls", aggregation: "last", staleSecs: 600 },
+				10,
+			),
+		).toBe(8);
+		db.close();
+	});
+
+	it("reports no data when no series is fresh, but never for age_seconds", async () => {
+		const { db, ingest, evaluateFull } = await setup();
+		await ingest(8, [gauge("pg_up", "a", 8, 1)]);
+		expect(
+			await evaluateFull({ metric: "pg_up", aggregation: "last" }, 10),
+		).toEqual({ value: 0, noData: true });
+		expect(
+			await evaluateFull({ metric: "nothing", aggregation: "increase" }),
+		).toEqual({ value: 0, noData: true });
+		expect(
+			await evaluateFull({ metric: "pg_up", aggregation: "age_seconds" }, 1),
+		).toEqual({ value: 480, noData: false });
+		expect(
+			await evaluateFull({ metric: "nothing", aggregation: "age_seconds" }, 1),
+		).toMatchObject({ noData: false });
+		db.close();
+	});
+
+	it("a ratio has data when either side does", async () => {
+		const { db, ingest, evaluateFull } = await setup();
+		const attempts = (minsAgo: number, v: number) =>
+			decoded("attempts_total", { minsAgo, value: v });
+		await ingest(9, [attempts(9, 10)]);
+		await ingest(2, [attempts(2, 20)]);
+		expect(
+			await evaluateFull({
+				metric: "errors_total",
+				aggregation: "increase",
+				denominator: { metric: "attempts_total" },
+			}),
+		).toEqual({ value: 0, noData: false });
+		db.close();
+	});
+
+	it("fails instead of computing a partial value past the point cap", async () => {
+		const { db, ingest, evaluateFull } = await setup();
+		for (const minsAgo of [4, 3, 2, 1]) {
+			await ingest(minsAgo, [gauge("busy", "a", minsAgo, 1)]);
+		}
+		expect(
+			(
+				await evaluateFull(
+					{ metric: "busy", aggregation: "sum" },
+					5,
+					undefined,
+					4,
+				)
+			).value,
+		).toBe(4);
+		await expect(
+			evaluateFull({ metric: "busy", aggregation: "sum" }, 5, undefined, 3),
+		).rejects.toThrow(/loads more than 3 points/);
+		db.close();
+	});
+});
+
 describe("AlertsStore with metrics rules (SQLite)", () => {
 	const input = (over: Partial<AlertRuleInput> = {}): AlertRuleInput => ({
 		name: "pg down",
@@ -515,6 +658,10 @@ describe("AlertsStore with metrics rules (SQLite)", () => {
 			}),
 		]);
 		expect(await store.evaluateRule(rule, NOW)).toBe(0);
+		expect(await store.evaluateRuleWithStatus(rule, NOW)).toEqual({
+			value: 0,
+			noData: false,
+		});
 		const updated = await store.updateRule(rule.id, project.id, {
 			pendingSecs: 0,
 		});
@@ -535,6 +682,29 @@ describe("AlertsStore with metrics rules (SQLite)", () => {
 		await expect(
 			store.createRule(project.id, input({ pendingSecs: 90_000 })),
 		).rejects.toThrow(/pendingSecs must be an integer from 0 to 86400/);
+		await expect(
+			store.createRule(project.id, input({ windowMins: 1441 })),
+		).rejects.toThrow(/windowMins must be <= 1440 for the metrics signal/);
+		await expect(
+			store.createRule(
+				project.id,
+				input({
+					query: { metric: "x", aggregation: "last", staleSecs: 0 },
+				}),
+			),
+		).rejects.toThrow(/staleSecs must be an integer from 1 to 86400/);
+		await expect(
+			store.createRule(
+				project.id,
+				input({
+					query: {
+						metric: "x",
+						aggregation: "last",
+						noData: "ignore",
+					} as never,
+				}),
+			),
+		).rejects.toThrow(/noData must be one of: zero, keep/);
 		db.close();
 	});
 });

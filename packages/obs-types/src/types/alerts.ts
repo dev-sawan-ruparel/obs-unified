@@ -83,13 +83,36 @@ export interface AlertMetricDenominator extends AlertMetricSelector {
 export interface AlertQueryMetrics extends AlertMetricSelector {
 	aggregation: AlertMetricAggregation;
 	/**
-	 * Turns the value into a ratio: numerator / max(denominator, 1) when the
-	 * denominator is at least `minDenominator`, otherwise 0.
+	 * Turns the value into a ratio: numerator / denominator when the denominator
+	 * is > 0 and at least `minDenominator`, otherwise 0.
 	 */
 	denominator?: AlertMetricDenominator;
 	/** Defaults to 0. Only valid with `denominator`. */
 	minDenominator?: number;
+	/**
+	 * For `last`, `min`, `max`, `avg` and `sum`: a series takes part only
+	 * when its newest point is at most this many seconds old. Default 300,
+	 * at most 86400. Not used by `increase`, `rate` or `age_seconds`.
+	 */
+	staleSecs?: number;
+	/**
+	 * What a window with no fresh series means. `zero` (default): the value
+	 * is 0 and is compared as usual. `keep`: the alert state is left as it
+	 * is (no firing, no resolving) and the evaluation is recorded with
+	 * outcome `no_data`. Ignored by `age_seconds`, which always has a value.
+	 */
+	noData?: AlertMetricNoData;
 }
+
+export type AlertMetricNoData = "zero" | "keep";
+
+/**
+ * `value`: a value was computed and compared. `no_data`: a metrics rule
+ * with `noData: "keep"` found no fresh series, so the state was left as it
+ * was. `error`: the evaluation failed (timeout, a query over its series or
+ * point cap, a database error); the state was left as it was.
+ */
+export type AlertEvaluationOutcome = "value" | "no_data" | "error";
 
 export type AlertQuery =
 	| AlertQuerySpans
@@ -179,6 +202,8 @@ export interface AlertEvaluation {
 	value: number;
 	state: AlertState;
 	notified: boolean;
+	/** Migration 057; absent rows read as `value`. */
+	outcome?: AlertEvaluationOutcome;
 	evidenceReferences?: EvidenceReference[];
 	evidenceContract?: EvidenceReferenceContract;
 }
@@ -197,6 +222,8 @@ export interface AlertEvaluationRow {
 	value: number;
 	state: AlertState;
 	notified: number;
+	/** Migration 057. */
+	outcome?: AlertEvaluationOutcome | null;
 }
 
 export interface AlertStateRow {
@@ -215,10 +242,18 @@ export interface AlertStateRow {
 	 * pending duration had not yet elapsed. NULL when not pending.
 	 */
 	pending_since?: string | null;
+	/**
+	 * Migration 058: the last evaluation that saw the pending condition
+	 * hold. A later evaluation more than the allowed gap after it starts a
+	 * new pending period instead of continuing this one.
+	 */
+	pending_seen_at?: string | null;
 }
 
 export interface AlertTestResponse {
 	value: number;
+	/** A metrics rule found no fresh series (see `AlertQueryMetrics.noData`). */
+	noData?: boolean;
 	wouldFire: boolean;
 	comparison: AlertComparison;
 	threshold: number;

@@ -322,7 +322,7 @@ describe("SMTP delivery (in-process server, STARTTLS + AUTH)", () => {
 			listEnabledRules: async () => [rule],
 			evaluateRule: async () => value,
 			getState: async () => state,
-			setPendingSince: async () => {},
+			setPending: async () => {},
 			transitionState: async (
 				_r: string,
 				_p: string,
@@ -386,7 +386,7 @@ describe("SMTP delivery (in-process server, STARTTLS + AUTH)", () => {
 				listEnabledRules: async () => [rule],
 				evaluateRule: async () => 1,
 				getState: async () => null,
-				setPendingSince: async () => {},
+				setPending: async () => {},
 				transitionState: async () => {},
 				markNotified: async () => {
 					notified += 1;

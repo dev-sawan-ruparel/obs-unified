@@ -83,6 +83,8 @@ describe("AlertRuleForm metrics signal", () => {
 		fireEvent.change(byLabel("Aggregation"), {
 			target: { value: "increase" },
 		});
+		fireEvent.change(byLabel("Stale after (s)"), { target: { value: "120" } });
+		fireEvent.change(byLabel("No data"), { target: { value: "keep" } });
 		fireEvent.click(screen.getByText("Ratio: divide by a denominator"));
 		fireEvent.change(byLabel("Denominator metric"), {
 			target: { value: "calls_total" },
@@ -109,6 +111,8 @@ describe("AlertRuleForm metrics signal", () => {
 					aggregation: "increase",
 					denominator: { metric: "calls_total" },
 					minDenominator: 5,
+					noData: "keep",
+					staleSecs: 120,
 				},
 				threshold: 0.05,
 				windowMins: 5,

@@ -475,7 +475,11 @@ function AlertDetail({
 									: "text-sys-primary font-bold"
 							}
 						>
-							{testResult.wouldFire ? "Would fire" : "OK"}
+							{testResult.noData
+								? "No data"
+								: testResult.wouldFire
+									? "Would fire"
+									: "OK"}
 						</span>
 					</div>
 				)}
@@ -569,7 +573,13 @@ function AlertDetail({
 								>
 									{ev.state.toUpperCase()}
 								</span>
-								<span className="font-bold">{ev.value}</span>
+								<span className="font-bold">
+									{ev.outcome === "no_data"
+										? "no data"
+										: ev.outcome === "error"
+											? "error"
+											: ev.value}
+								</span>
 								<span>{ev.notified ? "✓" : "·"}</span>
 								<span className="opacity-60 truncate">
 									{new Date(ev.evaluatedAt).toLocaleString()}

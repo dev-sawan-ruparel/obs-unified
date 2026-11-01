@@ -94,9 +94,18 @@ export const alertsRoutesPlugin: CollectorPlugin = {
 			const store = new AlertsStore(sqlDbFor(c.env), storeOptions(c.env));
 			const rule = await store.getRule(id, projectId);
 			if (!rule) return c.json({ error: "Rule not found" }, 404);
-			const value = await store.evaluateRule(rule);
+			let value: number;
+			let noData: boolean;
+			try {
+				({ value, noData } = await store.evaluateRuleWithStatus(rule));
+			} catch (err) {
+				// e.g. a metrics query over its series or point cap.
+				const message = err instanceof Error ? err.message : String(err);
+				return c.json({ error: message }, 422);
+			}
 			const response: AlertTestResponse = {
 				value,
+				noData,
 				// The bare comparison: a rule with `pendingSecs` additionally
 				// needs the condition to hold that long before it fires.
 				wouldFire: compareValue(value, rule.threshold, rule.comparison),

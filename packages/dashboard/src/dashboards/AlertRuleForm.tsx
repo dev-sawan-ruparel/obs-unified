@@ -3,6 +3,7 @@ import type {
 	AlertComparison,
 	AlertMetricAggregation,
 	AlertMetricField,
+	AlertMetricNoData,
 	AlertQuery,
 	AlertQueryAI,
 	AlertQueryLogs,
@@ -78,6 +79,9 @@ interface MetricDraft {
 	denMetric: string;
 	denAttributes: string;
 	minDenominator: string;
+	/** Empty: the evaluator default (300 s). */
+	staleSecs: string;
+	noData: AlertMetricNoData;
 }
 
 const metricDraftFrom = (q: AlertQuery | undefined): MetricDraft => {
@@ -94,6 +98,8 @@ const metricDraftFrom = (q: AlertQuery | undefined): MetricDraft => {
 		denAttributes: formatAttributes(m.denominator?.attributes),
 		minDenominator:
 			m.minDenominator !== undefined ? String(m.minDenominator) : "0",
+		staleSecs: m.staleSecs !== undefined ? String(m.staleSecs) : "",
+		noData: m.noData ?? "zero",
 	};
 };
 
@@ -116,7 +122,17 @@ const metricQueryFrom = (
 			: {}),
 		...(d.serviceName.trim() ? { serviceName: d.serviceName.trim() } : {}),
 		...(d.field !== "value" ? { field: d.field } : {}),
+		...(d.noData !== "zero" ? { noData: d.noData } : {}),
 	};
+	if (d.staleSecs.trim()) {
+		const staleSecs = Number(d.staleSecs);
+		if (!Number.isInteger(staleSecs) || staleSecs < 1)
+			return {
+				ok: false,
+				error: "Stale after (s) must be a whole number >= 1",
+			};
+		query.staleSecs = staleSecs;
+	}
 	if (d.ratio) {
 		const denMetric = parseMetricNames(d.denMetric);
 		if (!denMetric)
@@ -537,6 +553,33 @@ export function AlertRuleForm({
 									value={metricDraft.serviceName}
 									onChange={(e) => editMetric({ serviceName: e.target.value })}
 									className="w-full"
+								/>
+							</Field>
+						</div>
+						<div className="grid grid-cols-3 gap-2">
+							<Field label="Stale after (s)">
+								<TextField
+									type="number"
+									value={metricDraft.staleSecs}
+									onChange={(e) => editMetric({ staleSecs: e.target.value })}
+									placeholder="300"
+									min={1}
+									mono
+									className="w-full"
+									title="last/min/max/avg/sum ignore series whose newest point is older than this"
+								/>
+							</Field>
+							<Field label="No data">
+								<SelectField
+									value={metricDraft.noData}
+									onChange={(e) =>
+										editMetric({ noData: e.target.value as AlertMetricNoData })
+									}
+									className="w-full"
+									options={[
+										["zero", "Evaluate as 0"],
+										["keep", "Keep current state"],
+									]}
 								/>
 							</Field>
 						</div>

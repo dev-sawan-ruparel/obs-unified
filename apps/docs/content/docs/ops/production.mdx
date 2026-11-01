@@ -403,8 +403,9 @@ Rules belong to a project and are managed through the collector's `/internal/ale
 
 * `signal`: `spans`, `logs`, `usage`, `ai` (count records in the window) or `metrics` (see below).
 * `comparison`: `>`, `>=`, `<`, `<=`, `==`, `!=` (exact numeric comparison).
-* `windowMins`: integer minutes, at least 1.
-* `pendingSecs` (default 0, at most 86400): how long the condition must hold on consecutive evaluations before the rule fires, like Prometheus `for`. The first matching evaluation records `pendingSince`; any evaluation that does not match clears it. Resolution is immediate. Evaluations happen on the maintenance cadence, so a rule fires on the first evaluation at least `pendingSecs` after the run started: with the default 5-minute cadence `pendingSecs: 30` means "two evaluations in a row". Set `MAINTENANCE_ALERTS_INTERVAL_SECONDS` (Node collector) to a value well below your shortest `pendingSecs`; the Workers collector evaluates every 5 minutes.
+* `windowMins`: integer minutes, at least 1 (at most 1440 for `metrics` rules).
+* `pendingSecs` (default 0, at most 86400): how long the condition must hold on consecutive evaluations before the rule fires, like Prometheus `for`. The first matching evaluation records `pendingSince`; the hold continues only while every evaluation matches. It starts over after an evaluation that does not match, after an update that changes how or whether the rule evaluates (`signal`, `query`, `threshold`, `comparison`, `windowMins`, `pendingSecs`, `enabled`, `analysisId`; a rename does not), after a gap between evaluations longer than two evaluation intervals (missed ticks, a stopped collector), and on the Node collector after a restart. Resolution is immediate. Evaluations happen on the maintenance cadence, so a rule fires on the first evaluation at least `pendingSecs` after the hold started: with the default 5-minute cadence `pendingSecs: 30` means "two evaluations in a row". Set `MAINTENANCE_ALERTS_INTERVAL_SECONDS` (Node collector) to a value well below your shortest `pendingSecs`; the Workers collector evaluates every 5 minutes.
+* Each evaluation is recorded in `/internal/alerts/evaluations` with an `outcome`: `value` (compared as usual), `no_data` (a metrics rule with `noData: "keep"` found no fresh series; state unchanged) or `error` (the evaluation failed or timed out; state unchanged; the reason is in the collector log as `[alerts-evaluator] rule evaluation failed`).
 
 ### Metric rules (`signal: "metrics"`)
 
@@ -419,16 +420,20 @@ Metric rules read OTLP metrics ingested on `/v1/metrics`. The query:
 | `serviceName` | no | Resource `service.name`. |
 | `field` | no | `value` (default; gauges and sums), or `count` / `sum` for histograms, exponential histograms and summaries. Buckets and quantiles are not evaluated. |
 | `denominator` | no | Same selector fields (`metric`, `attributes`, `resourceAttributes`, `serviceName`, `field`) plus an optional `aggregation` (defaults to the numerator's; `age_seconds` is not allowed). |
-| `minDenominator` | no | With `denominator`: value = numerator / max(denominator, 1) when denominator >= `minDenominator` (default 0), else 0. |
+| `minDenominator` | no | With `denominator`: value = numerator / denominator when the denominator is > 0 and >= `minDenominator` (default 0), else 0. |
+| `staleSecs` | no | For `last`, `min`, `max`, `avg` and `sum`: a series takes part only when its newest point is at most this many seconds old (default 300, at most 86400; points still have to be inside the window). |
+| `noData` | no | `zero` (default): with no fresh series the value is 0 and is compared as usual. `keep`: the alert state is left as it is (no firing, no resolving) and the evaluation is recorded with outcome `no_data`. |
 
 How the value is computed:
 
-* Points are taken from the window by the collector's receive time, ordered by the producer's timestamp. Each matching series is reduced on its own and the per-series results are summed (for `avg`, `min`, `max` and `last` too, so narrow those to one series with `attributes` when you want a single series' value). A series without points in the window adds nothing; no matching points yields 0, so a gauge rule with `== 0` also fires when the gauge is not reported at all. Pair it with an `age_seconds` rule when "absent" and "zero" need different alerts.
-* `increase`: for cumulative series, the sum of positive differences between consecutive points; a drop, or a new start timestamp, is a counter reset and the new value counts in full. The first point in the window is only the baseline, unless its start timestamp is inside the window (the counter was born there). No extrapolation. Delta series: the sum of the values. Gauges are treated like cumulative series.
+* Points are taken from the window by the collector's receive time, ordered by the producer's timestamp. Each matching series is reduced on its own and the per-series results are summed (for `avg`, `min`, `max` and `last` too, so narrow those to one series with `attributes` when you want a single series' value).
+* Staleness: for `last`, `min`, `max`, `avg` and `sum`, a series whose newest point is older than `staleSecs` is left out, so a source that was replaced (a new `host.name`, a new pod) stops adding its last value after 5 minutes. `increase` and `rate` keep every series with points in the window.
+* No data: when no series takes part (in the numerator or the denominator), the value is 0. With the default `noData: "zero"` it is compared as 0: a gauge rule with `== 0` fires when the gauge is not reported, and a firing `>` rule resolves when its source disappears. With `noData: "keep"` the state stays as it is until data returns. `age_seconds` always has a value, so `noData` does not apply to it; use an `age_seconds` rule to alert on a source that stopped.
+* `increase`: for cumulative series, the sum of positive differences between consecutive points; a drop, or a new start timestamp, is a counter reset and the new value counts in full. The first point in the window is only the baseline when the series existed before the window. A series first seen inside the window (for example the first `code=500` error of a long-running process), or one whose start timestamp is inside the window, counts its first value from 0. One consequence: when a long-running counter reaches obs-unified for the first time, its whole value counts once, in its first window. No extrapolation. Delta series: the sum of the values. Gauges are treated like cumulative series.
 * `rate`: `increase` divided by the window in seconds.
 * `age_seconds`: seconds since the newest point of any matching series, regardless of the window. When no matching series has any stored point (never reported, or aged out of retention), it is the seconds since the rule was created, a finite number that grows until the threshold is crossed. So "never reported" fires `threshold` seconds after the rule was created, the same as "stopped reporting".
 * The value stored in `alert_evaluations` and sent to channels is always a finite number.
-* A query that matches more than 1000 series is refused at evaluation time (logged as a failed evaluation).
+* Cost bounds: a query that matches more than 1000 series, or whose selector would load more than 50,000 points in its window, fails the evaluation (recorded with outcome `error`, state unchanged) instead of returning a value computed from part of the data; `POST /internal/alerts/rules/:id/test` answers `422` with the reason. Narrow the query or shorten `windowMins`.
 
 Examples:
 
@@ -472,6 +477,12 @@ Examples:
 * Only the Node collector (and the all-in-one image) can send email. The Cloudflare Workers collector cannot open SMTP connections, so it refuses email channels, as does a Node collector without `ALERT_SMTP_HOST`: creating or updating such a rule returns `400` with a message naming these variables.
 * An incomplete SMTP configuration (for example a host without `ALERT_SMTP_FROM`, or a username without a password) stops the collector at startup.
 * A send counts as delivered only when the server accepted every recipient. A failed send is logged (`[alerts-evaluator] email delivery failed`), recorded as an undelivered evaluation, and retried on the next evaluation, like a failed webhook.
+
+Delivery limits that apply to every channel type:
+
+* Only the latest transition is owed. If channels cannot be reached (SMTP down, webhook failing) while a rule fires and the rule resolves before they recover, the FIRING notice is never sent; once they recover, the RESOLVED notice is. The evaluations list still shows the firing period.
+* A rule's channels are retried together. If one of several channels accepted a notice and another failed, the retry sends it to all of them again, so the channel that accepted it receives a duplicate.
+* There is no resolve delay. A value that crosses the threshold back and forth on consecutive evaluations sends FIRING and RESOLVED each time; `pendingSecs` damps firing, not resolving.
 
 ```bash
 curl -sS -X POST "$OBS_URL/internal/alerts/rules" \
