@@ -31,6 +31,7 @@ const makeStore = (
 	markNotified: async () => true,
 	getAnalysisNarrative: async () => null,
 	transitionState: async () => {},
+	setPending: async () => {},
 	recordEvaluation: async () => {},
 	...overrides,
 });
@@ -105,13 +106,15 @@ describe("evaluateRuleBatch", () => {
 	it("times out a stuck rule and continues the batch", async () => {
 		const errors: unknown[] = [];
 		let recorded = 0;
+		const outcomes: Array<[string, string]> = [];
 		const store = makeStore({
 			evaluateRule: async (rule) => {
 				if (rule.id === "stuck") return new Promise<number>(() => {});
 				return 0;
 			},
-			recordEvaluation: async () => {
+			recordEvaluation: async (id, _p, _v, _s, _n, outcome) => {
 				recorded += 1;
+				outcomes.push([id, outcome ?? "value"]);
 			},
 		});
 
@@ -136,7 +139,12 @@ describe("evaluateRuleBatch", () => {
 			resolved: 0,
 			redelivered: 0,
 		});
-		expect(recorded).toBe(1);
+		// The stuck rule leaves an `error` evaluation instead of nothing.
+		expect(recorded).toBe(2);
+		expect(outcomes.sort()).toEqual([
+			["ok", "value"],
+			["stuck", "error"],
+		]);
 		expect(errors).toHaveLength(1);
 		expect(errors[0]).toMatchObject({ rule_id: "stuck" });
 	});

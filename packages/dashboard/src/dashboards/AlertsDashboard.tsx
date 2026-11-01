@@ -1,6 +1,7 @@
 import {
 	type AlertEvaluation,
 	type AlertEvaluationsListResponse,
+	type AlertQueryMetrics,
 	type AlertRule,
 	type AlertRuleInput,
 	type AlertTestResponse,
@@ -14,6 +15,7 @@ import { EmptyState } from "../components/states";
 import { Tag } from "../components/Tag";
 import { useApi } from "../use-api";
 import { AlertRuleForm } from "./AlertRuleForm";
+import { describeChannel, describeMetricQuery } from "./alert-rule-text";
 
 export function AlertsDashboard({
 	initialAlertId,
@@ -248,6 +250,7 @@ function alertRuleColumns({
 							Firing
 						</Tag>
 					);
+				if (r.pendingSince) return <Tag tone="muted">Pending</Tag>;
 				return <Tag tone="primary">OK</Tag>;
 			},
 		},
@@ -284,7 +287,41 @@ function alertRuleColumns({
 			header: "Window",
 			width: "auto",
 			font: "mono",
-			cell: (r) => `${r.windowMins}m`,
+			cell: (r) =>
+				r.pendingSecs
+					? `${r.windowMins}m, for ${r.pendingSecs}s`
+					: `${r.windowMins}m`,
+		},
+		{
+			key: "last",
+			header: "Last evaluation",
+			width: "auto",
+			font: "mono",
+			cell: (r) => {
+				const last = r.lastEvaluation;
+				const undelivered =
+					r.notificationDelivered === false ? (
+						<Tag tone="error">Undelivered</Tag>
+					) : null;
+				if (!last) return undelivered ?? "—";
+				const when = new Date(last.evaluatedAt).toLocaleTimeString();
+				return (
+					<span
+						className="inline-flex items-center gap-1"
+						title={last.error ?? undefined}
+					>
+						{last.outcome === "error" ? (
+							<Tag tone="error">Error</Tag>
+						) : last.outcome === "no_data" ? (
+							<Tag tone="muted">No data</Tag>
+						) : (
+							<span>{last.value}</span>
+						)}
+						<span className="opacity-60">{when}</span>
+						{undelivered}
+					</span>
+				);
+			},
 		},
 		{
 			key: "channels",
@@ -417,9 +454,29 @@ function AlertDetail({
 					Rule
 				</div>
 				<div className="text-[0.875rem] font-bold">{rule.name}</div>
+				{rule.signal === "metrics" && (
+					<div
+						data-testid="alert-metric-query"
+						className="text-[0.75rem] font-mono mt-1 break-all"
+					>
+						{describeMetricQuery(rule.query as AlertQueryMetrics)}{" "}
+						{rule.comparison} {rule.threshold}
+					</div>
+				)}
 				<div className="text-[0.625rem] font-mono opacity-60 mt-1 break-all">
 					{JSON.stringify(rule.query)}
 				</div>
+				<div className="text-[0.6875rem] mt-1 opacity-80">
+					{rule.pendingSecs
+						? `Fires after the condition holds for ${rule.pendingSecs}s`
+						: "Fires on the first matching evaluation"}
+					{rule.pendingSince ? ` (pending since ${rule.pendingSince})` : ""}
+				</div>
+				<ul className="text-[0.6875rem] font-mono mt-1 opacity-80">
+					{rule.channels.map((ch) => (
+						<li key={describeChannel(ch)}>{describeChannel(ch)}</li>
+					))}
+				</ul>
 			</div>
 
 			<div>
@@ -449,7 +506,11 @@ function AlertDetail({
 									: "text-sys-primary font-bold"
 							}
 						>
-							{testResult.wouldFire ? "Would fire" : "OK"}
+							{testResult.noData
+								? "No data"
+								: testResult.wouldFire
+									? "Would fire"
+									: "OK"}
 						</span>
 					</div>
 				)}
@@ -543,7 +604,13 @@ function AlertDetail({
 								>
 									{ev.state.toUpperCase()}
 								</span>
-								<span className="font-bold">{ev.value}</span>
+								<span className="font-bold">
+									{ev.outcome === "no_data"
+										? "no data"
+										: ev.outcome === "error"
+											? "error"
+											: ev.value}
+								</span>
 								<span>{ev.notified ? "✓" : "·"}</span>
 								<span className="opacity-60 truncate">
 									{new Date(ev.evaluatedAt).toLocaleString()}

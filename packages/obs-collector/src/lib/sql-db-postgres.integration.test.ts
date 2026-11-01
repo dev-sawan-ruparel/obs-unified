@@ -1112,6 +1112,253 @@ describe.skipIf(!databaseUrl)("PostgresAdapter against a live Postgres", () => {
 		);
 	});
 
+	it("evaluates metrics alert rules and drives pendingSecs state (054-059)", async () => {
+		const columns = await db
+			.prepare(
+				`SELECT table_name, column_name FROM information_schema.columns
+				 WHERE table_schema = current_schema()
+				   AND ((table_name = 'alert_rules' AND column_name = 'pending_secs')
+				     OR (table_name = 'alert_state' AND column_name IN ('pending_since', 'pending_seen_at'))
+				     OR (table_name = 'alert_evaluations' AND column_name IN ('outcome', 'error_message')))
+				 ORDER BY table_name, column_name`,
+			)
+			.all<{ table_name: string; column_name: string }>();
+		expect(columns.results.map((c) => c.column_name)).toEqual([
+			"error_message",
+			"outcome",
+			"pending_secs",
+			"pending_seen_at",
+			"pending_since",
+		]);
+		const index = await db
+			.prepare(
+				`SELECT indexname FROM pg_indexes
+				 WHERE schemaname = current_schema() AND indexname = 'idx_metric_point_series_received'`,
+			)
+			.first<{ indexname: string }>();
+		expect(index?.indexname).toBe("idx_metric_point_series_received");
+
+		const project = await new ProjectsStore(db).createProject({
+			name: "Metric alerts",
+			slug: `metric-alerts-${Date.now().toString(36)}`,
+		});
+		const metrics = new MetricsStore(db);
+		const now = new Date();
+		const ago = (secs: number) => now.getTime() - secs * 1000;
+		const ingest = (secsAgo: number, points: DecodedMetricPoint[]) =>
+			metrics.ingestBatch({
+				projectId: project.id,
+				points,
+				receivedAt: new Date(ago(secsAgo)).toISOString(),
+				expiresAt: isoIn(60 * 60 * 1000),
+			});
+		const counter = (
+			name: string,
+			code: number,
+			secsAgo: number,
+			value: number,
+		) =>
+			metricPoint({
+				name,
+				type: "sum",
+				isMonotonic: true,
+				temporality: 2,
+				serviceName: "vbox",
+				resourceAttrsJson: JSON.stringify({ "service.name": "vbox" }),
+				attributesJson: JSON.stringify({ code }),
+				identity: `${name}|${code}`,
+				tsNs: (BigInt(ago(secsAgo)) * 1_000_000n).toString(),
+				startTsNs: (BigInt(ago(3600)) * 1_000_000n).toString(),
+				value,
+				count: null,
+				sum: null,
+				boundsJson: null,
+				bucketCountsJson: null,
+			});
+		// History before the 5-minute window for all three series, plus a
+		// series first seen inside it (code=503) whose first value counts.
+		await ingest(400, [
+			counter("calls_total", 200, 400, 90),
+			counter("calls_total", 500, 400, 1),
+			counter("calls_failed_total", 500, 400, 1),
+		]);
+		await ingest(240, [
+			counter("calls_total", 200, 240, 100),
+			counter("calls_total", 500, 240, 1),
+			counter("calls_failed_total", 500, 240, 1),
+			counter("calls_failed_total", 503, 240, 2),
+		]);
+		await ingest(60, [
+			// Counter reset on the 200 series: 100 → 4 counts 4.
+			counter("calls_total", 200, 60, 4),
+			counter("calls_total", 500, 60, 3),
+			counter("calls_failed_total", 500, 60, 3),
+		]);
+
+		const alerts = new AlertsStore(db);
+		const ratio = await alerts.createRule(project.id, {
+			name: "call error ratio",
+			signal: "metrics",
+			query: {
+				metric: "calls_failed_total",
+				attributes: { code: "500" },
+				aggregation: "increase",
+				denominator: { metric: "calls_total" },
+				minDenominator: 5,
+			},
+			threshold: 0.05,
+			windowMins: 5,
+			comparison: ">",
+			pendingSecs: 0,
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		// errors +2; attempts +4 (reset) +2 = 6 >= 5 → 2/6
+		expect(await alerts.evaluateRule(ratio, now)).toBeCloseTo(2 / 6);
+		// The new 503 series started an hour ago (before the window): its
+		// first point is a baseline, so only the 500 series' +2 counts.
+		const allErrors = await alerts.createRule(project.id, {
+			name: "all call errors",
+			signal: "metrics",
+			query: { metric: "calls_failed_total", aggregation: "increase" },
+			threshold: 0,
+			windowMins: 5,
+			comparison: ">",
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		expect(await alerts.evaluateRuleWithStatus(allErrors, now)).toEqual({
+			value: 2,
+			noData: false,
+		});
+		// `last` with a 30 s staleness bound: the newest points are 60 s old.
+		const gone = await alerts.createRule(project.id, {
+			name: "stale gauge",
+			signal: "metrics",
+			query: {
+				metric: "calls_total",
+				aggregation: "last",
+				staleSecs: 30,
+				noData: "keep",
+			},
+			threshold: 0,
+			windowMins: 5,
+			comparison: ">",
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		expect(await alerts.evaluateRuleWithStatus(gone, now)).toEqual({
+			value: 0,
+			noData: true,
+		});
+		await alerts.recordEvaluation(
+			gone.id,
+			project.id,
+			0,
+			"ok",
+			false,
+			"no_data",
+		);
+		expect(
+			(
+				await alerts.listEvaluations({
+					ruleId: gone.id,
+					projectId: project.id,
+					hours: 1,
+				})
+			).evaluations[0],
+		).toMatchObject({ outcome: "no_data", state: "ok" });
+		await alerts.recordEvaluation(
+			ratio.id,
+			project.id,
+			0,
+			"ok",
+			false,
+			"error",
+			"statement timeout on postgres://obs:secret@db/obs",
+		);
+		await alerts.transitionState(gone.id, project.id, "firing", isoNow());
+		const listed = new Map(
+			(await alerts.listRules(project.id)).map((r) => [r.id, r]),
+		);
+		expect(listed.get(ratio.id)).toMatchObject({
+			notificationDelivered: null,
+			lastEvaluation: {
+				outcome: "error",
+				value: 0,
+				error: "statement timeout on <url>",
+			},
+		});
+		expect(listed.get(gone.id)).toMatchObject({
+			currentState: "firing",
+			notificationDelivered: false,
+			lastEvaluation: { outcome: "no_data", error: null },
+		});
+		expect(listed.get(allErrors.id)?.lastEvaluation).toBeNull();
+
+		const stale = await alerts.createRule(project.id, {
+			name: "calls stopped",
+			signal: "metrics",
+			query: { metric: ["calls_total"], aggregation: "age_seconds" },
+			threshold: 60,
+			windowMins: 1,
+			comparison: ">=",
+			pendingSecs: 30,
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		expect(await alerts.evaluateRule(stale, now)).toBeCloseTo(60, 0);
+		const never = await alerts.createRule(project.id, {
+			name: "never reported",
+			signal: "metrics",
+			query: { metric: "not_a_metric", aggregation: "age_seconds" },
+			threshold: 60,
+			windowMins: 1,
+			comparison: ">=",
+			channels: [{ type: "webhook", url: "https://hooks.example.com/pg" }],
+		});
+		const neverValue = await alerts.evaluateRule(
+			never,
+			new Date(Date.parse(never.createdAt) + 90_000),
+		);
+		expect(neverValue).toBeCloseTo(90, 0);
+
+		// pending_since round-trips; a fresh state row is ok + delivered.
+		expect(stale.pendingSecs).toBe(30);
+		const since = new Date().toISOString();
+		await alerts.setPending(
+			stale.id,
+			project.id,
+			{ since, seenAt: since },
+			stale.createdAt,
+		);
+		expect(await alerts.getState(stale.id, project.id)).toMatchObject({
+			current_state: "ok",
+			last_state_change: stale.createdAt,
+			notified: 1,
+			pending_since: since,
+			pending_seen_at: since,
+		});
+		expect(
+			(await alerts.listRules(project.id)).find((r) => r.id === stale.id),
+		).toMatchObject({ pendingSecs: 30, pendingSince: since });
+		// An edit that changes evaluation resets the hold.
+		await alerts.updateRule(stale.id, project.id, { threshold: 61 });
+		expect(await alerts.getState(stale.id, project.id)).toMatchObject({
+			pending_since: null,
+			pending_seen_at: null,
+		});
+		await alerts.setPending(
+			stale.id,
+			project.id,
+			{ since, seenAt: since },
+			stale.createdAt,
+		);
+		await alerts.transitionState(stale.id, project.id, "firing", since);
+		await alerts.setPending(stale.id, project.id, null, stale.createdAt);
+		expect(await alerts.getState(stale.id, project.id)).toMatchObject({
+			current_state: "firing",
+			pending_since: null,
+			notified: 0,
+		});
+	});
+
 	it("purges expired AI data using the dialect's text-rendered now()", async () => {
 		await ingestAICallBatch(db, [
 			aiCall({ callId: "ai-expired", expiresAt: isoIn(-60_000) }),

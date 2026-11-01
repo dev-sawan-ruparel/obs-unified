@@ -82,7 +82,11 @@ export class MetricsStore {
 		const { projectId, points, receivedAt, expiresAt } = opts;
 		if (points.length === 0) return;
 
-		const seriesByIdentity = await this.resolveSeries(projectId, points);
+		const seriesByIdentity = await this.resolveSeries(
+			projectId,
+			points,
+			receivedAt,
+		);
 
 		const pointStmt = this.db.prepare(`
 			INSERT INTO metric_point (
@@ -247,6 +251,7 @@ export class MetricsStore {
 	private async resolveSeries(
 		projectId: string,
 		points: DecodedMetricPoint[],
+		receivedAt: string,
 	): Promise<Map<string, SeriesRow>> {
 		const byIdentity = new Map<string, DecodedMetricPoint>();
 		for (const p of points) {
@@ -285,7 +290,9 @@ export class MetricsStore {
 		`);
 		const toInsert: SqlStatement[] = [];
 		const attemptedIds = new Set<string>();
-		const createdAt = new Date().toISOString();
+		// The batch's receive time: a series' created_at tells the metrics
+		// alert evaluator whether it has history before a window.
+		const createdAt = receivedAt;
 		for (const [identity, p] of byIdentity.entries()) {
 			if (existing.has(identity)) continue;
 			const id = crypto.randomUUID();

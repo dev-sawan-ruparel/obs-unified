@@ -113,7 +113,14 @@ export interface CollectorMaintenanceTasks {
  */
 export function createCollectorMaintenanceTasks(
 	logger: Logger = consoleLogger,
+	alerts: {
+		/** The alert evaluation interval; a pending hold survives two of them. */
+		intervalMs?: number;
+		/** Process start; pending holds from an earlier process start over. */
+		processStartedAt?: string;
+	} = {},
 ): CollectorMaintenanceTasks {
+	const processStartedAt = alerts.processStartedAt ?? new Date().toISOString();
 	const analyses = createAnalysesRunHandler({ logger });
 	const retention = createRetentionCleanupHandler({ logger });
 	return {
@@ -121,6 +128,9 @@ export function createCollectorMaintenanceTasks(
 		evaluateAlerts: async (env) => {
 			const summary = await evaluateAllRules(env, {
 				logger,
+				maxEvaluationGapMs:
+					2 * (alerts.intervalMs ?? DEFAULT_MAINTENANCE_INTERVALS_MS.alerts),
+				holdStartedAt: processStartedAt,
 				// Public names that resolve to private addresses are refused
 				// before the POST (see lib/webhook-url.ts for the residual
 				// rebinding window).
@@ -159,8 +169,12 @@ export function createCollectorMaintenance(
 	options: CollectorMaintenanceOptions,
 ): MaintenanceScheduler {
 	const logger = options.logger ?? consoleLogger;
-	const tasks = options.tasks ?? createCollectorMaintenanceTasks(logger);
 	const { env, config } = options;
+	const tasks =
+		options.tasks ??
+		createCollectorMaintenanceTasks(logger, {
+			intervalMs: config.alertsIntervalMs,
+		});
 
 	const scheduled: ScheduledTask[] = [
 		{

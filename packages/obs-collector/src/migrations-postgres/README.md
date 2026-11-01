@@ -74,6 +74,19 @@ land alongside the first hosted-Postgres deployment.
   store falls back to the pre-049 statement when the column is missing, so
   the collector keeps evaluating during a rolling deploy, but it cannot
   retry undelivered notifications until 049 is applied.
+- `054` adds `alert_rules.pending_secs INTEGER NOT NULL DEFAULT 0` and `055`
+  `alert_state.pending_since TEXT` (ISO, NULL when not pending) for the
+  rule-level pending duration. Before 054 the store still writes rules
+  without a pending duration (legacy statement) and refuses `pendingSecs > 0`
+  with a message naming the migration. `056` adds
+  `idx_metric_point_series_received (series_id, received_at)` for the
+  `metrics` alert signal's window and newest-point reads.
+- `057` adds `alert_evaluations.outcome TEXT NOT NULL DEFAULT 'value'`
+  (`value`, `no_data`, `error`; the store writes the legacy row without it
+  before 057) and `058` `alert_state.pending_seen_at TEXT`, the last
+  evaluation that saw a pending condition hold (required by pending rules).
+- `059` adds `alert_evaluations.error_message TEXT` (sanitized reason for an
+  `error` outcome; the rules list reads it as `lastEvaluation.error`).
 - Flags (`is_error`, `is_bot`, `payload_capture_enabled`) are `BOOLEAN` here
   and `INTEGER 0/1` on D1. Shared SQL must test them as bare booleans
   (`CASE WHEN is_error THEN 1 ELSE 0 END`, never `is_error = 1` or

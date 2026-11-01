@@ -37,6 +37,8 @@ const evaluatorOver = (
 		store.transitionState(id, project, next, now),
 	markNotified: (id, project, state, since) =>
 		store.markNotified(id, project, state, since),
+	setPending: (id, project, pending, createdAt) =>
+		store.setPending(id, project, pending, createdAt),
 	recordEvaluation: (id, project, v, state, notified) =>
 		store.recordEvaluation(id, project, v, state, notified),
 });

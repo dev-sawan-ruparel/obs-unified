@@ -30,6 +30,11 @@ import {
 } from "@obsunified/collector";
 import pg, { Pool } from "pg";
 import {
+	createSmtpAlertEmailTransport,
+	describeAlertSmtpConfig,
+	readAlertSmtpConfig,
+} from "./alert-email.ts";
+import {
 	type BlobStoreKind,
 	readOptionalCollectorEnv,
 	resolveBlobStore,
@@ -128,6 +133,24 @@ for (const warning of optionalEnv.warnings) {
 	console.warn(`[obs-unified] ${warning}`);
 }
 
+// Email alert channels: on when ALERT_SMTP_HOST is set. A partial or
+// malformed SMTP configuration stops startup instead of accepting email
+// rules that could never be delivered.
+let alertSmtp: ReturnType<typeof readAlertSmtpConfig>;
+try {
+	alertSmtp = readAlertSmtpConfig(process.env);
+} catch (err) {
+	console.error(
+		`[obs-unified] invalid alert email settings: ${err instanceof Error ? err.message : String(err)}`,
+	);
+	process.exit(1);
+}
+if (alertSmtp) {
+	console.log(
+		`[obs-unified] alert email via ${describeAlertSmtpConfig(alertSmtp)}`,
+	);
+}
+
 const requestEnv: CollectorEnv = {
 	DB: sqlDb as unknown as D1Database,
 	REPLAYS_BUCKET: wrappedS3,
@@ -137,6 +160,9 @@ const requestEnv: CollectorEnv = {
 	DASHBOARD_TOKEN: env.DASHBOARD_TOKEN,
 	ALLOWED_ORIGINS: env.ALLOWED_ORIGINS.join(","),
 	...optionalEnv.env,
+	...(alertSmtp
+		? { ALERT_EMAIL: createSmtpAlertEmailTransport(alertSmtp) }
+		: {}),
 };
 
 const port = env.PORT;
