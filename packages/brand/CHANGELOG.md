@@ -1,5 +1,11 @@
 # @obsunified/brand
 
+## 1.0.4
+
+### Patch Changes
+
+- Fix PostgreSQL text search over trace attributes and events, and align shared artwork with Observability Unified branding.
+
 ## 1.0.3
 
 ### Patch Changes

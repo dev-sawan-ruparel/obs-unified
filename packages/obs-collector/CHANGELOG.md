@@ -1,5 +1,11 @@
 # @obsunified/collector
 
+## 2.4.1
+
+### Patch Changes
+
+- Fix PostgreSQL text search over trace attributes and events, and align shared artwork with Observability Unified branding.
+
 ## 2.4.0
 
 ### Minor Changes
