@@ -552,6 +552,18 @@ const SCENARIO_A = {
 	dbSpanId: "0a00000000000103",
 };
 
+const scenarioAAlreadySeeded = async (cookie) => {
+	const res = await fetch(
+		`${COLLECTOR}/internal/telemetry/traces/${SCENARIO_A.traceId}`,
+		{ headers: { Cookie: cookie, "X-Project-Id": "default" } },
+	);
+	if (res.status === 404) return false;
+	if (!res.ok) {
+		throw new Error(`Scenario A lookup → ${res.status}`);
+	}
+	return true;
+};
+
 // Absolute end time for the Scenario A checkout, captured once so the
 // correlated logs land inside the payment span even though they are
 // ingested in a later step.
@@ -1673,16 +1685,34 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 			);
 			const sessionWindows = usageResult?.sessions ?? [];
 
+			// Scenario A uses fixed span IDs, which the collector keeps from the
+			// first ingest. On a reseed against the same storage, adding its
+			// profile and payment logs again would attach a second copy timed
+			// to this run instead of the stored spans, so skip them.
+			// If the lookup itself fails, treat Scenario A as present so a reseed
+			// never attaches duplicate evidence.
+			const existing = await step("Scenario A existing-trace check", async () => {
+				const exists = await scenarioAAlreadySeeded(cookie);
+				return {
+					exists,
+					summary: exists
+						? `${SCENARIO_A.traceId} already stored`
+						: "not found; seeding Scenario A evidence",
+				};
+			});
+			const scenarioAExists = existing?.exists ?? true;
 			const tracesResult = await step(
 				"traces / service map / issues (/v1/traces)",
 				() => seedTraces(sessionWindows),
 			);
+			const scenarioA = scenarioAExists ? null : tracesResult?.scenarioA;
+			const skipped = `already seeded; remove the storage volumes for a fresh Scenario A`;
 			await step("CPU profile for Scenario A (/v1/profiles/pprof)", () =>
-				seedProfiles(tracesResult?.scenarioA),
+				scenarioA ? seedProfiles(scenarioA) : skipped,
 			);
 			await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
 			await step("Scenario A payment logs (/v1/logs)", () =>
-				seedScenarioALogs(tracesResult?.scenarioA),
+				scenarioA ? seedScenarioALogs(scenarioA) : skipped,
 			);
 			await step("AI calls (/v1/traces with LLM kind)", () =>
 				seedAi(sessionWindows),
