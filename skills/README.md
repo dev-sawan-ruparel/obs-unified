@@ -1,11 +1,11 @@
-# obs-unified-skills
+# Observability Unified skills
 
-Claude Code skills for [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) — drop them into your `~/.claude/skills/` directory and AI coding agents working in your repos will know how to wire obs-unified observability in and how to investigate the data once it's flowing.
+Claude Code skills for [Observability Unified](https://github.com/dev-sawan-ruparel/obs-unified) — drop them into your `~/.claude/skills/` directory and AI coding agents working in your repos will know how to instrument an app with Observability Unified and how to investigate the data once it's flowing.
 
 | Skill | What it does |
 | --- | --- |
 | **[`instrument-obs-unified`](./instrument-obs-unified/)** | Wires `@obsunified/analytics-sdk` (browser), `@obsunified/telemetry-sdk` (server), and OpenInference AI span helpers into a TypeScript app end-to-end. Verifies telemetry is flowing by querying the collector. |
-| **[`investigate-obs-unified`](./investigate-obs-unified/)** | Queries a running obs-unified collector to investigate problems — traces, logs, AI calls, replays. Pivots across signals via the `connected` endpoint. The natural follow-up to the instrument skill. |
+| **[`investigate-obs-unified`](./investigate-obs-unified/)** | Queries a running Observability Unified collector to investigate problems — traces, logs, AI calls, replays. Pivots across signals via the `connected` endpoint. The natural follow-up to the instrument skill. |
 
 ## Install
 
@@ -43,7 +43,7 @@ Restart Claude Code (or re-open your project) and the skills appear in the avail
 
 Say to your Claude Code session, in a TypeScript project of your own:
 
-> "Add obs-unified observability to this app end-to-end. React + Vite frontend, Hono on Workers backend."
+> "Add Observability Unified instrumentation to this app end-to-end. React + Vite frontend, Hono on Workers backend."
 
 The skill will:
 1. Detect the stack from `package.json`.
@@ -66,11 +66,11 @@ Once an app is instrumented and data is flowing:
 
 The investigate skill knows the collector's `/internal/*` query surface, the right endpoint per question, how to pivot across signals via `connected/<kind>/<id>`, and how to interpret OpenTelemetry + OpenInference span shapes.
 
-## What obs-unified is
+## What Observability Unified is
 
-[obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) is the upstream project — an OTel-compatible observability platform with first-party SDKs, a Cloudflare Worker collector (with a Node.js variant), and a dashboard. These skills automate the two most common interactions a coding agent has with it: writing the SDK call sites, and reading the resulting telemetry.
+[Observability Unified](https://github.com/dev-sawan-ruparel/obs-unified) is the upstream project — an OTel-compatible observability platform with first-party SDKs, a Cloudflare Worker collector (with a Node.js variant), and a dashboard. These skills automate the two most common interactions a coding agent has with it: writing the SDK call sites, and reading the resulting telemetry.
 
-If you don't have obs-unified deployed yet, the instrument skill will walk you through the options — local dev (`pnpm dev:collector` in the obs-unified repo) or self-hosted (see the [obs-unified README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector)). The skills do not deploy obs-unified itself; they assume a reachable collector.
+If you don't have Observability Unified deployed yet, the instrument skill will walk you through the options — local dev (`pnpm dev:collector` in the Observability Unified repo) or self-hosted (see the [Observability Unified README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector)). The skills do not deploy Observability Unified itself; they assume a reachable collector.
 
 ## How these were built
 
@@ -83,7 +83,7 @@ Both skills were drafted, eval-tested with parallel subagents (with-skill vs bas
 
 The investigate eval also surfaced two doc-accuracy bugs in the skill itself (the `connected/<kind>/<id>` valid-kinds list was wrong and `logs/overview` uses `traceId` not `trace_id`) — both fixed before release.
 
-Eval workspaces and the full per-run grading data live in the upstream [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) repo under `.claude/skills/*-workspace/iteration-1/`.
+Eval workspaces and the full per-run grading data live in the upstream [Observability Unified](https://github.com/dev-sawan-ruparel/obs-unified) repo under `.claude/skills/*-workspace/iteration-1/`.
 
 ## Contributing
 

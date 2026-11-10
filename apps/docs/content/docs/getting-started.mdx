@@ -173,7 +173,34 @@ Use this when you want populated dashboards immediately.
 pnpm run seed
 ```
 
-Expected result: Traces, Logs, AI Calls, Usage, and Issues show sample data. Replays require browser interaction, so open the dashboard's Playground tab and trigger a replay-producing interaction once.
+### Investigate a slow checkout
+
+Ask **“Where did this checkout request spend most of its time?”** Use a build
+that includes the [trace search and deep-link fixes](https://github.com/dev-sawan-ruparel/obs-unified/pull/71).
+The 2.4.0 image predates those fixes. If your published image does too, use the
+local image build above.
+
+1. Open **Onboarding → Find the seeded checkout**. You can also open **Traces**,
+   filter to `checkout-api`, and search for `POST /api/checkout`.
+2. Find the **980 ms** request near the time you seeded and expand it. The
+   `payment.charge` span covers **710 ms**, about 72% of the request. The span
+   timings show where time went. Investigating the cause would require more
+   evidence.
+3. Connect an AI agent using the [MCP setup](/docs/mcp-server). Configure the
+   collector's read/admin bearer token and leave `OBS_MCP_ENABLE_WRITES` unset
+   to use the default read-only tool set. The setting controls tool registration
+   and the token retains its collector permissions.
+4. Give the agent the same question, service, operation, and approximate
+   request time from the dashboard. Ask it to use `recent_traces` with the
+   operation as the text query and a limit of 500, then retrieve a trace
+   evidence bundle with `get_evidence_bundle` and intent `explain_latency`.
+   Ask it to cite the checkout and payment spans and return the dashboard link.
+5. Open the agent's link and compare the trace and span IDs with your dashboard
+   investigation. The seeded finding is complete when both paths point to the
+   same payment span and elapsed time.
+
+For your own telemetry, start in **Traces** and substitute a service, operation,
+and time window from your incident.
 
 ## Astronomy Shop demo
 

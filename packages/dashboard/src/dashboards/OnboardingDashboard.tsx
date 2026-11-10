@@ -143,7 +143,7 @@ export function OnboardingDashboard({
 
 	useEffect(() => {
 		let cancelled = false;
-		api<SignalCounts>("/internal/onboarding/counts").then((r) => {
+		api<SignalCounts>("/onboarding/counts").then((r) => {
 			if (!cancelled) setCounts(r);
 		});
 		return () => {
@@ -178,10 +178,49 @@ export function OnboardingDashboard({
 					}}
 				>
 					{allDone
-						? "All six onboarding steps are complete. Explore agent debugging below."
+						? "All six onboarding steps are complete. Start an investigation below."
 						: `${completeCount} of ${steps.length} steps complete.`}
 				</p>
 			</header>
+
+			<section
+				aria-labelledby="first-investigation-heading"
+				style={{ marginBottom: 24 }}
+			>
+				<h2 id="first-investigation-heading" style={{ fontSize: 16 }}>
+					Investigate a slow request
+				</h2>
+				<p>
+					If you loaded the local sample data, find the 980 ms checkout request
+					and open its trace to see where it spent its time.
+				</p>
+				<a
+					href={dashboardRouteToHref({
+						tab: "traces",
+						service: "checkout-api",
+						query: "POST /api/checkout",
+					})}
+					style={{
+						color: "var(--color-sys-primary)",
+						textDecoration: "underline",
+					}}
+				>
+					Find the seeded checkout
+				</a>
+				<p>
+					Using your own telemetry?{" "}
+					<a
+						href={dashboardRouteToHref({ tab: "traces" })}
+						style={{
+							color: "var(--color-sys-primary)",
+							textDecoration: "underline",
+						}}
+					>
+						Open Traces
+					</a>{" "}
+					and search for your service or operation.
+				</p>
+			</section>
 
 			<section
 				aria-labelledby="core-signals-heading"

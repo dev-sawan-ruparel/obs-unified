@@ -76,6 +76,15 @@ For RFC 0011 investigations, prefer progressive disclosure:
 5. Use `get_evidence_stats` or the dashboard Evidence tab to inspect which
    issued refs agents expand most often.
 
+For example, when asked where a checkout request spent most of its time, use
+`recent_traces` to discover the trace from its service, operation, and time
+window. Then use `get_trace` and request a bundle with
+`{"anchor":{"entityKind":"trace","entityId":"<discovered trace ID>"},"intent":"explain_latency"}`.
+In the seeded checkout example, the `payment.charge` child span covers
+710 ms of the 980 ms request. Cite both spans and return the trace dashboard
+link. The timing identifies where the request spent its time. More evidence is
+needed to determine the cause of the delay.
+
 Supported bundle anchors:
 
 - `trace` — critical path, failed spans, correlated log exemplars, trace/log
