@@ -1,24 +1,21 @@
 {
   "hero": {
-    "eyebrow": "Open source \u00b7 MIT licensed",
-    "titleLine": "A telemetry graph",
-    "accent": "agents can actually debug with.",
-    "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. The evidence retrieval layer applies <strong>CCR</strong> \u2014 compressed context retrieval \u2014 so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Build and run one local image from the repository. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
-    "lead": "Debug AI agents, and help AI agents debug software. Observability Unified turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into one evidence graph. The evidence retrieval layer applies CCR \u2014 compressed context retrieval \u2014 so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Build and run one local image from the repository. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
+    "eyebrow": "Self-hosted observability",
+    "lead": "Observability Unified connects traces, logs, replay, profiles, and agent activity into one evidence graph. Evidence bundles give agents citations and references to expand as needed.",
     "metaLabelHtml": "<strong>SDKs + MCP</strong> TypeScript \u00b7 Go \u00b7 Rust \u00b7 browser \u00b7 agents",
     "metaLabel": "SDKs + MCP TypeScript \u00b7 Go \u00b7 Rust \u00b7 browser \u00b7 agents",
     "metaLinkLabel": "SDK docs",
     "identityLabel": "Identity propagated end-to-end:",
     "identityChain": "user_id \u2192 session_id \u2192 interaction_id \u2192 trace_id \u2192 span_id \u2192 action_id",
     "identityBody": "The interaction ID follows a frontend action into backend spans, logs, AI calls, actions, evals, and MCP tools; CPU/off-CPU profiles join through the trace it caused.",
-    "imageAlt": "Observability Unified dashboard showing an agent action graph connected to traces, logs, replay, AI costs, and CPU profile evidence",
-    "figcaptionTitle": "Agent Action Graph",
-    "figcaptionBody": "See what an agent did, what each step caused, which evidence is explicit or inferred, and which trace, log, replay, AI cost, tool, eval, or profile explains the result."
+    "imageAlt": "Illustration of a slow checkout leading to shared evidence in the dashboard and MCP",
+    "figcaptionTitle": "One incident, shared evidence",
+    "figcaptionBody": "An engineer opens the request in the dashboard. An AI agent queries the same trace and related records through MCP."
   },
   "features": {
     "eyebrow": "One collector \u00b7 one identity chain \u00b7 dashboard + MCP",
-    "title": "Unified observability means every signal knows its neighbors.",
-    "lead": "Observability Unified replaces the patchwork of APM + logging + product analytics + session replay + LLM observability + alerting with one unified stack, correlated through a single identity chain and explorable through the dashboard, action graph, structured evidence references, or MCP tools.",
+    "title": "Connect the signals behind an incident.",
+    "lead": "One collector connects traces, logs, product analytics, session replay, LLM observability, and alerts. Engineers follow those links in the dashboard. AI agents can query the same records through evidence bundles, structured references, and MCP tools.",
     "items": [
       {
         "capabilityId": "traces",
@@ -161,7 +158,7 @@
   "faq": [
     {
       "q": "What is Observability Unified?",
-      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, change events, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with compact evidence bundles, stable IDs, confidence, citations, retrieval refs, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
+      "a": "Observability Unified is a self-hosted observability platform that gives AI agents context to debug production software. One collector connects traces, logs, replay, profiles, and agent activity. AI agents retrieve compact evidence bundles with citations through MCP, and engineers inspect the same records in the dashboard. A local Docker image includes the collector, dashboard, storage, and optional sample data."
     },
     {
       "q": "What is the Agent Action Graph?",
@@ -172,8 +169,8 @@
       "a": "AutoSRE separates link provenance (relationshipCertainty: exact, inferred, heuristic) from causal proof (causalProofTier: unverified_locus, corroborated_candidate, cohort_rate_isolated, counterfactual_verified). A stack frame overlapping a changed file only reaches corroborated_candidate, which cannot authorize an autonomous rollback. To earn a single-use cryptographic remediation grant, the change must either demonstrate traffic-normalized cohort error lift (with minimum sample sizes and noisy-neighbor contention checks) or pass paired baseline-fail/candidate-pass counterfactual eval runs, or be explicitly approved by a human operator in the dashboard."
     },
     {
-      "q": "Is this for debugging AI agents or for agents debugging software?",
-      "a": "Both. Observability Unified debugs AI agents by showing LLM calls, retrievals, tool calls, agent runs, evals, costs, latency, and failures in an Agent Action Graph. It also helps AI agents debug software by exposing MCP tools for traces, logs, service maps, users, replays, connected signals, agent runs, actions, tool calls, change blast radius, and governed remediations."
+      "q": "Can agents investigate incidents in applications that do not use AI?",
+      "a": "Yes. Agents can use MCP to investigate ordinary production incidents using traces, logs, service maps, replays, and other connected evidence. For applications that use AI agents, the Agent Action Graph also shows runs, model calls, tools, costs, and evals."
     },
     {
       "q": "Can AI agents inspect Observability Unified through MCP?",
@@ -212,20 +209,20 @@
       "a": "Yes. The collector accepts OTLP over HTTP using JSON or protobuf, with gzip. gRPC is intentionally not supported because Cloudflare Workers cannot host it, and OTLP HTTP covers every official SDK. The first-party SDKs are thin wrappers that point the standard OpenTelemetry SDK at the collector and add OpenInference helpers for LLM and tool spans."
     },
     {
-      "q": "Is it free and open source?",
-      "a": "Yes. Observability Unified is MIT-licensed. You pay only for the infrastructure you run it on. For production, choose either Cloudflare Workers with D1/R2, or the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage."
+      "q": "Where can I self-host Observability Unified?",
+      "a": "Start locally with Docker. For production, choose Cloudflare Workers with D1 and R2, or deploy the Node collector with Postgres and S3-compatible object storage."
     }
   ],
   "seo": {
     "siteUrl": "https://obsunified.com/",
     "docsUrl": "https://docs.obsunified.com/docs",
-    "title": "Observability Unified \u2014 a telemetry graph agents can debug with",
-    "description": "Self-hosted observability for debugging AI agents and helping AI agents debug software with CCR evidence bundles across traces, logs, replay, AI cost, action graphs, MCP tools, evals, and CPU profiles.",
-    "ogImageAlt": "Observability Unified telemetry graph for debugging AI agents and helping agents debug software",
-    "ogCaption": "Observability Unified telemetry graph for debugging AI agents and helping AI agents debug software"
+    "title": "Observability Unified \u2014 production debugging context for AI agents",
+    "description": "Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard.",
+    "ogImageAlt": "Observability Unified evidence graph for AI agents and engineers debugging production software",
+    "ogCaption": "Observability Unified evidence graph for AI agents and engineers debugging production software"
   },
   "schema": {
-    "reviewBody": "Designed as one self-hosted telemetry graph for debugging AI agents and helping AI agents debug software, connecting frontend interactions to compact evidence bundles, structured evidence, action graphs, backend traces, logs, replay, AI cost, tool and eval context, MCP context, and CPU profiling evidence.",
+    "reviewBody": "Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard.",
     "featureList": [
       "One telemetry graph for humans and AI agents debugging software",
       "Structured evidence references with entity IDs, routes, confidence, citations, and suggested pivots",

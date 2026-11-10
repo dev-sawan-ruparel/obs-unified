@@ -67,7 +67,7 @@ const ROWS: Row[] = [
   },
   {
     label: "Pricing model",
-    obs:       { v: "Free (MIT) · your infra bill" },
+    obs:       { v: "Self-hosted · your infrastructure" },
     datadog:   { v: "Per host + per signal" },
     sentry:    { v: "Tier + per-unit overage" },
     posthog:   { v: "Per-unit, per product" },
@@ -226,8 +226,8 @@ export function renderCompare(): string {
       <p class="eyebrow">How it compares <span class="cmp-asof">— source-checked ${LAST_REVIEWED} against vendor pages</span></p>
       <h2 id="compare-title">${escapeHtml(comparison.headline)}</h2>
       <p class="section-lead">
-        Most teams glue an APM, a product-analytics tool, an error/session tool, and an LLM-observability tool together.
-        Observability Unified brings those workflows under one identity chain, one dashboard, and a 26-tool MCP server — adding <strong>CCR (compressed context retrieval)</strong> and <strong>AutoSRE causal ontology</strong> (traffic-normalized deploy/flag cohort lift, noisy-neighbor contention checks, counterfactual verification, and pre-execution CAS remediation grants) on your own Cloudflare Workers (D1/R2) or Node (PostgreSQL/S3) infrastructure.
+        When an incident spans several signals, engineers and agents need to find related evidence.
+        Observability Unified connects instrumented signals through shared IDs, gives agents compact evidence bundles through MCP, and lets engineers inspect the same records in the dashboard. The table compares signal coverage, agent workflows, and deployment options.
       </p>
     </header>
     <div class="cmp-scroll" role="region" aria-label="Comparison table" tabindex="0">
@@ -246,7 +246,7 @@ export function renderCompare(): string {
     <p class="cmp-footnote muted small">
       <strong>Beyond the 10 axes above — what AutoSRE &amp; agentic onboarding add:</strong>
       When an AI agent investigates an incident across fragmented tools, it often confuses traffic share with deploy regressions, blames application code during shared-DB noisy-neighbor saturation, or proposes unsafe rollbacks from stack-trace coincidence alone.
-      Observability Unified separates <code>relationshipCertainty</code> (link provenance) from <code>causalProofTier</code> (causal proof), computes per-request error lift across deploy/flag cohorts (<code>v_new</code> vs <code>v_old</code>), verifies fixes via paired baseline-fail/candidate-pass counterfactual evals, and gates external runners with single-use CAS remediation grants and a 1-click human approval queue — see <a href="${DOCS_URL}/autosre" rel="noopener">AutoSRE causal ontology</a> and <a href="${COMPARISON_URL}#where-obs-unified-fits" rel="noopener">Where obs-unified fits</a>.
+      Observability Unified separates <code>relationshipCertainty</code> (link provenance) from <code>causalProofTier</code> (causal proof), computes per-request error lift across deploy/flag cohorts (<code>v_new</code> vs <code>v_old</code>), verifies fixes via paired baseline-fail/candidate-pass counterfactual evals, and gates external runners with single-use CAS remediation grants and a 1-click human approval queue — see <a href="${DOCS_URL}/autosre" rel="noopener">AutoSRE causal ontology</a> and <a href="${COMPARISON_URL}#where-obs-unified-fits" rel="noopener">Where Observability Unified fits</a>.
     </p>
     <p class="cmp-footnote muted small">
       ${SOURCE_CHECKED_CELLS} of ${TOTAL_CELLS} vendor cells were directly checked against the vendor's own live page on ${LAST_REVIEWED} and corrected where the source had changed;

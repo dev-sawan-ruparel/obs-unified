@@ -5,14 +5,9 @@ const screenshots = [
     body: "The agent run, plan, tool calls, evals, trace ID, and interaction ID are visible in one causal view.",
   },
   {
-    src: "/screenshots/app/interaction-id-path.png",
-    title: "Interaction ID path",
-    body: "The same interaction_id follows a frontend action into backend traces, logs, replay, AI spans, and profiles.",
-  },
-  {
     src: "/screenshots/app/service-map-astronomy.png",
     title: "Astronomy Shop service map",
-    body: "Real demo traffic across 21 services, edge volume, latency, and errors.",
+    body: "Service dependencies, edge volume, latency, and errors in a demo environment.",
   },
   {
     src: "/screenshots/app/ai-cost-spans.png",
@@ -25,9 +20,9 @@ const screenshots = [
     body: "User, trace, log, replay, and usage events line up in one incident story.",
   },
   {
-    src: "/screenshots/app/trace-profile-slot.png",
-    title: "Trace to CPU profile",
-    body: "Trace detail keeps the profile join point visible so agents can carry a root-cause path down to CPU evidence.",
+    src: "/screenshots/app/logs-correlated.png",
+    title: "Structured logs",
+    body: "Filter the collected logs by service and severity while investigating an incident.",
   },
 ];
 
@@ -37,8 +32,8 @@ export function renderScreenshots() {
       <div class="container">
         <div class="section-header">
           <p class="eyebrow">Product proof</p>
-          <h2>The same demo, seen through every signal.</h2>
-          <p class="section-lead">Captured from the OpenTelemetry Astronomy Shop flowing through Observability Unified, including the Agent Action Graph, interaction ID path, connected trace evidence, AI cost, and profile join point.</p>
+          <h2>Explore the dashboard across signals.</h2>
+          <p class="section-lead">These dashboard views show OpenTelemetry Astronomy Shop traffic and seeded examples. Engineers can inspect traces, logs, usage, and agent activity.</p>
         </div>
 
         <div class="screenshot-showcase">

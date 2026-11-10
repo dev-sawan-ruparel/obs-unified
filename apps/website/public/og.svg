@@ -38,7 +38,7 @@
     font-size="13"
     font-weight="700"
     letter-spacing="1.7"
-  >SELF-HOSTED OBSERVABILITY · MIT</text>
+  >SELF-HOSTED OBSERVABILITY</text>
 
   <!-- Headline (exact messaging) -->
   <text
@@ -48,7 +48,7 @@
     font-size="68"
     font-weight="300"
     letter-spacing="-1.6"
-  >Debug AI agents.</text>
+  >Give agents context</text>
   <text
     x="96" y="396"
     fill="#006B18"
@@ -56,7 +56,7 @@
     font-size="68"
     font-weight="300"
     letter-spacing="-1.6"
-  >Help agents debug.</text>
+  >to debug production.</text>
 
   <!-- Subhead (exact messaging) -->
   <text
@@ -65,7 +65,7 @@
     font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif"
     font-size="20"
     font-weight="400"
-  >One graph for traces, logs, replay, AI cost, MCP, and CPU.</text>
+  >One evidence graph for AI agents and engineers.</text>
 
   <!-- Right-hand Technical Monolith Telemetry Graph Panel -->
   <g transform="translate(736 76)">
@@ -87,7 +87,7 @@
       font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
       font-size="11"
       font-weight="600"
-    >LIVE</text>
+    >MODEL</text>
 
     <!-- Identity Chain Spine -->
     <rect x="16" y="52" width="356" height="58" fill="#FFFFFF" stroke="#E2E4E4" stroke-width="1"/>
@@ -152,13 +152,13 @@
       <rect width="172" height="64" fill="#FFFFFF" stroke="#E2E4E4" stroke-width="1"/>
       <rect width="4" height="64" fill="#006B18"/>
       <text x="14" y="24" fill="#1A1C1C" font-family="'Inter Variable','Inter',ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700">CPU Profiles &amp; MCP</text>
-      <text x="14" y="46" fill="#6B7171" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11">pprof · 26 MCP tools</text>
+      <text x="14" y="46" fill="#6B7171" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11">pprof · MCP tools</text>
     </g>
 
     <!-- CCR Bundle Summary Bar -->
     <rect x="16" y="360" width="356" height="56" fill="#F3F3F3" stroke="#E2E4E4" stroke-width="1"/>
     <text x="28" y="382" fill="#006B18" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" font-weight="700">CCR EVIDENCE BUNDLE</text>
-    <text x="360" y="382" text-anchor="end" fill="#006B18" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700">-97.4% TOKENS</text>
+    <text x="360" y="382" text-anchor="end" fill="#006B18" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" font-weight="700">-97.4% EST. TOKENS</text>
     <text x="28" y="402" fill="#4E5555" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11">50,602 → 1,319 est. tokens · citations + refs</text>
   </g>
 
@@ -179,5 +179,5 @@
     font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
     font-size="15"
     font-weight="700"
-  >ship in &lt; 5 min</text>
+  >Dashboard + MCP</text>
 </svg>

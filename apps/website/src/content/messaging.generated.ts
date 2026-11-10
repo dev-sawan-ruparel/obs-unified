@@ -184,13 +184,13 @@ export const messaging = {
 		"devIngestKey": "dev-ingest-key",
 		"positioning": {
 			"hero": {
-				"headline": "A telemetry graph agents can actually debug with.",
-				"subhead": "Debug AI agents, and help AI agents debug software.",
-				"primaryProofImage": "/screenshots/app/agent-action-graph.png"
+				"headline": "Give AI agents the context to debug production software.",
+				"subhead": "AI agents query relevant evidence through MCP. Engineers inspect the same records in the dashboard.",
+				"primaryProofImage": "/evidence-graph.svg"
 			},
 			"proof": {
 				"identityChain": "user_id → session_id → interaction_id → trace_id → span_id → action_id",
-				"clickToActionCpuExample": "A click mints one interaction_id. Backend spans, logs, AI calls, action graphs, MCP tools, and CPU profiles join through the resulting trace.",
+				"clickToActionCpuExample": "With interaction IDs propagated, a click can lead to backend spans and related records. CPU profiles join when they are indexed by trace ID.",
 				"deterministicEvidence": "Evidence references, Connected Rail pivots, CCR bundles, retrieval refs, and profile joins are deterministic structured data. LLMs can summarize the evidence, but they are optional consumers, not the source of truth."
 			},
 			"differentiator": {
@@ -200,13 +200,12 @@ export const messaging = {
 				"actionGraph": "Agent Action Graph"
 			},
 			"distribution": {
-				"license": "MIT",
 				"hosting": "Self-host on your infra",
 				"docker": "Build and run one local image from the repository",
 				"cloudflareNodePaths": "Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage."
 			},
 			"comparison": {
-				"headline": "One stack instead of three (or nine)",
+				"headline": "Compare investigation workflows",
 				"agentRows": [
 					{
 						"name": "Observability Unified",

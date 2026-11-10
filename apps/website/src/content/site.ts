@@ -30,9 +30,6 @@ export type CcrBenchmarkMetric = {
 export type SiteContent = {
   hero: {
     eyebrow: string;
-    titleLine: string;
-    accent: string;
-    leadHtml: string;
     lead: string;
     metaLabelHtml: string;
     metaLabel: string;
@@ -100,14 +97,6 @@ export const siteContent: SiteContent = {
   hero: {
     ...raw.hero,
     identityChain: messaging.authored.positioning.proof.identityChain,
-    lead: raw.hero.lead.replace(
-      "Debug AI agents, and help AI agents debug software. ",
-      `${messaging.authored.positioning.hero.subhead} `
-    ),
-    leadHtml: raw.hero.leadHtml.replace(
-      "Debug AI agents, and help AI agents debug software.",
-      messaging.authored.positioning.hero.subhead
-    ),
   },
 };
 

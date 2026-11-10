@@ -228,15 +228,6 @@ code {
   margin-bottom: 20px;
   color: var(--color-sys-on-surface);
 }
-.hero-title-line {
-  display: block;
-  white-space: nowrap;
-}
-/* Single-color accent on the second clause — terminal-green, not gradient text. */
-.hero-title .accent {
-  display: block;
-  color: var(--color-sys-primary);
-}
 .hero-lead {
   color: var(--color-sys-on-surface-muted);
   font-size: 17px;
@@ -364,7 +355,6 @@ section:nth-of-type(odd) { background: var(--color-sys-bg); }
 section:nth-of-type(even) { background: var(--color-sys-surface); }
 @media (max-width: 640px) {
   .hero { padding: 64px 0 52px; }
-  .hero-title-line { white-space: normal; }
   section { padding: 56px 0; }
   .section-header { margin-bottom: 34px; }
 }
