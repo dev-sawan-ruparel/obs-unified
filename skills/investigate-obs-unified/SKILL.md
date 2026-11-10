@@ -1,6 +1,6 @@
 ---
 name: investigate-obs-unified
-description: Investigate a running app's behavior by querying its obs-unified collector — pull traces, logs, AI calls, replay sessions, profiles, actions, tool calls, evals, alerts, analyses, and structured evidence; pivot across signals to debug specific problems. Use whenever the user asks questions that need *runtime* telemetry data ("why is /api/checkout slow", "show me recent errors", "find the trace for my last request", "what's spiking AI cost this week", "pull session for user X"), or types `/investigate-obs-unified`. Also use after the instrument-obs-unified skill runs and the user wants to verify their changes are visible in the data. Don't use for instrumenting code (that's instrument-obs-unified) or deploying obs-unified itself (that's the obs-unified repo's README → Deploy the Collector).
+description: Investigate a running app's behavior by querying its Observability Unified collector — pull traces, logs, AI calls, replay sessions, profiles, actions, tool calls, evals, alerts, analyses, and structured evidence; pivot across signals to debug specific problems. Use whenever the user asks questions that need *runtime* telemetry data ("why is /api/checkout slow", "show me recent errors", "find the trace for my last request", "what's spiking AI cost this week", "pull session for user X"), or types `/investigate-obs-unified`. Also use after the instrument-obs-unified skill runs and the user wants to verify their changes are visible in the data. Don't use for instrumenting code (that's instrument-obs-unified) or deploying Observability Unified itself (that's the Observability Unified repo's README → Deploy the Collector).
 ---
 
 This is the read-side companion to `instrument-obs-unified`. Where that skill *adds* observability to an app, this skill *uses* observability data to answer questions about a running app.
@@ -22,9 +22,9 @@ over narrative summaries:
 ## When this is the wrong skill
 
 - The user wants to instrument an app → `instrument-obs-unified`.
-- The user wants to deploy the obs-unified collector/dashboard itself → obs-unified repo's [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector).
+- The user wants to deploy the Observability Unified collector/dashboard itself → Observability Unified repo's [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector).
 - The user wants to read a stack trace from a single error message they pasted → just answer normally; don't ping the collector.
-- The user wants conceptual / API-shape questions about obs-unified packages → just read the source / READMEs directly.
+- The user wants conceptual / API-shape questions about Observability Unified packages → just read the source / READMEs directly.
 
 ## Workflow
 
@@ -100,7 +100,7 @@ Typical pivot chains:
 
 ### 4. Interpret responses
 
-The response shapes follow OTel conventions for telemetry, with some obs-unified additions. A trace span has:
+The response shapes follow OTel conventions for telemetry, with some Observability Unified additions. A trace span has:
 
 - `traceId`, `spanId`, `parentSpanId`
 - `name`, `kind` (0=internal, 1=server, 2=client, 3=producer, 4=consumer)
@@ -109,7 +109,7 @@ The response shapes follow OTel conventions for telemetry, with some obs-unified
 - `attributes` — flat key/value list
 - `resource.attributes` including `service.name`
 - For AI spans: `openinference.span.kind` (LLM, TOOL, RETRIEVER, CHAIN, EMBEDDING, AGENT), `llm.model_name`, `llm.provider`, `llm.token_count.{prompt,completion,total}`, `llm.cost.total_usd`, `ai.payload.input`, `ai.payload.output`
-- For obs-unified click-to-trace: `obs.interaction.id` (root span only; child spans inherit via parent walk)
+- For Observability Unified click-to-trace: `obs.interaction.id` (root span only; child spans inherit via parent walk)
 
 For logs:
 - `severityText` / `severityNumber` (OTel scale: 5=DEBUG, 9=INFO, 13=WARN, 17=ERROR)
@@ -305,6 +305,14 @@ Common questions and the query sequence that answers them:
 4. Inspect action, agent run, tool call, eval, prompt version, model, and provider context.
 5. Check if the session has failed evaluations: `GET /internal/ai/evaluations?session_id=X` — high cost + low quality is the worst case.
 6. Report whether the causal action links were explicit or fallback-derived.
+
+### "Where did this checkout request spend most of its time?"
+
+1. Ask for the service, operation, and approximate request time. On a seeded local stack, use service `checkout-api` and operation `POST /api/checkout`.
+2. Call MCP `recent_traces` with the service and operation as the text query. Use a lookback covering the request time and raise the result limit up to 500 if needed. Match the returned trace's start time against the requested window.
+3. Call `get_trace` with the discovered trace ID and `get_evidence_bundle` with a trace anchor and intent `explain_latency`. If MCP is unavailable, use the matching collector routes in the endpoint reference below.
+4. Cite the root span and slow child span with their IDs and elapsed times. In the verified seeded example, `payment.charge` covered 710 ms of a 980 ms request, about 72%. A span duration shows where time went. Explaining why it took that long requires more evidence.
+5. Return the trace dashboard link so the engineer can open the same evidence.
 
 ### "User reports checkout failed"
 

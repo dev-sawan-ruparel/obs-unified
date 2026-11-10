@@ -1,9 +1,9 @@
 ---
 name: instrument-obs-unified
-description: Add obs-unified observability instrumentation to a TypeScript project end-to-end — frontend (`@obsunified/analytics-sdk`), backend (`@obsunified/telemetry-sdk`), and any AI/LLM calls (OpenInference span helpers) — then verify telemetry is actually flowing by querying the collector. Use this skill whenever the user asks to instrument an app with obs-unified, wire up obs-unified observability, set up obs-unified tracing or replay, or types `/instrument-obs-unified`. Also use when the user mentions adding click-to-trace, interaction-id propagation, or session replay to a TypeScript app and obs-unified is the target stack — even if they don't name the SDKs explicitly.
+description: Add Observability Unified observability instrumentation to a TypeScript project end-to-end — frontend (`@obsunified/analytics-sdk`), backend (`@obsunified/telemetry-sdk`), and any AI/LLM calls (OpenInference span helpers) — then verify telemetry is actually flowing by querying the collector. Use this skill whenever the user asks to instrument an app with obs-unified, wire up Observability Unified observability, set up obs-unified tracing or replay, or types `/instrument-obs-unified`. Also use when the user mentions adding click-to-trace, interaction-id propagation, or session replay to a TypeScript app and obs-unified is the target stack — even if they don't name the SDKs explicitly.
 ---
 
-The canonical reference is **[`docs/howto/instrument-react-hono.md`](references/instrument-react-hono.md)** in the obs-unified repo. Every code change this skill makes should match the patterns in that doc — this file is the *workflow*; the doc is the *spec*. Read it once before starting if the project is non-trivial.
+The canonical reference is **[`docs/howto/instrument-react-hono.md`](references/instrument-react-hono.md)** in the Observability Unified repo. Every code change this skill makes should match the patterns in that doc — this file is the *workflow*; the doc is the *spec*. Read it once before starting if the project is non-trivial.
 
 The well-tested stack is React (Vite) + Hono on Cloudflare Workers. Adjacent stacks (Express, Fastify, Next.js, Node.js plain) share the same SDK API and ~90% of the wire-up; deviate only where the framework's middleware shape requires it.
 
@@ -12,7 +12,7 @@ The well-tested stack is React (Vite) + Hono on Cloudflare Workers. Adjacent sta
 Stop and point elsewhere if:
 
 - The project is in a non-TypeScript language → point at [`docs/recipes/`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/) (Python, JVM, .NET) or [`sdks/go`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/sdks/go), [`sdks/rust`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/sdks/rust).
-- The user wants to instrument the obs-unified collector or dashboard themselves (self-instrumentation has its own conventions — see `apps/collector/SELF_INSTRUMENTATION.md`).
+- The user wants to instrument the Observability Unified collector or dashboard themselves (self-instrumentation has its own conventions — see `apps/collector/SELF_INSTRUMENTATION.md`).
 - The project is already fully instrumented (run the idempotency check below first; if nothing's missing, say so and stop).
 
 ## Workflow
@@ -50,12 +50,12 @@ Don't install anything until you have a reachable collector, a write-only ingest
 - `OBS_DASHBOARD_TOKEN` — read bearer token for `/internal/*` verification and `@obsunified/mcp-server` (local image only default: `e2e-dashboard-token`; with GHCR use the value you chose for `DASHBOARD_TOKEN`).
 - `OBS_DASHBOARD_URL` — where the user opens the UI (default local: `http://localhost:5173`).
 
-**Where does obs-unified itself run?**
+**Where does Observability Unified itself run?**
 
 | Option | Autonomous vs. Human | What to do |
 | --- | --- | --- |
 | **Local dev — Prebuilt GHCR Docker image (Recommended default)** | **100% Autonomous if Docker is running** (ask human only if `docker info` fails). | Pick your own secrets (the release image refuses `dev-ingest-key` / `e2e-test-pass`, which only work for the locally built image via `pnpm local:run`), then run `export INGEST_KEY="pick-a-long-random-ingest-key" DASHBOARD_PASSWORD="pick-a-dashboard-password" DASHBOARD_TOKEN="pick-a-read-token-for-mcp-and-cli"` and `docker run -d --name obs-unified -p 5173:5173 -p 8790:8790 -e INGEST_KEY -e DASHBOARD_PASSWORD -e DASHBOARD_TOKEN ghcr.io/dev-sawan-ruparel/obs-unified:latest`. |
-| **Local dev — sibling repo** | **100% Autonomous** if repo is cloned locally. | `pnpm dev:collector` (collector → `http://localhost:8790`) and `pnpm dev:web` (dashboard → `http://localhost:5173`) in the obs-unified repo. |
+| **Local dev — sibling repo** | **100% Autonomous** if repo is cloned locally. | `pnpm dev:collector` (collector → `http://localhost:8790`) and `pnpm dev:web` (dashboard → `http://localhost:5173`) in the Observability Unified repo. |
 | **Self-hosted — production cloud** | **Requires Human Intervention** for cloud OAuth (`wrangler login`), DNS, and production secrets (`wrangler secret put`). | Point at [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector) or [Production operations](https://docs.obsunified.com/docs/ops/production). |
 
 If the user hasn't specified a collector URL and `http://localhost:8790/health` is not already running, check `docker info` and boot the `ghcr.io/dev-sawan-ruparel/obs-unified:latest` container automatically so the developer gets a working setup without manual steps.
@@ -226,7 +226,7 @@ VITE_OBS_INGEST_KEY=
 VITE_OBS_DASHBOARD_URL=
 ```
 
-Don't write actual credentials. If the project already has obs-unified env vars from a previous setup attempt, leave them — just add anything missing.
+Don't write actual credentials. If the project already has Observability Unified env vars from a previous setup attempt, leave them — just add anything missing.
 
 ### 8. Verify end-to-end
 
@@ -287,7 +287,7 @@ The skill must be safe to invoke a second time on the same project. A re-invocat
 | --- | --- |
 | Pre-flight: user has no collector URL at all | Walk through the self-host vs hosted decision in step 2. Don't proceed with placeholder values. |
 | Pre-flight: collector reachable but ingest key returns 401/403 | The key is wrong, missing, or pasted with whitespace. Have them re-copy from the dashboard's project settings page. |
-| Pre-flight: collector reachable but `/internal/telemetry/overview` returns "no project" | The collector has no projects seeded. Have them run the project-seed migration in obs-unified or create a project in the dashboard, then retry. |
+| Pre-flight: collector reachable but `/internal/telemetry/overview` returns "no project" | The collector has no projects seeded. Have them run the project-seed migration in Observability Unified or create a project in the dashboard, then retry. |
 | Pre-flight: dashboard URL unreachable | Non-blocking — instrumentation still works, but the final deep-link won't open. Confirm with the user before proceeding without it. |
 | Worker project uses `vite-plugin-cloudflare` or `miniflare` instead of `wrangler dev` | Detect from `package.json` scripts and start the matching dev command. SDK code is unchanged. |
 | Non-Worker backend (Node/Bun/Deno) | Skip the `@obsunified/telemetry-sdk/cloudflare` subpath imports — they're Worker-only. Everything else is identical. |
@@ -295,7 +295,7 @@ The skill must be safe to invoke a second time on the same project. A re-invocat
 | Verification: interaction header absent | Frontend isn't using the provider's `fetch`, or `autoCorrelate` is disabled. Re-check §1 and §2 of the doc. |
 | Verification: AI spans show but aren't under the request span | `startLLMSpan()` is being called outside the request's `runWithSpan` scope. Move it inside the route handler. |
 | User asks to instrument a language other than TypeScript | Wrong skill — point at [`docs/recipes/`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/recipes/) and stop. |
-| User asks the skill to deploy obs-unified itself | Wrong skill — this one wires apps **into** an obs-unified deployment. Point at the obs-unified [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector). |
+| User asks the skill to deploy Observability Unified itself | Wrong skill — this one wires apps **into** an Observability Unified deployment. Point at the Observability Unified [README → "Deploy the Collector"](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/README.md#1-deploy-the-collector). |
 
 For anything not covered above, the troubleshooting table in §Troubleshooting of [`docs/howto/instrument-react-hono.md`](references/instrument-react-hono.md) is authoritative.
 
@@ -331,7 +331,7 @@ The "What's left for you" section is the difference between "I changed some file
 After instrumentation lands and the user starts running the app, the read-side companion skill — **`investigate-obs-unified`** — is the right next step. Use it (or suggest the user invoke it) to:
 
 - Verify telemetry is flowing correctly after a deploy (the explicit handoff playbook).
-- Query traces, logs, AI calls, and replays to debug specific problems.
+- Ask where a verified request spent most of its time. Give the investigation skill the service, operation, approximate request time, and the trace ID if you already have it. Ask for a cited span and a dashboard link.
 - Pivot across signals via the `connected` endpoint.
 
 Different triggers, different mental model: this skill *edits code* once; investigate-obs-unified *calls collector APIs* repeatedly.
