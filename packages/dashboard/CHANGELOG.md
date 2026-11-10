@@ -1,5 +1,11 @@
 # @obsunified/dashboard
 
+## 1.4.1
+
+### Patch Changes
+
+- c454347: Guide users from dashboard onboarding and the MCP documentation to a seeded checkout investigation. Fix the onboarding counts request so the page loads with the collector's dashboard API prefix.
+
 ## 1.4.0
 
 ### Minor Changes
