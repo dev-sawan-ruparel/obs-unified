@@ -1,5 +1,12 @@
 # @obsunified/agents-langgraph
 
+## 3.0.5
+
+### Patch Changes
+
+- 2964093: Use the Observability Unified display name in package descriptions, SDK docs, and scaffold copy. Clarify that the MCP tool set is read-only by default.
+  - @obsunified/telemetry-sdk@2.1.5
+
 ## 3.0.4
 
 ### Patch Changes

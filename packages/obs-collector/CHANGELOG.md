@@ -1,5 +1,13 @@
 # @obsunified/collector
 
+## 2.4.2
+
+### Patch Changes
+
+- Release the runtime with the Observability Unified dashboard display name.
+- Updated dependencies [2964093]
+  - @obsunified/types@2.4.1
+
 ## 2.4.1
 
 ### Patch Changes
