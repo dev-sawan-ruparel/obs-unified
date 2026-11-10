@@ -34,7 +34,7 @@ export function renderScreenshots() {
         <div class="section-header">
           <p class="eyebrow">Product proof</p>
           <h2>See where a slow checkout spent its time.</h2>
-          <p class="section-lead">In a seeded demo, an AI agent found a 980 ms checkout request through MCP. An engineer can open the same trace in the dashboard and see the payment call span 710 ms, about 72% of the request.</p>
+          <p class="section-lead">In a seeded demo, an AI agent found a 980 ms checkout request through MCP. The payment call spans 710 ms, about 72% of the request. The agent's evidence bundle also cites a correlated warning log about a 2.4 MB provider response and a CPU profile indexed to the trace, where most sampled payment CPU sits in <code>JSON.parse</code>. An engineer can open the same trace, log, and profile in the dashboard.</p>
         </div>
 
         <div class="screenshot-showcase">
@@ -44,7 +44,7 @@ export function renderScreenshots() {
             </div>
             <figcaption>
               <span>Seeded checkout trace</span>
-              <p>The dashboard and MCP return the same trace and span IDs. The waterfall shows where the request spent its time. It leaves the underlying cause of the payment delay open.</p>
+              <p>The dashboard and MCP return the same trace, span, log, and profile IDs. The waterfall shows where the time went. The log and profile support parsing a large provider response as the leading explanation in this synthetic fixture.</p>
             </figcaption>
           </figure>
           <p class="screenshot-grid-label">Other views, from separate demo data</p>

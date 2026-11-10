@@ -53,7 +53,7 @@ docker run --rm \
   -e OBS_LOCAL_SEED=true \
   -v obs-unified-db:/var/lib/postgresql \
   -v obs-unified-blobs:/data \
-  ghcr.io/dev-sawan-ruparel/obs-unified:2.4.1
+  ghcr.io/dev-sawan-ruparel/obs-unified:2.4.3
 ```
 
 Dashboard at `http://localhost:5173`, collector at `http://localhost:8790`.
@@ -175,28 +175,58 @@ pnpm run seed
 
 ### Investigate a slow checkout
 
-Ask **“Where did this checkout request spend most of its time?”** Use the 2.4.1 image from the Docker command above or a newer release. Start
-with `OBS_LOCAL_SEED=true` and run the investigation shortly after startup so
-the sample request is inside the dashboard time window.
+The seed includes one slow checkout among many ordinary ones. Use the 2.4.3
+image from the Docker command above, or a newer release, with
+`OBS_LOCAL_SEED=true`. The seed places the request about two minutes before the
+first start that used your storage volumes. Restarting with the same volumes
+keeps that original request and does not add a second copy of its evidence. If
+you come back later, widen the dashboard time range and tell the agent when you
+first started the container. Agents' trace searches default to the last 24
+hours, and the collector keeps data for 72 hours by default. If you ran an
+earlier image with the same volumes, remove them first with
+`docker volume rm obs-unified-db obs-unified-blobs`.
 
-1. Open **Onboarding → Find the seeded checkout**. You can also open **Traces**,
-   filter to `checkout-api`, and search for `POST /api/checkout`.
-2. Find the **980 ms** request near the time you seeded and expand it. The
-   `payment.charge` span covers **710 ms**, about 72% of the request. The span
-   timings show where time went. Investigating the cause would require more
-   evidence.
-3. Connect an AI agent using the [MCP setup](/docs/mcp-server). Configure the
+1. Connect an AI agent using the [MCP setup](/docs/mcp-server). Optionally
+   install the `investigate-obs-unified` skill from the
+   [skills release](#autonomous-ai-agent-setup--verification-playbook). Configure the
    collector's read/admin bearer token and leave `OBS_MCP_ENABLE_WRITES` unset
    to use the default read-only tool set. The setting controls tool registration
    and the token retains its collector permissions.
-4. Give the agent the same question, service, operation, and approximate
-   request time from the dashboard. Ask it to use `recent_traces` with the
-   operation as the text query and a limit of 500, then retrieve a trace
-   evidence bundle with `get_evidence_bundle` and intent `explain_latency`.
-   Ask it to cite the checkout and payment spans and return the dashboard link.
-5. Open the agent's link and compare the trace and span IDs with your dashboard
-   investigation. The seeded finding is complete when both paths point to the
-   same payment span and elapsed time.
+2. Ask the agent, in your own words: **“A checkout request in `checkout-api`
+   (`POST /api/checkout`) was slow around the time I started the container.
+   Where did it spend its time, and what does the evidence say about why? Cite
+   the IDs and give me the dashboard link.”**
+3. The agent should find the **980 ms** request and report that the
+   `payment.charge` span covers **710 ms**, about 72% of the request. Its
+   evidence bundle cites two payment logs and a CPU profile indexed to the
+   trace. A warning log records a 2.4 MB provider response, logged from
+   `packages/payments/src/charge.ts:47`. In the profile frames, `JSON.parse`
+   accounts for 410 ms of the 480 ms of sampled CPU under `payment.charge`.
+   Frame values are inclusive, so `checkout.handle` is listed first.
+4. Open the agent's link, or open **Onboarding → Find the seeded checkout**.
+   Expand the 980 ms request and compare the trace and span IDs. Select the
+   `payment.charge` span to see both payment logs under **Logs in this trace**
+   in the Connected Rail. Use the **Profile checkout-api/cpu** button in the
+   trace detail to open the profile.
+
+The seeded finding is complete when both paths cite the same trace, payment
+span, warning log, and profile. Together they support parsing a large provider
+response as the leading explanation for the slow payment step. This is a
+synthetic fixture. In your own incidents, treat the same combination as a
+cited hypothesis to confirm in code.
+
+<details>
+<summary>If the agent needs more direction</summary>
+
+Ask it to call `recent_traces` for `checkout-api` with the operation as the text
+query, a limit of 500, and `hours` covering your first start, then pick the
+slowest request in your window. The
+seed adds about 100 ordinary checkout requests, so the default limit of 30 can
+miss it. Then call `get_evidence_bundle` with intent `explain_latency` and
+expand the `evidence.bundle.profile_frames` retrieval ref with
+`retrieve_evidence_ref`.
+
+</details>
 
 For your own telemetry, start in **Traces** and substitute a service, operation,
 and time window from your incident.
