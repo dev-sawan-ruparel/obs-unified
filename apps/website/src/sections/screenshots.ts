@@ -32,11 +32,20 @@ export function renderScreenshots() {
       <div class="container">
         <div class="section-header">
           <p class="eyebrow">Product proof</p>
-          <h2>Explore the dashboard across signals.</h2>
-          <p class="section-lead">These dashboard views show OpenTelemetry Astronomy Shop traffic and seeded examples. Engineers can inspect traces, logs, usage, and agent activity.</p>
+          <h2>See where a slow checkout spent its time.</h2>
+          <p class="section-lead">In a seeded demo, an AI agent found a 980 ms checkout request through MCP. An engineer can open the same trace in the dashboard and see the payment call span 710 ms, about 72% of the request.</p>
         </div>
 
         <div class="screenshot-showcase">
+          <figure class="screenshot-card checkout-proof">
+            <div class="screenshot-frame">
+              <img src="/screenshots/app/checkout-trace-proof.png" alt="Dashboard waterfall for the seeded checkout showing a 980 ms request, a 710 ms payment call, and a nested 120 ms database span" loading="lazy" width="1044" height="288" />
+            </div>
+            <figcaption>
+              <span>Seeded checkout trace</span>
+              <p>The dashboard and MCP return the same trace and span IDs. The waterfall shows where the request spent its time. It leaves the underlying cause of the payment delay open.</p>
+            </figcaption>
+          </figure>
           <div class="screenshot-grid" aria-label="Additional Observability Unified product screenshots">
             ${screenshots
               .map(

@@ -390,6 +390,12 @@ section:nth-of-type(even) { background: var(--color-sys-surface); }
   object-fit: cover;
   object-position: top left;
 }
+.checkout-proof {
+  margin-bottom: 16px;
+}
+.checkout-proof .screenshot-frame img {
+  aspect-ratio: auto;
+}
 .screenshot-card figcaption {
   padding: 16px 18px 18px;
 }
