@@ -5,12 +5,12 @@
 >
   <url>
     <loc>https://docs.obsunified.com/</loc>
-    <lastmod>2026-10-16</lastmod>
+    <lastmod>2026-11-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og.jpg</image:loc>
-      <image:title>obs-unified documentation</image:title>
+      <image:title>Observability Unified documentation</image:title>
       <image:caption>Install, instrument, and read the unified observability stack for humans and AI agents.</image:caption>
     </image:image>
   </url>
@@ -21,8 +21,8 @@
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/index.jpg</image:loc>
-      <image:title>Welcome — obs-unified docs</image:title>
-      <image:caption>Unified observability across traces, logs, AI calls, agent action graphs, MCP, usage, replay, alerts, profiles, and analyses.</image:caption>
+      <image:title>Welcome — Observability Unified docs</image:title>
+      <image:caption>Give AI agents production debugging context through MCP and inspect the same evidence in the dashboard.</image:caption>
     </image:image>
   </url>
   <url>
@@ -32,7 +32,7 @@
     <priority>0.95</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/getting-started.jpg</image:loc>
-      <image:title>Getting started — obs-unified docs</image:title>
+      <image:title>Getting started — Observability Unified docs</image:title>
       <image:caption>Start the unified collector and get multiple signal types flowing into one dashboard.</image:caption>
     </image:image>
   </url>
@@ -43,7 +43,7 @@
     <priority>0.95</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/installation.jpg</image:loc>
-      <image:title>Installation — obs-unified docs</image:title>
+      <image:title>Installation — Observability Unified docs</image:title>
       <image:caption>Pull the prebuilt image from GHCR, build the all-in-one local image with sample data, or install the editable local repo.</image:caption>
     </image:image>
   </url>
@@ -54,7 +54,7 @@
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/agent-action-graph.jpg</image:loc>
-      <image:title>Agent Action Graph — obs-unified docs</image:title>
+      <image:title>Agent Action Graph — Observability Unified docs</image:title>
       <image:caption>Debug AI agents as causal workflows across user actions, agent runs, LLM calls, retrievals, tools, traces, logs, profiles, and eval cases.</image:caption>
     </image:image>
   </url>
@@ -65,7 +65,7 @@
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/autosre.jpg</image:loc>
-      <image:title>AutoSRE causal ontology — obs-unified docs</image:title>
+      <image:title>AutoSRE causal ontology — Observability Unified docs</image:title>
       <image:caption>Change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, counterfactual verification, and guarded autonomous remediation.</image:caption>
     </image:image>
   </url>
@@ -76,7 +76,7 @@
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/evidence-retrieval.jpg</image:loc>
-      <image:title>Evidence retrieval (CCR) — obs-unified docs</image:title>
+      <image:title>Evidence retrieval (CCR) — Observability Unified docs</image:title>
       <image:caption>Compact, token-budgeted evidence bundles and retrieval refs that let AI agents pull just the debugging signal from the telemetry graph instead of the raw firehose.</image:caption>
     </image:image>
   </url>
@@ -87,8 +87,8 @@
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/mcp-server.jpg</image:loc>
-      <image:title>MCP server — obs-unified docs</image:title>
-      <image:caption>Give AI agents read-only investigation tools for obs-unified traces, logs, replays, profiles, evals, agent runs, actions, and tool calls.</image:caption>
+      <image:title>MCP server — Observability Unified docs</image:title>
+      <image:caption>Give AI agents investigation tools for Observability Unified traces, logs, replays, profiles, evals, agent runs, actions, and tool calls. Read-only by default.</image:caption>
     </image:image>
   </url>
   <url>
@@ -98,7 +98,7 @@
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/sdks.jpg</image:loc>
-      <image:title>SDKs and MCP — obs-unified docs</image:title>
+      <image:title>SDKs and MCP — Observability Unified docs</image:title>
       <image:caption>First-party SDKs for TypeScript, Go, and Rust, a browser SDK for usage and replay, and an MCP server for agent investigations. They share one identity-propagation contract.</image:caption>
     </image:image>
   </url>
@@ -109,8 +109,8 @@
     <priority>0.85</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/comparison.jpg</image:loc>
-      <image:title>How obs-unified compares — obs-unified docs</image:title>
-      <image:caption>Evidence-backed comparison of obs-unified with Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX, with primary-source citations and audit status.</image:caption>
+      <image:title>How Observability Unified compares — Observability Unified docs</image:title>
+      <image:caption>Evidence-backed comparison of Observability Unified with Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX, with primary-source citations and audit status.</image:caption>
     </image:image>
   </url>
   <url>
@@ -120,7 +120,7 @@
     <priority>0.85</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/evidence-reference.jpg</image:loc>
-      <image:title>Evidence reference — obs-unified docs</image:title>
+      <image:title>Evidence reference — Observability Unified docs</image:title>
       <image:caption>Machine-readable evidence references with entity IDs, routes, confidence, citations, and suggested pivots for AI agents and automated investigations.</image:caption>
     </image:image>
   </url>
@@ -131,7 +131,7 @@
     <priority>0.85</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/examples.jpg</image:loc>
-      <image:title>Examples — obs-unified docs</image:title>
+      <image:title>Examples — Observability Unified docs</image:title>
       <image:caption>Runnable examples, instrumentation guides, recipes, and migration paths.</image:caption>
     </image:image>
   </url>
@@ -142,7 +142,7 @@
     <priority>0.85</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/instrumenting.jpg</image:loc>
-      <image:title>Instrumenting your app — obs-unified docs</image:title>
+      <image:title>Instrumenting your app — Observability Unified docs</image:title>
       <image:caption>React frontend + Node/Worker backend wired together so signals correlate end-to-end.</image:caption>
     </image:image>
   </url>
@@ -153,7 +153,7 @@
     <priority>0.85</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/sdk-reference.jpg</image:loc>
-      <image:title>SDK API reference — obs-unified docs</image:title>
+      <image:title>SDK API reference — Observability Unified docs</image:title>
       <image:caption>A compact cheat sheet for browser, TypeScript, Go, and Rust SDK APIs.</image:caption>
     </image:image>
   </url>
@@ -164,8 +164,8 @@
     <priority>0.8</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/instrument-python-flask.jpg</image:loc>
-      <image:title>Python Flask instrumentation — obs-unified docs</image:title>
-      <image:caption>Send Flask traces and logs to obs-unified with OpenTelemetry and the interaction header.</image:caption>
+      <image:title>Python Flask instrumentation — Observability Unified docs</image:title>
+      <image:caption>Send Flask traces and logs to Observability Unified with OpenTelemetry and the interaction header.</image:caption>
     </image:image>
   </url>
   <url>
@@ -175,18 +175,18 @@
     <priority>0.8</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/ops/identity-access.jpg</image:loc>
-      <image:title>Identity and external access — obs-unified docs</image:title>
+      <image:title>Identity and external access — Observability Unified docs</image:title>
       <image:caption>Production access layer recipes using Cloudflare Access or oauth2-proxy, path routing, and MCP boundaries.</image:caption>
     </image:image>
   </url>
   <url>
     <loc>https://docs.obsunified.com/docs/ops/production/</loc>
-    <lastmod>2026-10-16</lastmod>
+    <lastmod>2026-11-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/ops/production.jpg</image:loc>
-      <image:title>Production operations — obs-unified docs</image:title>
+      <image:title>Production operations — Observability Unified docs</image:title>
       <image:caption>Reverse proxy, Postgres tuning, storage retention, Kubernetes, backup and restore, alerts, and monitoring.</image:caption>
     </image:image>
   </url>
@@ -197,19 +197,19 @@
     <priority>0.8</priority>
     <image:image>
       <image:loc>https://docs.obsunified.com/og/docs/what-to-expect.jpg</image:loc>
-      <image:title>What to expect — obs-unified docs</image:title>
+      <image:title>What to expect — Observability Unified docs</image:title>
       <image:caption>How unified observability appears in the dashboard through the Connected Rail.</image:caption>
     </image:image>
   </url>
   <url>
     <loc>https://docs.obsunified.com/llms.txt</loc>
-    <lastmod>2026-10-16</lastmod>
+    <lastmod>2026-11-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://docs.obsunified.com/llms-full.txt</loc>
-    <lastmod>2026-10-16</lastmod>
+    <lastmod>2026-11-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

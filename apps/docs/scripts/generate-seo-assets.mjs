@@ -139,7 +139,7 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
 	const badgeWidth = Math.ceil(sectionLabel.length * 9.2 + 32);
 	const displayRoute = `${SITE_ORIGIN.replace("https://", "")}${routePath}`;
 
-	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="${escapeXml(`${title} — obs-unified documentation`)}">
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="${escapeXml(`${title} — Observability Unified documentation`)}">
   <defs>
     <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
       <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#E2E4E4" stroke-width="1"/>
@@ -187,8 +187,8 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
     <text x="36" y="178" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="11" font-weight="700" fill="#006B18" letter-spacing="0.8">02 · EVIDENCE GRAPH &amp; CCR</text>
     <text x="36" y="200" font-family="'Inter', -apple-system, sans-serif" font-size="13" font-weight="600" fill="#1A1C1C">Traces · Logs · Replay · AI Cost · CPU</text>
     <text x="36" y="220" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="11" font-weight="500" fill="#3E493B">get_evidence_bundle · connected_signals</text>
-    <rect x="256" y="164" width="92" height="20" fill="#E8F5E9" stroke="#006B18" stroke-width="1"/>
-    <text x="302" y="178" text-anchor="middle" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="700" fill="#006B18">26 MCP TOOLS</text>
+    <rect x="224" y="164" width="124" height="20" fill="#E8F5E9" stroke="#006B18" stroke-width="1"/>
+    <text x="286" y="178" text-anchor="middle" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="700" fill="#006B18">26 READ-ONLY TOOLS</text>
 
     <!-- Connector 2 -> 3 -->
     <line x1="190" y1="248" x2="190" y2="268" stroke="#006B18" stroke-width="1.5"/>
@@ -204,7 +204,7 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
     <rect x="20" y="370" width="340" height="76" fill="#1A1C1C"/>
     <text x="36" y="394" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="11" font-weight="700" fill="#78DC77" letter-spacing="0.8">04 · SELF-HOST</text>
     <text x="36" y="418" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="12" font-weight="500" fill="#F9F9F9">Docker · Cloudflare D1/R2 · Postgres</text>
-    <text x="36" y="436" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="500" fill="#BECABC">MIT licensed</text>
+    <text x="36" y="436" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="500" fill="#BECABC">Self-hosted</text>
   </g>
 
   <!-- Brand Lockup + Section Badge -->
@@ -216,9 +216,9 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
       <rect x="14" y="12.9" width="12" height="2.2" fill="#FFFFFF"/>
       <rect x="14" y="18.9" width="8" height="2.2" fill="#FFFFFF"/>
     </g>
-    <text x="64" y="42" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="28" font-weight="700" fill="#1A1C1C" letter-spacing="-0.6">obs-unified</text>
-    <rect x="244" y="16" width="${badgeWidth}" height="34" fill="#E8F5E9" stroke="#006B18" stroke-width="1"/>
-    <text x="260" y="38" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="13" font-weight="700" fill="#006B18" letter-spacing="1.2">${escapeXml(sectionLabel)}</text>
+    <text x="64" y="42" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="28" font-weight="700" fill="#1A1C1C" letter-spacing="-0.6">Observability Unified</text>
+    <rect x="370" y="16" width="${badgeWidth}" height="34" fill="#E8F5E9" stroke="#006B18" stroke-width="1"/>
+    <text x="386" y="38" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="13" font-weight="700" fill="#006B18" letter-spacing="1.2">${escapeXml(sectionLabel)}</text>
   </g>
 
   <!-- Page Title -->
@@ -231,7 +231,7 @@ function renderDocOgSvg({ title, description, routePath, sectionLabel }) {
   <line x1="72" y1="538" x2="1140" y2="538" stroke="#BECABC" stroke-width="1.5"/>
   <rect x="72" y="562" width="12" height="12" fill="#006B18"/>
   <text x="96" y="573" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="15" font-weight="700" fill="#1A1C1C" letter-spacing="0.4">${escapeXml(displayRoute)}</text>
-  <text x="1140" y="573" text-anchor="end" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="13" font-weight="600" fill="#3E493B" letter-spacing="1">LLMS.TXT · LLMS-FULL.TXT · MIT</text>
+  <text x="1140" y="573" text-anchor="end" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="13" font-weight="600" fill="#3E493B" letter-spacing="1">LLMS.TXT · LLMS-FULL.TXT</text>
 </svg>
 `;
 }
@@ -334,7 +334,7 @@ const sitemapUrls = [
     <priority>0.9</priority>
     <image:image>
       <image:loc>${SITE_ORIGIN}/og.jpg</image:loc>
-      <image:title>obs-unified documentation</image:title>
+      <image:title>Observability Unified documentation</image:title>
       <image:caption>Install, instrument, and read the unified observability stack for humans and AI agents.</image:caption>
     </image:image>
   </url>`,
@@ -345,7 +345,7 @@ const sitemapUrls = [
     <priority>${page.priority}</priority>
     <image:image>
       <image:loc>${escapeXml(page.ogUrl)}</image:loc>
-      <image:title>${escapeXml(`${page.title} — obs-unified docs`)}</image:title>
+      <image:title>${escapeXml(`${page.title} — Observability Unified docs`)}</image:title>
       <image:caption>${escapeXml(page.description)}</image:caption>
     </image:image>
   </url>`,

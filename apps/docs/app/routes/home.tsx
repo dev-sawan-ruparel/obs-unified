@@ -3,9 +3,9 @@ import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { Link } from "react-router";
 import { baseOptions } from "@/lib/layout.shared";
 
-const HOME_TITLE = "obs-unified — documentation";
+const HOME_TITLE = "Observability Unified — documentation";
 const HOME_DESCRIPTION =
-	"Install, instrument, and read the unified observability stack for humans and AI agents.";
+	"Set up Observability Unified and give AI agents the evidence they need to debug production software.";
 
 export function meta(_args: Route.MetaArgs) {
 	return [
@@ -26,7 +26,7 @@ export function meta(_args: Route.MetaArgs) {
 		},
 		{ property: "og:type", content: "website" },
 		{ property: "og:locale", content: "en_US" },
-		{ property: "og:site_name", content: "obs-unified docs" },
+		{ property: "og:site_name", content: "Observability Unified docs" },
 		{ property: "og:title", content: HOME_TITLE },
 		{ property: "og:description", content: HOME_DESCRIPTION },
 		{ property: "og:url", content: "https://docs.obsunified.com/" },
@@ -41,7 +41,7 @@ export function meta(_args: Route.MetaArgs) {
 		{
 			property: "og:image:alt",
 			content:
-				"obs-unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference",
+				"Observability Unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference",
 		},
 		{ name: "twitter:card", content: "summary_large_image" },
 		{ name: "twitter:title", content: HOME_TITLE },
@@ -50,7 +50,7 @@ export function meta(_args: Route.MetaArgs) {
 		{
 			name: "twitter:image:alt",
 			content:
-				"obs-unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference",
+				"Observability Unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference",
 		},
 		{
 			"script:ld+json": {
@@ -60,7 +60,7 @@ export function meta(_args: Route.MetaArgs) {
 						"@type": "WebSite",
 						"@id": "https://docs.obsunified.com/#website",
 						url: "https://docs.obsunified.com/",
-						name: "obs-unified documentation",
+						name: "Observability Unified documentation",
 						description: HOME_DESCRIPTION,
 						inLanguage: "en-US",
 						publisher: {
@@ -72,13 +72,13 @@ export function meta(_args: Route.MetaArgs) {
 						subjectOf: [
 							{
 								"@type": "TextDigitalDocument",
-								name: "obs-unified Docs LLMs.txt Index",
+								name: "Observability Unified Docs LLMs.txt Index",
 								url: "https://docs.obsunified.com/llms.txt",
 								encodingFormat: "text/plain",
 							},
 							{
 								"@type": "TextDigitalDocument",
-								name: "obs-unified Full Documentation Corpus (llms-full.txt)",
+								name: "Observability Unified Full Documentation Corpus (llms-full.txt)",
 								url: "https://docs.obsunified.com/llms-full.txt",
 								encodingFormat: "text/plain",
 							},
@@ -96,13 +96,13 @@ export default function Home() {
 			<main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center gap-8">
 				<div className="flex flex-col gap-4 max-w-2xl">
 					<h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-						obs-unified
+						Observability Unified
 					</h1>
 					<p className="text-fd-muted-foreground text-base sm:text-lg">
-						Built for agentic debugging: one telemetry graph agents can
-						traverse from user action to backend trace, logs, replay, AI
-						cost, MCP tool context, and CPU profile. Start locally with one
-						Docker image.
+						Give AI agents the context they need to debug production software.
+						Agents retrieve connected evidence through MCP, and engineers can
+						inspect the same evidence in the dashboard. Start locally with
+						one Docker image.
 					</p>
 					<div className="flex justify-center gap-3 pt-2">
 						<Link
@@ -138,7 +138,7 @@ export default function Home() {
 					<Tile
 						to="/docs/mcp-server"
 						title="MCP server"
-						body="Read-only investigation tools for agents."
+						body="Investigation tools for agents, read-only by default."
 					/>
 				</div>
 			</main>

@@ -272,4 +272,4 @@ If "Click that caused this trace" on the span detail rail shows the absence text
 
 - **Node.js (non-Workers)**: same SDK, just call `initObservability` once at startup. The `flushLogs` / `flushAICalls` calls become periodic background tasks instead of per-request flushes.
 
-- **eBPF agents**: drop in [Beyla](https://grafana.com/oss/beyla/) pointed at the obs-unified collector's `/v1/traces` and it'll emit spans tagged `telemetry.sdk.name=beyla`. The dashboard's Service Map tab filters by `SDK | eBPF | ALL`.
+- **eBPF agents**: drop in [Beyla](https://grafana.com/oss/beyla/) pointed at the Observability Unified collector's `/v1/traces` and it'll emit spans tagged `telemetry.sdk.name=beyla`. The dashboard's Service Map tab filters by `SDK | eBPF | ALL`.

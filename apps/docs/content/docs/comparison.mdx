@@ -1,12 +1,12 @@
 ---
-title: How obs-unified compares
-description: Evidence-backed comparison of obs-unified with Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX, with primary-source citations and audit status.
+title: How Observability Unified compares
+description: Evidence-backed comparison of Observability Unified with Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX, with primary-source citations and audit status.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
 <Callout type="info" title="Reviewed 2026-10-13 · 81 of 90 vendor cells directly source-checked · next review 2027-01-13">
-Every third-party claim on this page was re-checked on **2026-10-13** by reading the vendor's own live page (docs, pricing, product page, official repo, or official blog). "Source-checked" means the historical claim was compared with the live page and corrected where the vendor had changed (of the 90 historical claims, 59 were still accurate, 12 were tightened, 9 were outdated, and 1 was wrong). Nine further cells are **inferential negatives** ("the vendor does not market this") and are shown as *Not marketed†* rather than as checked facts. The full per-cell ledger with URLs, verdicts, and verbatim excerpts is tracked in [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md). We build obs-unified, so read [how we keep this honest](#provenance) and [what we corrected](#corrections).
+Every third-party claim on this page was re-checked on **2026-10-13** by reading the vendor's own live page (docs, pricing, product page, official repo, or official blog). "Source-checked" means the historical claim was compared with the live page and corrected where the vendor had changed (of the 90 historical claims, 59 were still accurate, 12 were tightened, 9 were outdated, and 1 was wrong). Nine further cells are **inferential negatives** ("the vendor does not market this") and are shown as *Not marketed†* rather than as checked facts. The full per-cell ledger with URLs, verdicts, and verbatim excerpts is tracked in [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md). We build Observability Unified, so read [how we keep this honest](#provenance) and [what we corrected](#corrections).
 </Callout>
 
 ## What this page is
@@ -28,9 +28,11 @@ A long-form companion to the comparison table on [obsunified.com](https://obsuni
 
 ---
 
-## obs-unified
+<a id="obs-unified" />
 
-Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage (including a zero-clone all-in-one Docker image on GHCR). Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability ([Agent Action Graph](/docs/agent-action-graph)); [compressed context retrieval (CCR)](/docs/evidence-retrieval); [AutoSRE causal ontology](/docs/autosre) (change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, recurring incident memory, counterfactual eval verification, and pre-execution cryptographic remediation grants); usage analytics; alerts; CPU/off-CPU profiles; and a 26-tool [MCP server](/docs/mcp-server), all joined through one identity chain (`user_id → session_id → interaction_id → trace_id → span_id → action_id`). MIT-licensed; you pay only your own infrastructure bill. Limitations and what teams need to configure are listed in [Where obs-unified fits](#where-obs-unified-fits).
+## Observability Unified
+
+Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage (including a zero-clone all-in-one Docker image on GHCR). Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability ([Agent Action Graph](/docs/agent-action-graph)); [compressed context retrieval (CCR)](/docs/evidence-retrieval); [AutoSRE causal ontology](/docs/autosre) (change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, recurring incident memory, counterfactual eval verification, and pre-execution cryptographic remediation grants); usage analytics; alerts; CPU/off-CPU profiles; and an [MCP server](/docs/mcp-server) with 26 investigation tools by default and four opt-in write tools, all joined through one identity chain (`user_id → session_id → interaction_id → trace_id → span_id → action_id`). Limitations and what teams need to configure are listed in [Where Observability Unified fits](#where-observability-unified-fits).
 
 ---
 
@@ -173,9 +175,11 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 
 ---
 
-## Where obs-unified fits
+<a id="where-obs-unified-fits" />
 
-obs-unified is the only tool in this comparison that is simultaneously self-hostable, OTLP-native, and ships session replay, AI / agent observability, usage analytics, compressed context retrieval (CCR), and an AutoSRE causal ontology with governed remediation grants in one stack.
+## Where Observability Unified fits
+
+Observability Unified is the only tool in this comparison that is simultaneously self-hostable, OTLP-native, and ships session replay, AI / agent observability, usage analytics, compressed context retrieval (CCR), and an AutoSRE causal ontology with governed remediation grants in one stack.
 
 ### What AutoSRE & agentic onboarding add (beyond signal colocation)
 
@@ -215,7 +219,7 @@ That is a shape, not a verdict; the trade-offs are real:
 - Deep trace analysis and agent timelines on a wide-event store: **Honeycomb**.
 - OSS, OTel-native, ClickHouse-shaped pricing: **SigNoz**, **HyperDX**, or **Uptrace** (HyperDX is the only one of the three with session replay).
 - Composable LGTM stack you can scale per signal: **Grafana Cloud** or self-hosted Grafana.
-- Everything in one self-hosted telemetry graph built for agentic debugging, compact CCR evidence bundles, and governed AutoSRE change correlation: **obs-unified**, with the limitations above.
+- Everything in one self-hosted telemetry graph built for agentic debugging, compact CCR evidence bundles, and governed AutoSRE change correlation: **Observability Unified**, with the limitations above.
 
 ---
 
@@ -225,7 +229,7 @@ That is a shape, not a verdict; the trade-offs are real:
 - **The ledger is public.** [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md) records, for all 90 cells, the historical claim, the verdict (TRUE 59 / PARTIALLY_TRUE 12 / OUTDATED 9 / FALSE 1 / UNVERIFIABLE 9), the corrected claim, the final URL read, and the excerpt. The earlier [2026-10-11 ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md), which recorded 0 of 90 cells verified, is preserved unchanged.
 - **Negatives are never inferred from silence alone.** The nine "Not marketed†" cells list exactly what was read.
 - **The method is reproducible.** The runbook is in [`apps/docs/scripts/COMPARISON_AUDIT.md`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs/scripts/). This pass was done manually (runbook Option B), one page at a time, with no multi-agent workflow.
-- **We score ourselves too.** See [Where obs-unified fits](#where-obs-unified-fits).
+- **We score ourselves too.** See [Where Observability Unified fits](#where-observability-unified-fits).
 
 ### Right of reply <a id="right-of-reply" />
 

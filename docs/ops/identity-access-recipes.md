@@ -2,15 +2,15 @@
 
 # Identity and external access
 
-This guide covers production identity and perimeter access layer patterns for `obs-unified`. It provides concrete deployment recipes for Cloudflare Access and self-hosted `oauth2-proxy` with Nginx or Caddy. Adaptable configuration templates are provided in [`examples/external-access/`](../../examples/external-access/) for Nginx, Caddy, `oauth2-proxy`, and Cloudflare Tunnel (`cloudflared`). These are adaptable reference templates requiring site-specific domain, secret, and TLS certificate setup before deployment, rather than an all-in-one local Compose harness. For collector and reverse-proxy deployment baselines, see [Production operations](./production.md).
+This guide covers production identity and perimeter access layer patterns for Observability Unified. It provides concrete deployment recipes for Cloudflare Access and self-hosted `oauth2-proxy` with Nginx or Caddy. Adaptable configuration templates are provided in [`examples/external-access/`](../../examples/external-access/) for Nginx, Caddy, `oauth2-proxy`, and Cloudflare Tunnel (`cloudflared`). These are adaptable reference templates requiring site-specific domain, secret, and TLS certificate setup before deployment, rather than an all-in-one local Compose harness. For collector and reverse-proxy deployment baselines, see [Production operations](./production.md).
 
 ## Architectural realities & boundaries
 
-Before configuring external access, understand how authentication operates in the `obs-unified` stack:
+Before configuring external access, understand how authentication operates in the Observability Unified stack:
 
 > [!IMPORTANT]
 > **Native per-user RBAC and SSO are absent.**
-> `obs-unified` does NOT include native per-user Role-Based Access Control (RBAC), user accounts, or native Single Sign-On (SSO / SAML / OIDC).
+> Observability Unified does NOT include native per-user Role-Based Access Control (RBAC), user accounts, or native Single Sign-On (SSO / SAML / OIDC).
 > - There is no database table for dashboard operators or users.
 > - There are no user roles (for example, Viewer vs. Editor vs. Admin).
 > - There is no native per-user audit trail or per-user access control within the dashboard.
@@ -34,7 +34,7 @@ flowchart TD
     IngestPass["Ingest Direct Pass-Through"]
   end
 
-  subgraph Internal["obs-unified Cluster"]
+  subgraph Internal["Observability Unified Cluster"]
     Web["Web Dashboard (:5173)"]
     Collector["Collector Service (:8790)"]
   end
@@ -62,7 +62,7 @@ flowchart TD
    - Publicly accessible on the collector for load balancer health probes and client clock offset synchronization (`serverTimeMs`). Must remain reachable without SSO redirection.
 4. **Investigation MCP boundary (`@obsunified/mcp-server`)**:
    - Grounded in [`packages/mcp-server/src/index.ts`](../../packages/mcp-server/src/index.ts).
-   - Read-only investigation server querying `/internal/*` routes.
+   - Read-only by default, querying `/internal/*` routes.
    - Configure `OBS_DASHBOARD_TOKEN` on the MCP client matching `DASHBOARD_TOKEN` on the collector (or `OBS_SESSION_COOKIE` for ad-hoc browser session reuse). Note that while CLI clients configure `OBS_ADMIN_TOKEN`, MCP configures `OBS_DASHBOARD_TOKEN`; both authenticate against the collector server `DASHBOARD_TOKEN`.
    - The MCP client sends `Authorization: Bearer <OBS_DASHBOARD_TOKEN>` and optional `X-Project-Id`.
    - The MCP client does **not** emit Cloudflare Access service token headers (`CF-Access-Client-Id` or `CF-Access-Client-Secret`). Direct connection across a Cloudflare Access gate without a forwarding proxy is unsupported.
@@ -132,7 +132,7 @@ The recommended configuration splits public ingest from authenticated dashboard 
 1. In the **Cloudflare Zero Trust Dashboard**, navigate to **Access > Applications**.
 2. Click **Add an Application** and select **Self-hosted**.
 3. **Application Configuration**:
-   - **Application Name**: `obs-unified Dashboard`
+   - **Application Name**: `Observability Unified Dashboard`
    - **Application Domain**: `obs.example.com`
    - **Session Duration**: `24 hours`
 4. **Access Policies**:

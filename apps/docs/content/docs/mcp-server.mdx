@@ -1,10 +1,10 @@
 ---
 title: MCP server
-description: Give AI agents read-only investigation tools for obs-unified traces, logs, replays, profiles, evals, agent runs, actions, and tool calls.
+description: Give AI agents investigation tools for Observability Unified traces, logs, replays, profiles, evals, agent runs, actions, and tool calls. Read-only by default.
 ---
 
 `@obsunified/mcp-server` is a stdio Model Context Protocol server for agents
-that need to inspect an obs-unified collector.
+that need to inspect an Observability Unified collector.
 
 It exposes the same investigation graph that humans use in the dashboard:
 status, recent traces, trace detail, service operations, service map, logs, AI
@@ -14,7 +14,7 @@ signals, agent runs, actions, and tool calls.
 ## Why it exists
 
 Modern debugging is increasingly agent-assisted. Instead of asking an agent to
-guess from screenshots or copy-pasted log snippets, obs-unified gives it
+guess from screenshots or copy-pasted log snippets, Observability Unified gives it
 structured tools over the telemetry graph:
 
 ```mermaid
@@ -27,8 +27,8 @@ flowchart LR
   actionGraph --> profile["CPU profile"]
 ```
 
-The MCP server is a **read boundary by default**. It lets agents traverse evidence without
-granting write access to telemetry ingest.
+The MCP server registers **26 read-only investigation tools by default**. Set
+`OBS_MCP_ENABLE_WRITES=true` to register four additional write tools.
 
 ## Install
 
@@ -73,6 +73,9 @@ Supported auth variables, in priority order:
   use. A cookie-configured MCP host is indistinguishable from a human dashboard
   session on the collector's remediation approve/reject routes, so **do not use
   it for autonomous agents**; use a bearer token instead.
+
+Read-only mode controls which tools the MCP server registers. The collector's
+bearer token still has its read/admin permissions.
 
 Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion (`/v1/*`) and are rejected on collector read/admin endpoints (`/internal/*`).
 
@@ -198,7 +201,7 @@ Tool results use a `{ data, dashboardUrl }` envelope: `data` is the payload (her
 
 ## Write tools (opt-in)
 
-The server is read-only by default. Four tools can change collector state, and
+The server registers 26 read-only tools by default. Four more tools can change collector state, and
 they are **not registered at all** unless you set `OBS_MCP_ENABLE_WRITES=true`:
 
 - `open_incident` — opens (or deduplicates onto) the incident that findings and proposals attach to.
