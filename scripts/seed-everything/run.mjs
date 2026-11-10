@@ -471,7 +471,7 @@ const encodeSeedPprof = (traceId) => {
 		"apps/obs-demo/src/routes/checkout.ts",
 		"payment.charge",
 		"packages/payments/src/charge.ts",
-		"json.parse",
+		"JSON.parse",
 		"node:internal/json",
 		"trace_id",
 		traceId,
@@ -518,10 +518,13 @@ const encodeSeedPprof = (traceId) => {
 		writeLengthDelimited(out, 4, bytes);
 	}
 
+	// CPU nanoseconds sampled while the Scenario A checkout ran. Most of
+	// payment.charge's CPU time sits in JSON.parse of the provider response,
+	// which matches the correlated payment log seeded with the trace.
 	const samples = [
-		{ locations: [3, 2, 1], value: 920 },
-		{ locations: [2, 1], value: 680 },
-		{ locations: [1], value: 160 },
+		{ locations: [3, 2, 1], value: 410_000_000 },
+		{ locations: [2, 1], value: 70_000_000 },
+		{ locations: [1], value: 30_000_000 },
 	];
 	for (const sample of samples) {
 		const bytes = [];
@@ -548,6 +551,13 @@ const SCENARIO_A = {
 	paymentSpanId: "0a00000000000102",
 	dbSpanId: "0a00000000000103",
 };
+
+// Absolute end time for the Scenario A checkout, captured once so the
+// correlated logs land inside the payment span even though they are
+// ingested in a later step.
+const SCENARIO_A_END_MS = Date.now() - 2 * 60_000;
+const scenarioANs = (msBeforeEnd) =>
+	String(BigInt(SCENARIO_A_END_MS - msBeforeEnd) * 1_000_000n);
 
 const seedTraces = async (sessionWindows = []) => {
 	const services = ["obs-demo", "checkout-api", "payments-worker", "edge"];
@@ -732,8 +742,8 @@ const seedTraces = async (sessionWindows = []) => {
 				spanId: SCENARIO_A.rootSpanId,
 				name: "POST /api/checkout",
 				kind: 2,
-				startTimeUnixNano: agoNs(2 * 60_000 + 980),
-				endTimeUnixNano: agoNs(2 * 60_000),
+				startTimeUnixNano: scenarioANs(980),
+				endTimeUnixNano: scenarioANs(0),
 				status: { code: 1, message: "" },
 				attributes: checkoutAttrs,
 			},
@@ -746,8 +756,8 @@ const seedTraces = async (sessionWindows = []) => {
 				parentSpanId: SCENARIO_A.rootSpanId,
 				name: "payment.charge",
 				kind: 3,
-				startTimeUnixNano: agoNs(2 * 60_000 + 840),
-				endTimeUnixNano: agoNs(2 * 60_000 + 130),
+				startTimeUnixNano: scenarioANs(840),
+				endTimeUnixNano: scenarioANs(130),
 				status: { code: 1, message: "" },
 				attributes: [
 					kv("peer.service", "payments-worker"),
@@ -770,8 +780,8 @@ const seedTraces = async (sessionWindows = []) => {
 				parentSpanId: SCENARIO_A.paymentSpanId,
 				name: "payments-db.insert charge",
 				kind: 3,
-				startTimeUnixNano: agoNs(2 * 60_000 + 620),
-				endTimeUnixNano: agoNs(2 * 60_000 + 500),
+				startTimeUnixNano: scenarioANs(620),
+				endTimeUnixNano: scenarioANs(500),
 				status: { code: 1, message: "" },
 				attributes: [
 					kv("db.system", "postgresql"),
@@ -808,8 +818,8 @@ const seedTraces = async (sessionWindows = []) => {
 const seedProfiles = async (scenarioA) => {
 	if (!scenarioA?.traceId) return "no Scenario A trace";
 	const body = encodeSeedPprof(scenarioA.traceId);
-	const now = new Date();
-	const startedAt = new Date(now.getTime() - 60_000).toISOString();
+	// The 60 s profile window covers the checkout request it is indexed to.
+	const startedAt = new Date(SCENARIO_A_END_MS - 30_000).toISOString();
 	const result = await ingestBinary("/v1/profiles/pprof", body, {
 		"Content-Type": "application/octet-stream",
 		"Content-Encoding": "gzip",
@@ -824,6 +834,64 @@ const seedProfiles = async (scenarioA) => {
 };
 
 // ── logs ────────────────────────────────────────────────────────────
+
+// Two logs emitted inside the Scenario A payment span. They carry the
+// checkout trace and payment span IDs so the evidence bundle can cite them
+// next to the trace-labeled CPU profile.
+const seedScenarioALogs = async (scenarioA) => {
+	if (!scenarioA?.traceId) return "no Scenario A trace";
+	const sessionAttrs = scenarioA.sessionId
+		? [kv("session.id", scenarioA.sessionId)]
+		: [];
+	const records = [
+		{
+			timeUnixNano: scenarioANs(500),
+			severityText: "INFO",
+			severityNumber: 9,
+			body: { stringValue: "Charge recorded in payments-db" },
+			attributes: [
+				kv("logger.name", "payments.charge"),
+				kv("payment.provider", "stripe"),
+				kv("seed.scenario", "A"),
+				...sessionAttrs,
+			],
+			traceId: scenarioA.traceId,
+			spanId: scenarioA.paymentSpanId,
+		},
+		{
+			timeUnixNano: scenarioANs(135),
+			severityText: "WARN",
+			severityNumber: 13,
+			body: {
+				stringValue:
+					"Payment provider response parsed: 2.4 MB body with 1,824 line items",
+			},
+			attributes: [
+				kv("logger.name", "payments.charge"),
+				kv("payment.provider", "stripe"),
+				kv("http.response.body.size", 2_516_582),
+				kv("payment.line_items", 1824),
+				kv("code.filepath", "packages/payments/src/charge.ts"),
+				kv("code.lineno", 47),
+				kv("seed.scenario", "A"),
+				...sessionAttrs,
+			],
+			traceId: scenarioA.traceId,
+			spanId: scenarioA.paymentSpanId,
+		},
+	];
+	await ingestPost("/v1/logs", {
+		resourceLogs: [
+			{
+				resource: { attributes: [kv("service.name", "checkout-api")] },
+				scopeLogs: [
+					{ scope: { name: "seed-everything" }, logRecords: records },
+				],
+			},
+		],
+	});
+	return `${records.length} log records correlated to ${scenarioA.traceId}/${scenarioA.paymentSpanId}`;
+};
 
 const seedLogs = async (sessionWindows = []) => {
 	const services = ["obs-demo", "checkout-api", "payments-worker"];
@@ -1613,6 +1681,9 @@ await tracer.startActiveSpan("seed.run", async (rootSpan) => {
 				seedProfiles(tracesResult?.scenarioA),
 			);
 			await step("logs (/v1/logs)", () => seedLogs(sessionWindows));
+			await step("Scenario A payment logs (/v1/logs)", () =>
+				seedScenarioALogs(tracesResult?.scenarioA),
+			);
 			await step("AI calls (/v1/traces with LLM kind)", () =>
 				seedAi(sessionWindows),
 			);
