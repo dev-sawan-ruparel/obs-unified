@@ -1,5 +1,13 @@
 # @obsunified/dashboard
 
+## 1.4.2
+
+### Patch Changes
+
+- 2964093: Show Observability Unified as the dashboard display name, including the login screen.
+- Updated dependencies [2964093]
+  - @obsunified/types@2.4.1
+
 ## 1.4.1
 
 ### Patch Changes

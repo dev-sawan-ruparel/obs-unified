@@ -1,6 +1,6 @@
 {
 	"name": "@obsunified/agents-langgraph",
-	"version": "3.0.4",
+	"version": "3.0.5",
 	"description": "LangGraph/LangChain framework wrapper for Observability Unified Agent Action Graph",
 	"license": "MIT",
 	"type": "module",

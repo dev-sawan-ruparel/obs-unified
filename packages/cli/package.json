@@ -1,6 +1,6 @@
 {
 	"name": "@obsunified/cli",
-	"version": "1.2.2",
+	"version": "1.2.3",
 	"description": "Observability Unified command-line — bring up a local stack, scaffold new apps, manage ingest keys.",
 	"license": "MIT",
 	"repository": {

@@ -1,5 +1,11 @@
 # @obsunified/cli
 
+## 1.2.3
+
+### Patch Changes
+
+- 2964093: Use the Observability Unified display name in package descriptions, SDK docs, and scaffold copy. Clarify that the MCP tool set is read-only by default.
+
 ## 1.2.2
 
 ### Patch Changes
