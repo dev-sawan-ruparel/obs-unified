@@ -1,28 +1,29 @@
+// Additional views come from other demo data, not the checkout proof above.
 const screenshots = [
   {
-    src: "/screenshots/app/agent-action-graph.png",
-    title: "Agent Action Graph",
-    body: "The agent run, plan, tool calls, evals, trace ID, and interaction ID are visible in one causal view.",
-  },
-  {
-    src: "/screenshots/app/service-map-astronomy.png",
-    title: "Astronomy Shop service map",
-    body: "Service dependencies, edge volume, latency, and errors in a demo environment.",
-  },
-  {
-    src: "/screenshots/app/ai-cost-spans.png",
-    title: "AI cost and LLM spans",
-    body: "Model, token, cost, latency, and error signals stay queryable together.",
+    src: "/screenshots/app/logs-correlated.png",
+    title: "Structured logs",
+    body: "Filter collected logs by service and severity while investigating an incident.",
   },
   {
     src: "/screenshots/app/timeline-unified.png",
     title: "Unified timeline",
-    body: "User, trace, log, replay, and usage events line up in one incident story.",
+    body: "User, trace, log, replay, and usage events from one seeded session on a shared timeline.",
   },
   {
-    src: "/screenshots/app/logs-correlated.png",
-    title: "Structured logs",
-    body: "Filter the collected logs by service and severity while investigating an incident.",
+    src: "/screenshots/app/service-map-astronomy.png",
+    title: "Astronomy Shop service map",
+    body: "Service dependencies, edge volume, latency, and errors from the OpenTelemetry demo.",
+  },
+  {
+    src: "/screenshots/app/agent-action-graph.png",
+    title: "Agent Action Graph",
+    body: "For AI applications: an agent run, its tool calls, evals, trace ID, and interaction ID in one causal view.",
+  },
+  {
+    src: "/screenshots/app/ai-cost-spans.png",
+    title: "AI cost and LLM spans",
+    body: "For AI applications: model, token, cost, latency, and error signals stay queryable together.",
   },
 ];
 
@@ -46,7 +47,8 @@ export function renderScreenshots() {
               <p>The dashboard and MCP return the same trace and span IDs. The waterfall shows where the request spent its time. It leaves the underlying cause of the payment delay open.</p>
             </figcaption>
           </figure>
-          <div class="screenshot-grid" aria-label="Additional Observability Unified product screenshots">
+          <p class="screenshot-grid-label">Other views, from separate demo data</p>
+          <div class="screenshot-grid" aria-label="Other Observability Unified views from separate demo data">
             ${screenshots
               .map(
                 (shot) => `

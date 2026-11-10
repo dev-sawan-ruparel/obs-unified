@@ -7,12 +7,14 @@ The audit re-checks each cell against the vendor's own live docs/pricing and fla
 - **Current ledger (2026-10-13, manual pass):** [`../../../docs/comparison-full-audit-2026-10-13.md`](../../../docs/comparison-full-audit-2026-10-13.md)
   — 81 of 90 cells directly source-checked against primary pages (historical claims compared with the live page and corrected where needed); 9 inferential negatives rendered as "Not marketed†".
   Verdicts on the historical claims: TRUE 59 · PARTIALLY_TRUE 12 · OUTDATED 9 · FALSE 1 · UNVERIFIABLE 9.
+- **Supplementary ledger (2026-11-10, manual pass):** [`../../../docs/comparison-agent-access-audit-2026-11-10.md`](../../../docs/comparison-agent-access-audit-2026-11-10.md)
+  — the "AI agent access (MCP)" row added after the main review: 9 of 9 vendor cells source-checked, 0 inferential (TRUE 9). Its date, counts, and ledger are the `AGENT_ACCESS_*` constants in `compare.ts`.
 - **Historical ledger (2026-10-11):** [`../../../docs/comparison-full-audit-2026-10-11.md`](../../../docs/comparison-full-audit-2026-10-11.md)
   *(preserved unchanged; recorded 0/90 verified and led to the matrix being withheld until this pass)*
 - **Historical claim baseline commit:** `e4ea90339a1ee6c61ce417a424e0a8c0cfeebe58`
 - **Public evaluation doc:** [`../content/docs/comparison.mdx`](../content/docs/comparison.mdx) (per-vendor sections with anchors `src-<vendor>`, cited and dated)
 - **Landing-page table:** `apps/website/src/sections/compare.ts` (vendor headers link to the `src-<vendor>` anchors)
-- **Consistency check:** `pnpm --filter presence comparison:check` (also part of `pnpm check:surfaces`) verifies review-date parity, ledger existence, verdict counts, ledger indices exactly 1..90, and vendor anchors.
+- **Consistency check:** `pnpm --filter presence comparison:check` (also part of `pnpm check:surfaces`) verifies review-date parity, ledger existence, verdict counts, ledger indices exactly 1..90 (and 1..9 for the supplementary agent-access ledger), the agent-access row in both surfaces, and vendor anchors.
 - **Automated runner:** [`./comparison-audit.workflow.js`](./comparison-audit.workflow.js) (optional; billed, spawns ~11 agents, requires explicit opt-in)
 - **Next review:** 2027-01-13, or sooner on a right-of-reply correction.
 

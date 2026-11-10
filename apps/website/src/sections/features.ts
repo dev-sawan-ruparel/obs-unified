@@ -32,6 +32,11 @@ export function renderFeatures(): string {
       <p class="section-lead">
         ${features.lead}
       </p>
+      <p class="identity-chain">
+        ${siteContent.hero.identityLabel}
+        <code>${messaging.authored.positioning.proof.identityChain}</code>
+        <span>${messaging.authored.positioning.proof.clickToActionCpuExample}</span>
+      </p>
     </header>
     <div class="feature-grid">${features.items.map(card).join("")}</div>
   </div>

@@ -5,8 +5,8 @@ description: Evidence-backed comparison of Observability Unified with Datadog, S
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-<Callout type="info" title="Reviewed 2026-10-13 · 81 of 90 vendor cells directly source-checked · next review 2027-01-13">
-Every third-party claim on this page was re-checked on **2026-10-13** by reading the vendor's own live page (docs, pricing, product page, official repo, or official blog). "Source-checked" means the historical claim was compared with the live page and corrected where the vendor had changed (of the 90 historical claims, 59 were still accurate, 12 were tightened, 9 were outdated, and 1 was wrong). Nine further cells are **inferential negatives** ("the vendor does not market this") and are shown as *Not marketed†* rather than as checked facts. The full per-cell ledger with URLs, verdicts, and verbatim excerpts is tracked in [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md). We build Observability Unified, so read [how we keep this honest](#provenance) and [what we corrected](#corrections).
+<Callout type="info" title="Reviewed 2026-10-13 · 81 of 90 vendor cells directly source-checked · agent-access row 2026-11-10 (9 of 9) · next review 2027-01-13">
+Every third-party claim on this page was re-checked on **2026-10-13** by reading the vendor's own live page (docs, pricing, product page, official repo, or official blog). "Source-checked" means the historical claim was compared with the live page and corrected where the vendor had changed (of the 90 historical claims, 59 were still accurate, 12 were tightened, 9 were outdated, and 1 was wrong). Nine further cells are **inferential negatives** ("the vendor does not market this") and are shown as *Not marketed†* rather than as checked facts. The full per-cell ledger with URLs, verdicts, and verbatim excerpts is tracked in [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md). The **AI agent access (MCP)** row was added later and source-checked on **2026-11-10**: all 9 vendor cells were read on the vendor's own docs, with no inferential negatives; its ledger is [`docs/comparison-agent-access-audit-2026-11-10.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-agent-access-audit-2026-11-10.md). We build Observability Unified, so read [how we keep this honest](#provenance) and [what we corrected](#corrections).
 </Callout>
 
 ## What this page is
@@ -16,12 +16,13 @@ A long-form companion to the comparison table on [obsunified.com](https://obsuni
 ## Scope
 
 - **Vendors (9):** Datadog, Sentry, PostHog, Honeycomb, New Relic, Grafana Cloud (LGTM stack), SigNoz, Uptrace, HyperDX.
-- **Axes (10):** hosting model, pricing model, traces / APM, structured logs, AI / LLM observability, session replay, product analytics, alerting, cross-signal correlation, data ownership.
+- **Axes (11):** hosting model, pricing model, traces / APM, structured logs, AI / LLM observability, session replay, product analytics, alerting, cross-signal correlation, AI agent access (MCP), data ownership. The AI agent access (MCP) axis was added and reviewed on 2026-11-10; the other ten were reviewed on 2026-10-13.
 - **Out of scope:** infrastructure-only tools (Prometheus, Zabbix, Nagios), incident-response platforms (PagerDuty, Opsgenie), single-signal frontend tools (LogRocket, FullStory, Highlight), legacy enterprise suites (Splunk Observability Cloud, Dynatrace, AppDynamics, Elastic Observability), and cross-vendor performance benchmarks.
 
 ## How to read the cells
 
-- Each vendor table below lists the **claim as reviewed on 2026-10-13**, the **primary source** read, and a **short excerpt** from that page.
+- Each vendor table below lists the **claim as reviewed on 2026-10-13** (2026-11-10 for the AI agent access (MCP) row), the **primary source** read, and a **short excerpt** from that page.
+- **AI agent access (MCP)** records whether the vendor ships a first-party Model Context Protocol server, whether the vendor hosts it or you run it, and how write tools are gated where the vendor states it. Where a vendor's page does not say, the cell does not either.
 - **Not marketed†** means we read the vendor's product index, docs navigation, or sitemap on 2026-10-13 and found no such product. It is not an explicit vendor statement, and it is not a demerit.
 - Pricing is volatile. Prices are quoted as shown on the review date and may already have changed.
 - Cells are descriptive, not scored. A vendor that does not sell a capability is not worse; it is a different shape of product.
@@ -32,7 +33,7 @@ A long-form companion to the comparison table on [obsunified.com](https://obsuni
 
 ## Observability Unified
 
-Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage (including a zero-clone all-in-one Docker image on GHCR). Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability ([Agent Action Graph](/docs/agent-action-graph)); [compressed context retrieval (CCR)](/docs/evidence-retrieval); [AutoSRE causal ontology](/docs/autosre) (change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, recurring incident memory, counterfactual eval verification, and pre-execution cryptographic remediation grants); usage analytics; alerts; CPU/off-CPU profiles; and an [MCP server](/docs/mcp-server) with 26 investigation tools by default and four opt-in write tools, all joined through one identity chain (`user_id → session_id → interaction_id → trace_id → span_id → action_id`). Limitations and what teams need to configure are listed in [Where Observability Unified fits](#where-observability-unified-fits).
+Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatible storage (including a zero-clone all-in-one Docker image on GHCR). Ships OTLP/HTTP ingestion for traces, logs, and metrics; structured logs; session replay (rrweb); AI / LLM and agent observability ([Agent Action Graph](/docs/agent-action-graph)); [compressed context retrieval (CCR)](/docs/evidence-retrieval); [AutoSRE causal ontology](/docs/autosre) (change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, recurring incident memory, counterfactual eval verification, and pre-execution cryptographic remediation grants); usage analytics; alerts; CPU/off-CPU profiles; and a local stdio [MCP server](/docs/mcp-server) that is read-only by default (26 investigation tools; four write tools only when `OBS_MCP_ENABLE_WRITES=true`) and returns evidence bundles with citations and retrieval refs, all joined through one identity chain (`user_id → session_id → interaction_id → trace_id → span_id → action_id`). Limitations and what teams need to configure are listed in [Where Observability Unified fits](#where-observability-unified-fits).
 
 ---
 
@@ -49,6 +50,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Yes: funnels, Sankeys, cohorts | [Product Analytics](https://www.datadoghq.com/product/product-analytics/): "Optimize user journeys with sankeys, funnels, and conversion analysis"; "a single SDK for RUM and Product Analytics". |
 | Alerting | 30+ monitor types incl. Anomaly, Forecast, Outlier, Composite, Watchdog | [Monitor Types](https://docs.datadoghq.com/monitors/types/): "Watchdog: Get notified when Watchdog detects anomalous behavior." |
 | Cross-signal | Within platform, tag-based | [Platform](https://www.datadoghq.com/product/): "Navigate seamlessly between logs, metrics, and request traces". |
+| AI agent access (MCP) | Reviewed 2026-11-10: remote, Datadog-hosted MCP server; write tools require the matching Datadog permission | [Datadog MCP Server](https://docs.datadoghq.com/mcp_server/): "It provides remote access to most Datadog products (APM, logs, metrics, monitors, dashboards, security signals, and more)." "Write operations require the corresponding permission, such as monitors_write, and the MCP Server checks it on each tool call." |
 | Data ownership | Datadog regional site; BYOC object storage for logs | [BYOC Log Management](https://www.datadoghq.com/product/byoc-logs/): "Retain logs entirely within your own infrastructure in regions like India, China, Vietnam, Malaysia, Brazil, South Africa, and Canada". |
 
 ## Sentry <a id="src-sentry" />
@@ -64,6 +66,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Not marketed† | [Product index](https://sentry.io/welcome/) lists Error Monitoring, Logs, Seer, Session Replay, Tracing, Agent Tracing, Profiling, Cron Monitoring, Uptime Monitoring. |
 | Alerting | Issue alerts, uptime, crons | [Alerts](https://docs.sentry.io/product/monitors-and-alerts/alerts/): "An alert can send notifications, create tickets, call webhooks, or use other integrations for issues coming from projects or Monitors." |
 | Cross-signal | Within platform via trace ID | [Tracing](https://docs.sentry.io/concepts/key-terms/tracing/): "The trace ID connects all the actions that take place, starting from the moment a user performs an action on the frontend". |
+| AI agent access (MCP) | Reviewed 2026-11-10: hosted MCP server over HTTP with OAuth; a local stdio server through the Sentry CLI | [Sentry MCP Server](https://mcp.sentry.dev/): "All connections use OAuth." "The base MCP server address is: https://mcp.sentry.dev/mcp"; "register sentry mcp as a stdio MCP server." |
 | Data ownership | Sentry cloud or your self-hosted install | [getsentry/self-hosted](https://github.com/getsentry/self-hosted) (Docker Compose distribution). |
 
 ## PostHog <a id="src-posthog" />
@@ -79,6 +82,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Flagship: autocapture, funnels, retention, paths | [Product Analytics](https://posthog.com/product-analytics): "build trends, funnels, retention curves, paths, and SQL queries – then jump straight into the session recordings". |
 | Alerting | Insight alerts (trends, funnels, SQL) with anomaly detection, plus log alerts | [Alerts](https://posthog.com/docs/alerts): "Alerts are supported on trends, funnels (steps and trends views only), and SQL (HogQL) insights." [Logs](https://posthog.com/docs/logs): "set up alerts". |
 | Cross-signal | One project / event store | [Distributed tracing](https://posthog.com/docs/distributed-tracing): "Traces use the same OpenTelemetry ingestion as Logs, in the same PostHog project as session replays, errors, and analytics." |
+| AI agent access (MCP) | Reviewed 2026-11-10: free hosted MCP endpoint with read and write tools | [Model Context Protocol](https://posthog.com/docs/model-context-protocol): "a free, hosted endpoint that lets your AI agent use PostHog"; "Once connected, your agent can read and write across PostHog's products." |
 | Data ownership | PostHog Cloud or your (unsupported) self-host | [Self-host](https://posthog.com/docs/self-host): "you run or purchase your own infrastructure, manage deployments". |
 
 ## Honeycomb <a id="src-honeycomb" />
@@ -94,6 +98,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Not marketed† | No product-analytics page in the site's pages sitemap on 2026-10-13. |
 | Alerting | Triggers (thresholds on any query) and BubbleUp outlier analysis | [Triggers](https://docs.honeycomb.io/notify/triggers): "receive notifications when your Honeycomb data crosses thresholds that you define." [BubbleUp](https://www.honeycomb.io/platform/bubbleup). |
 | Cross-signal | One event store for logs, traces, metrics | [Log Analytics](https://www.honeycomb.io/platform/log-analytics): "Use one unified tool to manage logs, traces, and metrics". |
+| AI agent access (MCP) | Reviewed 2026-11-10: hosted MCP server (US and EU endpoints); most tools read-only, writes need an OAuth or API-key scope | [Honeycomb MCP concepts](https://docs.honeycomb.io/integrations/mcp/concepts): "Most tools are read-only. Tools for Boards, Triggers, SLOs, notification recipients, and Canvas investigations require a scope for that resource." [Connect](https://docs.honeycomb.io/integrations/mcp/configuration-guide): `https://mcp.honeycomb.io/mcp` (US) and `https://mcp.eu1.honeycomb.io/mcp` (EU). |
 | Data ownership | Honeycomb US or EU, or your AWS account | [EU data residency](https://www.honeycomb.io/blog/honeycomb-launches-data-residency-europe): "store their data in the US, in Europe, or both"; Private Cloud: "Your telemetry data never leaves your cloud account." |
 
 ## New Relic <a id="src-newrelic" />
@@ -109,6 +114,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | User journeys inside Browser Monitoring plus NRQL funnels; no standalone product found | [Browser Monitoring](https://newrelic.com/platform/browser-monitoring): "See how users navigate with Sankey diagrams and identify common routes and drop-offs." [NRQL funnels](https://docs.newrelic.com/docs/nrql/using-nrql/funnels-evaluate-data-series-related-events/). |
 | Alerting | NRQL alert conditions | [NRQL alert conditions](https://docs.newrelic.com/docs/alerts/create-alert/create-alert-condition/create-nrql-alert-conditions/): "We recommend creating an alert using a NRQL alert condition." |
 | Cross-signal | Via NRQL across all data | [NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/): "a SQL-like language for querying your New Relic data." |
+| AI agent access (MCP) | Reviewed 2026-11-10: hosted MCP server with US, EU, and JP endpoints | [MCP setup](https://docs.newrelic.com/docs/agentic-ai/mcp/setup/): "the US region (default) MCP connection URL: https://mcp.newrelic.com/mcp/", with EU and JP endpoints. [Overview](https://docs.newrelic.com/docs/agentic-ai/mcp/overview/): "query, investigate, or act on New Relic data in natural language." |
 | Data ownership | New Relic US, EU, or JP region | Same data-center page: "You are solely responsible for the selection of the appropriate processing and storage region". |
 
 ## Grafana Cloud <a id="src-grafana" />
@@ -124,6 +130,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Not marketed† | [Grafana Cloud products](https://grafana.com/products/cloud/) lists no product-analytics product; "product analytics" and "funnel" do not appear. |
 | Alerting | Grafana Alerting across data sources | [Alerting](https://grafana.com/docs/grafana-cloud/observe-and-act/alert-and-measure-reliability/alerting/): "queries and expressions from multiple data sources … alert on your metrics and logs". |
 | Cross-signal | Per-data-source links: trace to logs, metrics, profiles; exemplars | [Tempo data source](https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/): "Trace to logs: Navigate from spans to related logs in Loki or another log data source." |
+| AI agent access (MCP) | Reviewed 2026-11-10: fully hosted Grafana Cloud MCP server, plus a self-managed OSS MCP server (writes can be disabled) | [MCP servers](https://grafana.com/docs/grafana-cloud/ai-tools/mcp-servers/): "Fully hosted Model Context Protocol server … using OAuth 2.1 authorization"; "Self-managed open source MCP server for Grafana Cloud and self-managed Grafana." [mcp-grafana](https://github.com/grafana/mcp-grafana): "--disable-write: Disable write tools". |
 | Data ownership | Grafana Cloud or your self-hosted OSS stack | [Open source](https://grafana.com/oss/). |
 
 ## SigNoz <a id="src-signoz" />
@@ -139,6 +146,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Not marketed† (Trace Funnels are trace-level, not user analytics) | [Trace Funnels](https://signoz.io/trace-funnels/): "Each step filters traces by service name, operation, HTTP status code". |
 | Alerting | Five alert types: metric, log, trace, exceptions, anomaly | [Alerts management](https://signoz.io/docs/userguide/alerts-management/). |
 | Cross-signal | Trace to logs via trace_id / span_id | [Correlate logs and traces](https://signoz.io/docs/traces-management/guides/correlate-traces-and-logs/): "jump from a trace directly to the logs that fired during it, and from a log entry back to the trace". |
+| AI agent access (MCP) | Reviewed 2026-11-10: hosted MCP server for SigNoz Cloud; self-hosted users run the `signoz-mcp-server` binary | [SigNoz MCP Server](https://signoz.io/docs/ai/signoz-mcp-server/): "Connect your AI tool to SigNoz Cloud's hosted MCP server. No installation required"; "Environment variables for the self-hosted MCP server." |
 | Data ownership | Cloud in US, EU, or India; BYOC; or self-hosted | [Pricing](https://signoz.io/pricing/): "We have data centers in US, EU and India … You can also run Self Hosted SigNoz in your own cloud." |
 
 ## Uptrace <a id="src-uptrace" />
@@ -154,6 +162,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Not marketed† | Same. |
 | Alerting | Metric monitors and error monitors | [Alerting](https://uptrace.dev/features/alerting): "Metric monitors — threshold alerts on infrastructure and tracing metrics"; "Error monitors — alerts on log patterns and exceptions". |
 | Cross-signal | One store for traces, metrics, logs | [Uptrace](https://uptrace.dev/): "Traces, metrics, and logs in one place. No more jumping between tools". |
+| AI agent access (MCP) | Reviewed 2026-11-10: MCP server built into Uptrace; OAuth grants carry read or write scopes | [MCP Server](https://uptrace.dev/features/mcp): "Uptrace ships with a built-in Model Context Protocol (MCP) server." "OAuth grants expire, apply to one project, and carry read or write scopes." |
 | Data ownership | Cloud hosted in Germany, or your own servers | [Pricing FAQ](https://uptrace.dev/pricing): "Uptrace Cloud runs in Hetzner's Germany datacenters"; "Your telemetry never leaves your infrastructure." |
 
 ## HyperDX <a id="src-hyperdx" />
@@ -169,6 +178,7 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Product analytics | Not marketed† | [HyperDX docs](https://www.hyperdx.io/docs) navigation has no analytics section. |
 | Alerting | Search-based threshold and duration alerts | [Alerts](https://www.hyperdx.io/docs/alerts): "set the threshold, duration, and notification method for the alert (Slack, Email, PagerDuty or Slack Webhook)". |
 | Cross-signal | Auto-linked across signals | [HyperDX](https://www.hyperdx.io/): "Trace every request from a user's browser and phone to your backend servers and async workers, automatically." |
+| AI agent access (MCP) | Reviewed 2026-11-10: built-in MCP server in open-source and BYOC ClickStack; not available on HyperDX v1 (hyperdx.io) | [ClickStack MCP server](https://clickhouse.com/docs/clickstack/mcp): "The MCP server is available in Open Source ClickStack and BYOC (Bring Your Own Cloud) deployments. HyperDX v1 (hyperdx.io) is not supported." |
 | Data ownership | Cloud hosted in the United States, or your own ClickHouse | [DPA](https://www.hyperdx.io/terms/dpa): "DeploySentinel will host and process Customer Personal Data in the United States." |
 
 † Inferential negative: not marketed by the vendor on the pages, product index, or sitemaps read on 2026-10-13. Absence is not an explicit vendor statement. See [ledger section 4](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md).
@@ -226,7 +236,7 @@ That is a shape, not a verdict; the trade-offs are real:
 ## How we keep this honest <a id="provenance" />
 
 - **Every cell is cited and dated.** Each vendor section carries the source URL and an excerpt read on the review date. If the excerpt no longer matches the source, the claim is wrong by construction; tell us.
-- **The ledger is public.** [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md) records, for all 90 cells, the historical claim, the verdict (TRUE 59 / PARTIALLY_TRUE 12 / OUTDATED 9 / FALSE 1 / UNVERIFIABLE 9), the corrected claim, the final URL read, and the excerpt. The earlier [2026-10-11 ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md), which recorded 0 of 90 cells verified, is preserved unchanged.
+- **The ledger is public.** [`docs/comparison-full-audit-2026-10-13.md`](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md) records, for all 90 cells, the historical claim, the verdict (TRUE 59 / PARTIALLY_TRUE 12 / OUTDATED 9 / FALSE 1 / UNVERIFIABLE 9), the corrected claim, the final URL read, and the excerpt. The AI agent access (MCP) row has its own [2026-11-10 ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-agent-access-audit-2026-11-10.md) (9 cells, all `TRUE`, none inferential). The earlier [2026-10-11 ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-11.md), which recorded 0 of 90 cells verified, is preserved unchanged.
 - **Negatives are never inferred from silence alone.** The nine "Not marketed†" cells list exactly what was read.
 - **The method is reproducible.** The runbook is in [`apps/docs/scripts/COMPARISON_AUDIT.md`](https://github.com/dev-sawan-ruparel/obs-unified/tree/main/apps/docs/scripts/). This pass was done manually (runbook Option B), one page at a time, with no multi-agent workflow.
 - **We score ourselves too.** See [Where Observability Unified fits](#where-observability-unified-fits).
@@ -239,6 +249,7 @@ If you work on one of these products, or you spot a stale or wrong cell, open a 
 
 | Date | Vendor · cell | Was | Now and why |
 |------|---------------|-----|-------------|
+| 2026-11-10 | All vendors · AI agent access (MCP) | (new axis) | **Added** after reading each vendor's MCP docs; every vendor documents a first-party MCP server, so no cell is inferential. |
 | 2026-10-13 | PostHog · traces | "LLM-scoped only" | **"OTLP distributed tracing (beta)"**: PostHog shipped general tracing in beta on 2026-07-16. Our negative was false. |
 | 2026-10-13 | Datadog · hosting / data ownership | "SaaS only" / "Datadog cloud" | **"SaaS · BYOC for logs"**: Datadog markets BYOC Log Management that keeps logs in the customer's environment. Our negative was outdated. |
 | 2026-10-13 | Datadog · traces | "OTLP in Preview" | **"OTLP via Agent/Collector or direct intake"**: preview wording no longer on the docs page. |

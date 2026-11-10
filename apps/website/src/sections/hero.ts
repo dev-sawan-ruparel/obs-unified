@@ -31,11 +31,6 @@ export function renderHero(): string {
         <span>${hero.metaLabelHtml}</span>
         <a class="hero-meta-langs" href="${SDK_DOCS_URL}">${hero.metaLinkLabel}</a>
       </div>
-      <p class="hero-chain">
-        ${hero.identityLabel}
-        <code>${positioning.proof.identityChain}</code>
-        <span>${positioning.proof.clickToActionCpuExample}</span>
-      </p>
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">

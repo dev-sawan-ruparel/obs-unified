@@ -22,7 +22,7 @@
     <title>Observability Unified — production debugging context for AI agents</title>
     <meta
       name="description"
-      content="Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard."
+      content="Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query evidence with citations through MCP, and engineers inspect the same records in the dashboard."
     />
     <meta name="keywords" content="unified observability, AI agent debugging, AI agent observability, agentic debugging, AutoSRE, causal ontology, evidence retrieval, CCR, compressed context retrieval, Agent Action Graph, MCP server, Model Context Protocol, self-hosted, OpenTelemetry, OTLP, traces, logs, session replay, LLM observability, AI tracking, rrweb, Cloudflare Workers, D1, Postgres" />
     <meta name="author" content="Observability Unified" />
@@ -32,7 +32,7 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="Observability Unified" />
     <meta property="og:title" content="Observability Unified — production debugging context for AI agents" />
-    <meta property="og:description" content="Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard." />
+    <meta property="og:description" content="Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query evidence with citations through MCP, and engineers inspect the same records in the dashboard." />
     <meta property="og:url" content="https://obsunified.com/" />
     <meta property="og:image" content="https://obsunified.com/og.jpg" />
     <meta property="og:image:secure_url" content="https://obsunified.com/og.jpg" />
@@ -43,7 +43,7 @@
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Observability Unified — production debugging context for AI agents" />
-    <meta name="twitter:description" content="Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard." />
+    <meta name="twitter:description" content="Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query evidence with citations through MCP, and engineers inspect the same records in the dashboard." />
     <meta name="twitter:image" content="https://obsunified.com/og.jpg" />
     <meta name="twitter:image:alt" content="Observability Unified evidence graph for AI agents and engineers debugging production software" />
 
@@ -55,13 +55,14 @@
       <main>
         <h1>Observability Unified — production debugging context for AI agents</h1>
         <p>
-          Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard.
+          Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query evidence with citations through MCP, and engineers inspect the same records in the dashboard.
         </p>
         <h2>Machine-Readable Entry Points for AI Coding Agents (Claude Code, Codex, Antigravity, Cursor)</h2>
         <ul>
           <li><a href="https://obsunified.com/llms.txt">https://obsunified.com/llms.txt</a> — Primary AI agent guide, compatibility matrix, and 5-step setup playbook</li>
           <li><a href="https://docs.obsunified.com/llms.txt">https://docs.obsunified.com/llms.txt</a> — Machine-readable documentation index</li>
           <li><a href="https://docs.obsunified.com/llms-full.txt">https://docs.obsunified.com/llms-full.txt</a> — Complete documentation corpus in plain Markdown</li>
+          <li><a href="https://docs.obsunified.com/docs/getting-started/#investigate-a-slow-checkout">https://docs.obsunified.com/docs/getting-started/#investigate-a-slow-checkout</a> — First investigation: reproduce a seeded slow checkout through MCP and the dashboard</li>
           <li><a href="https://docs.obsunified.com/docs/getting-started">https://docs.obsunified.com/docs/getting-started</a> — Getting Started &amp; Compatibility Guide</li>
           <li><a href="https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.4">Agent Skill Bundles (.skill)</a> — Prebuilt <code>instrument-obs-unified</code> and <code>investigate-obs-unified</code> skills</li>
         </ul>
@@ -74,7 +75,7 @@
         <h2>Autonomous Setup vs. Human Intervention</h2>
         <ul>
           <li><strong>100% Autonomous (Local Dev with Docker):</strong> Start <code>ghcr.io/dev-sawan-ruparel/obs-unified:latest</code> on ports <code>5173</code>/<code>8790</code> (the release image fails closed: set your own <code>INGEST_KEY</code>, <code>DASHBOARD_PASSWORD</code>, and <code>DASHBOARD_TOKEN</code> values; the <code>dev-ingest-key</code> / <code>e2e-test-pass</code> / <code>e2e-dashboard-token</code> defaults exist only for the locally built image via <code>pnpm local:run</code>), verify with <code>OBS_ADMIN_TOKEN="$DASHBOARD_TOKEN" pnpm dlx @obsunified/cli doctor http://localhost:8790 --origin http://localhost:3000</code>, scaffold with <code>pnpm dlx @obsunified/cli create my-app --template react-vite --collector-url http://localhost:8790 --yes</code> or wire existing app SDKs, verify trace ingestion via <code>GET /internal/telemetry/overview</code> with <code>Authorization: Bearer $DASHBOARD_TOKEN</code>, and register <code>@obsunified/mcp-server</code>.</li>
-          <li><strong>When Human Intervention Is Required:</strong> (1) Starting Docker Desktop if the local Docker daemon is stopped; (2) Cloud/production deployment credentials (<code>wrangler login</code>, DNS routing, <code>wrangler secret put</code>, or Vercel/GitHub Actions encrypted secrets); (3) Opting into continuous browser DOM recording (<code>startReplay()</code>); (4) Approving high-risk production AutoSRE rollbacks when causal proof is below cohort isolation or counterfactual verification.</li>
+          <li><strong>When Human Intervention Is Required:</strong> (1) Starting Docker Desktop if the local Docker daemon is stopped; (2) Cloud/production deployment credentials (<code>wrangler login</code>, DNS routing, <code>wrangler secret put</code>, or Vercel/GitHub Actions encrypted secrets); (3) Opting into continuous browser DOM recording (<code>startReplay()</code>); (4) Enabling MCP write tools (<code>OBS_MCP_ENABLE_WRITES</code>) and approving AutoSRE remediation proposals when causal proof is below cohort isolation or counterfactual verification. Your own runner executes any approved rollback.</li>
         </ul>
       </main>
     </noscript>

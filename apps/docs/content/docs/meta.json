@@ -1,6 +1,6 @@
 {
 	"title": "Observability Unified",
-	"description": "Install, instrument, and read unified observability across every signal.",
+	"description": "Give AI agents production debugging context through MCP and inspect the same evidence in the dashboard.",
 	"pages": [
 		"index",
 		"getting-started",
