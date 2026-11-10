@@ -174,7 +174,7 @@
     },
     {
       "q": "How is it different from Datadog, Sentry, or PostHog?",
-      "a": "Its primary difference is unification for debugging. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. Instead of leaving agents to scrape dashboards or prose, the platform returns compact evidence bundles, concrete evidence references, confidence, exemplar pivots, retrieval refs, and connected signals. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path."
+      "a": "Its primary difference is unification for debugging. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. Many observability vendors now offer MCP servers; see the comparison for sourced details. Here, MCP tools are read-only by default and return compact evidence bundles with citations, evidence references, confidence, exemplar pivots, and retrieval refs that link back to the same records the dashboard shows. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path."
     },
     {
       "q": "What is the Agent Action Graph?",

@@ -26,6 +26,17 @@ export const SOURCE_CHECKED_CELLS = 81;
 export const INFERRED_CELLS = 9;
 export const TOTAL_CELLS = 90;
 
+// The "AI agent access (MCP)" row was added after LAST_REVIEWED and was
+// source-checked separately, with its own date and supplementary ledger.
+// apps/website/scripts/comparison-check.mjs validates this ledger too.
+export const AGENT_ACCESS_ROW_LABEL = "AI agent access (MCP)";
+export const AGENT_ACCESS_REVIEWED = "2026-11-10";
+export const AGENT_ACCESS_LEDGER_URL =
+  "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-agent-access-audit-2026-11-10.md";
+export const AGENT_ACCESS_SOURCE_CHECKED_CELLS = 9;
+export const AGENT_ACCESS_INFERRED_CELLS = 0;
+export const AGENT_ACCESS_TOTAL_CELLS = 9;
+
 const VENDOR_KEYS: VendorKey[] = [
   "datadog",
   "sentry",
@@ -170,6 +181,20 @@ const ROWS: Row[] = [
     hyperdx:   { v: "Auto-linked across signals" },
   },
   {
+    // Source-checked AGENT_ACCESS_REVIEWED; see AGENT_ACCESS_LEDGER_URL.
+    label: AGENT_ACCESS_ROW_LABEL,
+    obs:       { v: "Stdio MCP · read-only default · citations" },
+    datadog:   { v: "Remote MCP · writes need RBAC perms" },
+    sentry:    { v: "Hosted MCP (OAuth) · local via CLI" },
+    posthog:   { v: "Hosted MCP · read + write tools" },
+    honeycomb: { v: "Hosted MCP · OAuth-scoped writes" },
+    newrelic:  { v: "Hosted MCP (US · EU · JP)" },
+    grafana:   { v: "Hosted Cloud MCP · OSS local server" },
+    signoz:    { v: "Hosted MCP (Cloud) · self-host binary" },
+    uptrace:   { v: "Built-in MCP · read/write scopes" },
+    hyperdx:   { v: "ClickStack OSS/BYOC MCP · not v1 cloud" },
+  },
+  {
     label: "Data ownership",
     obs:       { v: "Your D1/R2 or Postgres/S3" },
     datadog:   { v: "Datadog site · BYOC logs" },
@@ -223,11 +248,11 @@ export function renderCompare(): string {
 <section id="compare" class="compare" aria-labelledby="compare-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">How it compares <span class="cmp-asof">— source-checked ${LAST_REVIEWED} against vendor pages</span></p>
+      <p class="eyebrow">How it compares <span class="cmp-asof">— source-checked ${LAST_REVIEWED} against vendor pages; agent-access row ${AGENT_ACCESS_REVIEWED}</span></p>
       <h2 id="compare-title">${escapeHtml(comparison.headline)}</h2>
       <p class="section-lead">
         When an incident spans several signals, engineers and agents need to find related evidence.
-        Observability Unified connects instrumented signals through shared IDs, gives agents compact evidence bundles through MCP, and lets engineers inspect the same records in the dashboard. The table compares signal coverage, agent workflows, and deployment options.
+        Observability Unified connects instrumented signals through shared IDs, gives agents compact evidence bundles through MCP, and lets engineers inspect the same records in the dashboard. The table compares signal coverage, AI agent access over MCP, and deployment options.
       </p>
     </header>
     <div class="cmp-scroll" role="region" aria-label="Comparison table" tabindex="0">
@@ -244,13 +269,14 @@ export function renderCompare(): string {
       </table>
     </div>
     <p class="cmp-footnote muted small">
-      <strong>Beyond the 10 axes above — what AutoSRE &amp; agentic onboarding add:</strong>
+      <strong>Beyond the 11 axes above — what AutoSRE &amp; agentic onboarding add:</strong>
       When an AI agent investigates an incident across fragmented tools, it often confuses traffic share with deploy regressions, blames application code during shared-DB noisy-neighbor saturation, or proposes unsafe rollbacks from stack-trace coincidence alone.
       Observability Unified separates <code>relationshipCertainty</code> (link provenance) from <code>causalProofTier</code> (causal proof), computes per-request error lift across deploy/flag cohorts (<code>v_new</code> vs <code>v_old</code>), verifies fixes via paired baseline-fail/candidate-pass counterfactual evals, and gates external runners with single-use CAS remediation grants and a 1-click human approval queue — see <a href="${DOCS_URL}/autosre" rel="noopener">AutoSRE causal ontology</a> and <a href="${COMPARISON_URL}#where-obs-unified-fits" rel="noopener">Where Observability Unified fits</a>.
     </p>
     <p class="cmp-footnote muted small">
       ${SOURCE_CHECKED_CELLS} of ${TOTAL_CELLS} vendor cells were directly checked against the vendor's own live page on ${LAST_REVIEWED} and corrected where the source had changed;
       the ${INFERRED_CELLS} cells marked † are inferential (the vendor does not market that capability on the pages we read) and are not claimed as source-checked.
+      The ${escapeHtml(AGENT_ACCESS_ROW_LABEL)} row was added later: ${AGENT_ACCESS_SOURCE_CHECKED_CELLS} of ${AGENT_ACCESS_TOTAL_CELLS} vendor cells were checked against the vendor's own live page on ${AGENT_ACCESS_REVIEWED} (<a href="${AGENT_ACCESS_LEDGER_URL}" rel="noopener">supplementary ledger</a>).
       Cells are descriptive, not scored. Vendor headers link to the cited sources in <a href="${COMPARISON_URL}" rel="noopener">the comparison doc</a>;
       per-cell verdicts and excerpts live in the <a href="${AUDIT_LEDGER_URL}" rel="noopener">tracked audit ledger</a>.
       Pricing changes often; treat prices as of the review date.
