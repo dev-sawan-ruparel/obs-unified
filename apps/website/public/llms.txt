@@ -209,11 +209,14 @@ Agents should execute all local setup, code instrumentation, and telemetry verif
 - **How does AutoSRE keep an agent from rolling back the wrong deploy?** It
   keeps link provenance (`relationshipCertainty`: `exact`, `inferred`,
   `heuristic`) separate from causal proof (`causalProofTier`: `unverified_locus`,
-  `corroborated_candidate`, `cohort_rate_isolated`, `counterfactual_verified`).
-  Structural stack overlap only reaches `corroborated_candidate`. A remediation
-  grant requires traffic-normalized cohort isolation, paired
-  baseline-fail/candidate-pass counterfactual verification, or human operator
-  approval in the dashboard. MCP write tools stay unregistered unless
+  `corroborated_candidate`, `cohort_rate_isolated`, `counterfactual_verified`),
+  and a per-action policy matrix decides what each tier allows. For
+  `rollback_deploy` and `toggle_feature_flag`, structural stack overlap only
+  reaches `corroborated_candidate`, which needs human approval, and
+  `unverified_locus` is blocked. A grant without human approval needs
+  traffic-normalized cohort isolation or paired baseline-fail/candidate-pass
+  counterfactual verification. Config and prompt changes need counterfactual
+  verification. MCP write tools stay unregistered unless
   `OBS_MCP_ENABLE_WRITES=true`. The collector issues a single-use grant with
   target-version CAS; your own runner claims it and executes the change.
 - **What is the Agent Action Graph?** A causal graph that connects browser
