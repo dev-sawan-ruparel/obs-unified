@@ -36,10 +36,10 @@ export async function loader({ params }: Route.LoaderArgs) {
 
 export function meta({ data }: Route.MetaArgs) {
   if (!data) {
-    return [{ title: 'Not Found — obs-unified docs' }];
+    return [{ title: 'Not Found — Observability Unified docs' }];
   }
 
-  const pageTitle = `${data.title} — obs-unified docs`;
+  const pageTitle = `${data.title} — Observability Unified docs`;
   // Cloudflare Pages 308-redirects /docs/x to /docs/x/, so canonical URLs
   // must carry the trailing slash to avoid pointing at a redirect.
   const canonicalUrl = `${DOCS_ORIGIN}${data.url.replace(/\/$/, '')}/`;
@@ -53,7 +53,7 @@ export function meta({ data }: Route.MetaArgs) {
     {
       '@type': 'ListItem',
       position: 1,
-      name: 'obs-unified docs',
+      name: 'Observability Unified docs',
       item: `${DOCS_ORIGIN}/docs/`,
     },
     ...(data.url !== '/docs'
@@ -86,7 +86,7 @@ export function meta({ data }: Route.MetaArgs) {
     },
     { property: 'og:type', content: 'article' },
     { property: 'og:locale', content: 'en_US' },
-    { property: 'og:site_name', content: 'obs-unified docs' },
+    { property: 'og:site_name', content: 'Observability Unified docs' },
     { property: 'og:title', content: pageTitle },
     { property: 'og:description', content: data.description },
     { property: 'og:url', content: canonicalUrl },
@@ -131,7 +131,7 @@ export function meta({ data }: Route.MetaArgs) {
             isPartOf: {
               '@type': 'WebSite',
               '@id': `${DOCS_ORIGIN}/#website`,
-              name: 'obs-unified documentation',
+              name: 'Observability Unified documentation',
               url: `${DOCS_ORIGIN}/`,
             },
             about: {

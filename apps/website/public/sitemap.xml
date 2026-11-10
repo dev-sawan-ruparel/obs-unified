@@ -10,7 +10,7 @@
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://obsunified.com/og.jpg</image:loc>
-      <image:title>Observability Unified — a telemetry graph agents can debug with</image:title>
+      <image:title>Observability Unified — production debugging context for AI agents</image:title>
       <image:caption>Observability Unified telemetry graph for humans and AI agents debugging software</image:caption>
     </image:image>
     <image:image>

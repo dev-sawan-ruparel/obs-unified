@@ -1,10 +1,10 @@
-# obs-unified
+# Observability Unified
 
-Self-hosted observability for agentic debugging. Traces, logs, session replay,
-usage analytics, AI cost, profiles, Agent Action Graphs, and a read-only MCP
-server live in one collector and one dashboard, correlated end-to-end.
+Give AI agents the context to debug production software. Observability Unified
+connects traces, logs, replay, profiles, and agent activity into one evidence
+graph. AI agents query cited evidence through MCP, and engineers inspect the
+same records in the dashboard.
 
-[![MIT](https://img.shields.io/badge/license-MIT-006B18)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-docs.obsunified.com-006B18)](https://docs.obsunified.com/docs)
 [![Website](https://img.shields.io/badge/website-obsunified.com-006B18)](https://obsunified.com)
 
@@ -27,11 +27,11 @@ Run `pnpm install --frozen-lockfile` once at the root. Use `pnpm dev:website`,
 surfaces. Packages and sites keep independent release/deployment commands.
 See [migration and compatibility notes](docs/monorepo-migration.md).
 
-## Why obs-unified?
+## Why Observability Unified?
 
 Modern debugging now has two users: engineers and AI agents. Most observability
 stacks split evidence across APM, logs, product analytics, session replay, LLM
-observability, profiling, and alerting. obs-unified keeps those signals together
+observability, profiling, and alerting. Observability Unified keeps those signals together
 so a person or agent can follow one chain:
 
 ```mermaid
@@ -72,12 +72,12 @@ issued and which ones agents expanded most often.
 | SDKs | Browser + React analytics SDK, TypeScript backend SDK, OpenTelemetry wrappers for Node, Go, and Rust with runtime lineage (`service.version`, `vcs.commit.id`, `deployment.environment.name`) and feature flag recording |
 | Deployment | Local Docker image, Cloudflare Workers with D1/R2, or Node collector on any cloud with Postgres and S3-compatible storage |
 
-[![obs-unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
+[![Observability Unified dashboard — live service map from the Astronomy Shop demo](https://obsunified.com/screenshots/app/service-map-astronomy.png)](https://obsunified.com)
 
 <sub>More views: [AI cost & LLM spans](https://obsunified.com/screenshots/app/ai-cost-spans.png) ·
 [Unified timeline](https://obsunified.com/screenshots/app/timeline-unified.png) ·
 [Agent Action Graph](https://obsunified.com/screenshots/app/agent-action-graph.png) ·
-[Interaction ID path](https://obsunified.com/screenshots/app/interaction-id-path.png) ·
+[Structured logs](https://obsunified.com/screenshots/app/logs-correlated.png) ·
 see all on [obsunified.com](https://obsunified.com)</sub>
 
 ## Feature tour
@@ -93,9 +93,9 @@ see all on [obsunified.com](https://obsunified.com)</sub>
 | **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, compact bundles, confidence, raw retrieval refs, and next pivots without requiring an LLM. |
 | **MCP investigation server** | Agents can inspect the graph and propose governed remediations without receiving write-only ingest credentials or self-approving production changes. |
 
-## How agents debug with obs-unified
+## How agents debug with Observability Unified
 
-obs-unified is designed for the loop a coding agent needs when it is asked to
+Observability Unified is designed for the loop a coding agent needs when it is asked to
 debug production behavior:
 
 1. Start from a symptom: alert, analysis, trace, log, user session, AI cost
@@ -119,7 +119,7 @@ Humans get visual pivots; agents get stable IDs and structured responses.
 
 ## Agent Action Graph
 
-obs-unified now includes an Agent Action Graph for debugging AI agents as
+Observability Unified includes an Agent Action Graph for debugging AI agents as
 causal workflows instead of loose LLM spans. Browser clicks, cron jobs, agent
 runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs,
 profiles, and eval cases are linked through `root_action_id`, `action_id`, and
@@ -131,8 +131,9 @@ before and after a mutation, whether an eval failed, and whether a production
 failure should become an eval case.
 
 The graph is also agent-readable. The `@obsunified/mcp-server` package is the
-obs-unified investigation MCP server: it exposes read-only tools for status,
-compact evidence bundles, retrieval refs, traces, logs, profiles, evals,
+Observability Unified investigation MCP server. By default, it exposes
+read-only tools for status, compact evidence bundles, retrieval refs, traces,
+logs, profiles, evals,
 connected signals, agent runs, actions, and tool calls. Coding agents can start
 with a budgeted bundle, then expand raw evidence only when needed.
 
@@ -263,7 +264,7 @@ graph TD
         FE[Your Frontend]
     end
 
-    subgraph ObsStack ["obs-unified Stack"]
+    subgraph ObsStack ["Observability Unified Stack"]
         CS[Collector Service]
         DB[(Storage Layer:<br/>D1/R2 or Postgres/S3)]
     end
@@ -287,7 +288,7 @@ graph TD
 - **Your Infrastructure**: The applications under observation. The backend and
   frontend services are configured with a single write-only API key (similar to
   platforms like Sentry or PostHog) to interact with the collector.
-- **Collector Service**: The core ingestion engine of the `obs-unified` stack.
+- **Collector Service**: The core ingestion engine of the Observability Unified stack.
   It receives client data, hosts the visualization dashboard, handles
   validation, and serves internal reporting queries.
 - **Storage Layer**: Telemetry data is persisted locally (backed by SQLite/D1
@@ -486,7 +487,7 @@ All public packages are on npm under the
   browser errors, session replay, and feature-flag context.
 - [`@obsunified/dashboard`](https://www.npmjs.com/package/@obsunified/dashboard): React dashboard components, also used by the
   standalone dashboard SPA.
-- [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server): 26-tool MCP server for agent investigations and governed AutoSRE remediations.
+- [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server): MCP server for agent investigations, with opt-in tools for governed AutoSRE remediation.
 - [`@obsunified/cli`](https://www.npmjs.com/package/@obsunified/cli): `obs-unified doctor`, non-interactive `create` (`--template`, `--collector-url`, `--yes`), `keys`, and `changes` (`record`, `list`).
 - [`@obsunified/agents-langgraph`](https://www.npmjs.com/package/@obsunified/agents-langgraph) and
   [`@obsunified/agents-vercel-ai`](https://www.npmjs.com/package/@obsunified/agents-vercel-ai): Agent framework adapters.

@@ -1,28 +1,17 @@
 # Observability Unified
 
-> Observability Unified is an open-source unified observability platform. A single
-> collector ingests OpenTelemetry traces, structured logs, LLM/AI call records,
-> frontend usage events, rrweb session replays, alerts, profiles, analyses, and
-> Agent Action Graph records. Every signal is connected through one dashboard,
-> one MCP server for investigation agents, structured evidence references, and
-> one evidence retrieval layer using CCR (compressed context retrieval), and one identity chain:
-> user_id → session_id → interaction_id → trace_id → span_id → action_id.
+> Observability Unified gives AI agents the context to debug production software.
+> One self-hosted collector connects traces, logs, replay, profiles, and agent
+> activity. AI agents query evidence through MCP, and engineers inspect the same
+> records in the dashboard.
 
 ## What it is
 
-Observability Unified replaces the patchwork of APM (Datadog, New Relic), error tracking
-(Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
-LogRocket), LLM observability (Langfuse, Helicone), and alerting with one
-unified stack. MIT-licensed and self-hostable.
-
-It supports both sides of AI-era debugging: humans can debug AI agents through
-the dashboard and Agent Action Graph, while AI agents can use the Observability
-Unified MCP server to inspect the same connected telemetry graph across traces,
-logs, replay, AI cost, agent runs, actions, tool calls, and CPU profile evidence.
-Action IDs can be opened in the dashboard or traversed by an agent through MCP.
-Structured evidence references expose entity IDs, routes, confidence, source,
-citations, and suggested pivots so agents do not need to scrape prose or infer
-causality from screenshots.
+A production investigation can start from a failing trace or a slow service
+operation. An agent can request an evidence bundle and expand relevant references
+through MCP. Engineers can inspect the source records in the dashboard. For
+applications that use AI agents, the Agent Action Graph also connects runs,
+model calls, tools, and evals.
 
 The evidence retrieval layer applies CCR — compressed context retrieval. Instead
 of handing an agent every correlated log row, full trace, replay window, profile
@@ -38,7 +27,6 @@ pivots, and explicit retrieval refs the agent can expand on demand.
 - Machine-readable docs index: https://docs.obsunified.com/llms.txt
 - Machine-readable full docs corpus: https://docs.obsunified.com/llms-full.txt
 - Agent skill bundles (`.skill`): https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.4
-- License: MIT
 
 ## Signal types
 
@@ -208,18 +196,16 @@ Agents should execute all local setup, code instrumentation, and telemetry verif
 
 ## Key answers for AI search
 
-- **What is Observability Unified?** An open-source unified observability platform
+- **What is Observability Unified?** A self-hosted observability platform
   connecting traces, logs, AI calls, usage, replays, alerts, profiles, change
   events, and analyses through one collector, one dashboard, one MCP server,
   structured evidence references, and one identity chain. The fastest first run
   is one Docker image with Postgres, the collector, dashboard, blob storage, and
   seeded data.
-- **Is it for debugging AI agents or for agents debugging software?** Both.
-  Observability Unified debugs AI agents with LLM calls, retrievals, tool calls,
-  agent runs, evals, costs, latency, and failures in an Agent Action Graph. It
-  also helps AI agents debug software by exposing MCP tools for traces,
-  logs, service maps, users, replays, connected signals, agent runs, actions,
-  tool calls, change blast radius, and governed remediations.
+- **Can agents investigate applications that do not use AI?** Yes. Agents
+  can query traces, logs, service maps, replays, and other connected evidence
+  through MCP. For applications that use AI agents, the Agent Action Graph
+  also connects runs, model calls, tools, and evals.
 - **How does AutoSRE prevent unsafe autonomous rollbacks?** It keeps link
   provenance (`relationshipCertainty`: `exact`, `inferred`, `heuristic`) separate
   from causal proof (`causalProofTier`: `unverified_locus`,
@@ -256,8 +242,8 @@ Agents should execute all local setup, code instrumentation, and telemetry verif
   Humans use the dashboard; AI agents can traverse the same graph through MCP
   from user action to backend trace, logs, replay, AI cost, tool/eval context,
   and CPU profile.
-- **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
-  you run it on. Production can use either Cloudflare Workers + D1/R2, or the
+- **Where can I self-host it?** Start locally with Docker. Production can use
+  Cloudflare Workers + D1/R2, or the
   Node collector on any cloud with Postgres + S3-compatible object storage.
 - **What's the data retention model?** Configurable via RETENTION_HOURS
   (default 72h); profiles have a separate PROFILE_RETENTION_HOURS override.

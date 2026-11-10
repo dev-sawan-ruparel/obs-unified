@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 450" role="img" aria-labelledby="title description">
+  <title id="title">One evidence graph, two ways to investigate</title>
+  <desc id="description">A checkout symptom leads to a request trace and related records. The dashboard and MCP access the same evidence.</desc>
+  <rect width="720" height="450" fill="#f9f9f9"/>
+  <path d="M360 110v48m0 145v39m-160 0h320m-320 0v20m320-20v20" stroke="#006b18" stroke-width="2" fill="none"/>
+  <g font-family="system-ui,sans-serif" fill="#1a1c1c">
+    <rect x="172" y="35" width="376" height="75" fill="#fff" stroke="#c3c8c4"/>
+    <text x="192" y="62" font-size="13" font-weight="700" letter-spacing="1.4" fill="#006b18">PRODUCTION SYMPTOM</text>
+    <text x="192" y="88" font-size="24">Why is checkout slow?</text>
+    <rect x="55" y="158" width="610" height="145" fill="#fff" stroke="#c3c8c4"/>
+    <rect x="55" y="158" width="6" height="145" fill="#006b18"/>
+    <text x="80" y="190" font-size="13" font-weight="700" letter-spacing="1.4" fill="#006b18">SHARED EVIDENCE</text>
+    <text x="80" y="226" font-size="24" font-family="ui-monospace,monospace">POST /api/checkout</text>
+    <text x="80" y="265" font-size="18">Request spans · Correlated logs · Linked records</text>
+    <rect x="55" y="362" width="290" height="58" fill="#fff" stroke="#c3c8c4"/>
+    <text x="76" y="397" font-size="20">Engineer · Dashboard</text>
+    <rect x="375" y="362" width="290" height="58" fill="#fff" stroke="#c3c8c4"/>
+    <text x="396" y="397" font-size="20">AI agent · MCP</text>
+  </g>
+</svg>

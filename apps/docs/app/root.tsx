@@ -57,7 +57,7 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export const meta: Route.MetaFunction = () => [
-  { title: 'obs-unified docs — unified observability' },
+  { title: 'Observability Unified docs — unified observability' },
   {
     name: 'description',
     content:
@@ -70,10 +70,10 @@ export const meta: Route.MetaFunction = () => [
   },
   { property: 'og:type', content: 'website' },
   { property: 'og:locale', content: 'en_US' },
-  { property: 'og:site_name', content: 'obs-unified docs' },
+  { property: 'og:site_name', content: 'Observability Unified docs' },
   {
     property: 'og:title',
-    content: 'obs-unified docs — unified observability',
+    content: 'Observability Unified docs — unified observability',
   },
   {
     property: 'og:description',
@@ -92,12 +92,12 @@ export const meta: Route.MetaFunction = () => [
   {
     property: 'og:image:alt',
     content:
-      'obs-unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference',
+      'Observability Unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference',
   },
   { name: 'twitter:card', content: 'summary_large_image' },
   {
     name: 'twitter:title',
-    content: 'obs-unified docs — unified observability',
+    content: 'Observability Unified docs — unified observability',
   },
   {
     name: 'twitter:description',
@@ -108,7 +108,7 @@ export const meta: Route.MetaFunction = () => [
   {
     name: 'twitter:image:alt',
     content:
-      'obs-unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference',
+      'Observability Unified documentation — telemetry graph, SDKs, MCP server, and self-hosting reference',
   },
 ];
 

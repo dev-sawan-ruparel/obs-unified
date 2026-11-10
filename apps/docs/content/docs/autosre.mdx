@@ -5,7 +5,7 @@ description: Change correlation, traffic-normalized cohort lift, noisy-neighbor 
 
 When a production incident pages an AI agent or human SRE, finding *where* an error surfaced is only the first step. Authorizing an automated rollback, feature-flag flip, or config revert requires proving *what change caused the incident*—and knowing when telemetry is insufficient to prove causality safely.
 
-obs-unified's **AutoSRE causal ontology** (RFC 0013) adds three missing layers to the unified telemetry graph:
+Observability Unified's **AutoSRE causal ontology** (RFC 0013) adds three missing layers to the unified telemetry graph:
 
 1. **Change Event Ledger (`change_events`)** — Every deploy, rollback, feature-flag evaluation, config update, and agent prompt release is recorded and linked to runtime spans via OpenTelemetry resource and span attributes (`service.version`, `vcs.commit.id`, `obs.config.digest`, `feature_flag.*`).
 2. **Dual Epistemic Model (`relationshipCertainty` vs. `causalProofTier`)** — Graph link provenance (how sure we are two nodes are connected) is strictly separated from causal proof strength (how sure we are a candidate change caused the symptom).

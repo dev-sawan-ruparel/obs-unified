@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="obs-unified — self-hosted observability for the whole stack">
-  <title>obs-unified</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="Observability Unified — self-hosted observability for the whole stack">
+  <title>Observability Unified</title>
   <rect width="1280" height="320" fill="#0E1110"/>
   <rect x="32" y="32" width="1216" height="256" fill="#15191A"/>
   <rect x="32" y="32" width="10" height="256" fill="#2BA644"/>
@@ -18,7 +18,7 @@
     font-size="24"
     font-weight="700"
     letter-spacing="3.4"
-  >OBS-UNIFIED</text>
+  >OBSERVABILITY UNIFIED</text>
 
   <text
     x="180" y="148"
@@ -27,7 +27,7 @@
     font-size="12"
     font-weight="700"
     letter-spacing="1.5"
-  >SELF-HOSTED OBSERVABILITY · MIT</text>
+  >SELF-HOSTED OBSERVABILITY</text>
 
   <text
     x="86" y="216"
@@ -61,5 +61,5 @@
     font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
     font-size="12"
     font-weight="500"
-  >MIT</text>
+  >MCP</text>
 </svg>

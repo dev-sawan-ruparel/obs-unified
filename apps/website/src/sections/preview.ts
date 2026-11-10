@@ -63,7 +63,7 @@ export function renderPreview(): string {
       <h2 id="preview-title">From zero to correlated signals in three steps</h2>
       <p class="section-lead">
         Start the local stack, pick SDKs for your runtime, and initialize each service.
-        Backend spans, frontend interactions, and AI spans share the same identity chain automatically.
+        With identity propagation in place, frontend interactions and backend spans can be investigated together. After telemetry arrives, see <a href="#evidence">how an agent retrieves related evidence</a>.
       </p>
     </header>
     <div class="preview-grid">

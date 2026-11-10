@@ -3,7 +3,7 @@ title: SDKs and MCP
 description: First-party SDKs for TypeScript, Go, and Rust, a browser SDK for usage and replay, and an MCP server for agent investigations. They share one identity-propagation contract.
 ---
 
-obs-unified ships first-party SDKs for **three backend languages** plus a browser SDK and an MCP server for AI agents, all sharing one identity-propagation contract.
+Observability Unified ships first-party SDKs for **three backend languages** plus a browser SDK and an MCP server for AI agents, all sharing one identity-propagation contract.
 
 For a compact method-by-method cheat sheet, see [SDK API reference](/docs/sdk-reference).
 
@@ -20,7 +20,7 @@ For the agent-facing investigation surface, see [MCP server](/docs/mcp-server).
 
 **Which TypeScript backend package should I choose?**
 - Choose **`@obsunified/telemetry-sdk`** for **Cloudflare Workers, Hono, Next.js, Bun, Deno, or lightweight Node.js** services where you want zero-dependency fetch-based OTLP export, structured logging, AI call tracking, and runtime lineage in one package.
-- Choose **`@obsunified/sdk`** when your Node.js service already uses **`@opentelemetry/sdk-node` auto-instrumentation** (Express, Fastify, NestJS, `pg`, `ioredis`) and you want a 1-line wrapper that wires the standard Node OpenTelemetry SDK to the obs-unified collector.
+- Choose **`@obsunified/sdk`** when your Node.js service already uses **`@opentelemetry/sdk-node` auto-instrumentation** (Express, Fastify, NestJS, `pg`, `ioredis`) and you want a 1-line wrapper that wires the standard Node OpenTelemetry SDK to the Observability Unified collector.
 
 All backend SDKs expose the **same core surface**, so muscle memory ports across runtimes:
 
@@ -46,13 +46,13 @@ If your backend is in **Python, Java/JVM, .NET, Ruby, PHP, or Elixir**, standard
 
 This one is browser-only by definition — there's no parallel Go/Rust analytics SDK because that surface area is the web.
 
-All four packages live in the obs-unified monorepo. The TypeScript packages publish to public npm under the [`@obsunified` organization](https://www.npmjs.com/org/obsunified). The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.1` and is indexed on [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go). The Rust SDK publishes to crates.io as [`obs-unified`](https://crates.io/crates/obs-unified). The full list of published artifacts, including the all-in-one container image on GHCR, is in [Installation](/docs/installation#packages-and-registries).
+All four packages live in the Observability Unified monorepo. The TypeScript packages publish to public npm under the [`@obsunified` organization](https://www.npmjs.com/org/obsunified). The Go SDK is consumed from the public `sdks/go` module path through Go module tags like `sdks/go/v0.1.1` and is indexed on [pkg.go.dev](https://pkg.go.dev/github.com/dev-sawan-ruparel/obs-unified/sdks/go). The Rust SDK publishes to crates.io as [`obs-unified`](https://crates.io/crates/obs-unified). The full list of published artifacts, including the all-in-one container image on GHCR, is in [Installation](/docs/installation#packages-and-registries).
 
 ## MCP server
 
 | Package | Where it runs | What it does |
 | --- | --- | --- |
-| [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server) | Local MCP host over stdio | Exposes read-only investigation tools for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, compact evidence bundles, connected signals, agent runs, actions, and tool calls |
+| [`@obsunified/mcp-server`](https://www.npmjs.com/package/@obsunified/mcp-server) | Local MCP host over stdio | Exposes investigation tools, read-only by default, for status, recent traces, trace detail, service maps, logs, AI sessions, users, replays, profiles, evals, compact evidence bundles, connected signals, agent runs, actions, and tool calls |
 
 The MCP server is intentionally a **read boundary**. Agents can inspect the same graph a human sees in the dashboard, but they do not need the write-only telemetry ingest key used by app SDKs. Configure it with a dashboard token, a compatible read bearer, or a local `obs_session` cookie for development.
 

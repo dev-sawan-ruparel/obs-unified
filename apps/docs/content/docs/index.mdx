@@ -1,11 +1,11 @@
 ---
 title: Welcome
-description: Unified observability across traces, logs, AI calls, agent action graphs, MCP, usage, replay, alerts, profiles, and analyses.
+description: Give AI agents production debugging context through MCP and inspect the same evidence in the dashboard.
 ---
 
-obs-unified is unified observability for every signal, built for agentic debugging. Traces, logs, AI calls, agent actions, usage events, replays, alerts, profiles, and analyses flow into **one collector**, share **one identity chain**, and appear in **one telemetry graph** agents can traverse from user action to backend trace, logs, replay, AI cost, MCP tool context, and CPU profile.
+Observability Unified gives AI agents the context they need to debug production software. It connects telemetry such as traces, logs, replays, profiles, and agent actions into one evidence graph. Agents can retrieve relevant evidence through MCP, and engineers can inspect the same records in the dashboard.
 
-Self-hosting is the deployment model, not the whole pitch: the default hosted path runs on Cloudflare Workers with D1 and R2, while the Node collector path uses Postgres and S3-compatible blob storage.
+Self-host with Cloudflare Workers, D1, and R2 or use the Node collector with Postgres and S3-compatible blob storage.
 
 ## What's in this documentation
 
@@ -18,7 +18,7 @@ Self-hosting is the deployment model, not the whole pitch: the default hosted pa
 - [Evidence retrieval (CCR)](/docs/evidence-retrieval) — compact, token-budgeted evidence bundles and retrieval refs that let agents pull just the debugging signal, not the raw firehose.
 - [Agent Action Graph](/docs/agent-action-graph) — debug agent runs as causal workflows across LLM calls, retrievals, tool calls, traces, logs, profiles, and eval cases.
 - [AutoSRE causal ontology](/docs/autosre) — change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, counterfactual verification, and guarded autonomous remediation.
-- [MCP server](/docs/mcp-server) — expose read-only investigation tools to AI agents without granting ingest credentials.
+- [MCP server](/docs/mcp-server) — give AI agents investigation tools that are read-only by default. The collector uses a separate read/admin bearer token.
 - [Instrumenting](/docs/instrumenting) — concrete React + Worker examples that produce signals correlated end-to-end.
 - [Python Flask instrumentation](/docs/instrument-python-flask) — OpenTelemetry setup for a Flask service.
 - [What to expect](/docs/what-to-expect) — the click-to-CPU scenarios the platform was built around, with the rail's role at every hop.

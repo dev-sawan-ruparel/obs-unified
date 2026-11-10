@@ -10,12 +10,12 @@ export function renderHero(): string {
 <section class="hero" aria-labelledby="hero-title">
   <div class="container hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Open source · ${positioning.distribution.license} licensed</p>
+      <p class="eyebrow">${hero.eyebrow}</p>
       <h1 id="hero-title" class="hero-title">
-        <span class="hero-title-line">${positioning.hero.headline}</span>
+        ${positioning.hero.headline}
       </h1>
       <p class="hero-lead">
-        <strong>${positioning.hero.subhead}</strong> ${hero.lead.replace(positioning.hero.subhead + " ", "")}
+        <strong>${positioning.hero.subhead}</strong> ${hero.lead}
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
@@ -39,7 +39,7 @@ export function renderHero(): string {
     </div>
     <figure class="hero-product-shot">
       <div class="hero-shot-frame">
-        <img src="${positioning.hero.primaryProofImage}" alt="${hero.imageAlt}" width="1180" height="900" fetchpriority="high" />
+        <img src="${positioning.hero.primaryProofImage}" alt="${hero.imageAlt}" width="720" height="450" fetchpriority="high" />
       </div>
       <figcaption>
         <span>${hero.figcaptionTitle}</span>

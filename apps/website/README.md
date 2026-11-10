@@ -1,6 +1,6 @@
 # presence
 
-Marketing / landing page for [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified), the self-hosted observability platform. Live at **[obsunified.com](https://obsunified.com)**.
+Marketing / landing page for [Observability Unified](https://github.com/dev-sawan-ruparel/obs-unified), the self-hosted observability platform. Live at **[obsunified.com](https://obsunified.com)**.
 
 Vanilla TypeScript + Vite. No framework. Optimized for AEO (answer-engine optimization): JSON-LD `SoftwareApplication` + `FAQPage` schemas, semantic HTML5 landmarks, `llms.txt`, sitemap, explicit AI-crawler allowlist.
 
@@ -70,7 +70,7 @@ apps/website/
 - JSON-LD: `SoftwareApplication`, `Organization`, `WebSite`, `FAQPage`
 - `llms.txt` summarizing the project in long-form, answer-ready prose
 - Semantic landmarks: `header`, `main`, `section[aria-labelledby]`, `footer`
-- Direct factual lead sentences ("obs-unified is …") for snippet extraction
+- Direct factual lead sentences ("Observability Unified is …") for snippet extraction
 - Open Graph + Twitter cards, canonical URL
 - Sitemap + robots with named AI crawlers (GPTBot, ClaudeBot, PerplexityBot…)
 

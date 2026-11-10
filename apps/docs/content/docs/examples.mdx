@@ -12,11 +12,11 @@ Use this page to pick the right starting point. Runnable examples are things you
 | First run from a fresh checkout | [Getting started](/docs/getting-started) | Guide |
 | Run the prebuilt image without cloning | [`ghcr.io/dev-sawan-ruparel/obs-unified`](/docs/installation#fastest-first-run-prebuilt-image) | Prebuilt image |
 | Run everything from one local image with sample data | `Dockerfile.local` via `pnpm local:image && pnpm local:run` | Runnable image |
-| Try obs-unified with realistic traffic | `demo/` | Runnable demo |
+| Try Observability Unified with realistic traffic | `demo/` | Runnable demo |
 | Run the end-to-end AutoSRE Scenario D testbed | `pnpm e2e:autosre` | Runnable verification suite |
 | Scaffold a new React + Hono app (interactive, or non-interactive with `--yes`) | `pnpm dlx @obsunified/cli create my-app --template react-vite --yes` | Runnable template |
-| Add obs-unified to an existing React + Hono app | [React + Hono walkthrough](/docs/instrumenting) | Walkthrough |
-| Add obs-unified to an existing Python Flask app | [Python Flask walkthrough](/docs/instrument-python-flask) | Walkthrough |
+| Add Observability Unified to an existing React + Hono app | [React + Hono walkthrough](/docs/instrumenting) | Walkthrough |
+| Add Observability Unified to an existing Python Flask app | [Python Flask walkthrough](/docs/instrument-python-flask) | Walkthrough |
 | Add browser analytics only | [Analytics SDK](/docs/sdks#obs-unifiedanalytics-sdk) | Reference |
 | Add TypeScript backend telemetry | [Telemetry SDK](/docs/sdks#obs-unifiedtelemetry-sdk) | Reference |
 | Instrument Python, JVM, or .NET | [Language recipes](#language-recipes) | Recipes |
@@ -33,7 +33,7 @@ Use this page to pick the right starting point. Runnable examples are things you
 | `apps/obs-demo/` | AI calls, RAG, tool calls, session tracking, and evaluation scenarios. | `pnpm dev`, then `curl http://127.0.0.1:8787/api/demo/run-all` |
 | `scripts/e2e-autosre/` (`run-all.sh`) | End-to-end AutoSRE Scenario D testbed: deploy change event, traffic-normalized cohort lift (`v2.4.1` vs `v2.4.0`), noisy-neighbor contention check, counterfactual eval verification, and remediation grant claim. | `pnpm e2e:autosre` |
 | `apps/collector-node/` | Standalone Node collector with Postgres + RustFS (S3-compatible). | `docker compose up -d` from `apps/collector-node` |
-| `demo/` | OpenTelemetry Astronomy Shop feeding obs-unified with polyglot microservice traffic. | `pnpm demo:setup`, `pnpm demo:preflight`, `pnpm demo:up` |
+| `demo/` | OpenTelemetry Astronomy Shop feeding Observability Unified with polyglot microservice traffic. | `pnpm demo:setup`, `pnpm demo:preflight`, `pnpm demo:up` |
 
 ## SDK examples
 

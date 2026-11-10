@@ -1,6 +1,6 @@
-# obs-unified-docs
+# Observability Unified documentation
 
-Documentation site for [obs-unified](https://github.com/dev-sawan-ruparel/obs-unified) — unified observability across traces, logs, AI calls, usage, replay, alerts, profiles, and analyses. Live at **[docs.obsunified.com](https://docs.obsunified.com)**.
+Documentation site for [Observability Unified](https://github.com/dev-sawan-ruparel/obs-unified) — unified observability across traces, logs, AI calls, usage, replay, alerts, profiles, and analyses. Live at **[docs.obsunified.com](https://docs.obsunified.com)**.
 
 Built with [Fumadocs](https://fumadocs.dev/) on React Router 7 (SPA, no Next.js).
 

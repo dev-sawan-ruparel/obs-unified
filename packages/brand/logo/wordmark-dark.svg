@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 32" role="img" aria-label="obs-unified (dark)">
-  <title>obs-unified</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 32" role="img" aria-label="Observability Unified (dark)">
+  <title>Observability Unified</title>
   <rect width="32" height="32" fill="#2BA644"/>
   <path d="M7 9 L10 14 L7 19" fill="none" stroke="#0E1110" stroke-width="2.2" stroke-linejoin="bevel" stroke-linecap="square"/>
   <rect x="14" y="12.9" width="12" height="2.2" fill="#0E1110"/>
@@ -12,5 +12,5 @@
     font-size="14"
     font-weight="700"
     letter-spacing="1.96"
-  >OBS-UNIFIED</text>
+  >OBSERVABILITY UNIFIED</text>
 </svg>

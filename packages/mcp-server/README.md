@@ -1,7 +1,7 @@
 # @obsunified/mcp-server
 
-Read-only investigation MCP server for AI agents that need access to an
-obs-unified collector.
+Investigation MCP server for AI agents that need access to an
+Observability Unified collector. The server is read-only by default.
 
 It exposes collector investigation endpoints as Model Context Protocol tools:
 status, compact evidence bundles, evidence retrieval refs, recent traces, trace
@@ -24,11 +24,11 @@ This package is distinct from:
 - Collector normalization of OpenTelemetry MCP span attributes such as
   `mcp.method.name`.
 
-See [MCP in obs-unified](../../docs/mcp.md) for the terminology split.
+See [MCP in Observability Unified](../../docs/mcp.md) for the terminology split.
 
 ## Investigation model
 
-obs-unified exposes a connected telemetry graph. The MCP server lets an agent
+Observability Unified exposes a connected telemetry graph. The MCP server lets an agent
 walk that graph through read-only tools:
 
 ![Investigation model](https://mermaid.ink/svg/Zmxvd2NoYXJ0IExSCiAgc3ltcHRvbVsic3ltcHRvbSBvciBhZ2dyZWdhdGUiXSAtLT4gZXZpZGVuY2VbIkV2aWRlbmNlUmVmZXJlbmNlIl0KICBldmlkZW5jZSAtLT4gcmFpbFsiY29ubmVjdGVkX3NpZ25hbHMiXQogIHJhaWwgLS0-IHRyYWNlWyJ0cmFjZS9zcGFuL2xvZy9wcm9maWxlIl0KICByYWlsIC0tPiBhY3Rpb25bImFjdGlvbi9ydW4vdG9vbC9ldmFsIl0KICBhY3Rpb24gLS0-IGZpeFsiY29kZSByZWZzL2V2YWwgY2FzZS9zdGVwIGNvbXBhcmlzb24iXQ)
@@ -124,6 +124,9 @@ Supported auth variables, in priority order:
   session on the collector's remediation approve/reject routes, so **do not use
   it for autonomous agents**; use a bearer token instead.
 
+Read-only mode controls which tools the MCP server registers. The collector's
+bearer token still has its read/admin permissions.
+
 Ingest keys (`OBS_INGEST_KEY`) are write-only for telemetry ingestion (`/v1/*`) and are rejected on collector read/admin endpoints (`/internal/*`).
 
 Optional variables:
@@ -208,7 +211,7 @@ Build the package first with `pnpm --filter @obsunified/mcp-server build`.
 
 ## Write tools (opt-in)
 
-The server is read-only by default. Four tools can change collector state, and
+The server registers 26 read-only tools by default. Four more tools can change collector state, and
 they are **not registered at all** unless you set `OBS_MCP_ENABLE_WRITES=true`:
 
 - `open_incident` — opens (or deduplicates onto) the incident that findings and proposals attach to.
