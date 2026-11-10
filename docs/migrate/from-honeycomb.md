@@ -6,7 +6,7 @@ wire-level swap is one config change.
 
 ## The five-minute version
 
-Point your existing OTel exporter at the obs-unified collector:
+Point your existing OTel exporter at the Observability Unified collector:
 
 ```diff
 - OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io

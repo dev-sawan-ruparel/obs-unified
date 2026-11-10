@@ -1,6 +1,6 @@
 # @obsunified/messaging
 
-Single source of truth for obs-unified **messaging facts** (RFC 0012): package
+Single source of truth for Observability Unified **messaging facts** (RFC 0012): package
 names/scopes, the MCP tool list, the `EvidenceReference` / `EvidenceRetrievalRef`
 field sets, connected-rail kinds, governance enums, the identity chain,
 capabilities + status, glossary, and feature records.
@@ -50,6 +50,16 @@ A contract / name / scope / status / feature change is done only when:
 3. `pnpm messaging:generate` is rerun (manifest updated);
 4. `pnpm messaging:sync` is run (all consumers updated);
 5. `pnpm messaging:check` and every satellite's `messaging:check` pass.
+
+## Review changes to public positioning
+
+When a PR changes the product promise, the reference proof, or a public
+access or availability claim, list the affected surfaces and the evidence
+for the change in the PR. Review the homepage, docs, dashboard onboarding,
+package descriptions, MCP and skills copy, screenshots, and discovery
+metadata where they repeat the claim. Keep technical identifiers and
+published release history accurate. For a runnable proof, verify the
+referenced runtime and published guide before pointing the public CTA at it.
 
 ## Feature records
 

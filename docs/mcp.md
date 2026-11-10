@@ -15,7 +15,7 @@ evidence-ref expansion stats, recent traces, trace detail, service maps, logs,
 AI sessions, users, replays, connected signals, agent runs, actions, and tool
 calls.
 
-Use this when an external agent needs to investigate an obs-unified collector
+Use this when an external agent needs to investigate an Observability Unified collector
 without receiving ingest credentials or direct database access.
 
 The RFC 0011 evidence retrieval tools are part of the investigation MCP server,

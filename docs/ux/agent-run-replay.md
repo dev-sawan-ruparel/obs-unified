@@ -4,7 +4,7 @@ Status: proposed / draft (Phase 0.4)
 Owner: obs-unified product & design  
 Parent RFC: [RFC 0010 — Agent Action Graph](../../rfcs/0010-agent-action-graph.md)
 
-This document walks through a concrete troubleshooting journey in the obs-unified dashboard: an engineer investigating why a support agent updated the wrong invoice in production, eventually promoting the failed production run to a test case.
+This document walks through a concrete troubleshooting journey in the Observability Unified dashboard: an engineer investigating why a support agent updated the wrong invoice in production, eventually promoting the failed production run to a test case.
 
 ---
 

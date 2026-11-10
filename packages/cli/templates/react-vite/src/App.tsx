@@ -27,7 +27,7 @@ export function App() {
 		<main style={{ fontFamily: "system-ui", padding: 32 }}>
 			<h1>__APP_NAME__</h1>
 			<p>
-				Click the button, then check your obs-unified dashboard
+				Click the button, then check your Observability Unified dashboard
 				(http://localhost:5173).
 			</p>
 			<button onClick={onClick} type="button">

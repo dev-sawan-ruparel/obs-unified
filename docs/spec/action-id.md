@@ -76,7 +76,7 @@ When a browser interaction triggers an autonomous agent execution, the keys bran
 For runs triggered by background crons, webhooks, or messaging queues, **`interaction_id` is `null`**. Dashboard components, query builders, and Connected Rail providers MUST support a null value for `interaction_id`. Tracing and correlation in these contexts rely purely on `root_action_id`, `action_id`, and `caused_by_action_id`.
 
 ### Legacy Projection Rule
-To ensure backward compatibility with telemetry recorded prior to Phase 1, obs-unified projects legacy rows into the action graph at read-time:
+To ensure backward compatibility with telemetry recorded prior to Phase 1, Observability Unified projects legacy rows into the action graph at read-time:
 > [!NOTE]
 > If a record contains only an `interaction_id` (and lacks explicit action graph fields), consumers and storage projection layers MUST treat the fields as:  
 > `action_id = root_action_id = interaction_id`  

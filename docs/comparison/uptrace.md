@@ -1,7 +1,9 @@
-# obs-unified vs Uptrace
+# Observability Unified vs Uptrace
 
 A feature-by-feature comparison aimed at teams currently running
-[Uptrace](https://uptrace.dev) and evaluating obs-unified.
+[Uptrace](https://uptrace.dev) and evaluating Observability Unified.
+
+> Historical engineering notes. For the maintained, source-checked comparison, see [How Observability Unified compares](https://docs.obsunified.com/docs/comparison/).
 
 Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-only
 
@@ -9,7 +11,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Ingest
 
-| Feature                           | Uptrace           | obs-unified                          | Notes                                                                                                        |
+| Feature                           | Uptrace           | Observability Unified                          | Notes                                                                                                        |
 | --------------------------------- | ----------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | OTLP/HTTP — protobuf              | ✅                | ✅                                   | [otlp/decode.ts](../../packages/obs-collector/src/otlp/decode.ts)                                            |
 | OTLP/HTTP — JSON                  | ✅                | ✅                                   | Both encodings on every `/v1/*` endpoint                                                                     |
@@ -23,7 +25,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Storage
 
-| Feature               | Uptrace                | obs-unified                                                                | Notes       |
+| Feature               | Uptrace                | Observability Unified                                                                | Notes       |
 | --------------------- | ---------------------- | -------------------------------------------------------------------------- | ----------- |
 | Primary store         | ClickHouse             | SQLite / Cloudflare D1                                                     |             |
 | Metadata store        | PostgreSQL             | (same SQLite)                                                              |             |
@@ -35,7 +37,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Traces
 
-| Feature                          | Uptrace    | obs-unified         | Notes                                                                                    |
+| Feature                          | Uptrace    | Observability Unified         | Notes                                                                                    |
 | -------------------------------- | ---------- | ------------------- | ---------------------------------------------------------------------------------------- |
 | Span ingest + storage            | ✅         | ✅                  |                                                                                          |
 | Trace waterfall view             | ✅         | ✅                  |                                                                                          |
@@ -48,7 +50,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Logs
 
-| Feature                     | Uptrace    | obs-unified           | Notes                                                                         |
+| Feature                     | Uptrace    | Observability Unified           | Notes                                                                         |
 | --------------------------- | ---------- | --------------------- | ----------------------------------------------------------------------------- |
 | OTLP log ingest             | ✅         | ✅                    |                                                                               |
 | Severity filtering          | ✅         | ✅                    |                                                                               |
@@ -60,7 +62,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Metrics
 
-| Feature                                | Uptrace | obs-unified                           | Notes                                                                                                                      |
+| Feature                                | Uptrace | Observability Unified                           | Notes                                                                                                                      |
 | -------------------------------------- | ------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Gauge                                  | ✅      | ✅                                    |                                                                                                                            |
 | Sum (counter)                          | ✅      | ✅                                    |                                                                                                                            |
@@ -74,18 +76,18 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Service map
 
-| Feature                                       | Uptrace | obs-unified                          | Notes                                                         |
+| Feature                                       | Uptrace | Observability Unified                          | Notes                                                         |
 | --------------------------------------------- | ------- | ------------------------------------ | ------------------------------------------------------------- |
 | Auto-derived from spans                       | ✅      | ✅                                   | [store.ts:870](../../packages/obs-collector/src/lib/store.ts) |
 | Sync edges (parent_span_id)                   | ✅      | ✅                                   |                                                               |
-| Async edges (span links — Kafka/SQS/RabbitMQ) | 🟡      | ✅ explicit UNION                    | obs-unified handles this cleanly                              |
+| Async edges (span links — Kafka/SQS/RabbitMQ) | 🟡      | ✅ explicit UNION                    | Observability Unified handles this cleanly                              |
 | Per-edge p50/p95/RPS/error rate               | ✅      | ✅                                   |                                                               |
 | Click-through to spans                        | ✅      | ✅                                   |                                                               |
 | DB / cache / external dep nodes               | ✅      | 🟡 only services with `service.name` |                                                               |
 
 ## Alerting
 
-| Feature                                                                          | Uptrace | obs-unified      | Notes                                                                                                               |
+| Feature                                                                          | Uptrace | Observability Unified      | Notes                                                                                                               |
 | -------------------------------------------------------------------------------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Threshold rules                                                                  | ✅      | ✅               | [migration 012](../../packages/obs-collector/src/migrations/012_alert_rules.sql)                                    |
 | Anomaly detection                                                                | ✅      | ❌               |                                                                                                                     |
@@ -96,7 +98,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Notification channels
 
-| Channel              | Uptrace | obs-unified       | Notes                                                                               |
+| Channel              | Uptrace | Observability Unified       | Notes                                                                               |
 | -------------------- | ------- | ----------------- | ----------------------------------------------------------------------------------- |
 | Webhook (generic)    | ✅      | ✅                | [alerts-evaluator.ts](../../packages/obs-collector/src/plugins/alerts-evaluator.ts) |
 | Slack (native)       | ✅      | ❌ — webhook only | Wire it via Slack incoming webhook                                                  |
@@ -106,7 +108,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Frontend / RUM (Uptrace's blind spot)
 
-| Feature                               | Uptrace | obs-unified | Notes                                                                                        |
+| Feature                               | Uptrace | Observability Unified | Notes                                                                                        |
 | ------------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
 | Page views                            | ❌      | ✅          |                                                                                              |
 | Interaction events                    | ❌      | ✅          |                                                                                              |
@@ -119,7 +121,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## Session replay
 
-| Feature                    | Uptrace | obs-unified         | Notes                                                                                     |
+| Feature                    | Uptrace | Observability Unified         | Notes                                                                                     |
 | -------------------------- | ------- | ------------------- | ----------------------------------------------------------------------------------------- |
 | rrweb DOM recording        | ❌      | ✅                  |                                                                                           |
 | Replay storage (R2 or fs)  | ❌      | ✅                  |                                                                                           |
@@ -128,7 +130,7 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 ## AI / LLM observability
 
-| Feature                                        | Uptrace | obs-unified | Notes                                                                                    |
+| Feature                                        | Uptrace | Observability Unified | Notes                                                                                    |
 | ---------------------------------------------- | ------- | ----------- | ---------------------------------------------------------------------------------------- |
 | LLM call ingest (model, tokens, cost, latency) | ❌      | ✅          | [migration 005](../../packages/obs-collector/src/migrations/005_ai_calls.sql)            |
 | Provider pricing tables                        | ❌      | ✅          | [ai-pricing.ts](../../packages/obs-collector/src/lib/ai-pricing.ts)                      |
@@ -141,9 +143,9 @@ Legend: ✅ supported · ❌ not supported · 🟡 partial · ☁️ Cloudflare-
 
 The [RFC 0002](../../rfcs/0002-application-aware-analyses.md) thesis: the unit
 of value is an **answer**, not a query. Existing platforms ship primitives and
-assume the user can synthesize. obs-unified makes synthesis the default.
+assume the user can synthesize. Observability Unified makes synthesis the default.
 
-| Feature                                                                             | Uptrace        | obs-unified        | Notes                                                                                          |
+| Feature                                                                             | Uptrace        | Observability Unified        | Notes                                                                                          |
 | ----------------------------------------------------------------------------------- | -------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
 | Free-form panels                                                                    | ✅ first-class | 🟡 power-user only | Different paradigm                                                                             |
 | **Narrative answers** ("p95 doubled in 8m, payment-svc 200→700ms, deploy at 10:42") | ❌             | ✅ Stage 3         | requires LLM API key                                                                           |
@@ -158,7 +160,7 @@ assume the user can synthesize. obs-unified makes synthesis the default.
 
 This is the largest _current_ gap for non-Cloudflare deployments.
 
-| Feature                                                         | Uptrace                 | obs-unified            | Notes                                                                                                                                            |
+| Feature                                                         | Uptrace                 | Observability Unified            | Notes                                                                                                                                            |
 | --------------------------------------------------------------- | ----------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Generic CPU / memory / disk via OTel `hostmetrics` receiver** | ✅ any Linux/Docker/k8s | **❌**                 | If your services emit `system.cpu.*` etc. as OTLP metrics, points _land_ in `metric_point` — but no curated host view renders them               |
 | Cloudflare Worker CPU ms                                        | N/A                     | ☁️ 🟡                  | [platform-routes.ts](../../packages/obs-collector/src/plugins/platform-routes.ts) returns `0` + `"Needs Cloudflare Auth Token for live metrics"` |
@@ -166,7 +168,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 | Cloudflare Worker request count                                 | N/A                     | ☁️ 🟡                  | same                                                                                                                                             |
 | D1 row density                                                  | N/A                     | ☁️ ✅                  | Cloudflare-specific                                                                                                                              |
 | R2 storage bytes (replays)                                      | N/A                     | ☁️ ✅                  | Cloudflare-specific                                                                                                                              |
-| **Generic Docker container metrics**                            | ✅ via OTel hostmetrics | **❌ no curated view** | Resources dashboard is Cloudflare-shaped — a Docker-deployed obs-unified will see "—"                                                            |
+| **Generic Docker container metrics**                            | ✅ via OTel hostmetrics | **❌ no curated view** | Resources dashboard is Cloudflare-shaped — a Docker-deployed Observability Unified will see "—"                                                            |
 | k8s pod / node metrics                                          | ✅                      | ❌                     |                                                                                                                                                  |
 | Node Exporter / Prometheus receiver                             | ✅                      | ❌                     |                                                                                                                                                  |
 
@@ -180,7 +182,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Profiling
 
-| Feature                                                     | Uptrace | obs-unified | Notes                                                                                                                                   |
+| Feature                                                     | Uptrace | Observability Unified | Notes                                                                                                                                   |
 | ----------------------------------------------------------- | ------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Continuous profiling (pprof / pyroscope)                    | ✅      | ✅          | RFC 0007 — accepts pprof from any agent (`@datadog/pprof`, pyroscope, parca-agent, OTel-eBPF-Profiler). [Setup](../howto/profiling.md). |
 | Profile → span linkage                                      | ✅      | ✅          | `profile_trace_index` + 🔥 badge in trace waterfall. Per-trace flame graph viewer ships with the dashboard pprof viewer (deferred).     |
@@ -190,7 +192,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Auth, multi-tenancy, governance
 
-| Feature                  | Uptrace | obs-unified                      | Notes                                                                                  |
+| Feature                  | Uptrace | Observability Unified                      | Notes                                                                                  |
 | ------------------------ | ------- | -------------------------------- | -------------------------------------------------------------------------------------- |
 | Multi-user accounts      | ✅      | ❌ single password               |                                                                                        |
 | RBAC (roles per project) | ✅      | ❌                               |                                                                                        |
@@ -202,7 +204,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Deployment / operations
 
-| Feature                       | Uptrace                  | obs-unified                 | Notes |
+| Feature                       | Uptrace                  | Observability Unified                 | Notes |
 | ----------------------------- | ------------------------ | --------------------------- | ----- |
 | Cloudflare Workers compatible | ❌                       | ✅                          |       |
 | Generic Node.js / Bun / Deno  | 🟡 (Go binary, not Node) | ✅ Hono                     |       |
@@ -214,7 +216,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Extensibility
 
-| Feature                         | Uptrace | obs-unified                                   | Notes                                                                             |
+| Feature                         | Uptrace | Observability Unified                                   | Notes                                                                             |
 | ------------------------------- | ------- | --------------------------------------------- | --------------------------------------------------------------------------------- |
 | Plugin system                   | ❌      | ✅                                            | [framework/collector.ts](../../packages/obs-collector/src/framework/collector.ts) |
 | Embeddable dashboard components | ❌      | ✅ `<TelemetryDashboard />`                   |                                                                                   |
@@ -223,7 +225,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Data export / interop
 
-| Feature                            | Uptrace     | obs-unified            | Notes |
+| Feature                            | Uptrace     | Observability Unified            | Notes |
 | ---------------------------------- | ----------- | ---------------------- | ----- |
 | Direct ClickHouse access           | ✅          | ❌ N/A                 |       |
 | Direct SQL on store                | partial     | ✅ SQLite is plain SQL |       |
@@ -233,7 +235,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## License & maturity
 
-|                             | Uptrace               | obs-unified |
+|                             | Uptrace               | Observability Unified |
 | --------------------------- | --------------------- | ----------- |
 | License                     | AGPL-3.0 + commercial | (this repo) |
 | GitHub stars / contributors | mature                | new         |
@@ -244,7 +246,7 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Where the delight lands
 
-| Bucket                   | obs-unified > Uptrace                                                                                  |
+| Bucket                   | Observability Unified > Uptrace                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------ |
 | **Built-in scope**       | RUM + replay + LLM obs in one tool — Uptrace is APM-only, you'd bolt on PostHog + LogRocket + Langfuse |
 | **Answers, not queries** | Narrative analyses, AskBox, investigations, alerts that _explain_ — Uptrace ships primitives only      |
@@ -254,17 +256,17 @@ This is the largest _current_ gap for non-Cloudflare deployments.
 
 ## Where Uptrace wins
 
-| Bucket                       | Uptrace > obs-unified                                                                                                  |
+| Bucket                       | Uptrace > Observability Unified                                                                                                  |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **OTLP/gRPC**                | Native; obs-unified is HTTP-only                                                                                       |
-| **Generic infra metrics**    | Uptrace shows your hosts'/containers' CPU & memory; obs-unified's "Resources" is Cloudflare-only and partially stubbed |
+| **OTLP/gRPC**                | Native; Observability Unified is HTTP-only                                                                                       |
+| **Generic infra metrics**    | Uptrace shows your hosts'/containers' CPU & memory; Observability Unified's "Resources" is Cloudflare-only and partially stubbed |
 | **Query language**           | UQL for ad-hoc trace/log/metric queries                                                                                |
 | **Scale & retention**        | ClickHouse: months × billions of rows                                                                                  |
 | **Multi-user / RBAC / SSO**  | Required for any org with >1 team                                                                                      |
-| **Notification channels**    | Native Slack/PagerDuty/Email; obs-unified is webhook-only                                                              |
-| **Anomaly-detection alerts** | Threshold-only in obs-unified                                                                                          |
-| **Grafana data source**      | Doesn't exist for obs-unified                                                                                          |
-| **Maturity**                 | Years of production users; obs-unified is early                                                                        |
+| **Notification channels**    | Native Slack/PagerDuty/Email; Observability Unified is webhook-only                                                              |
+| **Anomaly-detection alerts** | Threshold-only in Observability Unified                                                                                          |
+| **Grafana data source**      | Doesn't exist for Observability Unified                                                                                          |
+| **Maturity**                 | Years of production users; Observability Unified is early                                                                        |
 
 ## What landed since this comparison was written
 
@@ -290,7 +292,7 @@ Uptrace: **OTLP/gRPC ingest** is still HTTP-only.
 ## TL;DR
 
 If you're a small team using Uptrace mostly for traces + service map + threshold
-alerts, obs-unified gives you that **plus** narrative analyses, RUM, replay, LLM
+alerts, Observability Unified gives you that **plus** narrative analyses, RUM, replay, LLM
 cost tracking, click-to-CPU navigation, pprof profiling, and a Connected rail
 that makes every detail surface one-click-from-everywhere. At the price of
 OTLP/HTTP-only ingest, no SSO, no native Slack/PagerDuty, and a built-in

@@ -1,6 +1,6 @@
 # @obsunified/sdk (Node)
 
-Thin OpenTelemetry SDK wrapper for obs-unified. One-line init, OpenInference
+Thin OpenTelemetry SDK wrapper for Observability Unified. One-line init, OpenInference
 LLM/tool helpers, and project propagation. The OTel ecosystem provides
 HTTP/DB/RPC auto-instrumentation; this package only adds what OTel doesn't ship
 out of the box.

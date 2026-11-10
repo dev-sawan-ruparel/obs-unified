@@ -1,7 +1,7 @@
 {
 	"name": "@obsunified/brand",
 	"version": "1.0.4",
-	"description": "Brand assets and design tokens for obs-unified — logo, favicons, OG images, and shared CSS tokens.",
+	"description": "Brand assets and design tokens for Observability Unified — logo, favicons, OG images, and shared CSS tokens.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

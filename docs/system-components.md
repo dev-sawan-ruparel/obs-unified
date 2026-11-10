@@ -1,6 +1,6 @@
 # System Components
 
-obs-unified is a collector-centered observability stack. Applications emit
+Observability Unified is a collector-centered observability stack. Applications emit
 telemetry through SDKs or standard OpenTelemetry exporters; the collector
 authenticates, stores, and serves that data to the dashboard.
 

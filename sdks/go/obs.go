@@ -23,7 +23,7 @@ import (
 
 // Config holds the parameters for Init.
 type Config struct {
-	// CollectorURL is the base URL of your obs-unified collector
+	// CollectorURL is the base URL of your Observability Unified collector
 	// (no trailing slash). The exporter posts to ${CollectorURL}/v1/traces
 	// and ${CollectorURL}/v1/logs.
 	CollectorURL string

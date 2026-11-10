@@ -1,6 +1,6 @@
 # @obsunified/types
 
-Shared TypeScript types, constants, and a typed REST client for the obs-unified
+Shared TypeScript types, constants, and a typed REST client for the Observability Unified
 collector. Zero-runtime; intended to be imported by the SDK packages, the
 dashboard, and any external consumer that talks to the collector's HTTP API.
 

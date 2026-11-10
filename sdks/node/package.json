@@ -1,7 +1,7 @@
 {
 	"name": "@obsunified/sdk",
 	"version": "0.3.4",
-	"description": "Thin OpenTelemetry SDK wrapper for obs-unified — adds OpenInference LLM/tool helpers, project propagation, and one-line OTLP setup.",
+	"description": "Thin OpenTelemetry SDK wrapper for Observability Unified — adds OpenInference LLM/tool helpers, project propagation, and one-line OTLP setup.",
 	"homepage": "https://obsunified.com",
 	"repository": {
 		"type": "git",
