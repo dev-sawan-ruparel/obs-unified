@@ -114,7 +114,8 @@ export function TelemetryDashboard({
 			setLoadError(null);
 			try {
 				const svc = serviceFilter !== "all" ? `&service=${serviceFilter}` : "";
-				const q = search ? `&q=${encodeURIComponent(search)}` : "";
+				// Explicit searches need more candidates than the default overview.
+				const q = search ? `&q=${encodeURIComponent(search)}&limit=500` : "";
 				const cat = category !== "all" ? `&category=${category}` : "";
 				const [ov, iss] = await Promise.all([
 					api<Overview>(
@@ -144,11 +145,11 @@ export function TelemetryDashboard({
 	}, [loadAll]);
 
 	useEffect(() => {
-		if (initialTraceId) setExpandedTraceId(initialTraceId);
+		setExpandedTraceId(initialTraceId ?? null);
 	}, [initialTraceId]);
 
 	useEffect(() => {
-		if (initialSpanId !== undefined) setExpandedSpanId(initialSpanId ?? null);
+		setExpandedSpanId(initialSpanId ?? null);
 	}, [initialSpanId]);
 
 	// Re-sync the service filter when the URL's ?service= param changes —
@@ -184,9 +185,13 @@ export function TelemetryDashboard({
 				signal: controller.signal,
 			},
 		)
-			.then(setTraceDetail)
+			.then((detail) => {
+				if (!controller.signal.aborted) setTraceDetail(detail);
+			})
 			.catch((err) => {
-				if (!isAbortError(err)) setTraceError(errorMessage(err));
+				if (!controller.signal.aborted && !isAbortError(err)) {
+					setTraceError(errorMessage(err));
+				}
 			});
 		return () => controller.abort();
 	}, [expandedTraceId, api]);
@@ -346,6 +351,34 @@ export function TelemetryDashboard({
 					error={liveTail.error}
 				/>
 			)}
+			{mode === "traces" &&
+				!liveMode &&
+				expandedTraceId &&
+				!overview?.traces.some(
+					(trace) => trace.traceId === expandedTraceId,
+				) && (
+					<Card className="mb-2 p-3">
+						<div className="mb-2 flex items-center justify-between gap-2">
+							<SectionTitle title="Selected trace" note={expandedTraceId} />
+							<Button
+								variant="ghost"
+								onClick={() => expandTrace(expandedTraceId)}
+							>
+								Close trace
+							</Button>
+						</div>
+						<TraceExpansion
+							detail={
+								traceDetail?.trace.traceId === expandedTraceId
+									? traceDetail
+									: null
+							}
+							error={traceError}
+							expandedSpanId={expandedSpanId}
+							onExpandSpan={setExpandedSpanId}
+						/>
+					</Card>
+				)}
 			{mode === "traces" && !liveMode && overview && (
 				<TracesView
 					overview={overview}
@@ -624,26 +657,13 @@ function TracesView({
 									</button>
 								</button>
 
-								{/* Expanded: waterfall + spans */}
-								{isExpanded && detail && (
-									<div className="bg-sys-bg p-2 border-t-[1px] border-sys-surface-low">
-										<TraceDetailView
-											trace={detail}
-											expandedSpanId={expandedSpanId}
-											onExpandSpan={onExpandSpan}
-										/>
-									</div>
-								)}
-								{isExpanded && !detail && (
-									<div
-										className={`bg-sys-bg p-2 border-t-[1px] border-sys-surface-low font-mono text-[0.75rem] ${
-											traceError ? "text-sys-error" : "opacity-60"
-										}`}
-									>
-										{traceError
-											? `Failed to load spans: ${traceError}`
-											: "Loading spans..."}
-									</div>
+								{isExpanded && (
+									<TraceExpansion
+										detail={detail}
+										error={traceError}
+										expandedSpanId={expandedSpanId}
+										onExpandSpan={onExpandSpan}
+									/>
 								)}
 							</div>
 						);
@@ -655,6 +675,36 @@ function TracesView({
 					)}
 				</div>
 			</div>
+		</div>
+	);
+}
+
+function TraceExpansion({
+	detail,
+	error,
+	expandedSpanId,
+	onExpandSpan,
+}: {
+	detail: TraceDetail | null;
+	error: string | null;
+	expandedSpanId: string | null;
+	onExpandSpan: (id: string | null) => void;
+}) {
+	return (
+		<div className="border-t-[1px] border-sys-surface-low bg-sys-bg p-2">
+			{detail ? (
+				<TraceDetailView
+					trace={detail}
+					expandedSpanId={expandedSpanId}
+					onExpandSpan={onExpandSpan}
+				/>
+			) : (
+				<div
+					className={`font-mono text-[0.75rem] ${error ? "text-sys-error" : "opacity-60"}`}
+				>
+					{error ? `Failed to load spans: ${error}` : "Loading spans..."}
+				</div>
+			)}
 		</div>
 	);
 }

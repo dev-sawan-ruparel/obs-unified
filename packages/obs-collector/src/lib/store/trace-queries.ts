@@ -33,7 +33,7 @@ export async function selectTraceCandidates(
 	if (options.search) {
 		const term = `%${options.search}%`;
 		whereClause +=
-			" AND (span_name LIKE ? OR status_message LIKE ? OR attributes_json LIKE ? OR events_json LIKE ?)";
+			" AND (span_name LIKE ? OR status_message LIKE ? OR CAST(attributes_json AS TEXT) LIKE ? OR CAST(events_json AS TEXT) LIKE ?)";
 		binds.push(term, term, term, term);
 	}
 
