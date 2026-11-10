@@ -86,7 +86,8 @@
   <!-- Page Description -->
   <text x="72" y="338" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#3E493B">Change correlation, traffic-normalized cohort lift,</text>
   <text x="72" y="370" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#3E493B">noisy-neighbor contention checks, counterfactual</text>
-  <text x="72" y="402" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#3E493B">verification, and guarded autonomous remediation.</text>
+  <text x="72" y="402" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#3E493B">verification, and policy-gated remediation grants that</text>
+  <text x="72" y="434" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#3E493B">your own runner executes.</text>
 
   <!-- Bottom Monolith Metadata Bar -->
   <line x1="72" y1="538" x2="1140" y2="538" stroke="#BECABC" stroke-width="1.5"/>

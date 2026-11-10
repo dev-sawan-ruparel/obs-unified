@@ -2,30 +2,15 @@
 
 Give AI agents the context to debug production software. Observability Unified
 connects traces, logs, replay, profiles, and agent activity into one evidence
-graph. AI agents query cited evidence through MCP, and engineers inspect the
-same records in the dashboard.
+graph. AI agents query evidence with citations through MCP, and engineers
+inspect the same records in the dashboard.
 
 [![Docs](https://img.shields.io/badge/docs-docs.obsunified.com-006B18)](https://docs.obsunified.com/docs)
 [![Website](https://img.shields.io/badge/website-obsunified.com-006B18)](https://obsunified.com)
 
-## Monorepo
-
-All product development lives in [dev-sawan-ruparel/obs-unified](https://github.com/dev-sawan-ruparel/obs-unified).
-
-| Directory | Purpose |
-| --- | --- |
-| `apps/website` | Marketing site at obsunified.com |
-| `apps/docs` | Documentation at docs.obsunified.com |
-| `apps/collector`, `apps/collector-node`, `apps/web`, `apps/obs-demo` | Collector and dashboard/demo applications |
-| `packages` | SDKs, dashboard, CLI, MCP, messaging, and brand |
-| `sdks` | Node, Go, and Rust integrations |
-| `skills` | Instrumentation and investigation agent skills |
-| `infra/cloudflare` | Cloudflare deployment configuration and helpers |
-
-Run `pnpm install --frozen-lockfile` once at the root. Use `pnpm dev:website`,
-`pnpm dev:docs`, `pnpm check:surfaces`, and `pnpm skills:build` for the companion
-surfaces. Packages and sites keep independent release/deployment commands.
-See [migration and compatibility notes](docs/monorepo-migration.md).
+**First investigation:** [Investigate a slow checkout](https://docs.obsunified.com/docs/getting-started/#investigate-a-slow-checkout)
+with the seeded runtime. An AI agent finds the request through MCP and returns
+cited span IDs, and you open the same trace in the dashboard.
 
 ## Why Observability Unified?
 
@@ -88,10 +73,10 @@ see all on [obsunified.com](https://obsunified.com)</sub>
 | **Session replay + usage analytics** | Frontend behavior is not a separate product. Page views, interactions, errors, identity, and replay chunks are tied to the same session and interaction IDs. |
 | **AI cost and LLM observability** | Model, provider, tokens, latency, cost, error category, prompt/output payloads, and trace context stay queryable together. |
 | **Agent Action Graph** | Agent work is represented as a causal graph, not loose LLM spans. You can see what the agent did, what each step caused, and which evidence supports the result. |
-| **AutoSRE causal ontology & change correlation** | Separates link provenance (`relationshipCertainty`) from causal proof (`causalProofTier`), compares error rates per request across deploy/flag cohorts (`v_new` vs `v_old`), detects noisy-neighbor shared database contention, and enforces single-use cryptographic remediation grants before production rollbacks. |
+| **AutoSRE causal ontology & change correlation** | Separates link provenance (`relationshipCertainty`) from causal proof (`causalProofTier`), compares error rates per request across deploy/flag cohorts (`v_new` vs `v_old`), detects noisy-neighbor shared database contention, and issues single-use cryptographic remediation grants that your own runner claims before it executes a rollback. MCP write tools are opt-in. |
 | **Profiles and resources** | CPU/profile evidence and resource context can join the same incident path instead of living in a separate profiling tool. |
 | **Evidence and drilldowns** | Analyses, alerts, evals, instrumentation gaps, and aggregates return concrete evidence references, exemplar traces/actions, compact bundles, confidence, raw retrieval refs, and next pivots without requiring an LLM. |
-| **MCP investigation server** | Agents can inspect the graph and propose governed remediations without receiving write-only ingest credentials or self-approving production changes. |
+| **MCP investigation server** | Agents inspect the graph with read-only tools by default. When writes are explicitly enabled, they can propose governed remediations without receiving write-only ingest credentials or self-approving production changes. |
 
 ## How agents debug with Observability Unified
 
@@ -473,6 +458,25 @@ Set environment variables:
 | `ALLOWED_ORIGINS`       | Recommended | Comma-separated CORS origins      |
 | `RETENTION_HOURS`       | No          | Data retention window, default 72 |
 | `ALLOW_UNAUTHENTICATED` | No          | Set `"true"` for local dev        |
+
+## Monorepo
+
+All product development lives in [dev-sawan-ruparel/obs-unified](https://github.com/dev-sawan-ruparel/obs-unified).
+
+| Directory | Purpose |
+| --- | --- |
+| `apps/website` | Marketing site at obsunified.com |
+| `apps/docs` | Documentation at docs.obsunified.com |
+| `apps/collector`, `apps/collector-node`, `apps/web`, `apps/obs-demo` | Collector and dashboard/demo applications |
+| `packages` | SDKs, dashboard, CLI, MCP, messaging, and brand |
+| `sdks` | Node, Go, and Rust integrations |
+| `skills` | Instrumentation and investigation agent skills |
+| `infra/cloudflare` | Cloudflare deployment configuration and helpers |
+
+Run `pnpm install --frozen-lockfile` once at the root. Use `pnpm dev:website`,
+`pnpm dev:docs`, `pnpm check:surfaces`, and `pnpm skills:build` for the companion
+surfaces. Packages and sites keep independent release/deployment commands.
+See [migration and compatibility notes](docs/monorepo-migration.md).
 
 ## Packages
 

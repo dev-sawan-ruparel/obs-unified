@@ -7,9 +7,13 @@ Observability Unified gives AI agents the context they need to debug production 
 
 Self-host with Cloudflare Workers, D1, and R2 or use the Node collector with Postgres and S3-compatible blob storage.
 
+## Start here
+
+[Investigate a slow checkout](/docs/getting-started#investigate-a-slow-checkout): run the seeded image, ask an AI agent where a checkout request spent its time, and open the same trace in the dashboard. The agent returns cited span IDs that match what you see.
+
 ## What's in this documentation
 
-- [Getting started](/docs/getting-started) — choose Docker or local dev, then choose seeded data, Astronomy Shop, or your own app.
+- [Getting started](/docs/getting-started) — run the seeded checkout investigation, then choose Astronomy Shop or your own app.
 - [Installation](/docs/installation) — the prebuilt GHCR image, the seeded local image, the editable local repo, and where every package is published (npm, GHCR, crates.io, Go modules).
 - [Examples](/docs/examples) — runnable demos, scaffold templates, SDK examples, recipes, and migration guides.
 - [SDKs](/docs/sdks) — `@obsunified/analytics-sdk` (browser, click + interaction propagation), `@obsunified/telemetry-sdk` (Node/Workers), plus Go and Rust.
@@ -17,11 +21,11 @@ Self-host with Cloudflare Workers, D1, and R2 or use the Node collector with Pos
 - [Evidence reference](/docs/evidence-reference) — machine-readable evidence references with entity IDs, routes, confidence, citations, and pivots.
 - [Evidence retrieval (CCR)](/docs/evidence-retrieval) — compact, token-budgeted evidence bundles and retrieval refs that let agents pull just the debugging signal, not the raw firehose.
 - [Agent Action Graph](/docs/agent-action-graph) — debug agent runs as causal workflows across LLM calls, retrievals, tool calls, traces, logs, profiles, and eval cases.
-- [AutoSRE causal ontology](/docs/autosre) — change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, counterfactual verification, and guarded autonomous remediation.
+- [AutoSRE causal ontology](/docs/autosre) — change correlation, traffic-normalized cohort lift, noisy-neighbor contention checks, counterfactual verification, and policy-gated remediation grants that your own runner executes.
 - [MCP server](/docs/mcp-server) — give AI agents investigation tools that are read-only by default. The collector uses a separate read/admin bearer token.
 - [Instrumenting](/docs/instrumenting) — concrete React + Worker examples that produce signals correlated end-to-end.
 - [Python Flask instrumentation](/docs/instrument-python-flask) — OpenTelemetry setup for a Flask service.
-- [What to expect](/docs/what-to-expect) — the click-to-CPU scenarios the platform was built around, with the rail's role at every hop.
+- [What to expect](/docs/what-to-expect) — more investigation scenarios, including click-to-CPU and a failed AI agent run, with the Connected Rail's role at every hop.
 - [Production operations](/docs/ops/production) — reverse proxy, Postgres tuning, storage retention, and Kubernetes notes.
 - [Product evaluation](/docs/comparison) — architecture and product evaluation guide, self-hosted deployment models, and comparison audit status.
 

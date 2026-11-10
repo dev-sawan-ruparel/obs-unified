@@ -1,13 +1,13 @@
 {
   "hero": {
-    "eyebrow": "Self-hosted observability",
+    "eyebrow": "Production debugging for engineers and AI agents",
     "lead": "Observability Unified connects traces, logs, replay, profiles, and agent activity into one evidence graph. Evidence bundles give agents citations and references to expand as needed.",
     "metaLabelHtml": "<strong>SDKs + MCP</strong> TypeScript \u00b7 Go \u00b7 Rust \u00b7 browser \u00b7 agents",
     "metaLabel": "SDKs + MCP TypeScript \u00b7 Go \u00b7 Rust \u00b7 browser \u00b7 agents",
     "metaLinkLabel": "SDK docs",
     "identityLabel": "Identity propagated end-to-end:",
     "identityChain": "user_id \u2192 session_id \u2192 interaction_id \u2192 trace_id \u2192 span_id \u2192 action_id",
-    "identityBody": "The interaction ID follows a frontend action into backend spans, logs, AI calls, actions, evals, and MCP tools; CPU/off-CPU profiles join through the trace it caused.",
+    "identityBody": "The interaction ID follows a frontend action into backend spans, logs, AI calls, actions, evals, and MCP tools. CPU/off-CPU profiles join through the resulting trace when profiling is enabled and samples are indexed by trace ID.",
     "imageAlt": "Illustration of a slow checkout leading to shared evidence in the dashboard and MCP",
     "figcaptionTitle": "One incident, shared evidence",
     "figcaptionBody": "An engineer opens the request in the dashboard. An AI agent queries the same trace and related records through MCP."
@@ -30,22 +30,22 @@
         "icon": "<path d=\"M4 6h16M4 12h16M4 18h10\"/>"
       },
       {
-        "capabilityId": "ai",
-        "title": "AI and agent actions",
-        "body": "LLM calls, retrievals, tool calls, agent runs, eval cases, tokens, USD cost, latency, and failure category \u2014 all linked into one causal action graph.",
-        "icon": "<path d=\"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>"
-      },
-      {
         "capabilityId": "evidence-retrieval",
         "title": "Agent-readable evidence",
         "body": "Evidence bundles compact repeated logs, rank spans, preserve citations, and return retrieval refs so agents can expand raw logs, profiles, replay, AI calls, or tool calls on demand.",
         "icon": "<path d=\"M4 5h16M4 12h10M4 19h7\"/><path d=\"M16 15l2 2 4-5\"/>"
       },
       {
-        "capabilityId": "autosre",
-        "title": "AutoSRE & change correlation",
-        "body": "Correlate deploys, feature flags, and config changes with traffic-normalized cohort error lift, noisy-neighbor contention checks, paired counterfactual eval proofs, and pre-execution remediation grants.",
-        "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v4l3 3\"/>"
+        "capabilityId": "mcp",
+        "title": "SDKs and MCP server",
+        "body": "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, profiles, agent runs, actions, tools, changes, and evals.",
+        "icon": "<polyline points=\"8 18 2 12 8 6\"/><polyline points=\"16 6 22 12 16 18\"/><line x1=\"14\" y1=\"4\" x2=\"10\" y2=\"20\"/>"
+      },
+      {
+        "capabilityId": "profiles",
+        "title": "Interaction ID to CPU",
+        "body": "A click mints one interaction_id. Backend spans, logs, AI calls, and action graphs join through the resulting trace. CPU profiles join too when profiling is enabled and samples are indexed by trace ID.",
+        "icon": "<path d=\"M4 12h4l2-6 4 12 2-6h4\"/><path d=\"M4 20h16M4 4h16\"/>"
       },
       {
         "capabilityId": "replay",
@@ -60,10 +60,10 @@
         "icon": "<path d=\"M3 20h18M6 16v-6M11 16V8M16 16v-3M21 16v-9\"/>"
       },
       {
-        "capabilityId": "profiles",
-        "title": "Interaction ID to CPU",
-        "body": "A click mints one interaction_id. Backend spans, logs, AI calls, action graphs, MCP tools, and CPU profiles join through the resulting trace.",
-        "icon": "<path d=\"M4 12h4l2-6 4 12 2-6h4\"/><path d=\"M4 20h16M4 4h16\"/>"
+        "capabilityId": "ai",
+        "title": "AI and agent actions",
+        "body": "LLM calls, retrievals, tool calls, agent runs, eval cases, tokens, USD cost, latency, and failure category \u2014 all linked into one causal action graph.",
+        "icon": "<path d=\"M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>"
       },
       {
         "capabilityId": "alerts",
@@ -78,10 +78,10 @@
         "icon": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/>"
       },
       {
-        "capabilityId": "mcp",
-        "title": "SDKs and MCP server",
-        "body": "First-party SDKs for TypeScript, Go, and Rust plus an MCP server that lets agents inspect traces, logs, replays, profiles, agent runs, actions, tools, changes, and evals.",
-        "icon": "<polyline points=\"8 18 2 12 8 6\"/><polyline points=\"16 6 22 12 16 18\"/><line x1=\"14\" y1=\"4\" x2=\"10\" y2=\"20\"/>"
+        "capabilityId": "autosre",
+        "title": "AutoSRE & change correlation",
+        "body": "Correlate deploys, feature flags, and config changes with traffic-normalized cohort error lift and noisy-neighbor contention checks. Remediation is policy-gated: MCP write tools are opt-in, and your own runner executes any approved change.",
+        "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v4l3 3\"/>"
       }
     ]
   },
@@ -96,7 +96,7 @@
     "benchmarkTitle": "Benchmark by running the same incident twice: CCR off, then CCR on.",
     "benchmarkLead": "Use fixed anchors, the same agent prompt, and the same token budget. In the off run, let the agent use raw tools such as log search and trace detail. In the on run, start with get_evidence_bundle and only expand retrieval refs the agent chooses. Compare token input, tool calls, raw rows read, cited evidence, and whether the same root cause is reached.",
     "benchmarkResultTitle": "Measured CCR run: 500 repeated 404 logs collapsed to 3 exemplars.",
-    "benchmarkResultLead": "Local benchmark run on June 4, 2026 against the shipped evidence retrieval route. Scenario: a checkout trace with a failed payment span and 500 correlated 404 log rows. CCR preserved the failed payment span reference while reducing the first context packet.",
+    "benchmarkResultLead": "Local benchmark run on June 4, 2026 against the shipped evidence retrieval route. This uses a separate failure fixture, not the slow-checkout proof: a checkout trace with a failed payment span and 500 correlated 404 log rows. CCR preserved the failed payment span reference while reducing the first context packet.",
     "benchmarkMetrics": [
       {
         "label": "JSON bytes",
@@ -161,20 +161,12 @@
       "a": "Observability Unified is a self-hosted observability platform that gives AI agents context to debug production software. One collector connects traces, logs, replay, profiles, and agent activity. AI agents retrieve compact evidence bundles with citations through MCP, and engineers inspect the same records in the dashboard. A local Docker image includes the collector, dashboard, storage, and optional sample data."
     },
     {
-      "q": "What is the Agent Action Graph?",
-      "a": "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP."
-    },
-    {
-      "q": "How does AutoSRE prevent an AI agent from rolling back the wrong deploy?",
-      "a": "AutoSRE separates link provenance (relationshipCertainty: exact, inferred, heuristic) from causal proof (causalProofTier: unverified_locus, corroborated_candidate, cohort_rate_isolated, counterfactual_verified). A stack frame overlapping a changed file only reaches corroborated_candidate, which cannot authorize an autonomous rollback. To earn a single-use cryptographic remediation grant, the change must either demonstrate traffic-normalized cohort error lift (with minimum sample sizes and noisy-neighbor contention checks) or pass paired baseline-fail/candidate-pass counterfactual eval runs, or be explicitly approved by a human operator in the dashboard."
-    },
-    {
       "q": "Can agents investigate incidents in applications that do not use AI?",
       "a": "Yes. Agents can use MCP to investigate ordinary production incidents using traces, logs, service maps, replays, and other connected evidence. For applications that use AI agents, the Agent Action Graph also shows runs, model calls, tools, costs, and evals."
     },
     {
       "q": "Can AI agents inspect Observability Unified through MCP?",
-      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, tool calls, evidence bundles, retrieval refs, evidence expansion stats, recent changes, change blast radius, similar findings, and remediation proposals. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
+      "a": "Yes. The Observability Unified MCP server exposes tools for status, traces, logs, service maps, AI sessions, users, replays, connected signals, profiles, evals, agent runs, actions, tool calls, evidence bundles, retrieval refs, evidence expansion stats, recent changes, change blast radius, and similar findings. Remediation tools are registered only when writes are explicitly enabled. Agents can start from a failing trace, AI cost spike, user session, profile frame, analysis result, or action ID and gather the same evidence an engineer sees in the dashboard."
     },
     {
       "q": "What is CCR?",
@@ -183,6 +175,14 @@
     {
       "q": "How is it different from Datadog, Sentry, or PostHog?",
       "a": "Its primary difference is unification for debugging. APM traces, logs, product analytics, session replay, AI observability, alerting, profiles, agent action graphs, and analyses live in one collector and one dashboard, correlated through a single identity chain and exposed to agents through MCP. Instead of leaving agents to scrape dashboards or prose, the platform returns compact evidence bundles, concrete evidence references, confidence, exemplar pivots, retrieval refs, and connected signals. It also runs on your own infrastructure, so no external telemetry vendor sits in the data path."
+    },
+    {
+      "q": "What is the Agent Action Graph?",
+      "a": "The Agent Action Graph shows what an agent did and what each step caused. It links browser actions, agent runs, LLM calls, retrievals, tool calls, guardrails, backend traces, logs, profiles, and eval cases through stable action IDs. Engineers see it in the dashboard; AI agents can traverse the same graph through MCP."
+    },
+    {
+      "q": "How does AutoSRE keep an AI agent from rolling back the wrong deploy?",
+      "a": "AutoSRE separates link provenance (relationshipCertainty: exact, inferred, heuristic) from causal proof (causalProofTier: unverified_locus, corroborated_candidate, cohort_rate_isolated, counterfactual_verified). A stack frame overlapping a changed file only reaches corroborated_candidate, which cannot earn a remediation grant without human approval. A single-use grant requires traffic-normalized cohort error lift (with minimum sample sizes and noisy-neighbor contention checks), paired baseline-fail/candidate-pass counterfactual eval runs, or explicit approval by an operator in the dashboard. MCP write tools stay unregistered unless you set OBS_MCP_ENABLE_WRITES. The collector only issues the grant; your own runner claims it and executes the rollback."
     },
     {
       "q": "What's the data retention model?",
@@ -217,12 +217,12 @@
     "siteUrl": "https://obsunified.com/",
     "docsUrl": "https://docs.obsunified.com/docs",
     "title": "Observability Unified \u2014 production debugging context for AI agents",
-    "description": "Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard.",
+    "description": "Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query evidence with citations through MCP, and engineers inspect the same records in the dashboard.",
     "ogImageAlt": "Observability Unified evidence graph for AI agents and engineers debugging production software",
     "ogCaption": "Observability Unified evidence graph for AI agents and engineers debugging production software"
   },
   "schema": {
-    "reviewBody": "Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query cited evidence through MCP, and engineers inspect the same records in the dashboard.",
+    "reviewBody": "Observability Unified connects traces, logs, replay, profiles, and agent activity. AI agents query evidence with citations through MCP, and engineers inspect the same records in the dashboard.",
     "featureList": [
       "One telemetry graph for humans and AI agents debugging software",
       "Structured evidence references with entity IDs, routes, confidence, citations, and suggested pivots",

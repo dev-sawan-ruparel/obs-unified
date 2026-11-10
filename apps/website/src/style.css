@@ -313,7 +313,7 @@ code {
   line-height: 1.55;
 }
 
-.hero-chain {
+.identity-chain {
   margin-top: 22px;
   color: var(--color-sys-on-surface-subtle);
   font-size: 13px;
@@ -321,7 +321,7 @@ code {
   display: grid;
   gap: 6px;
 }
-.hero-chain code {
+.identity-chain code {
   background: transparent;
   padding: 0;
   color: var(--color-sys-on-surface-muted);
@@ -409,6 +409,12 @@ section:nth-of-type(even) { background: var(--color-sys-surface); }
   color: var(--color-sys-on-surface-muted);
   font-size: 14px;
   line-height: 1.55;
+}
+.screenshot-grid-label {
+  margin: 8px 0 12px;
+  color: var(--color-sys-on-surface-muted);
+  font-size: 14px;
+  font-weight: 600;
 }
 .screenshot-grid {
   display: grid;
