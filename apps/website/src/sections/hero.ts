@@ -18,8 +18,8 @@ export function renderHero(): string {
         <strong>${positioning.hero.subhead}</strong> ${hero.lead}
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="${GETTING_STARTED_URL}">
-          Get started
+        <a class="btn btn-primary" href="${GETTING_STARTED_URL}/#investigate-a-slow-checkout">
+          Investigate a slow checkout
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
         </a>
         <a class="btn btn-secondary" href="${GITHUB_REPO_LINK}">
