@@ -63,7 +63,7 @@
     <rect x="20" y="370" width="340" height="76" fill="#1A1C1C"/>
     <text x="36" y="394" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="11" font-weight="700" fill="#78DC77" letter-spacing="0.8">04 · SELF-HOST</text>
     <text x="36" y="418" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="12" font-weight="500" fill="#F9F9F9">Docker · Cloudflare D1/R2 · Postgres</text>
-    <text x="36" y="436" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="500" fill="#BECABC">MIT licensed</text>
+    <text x="36" y="436" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, monospace" font-size="10" font-weight="500" fill="#BECABC">Self-hostable</text>
   </g>
 
   <!-- Brand Lockup + Section Badge -->

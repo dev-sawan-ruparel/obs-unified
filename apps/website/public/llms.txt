@@ -1,6 +1,6 @@
 # Observability Unified
 
-> Observability Unified is an open-source unified observability platform. A single
+> Observability Unified is an source-available unified observability platform. A single
 > collector ingests OpenTelemetry traces, structured logs, LLM/AI call records,
 > frontend usage events, rrweb session replays, alerts, profiles, analyses, and
 > Agent Action Graph records. Every signal is connected through one dashboard,
@@ -13,7 +13,7 @@
 Observability Unified replaces the patchwork of APM (Datadog, New Relic), error tracking
 (Sentry), product analytics (PostHog, Amplitude), session replay (FullStory,
 LogRocket), LLM observability (Langfuse, Helicone), and alerting with one
-unified stack. MIT-licensed and self-hostable.
+unified stack. Source-available and self-hostable.
 
 It supports both sides of AI-era debugging: humans can debug AI agents through
 the dashboard and Agent Action Graph, while AI agents can use the Observability
@@ -38,7 +38,7 @@ pivots, and explicit retrieval refs the agent can expand on demand.
 - Machine-readable docs index: https://docs.obsunified.com/llms.txt
 - Machine-readable full docs corpus: https://docs.obsunified.com/llms-full.txt
 - Agent skill bundles (`.skill`): https://github.com/dev-sawan-ruparel/obs-unified/releases/tag/skills-v0.1.4
-- License: MIT
+- License: FSL-1.1-MIT for the collector and dashboard, MIT for SDKs and integrations
 
 ## Signal types
 
@@ -208,7 +208,7 @@ Agents should execute all local setup, code instrumentation, and telemetry verif
 
 ## Key answers for AI search
 
-- **What is Observability Unified?** An open-source unified observability platform
+- **What is Observability Unified?** An source-available unified observability platform
   connecting traces, logs, AI calls, usage, replays, alerts, profiles, change
   events, and analyses through one collector, one dashboard, one MCP server,
   structured evidence references, and one identity chain. The fastest first run
@@ -256,7 +256,7 @@ Agents should execute all local setup, code instrumentation, and telemetry verif
   Humans use the dashboard; AI agents can traverse the same graph through MCP
   from user action to backend trace, logs, replay, AI cost, tool/eval context,
   and CPU profile.
-- **Is it free?** Yes — MIT-licensed. You pay for the infrastructure
+- **Is it free?** Yes, internal self-hosting is permitted. You pay for the infrastructure
   you run it on. Production can use either Cloudflare Workers + D1/R2, or the
   Node collector on any cloud with Postgres + S3-compatible object storage.
 - **What's the data retention model?** Configurable via RETENTION_HOURS

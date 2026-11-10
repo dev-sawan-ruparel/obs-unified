@@ -100,7 +100,7 @@ LABELS=(
 	"--label" "org.opencontainers.image.created=${BUILD_DATE}"
 	"--label" "org.opencontainers.image.title=obs-unified"
 	"--label" "org.opencontainers.image.description=Unified observability collector and dashboard for agentic debugging"
-	"--label" "org.opencontainers.image.licenses=MIT"
+	"--label" "org.opencontainers.image.licenses=FSL-1.1-MIT AND MIT AND Apache-2.0"
 )
 
 if [ -n "$PLATFORMS" ] || [ "$PUSH_IMAGE" = true ]; then

@@ -1,6 +1,6 @@
 {
   "hero": {
-    "eyebrow": "Open source \u00b7 MIT licensed",
+    "eyebrow": "Source available \u00b7 Self-hostable",
     "titleLine": "A telemetry graph",
     "accent": "agents can actually debug with.",
     "leadHtml": "<strong>Debug AI agents, and help AI agents debug software.</strong> <strong>Observability Unified</strong> turns traces, logs, replay, AI cost, profiles, agent actions, tool calls, evals, and instrumentation gaps into <strong>one evidence graph</strong>. The evidence retrieval layer applies <strong>CCR</strong> \u2014 compressed context retrieval \u2014 so agents start with compact bundles, citations, confidence, compaction provenance, and explicit refs they can expand only when needed. Build and run one local image from the repository. For production, choose Cloudflare Workers with D1/R2, or run the Node collector on any cloud with Postgres and S3-compatible storage.",
@@ -161,7 +161,7 @@
   "faq": [
     {
       "q": "What is Observability Unified?",
-      "a": "Observability Unified is an open-source observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, change events, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with compact evidence bundles, stable IDs, confidence, citations, retrieval refs, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
+      "a": "Observability Unified is an source-available observability platform for humans and AI agents debugging software. A single collector ingests traces, logs, AI calls, frontend events, session replays, alerts, profiles, analyses, change events, and Agent Action Graph records. The dashboard helps engineers debug AI agents and production systems; the MCP server gives AI agents access to the same evidence graph with compact evidence bundles, stable IDs, confidence, citations, retrieval refs, and next pivots. The fastest first run is one local Docker image with Postgres, the collector, dashboard, blob storage, and seed data."
     },
     {
       "q": "What is the Agent Action Graph?",
@@ -212,8 +212,8 @@
       "a": "Yes. The collector accepts OTLP over HTTP using JSON or protobuf, with gzip. gRPC is intentionally not supported because Cloudflare Workers cannot host it, and OTLP HTTP covers every official SDK. The first-party SDKs are thin wrappers that point the standard OpenTelemetry SDK at the collector and add OpenInference helpers for LLM and tool spans."
     },
     {
-      "q": "Is it free and open source?",
-      "a": "Yes. Observability Unified is MIT-licensed. You pay only for the infrastructure you run it on. For production, choose either Cloudflare Workers with D1/R2, or the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage."
+      "q": "Can I self-host it for free?",
+      "a": "Yes. The collector and dashboard use FSL-1.1-MIT, and the SDKs and integrations use MIT. You pay only for the infrastructure you run it on. For production, choose either Cloudflare Workers with D1/R2, or the Node collector on AWS, GCP, Azure, Fly.io, Render, Kubernetes, or any cloud that can provide Postgres and S3-compatible object storage."
     }
   ],
   "seo": {

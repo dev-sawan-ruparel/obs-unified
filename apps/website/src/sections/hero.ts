@@ -10,7 +10,7 @@ export function renderHero(): string {
 <section class="hero" aria-labelledby="hero-title">
   <div class="container hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Open source · ${positioning.distribution.license} licensed</p>
+      <p class="eyebrow">Source available · Self-hostable</p>
       <h1 id="hero-title" class="hero-title">
         <span class="hero-title-line">${positioning.hero.headline}</span>
       </h1>

@@ -4,7 +4,7 @@ Self-hosted observability for agentic debugging. Traces, logs, session replay,
 usage analytics, AI cost, profiles, Agent Action Graphs, and a read-only MCP
 server live in one collector and one dashboard, correlated end-to-end.
 
-[![MIT](https://img.shields.io/badge/license-MIT-006B18)](LICENSE)
+[![Licenses](https://img.shields.io/badge/licenses-FSL--1.1--MIT%20%2F%20MIT-006B18)](#licensing)
 [![Docs](https://img.shields.io/badge/docs-docs.obsunified.com-006B18)](https://docs.obsunified.com/docs)
 [![Website](https://img.shields.io/badge/website-obsunified.com-006B18)](https://obsunified.com)
 
@@ -621,3 +621,16 @@ The platform computes and maintains product evaluations and investigation state 
 
 > [!NOTE]
 > Capabilities such as the **investigation MCP server**, **evidence retrieval (CCR)**, and structured **evidence references** (`EvidenceReference`) are investigation and retrieval surfaces rather than additional telemetry types. They query, compact, and navigate the unified telemetry graph rather than acting as separate collected signal streams.
+
+## Licensing
+
+The [collector package](packages/obs-collector/LICENSE), [Cloudflare collector](apps/collector/LICENSE),
+[Node collector](apps/collector-node/LICENSE), [dashboard package](packages/dashboard/LICENSE),
+and [dashboard app](apps/web/LICENSE) use FSL-1.1-MIT. It permits internal self-hosting
+and restricts competing use. Each FSL release becomes available under MIT on the
+second anniversary of its initial availability.
+
+SDKs, integrations, and other first-party components use [MIT](LICENSE).
+Existing MIT releases retain their original terms. Third-party files retain
+their applicable licenses, including the [Apache 2.0 license](packages/obs-collector/LICENSE-APACHE)
+for the collector's OpenTelemetry protocol definitions and generated bindings.

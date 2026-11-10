@@ -96,7 +96,7 @@ const graph = {
       codeRepository: seo.githubUrl,
       downloadUrl: seo.githubUrl,
       programmingLanguage: ["TypeScript", "Python", "Go", "Rust"],
-      license: "https://opensource.org/license/mit",
+      license: "https://github.com/dev-sawan-ruparel/obs-unified#licensing",
       isAccessibleForFree: true,
       offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
       review: {
@@ -112,7 +112,7 @@ const graph = {
       name: "Observability Unified source code",
       codeRepository: seo.githubUrl,
       programmingLanguage: ["TypeScript", "Python", "Go", "Rust"],
-      license: "https://opensource.org/license/mit",
+      license: "https://github.com/dev-sawan-ruparel/obs-unified#licensing",
       runtimePlatform: ["Cloudflare Workers", "Node.js", "Browser"],
       about: { "@id": `${seo.siteUrl}#software` },
     },

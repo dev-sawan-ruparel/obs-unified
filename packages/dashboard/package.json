@@ -2,7 +2,7 @@
 	"name": "@obsunified/dashboard",
 	"version": "1.4.0",
 	"description": "Observability dashboard UI — React components for embedding telemetry views in your own admin panel.",
-	"license": "MIT",
+	"license": "FSL-1.1-MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/dev-sawan-ruparel/obs-unified.git",

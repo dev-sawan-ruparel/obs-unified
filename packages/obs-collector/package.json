@@ -2,7 +2,7 @@
 	"name": "@obsunified/collector",
 	"version": "2.4.0",
 	"description": "Plugin-based observability collector runtime with pluggable SQL/blob storage.",
-	"license": "MIT",
+	"license": "FSL-1.1-MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/dev-sawan-ruparel/obs-unified.git",
@@ -32,7 +32,8 @@
 	"files": [
 		"dist",
 		"src",
-		"README.md"
+		"README.md",
+		"LICENSE-APACHE"
 	],
 	"sideEffects": false,
 	"scripts": {

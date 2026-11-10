@@ -1,5 +1,6 @@
 {
 	"name": "@obs-demo/collector",
+	"license": "FSL-1.1-MIT",
 	"private": true,
 	"type": "module",
 	"scripts": {

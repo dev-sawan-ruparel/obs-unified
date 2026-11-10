@@ -1,5 +1,6 @@
 {
 	"name": "@obs-demo/collector-node",
+	"license": "FSL-1.1-MIT",
 	"private": true,
 	"type": "module",
 	"description": "Standalone Node.js entrypoint for @obsunified/collector — Postgres + S3 backend, no Cloudflare Worker required.",

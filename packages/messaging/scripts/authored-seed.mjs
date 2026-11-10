@@ -32,7 +32,7 @@ export const AUTHORED_SEED = {
 			actionGraph: "Agent Action Graph",
 		},
 		distribution: {
-			license: "MIT",
+			license: "FSL-1.1-MIT (collector and dashboard), MIT (SDKs and integrations)",
 			hosting: "Self-host on your infra",
 			docker: "Start locally with one Docker image",
 			cloudflareNodePaths:
