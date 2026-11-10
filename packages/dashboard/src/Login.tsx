@@ -40,7 +40,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 				className="flex w-[360px] flex-col gap-4 bg-sys-surface p-6 border-[1px] border-sys-outline"
 			>
 				<div className="text-[0.875rem] font-semibold text-sys-on-surface">
-					obs-unified
+					Observability Unified
 				</div>
 				<div className="text-[0.75rem] text-sys-on-surface-muted">
 					Enter dashboard password to continue

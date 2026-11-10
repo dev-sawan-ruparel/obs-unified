@@ -69,7 +69,7 @@ for expected in \
 done
 
 curl -fsS "http://127.0.0.1:${COLLECTOR_PORT}/health" >/dev/null
-curl -fsS "http://127.0.0.1:${DASHBOARD_PORT}/" | grep -q "<title>obs-unified</title>"
+curl -fsS "http://127.0.0.1:${DASHBOARD_PORT}/" | grep -q "<title>Observability Unified</title>"
 curl -fsS \
 	-X POST "http://127.0.0.1:${COLLECTOR_PORT}/auth/login" \
 	-H "content-type: application/json" \
