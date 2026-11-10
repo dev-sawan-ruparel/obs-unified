@@ -1,5 +1,5 @@
 /**
- * Project-id propagation. obs-unified is multi-tenant: every span/log/metric
+ * Project-id propagation. Observability Unified is multi-tenant: every span/log/metric
  * carries a `project.id` so the dashboard can filter by project.
  *
  * Two ways to set it:

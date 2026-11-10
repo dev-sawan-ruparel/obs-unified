@@ -1,7 +1,7 @@
-# obs-unified SDKs
+# Observability Unified SDKs
 
 Thin per-language packages that sit on top of OpenTelemetry and add
-obs-unified-specific conventions:
+Observability Unified conventions:
 
 - One-line init that points the OTel SDK at your collector.
 - OpenInference-shaped helpers for LLM and tool-call spans (so the AI tab in the

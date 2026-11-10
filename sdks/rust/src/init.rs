@@ -1,7 +1,7 @@
 //! Initialization for obs-unified.
 //!
 //! Configures OpenTelemetry's trace and log providers with OTLP/HTTP
-//! exporters pointed at an obs-unified collector. Returns a guard that
+//! exporters pointed at an Observability Unified collector. Returns a guard that
 //! shuts the providers down when dropped, so traces flush before exit.
 //!
 //! Auto-instrumentation for HTTP / DB / RPC comes from the OTel
@@ -24,7 +24,7 @@ use crate::Error;
 /// Config for [`init`].
 #[derive(Clone, Debug)]
 pub struct Config {
-    /// Base URL of your obs-unified collector (no trailing slash).
+    /// Base URL of your Observability Unified collector (no trailing slash).
     pub collector_url: String,
     /// Project ingest key. Sent as `Authorization: Bearer ...`.
     pub ingest_key: String,

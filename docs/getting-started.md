@@ -162,7 +162,7 @@ tab and trigger a replay-producing interaction once.
 
 Use this when you want realistic microservice traffic and service-map edges. It
 runs the official OpenTelemetry Astronomy Shop demo and points its exporters at
-your local obs-unified collector.
+your local Observability Unified collector.
 
 This path assumes the collector is already running. For local development, start
 it with:

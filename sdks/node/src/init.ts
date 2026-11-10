@@ -1,6 +1,6 @@
 /**
  * Initializes the OpenTelemetry Node SDK with sane defaults pointed at an
- * obs-unified collector. Call this once at process startup.
+ * Observability Unified collector. Call this once at process startup.
  *
  * What it sets up:
  *   - OTLP/HTTP trace + log exporters at `${collectorUrl}/v1/traces`
@@ -50,7 +50,7 @@ import {
 } from "./lineage.js";
 
 export interface InitConfig extends ObservabilityLineageConfig {
-	/** Base URL of your obs-unified collector (no trailing slash). */
+	/** Base URL of your Observability Unified collector (no trailing slash). */
 	collectorUrl: string;
 	/** Ingest key from the collector's keys UI. Sent as `Authorization: Bearer ...`. */
 	ingestKey: string;

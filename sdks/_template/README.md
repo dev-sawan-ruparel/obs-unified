@@ -7,7 +7,7 @@ be listed in the polyglot matrix.
 
 ## Required surface
 
-Every conformant obs-unified SDK exposes these primitives. Names should follow
+Every conformant Observability Unified SDK exposes these primitives. Names should follow
 the idiomatic style of your language; signatures and semantics MUST match the
 reference.
 
@@ -64,11 +64,11 @@ sdks/<lang>/
 ## Maintenance contract
 
 Community SDKs are listed under a "Community" column with the maintainer's
-GitHub handle. The obs-unified core team will **not** fix bugs in community SDKs
+GitHub handle. The Observability Unified core team will **not** fix bugs in community SDKs
 but **will** keep the wire spec backwards-compatible — any breaking change to
 the wire format triggers a major version bump of the spec and explicit migration
 notes.
 
 ## License
 
-MIT, matching the rest of obs-unified.
+See the SDK repository’s license file for its license terms.

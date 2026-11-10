@@ -2,7 +2,7 @@
  * OpenInference-shaped LLM and tool span helpers.
  *
  * The OpenInference convention is what Arize Phoenix, Datadog LLM
- * Observability, and (importantly) the obs-unified dashboard's AI tab
+ * Observability, and (importantly) the Observability Unified dashboard's AI tab
  * all read. Stamping the right attributes here lets your traces render
  * as proper LLM call cards rather than generic spans.
  *

@@ -88,19 +88,23 @@ The seed (`pnpm seed`) plants a "Heavy Spender (seed)" user with 8–9 high-cost
 
 ## Scenario B2 — agent action graph → MCP investigation
 
-The agent-facing path starts from the same connected telemetry but uses MCP
-tools instead of dashboard clicks:
+Use the seeded recommendation agent run to investigate a failed budget
+evaluation. In a seeded local runtime, follow these steps with the
+[default read-only MCP tools](/docs/mcp-server).
 
-1. An AI agent calls `recent_traces` or `search_logs` to find the failing path.
-2. It calls `connected_signals` to pivot from the trace to related AI calls,
-   replay evidence, and action IDs.
-3. It calls `get_action` or `get_agent_run` to inspect the Agent Action Graph:
-   LLM calls, retrievals, tool calls, governance signals, and eval cases.
-4. It reports back with stable dashboard links, action IDs, trace IDs, and the
-   relevant logs/replay/profile evidence.
+1. Call `recent_traces` with status `error` and query `budget_guard_failed`.
+   Open the recommendation agent trace with `get_trace`.
+2. Locate the `eval.recommendation_budget_guard` span. Call
+   `connected_signals` with kind `span` and ID `<traceId>:<spanId>` to find
+   its linked eval and action.
+3. Call `get_action` with the eval action ID and use its `rootActionId` to
+   call `get_agent_run`. The action has status `error` and the run has status
+   `success`. The evidence shows a failed budget check within a completed run.
+4. Cite the trace, failed span, and eval action. Share the dashboard trace or
+   run link so an engineer can inspect the same evidence.
 
-This is why the product copy says "agents can traverse the graph": the graph is
-not just visible in the dashboard; it is exposed through read-only MCP tools.
+In this seed the span rail links to a replay session and an AI call. It
+reports no correlated logs or profile for the failed eval span.
 
 ## Scenario C — futex contention via off-CPU flame graph
 

@@ -1,4 +1,4 @@
-//! Project-id propagation. obs-unified is multi-tenant: every emission
+//! Project-id propagation. Observability Unified is multi-tenant: every emission
 //! carries a `project.id` so the dashboard can filter by project.
 
 use opentelemetry::trace::TraceContextExt;

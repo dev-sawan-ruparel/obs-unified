@@ -96,7 +96,7 @@ obs-unified keys revoke <keyId>
 `keys mint` prints the plaintext key on its own line; the collector never shows
 it again. Failures are reported distinctly: a rejected token (HTTP 401/403), an
 unknown project (`Project not found`), or an unknown route (HTTP 404 — the URL
-is not an obs-unified collector, or the collector predates project routes).
+is not an Observability Unified collector, or the collector predates project routes).
 
 ## Environment
 

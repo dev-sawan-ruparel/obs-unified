@@ -41,13 +41,13 @@ If only one side has signals (a Workers-only backend with no UI, or a static SPA
 
 ### 2. Provision or verify collector prerequisites (Autonomous vs. Human boundaries)
 
-Don't install anything until you have a reachable collector, a write-only ingest key (`OBS_INGEST_KEY` for `/v1/*`), and a read bearer token (`OBS_DASHBOARD_TOKEN` for `/internal/*` verification and MCP).
+Don't install anything until you have a reachable collector, a write-only ingest key (`OBS_INGEST_KEY` for `/v1/*`), and the collector read/admin bearer token (`OBS_DASHBOARD_TOKEN` for `/internal/*` verification and MCP).
 
 **Required values:**
 
 - `OBS_COLLECTOR_URL` — where signals are sent (default local: `http://localhost:8790`).
 - `OBS_INGEST_KEY` — write-only key for `/v1/*` telemetry ingestion (for the locally built image `pnpm local:run` only the default is `dev-ingest-key`; with the GHCR image use the value you chose).
-- `OBS_DASHBOARD_TOKEN` — read bearer token for `/internal/*` verification and `@obsunified/mcp-server` (local image only default: `e2e-dashboard-token`; with GHCR use the value you chose for `DASHBOARD_TOKEN`).
+- `OBS_DASHBOARD_TOKEN` — collector read/admin bearer token for `/internal/*` verification and `@obsunified/mcp-server` (local image only default: `e2e-dashboard-token`; with GHCR use the value you chose for `DASHBOARD_TOKEN`).
 - `OBS_DASHBOARD_URL` — where the user opens the UI (default local: `http://localhost:5173`).
 
 **Where does Observability Unified itself run?**
@@ -63,8 +63,14 @@ If the user hasn't specified a collector URL and `http://localhost:8790/health` 
 **Pre-flight probe — do this before installing anything:**
 
 ```bash
-# 1. Run CLI doctor (checks /health, CORS for app origin, OTLP ingest, and /internal read auth)
-OBS_ADMIN_TOKEN="$OBS_DASHBOARD_TOKEN" pnpm dlx @obsunified/cli doctor "$OBS_COLLECTOR_URL" --origin "${APP_ORIGIN:-http://localhost:3000}"
+# 1. Run CLI doctor using the browser origin only when browser code sends telemetry.
+# Browser ingestion needs the app's actual origin in the collector's ALLOWED_ORIGINS.
+if [ -n "${APP_ORIGIN:-}" ]; then
+  OBS_ADMIN_TOKEN="$OBS_DASHBOARD_TOKEN" pnpm dlx @obsunified/cli doctor "$OBS_COLLECTOR_URL" --origin "$APP_ORIGIN"
+else
+  # Backend-only workflow. Disable the default browser CORS probe.
+  OBS_DOCTOR_ORIGINS="" OBS_ADMIN_TOKEN="$OBS_DASHBOARD_TOKEN" pnpm dlx @obsunified/cli doctor "$OBS_COLLECTOR_URL"
+fi
 
 # 2. Verify read token against /internal/telemetry/overview (Note: /internal/* requires Bearer $OBS_DASHBOARD_TOKEN, NOT X-Obs-Ingest-Key)
 curl -sf -H "Authorization: Bearer $OBS_DASHBOARD_TOKEN" \

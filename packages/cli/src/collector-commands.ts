@@ -220,7 +220,7 @@ const errorMessageOf = (body: unknown): string | undefined => {
  * 404 distinction matters most: 401 means the token was rejected, while 404
  * is either an unknown project (JSON `{ error: "Project not found" }`) or an
  * unknown route (anything else — typically an older collector or a URL that
- * isn't an obs-unified collector at all).
+ * isn't an Observability Unified collector at all).
  */
 export const describeFailure = (input: {
 	status: number;
@@ -246,7 +246,7 @@ export const describeFailure = (input: {
 		return `project "${projectId}" not found on ${collectorUrl} (HTTP ${status}); pass --project <id> or set OBS_PROJECT_ID to one of the ids from GET /internal/projects`;
 	}
 	if (status === 404) {
-		return `route not found (HTTP 404): ${collectorUrl} does not serve ${method} ${path}; check that OBS_COLLECTOR_URL points at an obs-unified collector`;
+		return `route not found (HTTP 404): ${collectorUrl} does not serve ${method} ${path}; check that OBS_COLLECTOR_URL points at an Observability Unified collector`;
 	}
 	return `HTTP ${status} from ${method} ${path}${message ? `: ${message}` : ""}`;
 };
@@ -709,7 +709,7 @@ export async function checkDashboardReadApi(input: {
 
 	if (r.status === 404) {
 		throw new Error(
-			`HTTP 404 — GET ${path} not served; is ${input.url} an obs-unified collector?`,
+			`HTTP 404 — GET ${path} not served; is ${input.url} an Observability Unified collector?`,
 		);
 	}
 	if (r.status === 401 || r.status === 403) {

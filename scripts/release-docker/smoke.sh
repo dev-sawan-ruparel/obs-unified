@@ -113,7 +113,7 @@ echo "Health: $health_resp"
 
 echo "Verifying dashboard HTML response..."
 dashboard_html=$(curl -fsS "http://127.0.0.1:${DASHBOARD_PORT}/")
-if ! echo "$dashboard_html" | grep -q "<title>obs-unified</title>"; then
+if ! echo "$dashboard_html" | grep -Eq "<title>(Observability Unified|obs-unified)</title>"; then
 	echo "[smoke:release-image] dashboard index HTML missing expected title" >&2
 	exit 1
 fi

@@ -1,6 +1,6 @@
-# obs-unified Rust SDK
+# Observability Unified Rust SDK
 
-Thin OpenTelemetry SDK wrapper for obs-unified. One-line init, OpenInference
+Thin OpenTelemetry SDK wrapper for Observability Unified. One-line init, OpenInference
 LLM/tool helpers, and project propagation. The OTel ecosystem provides
 HTTP/DB/RPC instrumentation; this crate adds what OTel doesn't ship out of the
 box.

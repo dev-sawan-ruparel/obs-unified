@@ -120,12 +120,12 @@ export function App() {
 					}`}
 				>
 					<span
-						className={`font-bold uppercase tracking-[0.14em] text-sys-on-surface ${
+						className={`font-bold tracking-wide text-sys-on-surface ${
 							collapsed ? "text-[0.625rem]" : "text-[0.8125rem]"
 						}`}
-						title={collapsed ? "obs-unified" : undefined}
+						title={collapsed ? "Observability Unified" : undefined}
 					>
-						{collapsed ? "OBS" : "obs-unified"}
+						{collapsed ? "OBS" : "Observability Unified"}
 					</span>
 				</div>
 				<nav className="flex-1 overflow-y-auto py-3 max-[640px]:flex-none max-[640px]:overflow-x-auto max-[640px]:overflow-y-hidden max-[640px]:px-2 max-[640px]:py-2">

@@ -80,7 +80,7 @@ test.describe("Typography audit", () => {
 		const reports: FontReport[] = [];
 
 		const probes: Array<[string, () => ReturnType<Page["locator"]>]> = [
-			["rail.brand", () => page.locator("aside").getByText("obs-unified")],
+			["rail.brand", () => page.locator("aside").getByText("Observability Unified")],
 			[
 				"rail.group-label",
 				() => page.locator("aside").getByText("Observe", { exact: true }),

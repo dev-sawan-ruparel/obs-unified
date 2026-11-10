@@ -1,6 +1,6 @@
 # @obsunified/brand
 
-Source of truth for obs-unified's visual identity — logo, favicons, OG cards,
+Source of truth for the Observability Unified visual identity — logo, favicons, OG cards,
 and CSS design tokens.
 
 The design language is documented in `obs-unified/DESIGN.md` ("The Technical
@@ -19,8 +19,8 @@ packages/brand/
 ├── logo/
 │   ├── mark.svg                ← square monogram (light bg)
 │   ├── mark-dark.svg           ← square monogram (dark bg)
-│   ├── wordmark.svg            ← mark + "OBS-UNIFIED" lockup (light)
-│   └── wordmark-dark.svg       ← mark + "OBS-UNIFIED" lockup (dark)
+│   ├── wordmark.svg            ← mark + product name lockup (light)
+│   └── wordmark-dark.svg       ← mark + product name lockup (dark)
 ├── favicons/
 │   ├── favicon.svg             ← primary favicon, auto-flips for prefers-color-scheme
 │   ├── favicon.ico             ← legacy fallback (generated)
@@ -44,7 +44,7 @@ packages/brand/
 
 ## Using it
 
-### From inside the obs-unified monorepo (web, dashboard, etc.)
+### From inside the Observability Unified monorepo (web, dashboard, etc.)
 
 Pick the right token file for your stack:
 
@@ -78,7 +78,7 @@ console.log(logo.mark); // → absolute path
 
 ### From apps/docs and apps/website (workspace apps)
 
-These projects aren't part of the obs-unified pnpm workspace, so they consume
+These projects aren't part of the Observability Unified pnpm workspace, so they consume
 assets via a one-shot copy into their `public/` directory:
 
 ```bash
