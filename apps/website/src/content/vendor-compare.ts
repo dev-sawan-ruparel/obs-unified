@@ -5,8 +5,8 @@
 //   - Reused rows were source-checked for the main comparison table
 //     (docs/comparison-full-audit-2026-10-13.md, and the AI agent access row in
 //     docs/comparison-agent-access-audit-2026-11-10.md).
-//   - Rows marked `added: true` were source-checked for these pages on
-//     VENDOR_PAGES_REVIEWED (docs/comparison-vendor-pages-audit-2026-11-10.md).
+//   - Rows with an `audit` key were source-checked for these pages; AUDITS
+//     gives each audit's date and ledger.
 //
 // Verdict rules (enforced by scripts/comparison-check.mjs):
 //   yes / partial / no need a source URL. `no` is only used when the source
@@ -36,21 +36,45 @@ export type RowKey =
   | "profile_from_trace"
   | "full_self_host"
   | "managed_cloud"
-  | "sso";
+  | "sso"
+  | "release_flag_cohorts"
+  | "causal_proof_levels"
+  | "fix_verified_by_eval"
+  | "gated_remediation"
+  | "click_to_trace"
+  | "contention_vs_regression";
 
 export type RowDef = {
   key: RowKey;
   label: string;
   /** The question the row answers, shown as a tooltip and in the method notes. */
   question: string;
-  added?: boolean;
+  /** Set when the row was researched for these pages; see AUDITS. */
+  audit?: AuditKey;
 };
 
 export type Group = { title: string; rows: RowDef[] };
 
-export const VENDOR_PAGES_REVIEWED = "2026-11-10";
-export const VENDOR_PAGES_LEDGER_URL =
-  "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-vendor-pages-audit-2026-11-10.md";
+export type AuditKey = "pages" | "autosre";
+export type Audit = { date: string; ledgerUrl: string; rows: string };
+const LEDGER_BASE = "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/";
+export const AUDITS: Record<AuditKey, Audit> = {
+  pages: {
+    date: "2026-11-10",
+    ledgerUrl: `${LEDGER_BASE}comparison-vendor-pages-audit-2026-11-10.md`,
+    rows: "MCP write defaults, MCP links, agent tool calls, CPU profiles, self-hosting, and SSO",
+  },
+  autosre: {
+    date: "2026-11-11",
+    ledgerUrl: `${LEDGER_BASE}comparison-vendor-pages-autosre-audit-2026-11-11.md`,
+    rows: "release and flag comparison, proof of cause, fix verification, gated remediation, click to trace, and dependency contention",
+  },
+};
+/** Most recent vendor-page review, shown in the page eyebrow. */
+export const VENDOR_PAGES_REVIEWED = Object.values(AUDITS)
+  .map((a) => a.date)
+  .sort()
+  .at(-1) as string;
 export const MAIN_LEDGER_URL =
   "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md";
 export const AGENT_ACCESS_LEDGER_URL =
@@ -61,9 +85,19 @@ export const GROUPS: Group[] = [
     title: "Investigating with AI agents",
     rows: [
       { key: "mcp_server", label: "First-party MCP server", question: "Does the vendor ship its own Model Context Protocol server?" },
-      { key: "mcp_read_only_default", label: "MCP write tools off unless enabled", question: "Is the MCP server read-only until someone turns write tools on?", added: true },
-      { key: "mcp_links_to_records", label: "MCP results link to source records", question: "Do MCP tool results include links or citations back to the underlying records?", added: true },
-      { key: "agent_calls_in_app_traces", label: "Agent tool calls alongside app traces", question: "Do AI agent runs and tool calls appear alongside the application's backend traces?", added: true },
+      { key: "mcp_read_only_default", label: "MCP write tools off unless enabled", question: "Is the MCP server read-only until someone turns write tools on?", audit: "pages" },
+      { key: "mcp_links_to_records", label: "MCP results link to source records", question: "Do MCP tool results include links or citations back to the underlying records?", audit: "pages" },
+      { key: "agent_calls_in_app_traces", label: "Agent tool calls alongside app traces", question: "Do AI agent runs and tool calls appear alongside the application's backend traces?", audit: "pages" },
+    ],
+  },
+  {
+    title: "Change-aware investigation and remediation",
+    rows: [
+      { key: "release_flag_cohorts", label: "Compare releases and flag variants", question: "Can you compare errors or latency between release versions or feature-flag variants?", audit: "autosre" },
+      { key: "contention_vs_regression", label: "Shared-dependency contention vs code regression", question: "Can the product tell shared-dependency contention apart from a regression in the service's own change?", audit: "autosre" },
+      { key: "causal_proof_levels", label: "Root cause states its level of proof", question: "Do automated root-cause findings say how well the cause is proven?", audit: "autosre" },
+      { key: "fix_verified_by_eval", label: "Fix verified by re-running the failing case", question: "Is a fix verified by re-running the case that failed, before and after?", audit: "autosre" },
+      { key: "gated_remediation", label: "Remediation behind approval or a policy gate", question: "Does automated remediation pass an approval or policy gate before it runs?", audit: "autosre" },
     ],
   },
   {
@@ -73,15 +107,16 @@ export const GROUPS: Group[] = [
       { key: "logs", label: "Structured logs", question: "Are structured logs a product capability?" },
       { key: "llm_observability", label: "AI / LLM observability", question: "Is there a product capability for LLM and AI agent telemetry?" },
       { key: "session_replay", label: "Session replay", question: "Can you replay a user's browser session?" },
-      { key: "profile_from_trace", label: "CPU profile from a trace", question: "Can you open the CPU profile for a specific trace or span?", added: true },
+      { key: "click_to_trace", label: "Browser click linked to its backend trace", question: "Does a user's click in the browser link to the backend trace it caused?", audit: "autosre" },
+      { key: "profile_from_trace", label: "CPU profile from a trace", question: "Can you open the CPU profile for a specific trace or span?", audit: "pages" },
     ],
   },
   {
     title: "Deployment and access",
     rows: [
-      { key: "full_self_host", label: "Run the full platform yourself", question: "Can you run the whole platform on your own infrastructure, supported for production?", added: true },
+      { key: "full_self_host", label: "Run the full platform yourself", question: "Can you run the whole platform on your own infrastructure, supported for production?", audit: "pages" },
       { key: "managed_cloud", label: "Vendor-hosted cloud service", question: "Does the vendor run a hosted service for you?" },
-      { key: "sso", label: "Built-in single sign-on", question: "Is SAML or OIDC single sign-on built in?", added: true },
+      { key: "sso", label: "Built-in single sign-on", question: "Is SAML or OIDC single sign-on built in?", audit: "pages" },
     ],
   },
 ];
@@ -101,6 +136,12 @@ export const OBS: Record<RowKey, Cell> = {
   full_self_host: { verdict: "yes", text: "Docker image, Node + Postgres/S3, or Cloudflare", source: `${D}/installation` },
   managed_cloud: { verdict: "no", text: "Self-hosted only", source: `${D}/installation` },
   sso: { verdict: "no", text: "Front it with Cloudflare Access or oauth2-proxy", source: `${D}/ops/production` },
+  release_flag_cohorts: { verdict: "yes", text: "Error-rate lift per version and flag variant, normalized for traffic share", source: `${D}/autosre#1-progressive-rollout-vs-the-traffic-share-fallacy` },
+  contention_vs_regression: { verdict: "yes", text: "Shared-degradation verdicts separate contention from the new version", source: `${D}/autosre#2-noisy-neighbor-shared-database-contention` },
+  causal_proof_levels: { verdict: "yes", text: "Proof tier from unverified locus to counterfactual verified, kept apart from link certainty", source: `${D}/autosre#3-structural-code-overlap-without-causal-proof` },
+  fix_verified_by_eval: { verdict: "yes", text: "Same eval input fails on the baseline and passes on the candidate", source: `${D}/autosre#4-paired-baseline-fail--candidate-pass-counterfactual-verification` },
+  gated_remediation: { verdict: "yes", text: "Approval queue or single-use grant; your runner executes; a watchdog checks recovery", source: `${D}/autosre#approval--execution-handoff` },
+  click_to_trace: { verdict: "yes", text: "x-obs-interaction links a click to its trace, logs, and replay (browser SDK or header)", source: `${D}/getting-started#application-compatibility--signal-matrix` },
 };
 
 export type Vendor = {
@@ -115,7 +156,14 @@ export type Vendor = {
 };
 
 type ReusedKey = "mcp_server" | "traces_otlp" | "logs" | "llm_observability" | "session_replay" | "managed_cloud";
-type AddedKey = Exclude<RowKey, ReusedKey>;
+type AutosreKey =
+  | "release_flag_cohorts"
+  | "causal_proof_levels"
+  | "fix_verified_by_eval"
+  | "gated_remediation"
+  | "click_to_trace"
+  | "contention_vs_regression";
+type PagesKey = Exclude<RowKey, ReusedKey | AutosreKey>;
 
 const y = (text: string, source: string): Cell => ({ verdict: "yes", text, source });
 const p = (text: string, source: string): Cell => ({ verdict: "partial", text, source });
@@ -200,8 +248,8 @@ const REUSED: Record<string, Record<ReusedKey, Cell>> = {
   },
 };
 
-// Cells researched for these pages on VENDOR_PAGES_REVIEWED.
-const ADDED: Record<string, Record<AddedKey, Cell>> = {
+// Cells researched for these pages (AUDITS.pages, 2026-11-10).
+const ADDED: Record<string, Record<PagesKey, Cell>> = {
   datadog: {
     mcp_read_only_default: { verdict: "partial", text: "Writes need the mcp_write permission and an org setting", source: "https://docs.datadoghq.com/mcp_server/setup/" },
     mcp_links_to_records: { verdict: "partial", text: "A tool that builds DDSQL Editor links", source: "https://docs.datadoghq.com/mcp_server/tools/" },
@@ -276,6 +324,82 @@ const ADDED: Record<string, Record<AddedKey, Cell>> = {
   },
 };
 
+// Cells researched on 2026-11-10/11 for the change-aware rows (AUDITS.autosre).
+const AUTOSRE: Record<string, Record<AutosreKey, Cell>> = {
+  datadog: {
+    release_flag_cohorts: { verdict: "yes", text: "Deployment Tracking compares versions", source: "https://docs.datadoghq.com/tracing/services/deployment_tracking/" },
+    contention_vs_regression: { verdict: "yes", text: "Watchdog RCA separates root cause from affected services", source: "https://docs.datadoghq.com/watchdog/rca/" },
+    causal_proof_levels: { verdict: "yes", text: "Bits AI: evidence-backed conclusion or inconclusive", source: "https://docs.datadoghq.com/bits_ai/bits_investigation/investigate_issues/" },
+    fix_verified_by_eval: { verdict: "partial", text: "Bits remediation PRs and a Verify Resolution check", source: "https://docs.datadoghq.com/bits_ai/bits_remediation/" },
+    gated_remediation: { verdict: "yes", text: "Bits guardrails ask for approval before actions (Preview)", source: "https://docs.datadoghq.com/bits_ai/bits_remediation/guardrails/" },
+    click_to_trace: { verdict: "yes", text: "RUM requests linked to backend APM traces", source: "https://docs.datadoghq.com/real_user_monitoring/correlate_with_other_telemetry/apm/" },
+  },
+  sentry: {
+    release_flag_cohorts: { verdict: "yes", text: "Release metrics compared with all releases", source: "https://docs.sentry.io/product/releases/release-details/" },
+    contention_vs_regression: { verdict: "partial", text: "Seer can point to a backend service as the cause", source: "https://docs.sentry.io/product/ai-in-sentry/seer/autofix/" },
+    causal_proof_levels: { verdict: "partial", text: "Seer names the most likely root cause", source: "https://docs.sentry.io/product/ai-in-sentry/seer/autofix/" },
+    fix_verified_by_eval: { verdict: "partial", text: "Seer PRs iterate on failing CI checks", source: "https://docs.sentry.io/product/ai-in-sentry/seer/autofix/" },
+    gated_remediation: { verdict: "partial", text: "Autofix opens PRs; automation stop point is configurable", source: "https://docs.sentry.io/product/ai-in-sentry/seer/autofix/" },
+    click_to_trace: { verdict: "yes", text: "Click spans parent their requests (experimental)", source: "https://docs.sentry.io/platforms/javascript/configuration/integrations/interactions/" },
+  },
+  posthog: {
+    release_flag_cohorts: { verdict: "partial", text: "Filter issues by release and insights by flag", source: "https://posthog.com/docs/error-tracking/releases" },
+    contention_vs_regression: { verdict: "partial", text: "Trace waterfall across services", source: "https://posthog.com/docs/distributed-tracing/basics" },
+    causal_proof_levels: { verdict: "partial", text: "Inbox agent researches root cause", source: "https://posthog.com/docs/self-driving/inbox/research" },
+    fix_verified_by_eval: { verdict: "partial", text: "Agent PRs add a regression test; a scout re-checks", source: "https://posthog.com/docs/self-driving/anatomy-of-a-pr" },
+    gated_remediation: { verdict: "partial", text: "Agent PRs are reviewed; flag changes need approval", source: "https://posthog.com/docs/self-driving/self-improving-loop" },
+    click_to_trace: { verdict: "partial", text: "Backend spans carry the replay session ID", source: "https://posthog.com/docs/distributed-tracing/installation/nodejs" },
+  },
+  honeycomb: {
+    release_flag_cohorts: { verdict: "yes", text: "Team Agents check deploys for regressions (early access)", source: "https://www.honeycomb.io/platform/team-agents" },
+    contention_vs_regression: { verdict: "partial", text: "BubbleUp compares outliers with a baseline", source: "https://docs.honeycomb.io/investigate/analyze/identify-outliers" },
+    causal_proof_levels: { verdict: "partial", text: "Canvas surfaces hypotheses with linked queries", source: "https://docs.honeycomb.io/investigate/canvas/alert-investigation" },
+    fix_verified_by_eval: { verdict: "partial", text: "Team Agent memory tracks whether fixes held", source: "https://www.honeycomb.io/platform/team-agents" },
+    gated_remediation: { verdict: "yes", text: "Canvas flag changes ask for approval per call", source: "https://docs.honeycomb.io/investigate/canvas/connectors/launchdarkly" },
+    click_to_trace: { verdict: "yes", text: "Frontend click to backend call tracing", source: "https://www.honeycomb.io/platform/frontend-observability" },
+  },
+  newrelic: {
+    release_flag_cohorts: { verdict: "yes", text: "Change tracking compares before and after a change", source: "https://docs.newrelic.com/docs/change-tracking/view-analyze-data/" },
+    contention_vs_regression: { verdict: "yes", text: "Autopilot attributes causes to downstream dependencies", source: "https://docs.newrelic.com/docs/release-notes/autopilot-release-notes/" },
+    causal_proof_levels: { verdict: "partial", text: "Autopilot names likely root causes", source: "https://docs.newrelic.com/docs/agentic-ai/autopilot/overview/" },
+    fix_verified_by_eval: { verdict: "partial", text: "Regression issue handed to Copilot; fix PR reviewed", source: "https://docs.newrelic.com/docs/agentic-ai/autopilot/change-tracking-for-github-copilot/" },
+    gated_remediation: { verdict: "yes", text: "Workflow Automation approval gates for rollbacks", source: "https://docs.newrelic.com/docs/workflow-automation/introduction-to-workflow/" },
+    click_to_trace: { verdict: "yes", text: "Browser interactions in distributed traces", source: "https://docs.newrelic.com/docs/browser/new-relic-browser/browser-pro-features/browser-data-distributed-tracing/" },
+  },
+  grafana: {
+    release_flag_cohorts: { verdict: "partial", text: "Group and filter by service.version", source: "https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/application-observability/setup/resource-attributes/" },
+    contention_vs_regression: { verdict: "yes", text: "Knowledge Graph root-cause analysis across dependencies", source: "https://grafana.com/docs/grafana-cloud/platform/knowledge-graph/troubleshoot-infra-apps/workbench-ai/" },
+    causal_proof_levels: { verdict: "yes", text: "Investigations show each hypothesis's status and evidence", source: "https://grafana.com/docs/grafana-cloud/platform/grafana-assistant/platform/investigation/" },
+    fix_verified_by_eval: { verdict: "partial", text: "Sandboxes run checks on a proposed fix", source: "https://grafana.com/docs/grafana-cloud/platform/grafana-assistant/platform/managed-sandboxes/" },
+    gated_remediation: { verdict: "partial", text: "Per-tool approval policies; PR publish approval", source: "https://grafana.com/docs/grafana-cloud/platform/grafana-assistant/configure/mcp-servers/" },
+    click_to_trace: { verdict: "yes", text: "Faro user actions with related traces", source: "https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/frontend-observability/visualize-data/user-actions/" },
+  },
+  signoz: {
+    release_flag_cohorts: { verdict: "yes", text: "Noz compares before and after a deploy (Cloud)", source: "https://signoz.io/docs/ai/use-cases/noz-incident-triage/" },
+    contention_vs_regression: { verdict: "yes", text: "Noz attributes errors to a dependency or a release", source: "https://signoz.io/docs/ai/noz/" },
+    causal_proof_levels: { verdict: "partial", text: "Noz points to a likely root cause", source: "https://signoz.io/docs/ai/noz/" },
+    fix_verified_by_eval: { verdict: "partial", text: "Noz proposes fixes and confirms before applying", source: "https://signoz.io/docs/ai/overview/" },
+    gated_remediation: { verdict: "partial", text: "Noz asks for confirmation before config changes", source: "https://signoz.io/docs/ai/noz/" },
+    click_to_trace: { verdict: "partial", text: "Browser OpenTelemetry traces linked to backend", source: "https://signoz.io/docs/frontend-monitoring/sending-traces-with-opentelemetry/" },
+  },
+  uptrace: {
+    release_flag_cohorts: { verdict: "partial", text: "Group by service version; deploy and flag annotations", source: "https://uptrace.dev/features/traces/querying-spans" },
+    contention_vs_regression: { verdict: "partial", text: "Service graph with per-edge errors and latency", source: "https://uptrace.dev/features/service-graph" },
+    causal_proof_levels: { verdict: "partial", text: "AI incident analysis with its evidence", source: "https://uptrace.dev/features/mcp" },
+    fix_verified_by_eval: { verdict: "not_marketed", text: "Not in the Uptrace docs we read", source: "https://uptrace.dev/features/mcp" },
+    gated_remediation: { verdict: "partial", text: "AI incident recommendations you accept or reject", source: "https://uptrace.dev/features/mcp" },
+    click_to_trace: { verdict: "partial", text: "Browser OpenTelemetry spans correlated with backend", source: "https://uptrace.dev/get/opentelemetry-js/browser" },
+  },
+  hyperdx: {
+    release_flag_cohorts: { verdict: "partial", text: "Release markers from service.version", source: "https://clickhouse.com/docs/clickstack/observability/features/dashboards/release-markers" },
+    contention_vs_regression: { verdict: "partial", text: "Event Deltas and service maps", source: "https://clickhouse.com/docs/clickstack/observability/features/event-deltas" },
+    causal_proof_levels: { verdict: "partial", text: "AI Notebooks summarize conclusions (beta)", source: "https://clickhouse.com/docs/clickstack/observability/notebooks" },
+    fix_verified_by_eval: { verdict: "not_marketed", text: "Not in the ClickStack docs we read", source: "https://clickhouse.com/docs/clickstack/observability/notebooks" },
+    gated_remediation: { verdict: "not_marketed", text: "Not in the ClickStack docs we read", source: "https://clickhouse.com/docs/clickstack/observability/mcp" },
+    click_to_trace: { verdict: "yes", text: "Session replay links to backend traces", source: "https://clickhouse.com/docs/clickstack/observability/features/session-replay" },
+  },
+};
+
 const META: { key: string; slug: string; name: string; summary: string; chooseIf: string }[] = [
   {
     key: "datadog", slug: "datadog", name: "Datadog",
@@ -326,7 +450,7 @@ const META: { key: string; slug: string; name: string; summary: string; chooseIf
 
 export const VENDORS: Vendor[] = META.map((m) => ({
   ...m,
-  cells: { ...REUSED[m.key], ...ADDED[m.key] } as Record<RowKey, Cell>,
+  cells: { ...REUSED[m.key], ...ADDED[m.key], ...AUTOSRE[m.key] } as Record<RowKey, Cell>,
 }));
 
 export function verdictLabel(v: Verdict): string {

@@ -6,7 +6,7 @@ import {
   MAIN_LEDGER_URL,
   OBS,
   type RowDef,
-  VENDOR_PAGES_LEDGER_URL,
+  AUDITS,
   VENDOR_PAGES_REVIEWED,
   VENDORS,
   type Vendor,
@@ -40,7 +40,7 @@ function hostOf(url: string): string {
 }
 
 function reviewedFor(row: RowDef): string {
-  if (row.added) return VENDOR_PAGES_REVIEWED;
+  if (row.audit) return AUDITS[row.audit].date;
   if (row.key === "mcp_server") return AGENT_ACCESS_REVIEWED;
   return LAST_REVIEWED;
 }
@@ -154,7 +154,9 @@ export function renderVendorPage(vendor: Vendor): string {
     <div class="vc-method muted small">
       <h2 class="vc-section-title">How these cells were checked</h2>
       <p><strong>Yes</strong> and <strong>Partial</strong> cells cite the vendor's own docs, pricing, product page, or official repository. <strong>No</strong> is used only where the cited page says so. <strong>Not marketed†</strong> means we read the vendor's product pages and found no such capability; it is an inference, not a vendor statement. <strong>Not stated</strong> means the vendor's docs do not say either way.</p>
-      <p>Rows for MCP write defaults, MCP links, agent tool calls, CPU profiles, self-hosting, and SSO were read on ${VENDOR_PAGES_REVIEWED} (<a href="${VENDOR_PAGES_LEDGER_URL}" rel="noopener">ledger with excerpts</a>). The MCP server row was read on ${AGENT_ACCESS_REVIEWED} (<a href="${AGENT_ACCESS_LEDGER_URL}" rel="noopener">ledger</a>), and the remaining rows on ${LAST_REVIEWED} (<a href="${MAIN_LEDGER_URL}" rel="noopener">ledger</a>). Vendors change their products often; if a cell is out of date, <a href="${RIGHT_OF_REPLY_URL}" rel="noopener">send a correction</a>. The <a href="${COMPARISON_DOC_URL}" rel="noopener">full comparison</a> covers all nine vendors with excerpts.</p>
+      <p>${Object.values(AUDITS)
+        .map((a) => `Rows for ${a.rows} were read on ${a.date} (<a href="${a.ledgerUrl}" rel="noopener">ledger with excerpts</a>).`)
+        .join(" ")} The MCP server row was read on ${AGENT_ACCESS_REVIEWED} (<a href="${AGENT_ACCESS_LEDGER_URL}" rel="noopener">ledger</a>), and the remaining rows on ${LAST_REVIEWED} (<a href="${MAIN_LEDGER_URL}" rel="noopener">ledger</a>). Vendors change their products often; if a cell is out of date, <a href="${RIGHT_OF_REPLY_URL}" rel="noopener">send a correction</a>. The <a href="${COMPARISON_DOC_URL}" rel="noopener">full comparison</a> covers all nine vendors with excerpts.</p>
     </div>
 
     <nav class="vc-others" aria-label="Other comparisons">
