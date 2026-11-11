@@ -66,27 +66,46 @@ scaffold pins match the workspace exactly.
 Publish from a normal interactive terminal on `main`:
 
 ```bash
-npm login        # once per machine; the token in ~/.npmrc expires
-pnpm release     # builds, then runs scripts/release-npm/publish-sequential.sh
-git push origin --tags
+npm login                  # once per machine; the token in ~/.npmrc expires
+pnpm release -- --dry-run  # every check plus build and pack; publishes nothing
+pnpm release               # same checks, a confirmation prompt, then publish
 ```
 
-`pnpm release` publishes the packages one at a time in dependency order rather
-than through `changeset publish`, for two reasons:
+`pnpm release` runs `scripts/release-npm/publish.mjs`
+(`scripts/release-npm/publish-sequential.sh` is a wrapper for it). It fails
+closed, exiting non-zero, at the first problem:
 
-- `changeset publish` runs every `pnpm publish` in parallel. Each package's
-  `prepublishOnly` rebuilds with tsup (`clean: true`), so a dependency's
-  `dist/` can be wiped while a dependent is still bundling against it.
+1. **Preflight.** It must run on `main` with a clean tracked tree, no
+   untracked files inside package directories, HEAD equal to `origin/main`,
+   no unversioned changesets, the public npm registry, an npm login, and an
+   interactive TTY.
+2. **Plan.** The publish order comes from each package's runtime and peer
+   dependencies, plus the SDK ranges the CLI writes into scaffolded apps, so
+   the SDKs always publish before the CLI. Those scaffold pins must equal
+   `^<workspace version>`, and a local version below npm's latest is refused.
+3. **Build and pack.** It runs `pnpm build:packages`, fails if the build
+   changed tracked files, then packs each package and checks the tarball: the
+   name and version match, no `workspace:` ranges remain, internal ranges
+   match the workspace, every `main`/`types`/`bin`/`exports` target exists,
+   and no `.env`, `.npmrc` or nested tarballs are included.
+4. **Publish.** It publishes the verified tarball itself, one package at a
+   time. It stops at the first failure and waits for each version to appear
+   on the registry before publishing its dependents.
+5. **Tags and verification.** It runs `changeset tag`, pushes only the new
+   tags, then installs every published version from npm into a scratch
+   project and checks `obs-unified --version`.
+
+Versions already on npm are skipped, so re-run after an interruption.
+
+The script publishes sequentially rather than through `changeset publish`,
+for two reasons:
+
+- `changeset publish` publishes in parallel, and each `prepublishOnly`
+  rebuilds with tsup (`clean: true`). One package's `dist/` can be wiped
+  while a dependent is still bundling against it.
 - The npm account uses 2FA in "auth-and-writes" mode with a passkey. There is
-  no TOTP code to pass with `--otp`; npm opens a browser prompt per publish and
-  needs an interactive TTY. Twelve parallel prompts are unusable, and the
-  Claude Code `!` shell is not a TTY.
-
-The script skips any package whose local version is already on the registry,
-so re-run it after an interrupted publish. Once every package is published it
-runs `changeset tag`; push the tags afterwards. Registry read replicas can lag
-a minute or two behind a publish, so a `npm view` immediately afterwards may
-still show the previous version.
+  no TOTP code to pass with `--otp`; npm opens one browser prompt per publish
+  and needs an interactive TTY. The Claude Code `!` shell is not a TTY.
 
 `@obsunified/sdk` (`sdks/node`) is part of the workspace and is included in the
 sequence; it does not need a separate `npm publish`.

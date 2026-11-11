@@ -6,7 +6,7 @@
 #   2. gates       pnpm lint, type-check, test, check:surfaces
 #   3. docker      multi-arch GHCR build+push (:<version>, :sha-<sha>, :latest) + smoke;
 #                  then prunes older local release images and build cache
-#   4. npm         pnpm release (sequential publish, passkey prompts) + push tags
+#   4. npm         pnpm release (checked, dependency-ordered publish; pushes its tags)
 #   5. deploy      website + docs (Cloudflare Pages)
 #   6. skills      optional: build bundles + GitHub release skills-v<ver>
 #
@@ -137,7 +137,7 @@ echo "  commit      $SHA"
 $SKIP_GATES  && echo "  gates       skip" || echo "  gates       lint, type-check, test, check:surfaces"
 echo "  db-parity   pnpm --filter @obsunified/collector check:db-parity (mandatory)"
 $SKIP_DOCKER && echo "  docker      skip" || echo "  docker      $IMAGE:{$COLLECTOR_VERSION,sha-$SHA,latest} (linux/amd64,linux/arm64) + smoke"
-$SKIP_NPM    && echo "  npm         skip" || echo "  npm         pnpm release (sequential) + git push --tags"
+$SKIP_NPM    && echo "  npm         skip" || echo "  npm         pnpm release (checked, dependency-ordered) + its tags"
 $SKIP_DEPLOY && echo "  deploy      skip" || echo "  deploy      website + docs"
 [ -n "$SKILLS_VERSION" ] && echo "  skills      skills-v$SKILLS_VERSION" || echo "  skills      skip (pass --skills <version> to cut one)"
 if ! $SKIP_NPM; then
@@ -194,8 +194,9 @@ fi
 # -------------------------------------------------------------------- 4. npm
 if ! $SKIP_NPM; then
   bold "4. npm publish"
-  run pnpm release
-  run git push origin --tags
+  # publish.mjs re-runs its own preflight, publishes in dependency order,
+  # pushes only the tags it created, and verifies a clean registry install.
+  run pnpm release -- --yes
   bold "   verifying registry (replicas may lag up to ~2 min)"
   for d in packages/*/ sdks/node/; do
     [ -f "$d/package.json" ] || continue

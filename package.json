@@ -18,7 +18,7 @@
 		"build": "pnpm -r run build",
 		"changeset": "changeset",
 		"version-packages": "changeset version",
-		"release": "pnpm build:packages && bash scripts/release-npm/publish-sequential.sh",
+		"release": "node scripts/release-npm/publish.mjs",
 		"release:all": "bash scripts/release/run.sh",
 		"dev:collector": "pnpm --filter @obs-demo/collector run dev",
 		"dev:demo": "pnpm --filter @obs-demo/app run dev",
