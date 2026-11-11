@@ -7,8 +7,8 @@
 //      row, with a known verdict, non-empty text, and an https source.
 //   3. Observability Unified cells cite docs.obsunified.com; vendor cells
 //      never cite obsunified.com.
-//   4. Every cell in a row marked `added` matches a row in the vendor-pages
-//      ledger (vendor, row, verdict, URL), and the ledger's counts match.
+//   4. Every cell in a row with an `audit` key matches a row in that audit's
+//      ledger (vendor, row, verdict, URL), and each ledger's count matches.
 //   5. Vendor cell text stays neutral (no disparaging wording).
 //
 // Run with tsx; it imports the same modules the pages render from.
@@ -18,10 +18,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  AUDITS,
+  type AuditKey,
   GROUPS,
   OBS,
-  VENDOR_PAGES_LEDGER_URL,
-  VENDOR_PAGES_REVIEWED,
   VENDORS,
   type Verdict,
 } from "../src/content/vendor-compare";
@@ -36,7 +36,6 @@ const ok = (m: string) => console.log(`  ✓ ${m}`);
 
 const VERDICTS: Verdict[] = ["yes", "partial", "no", "not_marketed", "not_stated"];
 const ROWS = GROUPS.flatMap((g) => g.rows);
-const ADDED = ROWS.filter((r) => r.added);
 const DISPARAGING = /\b(lacks?|lacking|missing|poor|bad|worse|inferior|expensive|insane|clunky|outdated|legacy)\b/i;
 
 // 1. vendor coverage, slugs, sitemap
@@ -82,13 +81,14 @@ for (const v of VENDORS) {
 }
 ok(`${cellCount} vendor cells and ${ROWS.length} Observability Unified cells have verdicts, text, and sources`);
 
-// 4. ledger for the rows added for these pages
-const ledgerName = VENDOR_PAGES_LEDGER_URL.split("/").pop() ?? "";
-const ledgerPath = join(repoRoot, "docs", ledgerName);
-if (!ledgerName.includes(VENDOR_PAGES_REVIEWED)) fail(`ledger ${ledgerName} does not carry the review date ${VENDOR_PAGES_REVIEWED}`);
-if (!existsSync(ledgerPath)) {
-  fail(`ledger not found: docs/${ledgerName}`);
-} else {
+// 4. one ledger per audit, covering every cell in that audit's rows
+for (const [key, audit] of Object.entries(AUDITS) as [AuditKey, (typeof AUDITS)[AuditKey]][]) {
+  const rows = ROWS.filter((r) => r.audit === key);
+  if (rows.length === 0) { fail(`audit ${key} has no rows`); continue; }
+  const ledgerName = audit.ledgerUrl.split("/").pop() ?? "";
+  const ledgerPath = join(repoRoot, "docs", ledgerName);
+  if (!ledgerName.includes(audit.date)) fail(`ledger ${ledgerName} does not carry the review date ${audit.date}`);
+  if (!existsSync(ledgerPath)) { fail(`ledger not found: docs/${ledgerName}`); continue; }
   const ledger = readFileSync(ledgerPath, "utf8");
   // Ledger rows: | <vendor> | <row> | <verdict> | <cell> | <url> | <excerpt> |
   const entries = new Map<string, { verdict: string; url: string }>();
@@ -98,19 +98,19 @@ if (!existsSync(ledgerPath)) {
   }
   let matched = 0;
   for (const v of VENDORS) {
-    for (const r of ADDED) {
+    for (const r of rows) {
       const c = v.cells[r.key];
       const e = entries.get(`${v.key}.${r.key}`);
-      if (!e) { fail(`ledger has no entry for ${v.key}.${r.key}`); continue; }
+      if (!e) { fail(`${ledgerName}: no entry for ${v.key}.${r.key}`); continue; }
       if (e.verdict !== c.verdict) fail(`${v.key}.${r.key}: page says ${c.verdict}, ledger says ${e.verdict}`);
-      if (e.url !== c.source) fail(`${v.key}.${r.key}: page cites ${c.source}, ledger cites ${e.url}`);
-      matched++;
+      else if (e.url !== c.source) fail(`${v.key}.${r.key}: page cites ${c.source}, ledger cites ${e.url}`);
+      else matched++;
     }
   }
-  const expected = VENDORS.length * ADDED.length;
+  const expected = VENDORS.length * rows.length;
   const declared = /Cells:\s*\*\*(\d+)\*\*/.exec(ledger)?.[1];
-  if (declared !== String(expected)) fail(`ledger declares ${declared ?? "no"} cells, pages have ${expected}`);
-  if (matched === expected) ok(`all ${expected} researched cells match the ${VENDOR_PAGES_REVIEWED} ledger`);
+  if (declared !== String(expected)) fail(`${ledgerName} declares ${declared ?? "no"} cells, pages have ${expected}`);
+  if (matched === expected) ok(`all ${expected} cells in ${rows.length} rows match the ${audit.date} ledger`);
 }
 
 if (failures.length) {
