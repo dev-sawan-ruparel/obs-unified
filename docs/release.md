@@ -31,7 +31,7 @@ per package.
 pnpm release:all                   # everything
 pnpm release:all -- --dry-run      # print the plan only
 pnpm release:all -- --skip-docker  # e.g. npm + deploys only
-pnpm release:all -- --skills 0.1.4 # also cut skills-v0.1.4
+pnpm release:all -- --skills 0.1.5 # also cut skills-v0.1.5
 ```
 
 Preflight also fails early when the Docker data partition has less than
@@ -115,7 +115,7 @@ Run `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnin
 Run `make -C skills lint validate build`. Create a release using a distinct
 `skills-v<version>` tag and attach `skills/dist/*.skill` with `gh release create`
 or `gh release upload`. Update the documented download tag when shipping new
-bundles. The migration release was `skills-v0.1.1`; the current bundle is `skills-v0.1.4` (2026-10-16).
+bundles. The migration release was `skills-v0.1.1`; the current bundle is `skills-v0.1.5` (2026-11-10).
 
 ## Container image
 
