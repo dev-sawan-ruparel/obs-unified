@@ -7,6 +7,8 @@ import {
   PRODUCTION_OPS_URL,
   SDK_REFERENCE_URL,
 } from "../config";
+import { VENDORS } from "../content/vendor-compare";
+import { comparePath } from "../pages/compare-pages";
 
 const YEAR = new Date().getFullYear();
 
@@ -41,6 +43,11 @@ export function renderFooter(): string {
       <a href="${DOCS_URL}/instrumenting">Instrumenting</a>
       <a href="${PRODUCTION_OPS_URL}">Production ops</a>
       <a href="${DOCS_URL}/comparison">Comparison</a>
+    </nav>
+    <nav class="footer-nav" aria-label="Comparisons">
+      <h4>Compare</h4>
+      ${VENDORS.map((v) => `<a href="${comparePath(v)}">vs ${v.name}</a>`).join("")}
+      <a href="/compare/">All comparisons</a>
     </nav>
     <nav class="footer-nav" aria-label="Packages">
       <h4>Packages</h4>

@@ -192,7 +192,7 @@ const ROWS: Row[] = [
     grafana:   { v: "Hosted Cloud MCP · self-managed OSS" },
     signoz:    { v: "Hosted MCP (Cloud) · self-host binary" },
     uptrace:   { v: "Built-in MCP · read/write scopes" },
-    hyperdx:   { v: "ClickStack OSS/BYOC MCP · not v1 cloud" },
+    hyperdx:   { v: "ClickStack OSS, BYOC, and managed MCP" },
   },
   {
     label: "Data ownership",

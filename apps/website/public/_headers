@@ -31,6 +31,8 @@
   Cache-Control: public, max-age=300, must-revalidate
 /index.html
   Cache-Control: public, max-age=300, must-revalidate
+/compare/*
+  Cache-Control: public, max-age=300, must-revalidate
 
 # AEO files — let crawlers cache for a day.
 /robots.txt
