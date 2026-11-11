@@ -29,6 +29,11 @@ debugging anchor.
 
 Latest local run: June 4, 2026.
 
+Re-run on November 11, 2026 before adding CCR to the vendor comparison: the
+bundle was 5,328 JSON bytes / 1,332 estimated tokens (38x fewer than raw), with
+both debugging signals preserved. That is within 1% of the published result
+below, so the published figures are unchanged.
+
 | Metric | Raw evidence | CCR evidence bundle |
 | --- | ---: | ---: |
 | JSON bytes | 202,406 | 5,274 |

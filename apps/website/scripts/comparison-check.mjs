@@ -12,8 +12,10 @@
 //   2b. Ledger cell indices in section 3 are exactly 1..TOTAL with no
 //      duplicates or gaps.
 //   2c. The same checks run for the supplementary agent-access ledger
-//      (AGENT_ACCESS_* constants, docs/comparison-agent-access-audit-<date>.md),
-//      and its row label appears in compare.ts and in every vendor table.
+//      (AGENT_ACCESS_* constants, docs/comparison-agent-access-audit-<date>.md)
+//      and the agent-evidence ledger (AGENT_EVIDENCE_* constants,
+//      docs/comparison-agent-evidence-audit-<date>.md), and each supplementary
+//      row label appears in compare.ts and in every vendor table.
 //   3. Every vendor key in the messaging manifest's comparison.agentRows
 //      (except "obs") has a matching `<a id="src-<key>" />` anchor in
 //      comparison.mdx, so the table's source links never 404.
@@ -127,6 +129,7 @@ function checkLedger({ prefix, ledgerUrlName, reviewedName, label }) {
 
 if (lastReviewed) checkLedger({ prefix: "", ledgerUrlName: "AUDIT_LEDGER_URL", reviewedName: "LAST_REVIEWED", label: "main" });
 checkLedger({ prefix: "AGENT_ACCESS_", ledgerUrlName: "AGENT_ACCESS_LEDGER_URL", reviewedName: "AGENT_ACCESS_REVIEWED", label: "agent-access" });
+checkLedger({ prefix: "AGENT_EVIDENCE_", ledgerUrlName: "AGENT_EVIDENCE_LEDGER_URL", reviewedName: "AGENT_EVIDENCE_REVIEWED", label: "agent-evidence" });
 
 // 2c. the supplementary row exists in both surfaces under the same label.
 const agentAccessLabel = constant("AGENT_ACCESS_ROW_LABEL");
@@ -136,6 +139,29 @@ if (agentAccessLabel) {
 	const expected = agentRows().filter(({ key }) => key !== "obs").length;
 	if (mdxRows.length !== expected) fail(`comparison.mdx has ${mdxRows.length} "${agentAccessLabel}" vendor rows, expected ${expected}`);
 	else ok(`"${agentAccessLabel}" row present in compare.ts and in all ${expected} vendor tables in comparison.mdx`);
+}
+
+// 2d. the agent-evidence rows: each label is a row in compare.ts and in every
+// vendor table, and the ledger total equals rows × vendors.
+const evidenceLabels = (() => {
+	const m = /const AGENT_EVIDENCE_ROW_LABELS\s*=\s*\{([\s\S]*?)\}\s*as const/.exec(compareTs);
+	if (!m) {
+		fail("could not find AGENT_EVIDENCE_ROW_LABELS in compare.ts");
+		return [];
+	}
+	return [...m[1].matchAll(/(\w+):\s*"([^"]+)"/g)].map(([, key, label]) => ({ key, label }));
+})();
+{
+	const expected = agentRows().filter(({ key }) => key !== "obs").length;
+	for (const { key, label } of evidenceLabels) {
+		if (!new RegExp(`label:\\s*AGENT_EVIDENCE_ROW_LABELS\\.${key}\\b`).test(compareTs)) fail(`compare.ts ROWS has no row labelled AGENT_EVIDENCE_ROW_LABELS.${key}`);
+		const mdxRows = comparisonMdx.split("\n").filter((l) => l.startsWith(`| ${label} |`));
+		if (mdxRows.length !== expected) fail(`comparison.mdx has ${mdxRows.length} "${label}" vendor rows, expected ${expected}`);
+		else ok(`"${label}" row present in compare.ts and in all ${expected} vendor tables in comparison.mdx`);
+	}
+	const total = constant("AGENT_EVIDENCE_TOTAL_CELLS");
+	if (evidenceLabels.length && total !== evidenceLabels.length * expected)
+		fail(`AGENT_EVIDENCE_TOTAL_CELLS ${total} != ${evidenceLabels.length} rows × ${expected} vendors`);
 }
 
 // 3. vendor anchors

@@ -42,7 +42,11 @@ export type RowKey =
   | "fix_verified_by_eval"
   | "gated_remediation"
   | "click_to_trace"
-  | "contention_vs_regression";
+  | "contention_vs_regression"
+  | "compact_evidence_bundles"
+  | "agent_skills"
+  | "one_id_chain"
+  | "instrumentation_gaps";
 
 export type RowDef = {
   key: RowKey;
@@ -55,7 +59,7 @@ export type RowDef = {
 
 export type Group = { title: string; rows: RowDef[] };
 
-export type AuditKey = "pages" | "autosre";
+export type AuditKey = "pages" | "autosre" | "evidence";
 export type Audit = { date: string; ledgerUrl: string; rows: string };
 const LEDGER_BASE = "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/";
 export const AUDITS: Record<AuditKey, Audit> = {
@@ -68,6 +72,11 @@ export const AUDITS: Record<AuditKey, Audit> = {
     date: "2026-11-11",
     ledgerUrl: `${LEDGER_BASE}comparison-vendor-pages-autosre-audit-2026-11-11.md`,
     rows: "release and flag comparison, proof of cause, fix verification, gated remediation, click to trace, and dependency contention",
+  },
+  evidence: {
+    date: "2026-11-11",
+    ledgerUrl: `${LEDGER_BASE}comparison-agent-evidence-audit-2026-11-11.md`,
+    rows: "compacted evidence for agents, agent skills, one ID chain, and instrumentation gaps",
   },
 };
 /** Most recent vendor-page review, shown in the page eyebrow. */
@@ -88,6 +97,8 @@ export const GROUPS: Group[] = [
       { key: "mcp_read_only_default", label: "MCP write tools off unless enabled", question: "Is the MCP server read-only until someone turns write tools on?", audit: "pages" },
       { key: "mcp_links_to_records", label: "MCP results link to source records", question: "Do MCP tool results include links or citations back to the underlying records?", audit: "pages" },
       { key: "agent_calls_in_app_traces", label: "Agent tool calls alongside app traces", question: "Do AI agent runs and tool calls appear alongside the application's backend traces?", audit: "pages" },
+      { key: "compact_evidence_bundles", label: "Compacted evidence for AI agents", question: "Can an AI agent get compacted telemetry evidence (repeated records summarized, key records kept) sized for its context, with a way to fetch the full records?", audit: "evidence" },
+      { key: "agent_skills", label: "Agent skills for coding agents", question: "Does the vendor publish first-party agent skills that teach AI coding agents to instrument or investigate with the product?", audit: "evidence" },
     ],
   },
   {
@@ -109,6 +120,8 @@ export const GROUPS: Group[] = [
       { key: "session_replay", label: "Session replay", question: "Can you replay a user's browser session?" },
       { key: "click_to_trace", label: "Browser click linked to its backend trace", question: "Does a user's click in the browser link to the backend trace it caused?", audit: "autosre" },
       { key: "profile_from_trace", label: "CPU profile from a trace", question: "Can you open the CPU profile for a specific trace or span?", audit: "pages" },
+      { key: "one_id_chain", label: "One ID chain from user to agent action", question: "Do user, session, backend trace, and AI agent or LLM records share linking IDs, so you can go from a user to the backend work and agent actions their request caused?", audit: "evidence" },
+      { key: "instrumentation_gaps", label: "Points out gaps in your instrumentation", question: "Does the product detect and show where instrumentation is missing, such as uninstrumented time inside a trace?", audit: "evidence" },
     ],
   },
   {
@@ -142,6 +155,10 @@ export const OBS: Record<RowKey, Cell> = {
   fix_verified_by_eval: { verdict: "yes", text: "Same eval input fails on the baseline and passes on the candidate", source: `${D}/autosre#4-paired-baseline-fail--candidate-pass-counterfactual-verification` },
   gated_remediation: { verdict: "yes", text: "Approval queue or single-use grant; your runner executes; a watchdog checks recovery", source: `${D}/autosre#approval--execution-handoff` },
   click_to_trace: { verdict: "yes", text: "x-obs-interaction links a click to its trace, logs, and replay (browser SDK or header)", source: `${D}/getting-started#application-compatibility--signal-matrix` },
+  compact_evidence_bundles: { verdict: "yes", text: "CCR bundles collapse repeated logs to exemplars within a token budget; refs expand them", source: `${D}/evidence-retrieval` },
+  agent_skills: { verdict: "yes", text: "Instrument and investigate skills, released as .skill bundles", source: `${D}/getting-started#autonomous-ai-agent-setup--verification-playbook` },
+  one_id_chain: { verdict: "yes", text: "user_id → session_id → interaction_id → trace_id → span_id → action_id", source: `${D}/agent-action-graph#identity-model` },
+  instrumentation_gaps: { verdict: "yes", text: "Flags spans with unexplained self-time in the waterfall and in get_trace", source: `${D}/evidence-retrieval#instrumentation-gaps` },
 };
 
 export type Vendor = {
@@ -163,7 +180,8 @@ type AutosreKey =
   | "gated_remediation"
   | "click_to_trace"
   | "contention_vs_regression";
-type PagesKey = Exclude<RowKey, ReusedKey | AutosreKey>;
+type EvidenceKey = "compact_evidence_bundles" | "agent_skills" | "one_id_chain" | "instrumentation_gaps";
+type PagesKey = Exclude<RowKey, ReusedKey | AutosreKey | EvidenceKey>;
 
 const y = (text: string, source: string): Cell => ({ verdict: "yes", text, source });
 const p = (text: string, source: string): Cell => ({ verdict: "partial", text, source });
@@ -400,6 +418,64 @@ const AUTOSRE: Record<string, Record<AutosreKey, Cell>> = {
   },
 };
 
+// Agent evidence cells, source-checked on AUDITS.evidence.date; see its ledger.
+const EVIDENCE: Record<string, Record<EvidenceKey, Cell>> = {
+  datadog: {
+    compact_evidence_bundles: p("MCP Server truncates responses, has max_tokens and says how to get more", "https://docs.datadoghq.com/mcp_server/"),
+    agent_skills: y("Pup CLI and Datadog Labs repos ship agent skills (Labs is experimental)", "https://github.com/DataDog/pup/blob/main/README.md"),
+    one_id_chain: y("RUM links to APM traces; Agent Observability links to APM spans and RUM", "https://docs.datadoghq.com/real_user_monitoring/correlate_with_other_telemetry/llm_observability/"),
+    instrumentation_gaps: p("Tag rules flag telemetry without required tags", "https://docs.datadoghq.com/mcp_server/tools/"),
+  },
+  sentry: {
+    compact_evidence_bundles: p("MCP trace tool returns a condensed overview; search_traces fetches the rest", "https://github.com/getsentry/sentry-mcp/blob/main/packages/mcp-core/src/tools/catalog/get-trace-details.ts"),
+    agent_skills: y("Official Sentry plugins for Claude Code, Cursor, Codex ship agent skills", "https://github.com/getsentry/agent-plugin/blob/main/README.md"),
+    one_id_chain: y("Replays link to traces; agent conversations link to traces and users", "https://docs.sentry.io/product/agents/conversations/"),
+    instrumentation_gaps: y("Trace view marks orphan traces and no-instrumentation spans", "https://docs.sentry.io/concepts/key-terms/tracing/trace-view/"),
+  },
+  posthog: {
+    compact_evidence_bundles: y("MCP log patterns collapse logs into up to 200 templates that pivot to raw lines", "https://posthog.com/docs/logs/patterns"),
+    agent_skills: y("Official PostHog AI plugin ships skills for Claude Code, Cursor, Codex", "https://github.com/PostHog/ai-plugin/blob/main/README.md"),
+    one_id_chain: y("Session, person, backend spans and LLM events share IDs (tracing beta)", "https://posthog.com/docs/distributed-tracing/link-ai-observability"),
+    instrumentation_gaps: p("Agent skill reads span self-time as uninstrumented gaps; ingestion warnings", "https://github.com/PostHog/ai-plugin/blob/main/skills/exploring-apm-traces/SKILL.md"),
+  },
+  honeycomb: {
+    compact_evidence_bundles: p("MCP tools return span attribute summaries; trace and query tools fetch detail", "https://docs.honeycomb.io/integrations/mcp/tools"),
+    agent_skills: y("Agent Skills plugin for Claude Code, Cursor, Copilot CLI and Augment", "https://docs.honeycomb.io/integrations/agent-skills"),
+    one_id_chain: y("Browser traces connect to backend traces; GenAI spans grouped into conversations", "https://docs.honeycomb.io/get-started/start-building/application/web"),
+    instrumentation_gaps: y("Trace waterfall warns when spans are absent; a Canvas skill audits agents", "https://docs.honeycomb.io/reference/honeycomb-ui/query/trace-waterfall"),
+  },
+  newrelic: {
+    compact_evidence_bundles: p("MCP tools analyze log error patterns; separate tools list recent logs", "https://docs.newrelic.com/docs/agentic-ai/mcp/tool-reference/"),
+    agent_skills: y("Claude Code plugin and skills hub for investigating with New Relic data", "https://github.com/newrelic/claude-code-plugin/blob/main/readme.md"),
+    one_id_chain: y("Browser traces link to backend; AI monitoring opens a trace per LLM response", "https://docs.newrelic.com/docs/browser/new-relic-browser/browser-pro-features/browser-data-distributed-tracing/"),
+    instrumentation_gaps: y("Trace view marks orphaned spans; an MCP tool reviews repo instrumentation", "https://docs.newrelic.com/docs/distributed-tracing/ui-data/trace-details/"),
+  },
+  grafana: {
+    compact_evidence_bundles: p("MCP server returns Loki log patterns; log queries flag truncated results", "https://github.com/grafana/mcp-grafana/blob/main/README.md"),
+    agent_skills: y("grafana/skills Agent Skills for Claude Code, Cursor and Codex", "https://github.com/grafana/skills/blob/main/README.md"),
+    one_id_chain: y("Frontend sessions link to backend traces; AI traces span user request to LLM", "https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/frontend-observability/integrate/apm-integration/"),
+    instrumentation_gaps: y("Application Observability detects uninstrumented services from trace data", "https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/application-observability/setup/uninstrumented-services/"),
+  },
+  signoz: {
+    compact_evidence_bundles: p("MCP tools aggregate logs/traces and paginate with hasMore/nextOffset", "https://signoz.io/docs/ai/signoz-mcp-server/"),
+    agent_skills: y("SigNoz plugin and Agent Skills for Claude Code, Codex, Cursor and more", "https://signoz.io/docs/ai/agent-skills/"),
+    one_id_chain: p("Browser traces link to backend traces; LLM spans join app traces", "https://signoz.io/docs/frontend-monitoring/sending-traces-with-opentelemetry/"),
+    instrumentation_gaps: y("Trace view flags spans whose parent span was never collected", "https://signoz.io/docs/traces-management/troubleshooting/faqs/"),
+  },
+  uptrace: {
+    compact_evidence_bundles: p("MCP tools aggregate spans and logs into groups; list tools return records", "https://uptrace.dev/features/mcp"),
+    agent_skills: p("MCP server serves skill guides as resources", "https://uptrace.dev/features/mcp"),
+    one_id_chain: p("LLM spans nest in the app trace with user ID attributes", "https://uptrace.dev/guides/opentelemetry-openai"),
+    instrumentation_gaps: nm("Not found on the trace feature, reference, and MCP pages read", "https://uptrace.dev/features/traces"),
+  },
+  hyperdx: {
+    compact_evidence_bundles: p("MCP log patterns and response trimming; pattern drill-down not yet released", "https://github.com/ClickHouse/ClickStack/blob/main/packages/api/src/utils/trimToolResponse.ts"),
+    agent_skills: y("ClickHouse Agent Skills include a ClickStack OTel collector setup skill", "https://github.com/ClickHouse/agent-skills/blob/main/README.md"),
+    one_id_chain: y("Session replay links to backend traces; LLM view filters by user (beta)", "https://clickhouse.com/docs/clickstack/observability/features/session-replay"),
+    instrumentation_gaps: p("Instrument-with-AI prompt and onboarding checklist", "https://clickhouse.com/docs/clickstack/observability/ingesting-data/sdks/instrument-with-ai"),
+  },
+};
+
 const META: { key: string; slug: string; name: string; summary: string; chooseIf: string }[] = [
   {
     key: "datadog", slug: "datadog", name: "Datadog",
@@ -450,7 +526,7 @@ const META: { key: string; slug: string; name: string; summary: string; chooseIf
 
 export const VENDORS: Vendor[] = META.map((m) => ({
   ...m,
-  cells: { ...REUSED[m.key], ...ADDED[m.key], ...AUTOSRE[m.key] } as Record<RowKey, Cell>,
+  cells: { ...REUSED[m.key], ...ADDED[m.key], ...AUTOSRE[m.key], ...EVIDENCE[m.key] } as Record<RowKey, Cell>,
 }));
 
 export function verdictLabel(v: Verdict): string {

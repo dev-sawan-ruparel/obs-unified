@@ -37,6 +37,28 @@ export const AGENT_ACCESS_SOURCE_CHECKED_CELLS = 9;
 export const AGENT_ACCESS_INFERRED_CELLS = 0;
 export const AGENT_ACCESS_TOTAL_CELLS = 9;
 
+// The four agent-evidence rows were added later still and source-checked
+// together, with their own date and ledger (which also backs the matching
+// rows on the /compare/<vendor>/ pages). comparison-check.mjs validates it.
+export const AGENT_EVIDENCE_ROW_LABELS = {
+  compact_evidence_bundles: "Compacted evidence for AI agents",
+  agent_skills: "Agent skills for coding agents",
+  one_id_chain: "One ID chain from user to agent action",
+  instrumentation_gaps: "Points out gaps in your instrumentation",
+} as const;
+export const AGENT_EVIDENCE_REVIEWED = "2026-11-11";
+export const AGENT_EVIDENCE_LEDGER_URL =
+  "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-agent-evidence-audit-2026-11-11.md";
+export const AGENT_EVIDENCE_SOURCE_CHECKED_CELLS = 35;
+export const AGENT_EVIDENCE_INFERRED_CELLS = 1;
+export const AGENT_EVIDENCE_TOTAL_CELLS = 36;
+const OBS_EVIDENCE = {
+  compact_evidence_bundles: "CCR bundles · token budget · refs",
+  agent_skills: "Instrument + investigate skills",
+  one_id_chain: "user → session → trace → agent action",
+  instrumentation_gaps: "Self-time gap flags · get_trace",
+} as const;
+
 const VENDOR_KEYS: VendorKey[] = [
   "datadog",
   "sentry",
@@ -195,6 +217,62 @@ const ROWS: Row[] = [
     hyperdx:   { v: "ClickStack OSS, BYOC, and managed MCP" },
   },
   {
+    // Source-checked AGENT_EVIDENCE_REVIEWED; see AGENT_EVIDENCE_LEDGER_URL.
+    label: AGENT_EVIDENCE_ROW_LABELS.compact_evidence_bundles,
+    obs:       { v: OBS_EVIDENCE.compact_evidence_bundles },
+    datadog:   { v: "MCP truncation · max_tokens" },
+    sentry:    { v: "Condensed MCP trace overview" },
+    posthog:   { v: "MCP log patterns → raw lines" },
+    honeycomb: { v: "MCP summaries + drill-down tools" },
+    newrelic:  { v: "MCP log error patterns" },
+    grafana:   { v: "MCP Loki patterns" },
+    signoz:    { v: "MCP aggregates · pagination" },
+    uptrace:   { v: "MCP span and log groups" },
+    hyperdx:   { v: "MCP log patterns · trimming" },
+  },
+  {
+    // Source-checked AGENT_EVIDENCE_REVIEWED; see AGENT_EVIDENCE_LEDGER_URL.
+    label: AGENT_EVIDENCE_ROW_LABELS.agent_skills,
+    obs:       { v: OBS_EVIDENCE.agent_skills },
+    datadog:   { v: "Pup CLI · Labs skills (experimental)" },
+    sentry:    { v: "Claude Code · Cursor · Codex plugins" },
+    posthog:   { v: "AI plugin · Claude Code · Cursor · Codex" },
+    honeycomb: { v: "Agent Skills plugin" },
+    newrelic:  { v: "Claude Code plugin · skills hub" },
+    grafana:   { v: "grafana/skills" },
+    signoz:    { v: "Agent Skills plugin" },
+    uptrace:   { v: "Skill guides via MCP resources" },
+    hyperdx:   { v: "ClickStack collector skill" },
+  },
+  {
+    // Source-checked AGENT_EVIDENCE_REVIEWED; see AGENT_EVIDENCE_LEDGER_URL.
+    label: AGENT_EVIDENCE_ROW_LABELS.one_id_chain,
+    obs:       { v: OBS_EVIDENCE.one_id_chain },
+    datadog:   { v: "RUM ↔ APM ↔ Agent Observability" },
+    sentry:    { v: "Replay ↔ trace ↔ agent conversation" },
+    posthog:   { v: "Session · person · spans · LLM (beta)" },
+    honeycomb: { v: "Browser ↔ backend · GenAI spans" },
+    newrelic:  { v: "Browser ↔ backend · AI trace view" },
+    grafana:   { v: "Session ↔ trace · AI traces" },
+    signoz:    { v: "Browser ↔ backend · LLM spans" },
+    uptrace:   { v: "LLM spans in app trace · user ID" },
+    hyperdx:   { v: "Replay ↔ trace · LLM by user (beta)" },
+  },
+  {
+    // Source-checked AGENT_EVIDENCE_REVIEWED; see AGENT_EVIDENCE_LEDGER_URL.
+    label: AGENT_EVIDENCE_ROW_LABELS.instrumentation_gaps,
+    obs:       { v: OBS_EVIDENCE.instrumentation_gaps },
+    datadog:   { v: "Tag rules for required tags" },
+    sentry:    { v: "Orphan + no-instrumentation spans" },
+    posthog:   { v: "Via agent skill · ingestion warnings" },
+    honeycomb: { v: "Waterfall flags absent spans" },
+    newrelic:  { v: "Orphaned-span markers" },
+    grafana:   { v: "Uninstrumented services" },
+    signoz:    { v: "Spans with uncollected parents" },
+    uptrace:   NOT_MARKETED,
+    hyperdx:   { v: "Instrument-with-AI prompt" },
+  },
+  {
     label: "Data ownership",
     obs:       { v: "Your D1/R2 or Postgres/S3" },
     datadog:   { v: "Datadog site · BYOC logs" },
@@ -248,11 +326,11 @@ export function renderCompare(): string {
 <section id="compare" class="compare" aria-labelledby="compare-title">
   <div class="container">
     <header class="section-header">
-      <p class="eyebrow">How it compares <span class="cmp-asof">— source-checked ${LAST_REVIEWED} against vendor pages; agent-access row ${AGENT_ACCESS_REVIEWED}</span></p>
+      <p class="eyebrow">How it compares <span class="cmp-asof">— source-checked ${LAST_REVIEWED} against vendor pages; agent-access row ${AGENT_ACCESS_REVIEWED}; agent-evidence rows ${AGENT_EVIDENCE_REVIEWED}</span></p>
       <h2 id="compare-title">${escapeHtml(comparison.headline)}</h2>
       <p class="section-lead">
         When an incident spans several signals, engineers and agents need to find related evidence.
-        Observability Unified connects instrumented signals through shared IDs, gives agents compact evidence bundles through MCP, and lets engineers inspect the same records in the dashboard. The table compares signal coverage, AI agent access over MCP, and deployment options.
+        Observability Unified connects instrumented signals through shared IDs, gives agents compact evidence bundles through MCP, and lets engineers inspect the same records in the dashboard. The table compares signal coverage, AI agent access and evidence, and deployment options.
       </p>
     </header>
     <div class="cmp-scroll" role="region" aria-label="Comparison table" tabindex="0">
@@ -269,7 +347,7 @@ export function renderCompare(): string {
       </table>
     </div>
     <p class="cmp-footnote muted small">
-      <strong>Beyond the 11 axes above — what AutoSRE &amp; agentic onboarding add:</strong>
+      <strong>Beyond the 15 axes above — what AutoSRE &amp; agentic onboarding add:</strong>
       When an AI agent investigates an incident across fragmented tools, it often confuses traffic share with deploy regressions, blames application code during shared-DB noisy-neighbor saturation, or proposes unsafe rollbacks from stack-trace coincidence alone.
       Observability Unified separates <code>relationshipCertainty</code> (link provenance) from <code>causalProofTier</code> (causal proof), computes per-request error lift across deploy/flag cohorts (<code>v_new</code> vs <code>v_old</code>), verifies fixes via paired baseline-fail/candidate-pass counterfactual evals, and gates external runners with single-use CAS remediation grants and a 1-click human approval queue — see <a href="${DOCS_URL}/autosre" rel="noopener">AutoSRE causal ontology</a> and <a href="${COMPARISON_URL}#where-obs-unified-fits" rel="noopener">Where Observability Unified fits</a>.
     </p>
@@ -277,6 +355,7 @@ export function renderCompare(): string {
       ${SOURCE_CHECKED_CELLS} of ${TOTAL_CELLS} vendor cells were directly checked against the vendor's own live page on ${LAST_REVIEWED} and corrected where the source had changed;
       the ${INFERRED_CELLS} cells marked † are inferential (the vendor does not market that capability on the pages we read) and are not claimed as source-checked.
       The ${escapeHtml(AGENT_ACCESS_ROW_LABEL)} row was added later: ${AGENT_ACCESS_SOURCE_CHECKED_CELLS} of ${AGENT_ACCESS_TOTAL_CELLS} vendor cells were checked against the vendor's own live page on ${AGENT_ACCESS_REVIEWED} (<a href="${AGENT_ACCESS_LEDGER_URL}" rel="noopener">supplementary ledger</a>).
+      The four agent-evidence rows (${Object.values(AGENT_EVIDENCE_ROW_LABELS).map(escapeHtml).join(", ")}) were added on ${AGENT_EVIDENCE_REVIEWED}: ${AGENT_EVIDENCE_SOURCE_CHECKED_CELLS} of ${AGENT_EVIDENCE_TOTAL_CELLS} vendor cells were checked against the vendor's own pages, and ${AGENT_EVIDENCE_INFERRED_CELLS} is marked † (<a href="${AGENT_EVIDENCE_LEDGER_URL}" rel="noopener">agent-evidence ledger</a>).
       Cells are descriptive, not scored. Vendor headers link to the cited sources in <a href="${COMPARISON_URL}" rel="noopener">the comparison doc</a>;
       per-cell verdicts and excerpts live in the <a href="${AUDIT_LEDGER_URL}" rel="noopener">tracked audit ledger</a>.
       Pricing changes often; treat prices as of the review date.

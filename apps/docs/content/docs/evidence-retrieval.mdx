@@ -78,6 +78,31 @@ finding. See
 for the current numbers and methodology — re-run the benchmark before changing
 any CCR reduction claim.
 
+## Instrumentation gaps
+
+Every trace read also reports where instrumentation is probably missing. The
+collector computes these gaps at read time from the trace's spans: a span is
+flagged when it runs longer than 100 ms, more than 70% of its duration is its own
+time rather than its children's, it has at most one child span, it is not an
+async parent, and it is not a client, producer, or consumer span (where waiting
+on another system is expected).
+
+- The trace waterfall in the dashboard marks each flagged span with how many
+  milliseconds are unaccounted for and suggests adding child spans or attaching
+  a profile.
+- The MCP `get_trace` tool and `GET /internal/telemetry/traces/:traceId` return
+  the gaps as `instrumentationGaps` (each gap's span, uninstrumented time, and
+  share of its parent), and `GET /internal/telemetry/traces/:traceId/gaps`
+  returns them alone.
+- Analyses that carry gaps turn them into evidence references with the
+  `uninstrumented_self_time_gap` predicate, so agents can cite them.
+- `GET /internal/telemetry/instrumentation-gaps/calibration` scans recent
+  traces (72 hours by default) and reports how often gaps occur, so you can
+  check the thresholds against your own traffic.
+
+The thresholds are heuristics. A flagged span can be legitimate CPU work, so
+treat a gap as a place to look, not as proof of missing spans.
+
 ## Related
 
 - [Evidence reference](/docs/evidence-reference) — the `EvidenceReference` contract
