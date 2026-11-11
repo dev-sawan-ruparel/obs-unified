@@ -49,7 +49,11 @@ const PIN_SOURCES = {
 		templates: "packages/cli/templates",
 	},
 };
-const VISIBILITY_TIMEOUT_MS = 180_000;
+// npm can take several minutes to make a new version available ("Your package
+// is being processed"). Override with OBS_NPM_VISIBILITY_TIMEOUT_S.
+const VISIBILITY_TIMEOUT_MS =
+	Number(process.env.OBS_NPM_VISIBILITY_TIMEOUT_S ?? 600) * 1000;
+const REGISTRY = "https://registry.npmjs.org";
 
 const args = new Set(process.argv.slice(2).filter((a) => a !== "--"));
 for (const a of args) {
@@ -140,7 +144,7 @@ function satisfies(version, range) {
 }
 
 function npmVersions(name) {
-	const r = sh("npm", ["view", name, "versions", "--json"]);
+	const r = sh("npm", ["view", name, "versions", "--json", "--prefer-online"]);
 	if (r.code !== 0) {
 		if (/E404|404 Not Found/.test(r.err + r.out)) return [];
 		fail(`npm view ${name} failed:\n${r.err}`);
@@ -148,16 +152,31 @@ function npmVersions(name) {
 	const parsed = JSON.parse(r.out || "[]");
 	return Array.isArray(parsed) ? parsed : [parsed];
 }
-function npmHas(name, version) {
-	const r = sh("npm", ["view", `${name}@${version}`, "version"]);
-	return r.code === 0 && r.out.split("\n").includes(version);
+// Ask the registry's version endpoint directly. `npm view` reads npm's local
+// HTTP cache, and the registry serves package metadata with max-age=300, so a
+// lookup made just before publishing can hide the new version for 5 minutes.
+async function npmHas(name, version) {
+	const url = `${REGISTRY}/${name.replace("/", "%2F")}/${encodeURIComponent(version)}`;
+	const res = await fetch(url, {
+		headers: { "cache-control": "no-cache", accept: "application/json" },
+	});
+	if (res.status === 404) return false;
+	if (!res.ok) throw new Error(`GET ${url} returned ${res.status}`);
+	const body = await res.json();
+	return body.name === name && body.version === version;
 }
 async function waitVisible(name, version) {
 	const deadline = Date.now() + VISIBILITY_TIMEOUT_MS;
+	let lastError = "";
 	while (Date.now() < deadline) {
-		if (npmHas(name, version)) return true;
-		await new Promise((res) => setTimeout(res, 5000));
+		try {
+			if (await npmHas(name, version)) return true;
+		} catch (e) {
+			lastError = String(e?.message ?? e);
+		}
+		await new Promise((res) => setTimeout(res, 10_000));
 	}
+	if (lastError) warn(`last registry check error: ${lastError}`);
 	return false;
 }
 
@@ -466,90 +485,111 @@ async function main() {
 		for (const p of problems) console.log(`  \x1b[31m✗\x1b[0m ${p}`);
 		process.exit(1);
 	}
-	if (todo.length === 0) {
+	if (todo.length === 0 && DRY_RUN) {
 		ok("every package version is already on npm; nothing to publish");
 		return;
 	}
-
-	bold("3. Build and pack");
-	must("pnpm", ["build:packages"], { inherit: true });
-	const dirty = must("git", ["status", "--porcelain", "--untracked-files=no"]);
-	if (dirty)
-		fail(
-			`the build changed tracked files; commit or fix them first:\n${dirty}`,
-		);
-	const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "obs-npm-release-"));
-	let packIssues = 0;
-	for (const p of todo) {
-		const r = packAndVerify(p, pkgs, outDir);
-		p.tgz = r.tgz;
-		if (r.issues.length) {
-			packIssues += r.issues.length;
-			console.log(`  \x1b[31m✗\x1b[0m ${p.name}@${p.version}`);
-			for (const i of r.issues) console.log(`      ${i}`);
-		} else ok(`${p.name}@${p.version}  ${r.files} files, ${r.kb} KB`);
-	}
-	if (packIssues)
-		fail(`${packIssues} tarball problem(s); nothing was published`);
-
-	if (DRY_RUN) {
-		bold(
-			`Dry run passed: ${todo.length} package(s) would be published. Tarballs: ${outDir}`,
-		);
-		return;
-	}
-	if (!ASSUME_YES) {
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
-		});
-		const ans = await rl.question(
-			`Publish ${todo.length} package(s) to npm as ${npmUser}? [y/N] `,
-		);
-		rl.close();
-		if (!/^y(es)?$/i.test(ans.trim())) fail("aborted; nothing was published");
-	}
-
-	bold("4. Publish");
 	const done = [];
-	for (const p of todo) {
-		// Re-check right before publishing: a previous partial run or someone else may have published it.
-		if (npmHas(p.name, p.version)) {
-			warn(`${p.name}@${p.version} appeared on npm; skipping`);
+	let outDir = null;
+	if (todo.length === 0) {
+		ok("every package version is already on npm; checking tags and installs");
+	} else {
+		bold("3. Build and pack");
+		must("pnpm", ["build:packages"], { inherit: true });
+		const dirty = must("git", [
+			"status",
+			"--porcelain",
+			"--untracked-files=no",
+		]);
+		if (dirty)
+			fail(
+				`the build changed tracked files; commit or fix them first:\n${dirty}`,
+			);
+		outDir = fs.mkdtempSync(path.join(os.tmpdir(), "obs-npm-release-"));
+		let packIssues = 0;
+		for (const p of todo) {
+			const r = packAndVerify(p, pkgs, outDir);
+			p.tgz = r.tgz;
+			if (r.issues.length) {
+				packIssues += r.issues.length;
+				console.log(`  \x1b[31m✗\x1b[0m ${p.name}@${p.version}`);
+				for (const i of r.issues) console.log(`      ${i}`);
+			} else ok(`${p.name}@${p.version}  ${r.files} files, ${r.kb} KB`);
+		}
+		if (packIssues)
+			fail(`${packIssues} tarball problem(s); nothing was published`);
+
+		if (DRY_RUN) {
+			bold(
+				`Dry run passed: ${todo.length} package(s) would be published. Tarballs: ${outDir}`,
+			);
+			return;
+		}
+		if (!ASSUME_YES) {
+			const rl = readline.createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			});
+			const ans = await rl.question(
+				`Publish ${todo.length} package(s) to npm as ${npmUser}? [y/N] `,
+			);
+			rl.close();
+			if (!/^y(es)?$/i.test(ans.trim())) fail("aborted; nothing was published");
+		}
+
+		bold("4. Publish");
+		for (const p of todo) {
+			// Re-check right before publishing: a previous partial run or someone else may have published it.
+			if (await npmHas(p.name, p.version)) {
+				warn(`${p.name}@${p.version} appeared on npm; skipping`);
+				done.push(p);
+				continue;
+			}
+			console.log(
+				`  == ${p.name}@${p.version} (approve the browser prompt if asked)`,
+			);
+			const r = sh("npm", ["publish", p.tgz, "--access", "public"], {
+				inherit: true,
+			});
+			if (r.code !== 0) {
+				fail(
+					`publish failed for ${p.name}@${p.version}. Published so far: ${done.map((d) => `${d.name}@${d.version}`).join(", ") || "none"}. Fix the cause and re-run; published versions are skipped.`,
+				);
+			}
+			if (!(await waitVisible(p.name, p.version))) {
+				fail(
+					`${p.name}@${p.version} is not visible on the registry after ${VISIBILITY_TIMEOUT_MS / 1000}s; stopping before its dependents. Re-run once it appears.`,
+				);
+			}
+			ok(`${p.name}@${p.version} is on npm`);
 			done.push(p);
-			continue;
 		}
-		console.log(
-			`  == ${p.name}@${p.version} (approve the browser prompt if asked)`,
-		);
-		const r = sh("npm", ["publish", p.tgz, "--access", "public"], {
-			inherit: true,
-		});
-		if (r.code !== 0) {
-			fail(
-				`publish failed for ${p.name}@${p.version}. Published so far: ${done.map((d) => `${d.name}@${d.version}`).join(", ") || "none"}. Fix the cause and re-run; published versions are skipped.`,
-			);
-		}
-		if (!(await waitVisible(p.name, p.version))) {
-			fail(
-				`${p.name}@${p.version} is not visible on the registry after ${VISIBILITY_TIMEOUT_MS / 1000}s; stopping before its dependents. Re-run once it appears.`,
-			);
-		}
-		ok(`${p.name}@${p.version} is on npm`);
-		done.push(p);
 	}
 
 	bold("5. Tags");
 	must("pnpm", ["exec", "changeset", "tag"], { inherit: true });
-	const tags = done.map((p) => `${p.name}@${p.version}`);
+	// Cover every package at its current version, not only this run's, so a
+	// re-run after an interrupted publish still pushes the earlier tags.
+	const tags = plan.map((p) => `${p.name}@${p.version}`);
 	for (const t of tags) {
 		if (sh("git", ["rev-parse", "-q", "--verify", `refs/tags/${t}`]).code !== 0)
 			fail(`expected tag ${t} after changeset tag`);
 	}
-	must("git", ["push", "origin", ...tags.map((t) => `refs/tags/${t}`)], {
-		inherit: true,
-	});
-	ok(`pushed ${tags.length} tag(s)`);
+	const remoteTags = new Set(
+		must("git", ["ls-remote", "--tags", "origin"])
+			.split("\n")
+			.map((l) => l.split("\t")[1]?.replace(/\^\{\}$/, ""))
+			.filter(Boolean),
+	);
+	const missing = tags.filter((t) => !remoteTags.has(`refs/tags/${t}`));
+	if (missing.length) {
+		must("git", ["push", "origin", ...missing.map((t) => `refs/tags/${t}`)], {
+			inherit: true,
+		});
+	}
+	ok(
+		`pushed ${missing.length} tag(s); ${tags.length - missing.length} already on origin`,
+	);
 
 	bold("6. Verify from the registry");
 	const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "obs-npm-verify-"));
@@ -571,7 +611,7 @@ async function main() {
 	);
 	if (install.code !== 0)
 		fail(`clean install of the published versions failed in ${scratch}`);
-	for (const p of done) {
+	for (const p of plan) {
 		const installed = JSON.parse(
 			fs.readFileSync(
 				path.join(scratch, "node_modules", p.name, "package.json"),
@@ -581,7 +621,7 @@ async function main() {
 		if (installed !== p.version)
 			fail(`${p.name}: installed ${installed}, expected ${p.version}`);
 	}
-	const cli = done.find((p) => p.name === "@obsunified/cli");
+	const cli = plan.find((p) => p.name === "@obsunified/cli");
 	if (cli) {
 		const v = must(
 			path.join(scratch, "node_modules", ".bin", "obs-unified"),
@@ -592,10 +632,12 @@ async function main() {
 			fail(`obs-unified --version printed "${v}", expected ${cli.version}`);
 		ok(`obs-unified --version -> ${v}`);
 	}
-	ok(`clean install resolved ${done.length} published version(s)`);
+	ok(`clean install resolved all ${plan.length} package version(s) from npm`);
 	fs.rmSync(scratch, { recursive: true, force: true });
-	fs.rmSync(outDir, { recursive: true, force: true });
-	bold(`Done: published ${tags.join(", ")}`);
+	if (outDir) fs.rmSync(outDir, { recursive: true, force: true });
+	bold(
+		`Done: published ${done.map((p) => `${p.name}@${p.version}`).join(", ") || "nothing new"}; all ${plan.length} versions verified`,
+	);
 }
 
 main().catch((e) => fail(e?.stack ?? String(e)));
