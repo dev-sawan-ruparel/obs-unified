@@ -344,8 +344,10 @@ Store a redacted/allow-listed audit shape or hashes by default.
 **Acceptance checklist:**
 
 - [x] Define an allow-listed MCP audit envelope for trace/action context fields.
-- [x] Persist redacted MCP transport metadata for explicit tool/resource/prompt
-      audit envelopes.
+- [~] Persist redacted MCP transport metadata for explicit tool/resource/prompt
+      audit envelopes. (2026-11-11 audit: the app must build the envelope with
+      `buildMcpAuditEnvelope`; the collector validates only its shape; prompt
+      spans have no test; a raw `mcp._meta` span attribute is not stripped.)
 - [x] Render audit metadata on tool/action detail pages and graph evidence
       badges.
 - [x] Tests verify accepted audit envelopes and raw `_meta` rejection.
@@ -363,9 +365,13 @@ and whether the blast radius is acceptable.
 - [x] Tool/action records can attach redacted before/after summaries or artifact
       links.
 - [x] Autonomous Review exposes mutation evidence.
-- [x] Dashboard renders before/after evidence without raw sensitive payloads by
-      default.
-- [x] Production-to-eval can preserve mutation evidence as source context.
+- [~] Dashboard renders before/after evidence without raw sensitive payloads by
+      default. (2026-11-11 audit: the collector stores mutation values as the app
+      sends them; payload redaction and the payload-capture setting do not apply.
+      Documented as an app responsibility in the Agent Action Graph docs.)
+- [~] Production-to-eval can preserve mutation evidence as source context.
+      (Code copies it into `metadata.toolHashes[].mutationEvidence`; no test
+      asserts it yet.)
 
 ## 15. Side-by-Side Agent Step Comparisons
 

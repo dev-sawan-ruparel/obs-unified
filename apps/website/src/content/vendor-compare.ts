@@ -46,7 +46,12 @@ export type RowKey =
   | "compact_evidence_bundles"
   | "agent_skills"
   | "one_id_chain"
-  | "instrumentation_gaps";
+  | "instrumentation_gaps"
+  | "tool_side_effects"
+  | "mcp_call_audit"
+  | "prod_to_eval"
+  | "incident_memory"
+  | "query_language";
 
 export type RowDef = {
   key: RowKey;
@@ -59,7 +64,7 @@ export type RowDef = {
 
 export type Group = { title: string; rows: RowDef[] };
 
-export type AuditKey = "pages" | "autosre" | "evidence";
+export type AuditKey = "pages" | "autosre" | "evidence" | "safety";
 export type Audit = { date: string; ledgerUrl: string; rows: string };
 const LEDGER_BASE = "https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/";
 export const AUDITS: Record<AuditKey, Audit> = {
@@ -77,6 +82,11 @@ export const AUDITS: Record<AuditKey, Audit> = {
     date: "2026-11-11",
     ledgerUrl: `${LEDGER_BASE}comparison-agent-evidence-audit-2026-11-11.md`,
     rows: "compacted evidence for agents, agent skills, one ID chain, and instrumentation gaps",
+  },
+  safety: {
+    date: "2026-11-11",
+    ledgerUrl: `${LEDGER_BASE}comparison-vendor-pages-safety-audit-2026-11-11.md`,
+    rows: "tool-call side effects, MCP call recording, production traces to eval cases, incident memory, and ad-hoc queries",
   },
 };
 /** Most recent vendor-page review, shown in the page eyebrow. */
@@ -102,6 +112,14 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    title: "Observing your own AI agents",
+    rows: [
+      { key: "tool_side_effects", label: "Records what an agent's tool call changed", question: "Does the product record what an AI agent's tool call changed (before and after state, a diff, or a mutation record), not just the call's input and output?", audit: "safety" },
+      { key: "mcp_call_audit", label: "MCP calls recorded with trace context", question: "Does the product record MCP tool, resource, or prompt calls made by your AI agents or MCP servers, linked to the trace or agent run?", audit: "safety" },
+      { key: "prod_to_eval", label: "Production traces become eval cases", question: "Can a production trace or agent run be saved as an eval or dataset case, and a new version then compared on those cases?", audit: "safety" },
+    ],
+  },
+  {
     title: "Change-aware investigation and remediation",
     rows: [
       { key: "release_flag_cohorts", label: "Compare releases and flag variants", question: "Can you compare errors or latency between release versions or feature-flag variants?", audit: "autosre" },
@@ -109,6 +127,7 @@ export const GROUPS: Group[] = [
       { key: "causal_proof_levels", label: "Root cause states its level of proof", question: "Do automated root-cause findings say how well the cause is proven?", audit: "autosre" },
       { key: "fix_verified_by_eval", label: "Fix verified by re-running the failing case", question: "Is a fix verified by re-running the case that failed, before and after?", audit: "autosre" },
       { key: "gated_remediation", label: "Remediation behind approval or a policy gate", question: "Does automated remediation pass an approval or policy gate before it runs?", audit: "autosre" },
+      { key: "incident_memory", label: "Matches new incidents to past ones", question: "Does the product automatically match a new incident, alert, or finding against similar past ones and use that in the investigation?", audit: "safety" },
     ],
   },
   {
@@ -121,6 +140,7 @@ export const GROUPS: Group[] = [
       { key: "click_to_trace", label: "Browser click linked to its backend trace", question: "Does a user's click in the browser link to the backend trace it caused?", audit: "autosre" },
       { key: "profile_from_trace", label: "CPU profile from a trace", question: "Can you open the CPU profile for a specific trace or span?", audit: "pages" },
       { key: "one_id_chain", label: "One ID chain from user to agent action", question: "Do user, session, backend trace, and AI agent or LLM records share linking IDs, so you can go from a user to the backend work and agent actions their request caused?", audit: "evidence" },
+      { key: "query_language", label: "Write your own queries over telemetry", question: "Can you write your own ad-hoc queries over traces, logs, or metrics (a query language, SQL, or a free-form query builder)?", audit: "safety" },
       { key: "instrumentation_gaps", label: "Points out gaps in your instrumentation", question: "Does the product detect and show where instrumentation is missing, such as uninstrumented time inside a trace?", audit: "evidence" },
     ],
   },
@@ -159,6 +179,11 @@ export const OBS: Record<RowKey, Cell> = {
   agent_skills: { verdict: "yes", text: "Instrument and investigate skills, released as .skill bundles", source: `${D}/getting-started#autonomous-ai-agent-setup--verification-playbook` },
   one_id_chain: { verdict: "yes", text: "user_id → session_id → interaction_id → trace_id → span_id → action_id", source: `${D}/agent-action-graph#identity-model` },
   instrumentation_gaps: { verdict: "yes", text: "Flags spans with unexplained self-time in the waterfall and in get_trace", source: `${D}/evidence-retrieval#instrumentation-gaps` },
+  tool_side_effects: { verdict: "yes", text: "Before, after, and diff values your app attaches to a tool call, stored as sent", source: `${D}/agent-action-graph#side-effect-evidence` },
+  mcp_call_audit: { verdict: "yes", text: "MCP spans join the action graph; an optional allow-listed envelope records the context", source: `${D}/agent-action-graph#mcp-call-audit` },
+  prod_to_eval: { verdict: "yes", text: "Save as eval case from a trace or run; candidate runs compared step by step (HTTP API)", source: `${D}/agent-action-graph#production-traces-to-eval-cases` },
+  incident_memory: { verdict: "yes", text: "Prior findings matched by fingerprint appear in incident evidence bundles", source: `${D}/autosre#agent-workflow-with-mcp-tools` },
+  query_language: { verdict: "partial", text: "Search and filters; no query language or SQL editor", source: `${D}/comparison#trade-offs-and-current-limitations` },
 };
 
 export type Vendor = {
@@ -181,7 +206,8 @@ type AutosreKey =
   | "click_to_trace"
   | "contention_vs_regression";
 type EvidenceKey = "compact_evidence_bundles" | "agent_skills" | "one_id_chain" | "instrumentation_gaps";
-type PagesKey = Exclude<RowKey, ReusedKey | AutosreKey | EvidenceKey>;
+type SafetyKey = "tool_side_effects" | "mcp_call_audit" | "prod_to_eval" | "incident_memory" | "query_language";
+type PagesKey = Exclude<RowKey, ReusedKey | AutosreKey | EvidenceKey | SafetyKey>;
 
 const y = (text: string, source: string): Cell => ({ verdict: "yes", text, source });
 const p = (text: string, source: string): Cell => ({ verdict: "partial", text, source });
@@ -476,6 +502,73 @@ const EVIDENCE: Record<string, Record<EvidenceKey, Cell>> = {
   },
 };
 
+// Agent safety and eval cells, source-checked on AUDITS.safety.date; see its ledger.
+const SAFETY: Record<string, Record<SafetyKey, Cell>> = {
+  datadog: {
+    tool_side_effects: p("Tool spans capture inputs and outputs", "https://docs.datadoghq.com/llm_observability/quickstart/terms/"),
+    mcp_call_audit: y("MCP client and server calls traced as spans linked to the LLM trace", "https://docs.datadoghq.com/llm_observability/instrument/auto_instrumentation/"),
+    prod_to_eval: y("Add production traces to datasets; compare versions in offline experiments", "https://docs.datadoghq.com/llm_observability/improve/datasets/"),
+    incident_memory: y("Bits Investigation reuses memories from past investigations in similar ones", "https://docs.datadoghq.com/bits_ai/bits_investigation/knowledge_sources/"),
+    query_language: y("DDSQL Editor: SQL over telemetry, plus natural-language query building", "https://docs.datadoghq.com/ddsql_editor/"),
+  },
+  sentry: {
+    tool_side_effects: p("Agent tool calls recorded with inputs and outputs in traces", "https://docs.sentry.io/product/agents/dashboards/"),
+    mcp_call_audit: y("MCP server monitoring traces tool, resource, and prompt calls as spans", "https://docs.sentry.io/product/mcp-servers/getting-started/"),
+    prod_to_eval: p("Shows LLM-as-judge decision spans in traces", "https://docs.sentry.io/product/agents/conversations/"),
+    incident_memory: p("Resolved issues auto-flag as Regressed; AI grouping merges similar errors", "https://docs.sentry.io/product/issues/states-triage/"),
+    query_language: y("Trace Explorer query builder with aggregates and group-by on spans", "https://docs.sentry.io/product/trace-explorer/"),
+  },
+  posthog: {
+    tool_side_effects: p("Tool and function spans capture input and output state", "https://posthog.com/docs/ai-observability/spans"),
+    mcp_call_audit: y("MCP Analytics (beta) records MCP tool calls per agent session", "https://posthog.com/docs/mcp-analytics"),
+    prod_to_eval: y("Add traces to datasets (beta) and compare runs in offline evals", "https://posthog.com/docs/ai-evals/datasets"),
+    incident_memory: y("Self-driving scouts keep memory of past findings and dedupe against them", "https://posthog.com/docs/self-driving/scouts"),
+    query_language: y("SQL (HogQL, ClickHouse-based) over events including AI traces", "https://posthog.com/docs/sql"),
+  },
+  honeycomb: {
+    tool_side_effects: p("Agent Timeline shows tool call arguments and results", "https://docs.honeycomb.io/investigate/observe/agent-timeline"),
+    mcp_call_audit: p("Generic GenAI tool-call spans", "https://docs.honeycomb.io/investigate/observe/agent-timeline"),
+    prod_to_eval: p("Canvas compares versions on live traffic; evals run via Braintrust", "https://www.honeycomb.io/blog/how-canvas-powers-ai-agent-development-feedback-loop"),
+    incident_memory: y("Team Agent Memories track what broke and if fixes held (Early Access)", "https://www.honeycomb.io/platform/team-agents"),
+    query_language: y("Query Builder with SELECT calculations, WHERE and GROUP BY", "https://docs.honeycomb.io/investigate/query/build"),
+  },
+  newrelic: {
+    tool_side_effects: p("AI monitoring traces show tool call inputs and outputs", "https://docs.newrelic.com/docs/ai-monitoring/explore-ai-data/view-ai-agents/"),
+    mcp_call_audit: y("APM agents instrument the MCP SDK: tool calls, resources, prompts", "https://docs.newrelic.com/docs/apm/agents/nodejs-agent/getting-started/compatibility-requirements-nodejs-agent/"),
+    prod_to_eval: p("Model comparison across live traffic", "https://docs.newrelic.com/docs/ai-monitoring/explore-ai-data/view-model-data/"),
+    incident_memory: y("Autopilot memory recalls lessons from past investigations", "https://docs.newrelic.com/docs/agentic-ai/autopilot/memories/"),
+    query_language: y("NRQL, a SQL-like query language over all telemetry", "https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/"),
+  },
+  grafana: {
+    tool_side_effects: p("Agent Observability shows tool arguments, results and status", "https://grafana.com/docs/grafana-cloud/observe-and-act/agent-observability/observe-and-troubleshoot/conversations/"),
+    mcp_call_audit: y("OpenLIT MCP Observability traces MCP clients and servers", "https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/ai-observability/mcp-observability/setup/"),
+    prod_to_eval: y("Promote conversations into test suites and compare runs", "https://grafana.com/docs/grafana-cloud/observe-and-act/agent-observability/evaluate-and-improve/experiments/"),
+    incident_memory: y("Past incident lessons feed later investigations (private preview)", "https://grafana.com/blog/full-stack-observability-with-knowledge-graph/"),
+    query_language: y("TraceQL, LogQL and PromQL for traces, logs and metrics", "https://grafana.com/docs/tempo/latest/traceql/"),
+  },
+  signoz: {
+    tool_side_effects: p("GenAI tool spans store tool-call arguments and results", "https://signoz.io/docs/ai-observability-telemetry-requirements/"),
+    mcp_call_audit: y("Blog guide traces MCP client, server and tool calls with OpenTelemetry", "https://signoz.io/blog/mcp-observability-with-otel/"),
+    prod_to_eval: nm("Evaluation listed as available via integrations", "https://signoz.io/llm-observability/"),
+    incident_memory: p("Noz saves past investigations you can search", "https://signoz.io/docs/ai/noz/"),
+    query_language: y("Query builder with aggregations and group-by, plus ClickHouse SQL", "https://signoz.io/docs/userguide/writing-clickhouse-traces-query/"),
+  },
+  uptrace: {
+    tool_side_effects: p("Guides record tool calls as spans with input and output", "https://uptrace.dev/blog/langchain-observability"),
+    mcp_call_audit: nm("MCP pages cover Uptrace's own MCP server", "https://uptrace.dev/product/mcp"),
+    prod_to_eval: nm("Not found on the AI and LLM pages read", "https://uptrace.dev/glossary/llm-observability"),
+    incident_memory: p("Groups similar logs and exceptions", "https://uptrace.dev/features/logs/grouping"),
+    query_language: y("Span query language with group-by and aggregates; PromQL-compatible", "https://uptrace.dev/features/traces/querying-spans"),
+  },
+  hyperdx: {
+    tool_side_effects: p("Blog guide traces agent tool calls with input and output", "https://clickhouse.com/blog/tracing-openai-agents-clickstack"),
+    mcp_call_audit: y("Blog guides trace MCP client and server calls with OpenTelemetry", "https://clickhouse.com/blog/llm-observability-clickstack-mcp"),
+    prod_to_eval: nm("Not found in the ClickStack docs read", "https://clickhouse.com/observability"),
+    incident_memory: p("Saved AI Notebooks (beta) and event patterns", "https://clickhouse.com/docs/clickstack/observability/notebooks"),
+    query_language: y("Lucene and SQL search, plus raw SQL charts", "https://clickhouse.com/docs/clickstack/observability/features/search"),
+  },
+};
+
 const META: { key: string; slug: string; name: string; summary: string; chooseIf: string }[] = [
   {
     key: "datadog", slug: "datadog", name: "Datadog",
@@ -526,7 +619,7 @@ const META: { key: string; slug: string; name: string; summary: string; chooseIf
 
 export const VENDORS: Vendor[] = META.map((m) => ({
   ...m,
-  cells: { ...REUSED[m.key], ...ADDED[m.key], ...AUTOSRE[m.key], ...EVIDENCE[m.key] } as Record<RowKey, Cell>,
+  cells: { ...REUSED[m.key], ...ADDED[m.key], ...AUTOSRE[m.key], ...EVIDENCE[m.key], ...SAFETY[m.key] } as Record<RowKey, Cell>,
 }));
 
 export function verdictLabel(v: Verdict): string {

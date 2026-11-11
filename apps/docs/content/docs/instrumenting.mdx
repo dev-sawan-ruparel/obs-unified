@@ -257,6 +257,68 @@ If "Click that caused this trace" on the span detail rail shows the absence text
 - A hand-written `x-obs-interaction` is silently dropped by the server SDK unless it is a 26-character uppercase Crockford-base32 ULID (for example `01JAQ8K3Z9X7M2N4P6Q8R0S1T3`); ids minted by the browser SDK are always valid
 - The server isn't calling `stampInteractionFromRequest()` on the root span
 
+## Code references
+
+When a span carries source-location attributes, the trace detail API adds a
+structured `codeReference` to that span, so you and your agents can jump from a
+slow or failing span to the file and line without parsing stack text. The
+collector reads these attributes (first match wins):
+
+| Field | Attributes |
+| --- | --- |
+| path | `code.filepath`, `code.file.path`, `code.path`, `source.file` |
+| `symbolName` | `code.function`, `code.function.name`, `code.namespace` |
+| `lineNumber` | `code.lineno`, `code.line_number`, `code.line` |
+| `columnNumber` | `code.column`, `code.column_number` |
+| `repoName` | `code.repository`, `repo.name` |
+
+A reference is added when there is at least a path, symbol, or line. The path
+is returned as `originalPath`, plus `absolutePath` if it starts with `/` or a
+drive letter, otherwise `relativePath` (with any leading `./` removed). Line and
+column must be positive integers (numeric strings are accepted). Paths are not
+rewritten to be repository-relative, so send repo-relative paths if you don't
+want machine paths in your telemetry.
+
+The SDK does not add these attributes automatically. Set them on spans you care
+about, or use an OpenTelemetry instrumentation that emits the `code.*`
+attributes:
+
+```ts
+import { withChildSpan } from "@obsunified/telemetry-sdk";
+
+const order = await withChildSpan("inventory.reserve", async (child) => {
+	child.setAttribute("code.filepath", "src/checkout/inventory.ts");
+	child.setAttribute("code.function", "reserveInventory");
+	child.setAttribute("code.lineno", 42);
+	return await reserveInventory(items);
+});
+```
+
+Where it shows up:
+
+- `GET /internal/telemetry/traces/:traceId` and the MCP `get_trace` tool return
+  `codeReference` on each span that has one.
+- Profile frame summaries carry a `codeReference` (`originalPath`,
+  `relativePath` or `absolutePath`, `lineNumber`, `symbol`) when the pprof
+  function has a filename. Request them with
+  `GET /internal/profiles/:id?frames=true` (optionally `trace_id` and
+  `frame_limit`), or expand the profile-frames ref from an evidence bundle with
+  `retrieve_evidence_ref`. The MCP `get_profile` tool does not currently request
+  frame summaries.
+- In the dashboard, the span detail shows a "Code Reference" row with the
+  symbol, the path with `:line:column`, a **Copy** button, and an **Open IDE**
+  link. Flame graph nodes show `path:line` in their tooltip and in the hover
+  bar, with the same copy and IDE actions. Paths containing `redacted` are
+  shown as `[redacted]` and get no copy action.
+
+The IDE link is a URL template, not a `file://` link. The default is
+`vscode://file/{absolutePath}:{lineNumber}`. Override it per browser with the
+`obs_ide_template` localStorage key, or at build time with
+`VITE_IDE_URL_TEMPLATE`; templates can use `{absolutePath}`, `{relativePath}`,
+and `{lineNumber}`. When a reference has only a relative path, the default
+template receives that relative path, which most IDEs cannot open, so use a
+`{relativePath}` template that fits your setup or rely on **Copy**.
+
 ## Going further
 
 - **Multiple services**: each service initializes the SDK with its own `serviceName`. The OTLP `traceparent` header propagates trace context across service boundaries; `x-obs-interaction` propagates the click-scoped key. Native `fetch` doesn't forward arbitrary headers — pass them explicitly when fanning out:
