@@ -11,7 +11,7 @@ Every third-party claim on this page was re-checked on **2026-10-13** by reading
 
 ## What this page is
 
-A long-form companion to the comparison table on [obsunified.com](https://obsunified.com#compare). The landing-page table is terse; each vendor column footnote-links to the matching section here, where every cell carries the source URL and a short excerpt. Use this page to verify a claim, read one vendor's profile, or see what was deliberately *not* compared.
+A long-form companion to the comparison table on [obsunified.com](https://obsunified.com#compare). The landing-page table is terse; each vendor column footnote-links to the matching section here, where every cell carries the source URL and a short excerpt. Use this page to verify a claim, read one vendor's profile, or see what was deliberately *not* compared. For a two-column Yes / Partial / No view against one vendor, see the [per-vendor comparison pages](https://obsunified.com/compare/), which add rows for MCP write defaults, MCP links, agent tool calls, CPU profiles, self-hosting, and SSO ([ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-vendor-pages-audit-2026-11-10.md)).
 
 ## Scope
 
@@ -173,12 +173,12 @@ Self-hosted on Cloudflare Workers + D1 + R2, or Node + PostgreSQL + S3-compatibl
 | Pricing | $20/mo flat for 50 GB, then $0.40/GB; no per-seat or per-host billing | [Pricing](https://www.hyperdx.io/pricing): "Includes 50 GB/mo … Unlimited Users, Flat Rate … $20/mo … $0.40 per additional 1 GB". |
 | Traces / APM | OTLP-native, HTTP and gRPC | [OpenTelemetry](https://www.hyperdx.io/docs/install/opentelemetry): "HTTP endpoint is hosted at https://in-otel.hyperdx.io (gRPC at port 4317)". |
 | Structured logs | Yes, ClickHouse-backed with JSON parsing, live tail, patterns | [hyperdxio/hyperdx](https://github.com/hyperdxio/hyperdx): "unifying session replays, logs, metrics, traces and errors powered by ClickHouse and OpenTelemetry." |
-| AI / LLM | Via OpenTelemetry LLM SDKs (OpenLLMetry, OpenLIT, Mirascope) | [OpenLLMetry integration](https://www.traceloop.com/docs/openllmetry/integrations/hyperdx); [HyperDX docs](https://www.hyperdx.io/docs) navigation lists "LLMs: Mirascope, OpenLIT, OpenLLMetry". |
+| AI / LLM | Via OpenTelemetry LLM SDKs (OpenLLMetry, OpenLIT, Mirascope) | [OpenLLMetry guide](https://www.hyperdx.io/docs/install/openllmetry): "Integrating HyperDX with OpenLLMetry just requires routing the traces to HyperDX's endpoint with the API key". [HyperDX docs](https://www.hyperdx.io/docs) navigation lists "LLMs: Mirascope, OpenLIT, OpenLLMetry". |
 | Session replay | Yes, auto-linked to logs and traces | [HyperDX](https://www.hyperdx.io/): "Automatically link session replays with backend logs and traces." |
 | Product analytics | Not marketed† | [HyperDX docs](https://www.hyperdx.io/docs) navigation has no analytics section. |
 | Alerting | Search-based threshold and duration alerts | [Alerts](https://www.hyperdx.io/docs/alerts): "set the threshold, duration, and notification method for the alert (Slack, Email, PagerDuty or Slack Webhook)". |
 | Cross-signal | Auto-linked across signals | [HyperDX](https://www.hyperdx.io/): "Trace every request from a user's browser and phone to your backend servers and async workers, automatically." |
-| AI agent access (MCP) | Reviewed 2026-11-10: built-in MCP server in open-source and BYOC ClickStack; not available on HyperDX v1 (hyperdx.io) | [ClickStack MCP server](https://clickhouse.com/docs/clickstack/mcp): "The MCP server is available in Open Source ClickStack and BYOC (Bring Your Own Cloud) deployments. HyperDX v1 (hyperdx.io) is not supported." |
+| AI agent access (MCP) | Reviewed 2026-11-10: built-in MCP server in open-source and BYOC ClickStack, and an OAuth endpoint for managed ClickHouse Observability; not available on HyperDX v1 (hyperdx.io) | [ClickStack MCP server](https://clickhouse.com/docs/clickstack/mcp): "The MCP server is available in Open Source ClickStack and BYOC (Bring Your Own Cloud) deployments. HyperDX v1 (hyperdx.io) is not supported." [ClickHouse Observability MCP](https://clickhouse.com/docs/clickstack/observability/mcp): "ClickHouse Observability connects through the Cloud MCP endpoint at https://mcp.clickhouse.cloud/clickstack and authenticates with OAuth 2.0." |
 | Data ownership | Cloud hosted in the United States, or your own ClickHouse | [DPA](https://www.hyperdx.io/terms/dpa): "DeploySentinel will host and process Customer Personal Data in the United States." |
 
 † Inferential negative: not marketed by the vendor on the pages, product index, or sitemaps read on 2026-10-13. Absence is not an explicit vendor statement. See [ledger section 4](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-full-audit-2026-10-13.md).
@@ -249,6 +249,8 @@ If you work on one of these products, or you spot a stale or wrong cell, open a 
 
 | Date | Vendor · cell | Was | Now and why |
 |------|---------------|-----|-------------|
+| 2026-11-10 | HyperDX · AI agent access (MCP) | "ClickStack OSS/BYOC MCP · not v1 cloud" | **Adds managed ClickHouse Observability**, which now documents an OAuth MCP endpoint enabled per service ([vendor-pages ledger](https://github.com/dev-sawan-ruparel/obs-unified/blob/main/docs/comparison-vendor-pages-audit-2026-11-10.md)). Moves HyperDX up. |
+| 2026-11-10 | HyperDX · AI / LLM source | traceloop.com page | **Re-sourced to HyperDX's own OpenLLMetry guide**; the claim is unchanged. |
 | 2026-11-10 | All vendors · AI agent access (MCP) | (new axis) | **Added** after reading each vendor's MCP docs; every vendor documents a first-party MCP server, so no cell is inferential. |
 | 2026-10-13 | PostHog · traces | "LLM-scoped only" | **"OTLP distributed tracing (beta)"**: PostHog shipped general tracing in beta on 2026-07-16. Our negative was false. |
 | 2026-10-13 | Datadog · hosting / data ownership | "SaaS only" / "Datadog cloud" | **"SaaS · BYOC for logs"**: Datadog markets BYOC Log Management that keeps logs in the customer's environment. Our negative was outdated. |

@@ -1026,7 +1026,7 @@ section:nth-of-type(even) .arch-core {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1.6fr) repeat(2, minmax(180px, 1fr));
+  grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(160px, 1fr));
   gap: 36px;
   padding-bottom: 42px;
 }
@@ -1246,4 +1246,100 @@ section:nth-of-type(even) .arch-core {
   background: color-mix(in srgb, var(--color-sys-accent) 12%, transparent);
   color: var(--color-sys-accent);
   border-color: color-mix(in srgb, var(--color-sys-accent) 20%, transparent);
+}
+
+/* Per-vendor comparison pages (/compare/<vendor>/). Verdicts are spelled out
+   in text so they read without colour; "No" is muted rather than red because
+   these pages compare product shape, they do not score vendors. */
+.vc-page { padding: 48px 0 72px; }
+.vc-container { max-width: 960px; }
+.vc-crumbs { margin-bottom: 20px; }
+.vc-crumbs a { color: var(--color-sys-on-surface-muted); }
+.vc-header h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.15;
+  margin: 8px 0 16px;
+}
+.vc-header .section-lead + .section-lead { margin-top: 12px; }
+.vc-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 32px 0 40px;
+}
+@media (max-width: 720px) { .vc-summary { grid-template-columns: 1fr; } }
+.vc-summary-col {
+  background: var(--color-sys-surface-low);
+  padding: 20px;
+}
+.vc-summary-title { font-size: 15px; margin-bottom: 12px; }
+.vc-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.vc-list li { font-size: 14px; line-height: 1.5; color: var(--color-sys-on-surface-muted); }
+.vc-list strong { color: var(--color-sys-on-surface); font-weight: 600; }
+.vc-section-title { font-size: 20px; margin: 40px 0 12px; }
+.vc-group {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-sys-on-surface-subtle);
+  margin: 28px 0 8px;
+}
+.vc-scroll { overflow-x: auto; max-width: 100%; background: var(--color-sys-surface); }
+.vc-scroll:focus-visible { outline: 2px solid var(--color-sys-primary); outline-offset: 2px; }
+.vc-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; table-layout: fixed; }
+.vc-table thead th {
+  background: var(--color-sys-surface-low);
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+}
+.vc-table thead th:first-child { width: 30%; }
+.vc-corner { text-transform: uppercase; letter-spacing: 0.12em; font-size: 10px; color: var(--color-sys-on-surface-subtle); }
+.vc-head { color: var(--color-sys-on-surface); }
+.vc-head-us { color: var(--color-sys-primary); }
+.vc-table tbody tr:nth-child(even) { background: var(--color-sys-surface-low); }
+.vc-label { padding: 12px; text-align: left; font-weight: 500; vertical-align: top; }
+.vc-cell { padding: 12px; vertical-align: top; }
+.vc-verdict { display: block; font-weight: 700; font-size: 14px; }
+.vc-yes { color: var(--color-sys-primary); }
+.vc-yes::before { content: "✓ "; }
+.vc-partial { color: var(--color-sys-warning); }
+.vc-partial::before { content: "◐ "; }
+.vc-no, .vc-not_marketed, .vc-not_stated { color: var(--color-sys-on-surface-subtle); }
+.vc-no::before { content: "— "; }
+.vc-dagger { font-size: 10px; margin-left: 1px; }
+.vc-text { display: block; margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--color-sys-on-surface-muted); }
+.vc-src {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-sys-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.vc-choose p, .vc-method p { line-height: 1.65; margin-bottom: 12px; max-width: 760px; }
+.vc-choose a:not(.btn), .vc-method a { color: var(--color-sys-accent); text-decoration: underline; text-underline-offset: 2px; }
+.vc-others ul, .vc-index { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.vc-others ul { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.vc-others a { color: var(--color-sys-accent); }
+.vc-index { margin-top: 24px; }
+.vc-index a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  background: var(--color-sys-surface-low);
+  color: var(--color-sys-on-surface);
+}
+.vc-index a:hover { background: var(--color-sys-surface-high); }
+.vc-text { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  /* Keep both product columns on screen on phones instead of scrolling. */
+  .vc-table { min-width: 0; font-size: 13px; }
+  .vc-table thead th:first-child { width: 28%; }
+  .vc-label, .vc-cell { padding: 10px 6px; }
+  .vc-label { font-size: 13px; }
+  .vc-verdict { font-size: 13px; }
+  .vc-text { font-size: 12px; }
 }

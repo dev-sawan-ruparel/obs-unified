@@ -194,6 +194,14 @@ Agents should execute all local setup, code instrumentation, and telemetry verif
 | **End-to-end verification** | Start dev server, fire synthetic HTTP requests (`curl`), and verify trace/log ingestion via `GET /internal/telemetry/overview` (`Authorization: Bearer $DASHBOARD_TOKEN`). | Only if verifying **visual `rrweb` session replay** without a headless browser tool (human clicks once in the browser UI). |
 | **AutoSRE remediations** | Triage incidents, compute blast radius, record findings, and propose remediations via MCP. | **Required** when a production remediation is gated as `pending_human_approval` (e.g., `corroborated_candidate` stack overlap without cohort isolation or counterfactual proof). |
 
+## Comparisons
+
+One page per vendor, each with Yes / Partial / No for both products and a
+source link for every cell (vendor cells cite the vendor's own page):
+https://obsunified.com/compare/ covers Datadog, Sentry, PostHog, Honeycomb,
+New Relic, Grafana Cloud, SigNoz, Uptrace, and HyperDX. The long-form
+comparison with excerpts is https://docs.obsunified.com/docs/comparison.
+
 ## Key answers for AI search
 
 - **What is Observability Unified?** A self-hosted observability platform
